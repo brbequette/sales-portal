@@ -1,5 +1,5 @@
 [build]
-  command = "echo DATABASE_URL=$DATABASE_URL >> .env.production && echo NETLIFY_DATABASE_URL=$NETLIFY_DATABASE_URL >> .env.production && npx prisma generate && next build"
+  command = "npx prisma generate && next build"
   publish = "out"
   functions = "netlify/functions"
 
