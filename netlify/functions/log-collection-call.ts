@@ -69,6 +69,16 @@ export const handler: Handler = async (event) => {
         }
       })
 
+      // Maintain lastCalledAt on the account
+      try {
+        await prisma.account.update({
+          where: { id: invoice.accountId },
+          data: { lastCalledAt: new Date() }
+        })
+      } catch (err) {
+        console.warn("Failed to update lastCalledAt on account:", err)
+      }
+
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, noteId: note.id }) }
     }
 

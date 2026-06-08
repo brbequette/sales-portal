@@ -68,7 +68,7 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { zohoId, email, refresh } = event.queryStringParameters || {}
+    const { zohoId, email, refresh, ownerIdFilter } = event.queryStringParameters || {}
 
     if (!zohoId && !email) {
       return {
@@ -330,9 +330,21 @@ export const handler: Handler = async (event, context) => {
 
     const isAdmin = user.role?.toLowerCase().includes("admin") || user.role === "Administrator";
 
+    // Calculate where filter based on admin role and ownerIdFilter parameter
+    let whereClause: any = { ownerId: user.id };
+    if (isAdmin) {
+      if (ownerIdFilter === "all") {
+        whereClause = {};
+      } else if (ownerIdFilter) {
+        whereClause = { ownerId: ownerIdFilter };
+      } else {
+        whereClause = { ownerId: user.id };
+      }
+    }
+
     // 4. Fetch the newly synced accounts from the local DB
     const accounts = await prisma.account.findMany({
-      where: isAdmin ? {} : { ownerId: user.id },
+      where: whereClause,
       orderBy: { name: 'asc' },
       select: {
         id: true,
@@ -340,6 +352,8 @@ export const handler: Handler = async (event, context) => {
         name: true,
         tags: true,
         status: true,
+        quality: true,
+        lastCalledAt: true,
         lastPurchaseAt: true,
         ownerId: true,
         industry: true,
@@ -374,10 +388,25 @@ export const handler: Handler = async (event, context) => {
       }
     })
 
+    // Query list of reps for admin dropdown population
+    let reps: any[] = [];
+    if (isAdmin) {
+      reps = await prisma.user.findMany({
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          zohoId: true,
+          role: true,
+        },
+        orderBy: { name: "asc" }
+      });
+    }
+
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ success: true, accounts })
+      body: JSON.stringify({ success: true, accounts, reps })
     }
 
   } catch (error: any) {

@@ -67,12 +67,16 @@ export const handler: Handler = async (event, context) => {
         }
       })
 
+      // Maintain lastCalledAt and set optional reminderDate
+      const updateData: any = { lastCalledAt: new Date() }
       if (reminderDate) {
-        await prisma.account.update({
-          where: { id: account.id },
-          data: { nextActionDate: new Date(reminderDate) }
-        })
+        updateData.nextActionDate = new Date(reminderDate)
       }
+
+      await prisma.account.update({
+        where: { id: account.id },
+        data: updateData
+      })
 
       return {
         statusCode: 200,

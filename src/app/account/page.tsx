@@ -12,6 +12,7 @@ import { DealsHistory } from "@/components/DealsHistory"
 import { PointOfSale } from "@/components/PointOfSale"
 import Link from "next/link"
 import { StatusPicker } from "@/components/StatusPicker"
+import { QualityPicker } from "@/components/QualityPicker"
 
 type ActiveTab = "overview" | "history" | "documents" | "ai" | "comms" | "tasks"
 
@@ -102,6 +103,12 @@ function AccountHubContent() {
                   accountId={account.id}
                   currentStatus={account.status || "Open"}
                   onUpdated={(newStatus) => setAccount((a: any) => ({ ...a, status: newStatus }))}
+                />
+                <QualityPicker
+                  zohoId={account.zohoId}
+                  accountId={account.id}
+                  currentQuality={account.quality || "WARM"}
+                  onUpdated={(newQuality) => setAccount((a: any) => ({ ...a, quality: newQuality }))}
                 />
                 {account.industry && <span className="text-[10px] text-neutral-500 hidden sm:inline">{account.industry}</span>}
               </div>

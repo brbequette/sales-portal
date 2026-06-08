@@ -6,8 +6,18 @@ import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
 import { StatusPicker } from "@/components/StatusPicker"
+import { QualityPicker } from "@/components/QualityPicker"
 import { Pagination, usePagination } from "@/components/Pagination"
 import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter } from "react-icons/fi"
+
+function formatLastCalled(dateStr: string | null) {
+  if (!dateStr) return "Never called"
+  const diffMs = Date.now() - new Date(dateStr).getTime()
+  const diffDays = Math.floor(diffMs / 86400000)
+  if (diffDays === 0) return "Called today"
+  if (diffDays === 1) return "Called yesterday"
+  return `Called ${diffDays} days ago`
+}
 
 export default function Dashboard() {
   const { isInitialized, zohoContext: currentUser } = useZoho()
@@ -25,10 +35,12 @@ export default function Dashboard() {
   const [drillTitle, setDrillTitle] = useState("")
   const [drillItems, setDrillItems] = useState<any[] | null>(null)
   const [drillType, setDrillType] = useState<"invoices" | "deals" | "accounts" | null>(null)
-  const [effort, setEffort] = useState<"sales" | "reactivation">("sales")
+  const [effort, setEffort] = useState<"sales" | "reactivation" | "call_list">("sales")
   const [ownerFilter, setOwnerFilter] = useState("All")
   const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
+  const [repsList, setRepsList] = useState<any[]>([])
+  const [repFilter, setRepFilter] = useState<string>("")
 
   useEffect(() => {
     if (!isInitialized) return
@@ -43,15 +55,21 @@ export default function Dashboard() {
           ? `zohoId=${currentUser.id}`
           : `email=${currentUser.email}`
 
+        const accountsQuery = `${query}${repFilter ? `&ownerIdFilter=${repFilter}` : ""}`
+
         const [resAccounts, resTasks] = await Promise.all([
-          fetch(`/api/get-accounts?${query}`),
+          fetch(`/api/get-accounts?${accountsQuery}`),
           fetch(`/api/get-tasks?${query}`),
         ])
         const dataAccounts = await resAccounts.json()
         const dataTasks = await resTasks.json()
 
-        if (dataAccounts.success) setAccounts(dataAccounts.accounts)
-        else setApiError(dataAccounts.error || dataAccounts.message)
+        if (dataAccounts.success) {
+          setAccounts(dataAccounts.accounts)
+          if (dataAccounts.reps) setRepsList(dataAccounts.reps)
+        } else {
+          setApiError(dataAccounts.error || dataAccounts.message)
+        }
         if (dataTasks.success) setTasks(dataTasks.tasks)
       } catch (err: any) {
         setApiError(err.message)
@@ -60,9 +78,9 @@ export default function Dashboard() {
       }
     }
     fetchData()
-  }, [isInitialized, currentUser, router])
+  }, [isInitialized, currentUser, router, repFilter])
 
-  const handleEffortChange = (val: "sales" | "reactivation") => {
+  const handleEffortChange = (val: "sales" | "reactivation" | "call_list") => {
     setEffort(val)
     setStatusFilter("All")
     setSearchQuery("")
@@ -79,15 +97,21 @@ export default function Dashboard() {
         ? `zohoId=${currentUser.id}`
         : `email=${currentUser.email}`
       
+      const accountsQuery = `${query}${repFilter ? `&ownerIdFilter=${repFilter}` : ""}`
+
       const [resAccounts, resTasks] = await Promise.all([
-        fetch(`/api/get-accounts?${query}&refresh=true`),
+        fetch(`/api/get-accounts?${accountsQuery}&refresh=true`),
         fetch(`/api/get-tasks?${query}`),
       ])
       const dataAccounts = await resAccounts.json()
       const dataTasks = await resTasks.json()
 
-      if (dataAccounts.success) setAccounts(dataAccounts.accounts)
-      else setApiError(dataAccounts.error || dataAccounts.message)
+      if (dataAccounts.success) {
+        setAccounts(dataAccounts.accounts)
+        if (dataAccounts.reps) setRepsList(dataAccounts.reps)
+      } else {
+        setApiError(dataAccounts.error || dataAccounts.message)
+      }
       if (dataTasks.success) setTasks(dataTasks.tasks)
     } catch (err: any) {
       setApiError(err.message)
@@ -132,9 +156,41 @@ export default function Dashboard() {
   const filteredByOwnerActive = activeAccounts.filter(a => ownerFilter === "All" || a.ownerId === ownerFilter)
   const filteredByOwnerReactivation = reactivationAccounts.filter(a => ownerFilter === "All" || a.ownerId === ownerFilter)
 
-  const effortAccounts = effort === "sales" ? filteredByOwnerActive : filteredByOwnerReactivation
+  // Prioritize Call List (excluding DO NOT CALL, limit to top 50, sort by quality then lastCalledAt oldest/nulls first)
+  const qualityScores: Record<string, number> = {
+    HOT: 4,
+    WARM: 3,
+    COLD: 2,
+    ON_HOLD: 1,
+  }
+
+  const callListAccounts = accounts
+    .filter(a => a.quality !== "DO_NOT_CALL")
+    .sort((a, b) => {
+      const scoreA = qualityScores[a.quality] || 0
+      const scoreB = qualityScores[b.quality] || 0
+      if (scoreA !== scoreB) return scoreB - scoreA
+      
+      // If quality is same, prioritize never called, then oldest called
+      if (!a.lastCalledAt && !b.lastCalledAt) return 0
+      if (!a.lastCalledAt) return -1
+      if (!b.lastCalledAt) return 1
+      return new Date(a.lastCalledAt).getTime() - new Date(b.lastCalledAt).getTime()
+    })
+    .slice(0, 50)
+
+  const effortAccounts = effort === "sales"
+    ? filteredByOwnerActive
+    : effort === "reactivation"
+    ? filteredByOwnerReactivation
+    : callListAccounts
+
   const effortTasks = tasks
-    .filter(t => t.type === (effort === "sales" ? "DEAL_FOLLOWUP" : "ACCOUNT_UPDATE"))
+    .filter(t => {
+      if (effort === "sales") return t.type === "DEAL_FOLLOWUP"
+      if (effort === "reactivation") return t.type === "ACCOUNT_UPDATE"
+      return true
+    })
     .filter(t => ownerFilter === "All" || t.ownerId === ownerFilter)
 
   // Compute LTV for Sales Pipeline (filtered by owner)
@@ -179,19 +235,27 @@ export default function Dashboard() {
   const tasksPagination = usePagination(effortTasks, 25)
   const drillPagination = usePagination(drillItems || [], 25)
 
+  // Count Call List stats for metrics
+  const hotCount = callListAccounts.filter(a => a.quality === "HOT").length
+  const warmCount = callListAccounts.filter(a => a.quality === "WARM").length
+
   // Effort Metrics Config
   const metrics = effort === "sales" ? [
     { id: "revenue", label: "Pipeline Revenue", value: activeLtv >= 1000000 ? `$${(activeLtv / 1000000).toFixed(1)}M` : `$${(activeLtv / 1000).toFixed(1)}k`, sub: "Active accounts LTV", icon: <FiTrendingUp />, color: "text-emerald-400" },
     { id: "profit", label: "Pipeline Profit", value: activeProfit >= 1000000 ? `$${(activeProfit / 1000000).toFixed(1)}M` : `$${(activeProfit / 1000).toFixed(1)}k`, sub: "Pipeline margin", icon: <FiTrendingUp />, color: "text-sky-400" },
     { id: "deals", label: "Open Deals", value: effortTasks.length, sub: "Needs follow-up", icon: <FiDollarSign />, color: "text-blue-400" },
     { id: "accounts", label: "Active Accounts", value: filteredByOwnerActive.length, sub: "In pipeline", icon: <FiUsers />, color: "text-teal-400" },
-  ] : [
+  ] : effort === "reactivation" ? [
     { id: "revenue", label: "Overdue Balance", value: totalOverdueBalance >= 1000000 ? `$${(totalOverdueBalance / 1000000).toFixed(1)}M` : `$${(totalOverdueBalance / 1000).toFixed(1)}k`, sub: "Unpaid collections", icon: <FiDollarSign />, color: "text-rose-400" },
     { id: "deals", label: "Target Accounts", value: filteredByOwnerReactivation.length, sub: "Inactive >12 months", icon: <FiUsers />, color: "text-amber-400" },
     { id: "followups", label: "Reactivation Tasks", value: effortTasks.length, sub: "Updates needed", icon: <FiClock />, color: "text-orange-400" },
+  ] : [
+    { id: "queue", label: "Call Queue", value: callListAccounts.length, sub: "Top priority list", icon: <FiPhoneCall />, color: "text-sky-400" },
+    { id: "hot", label: "HOT Customers", value: hotCount, sub: "Needs immediate touch", icon: <FiTrendingUp />, color: "text-red-400" },
+    { id: "warm", label: "WARM Customers", value: warmCount, sub: "Steady outreach", icon: <FiUsers />, color: "text-amber-400" },
   ]
 
-  const accentColor = effort === "sales" ? "emerald" : "amber"
+  const accentColor = effort === "sales" ? "emerald" : effort === "reactivation" ? "amber" : "sky"
   const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0)
 
   if (!isInitialized || loading) {
@@ -217,8 +281,37 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* ── Admin Rep Selection Dropdown ── */}
+        {isAdminUser && (
+          <div className="bg-neutral-900/60 border border-neutral-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+            <div>
+              <h2 className="text-sm font-bold text-white tracking-tight">Admin Accounts Control</h2>
+              <p className="text-xs text-neutral-500 mt-0.5">Filter sales portal data by representative or view all company accounts</p>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-xs text-neutral-400 font-semibold whitespace-nowrap">Show Accounts:</span>
+              <select
+                value={repFilter}
+                onChange={e => setRepFilter(e.target.value)}
+                className="w-full sm:w-56 bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+              >
+                <option value="">My Assigned Accounts ({currentUser.name})</option>
+                <option value="all">All Company Accounts</option>
+                {repsList
+                  .filter(r => r.id !== currentUser.id)
+                  .map(r => (
+                    <option key={r.id} value={r.id}>
+                      Rep: {r.name || r.email}
+                    </option>
+                  ))
+                }
+              </select>
+            </div>
+          </div>
+        )}
+
         {/* ── Workspace / Effort Selector Switcher ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <button
             onClick={() => handleEffortChange("sales")}
             className={`relative overflow-hidden rounded-2xl p-4 text-left border transition-all duration-300 ${
@@ -276,6 +369,35 @@ export default function Dashboard() {
               </div>
             </div>
           </button>
+
+          <button
+            onClick={() => handleEffortChange("call_list")}
+            className={`relative overflow-hidden rounded-2xl p-4 text-left border transition-all duration-300 ${
+              effort === "call_list"
+                ? "bg-gradient-to-br from-sky-950/40 to-neutral-900/20 border-sky-500/40 shadow-[0_0_20px_rgba(56,189,248,0.1)] text-white"
+                : "bg-neutral-950/20 border-neutral-800/80 hover:border-neutral-700 text-neutral-400"
+            }`}
+          >
+            {effort === "call_list" && (
+              <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-sky-400 animate-ping"></div>
+            )}
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl border transition-colors ${
+                effort === "call_list"
+                  ? "bg-sky-950 border-sky-500/30 text-sky-400"
+                  : "bg-neutral-800 border-neutral-700 text-neutral-500"
+              }`}>
+                <FiPhoneCall size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold tracking-tight">Smart Call List</h3>
+                <p className="text-xs text-neutral-500 mt-0.5">Prioritized customer outreach</p>
+              </div>
+              <div className="ml-auto shrink-0 flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full text-xs font-black bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                {callListAccounts.length}
+              </div>
+            </div>
+          </button>
         </div>
 
         {/* Metrics row */}
@@ -302,7 +424,7 @@ export default function Dashboard() {
                   setDrillTitle("Active Sales Accounts")
                   setDrillItems(filteredByOwnerActive)
                 }
-              } else {
+              } else if (effort === "reactivation") {
                 if (m.id === "revenue") {
                   const allOverdueInvoices = filteredByOwnerReactivation.flatMap(a => (a.invoices || []).filter((i: any) => i.status === "Overdue").map((i: any) => ({ ...i, accountName: a.name })))
                   setDrillType("invoices")
@@ -316,6 +438,21 @@ export default function Dashboard() {
                   setDrillType("deals")
                   setDrillTitle("Reactivation Tasks")
                   setDrillItems(effortTasks)
+                }
+              } else {
+                // Call List Drilldowns
+                if (m.id === "queue") {
+                  setDrillType("accounts")
+                  setDrillTitle("Call Queue Accounts")
+                  setDrillItems(callListAccounts)
+                } else if (m.id === "hot") {
+                  setDrillType("accounts")
+                  setDrillTitle("HOT Call Queue Accounts")
+                  setDrillItems(callListAccounts.filter(a => a.quality === "HOT"))
+                } else if (m.id === "warm") {
+                  setDrillType("accounts")
+                  setDrillTitle("WARM Call Queue Accounts")
+                  setDrillItems(callListAccounts.filter(a => a.quality === "WARM"))
                 }
               }
             }}>
@@ -351,10 +488,15 @@ export default function Dashboard() {
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                     <span>{currentUser?.role?.toLowerCase().includes("admin") || currentUser?.role === "Administrator" ? "All Active Accounts" : "My Active Accounts"}</span>
                   </>
-                ) : (
+                ) : effort === "reactivation" ? (
                   <>
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
                     <span>{currentUser?.role?.toLowerCase().includes("admin") || currentUser?.role === "Administrator" ? "All Inactive Accounts" : "My Inactive Accounts"}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span>
+                    <span>Prioritized Call List (Top 50)</span>
                   </>
                 )}
               </h2>
@@ -510,13 +652,33 @@ export default function Dashboard() {
                                     setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, status: newStatus } : a))
                                   }}
                                 />
+                                <QualityPicker
+                                  zohoId={account.zohoId}
+                                  accountId={account.id}
+                                  currentQuality={account.quality || "WARM"}
+                                  compact
+                                  onUpdated={(newQuality) => {
+                                    setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, quality: newQuality } : a))
+                                  }}
+                                />
                               </div>
                             </div>
                           </div>
 
                           {/* Middle Side: Sales Metrics & Invoice Counts */}
                           <div className="hidden sm:flex flex-col text-right shrink-0 min-w-[140px]">
-                            {effort === "sales" ? (
+                            {effort === "call_list" ? (
+                              <>
+                                <p className="text-sm font-bold text-sky-400">
+                                  {formatLastCalled(account.lastCalledAt)}
+                                </p>
+                                <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                                  <span className="text-[10px] text-neutral-500">
+                                    LTV: ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)}
+                                  </span>
+                                </div>
+                              </>
+                            ) : effort === "sales" ? (
                               <>
                                 <p className="text-sm font-bold text-emerald-400">
                                   ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)} LTV

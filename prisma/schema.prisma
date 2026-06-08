@@ -30,6 +30,8 @@ model Account {
   industry       String?
   tags           String?
   status         String   @default("Update Status") // 'Personal', 'Update Status', 'Open'
+  quality        String   @default("WARM")
+  lastCalledAt   DateTime?
   lastPurchaseAt DateTime?
   nextActionDate DateTime?
   ownerId        String

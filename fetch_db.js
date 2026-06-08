@@ -3,7 +3,7 @@ const fs = require('fs');
 
 try {
   console.log("Fetching Netlify Environment Variables...");
-  const result = execSync(`npx netlify api getSiteEnvVars --data "{ \\"site_id\\": \\"61a15791-b7ec-4746-b495-7772abd22840\\" }"`, { encoding: 'utf8' });
+  const result = execSync(`npx.cmd netlify api getSiteEnvVars --data "{ \\"site_id\\": \\"61a15791-b7ec-4746-b495-7772abd22840\\" }"`, { encoding: 'utf8' });
   const envVars = JSON.parse(result);
   
   // Find the database URL provided by Neon/Netlify
