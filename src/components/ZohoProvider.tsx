@@ -21,11 +21,12 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return
 
-    // 1. URL params (Zoho Web Tab with merge fields)
+    // 1. URL params (Zoho Web Tab with Append Params or merge fields)
     const params = new URLSearchParams(window.location.search)
-    const email = params.get("email")
-    const name = params.get("name")
-    const zohoId = params.get("zohoId") || params.get("id")
+    // Handle all common Zoho param name formats
+    const email = params.get("email") || params.get("userEmail") || params.get("user_email") || params.get("Email")
+    const name = params.get("name") || params.get("userName") || params.get("user_name") || params.get("fullName") || params.get("Name")
+    const zohoId = params.get("zohoId") || params.get("id") || params.get("userId") || params.get("user_id") || params.get("userID") || params.get("ID")
 
     if (email) {
       console.log("Auto-login from URL parameters:", { email, name, zohoId })
@@ -34,7 +35,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
         id: zohoId || email,
         name: name || email.split("@")[0],
         email,
-        role: params.get("role") || "Sales Representative",
+        role: params.get("role") || params.get("Role") || params.get("userRole") || "Sales Representative",
         isZohoUser: true,
       }
       try { localStorage.setItem("sales_portal_user", JSON.stringify(portalUser)) } catch {}
