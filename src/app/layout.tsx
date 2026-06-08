@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ZohoProvider } from "@/components/ZohoProvider";
-
 import { AuthWrapper } from "@/components/AuthWrapper";
+import { AppShell } from "@/components/AppShell";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Titan Diamond - Sales Portal",
-  description: "Sales management system and AI assistant",
+  title: "Titan Diamond - Unified Hub",
+  description: "Sales, Collections, and Commissions — all in one place",
 };
 
 export default function RootLayout({
@@ -32,11 +32,14 @@ export default function RootLayout({
     >
       <head>
         <script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js"></script>
+        <script src="https://js.authorize.net/v1/Accept.js" charSet="utf-8"></script>
       </head>
       <body className="antialiased">
         <ZohoProvider>
           <AuthWrapper>
-            {children}
+            <AppShell>
+              {children}
+            </AppShell>
           </AuthWrapper>
         </ZohoProvider>
       </body>

@@ -1,5 +1,5 @@
 [build]
-  command = "npx prisma generate && next build"
+  command = "next build"
   publish = "out"
   functions = "netlify/functions"
 
@@ -9,6 +9,34 @@
 [dev]
   functions = "netlify/functions"
   port = 8888
+
+# Allow embedding in Zoho CRM web tabs (iframes)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "ALLOWALL"
+    Content-Security-Policy = "frame-ancestors *;"
+    Access-Control-Allow-Origin = "*"
+
+[[redirects]]
+  from = "/api/auth/zoho/callback"
+  to = "/.netlify/functions/zoho-oauth"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth/zoho"
+  to = "/.netlify/functions/zoho-oauth"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth/login"
+  to = "/.netlify/functions/auth-login"
+  status = 200
+
+[[redirects]]
+  from = "/api/ai/script"
+  to = "/.netlify/functions/ai-script"
+  status = 200
 
 [[redirects]]
   from = "/api/*"

@@ -77,8 +77,8 @@ export function SalesAssistant({ accountId, accountData }: { accountId: string, 
             ) : (
               <li>&bull; Active buyer. Last purchase was {accountData?.daysSinceLastPurchase} days ago.</li>
             )}
-            <li>&bull; Lifetime value is ${accountData?.totalRevenue?.toLocaleString()}.</li>
-            <li>&bull; {accountData?.invoices?.length > 0 ? `They typically buy ${accountData.invoices[0].items ? accountData.invoices[0].items.length : 'multiple'} items per order.` : 'No past order history available.'}</li>
+            <li>&bull; Lifetime value is ${accountData?.totalRevenue?.toLocaleString() ?? 'N/A'}.</li>
+            <li>&bull; {accountData?.invoices?.length ? `They typically buy ${accountData.invoices?.[0]?.items?.length ?? 'multiple'} items per order.` : 'No past order history available.'}</li>
           </ul>
         </div>
 
@@ -92,7 +92,7 @@ export function SalesAssistant({ accountId, accountData }: { accountId: string, 
               <div className="h-4 bg-(--border) rounded w-5/6"></div>
             </div>
           ) : (
-            <p className="text-sm text-gray-400 italic leading-relaxed">
+            <p className="text-sm text-gray-400 italic leading-relaxed whitespace-pre-wrap">
               {script || "Click 'Generate Script' to create a customized pitch for this account."}
             </p>
           )}

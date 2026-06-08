@@ -8,6 +8,13 @@ let _cachedToken: string | null = null;
 let _tokenExpiresAt = 0;
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
+async function processInChunks<T>(items: T[], size: number, fn: (item: T) => Promise<void>) {
+  for (let i = 0; i < items.length; i += size) {
+    const chunk = items.slice(i, i + size);
+    await Promise.all(chunk.map(fn));
+  }
+}
+
 async function getZohoAccessToken() {
   const now = Date.now();
 
@@ -61,7 +68,7 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { zohoId, email } = event.queryStringParameters || {}
+    const { zohoId, email, refresh } = event.queryStringParameters || {}
 
     if (!zohoId && !email) {
       return {
@@ -94,8 +101,28 @@ export const handler: Handler = async (event, context) => {
       })
     }
 
-    // 3. Sync LIVE accounts from Zoho CRM!
-    if (user.zohoId && !user.zohoId.startsWith('mock-zoho')) {
+    // 3. Only sync LIVE accounts from Zoho CRM if explicitly requested via refresh=true.
+    //    This prevents hammering Zoho API limits on every page load.
+    //    Normal dashboard loads always read from the local Neon DB.
+    let shouldSync = false
+    if (refresh === 'true' && user.zohoId && !user.zohoId.startsWith('mock-zoho')) {
+      const lastUpdatedAccount = await prisma.account.findFirst({
+        where: { ownerId: user.id },
+        orderBy: { updatedAt: 'desc' }
+      })
+
+      // Hard minimum: never sync more than once per 60 minutes even if refresh is requested
+      const syncCooldownMs = 60 * 60 * 1000 // 60 minutes
+      const hasRecentSync = lastUpdatedAccount && (Date.now() - new Date(lastUpdatedAccount.updatedAt).getTime() < syncCooldownMs)
+
+      if (!hasRecentSync) {
+        shouldSync = true
+      } else {
+        console.log(`Skipping Zoho sync for user ${user.email} — synced within the last hour. Use the refresh button again in an hour.`)
+      }
+    }
+
+    if (shouldSync && user.zohoId) {
       try {
         const token = await getZohoAccessToken();
         const baseUrl = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`;
@@ -111,8 +138,9 @@ export const handler: Handler = async (event, context) => {
           
           if (zohoAccounts.length > 0) {
             console.log(`Found ${zohoAccounts.length} live accounts from Zoho for user ${user.email}`);
-            // Upsert each account into our local Prisma DB
-            for (const record of zohoAccounts) {
+            
+            // Upsert each account in chunks of 30 to avoid timeouts
+            await processInChunks(zohoAccounts, 30, async (record) => {
               let status = 'Open'
               const lastPurchaseDate = record.Last_Purchase_Date ? new Date(record.Last_Purchase_Date) : null
               if (lastPurchaseDate) {
@@ -120,12 +148,16 @@ export const handler: Handler = async (event, context) => {
                 twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
                 status = lastPurchaseDate < twelveMonthsAgo ? 'Update Status' : 'Personal'
               }
+              const tagsStr = Array.isArray(record.Tag)
+                ? record.Tag.map((t: any) => t.name).filter(Boolean).join(', ')
+                : null;
 
               await prisma.account.upsert({
                 where: { zohoId: record.id },
                 update: {
                   name: record.Account_Name || record.name || 'Unnamed Account',
                   industry: record.Industry || 'Unknown',
+                  tags: tagsStr,
                   status: status,
                   lastPurchaseAt: lastPurchaseDate,
                   ownerId: user.id,
@@ -134,11 +166,156 @@ export const handler: Handler = async (event, context) => {
                   zohoId: record.id,
                   name: record.Account_Name || record.name || 'Unnamed Account',
                   industry: record.Industry || 'Unknown',
+                  tags: tagsStr,
                   status: status,
                   lastPurchaseAt: lastPurchaseDate,
                   ownerId: user.id,
                 }
               })
+            });
+
+            // Cache the newly synced account IDs in a local Map to prevent redundant DB reads
+            const localAccounts = await prisma.account.findMany({
+              where: { ownerId: user.id },
+              select: { id: true, zohoId: true }
+            });
+            const accountMap = new Map(localAccounts.map(a => [a.zohoId, a.id]));
+
+            // Sync Invoices — cap at 5 pages (500 records) to prevent unbounded API usage
+            try {
+              console.log(`Syncing invoices for owner ${user.zohoId}...`);
+              let invoicePage = 1;
+              let hasMoreInvoices = true;
+              let syncedInvoicesCount = 0;
+              const MAX_INVOICE_PAGES = 5;
+
+              while (hasMoreInvoices && invoicePage <= MAX_INVOICE_PAGES) {
+                const invoiceRes = await fetch(
+                  `https://www.zohoapis.${ZOHO_DC}/crm/v3/CustomModule5001/search?criteria=(Owner.id:equals:${user.zohoId})&page=${invoicePage}`,
+                  { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                );
+
+                if (!invoiceRes.ok) {
+                  console.warn(`Zoho CustomModule5001 search failed with status ${invoiceRes.status}`);
+                  break;
+                }
+
+                const invoiceData = await invoiceRes.json();
+                const zohoInvoices = (invoiceData as any).data || [];
+                
+                if (zohoInvoices.length === 0) break;
+
+                await processInChunks(zohoInvoices, 30, async (invRecord) => {
+                  const accountZohoId = invRecord.Account_Name?.id;
+                  const dbAccountId = accountZohoId ? accountMap.get(accountZohoId) : null;
+                  
+                  let status = invRecord.Status || 'Paid';
+                  const dueDate = invRecord.Due_Date ? new Date(invRecord.Due_Date) : null;
+                  if (status !== 'Paid' && status !== 'Void' && dueDate && dueDate < new Date()) {
+                    status = 'Overdue';
+                  }
+
+                    if (dbAccountId) {
+                      await prisma.invoice.upsert({
+                        where: { zohoId: invRecord.id },
+                        update: {
+                          amount: parseFloat(invRecord.Grand_Total || 0),
+                          status: status,
+                          issueDate: new Date(invRecord.Invoice_Date || invRecord.Created_Time),
+                          dueDate: dueDate,
+                          items: {
+                            booksInvoiceId: invRecord.Invoice_ID,
+                            invoiceNumber: invRecord.Name,
+                            balance: invRecord.Balance || 0,
+                            profit: parseFloat(invRecord.Profit || 0),
+                            deadCostTotal: parseFloat(invRecord.Dead_Cost_Total || 0)
+                          }
+                        },
+                        create: {
+                          zohoId: invRecord.id,
+                          accountId: dbAccountId,
+                          amount: parseFloat(invRecord.Grand_Total || 0),
+                          status: status,
+                          issueDate: new Date(invRecord.Invoice_Date || invRecord.Created_Time),
+                          dueDate: dueDate,
+                          items: {
+                            booksInvoiceId: invRecord.Invoice_ID,
+                            invoiceNumber: invRecord.Name,
+                            balance: invRecord.Balance || 0,
+                            profit: parseFloat(invRecord.Profit || 0),
+                            deadCostTotal: parseFloat(invRecord.Dead_Cost_Total || 0)
+                          }
+                        }
+                      });
+                      syncedInvoicesCount++;
+                    }
+                });
+
+                hasMoreInvoices = (invoiceData as any).info?.more_records || false;
+                invoicePage++;
+              }
+              console.log(`Synced ${syncedInvoicesCount} invoices for owner ${user.zohoId}.`);
+            } catch (invError) {
+              console.error("Failed to sync invoices:", invError);
+            }
+
+            // Sync Contacts — cap at 3 pages (300 records) to prevent unbounded API usage
+            try {
+              console.log(`Syncing contacts for owner ${user.zohoId}...`);
+              let contactPage = 1;
+              let hasMoreContacts = true;
+              let syncedContactsCount = 0;
+              const MAX_CONTACT_PAGES = 3;
+
+              while (hasMoreContacts && contactPage <= MAX_CONTACT_PAGES) {
+                const contactRes = await fetch(
+                  `https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/search?criteria=(Owner.id:equals:${user.zohoId})&page=${contactPage}`,
+                  { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                );
+
+                if (!contactRes.ok) {
+                  console.warn(`Zoho Contacts search failed with status ${contactRes.status}`);
+                  break;
+                }
+
+                const contactData = await contactRes.json();
+                const zohoContacts = (contactData as any).data || [];
+                
+                if (zohoContacts.length === 0) break;
+
+                await processInChunks(zohoContacts, 30, async (contactRecord) => {
+                  const accountZohoId = contactRecord.Account_Name?.id;
+                  const dbAccountId = accountZohoId ? accountMap.get(accountZohoId) : null;
+                  if (dbAccountId) {
+                    await prisma.contact.upsert({
+                      where: { zohoId: contactRecord.id },
+                      update: {
+                        firstName: contactRecord.First_Name || null,
+                        lastName: contactRecord.Last_Name || null,
+                        email: contactRecord.Email || null,
+                        phone: contactRecord.Phone || null,
+                        mobilePhone: contactRecord.Mobile || null,
+                      },
+                      create: {
+                        zohoId: contactRecord.id,
+                        accountId: dbAccountId,
+                        firstName: contactRecord.First_Name || null,
+                        lastName: contactRecord.Last_Name || null,
+                        email: contactRecord.Email || null,
+                        phone: contactRecord.Phone || null,
+                        mobilePhone: contactRecord.Mobile || null,
+                      }
+                    });
+                    syncedContactsCount++;
+                  }
+                });
+
+                hasMoreContacts = (contactData as any).info?.more_records || false;
+                contactPage++;
+              }
+              console.log(`Synced ${syncedContactsCount} contacts for owner ${user.zohoId}.`);
+            } catch (contactError) {
+              console.error("Failed to sync contacts:", contactError);
             }
           }
         } else {
@@ -151,10 +328,50 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
+    const isAdmin = user.role?.toLowerCase().includes("admin") || user.role === "Administrator";
+
     // 4. Fetch the newly synced accounts from the local DB
     const accounts = await prisma.account.findMany({
-      where: { ownerId: user.id },
-      orderBy: { name: 'asc' }
+      where: isAdmin ? {} : { ownerId: user.id },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        zohoId: true,
+        name: true,
+        tags: true,
+        status: true,
+        lastPurchaseAt: true,
+        ownerId: true,
+        industry: true,
+        invoices: {
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            dueDate: true,
+            items: true,
+          }
+        },
+        contacts: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            mobilePhone: true,
+            isPrimary: true,
+          }
+        },
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          }
+        }
+      }
     })
 
     return {

@@ -1,20 +1,34 @@
 "use client"
 
 import { useState } from "react"
+import { usePagination, Pagination } from "./Pagination"
 
-export function AccountHistory({ accountId }: { accountId: string }) {
+interface AccountHistoryProps {
+  accountId: string
+  invoices?: any[]
+  salesOrders?: any[]
+  notes?: any[]
+}
+
+export function AccountHistory({
+  accountId,
+  invoices = [],
+  salesOrders = [],
+  notes = []
+}: AccountHistoryProps) {
   const [activeTab, setActiveTab] = useState<'invoices' | 'orders' | 'logs'>('logs')
 
-  // Mock data for display
-  const invoices = [
-    { id: "INV-1001", amount: "$1,250.00", date: "2023-10-15", status: "Paid" },
-    { id: "INV-1002", amount: "$3,400.00", date: "2024-05-12", status: "Paid" },
-    { id: "INV-1003", amount: "$850.00", date: "2025-01-20", status: "Overdue" },
-  ]
-  const logs = [
-    { id: "LOG-1", date: "2024-05-01", type: "Call", summary: "Left voicemail regarding Q2 restock." },
-    { id: "LOG-2", date: "2024-05-12", type: "Call", summary: "Connected. Closed deal for $3,400 invoice." }
-  ]
+  // Map database notes to communication logs
+  const logs = notes.map((note) => ({
+    id: note.id,
+    date: note.createdAt ? new Date(note.createdAt).toLocaleDateString() : "—",
+    type: note.callSid ? "Call" : "Note",
+    summary: note.content
+  }))
+
+  const invoicesPagination = usePagination(invoices)
+  const ordersPagination = usePagination(salesOrders)
+  const logsPagination = usePagination(logs)
 
   return (
     <div className="space-y-6">
@@ -58,40 +72,123 @@ export function AccountHistory({ accountId }: { accountId: string }) {
       <div className="pt-4">
         {activeTab === 'invoices' && (
           <div className="space-y-3">
-            {invoices.map(inv => (
-              <div key={inv.id} className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/50 transition-colors">
-                <div>
-                  <div className="font-medium">{inv.id}</div>
-                  <div className="text-sm text-gray-400">{inv.date}</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-semibold">{inv.amount}</div>
-                  <div className={`text-xs font-bold ${inv.status === 'Paid' ? 'text-(--success)' : 'text-(--danger)'}`}>
-                    {inv.status}
-                  </div>
-                </div>
+            {invoices.length === 0 ? (
+              <div className="p-8 text-center text-gray-500 border border-dashed border-(--border) rounded-lg">
+                No recent invoices found.
               </div>
-            ))}
+            ) : (
+              <div className="space-y-3">
+                {invoicesPagination.paginatedItems.map(inv => {
+                  const formattedAmount = parseFloat(inv.amount || 0).toLocaleString(undefined, { 
+                    style: 'currency', 
+                    currency: 'USD' 
+                  })
+                  const formattedDate = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : "—"
+                  const invoiceNumber = (inv.items && typeof inv.items === 'object' && 'invoiceNumber' in inv.items)
+                    ? (inv.items as any).invoiceNumber
+                    : (inv.zohoId || inv.id || "INV").slice(-6).toUpperCase();
+
+                  return (
+                    <div key={inv.id} className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/50 transition-colors">
+                      <div>
+                        <div className="font-medium">#{invoiceNumber}</div>
+                        <div className="text-sm text-gray-400">{formattedDate}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{formattedAmount}</div>
+                        <div className={`text-xs font-bold ${inv.status === 'Paid' ? 'text-emerald-400' : 'text-rose-500'}`}>
+                          {inv.status}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+                <Pagination
+                  currentPage={invoicesPagination.currentPage}
+                  pageSize={invoicesPagination.pageSize}
+                  totalItems={invoices.length}
+                  onPageChange={invoicesPagination.setCurrentPage}
+                  onPageSizeChange={invoicesPagination.setPageSize}
+                />
+              </div>
+            )}
           </div>
         )}
         
         {activeTab === 'orders' && (
-          <div className="p-8 text-center text-gray-500 border border-dashed border-(--border) rounded-lg">
-            No recent sales orders found.
+          <div className="space-y-3">
+            {salesOrders.length === 0 ? (
+              <div className="p-8 text-center text-gray-500 border border-dashed border-(--border) rounded-lg">
+                No recent sales orders found.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {ordersPagination.paginatedItems.map(so => {
+                  const formattedAmount = parseFloat(so.amount || 0).toLocaleString(undefined, { 
+                    style: 'currency', 
+                    currency: 'USD' 
+                  })
+                  const formattedDate = so.orderDate ? new Date(so.orderDate).toLocaleDateString() : "—"
+
+                  return (
+                    <div key={so.id} className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/50 transition-colors">
+                      <div>
+                        <div className="font-medium">#{so.id.slice(-6).toUpperCase()}</div>
+                        <div className="text-sm text-gray-400">{formattedDate}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{formattedAmount}</div>
+                        <div className={`text-xs font-bold ${
+                          so.status === 'Shipped' || so.status === 'Processed' 
+                            ? 'text-emerald-400' 
+                            : 'text-amber-400'
+                        }`}>
+                          {so.status}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+                <Pagination
+                  currentPage={ordersPagination.currentPage}
+                  pageSize={ordersPagination.pageSize}
+                  totalItems={salesOrders.length}
+                  onPageChange={ordersPagination.setCurrentPage}
+                  onPageSizeChange={ordersPagination.setPageSize}
+                />
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'logs' && (
           <div className="space-y-3">
-            {logs.map(log => (
-              <div key={log.id} className="p-4 bg-black/20 border border-(--border) rounded-lg hover:border-blue-500/50 transition-colors">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">{log.type}</span>
-                  <span className="text-xs text-gray-400">{log.date}</span>
-                </div>
-                <p className="text-sm text-gray-300">{log.summary}</p>
+            {logs.length === 0 ? (
+              <div className="p-8 text-center text-gray-500 border border-dashed border-(--border) rounded-lg">
+                No communication logs found.
               </div>
-            ))}
+            ) : (
+              <div className="space-y-3">
+                {logsPagination.paginatedItems.map(log => (
+                  <div key={log.id} className="p-4 bg-black/20 border border-(--border) rounded-lg hover:border-blue-500/50 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">
+                        {log.type}
+                      </span>
+                      <span className="text-xs text-gray-400">{log.date}</span>
+                    </div>
+                    <p className="text-sm text-gray-300">{log.summary}</p>
+                  </div>
+                ))}
+                <Pagination
+                  currentPage={logsPagination.currentPage}
+                  pageSize={logsPagination.pageSize}
+                  totalItems={logs.length}
+                  onPageChange={logsPagination.setCurrentPage}
+                  onPageSizeChange={logsPagination.setPageSize}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
