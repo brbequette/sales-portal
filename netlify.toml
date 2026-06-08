@@ -11,12 +11,20 @@
   port = 8888
 
 # Allow embedding in Zoho CRM web tabs (iframes)
+# CSP frame-ancestors * is the modern standard; X-Frame-Options is intentionally omitted
 [[headers]]
   for = "/*"
   [headers.values]
-    X-Frame-Options = "ALLOWALL"
     Content-Security-Policy = "frame-ancestors *;"
     Access-Control-Allow-Origin = "*"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
 
 [[redirects]]
   from = "/api/auth/zoho/callback"
