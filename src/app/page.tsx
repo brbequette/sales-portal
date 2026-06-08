@@ -114,17 +114,6 @@ export default function Dashboard() {
     }
   }
 
-  if (!isInitialized || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-neutral-900 text-white">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-neutral-400 font-medium text-sm">Loading Sales Hub...</p>
-        </div>
-      </div>
-    )
-  }
-
   // ── Separation Logic ──
   const isAdminUser = currentUser?.role?.toLowerCase().includes("admin") || currentUser?.role === "Administrator"
 
@@ -204,6 +193,17 @@ export default function Dashboard() {
 
   const accentColor = effort === "sales" ? "emerald" : "amber"
   const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0)
+
+  if (!isInitialized || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[100dvh] bg-neutral-900 text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-neutral-400 font-medium text-sm">Loading Sales Hub...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col text-neutral-100 font-sans overflow-y-auto" style={{ height: "100%" }}>
