@@ -26,7 +26,19 @@ export const handler: Handler = async (event, context) => {
     }
 
     if (!user) {
-      return { statusCode: 404, body: JSON.stringify({ success: false, message: "User not found" }) }
+      // Auto-create user so fresh databases don't 404 (mirrors get-accounts behavior)
+      if (email || zohoId) {
+        user = await prisma.user.create({
+          data: {
+            email: email || `${zohoId}@titandiamond.net`,
+            zohoId: zohoId || `auto-${Date.now()}`,
+            name: email ? email.split('@')[0] : 'User',
+            role: 'Sales Representative'
+          }
+        })
+      } else {
+        return { statusCode: 404, body: JSON.stringify({ success: false, message: "User not found" }) }
+      }
     }
 
     const isAdmin = user.role?.toLowerCase().includes("admin") || user.role === "Administrator"
