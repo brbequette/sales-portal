@@ -162,6 +162,14 @@ export default function Dashboard() {
       return
     }
 
+    const isCollectionsOnly = currentUser.role?.toLowerCase().includes("collection") && 
+                              !(currentUser.role?.toLowerCase().includes("admin") || currentUser.role === "Administrator")
+                              
+    if (isCollectionsOnly) {
+      router.push("/collections")
+      return
+    }
+
     const fetchData = async () => {
       try {
         const query = currentUser.id && !currentUser.id.includes("@")
