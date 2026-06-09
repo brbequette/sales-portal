@@ -79,6 +79,10 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
+    const products = await prisma.product.findMany({
+      orderBy: { name: "asc" }
+    })
+
     const cors = {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
