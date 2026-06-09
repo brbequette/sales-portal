@@ -585,25 +585,48 @@ export default function Dashboard() {
               const loadedAccounts = accounts
               const allPaidInvoices = loadedAccounts.flatMap(a => 
                 (a.invoices || []).filter((i: any) => i.status === "Paid").map((i: any) => ({ ...i, accountName: a.name, accountZohoId: a.zohoId }))
-              )
+              ).sort((a: any, b: any) => new Date(b.issueDate || 0).getTime() - new Date(a.issueDate || 0).getTime()).slice(0, 50)
+              
               setDrillType("invoices")
-              setDrillTitle("All Paid Invoices")
+              setDrillTitle("Recent Paid Invoices (Last 50)")
               setDrillItems(allPaidInvoices)
             }}
             className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer"
           >
             <FiCheckCircle size={13} />
-            <span>All Paid Invoices</span>
+            <span>Recent Paid Invoices</span>
             <span className="bg-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{
-              accounts.flatMap(a => (a.invoices || []).filter((i: any) => i.status === "Paid")).length
+              Math.min(50, accounts.flatMap(a => (a.invoices || []).filter((i: any) => i.status === "Paid")).length)
             }</span>
           </button>
+
+          <button
+            onClick={() => {
+              const loadedAccounts = accounts
+              const allUnpaidInvoices = loadedAccounts.flatMap(a => 
+                (a.invoices || []).filter((i: any) => i.status !== "Paid" && i.status !== "Draft" && i.status !== "Void").map((i: any) => ({ ...i, accountName: a.name, accountZohoId: a.zohoId }))
+              ).sort((a: any, b: any) => new Date(b.issueDate || 0).getTime() - new Date(a.issueDate || 0).getTime())
+              
+              setDrillType("invoices")
+              setDrillTitle("All Unpaid Invoices")
+              setDrillItems(allUnpaidInvoices)
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-all cursor-pointer"
+          >
+            <FiAlertCircle size={13} />
+            <span>All Unpaid Invoices</span>
+            <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{
+              accounts.flatMap(a => (a.invoices || []).filter((i: any) => i.status !== "Paid" && i.status !== "Draft" && i.status !== "Void")).length
+            }</span>
+          </button>
+
           <button
             onClick={() => {
               const loadedAccounts = accounts
               const allOverdueInvoices = loadedAccounts.flatMap(a => 
                 (a.invoices || []).filter((i: any) => i.status === "Overdue" || i.status?.toLowerCase() === "overdue").map((i: any) => ({ ...i, accountName: a.name, accountZohoId: a.zohoId }))
-              )
+              ).sort((a: any, b: any) => new Date(b.issueDate || 0).getTime() - new Date(a.issueDate || 0).getTime())
+              
               setDrillType("invoices")
               setDrillTitle("All Overdue Invoices")
               setDrillItems(allOverdueInvoices)
