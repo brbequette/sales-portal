@@ -119,13 +119,16 @@ export const handler: Handler = async (event, context) => {
 
       for (const account of accounts) {
         const contact = account.contacts.find((c: any) => c.isPrimary) || account.contacts[0]
-        const phoneNumber = contact?.mobilePhone || contact?.phone
+        const rawPhoneNumber = contact?.mobilePhone || contact?.phone
 
-        if (!phoneNumber) {
+        if (!rawPhoneNumber) {
           console.log(`Account ${account.name} has no valid phone number. Skipping.`)
           failedCount++
           continue
         }
+
+        // Sanitize the phone number: remove any character that is not a digit or '+'
+        const phoneNumber = rawPhoneNumber.replace(/[^\d+]/g, '')
 
         try {
           const zohoVoiceUrl = `https://voice.zoho.${process.env.ZOHO_DC || 'com'}/rest/json/v2/sms/send`
