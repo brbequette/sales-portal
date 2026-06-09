@@ -13,16 +13,17 @@ export const handler: Handler = async (event) => {
   // Detect callback based on path, headers, or query parameters
   const isCallback = path.includes("callback") || originalUri.includes("callback") || !!code || !!error
 
-  const host = event.headers?.host || ""
+  const host = event.headers?.["x-forwarded-host"] || event.headers?.host || ""
   const protocol = event.headers?.["x-forwarded-proto"] || (host.includes("localhost") ? "http" : "https")
+  const clientOrigin = event.queryStringParameters?.origin
 
-  // Determine the base site URL for redirect dynamically based on the current host
-  // This ensures that custom domains (like salesportal.titandiamond.com) are preserved
-  let oauthSiteUrl = `${protocol}://${host}`
+  // Determine the base site URL for redirect dynamically.
+  // 1. If explicit client origin is passed (bypass Netlify proxy host), use it.
+  // 2. Otherwise fallback to x-forwarded-host/host header.
+  let oauthSiteUrl = clientOrigin || `${protocol}://${host}`
 
-  // Always use the dynamic host to ensure the redirect_uri matches the current domain.
-  // We ignore process.env.ZOHO_REDIRECT_URI because Netlify might inject the .netlify.app URL there.
-  const redirectUri = `${oauthSiteUrl}/api/auth/zoho/callback`
+  // Ensure redirect_uri matches the domain exactly
+  let redirectUri = `${oauthSiteUrl}/api/auth/zoho/callback`
 
   // ── Step 1: Initiate OAuth → redirect user to Zoho login ──
   if (!isCallback) {
@@ -69,6 +70,8 @@ export const handler: Handler = async (event) => {
       if (decodedOrigin.startsWith("http://") || decodedOrigin.startsWith("https://")) {
         targetSiteUrl = decodedOrigin
         console.log("Dynamically redirecting to target origin from state:", targetSiteUrl)
+        // IMPORTANT: Update the redirectUri for the token exchange to match the exact origin from state
+        redirectUri = `${targetSiteUrl}/api/auth/zoho/callback`
       }
     } catch (e) {
       console.error("Failed to decode state parameter:", e)

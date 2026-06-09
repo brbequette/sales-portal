@@ -54,8 +54,9 @@ function LoginContent() {
   const handleZohoLogin = () => {
     setLoading(true)
     setError("")
-    // Redirect to our backend which initiates the Zoho OAuth flow
-    window.location.href = "/api/auth/zoho"
+    // Redirect to our backend which initiates the Zoho OAuth flow, 
+    // explicitly passing the origin to bypass Netlify proxy host rewrites
+    window.location.href = `/api/auth/zoho?origin=${encodeURIComponent(window.location.origin)}`
   }
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
