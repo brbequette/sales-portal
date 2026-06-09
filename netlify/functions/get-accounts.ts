@@ -324,10 +324,33 @@ export const handler: Handler = async (event, context) => {
         invoices: {
           select: {
             id: true,
+            zohoId: true,
             amount: true,
             status: true,
             dueDate: true,
+            issueDate: true,
             items: true,
+            createdAt: true,
+          }
+        },
+        quotes: {
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            validUntil: true,
+            items: true,
+            createdAt: true,
+          }
+        },
+        salesOrders: {
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            orderDate: true,
+            items: true,
+            createdAt: true,
           }
         },
         contacts: {

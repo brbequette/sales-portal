@@ -41,9 +41,10 @@ export default function SalesListPage() {
   }, [user, isAdmin])
 
   const fetchAccounts = useCallback(async () => {
+    if (!user) return
     setLoading(true)
     try {
-      const res = await fetch("/api/get-accounts")
+      const res = await fetch(`/api/get-accounts?zohoId=${user.zohoId || ''}&email=${encodeURIComponent(user.email || '')}`)
       const data = await res.json()
       if (data.success) {
         setAccounts(data.accounts)
@@ -53,7 +54,7 @@ export default function SalesListPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user])
 
   useEffect(() => { fetchAccounts() }, [fetchAccounts])
 
