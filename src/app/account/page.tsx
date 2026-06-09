@@ -35,22 +35,23 @@ function AccountHubContent() {
   const [historyViewMode, setHistoryViewMode] = useState<"data" | "pdf">("data")
   const [aiViewMode, setAiViewMode] = useState<"assistant" | "comms">("assistant")
 
+  const fetchAccountData = async (showLoading = true) => {
+    if (showLoading) setLoading(true)
+    try {
+      const res = await fetch(`/api/get-account-details?id=${encodeURIComponent(id)}`)
+      const data = await res.json()
+      if (data.success) setAccount(data.account)
+      else setError(data.error || data.message || 'Failed to load account')
+    } catch (e: any) {
+      console.error(e)
+      if (showLoading) setError(e.message || 'Failed to load account')
+    } finally {
+      if (showLoading) setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!id) return
-    const fetchAccountData = async () => {
-      setLoading(true)
-      try {
-        const res = await fetch(`/api/get-account-details?id=${encodeURIComponent(id)}`)
-        const data = await res.json()
-        if (data.success) setAccount(data.account)
-        else setError(data.error || data.message || 'Failed to load account')
-      } catch (e: any) {
-        console.error(e)
-        setError(e.message || 'Failed to load account')
-      } finally {
-        setLoading(false)
-      }
-    }
     fetchAccountData()
   }, [id])
 
@@ -335,7 +336,7 @@ function AccountHubContent() {
         </div>
       </div>
 
-      {showPos && <PointOfSale accountId={id} onCancel={() => setShowPos(false)} />}
+      {showPos && <PointOfSale accountId={id} onCancel={() => setShowPos(false)} onSuccess={() => { setShowPos(false); fetchAccountData(true); }} />}
 
       {drillInvoices && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setDrillInvoices(null)}>

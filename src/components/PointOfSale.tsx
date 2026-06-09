@@ -10,7 +10,7 @@ type CartItem = {
   customPrice: number
 }
 
-export function PointOfSale({ accountId, onCancel }: { accountId: string; onCancel: () => void }) {
+export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: string; onCancel: () => void; onSuccess?: () => void }) {
   const { showProduct } = useProductModal()
   const [products, setProducts] = useState<any[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
@@ -124,7 +124,8 @@ export function PointOfSale({ accountId, onCancel }: { accountId: string; onCanc
       })
       if (res.ok) {
         alert(`${type} created successfully!`)
-        onCancel()
+        if (onSuccess) onSuccess()
+        else onCancel()
       } else {
         const errorData = await res.json().catch(() => ({}))
         alert(`Failed to process order: ${errorData.error || errorData.message || res.statusText}`)
