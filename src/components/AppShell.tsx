@@ -15,16 +15,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
 
-  // Filter nav items based on role
-  const isCollectionsUser = user?.role?.toLowerCase().includes("collection") && !isAdmin
-  
   const navItems = [
     { href: "/",            icon: FiHome,      label: "Sales Hub",    color: "text-emerald-400" },
     { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-red-400" },
     { href: "/commissions", icon: FiDollarSign,label: "Commissions",  color: "text-amber-400" },
     { href: "/stats",       icon: FiBarChart2, label: "Rep Stats",    color: "text-sky-400" },
     { href: "/tools",       icon: FiTool,      label: "Tools & Media",color: "text-blue-400" },
-  ].filter(n => !(isCollectionsUser && n.href === "/"))
+  ]
 
   if (isAdmin) {
     navItems.push({ href: "/admin", icon: FiSettings, label: "Admin Settings", color: "text-purple-400" })
@@ -36,7 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-red-400" },
     { href: "/commissions", icon: FiDollarSign,label: "Commissions",  color: "text-amber-400" },
     { href: "/stats",       icon: FiBarChart2, label: "Stats",    color: "text-sky-400" },
-  ].filter(n => !(isCollectionsUser && n.href === "/"))
+  ]
 
   // Don't show nav on login page
   if (pathname === "/login") return <>{children}</>
