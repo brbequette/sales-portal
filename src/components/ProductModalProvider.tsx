@@ -94,18 +94,20 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
   const stock = product?.stock || 0
   
   // Smart fallbacks for missing data
-  let image = parsedDesc.image || fallback?.image || null
+  let image = parsedDesc.image || fallback?.image || `/api/zoho-image?sku=${encodeURIComponent(sku)}`
   let vendor = parsedDesc.vendor || ""
   let costVal = parsedDesc.cost !== undefined && parsedDesc.cost !== null ? parseFloat(parsedDesc.cost as any) : null
   let pertinentInfo = parsedDesc.pertinentInfo || ""
 
-  if (!image) {
-    const lowerName = name.toLowerCase()
-    if (lowerName.includes("blade")) image = "/images/turbo_blade.png"
-    else if (lowerName.includes("pad") || lowerName.includes("polish")) image = "/images/polishing_pads.png"
-    else if (lowerName.includes("core") || lowerName.includes("bit")) image = "/images/core_bit.png"
-    else if (lowerName.includes("cup") || lowerName.includes("wheel")) image = "/images/cup_wheel.png"
-  }
+  // Keep a local fallback URL for the onError handler
+  const lowerName = name.toLowerCase()
+  let localFallbackImage = ""
+  if (lowerName.includes("blade")) localFallbackImage = "/images/turbo_blade.png"
+  else if (lowerName.includes("pad") || lowerName.includes("polish")) localFallbackImage = "/images/polishing_pads.png"
+  else if (lowerName.includes("core") || lowerName.includes("bit")) localFallbackImage = "/images/core_bit.png"
+  else if (lowerName.includes("cup") || lowerName.includes("wheel")) localFallbackImage = "/images/cup_wheel.png"
+  else localFallbackImage = "/images/turbo_blade.png" // default generic
+
 
   if (!vendor && category === "Titan Diamond USA") {
     vendor = "Titan Diamond Factory"
@@ -143,13 +145,20 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
 
         {/* Body */}
         <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
-          {image && (
+           {image && (
              <div className="w-full h-44 rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800 flex items-center justify-center relative shadow-inner">
                {/* eslint-disable-next-line @next/next/no-img-element */}
                <img 
                  src={image} 
                  alt={name} 
                  className="max-w-full max-h-full object-contain" 
+                 onError={(e) => {
+                   if (e.currentTarget.src !== window.location.origin + localFallbackImage) {
+                     e.currentTarget.src = localFallbackImage;
+                   } else {
+                     e.currentTarget.style.display = 'none';
+                   }
+                 }}
                />
              </div>
            )}
