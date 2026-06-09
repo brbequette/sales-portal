@@ -34,8 +34,8 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isLoginPage) {
-      if (isInitialized) {
-        console.log("Zoho SDK initialized while on login page. Redirecting to dashboard.")
+      if (isInitialized && zohoContext) {
+        console.log("Zoho session found while on login page. Redirecting to dashboard.")
         window.location.href = "/"
         return
       }
@@ -61,6 +61,8 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     }
 
     // 4. If the Zoho SDK successfully initialized (running as a Widget), authorize immediately.
+    // Wait, if isInitialized is true but no zohoContext, we shouldn't authorize them if they have no session,
+    // but the downstream page.tsx handles redirecting to /login if !currentUser. So we just unblock rendering.
     if (isInitialized) {
       setIsAuthorized(true)
       setChecking(false)
