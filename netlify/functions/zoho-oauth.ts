@@ -16,11 +16,16 @@ export const handler: Handler = async (event) => {
   const host = event.headers?.["x-forwarded-host"] || event.headers?.host || ""
   const protocol = event.headers?.["x-forwarded-proto"] || (host.includes("localhost") ? "http" : "https")
   const clientOrigin = event.queryStringParameters?.origin
+  const isLocal = host.includes("localhost") || host.includes("127.0.0.1") || host.includes("loca.lt")
 
   // Determine the base site URL for redirect dynamically.
-  // 1. If explicit client origin is passed (bypass Netlify proxy host), use it.
-  // 2. Otherwise fallback to x-forwarded-host/host header.
   let oauthSiteUrl = clientOrigin || `${protocol}://${host}`
+  
+  // If we're in production and somehow the Netlify URL leaked through (e.g., from old cached frontend),
+  // forcefully rewrite it to the known custom domain to ensure Zoho accepts the redirect_uri.
+  if (!isLocal && oauthSiteUrl.includes("netlify.app")) {
+    oauthSiteUrl = "https://salesportal.titandiamond.com"
+  }
 
   // Ensure redirect_uri matches the domain exactly
   let redirectUri = `${oauthSiteUrl}/api/auth/zoho/callback`
