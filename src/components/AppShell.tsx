@@ -17,6 +17,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: "/",            icon: FiHome,      label: "Sales Hub",    color: "text-emerald-400" },
+    { href: "/sales",       icon: FiFileText,  label: "Sales Docs",   color: "text-blue-400" },
     { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-red-400" },
     { href: "/commissions", icon: FiDollarSign,label: "Commissions",  color: "text-amber-400" },
     { href: "/stats",       icon: FiBarChart2, label: "Rep Stats",    color: "text-sky-400" },
@@ -29,10 +30,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Choose primary items for the bottom navigation bar on mobile
   const bottomItems = [
-    { href: "/",            icon: FiHome,      label: "Sales",    color: "text-emerald-400" },
+    { href: "/",            icon: FiHome,      label: "Hub",          color: "text-emerald-400" },
+    { href: "/sales",       icon: FiFileText,  label: "Docs",         color: "text-blue-400" },
     { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-red-400" },
-    { href: "/commissions", icon: FiDollarSign,label: "Commissions",  color: "text-amber-400" },
-    { href: "/stats",       icon: FiBarChart2, label: "Stats",    color: "text-sky-400" },
+    { href: "/stats",       icon: FiBarChart2, label: "Stats",        color: "text-sky-400" },
   ]
 
   // Don't show nav on login page
