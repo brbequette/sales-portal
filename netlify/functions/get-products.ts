@@ -16,33 +16,23 @@ export const handler: Handler = async (event, context) => {
     const { reseed } = event.queryStringParameters || {}
 
     if (reseed === "true") {
+      const pageStr = event.queryStringParameters?.page || "1"
+      const page = parseInt(pageStr, 10)
+
       const token = await getZohoAccessToken()
       const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
       const ZOHO_DC = process.env.ZOHO_DC || "com"
 
-      let page = 1
-      let hasMore = true
-      let allItems: any[] = []
+      const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ORG_ID}&page=${page}&per_page=200`, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` }
+      })
+      const data = await res.json()
+      if (data.code !== 0) throw new Error(`Zoho Books Error: ${data.message}`)
 
-      while (hasMore) {
-        const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ORG_ID}&page=${page}&per_page=200`, {
-          headers: { Authorization: `Zoho-oauthtoken ${token}` }
-        })
-        const data = await res.json()
-        if (data.code !== 0) throw new Error(`Zoho Books Error: ${data.message}`)
+      const items = data.items || []
+      const activeItems = items.filter((i: any) => i.status === "active")
 
-        if (data.items && data.items.length > 0) {
-          allItems.push(...data.items)
-        }
-
-        hasMore = data.page_context?.has_more_page || false
-        page++
-      }
-
-      // Filter active items only
-      const activeItems = allItems.filter(i => i.status === "active")
-
-      const ops = activeItems.map(item => {
+      const ops = activeItems.map((item: any) => {
         const sku = item.sku || item.item_id
         const img = item.image_name ? `/api/zoho-image?sku=${encodeURIComponent(sku)}` : "/images/placeholder.png"
 
@@ -80,9 +70,13 @@ export const handler: Handler = async (event, context) => {
         await prisma.$transaction(ops.slice(i, i + 50))
       }
 
-      products = await prisma.product.findMany({
-        orderBy: { category: 'asc' }
-      })
+      const hasMore = data.page_context?.has_more_page || false
+
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ success: true, hasMore, nextPage: hasMore ? page + 1 : null })
+      }
     }
 
     const cors = {
