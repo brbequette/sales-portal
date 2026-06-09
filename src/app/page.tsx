@@ -642,69 +642,6 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Quick Document Lookups */}
-        <div className="flex flex-wrap gap-2.5 bg-neutral-900/40 p-3 rounded-2xl border border-neutral-800/80 shadow-md">
-          <span className="text-xs text-neutral-400 font-semibold flex items-center gap-1.5 mr-2 self-center">
-            Created Documents:
-          </span>
-          <button
-            onClick={() => {
-              const loadedAccounts = accounts
-              const allQuotes = loadedAccounts.flatMap(a => 
-                (a.quotes || []).map((q: any) => ({ ...q, accountName: a.name, accountZohoId: a.zohoId }))
-              ).sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-              
-              setDrillType("invoices")
-              setDrillTitle("All Created Quotes")
-              setDrillItems(allQuotes)
-            }}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-all cursor-pointer"
-          >
-            <FiFileText size={13} />
-            <span>All Quotes</span>
-            <span className="bg-purple-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{
-              accounts.flatMap(a => a.quotes || []).length
-            }</span>
-          </button>
-          <button
-            onClick={() => {
-              const loadedAccounts = accounts
-              const allSOs = loadedAccounts.flatMap(a => 
-                (a.salesOrders || []).map((so: any) => ({ ...so, accountName: a.name, accountZohoId: a.zohoId }))
-              ).sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-              
-              setDrillType("invoices")
-              setDrillTitle("All Created Sales Orders")
-              setDrillItems(allSOs)
-            }}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-all cursor-pointer"
-          >
-            <FiFileText size={13} />
-            <span>All Sales Orders</span>
-            <span className="bg-blue-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{
-              accounts.flatMap(a => a.salesOrders || []).length
-            }</span>
-          </button>
-          <button
-            onClick={() => {
-              const loadedAccounts = accounts
-              const allInvoices = loadedAccounts.flatMap(a => 
-                (a.invoices || []).map((i: any) => ({ ...i, accountName: a.name, accountZohoId: a.zohoId }))
-              ).sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-              
-              setDrillType("invoices")
-              setDrillTitle("All Created Invoices")
-              setDrillItems(allInvoices)
-            }}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-neutral-500/10 text-neutral-300 border border-neutral-500/20 hover:bg-neutral-500/20 transition-all cursor-pointer"
-          >
-            <FiFileText size={13} />
-            <span>All Invoices</span>
-            <span className="bg-neutral-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{
-              accounts.flatMap(a => a.invoices || []).length
-            }</span>
-          </button>
-        </div>
 
         {/* Metrics row */}
         <div className={`grid gap-2 sm:gap-3 ${effort === "sales" ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3"}`}>
