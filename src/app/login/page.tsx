@@ -38,9 +38,8 @@ function LoginContent() {
         const decoded = JSON.parse(atob(decodeURIComponent(zohoAuth)))
         if (decoded?.email) {
           localStorage.setItem("sales_portal_user", JSON.stringify(decoded))
-          // Clean URL and redirect to dashboard
-          window.history.replaceState({}, "", "/")
-          router.push("/")
+          // Clean URL and force full reload to re-init ZohoProvider
+          window.location.href = "/"
           return
         }
       } catch (e) {
@@ -78,7 +77,7 @@ function LoginContent() {
         } catch (e) {
           console.warn("localStorage write blocked:", e)
         }
-        router.push("/")
+        window.location.href = "/"
       } else {
         setError(data.message || "Invalid email or password")
         setLoading(false)

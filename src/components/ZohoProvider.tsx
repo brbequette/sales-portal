@@ -65,12 +65,19 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
         clearTimeout(timeout)
         console.log("Zoho SDK detected, initializing embeddedApp...")
 
+        // Failsafe timeout in case init() hangs (e.g. running standalone but script is loaded)
+        const initFallback = setTimeout(() => {
+          console.warn("Zoho embeddedApp.init timed out. Proceeding in standalone mode.")
+          setIsInitialized(true)
+        }, 3000)
+
         ;(window as any).ZOHO.embeddedApp.on("PageLoad", (entity: any) => {
           console.log("Zoho PageLoad Entity Context:", entity)
           setZohoContext(entity)
         })
 
         ;(window as any).ZOHO.embeddedApp.init().then(async () => {
+          clearTimeout(initFallback)
           try {
             const userResp = await (window as any).ZOHO.CRM.CONFIG.getCurrentUser()
             if (userResp?.users?.length > 0) {
@@ -91,6 +98,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
             setIsInitialized(true)
           }
         }).catch((err: any) => {
+          clearTimeout(initFallback)
           console.error("Zoho embeddedApp.init error:", err)
           setIsInitialized(true)
         })
