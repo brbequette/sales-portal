@@ -110,6 +110,13 @@ export function PointOfSale({ accountId, onCancel }: { accountId: string; onCanc
           type,
           amount: total,
           items: itemsFormatted,
+          lineItems: cart.map((i) => ({
+            name: i.product.name,
+            sku: i.product.sku,
+            rate: i.customPrice,
+            quantity: i.quantity,
+            description: `SKU: ${i.product.sku}`
+          })),
           discountTotal: totalDiscount > 0 ? totalDiscount : undefined,
         }),
       })
