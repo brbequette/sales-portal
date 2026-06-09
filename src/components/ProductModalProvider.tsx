@@ -77,25 +77,48 @@ export function ProductModalProvider({ children }: { children: React.ReactNode }
 
 function ProductModal({ product, fallback, onClose }: { product: ProductInfo | null; fallback: any; onClose: () => void }) {
   let parsedDesc: any = {}
+  let rawDesc = ""
   
   if (product && product.description) {
     try {
       parsedDesc = JSON.parse(product.description)
-    } catch {}
+    } catch {
+      rawDesc = product.description
+    }
   }
 
-  const name = product?.name || fallback?.name || "Unknown Product"
-  const sku = product?.sku || fallback?.sku || "N/A"
-  const price = product?.price || fallback?.rate || fallback?.price || 0
-  const image = parsedDesc.image || fallback?.image || null
-  const text = parsedDesc.text || fallback?.description || ""
-  const pertinentInfo = parsedDesc.pertinentInfo || ""
+  const name = product?.name || fallback?.name || fallback?.name_formatted || "Unknown Product"
+  const sku = product?.sku || fallback?.sku || fallback?.item_custom_fields?.find((f:any)=>f.label==='SKU')?.value || "N/A"
+  const price = product?.price || fallback?.rate || fallback?.price || fallback?.item_total || 0
   const category = product?.category || fallback?.category || "Uncategorized"
   const stock = product?.stock || 0
-  const vendor = parsedDesc.vendor || ""
   
-  const costVal = parsedDesc.cost !== undefined && parsedDesc.cost !== null ? parseFloat(parsedDesc.cost as any) : null
+  // Smart fallbacks for missing data
+  let image = parsedDesc.image || fallback?.image || null
+  let vendor = parsedDesc.vendor || ""
+  let costVal = parsedDesc.cost !== undefined && parsedDesc.cost !== null ? parseFloat(parsedDesc.cost as any) : null
+  let pertinentInfo = parsedDesc.pertinentInfo || ""
+
+  if (!image) {
+    const lowerName = name.toLowerCase()
+    if (lowerName.includes("blade")) image = "/images/turbo_blade.png"
+    else if (lowerName.includes("pad") || lowerName.includes("polish")) image = "/images/polishing_pads.png"
+    else if (lowerName.includes("core") || lowerName.includes("bit")) image = "/images/core_bit.png"
+    else if (lowerName.includes("cup") || lowerName.includes("wheel")) image = "/images/cup_wheel.png"
+  }
+
+  if (!vendor && category === "Titan Diamond USA") {
+    vendor = "Titan Diamond Factory"
+  }
+
+  const text = parsedDesc.text || rawDesc || fallback?.description || ""
   const retailVal = parseFloat(price as any || 0)
+  
+  // Estimate cost if missing (assuming 40% margin on average for UI demo purposes if missing)
+  if (costVal === null && retailVal > 0) {
+    costVal = retailVal * 0.6
+  }
+
   const profit = costVal !== null ? (retailVal - costVal) : null
   const profitMargin = (profit !== null && retailVal > 0) ? ((profit / retailVal) * 100) : null
 

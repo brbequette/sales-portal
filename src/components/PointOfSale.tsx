@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { FiSearch, FiGrid, FiShoppingCart, FiTrash2, FiEdit2, FiCheck, FiX, FiChevronDown } from "react-icons/fi"
 import { useProductModal } from "./ProductModalProvider"
+import { useZoho } from "./ZohoProvider"
 
 type CartItem = {
   product: any
@@ -12,6 +13,7 @@ type CartItem = {
 
 export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: string; onCancel: () => void; onSuccess?: () => void }) {
   const { showProduct } = useProductModal()
+  const { currentUser } = useZoho()
   const [products, setProducts] = useState<any[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -120,6 +122,8 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
             description: `SKU: ${i.product.sku}`
           })),
           discountTotal: totalDiscount > 0 ? totalDiscount : undefined,
+          userId: currentUser?.id,
+          userEmail: currentUser?.email,
         }),
       })
       if (res.ok) {

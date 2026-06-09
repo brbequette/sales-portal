@@ -16,13 +16,22 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { accountId, type, amount, items, lineItems, discountTotal } = body
+    const { accountId, type, amount, items, lineItems, discountTotal, userId, userEmail } = body
 
     if (!accountId || !type || amount === undefined) {
       return {
         statusCode: 400,
         body: JSON.stringify({ success: false, message: "Missing required fields" })
       }
+    }
+
+    // Resolve author for Salesperson mapping
+    let author = null
+    if (userId) {
+      author = await prisma.user.findUnique({ where: { id: userId } })
+    }
+    if (!author && userEmail) {
+      author = await prisma.user.findUnique({ where: { email: userEmail } })
     }
 
     // Let's resolve the actual db account and the zoho customer id
@@ -88,6 +97,7 @@ export const handler: Handler = async (event, context) => {
     // Prepare Zoho Books Payload
     const payload = {
       customer_id: booksContactId,
+      salesperson_name: author?.name || "System Admin",
       line_items: (lineItems || []).map((li: any) => ({
         name: li.name,
         description: li.description,
