@@ -40,6 +40,7 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [reassigning, setReassigning] = useState(false)
   const [rebalancing, setRebalancing] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [showRebalanceConfirm, setShowRebalanceConfirm] = useState(false)
 
   const [config, setConfig] = useState<Config>({
@@ -156,6 +157,25 @@ export default function AdminSettingsPage() {
     } finally {
       setReassigning(false)
       setRebalancing(false)
+    }
+  }
+
+  const handleRefreshProducts = async () => {
+    setRefreshing(true)
+    setApiError(null)
+    setSuccessMsg(null)
+    try {
+      const res = await fetch("/api/get-products?reseed=true")
+      const data = await res.json()
+      if (data.success) {
+        setSuccessMsg("Product catalog refreshed successfully!")
+      } else {
+        setApiError(data.error || data.message || "Failed to refresh products")
+      }
+    } catch (err: any) {
+      setApiError(err.message || "Network error")
+    } finally {
+      setRefreshing(false)
     }
   }
 
@@ -367,6 +387,20 @@ export default function AdminSettingsPage() {
                 <FiRefreshCw size={16} className="text-purple-400" />
               )}
               {reassigning ? "Running..." : "Run Reassignment"}
+            </button>
+
+            {/* Refresh Products */}
+            <button
+              onClick={handleRefreshProducts}
+              disabled={refreshing}
+              className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-bold text-sm rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {refreshing ? (
+                <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <FiRefreshCw size={16} className="text-emerald-400" />
+              )}
+              {refreshing ? "Refreshing..." : "Refresh Products"}
             </button>
 
             {/* Rebalance All */}
