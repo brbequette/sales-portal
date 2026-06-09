@@ -42,6 +42,16 @@
   status = 200
 
 [[redirects]]
+  from = "/api/get-user"
+  to = "/.netlify/functions/get-user"
+  status = 200
+
+[[redirects]]
+  from = "/api/get-products"
+  to = "/.netlify/functions/get-products"
+  status = 200
+
+[[redirects]]
   from = "/api/ai/script"
   to = "/.netlify/functions/ai-script"
   status = 200

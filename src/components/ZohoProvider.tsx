@@ -42,7 +42,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
       setIsInitialized(true)
 
       // Always sync the fresh role from the database to override stale Web Tab parameters
-      fetch(`/.netlify/functions/get-user?email=${encodeURIComponent(email)}`)
+      fetch(`/api/get-user?email=${encodeURIComponent(email)}`)
         .then(res => res.json())
         .then(realUser => {
           if (realUser?.email) {
@@ -121,7 +121,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
               setZohoContext(portalUser)
 
               // Always sync the fresh role from the database to override Zoho profile mismatch
-              fetch(`/.netlify/functions/get-user?email=${encodeURIComponent(zohoUser.email)}`)
+              fetch(`/api/get-user?email=${encodeURIComponent(zohoUser.email)}`)
                 .then(res => res.json())
                 .then(realUser => {
                   if (realUser?.email) {
