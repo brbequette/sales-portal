@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ZohoProvider } from "@/components/ZohoProvider";
 import { AuthWrapper } from "@/components/AuthWrapper";
 import { AppShell } from "@/components/AppShell";
+import { ProductModalProvider } from "@/components/ProductModalProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,9 +38,11 @@ export default function RootLayout({
       <body className="antialiased">
         <ZohoProvider>
           <AuthWrapper>
-            <AppShell>
-              {children}
-            </AppShell>
+            <ProductModalProvider>
+              <AppShell>
+                {children}
+              </AppShell>
+            </ProductModalProvider>
           </AuthWrapper>
         </ZohoProvider>
       </body>

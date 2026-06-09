@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
+import { useProductModal } from "@/components/ProductModalProvider"
 import { 
   FiSearch, FiFileText, FiImage, FiVideo, FiDownload, FiShare2, 
-  FiGrid, FiList, FiPlus, FiEdit2, FiTrash2, FiGlobe, FiCheck, FiPackage
+  FiGrid, FiList, FiPlus, FiEdit2, FiTrash2, FiGlobe, FiCheck, FiPackage, FiBox, FiInfo, FiDollarSign, FiTag
 } from "react-icons/fi"
 
 interface MediaAsset {
@@ -19,6 +20,7 @@ interface MediaAsset {
 
 export default function ToolsRepository() {
   const { isInitialized, zohoContext: currentUser } = useZoho()
+  const { showProduct } = useProductModal()
   const [assets, setAssets] = useState<MediaAsset[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -32,7 +34,6 @@ export default function ToolsRepository() {
   const [productsLoading, setProductsLoading] = useState(false)
   const [productSearch, setProductSearch] = useState("")
   const [productCategory, setProductCategory] = useState("All")
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null)
 
   const parseProductDescription = (desc: string | null) => {
     if (!desc) return { text: "—", cost: null, vendor: null, retail: null, pertinentInfo: null, image: null }
@@ -80,7 +81,6 @@ export default function ToolsRepository() {
   const assetTypes = ["PDF", "Image", "Video", "ZIP", "Link"]
   const productCategories = ["All", "Blades", "Polishing", "Core Bits", "Grinding"]
 
-  // 1. Check if Admin
   const isAdmin = currentUser?.role?.toLowerCase().includes("admin") || 
                   currentUser?.role === "Administrator" || 
                   currentUser?.role === "Admin"
@@ -566,7 +566,7 @@ export default function ToolsRepository() {
                       return (
                         <tr 
                           key={p.id} 
-                          onClick={() => setSelectedProduct(p)}
+                          onClick={() => showProduct(p.name, p)}
                           className="hover:bg-neutral-800/30 transition-colors cursor-pointer"
                         >
                           <td className="p-4 font-mono font-bold text-neutral-300">{p.sku}</td>
@@ -722,127 +722,6 @@ export default function ToolsRepository() {
         </div>
       )}
 
-      {/* ── Product Details Modal ── */}
-      {selectedProduct && (() => {
-        const parsed = parseProductDescription(selectedProduct.description)
-        const costVal = parsed.cost !== null ? parseFloat(parsed.cost as any) : null
-        const retailVal = parseFloat(selectedProduct.price || 0)
-        const profit = costVal !== null ? (retailVal - costVal) : null
-        const profitMargin = (profit !== null && retailVal > 0) ? ((profit / retailVal) * 100) : null
-
-        return (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-            <div className="bg-neutral-900 border border-neutral-800 w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl">
-              {/* Header */}
-              <div className="bg-neutral-800 px-6 py-4 border-b border-neutral-750 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                    {selectedProduct.category}
-                  </span>
-                  <span className="font-mono text-neutral-400 text-xs font-bold">{selectedProduct.sku}</span>
-                </div>
-                <button 
-                  onClick={() => setSelectedProduct(null)}
-                  className="text-neutral-400 hover:text-white transition-colors text-xl font-bold p-1 hover:bg-neutral-700/40 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer"
-                >
-                  &times;
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="p-6 space-y-6">
-                {(parsed.image || getProductImage(selectedProduct.name, selectedProduct.sku)) && (
-                   <div className="w-full h-44 rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800 flex items-center justify-center relative shadow-inner">
-                     <img 
-                       src={parsed.image || getProductImage(selectedProduct.name, selectedProduct.sku) || undefined} 
-                       alt={selectedProduct.name} 
-                       className="w-full h-full object-cover animate-scaleIn" 
-                     />
-                   </div>
-                 )}
-                <div>
-                  <h3 className="text-base font-bold text-white flex items-center gap-2 mb-2">
-                    <FiPackage className="text-emerald-500 shrink-0" />
-                    {selectedProduct.name}
-                  </h3>
-                  <p className="text-xs text-neutral-400 leading-relaxed bg-neutral-950/45 border border-neutral-800/60 p-3 rounded-lg">
-                    {parsed.text}
-                  </p>
-                </div>
-
-                {/* Key Metrics Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {/* Retail Price */}
-                  <div className="bg-neutral-950/40 border border-neutral-800/80 p-3.5 rounded-xl flex flex-col justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Retail Price</span>
-                    <span className="text-base font-extrabold text-white mt-1">${retailVal.toFixed(2)}</span>
-                  </div>
-
-                  {/* Cost Price */}
-                  <div className="bg-neutral-950/40 border border-neutral-800/80 p-3.5 rounded-xl flex flex-col justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Vendor Cost</span>
-                    <span className="text-base font-extrabold text-neutral-300 mt-1">
-                      {costVal !== null ? `$${costVal.toFixed(2)}` : "—"}
-                    </span>
-                  </div>
-
-                  {/* Profit Margin */}
-                  <div className="bg-neutral-950/40 border border-neutral-800/80 p-3.5 rounded-xl flex flex-col justify-between col-span-2 sm:col-span-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Markup Margin</span>
-                    {profit !== null && profitMargin !== null ? (
-                      <div className="mt-1 flex flex-col">
-                        <span className="text-xs font-extrabold text-emerald-400">+${profit.toFixed(2)}</span>
-                        <span className="text-[9px] font-bold text-emerald-500/90">({profitMargin.toFixed(1)}% margin)</span>
-                      </div>
-                    ) : (
-                      <span className="text-base font-extrabold text-neutral-500 mt-1">—</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Vendor & Stock Info */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-neutral-950/20 border border-neutral-800/60 p-4 rounded-xl space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">Preferred Vendor</span>
-                    <span className="text-xs font-semibold text-neutral-350 block">{parsed.vendor || "Not Configured"}</span>
-                  </div>
-                  <div className="bg-neutral-950/20 border border-neutral-800/60 p-4 rounded-xl space-y-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">Inventory Stock</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2.5 h-2.5 rounded-full ${
-                        selectedProduct.stock > 50 ? 'bg-emerald-500 shadow-sm shadow-emerald-500/20' :
-                        selectedProduct.stock > 10 ? 'bg-amber-500 shadow-sm shadow-amber-500/20' :
-                        'bg-red-500 shadow-sm shadow-red-500/20'
-                      }`} />
-                      <span className="text-xs font-bold text-white">{selectedProduct.stock} items in stock</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Specs / Pertinent Info */}
-                {parsed.pertinentInfo && (
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">Pertinent Info & Technical Specs</span>
-                    <div className="bg-neutral-950/50 border border-neutral-800 p-4 rounded-xl text-xs text-neutral-300 leading-relaxed font-sans whitespace-pre-line">
-                      {parsed.pertinentInfo}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="bg-neutral-900/60 px-6 py-4 border-t border-neutral-800 flex justify-end">
-                <button
-                  onClick={() => setSelectedProduct(null)}
-                  className="bg-neutral-850 hover:bg-neutral-800 text-white font-bold px-4 py-2 text-xs rounded-lg transition-colors cursor-pointer border border-neutral-800"
-                >
-                  Close Catalog Entry
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
     </div>
   )
 }

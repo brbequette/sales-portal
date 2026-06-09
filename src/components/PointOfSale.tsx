@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { FiSearch, FiGrid, FiShoppingCart, FiTrash2, FiEdit2, FiCheck, FiX, FiChevronDown } from "react-icons/fi"
+import { useProductModal } from "./ProductModalProvider"
 
 type CartItem = {
   product: any
@@ -10,6 +11,7 @@ type CartItem = {
 }
 
 export function PointOfSale({ accountId, onCancel }: { accountId: string; onCancel: () => void }) {
+  const { showProduct } = useProductModal()
   const [products, setProducts] = useState<any[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -124,7 +126,8 @@ export function PointOfSale({ accountId, onCancel }: { accountId: string; onCanc
         alert(`${type} created successfully!`)
         onCancel()
       } else {
-        alert("Failed to process order.")
+        const errorData = await res.json().catch(() => ({}))
+        alert(`Failed to process order: ${errorData.error || errorData.message || res.statusText}`)
       }
     } catch (e) {
       console.error(e)
@@ -228,7 +231,12 @@ export function PointOfSale({ accountId, onCancel }: { accountId: string; onCanc
                 >
                   <div className="text-[10px] text-neutral-500 mb-1 font-mono">{p.sku}</div>
                   <div className="text-xs text-blue-400 mb-1">{p.category}</div>
-                  <div className="font-semibold text-white text-sm leading-tight mb-2 flex-1 line-clamp-2">{p.name}</div>
+                  <div 
+                    className="font-semibold text-white text-sm leading-tight mb-2 flex-1 line-clamp-2 cursor-pointer hover:underline hover:text-emerald-400 transition-colors"
+                    onClick={() => showProduct(p.name, p)}
+                  >
+                    {p.name}
+                  </div>
                   <div className="flex justify-between items-center mt-auto pt-2 border-t border-neutral-700">
                     <div className="text-sm sm:text-base font-bold text-emerald-400">${p.price.toFixed(2)}</div>
                     <button
@@ -273,7 +281,12 @@ export function PointOfSale({ accountId, onCancel }: { accountId: string; onCanc
                       {/* Product name + remove */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-semibold text-white truncate">{item.product.name}</div>
+                          <div 
+                            className="text-sm font-semibold text-white truncate cursor-pointer hover:underline hover:text-emerald-400 transition-colors"
+                            onClick={() => showProduct(item.product.name, item.product)}
+                          >
+                            {item.product.name}
+                          </div>
                           <div className="text-xs text-neutral-500 font-mono">{item.product.sku}</div>
                         </div>
                         <button

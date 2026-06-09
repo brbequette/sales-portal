@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { usePagination, Pagination } from "@/components/Pagination"
 import { useZoho } from "@/components/ZohoProvider"
+import { useProductModal } from "@/components/ProductModalProvider"
 import {
   FiPhoneCall, FiSearch, FiRefreshCw, FiDownload, FiAlertCircle,
   FiClock, FiCheckCircle, FiX, FiChevronRight, FiUser, FiFilter,
@@ -635,6 +636,8 @@ interface DrawerProps {
 }
 
 function InvoiceDrawer({ invoice, onClose, onRefresh, onViewInvoicePDF }: DrawerProps) {
+  const { showProduct } = useProductModal()
+  const { zohoContext: currentUser } = useZoho()
   const [activeTab, setActiveTab] = useState<"details" | "logs">("details")
   const [details, setDetails] = useState<any>(null)
   const [logs, setLogs] = useState<any[]>([])
@@ -874,7 +877,12 @@ function InvoiceDrawer({ invoice, onClose, onRefresh, onViewInvoicePDF }: Drawer
                                     )}
                                   </div>
                                   <div>
-                                    <div className="font-semibold text-neutral-200">{item.name}</div>
+                                    <div 
+                                      className="font-semibold text-neutral-200 cursor-pointer hover:underline hover:text-emerald-400 transition-colors"
+                                      onClick={() => showProduct(item.name, item)}
+                                    >
+                                      {item.name}
+                                    </div>
                                     {item.description && <div className="text-[10px] text-neutral-500 mt-0.5">{item.description}</div>}
                                   </div>
                                 </div>
