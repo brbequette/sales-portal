@@ -13,7 +13,7 @@ type CartItem = {
 
 export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: string; onCancel: () => void; onSuccess?: () => void }) {
   const { showProduct } = useProductModal()
-  const { currentUser } = useZoho()
+  const { zohoContext: currentUser } = useZoho()
   const [products, setProducts] = useState<any[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
