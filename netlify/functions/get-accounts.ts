@@ -44,15 +44,7 @@ export const handler: Handler = async (event, context) => {
           role: passedRole || 'Sales Representative'
         }
       })
-    } else if (passedRole && user.role.toLowerCase() !== passedRole.toLowerCase()) {
-      console.log(`Updating database user role for ${user.email} from ${user.role} to ${passedRole}`)
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { role: passedRole }
-      })
-    }
-
-    // 3. Only sync LIVE accounts from Zoho CRM if explicitly requested via refresh=true.
+    }    // 3. Only sync LIVE accounts from Zoho CRM if explicitly requested via refresh=true.
     //    This prevents hammering Zoho API limits on every page load.
     //    Normal dashboard loads always read from the local Neon DB.
     let shouldSync = false

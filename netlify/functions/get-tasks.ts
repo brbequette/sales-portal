@@ -39,12 +39,6 @@ export const handler: Handler = async (event, context) => {
       } else {
         return { statusCode: 404, body: JSON.stringify({ success: false, message: "User not found" }) }
       }
-    } else if (passedRole && user.role.toLowerCase() !== passedRole.toLowerCase()) {
-      console.log(`Updating database user role for ${user.email} from ${user.role} to ${passedRole}`)
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { role: passedRole }
-      })
     }
 
     const isAdmin = user.role?.toLowerCase().includes("admin") || user.role === "Administrator"
