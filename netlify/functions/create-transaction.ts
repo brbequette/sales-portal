@@ -102,10 +102,10 @@ export const handler: Handler = async (event, context) => {
         name: li.name,
         description: li.description,
         rate: li.rate,
-        quantity: li.quantity
+        quantity: li.quantity,
+        discount: li.discount || 0
       })),
-      discount: discountTotal > 0 ? discountTotal : 0,
-      discount_type: discountTotal > 0 ? "entity_level" : undefined,
+      discount_type: "item_level",
       is_discount_before_tax: true,
       notes: "Created via Sales Portal POS"
     }

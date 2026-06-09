@@ -117,11 +117,12 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
           lineItems: cart.map((i) => ({
             name: i.product.name,
             sku: i.product.sku,
-            rate: i.customPrice,
+            rate: i.product.price,
+            discount: i.product.price > i.customPrice ? (i.product.price - i.customPrice) * i.quantity : 0,
             quantity: i.quantity,
             description: `SKU: ${i.product.sku}`
           })),
-          discountTotal: totalDiscount > 0 ? totalDiscount : undefined,
+          discountTotal: undefined,
           userId: currentUser?.id,
           userEmail: currentUser?.email,
         }),

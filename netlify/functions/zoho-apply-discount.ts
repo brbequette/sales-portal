@@ -93,11 +93,11 @@ export const handler: Handler = async (event) => {
         description: item.description,
         rate: item.rate,
         quantity: item.quantity,
-        tax_id: item.tax_id
+        tax_id: item.tax_id,
+        discount: remove ? 0 : "5%"
       })),
       shipping_charge: invoice.shipping_charge || 0,
-      discount: remove ? 0 : "5%",
-      discount_type: "entity_level",
+      discount_type: "item_level",
       is_discount_before_tax: !remove,
       adjustment: adjustment,
       adjustment_description: adjustmentDescription,
