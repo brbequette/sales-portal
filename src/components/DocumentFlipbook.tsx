@@ -20,15 +20,21 @@ function statusColor(status: string) {
   return "bg-gray-100 text-gray-700"
 }
 
+interface DocumentFlipbookProps {
+  invoices?: any[]
+  quotes?: any[]
+  salesOrders?: any[]
+  onViewInvoice?: (zohoId: string) => void
+  onViewSalesDoc?: (type: 'SalesOrder' | 'Quote', doc: any) => void
+}
+
 export function DocumentFlipbook({
   invoices = [],
   quotes = [],
   salesOrders = [],
-}: {
-  invoices?: any[]
-  quotes?: any[]
-  salesOrders?: any[]
-}) {
+  onViewInvoice,
+  onViewSalesDoc
+}: DocumentFlipbookProps) {
   const [activeDoc, setActiveDoc] = useState<DocType>("invoices")
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -52,12 +58,12 @@ export function DocumentFlipbook({
         <h2 className="text-base font-bold text-white flex items-center gap-2">
           <FiFileText className="text-blue-400" /> Document Flipbook
         </h2>
-        <div className="flex bg-neutral-800 rounded-lg p-0.5 gap-0.5">
+        <div className="flex bg-neutral-800 rounded-lg p-0.5 gap-0.5 overflow-x-auto flex-nowrap scrollbar-none">
           {(Object.keys(docConfig) as DocType[]).map((tab) => (
             <button
               key={tab}
               onClick={() => switchTab(tab)}
-              className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+              className={`px-3 py-1 rounded text-xs font-semibold transition-colors whitespace-nowrap ${
                 activeDoc === tab ? "bg-neutral-600 text-white" : "text-neutral-400 hover:text-white"
               }`}
             >
@@ -139,7 +145,14 @@ export function DocumentFlipbook({
               </div>
             </div>
           ) : (
-            <div className="bg-white text-gray-900 rounded-xl shadow-2xl overflow-hidden">
+            <div 
+              onClick={() => {
+                const type = activeDoc === "quotes" ? "Quote" : "SalesOrder"
+                if (onViewSalesDoc) onViewSalesDoc(type, current)
+              }}
+              className="bg-white text-gray-900 rounded-xl shadow-2xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500/50 hover:scale-[1.01] transition-all duration-200"
+              title="Click to view full record details"
+            >
               {/* Doc Header */}
               <div className="bg-gradient-to-r from-blue-900 to-blue-700 px-5 py-4 flex justify-between items-start">
                 <div>

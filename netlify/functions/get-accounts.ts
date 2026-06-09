@@ -1,65 +1,10 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient } from "@prisma/client"
+import { getZohoAccessToken } from "./lib/zoho-auth"
 
 const prisma = new PrismaClient()
-
-// Module-level token cache
-let _cachedToken: string | null = null;
-let _tokenExpiresAt = 0;
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
-async function processInChunks<T>(items: T[], size: number, fn: (item: T) => Promise<void>) {
-  for (let i = 0; i < items.length; i += size) {
-    const chunk = items.slice(i, i + size);
-    await Promise.all(chunk.map(fn));
-  }
-}
-
-async function getZohoAccessToken() {
-  const now = Date.now();
-
-  // 1. Return cached token if still valid
-  if (_cachedToken && now < _tokenExpiresAt - 5 * 60 * 1000) {
-    return _cachedToken;
-  }
-
-  // 2. Try OAuth refresh_token flow
-  if (process.env.ZOHO_REFRESH_TOKEN && process.env.ZOHO_CLIENT_ID && process.env.ZOHO_CLIENT_SECRET) {
-    try {
-      const params = new URLSearchParams({
-        refresh_token: process.env.ZOHO_REFRESH_TOKEN,
-        client_id: process.env.ZOHO_CLIENT_ID,
-        client_secret: process.env.ZOHO_CLIENT_SECRET,
-        grant_type: 'refresh_token',
-      });
-
-      const res = await fetch(`https://accounts.zoho.${ZOHO_DC}/oauth/v2/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString(),
-      });
-
-      const data = await res.json();
-      if (data.access_token) {
-        _cachedToken = data.access_token;
-        _tokenExpiresAt = now + (data.expires_in || 3600) * 1000;
-        return _cachedToken;
-      }
-      console.warn('Zoho Token Refresh failed:', JSON.stringify(data));
-    } catch (e: any) {
-      console.warn('Zoho Token fetch error:', e.message);
-    }
-  }
-
-  // 3. Fallback: use a static access token set as an env var if defined
-  if (process.env.ZOHO_ACCESS_TOKEN) {
-    _cachedToken = process.env.ZOHO_ACCESS_TOKEN;
-    _tokenExpiresAt = now + 55 * 60 * 1000;
-    return _cachedToken;
-  }
-
-  throw new Error('No Zoho access token available. Please set ZOHO_REFRESH_TOKEN in Environment Variables.');
-}
 
 export const handler: Handler = async (event, context) => {
   // Allow GET requests
@@ -68,7 +13,7 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { zohoId, email, refresh, ownerIdFilter } = event.queryStringParameters || {}
+    const { zohoId, email, refresh, ownerIdFilter, role: passedRole } = event.queryStringParameters || {}
 
     if (!zohoId && !email) {
       return {
@@ -96,8 +41,14 @@ export const handler: Handler = async (event, context) => {
           email: email || `${zohoId}@titandiamond.net`,
           zohoId: zohoId || `mock-zoho-${Date.now()}`,
           name: email ? email.split('@')[0] : 'Demo User',
-          role: 'Sales Representative'
+          role: passedRole || 'Sales Representative'
         }
+      })
+    } else if (passedRole && user.role.toLowerCase() !== passedRole.toLowerCase()) {
+      console.log(`Updating database user role for ${user.email} from ${user.role} to ${passedRole}`)
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { role: passedRole }
       })
     }
 
@@ -139,8 +90,8 @@ export const handler: Handler = async (event, context) => {
           if (zohoAccounts.length > 0) {
             console.log(`Found ${zohoAccounts.length} live accounts from Zoho for user ${user.email}`);
             
-            // Upsert each account in chunks of 30 to avoid timeouts
-            await processInChunks(zohoAccounts, 30, async (record) => {
+            // Upsert each account in transaction batches of 50 to maximize database efficiency and minimize connections
+            const accountOps = zohoAccounts.map((record: any) => {
               let status = 'Open'
               const lastPurchaseDate = record.Last_Purchase_Date ? new Date(record.Last_Purchase_Date) : null
               if (lastPurchaseDate) {
@@ -152,7 +103,7 @@ export const handler: Handler = async (event, context) => {
                 ? record.Tag.map((t: any) => t.name).filter(Boolean).join(', ')
                 : null;
 
-              await prisma.account.upsert({
+              return prisma.account.upsert({
                 where: { zohoId: record.id },
                 update: {
                   name: record.Account_Name || record.name || 'Unnamed Account',
@@ -173,6 +124,11 @@ export const handler: Handler = async (event, context) => {
                 }
               })
             });
+
+            for (let i = 0; i < accountOps.length; i += 50) {
+              const chunk = accountOps.slice(i, i + 50)
+              await prisma.$transaction(chunk)
+            }
 
             // Cache the newly synced account IDs in a local Map to prevent redundant DB reads
             const localAccounts = await prisma.account.findMany({
@@ -205,7 +161,8 @@ export const handler: Handler = async (event, context) => {
                 
                 if (zohoInvoices.length === 0) break;
 
-                await processInChunks(zohoInvoices, 30, async (invRecord) => {
+                const invoiceOps = [];
+                for (const invRecord of zohoInvoices) {
                   const accountZohoId = invRecord.Account_Name?.id;
                   const dbAccountId = accountZohoId ? accountMap.get(accountZohoId) : null;
                   
@@ -215,8 +172,9 @@ export const handler: Handler = async (event, context) => {
                     status = 'Overdue';
                   }
 
-                    if (dbAccountId) {
-                      await prisma.invoice.upsert({
+                  if (dbAccountId) {
+                    invoiceOps.push(
+                      prisma.invoice.upsert({
                         where: { zohoId: invRecord.id },
                         update: {
                           amount: parseFloat(invRecord.Grand_Total || 0),
@@ -246,10 +204,16 @@ export const handler: Handler = async (event, context) => {
                             deadCostTotal: parseFloat(invRecord.Dead_Cost_Total || 0)
                           }
                         }
-                      });
-                      syncedInvoicesCount++;
-                    }
-                });
+                      })
+                    );
+                  }
+                }
+
+                for (let i = 0; i < invoiceOps.length; i += 50) {
+                  const chunk = invoiceOps.slice(i, i + 50);
+                  await prisma.$transaction(chunk);
+                  syncedInvoicesCount += chunk.length;
+                }
 
                 hasMoreInvoices = (invoiceData as any).info?.more_records || false;
                 invoicePage++;
@@ -283,32 +247,40 @@ export const handler: Handler = async (event, context) => {
                 
                 if (zohoContacts.length === 0) break;
 
-                await processInChunks(zohoContacts, 30, async (contactRecord) => {
+                const contactOps = [];
+                for (const contactRecord of zohoContacts) {
                   const accountZohoId = contactRecord.Account_Name?.id;
                   const dbAccountId = accountZohoId ? accountMap.get(accountZohoId) : null;
                   if (dbAccountId) {
-                    await prisma.contact.upsert({
-                      where: { zohoId: contactRecord.id },
-                      update: {
-                        firstName: contactRecord.First_Name || null,
-                        lastName: contactRecord.Last_Name || null,
-                        email: contactRecord.Email || null,
-                        phone: contactRecord.Phone || null,
-                        mobilePhone: contactRecord.Mobile || null,
-                      },
-                      create: {
-                        zohoId: contactRecord.id,
-                        accountId: dbAccountId,
-                        firstName: contactRecord.First_Name || null,
-                        lastName: contactRecord.Last_Name || null,
-                        email: contactRecord.Email || null,
-                        phone: contactRecord.Phone || null,
-                        mobilePhone: contactRecord.Mobile || null,
-                      }
-                    });
-                    syncedContactsCount++;
+                    contactOps.push(
+                      prisma.contact.upsert({
+                        where: { zohoId: contactRecord.id },
+                        update: {
+                          firstName: contactRecord.First_Name || null,
+                          lastName: contactRecord.Last_Name || null,
+                          email: contactRecord.Email || null,
+                          phone: contactRecord.Phone || null,
+                          mobilePhone: contactRecord.Mobile || null,
+                        },
+                        create: {
+                          zohoId: contactRecord.id,
+                          accountId: dbAccountId,
+                          firstName: contactRecord.First_Name || null,
+                          lastName: contactRecord.Last_Name || null,
+                          email: contactRecord.Email || null,
+                          phone: contactRecord.Phone || null,
+                          mobilePhone: contactRecord.Mobile || null,
+                        }
+                      })
+                    );
                   }
-                });
+                }
+
+                for (let i = 0; i < contactOps.length; i += 50) {
+                  const chunk = contactOps.slice(i, i + 50);
+                  await prisma.$transaction(chunk);
+                  syncedContactsCount += chunk.length;
+                }
 
                 hasMoreContacts = (contactData as any).info?.more_records || false;
                 contactPage++;

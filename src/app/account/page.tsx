@@ -2,6 +2,8 @@
 
 import { useSearchParams } from "next/navigation"
 import { Suspense, useState, useEffect } from "react"
+import { createPortal } from "react-dom"
+import { FiFileText, FiX, FiDatabase } from "react-icons/fi"
 import { useZoho } from "@/components/ZohoProvider"
 import { AccountHistory } from "@/components/AccountHistory"
 import { SalesAssistant } from "@/components/SalesAssistant"
@@ -13,8 +15,9 @@ import { PointOfSale } from "@/components/PointOfSale"
 import Link from "next/link"
 import { StatusPicker } from "@/components/StatusPicker"
 import { QualityPicker } from "@/components/QualityPicker"
+import { ContactsView } from "@/components/ContactsView"
 
-type ActiveTab = "overview" | "history" | "documents" | "ai" | "comms" | "tasks"
+type ActiveTab = "overview" | "history" | "ai" | "tasks"
 
 function AccountHubContent() {
   const searchParams = useSearchParams()
@@ -27,6 +30,10 @@ function AccountHubContent() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview")
   const [drillTitle, setDrillTitle] = useState("")
   const [drillInvoices, setDrillInvoices] = useState<any[] | null>(null)
+  const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)
+  const [viewingSalesDoc, setViewingSalesDoc] = useState<{ type: 'SalesOrder' | 'Quote', doc: any } | null>(null)
+  const [historyViewMode, setHistoryViewMode] = useState<"data" | "pdf">("data")
+  const [aiViewMode, setAiViewMode] = useState<"assistant" | "comms">("assistant")
 
   useEffect(() => {
     if (!id) return
@@ -140,11 +147,9 @@ function AccountHubContent() {
         <div className="flex px-4 min-w-max gap-1">
           {([
             { id: "overview", label: "Overview", icon: "📊" },
-            { id: "history", label: "Transactions", icon: "🧾" },
+            { id: "history", label: "Transactions & Docs", icon: "🧾" },
             { id: "tasks", label: "Tasks", icon: "✓" },
-            { id: "documents", label: "Documents", icon: "📂" },
-            { id: "ai", label: "AI Assistant", icon: "⚡" },
-            { id: "comms", label: "Comm Center", icon: "📞" },
+            { id: "ai", label: "AI & Comm Center", icon: "⚡" },
           ] as { id: ActiveTab, label: string, icon: string }[]).map(tab => (
             <button
               key={tab.id}
@@ -167,11 +172,8 @@ function AccountHubContent() {
         <div className="max-w-5xl mx-auto h-full flex flex-col space-y-6">
 
           {activeTab === "overview" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-              <div className="lg:col-span-1">
-                <DealsHistory deals={account.deals} />
-              </div>
-              <div className="lg:col-span-2">
+            <div className="flex flex-col space-y-8">
+              <div className="w-full">
                 <AccountAnalytics
                   invoices={account.invoices}
                   deals={account.deals}
@@ -183,17 +185,82 @@ function AccountHubContent() {
                   }}
                 />
               </div>
+              
+              <div className="w-full border-t border-neutral-800/50 pt-8">
+                <ContactsView 
+                  contacts={account.contacts || []}
+                  notes={account.notes || []}
+                  accountId={account.id}
+                  onNoteAdded={(newNote: any) => {
+                    setAccount((prev: any) => {
+                      if (!prev) return prev
+                      return {
+                        ...prev,
+                        notes: [newNote, ...(prev.notes || [])]
+                      }
+                    })
+                  }}
+                />
+              </div>
+
+              <div className="w-full border-t border-neutral-800/50 pt-8">
+                <DealsHistory deals={account.deals} />
+              </div>
             </div>
           )}
 
           {activeTab === "history" && (
-            <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl p-4 sm:p-6 shadow-xl">
-              <AccountHistory
-                accountId={id}
-                invoices={account.invoices || []}
-                salesOrders={account.salesOrders || []}
-                notes={account.notes || []}
-              />
+            <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl p-4 sm:p-6 shadow-xl flex-1 flex flex-col min-h-[500px] space-y-4">
+              <div className="flex justify-end mb-2">
+                <div className="flex bg-neutral-950 p-0.5 rounded-lg border border-neutral-800 shrink-0">
+                  <button
+                    onClick={() => setHistoryViewMode("data")}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      historyViewMode === "data"
+                        ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10"
+                        : "text-neutral-400 hover:text-neutral-200"
+                    }`}
+                  >
+                    Data View 📊
+                  </button>
+                  <button
+                    onClick={() => setHistoryViewMode("pdf")}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      historyViewMode === "pdf"
+                        ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10"
+                        : "text-neutral-400 hover:text-neutral-200"
+                    }`}
+                  >
+                    PDF & Flipbook View 📂
+                  </button>
+                </div>
+              </div>
+
+              {historyViewMode === "data" ? (
+                <AccountHistory
+                  accountId={id}
+                  invoices={account.invoices || []}
+                  salesOrders={account.salesOrders || []}
+                  quotes={account.quotes || []}
+                  notes={account.notes || []}
+                  onViewInvoice={(zohoId) => {
+                    const inv = account.invoices?.find((i: any) => i.zohoId === zohoId)
+                    setViewingInvoice(inv || { zohoId, id: zohoId })
+                  }}
+                  onViewSalesDoc={(type, doc) => setViewingSalesDoc({ type, doc })}
+                />
+              ) : (
+                <DocumentFlipbook
+                  invoices={account.invoices}
+                  quotes={account.quotes}
+                  salesOrders={account.salesOrders}
+                  onViewInvoice={(zohoId) => {
+                    const inv = account.invoices?.find((i: any) => i.zohoId === zohoId)
+                    setViewingInvoice(inv || { zohoId, id: zohoId })
+                  }}
+                  onViewSalesDoc={(type, doc) => setViewingSalesDoc({ type, doc })}
+                />
+              )}
             </div>
           )}
 
@@ -221,28 +288,47 @@ function AccountHubContent() {
             </div>
           )}
 
-          {activeTab === "documents" && (
-            <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl p-4 sm:p-6 shadow-xl flex-1 flex flex-col min-h-[500px]">
-              <DocumentFlipbook
-                invoices={account.invoices}
-                quotes={account.quotes}
-                salesOrders={account.salesOrders}
-              />
-            </div>
-          )}
+
 
           {activeTab === "ai" && (
-            <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl p-4 sm:p-6 shadow-xl flex-1 flex flex-col">
-              <SalesAssistant
-                accountId={id}
-                accountData={{ ...account, invoices, daysSinceLastPurchase, totalRevenue }}
-              />
-            </div>
-          )}
+            <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl p-4 sm:p-6 shadow-xl flex-1 flex flex-col min-h-[500px] space-y-4">
+              <div className="flex justify-end mb-2">
+                <div className="flex bg-neutral-950 p-0.5 rounded-lg border border-neutral-800 shrink-0">
+                  <button
+                    onClick={() => setAiViewMode("assistant")}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      aiViewMode === "assistant"
+                        ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10"
+                        : "text-neutral-400 hover:text-neutral-200"
+                    }`}
+                  >
+                    AI Copilot ⚡
+                  </button>
+                  <button
+                    onClick={() => setAiViewMode("comms")}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      aiViewMode === "comms"
+                        ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10"
+                        : "text-neutral-400 hover:text-neutral-200"
+                    }`}
+                  >
+                    Comm Center 📞
+                  </button>
+                </div>
+              </div>
 
-          {activeTab === "comms" && (
-            <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl p-4 sm:p-6 shadow-xl flex-1 flex flex-col min-h-[450px]">
-              <CommunicationCenter accountId={id} contacts={account.contacts} />
+              {aiViewMode === "assistant" ? (
+                <div className="flex-1 flex flex-col">
+                  <SalesAssistant
+                    accountId={id}
+                    accountData={{ ...account, invoices, daysSinceLastPurchase, totalRevenue }}
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col min-h-[450px]">
+                  <CommunicationCenter accountId={id} contacts={account.contacts} />
+                </div>
+              )}
             </div>
           )}
 
@@ -270,9 +356,20 @@ function AccountHubContent() {
                     : inv.zohoId?.slice(-6) || "INV";
 
                   return (
-                    <div key={idx} className="bg-neutral-800/50 p-3 rounded border border-neutral-800 flex justify-between items-center">
+                    <div 
+                      key={idx} 
+                      onClick={() => {
+                        setViewingInvoice(inv)
+                        setDrillInvoices(null)
+                      }}
+                      className="bg-neutral-800/50 p-3 rounded border border-neutral-800 flex justify-between items-center cursor-pointer hover:bg-neutral-800 transition-colors"
+                      title="Click to view Invoice PDF"
+                    >
                       <div>
-                        <div className="text-sm font-bold text-white mb-0.5">#{invoiceNum}</div>
+                        <div className="text-sm font-bold text-white mb-0.5 flex items-center gap-1.5">
+                          <FiFileText className="text-amber-500 shrink-0" size={12} />
+                          <span>#{invoiceNum}</span>
+                        </div>
                         <div className="text-xs text-neutral-400">{inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : "—"}</div>
                       </div>
                       <div className="text-right">
@@ -293,6 +390,202 @@ function AccountHubContent() {
             </div>
           </div>
         </div>
+      )}
+      {/* ── Invoice Details Modal ── */}
+      {viewingInvoice && createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setViewingInvoice(null)} />
+          <div className="relative bg-neutral-900 border border-neutral-850 w-full max-w-6xl h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10001]">
+            {/* Header */}
+            <div className="bg-neutral-850 px-6 py-4 border-b border-neutral-800 flex justify-between items-center shrink-0">
+              <div>
+                <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                  <FiFileText className="text-amber-500" /> Invoice Details
+                </h2>
+                <p className="text-[10px] text-neutral-400 mt-0.5 font-mono">Zoho ID: {viewingInvoice.zohoId || viewingInvoice.id}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <a
+                  href={`/api/get-invoice-pdf?id=${viewingInvoice.zohoId || viewingInvoice.id}&download=true`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-neutral-700 flex items-center gap-1.5 cursor-pointer"
+                >
+                  Download PDF
+                </a>
+                <button 
+                  onClick={() => setViewingInvoice(null)} 
+                  className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-755 transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer"
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+
+            {/* Content Split */}
+            <div className="flex flex-1 overflow-hidden">
+              {/* Data View */}
+              <div className="w-1/3 min-w-[300px] bg-neutral-950 border-r border-neutral-800 overflow-y-auto p-5 flex flex-col gap-6">
+                <div>
+                  <h3 className="text-white font-bold text-sm mb-4 flex items-center gap-2"><FiDatabase className="text-sky-400" /> Data View</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Invoice #</label>
+                      <div className="text-sm text-white font-mono">{viewingInvoice.items?.invoiceNumber || viewingInvoice.id?.slice(-6) || "—"}</div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Amount</label>
+                      <div className="text-sm text-emerald-400 font-bold">${viewingInvoice.amount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}</div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Status</label>
+                      <div className={`text-sm font-bold ${viewingInvoice.status === 'Paid' ? 'text-blue-400' : 'text-amber-400'}`}>{viewingInvoice.status || "—"}</div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Issue Date</label>
+                      <div className="text-sm text-white">{viewingInvoice.issueDate ? new Date(viewingInvoice.issueDate).toLocaleDateString() : "—"}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-neutral-800 flex-1">
+                  <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3">All Data Fields</h4>
+                  <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 overflow-x-auto">
+                    <pre className="text-[10px] text-neutral-300 font-mono whitespace-pre-wrap break-all">
+                      {JSON.stringify(viewingInvoice.items || viewingInvoice, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* PDF Preview */}
+              <div className="flex-1 bg-neutral-900 p-3 relative flex flex-col">
+                <iframe
+                  src={`/api/get-invoice-pdf?id=${viewingInvoice.zohoId || viewingInvoice.id}`}
+                  className="w-full h-full border-0 rounded-xl bg-neutral-950 flex-1 shadow-inner"
+                  title="Invoice PDF Preview"
+                />
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Sales Document (Quote / Sales Order) Details Modal ── */}
+      {viewingSalesDoc && createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setViewingSalesDoc(null)} />
+          <div className="relative w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-2xl flex flex-col shadow-2xl text-white z-[10001] p-6 max-h-[85vh]">
+            
+            {/* Header */}
+            <div className="flex justify-between items-center pb-4 border-b border-neutral-800 mb-4 shrink-0">
+              <div>
+                <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                  <FiFileText className={viewingSalesDoc.type === 'Quote' ? "text-purple-500 animate-pulse" : "text-blue-500 animate-pulse"} />
+                  <span>{viewingSalesDoc.type === 'Quote' ? 'Quote / Estimate Details' : 'Sales Order Details'}</span>
+                </h3>
+                <p className="text-neutral-500 text-xs mt-0.5 font-mono">
+                  Document ID: #{viewingSalesDoc.doc.id.slice(-6).toUpperCase()}
+                </p>
+              </div>
+              <button 
+                onClick={() => setViewingSalesDoc(null)} 
+                className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-755 transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Document Content */}
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1 scrollbar-thin">
+              <div className="grid grid-cols-2 gap-4 bg-neutral-950/40 p-4 border border-neutral-800 rounded-xl">
+                <div>
+                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Status</span>
+                  <p className={`text-xs font-bold mt-0.5 ${
+                    viewingSalesDoc.doc.status === 'Accepted' || viewingSalesDoc.doc.status === 'Shipped' || viewingSalesDoc.doc.status === 'Processed'
+                      ? 'text-emerald-400' 
+                      : 'text-amber-400'
+                  }`}>
+                    {viewingSalesDoc.doc.status || 'Draft'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Date</span>
+                  <p className="text-xs text-neutral-200 font-semibold mt-0.5">
+                    {new Date(viewingSalesDoc.doc.orderDate || viewingSalesDoc.doc.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                {viewingSalesDoc.type === 'Quote' && viewingSalesDoc.doc.validUntil && (
+                  <div className="col-span-2">
+                    <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Valid Until</span>
+                    <p className="text-xs text-neutral-200 font-semibold mt-0.5">
+                      {new Date(viewingSalesDoc.doc.validUntil).toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Line Items Table */}
+              <div className="space-y-2">
+                <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Items Breakdown</span>
+                <div className="border border-neutral-800 rounded-xl overflow-hidden max-h-[250px] overflow-y-auto scrollbar-thin">
+                  <table className="w-full text-xs">
+                    <thead className="bg-neutral-950/60 border-b border-neutral-800 text-neutral-500 font-bold">
+                      <tr>
+                        <th className="text-left px-3 py-2">Item Description</th>
+                        <th className="text-right px-3 py-2 w-24">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-800/50">
+                      {Array.isArray(viewingSalesDoc.doc.items) && viewingSalesDoc.doc.items.length > 0 ? (
+                        viewingSalesDoc.doc.items.map((item: any, i: number) => {
+                          const name = typeof item === 'string' ? item : item.name || 'Product Item'
+                          const amount = typeof item === 'string' ? null : item.amount || null
+                          return (
+                            <tr key={i}>
+                              <td className="px-3 py-2.5 text-neutral-200 font-semibold">
+                                {name}
+                              </td>
+                              <td className="px-3 py-2.5 text-right text-neutral-300">
+                                {amount ? `$${parseFloat(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
+                              </td>
+                            </tr>
+                          )
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={2} className="px-3 py-4 text-center text-neutral-500 italic">
+                            Standard product assortment
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Financial Summary */}
+              <div className="flex justify-between items-center bg-neutral-950/20 border border-neutral-800/80 rounded-xl p-4 mt-2">
+                <span className="text-sm font-bold text-neutral-400">Total Document Amount</span>
+                <span className="text-xl font-bold text-emerald-400 font-mono">
+                  ${parseFloat(viewingSalesDoc.doc.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-4 pt-4 border-t border-neutral-800 flex justify-end shrink-0">
+              <button 
+                onClick={() => setViewingSalesDoc(null)}
+                className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-2 px-4 rounded-lg text-xs transition-colors cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   )

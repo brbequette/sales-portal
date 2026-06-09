@@ -19,6 +19,7 @@ export function PointOfSale({ accountId, onCancel }: { accountId: string; onCanc
   const [activeCategory, setActiveCategory] = useState("All")
   const [editingPrice, setEditingPrice] = useState<string | null>(null)
   const [tempPrice, setTempPrice] = useState("")
+  const [mobileTab, setMobileTab] = useState<"catalog" | "cart">("catalog")
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -133,30 +134,54 @@ export function PointOfSale({ accountId, onCancel }: { accountId: string; onCanc
     )
 
   return (
-    <div className="fixed inset-0 bg-neutral-950 z-50 flex flex-col overflow-hidden text-white">
+    <div className="fixed inset-0 bg-neutral-950 z-50 flex flex-col overflow-hidden text-white safe-top safe-bottom">
       {/* Header */}
-      <header className="flex-none bg-neutral-900 border-b border-neutral-800 px-6 py-3 flex justify-between items-center">
+      <header className="flex-none bg-neutral-900 border-b border-neutral-800 px-4 sm:px-6 py-3 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <FiShoppingCart className="text-blue-400 text-xl" />
-          <h2 className="text-lg font-bold">Point of Sale</h2>
-          <span className="text-xs text-neutral-500">— {filteredProducts.length} items in catalog</span>
+          <FiShoppingCart className="text-blue-400 text-lg sm:text-xl" />
+          <h2 className="text-sm sm:text-lg font-bold">Point of Sale</h2>
+          <span className="text-xs text-neutral-500 hidden sm:inline">— {filteredProducts.length} items in catalog</span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <select
-            className="bg-neutral-800 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+            className="bg-neutral-800 border border-neutral-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
             value={type}
             onChange={(e) => setType(e.target.value as any)}
           >
             <option value="Quote">Quote</option>
             <option value="SalesOrder">Sales Order</option>
           </select>
-          <button onClick={onCancel} className="text-neutral-400 hover:text-white transition-colors text-xl leading-none">&times; Close</button>
+          <button onClick={onCancel} className="text-neutral-400 hover:text-white transition-colors text-xs font-bold bg-neutral-800 px-3 py-1.5 rounded-lg border border-neutral-700 hover:bg-neutral-700">&times; Close</button>
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      {/* Mobile Tab Switcher */}
+      <div className="lg:hidden flex-none bg-neutral-900 border-b border-neutral-800 flex p-2 gap-2">
+        <button
+          onClick={() => setMobileTab("catalog")}
+          className={`flex-1 py-2 text-xs font-bold rounded-lg border text-center transition-all ${
+            mobileTab === "catalog"
+              ? "bg-blue-600 text-white border-blue-500"
+              : "bg-neutral-800 text-neutral-400 border-neutral-700 hover:text-white"
+          }`}
+        >
+          Catalog ({filteredProducts.length})
+        </button>
+        <button
+          onClick={() => setMobileTab("cart")}
+          className={`flex-1 py-2 text-xs font-bold rounded-lg border text-center transition-all ${
+            mobileTab === "cart"
+              ? "bg-blue-600 text-white border-blue-500"
+              : "bg-neutral-800 text-neutral-400 border-neutral-700 hover:text-white"
+          }`}
+        >
+          Cart ({cart.reduce((s, i) => s + i.quantity, 0)})
+        </button>
+      </div>
+
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left: Catalog */}
-        <div className="flex-1 flex flex-col overflow-hidden border-r border-neutral-800">
+        <div className={`flex-1 flex flex-col overflow-hidden border-r border-neutral-800 ${mobileTab === "cart" ? "hidden lg:flex" : "flex"}`}>
           {/* Search & Filter Bar */}
           <div className="flex-none p-4 bg-neutral-900/50 border-b border-neutral-800 space-y-3">
             <div className="relative">
@@ -198,7 +223,7 @@ export function PointOfSale({ accountId, onCancel }: { accountId: string; onCanc
                   <div className="text-xs text-blue-400 mb-1">{p.category}</div>
                   <div className="font-semibold text-white text-sm leading-tight mb-2 flex-1 line-clamp-2">{p.name}</div>
                   <div className="flex justify-between items-center mt-auto pt-2 border-t border-neutral-700">
-                    <div className="text-base font-bold text-emerald-400">${p.price.toFixed(2)}</div>
+                    <div className="text-sm sm:text-base font-bold text-emerald-400">${p.price.toFixed(2)}</div>
                     <button
                       onClick={() => addToCart(p)}
                       className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-xs font-bold transition-colors"
@@ -219,7 +244,7 @@ export function PointOfSale({ accountId, onCancel }: { accountId: string; onCanc
         </div>
 
         {/* Right: Cart */}
-        <div className="w-80 xl:w-96 bg-neutral-900 flex flex-col">
+        <div className={`w-full lg:w-80 xl:w-96 bg-neutral-900 flex flex-col shrink-0 ${mobileTab === "catalog" ? "hidden lg:flex" : "flex"}`}>
           <div className="flex-none px-4 py-3 border-b border-neutral-800">
             <h3 className="text-sm font-bold text-white">
               Current Order <span className="text-neutral-500 font-normal">({cart.length} items)</span>

@@ -159,7 +159,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* ── Mobile Bottom Tab Bar ── */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-neutral-900 border-t border-neutral-800 flex">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-neutral-900 border-t border-neutral-800 flex pb-[env(safe-area-inset-bottom)]">
         {bottomItems.map(item => {
           const Icon = item.icon
           const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
@@ -177,7 +177,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* ── Main Content ── */}
-      <main className="flex-1 overflow-hidden flex flex-col lg:pt-0 pt-12 pb-16 lg:pb-0 lg:pl-24">
+      <main className="flex-1 overflow-hidden flex flex-col lg:pt-0 pt-12 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-24">
         {children}
       </main>
     </div>

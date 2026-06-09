@@ -65,3 +65,9 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
 }
+
+/* Style option elements in select dropdowns to prevent black-on-black text in dark mode */
+select option {
+  background-color: #1e293b; /* var(--card) */
+  color: #f8fafc; /* var(--foreground) */
+}

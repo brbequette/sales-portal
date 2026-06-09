@@ -67,6 +67,7 @@ export const handler: Handler = async (event) => {
 
       let profit = 0
       let deadCost = 0
+      let invoiceZohoId = null
 
       if (docNum) {
         const matchingInvoice = invoices.find(inv => {
@@ -76,6 +77,7 @@ export const handler: Handler = async (event) => {
         if (matchingInvoice) {
           profit = (matchingInvoice.items as any)?.profit || 0
           deadCost = (matchingInvoice.items as any)?.deadCostTotal || 0
+          invoiceZohoId = matchingInvoice.zohoId
         }
       }
 
@@ -91,8 +93,10 @@ export const handler: Handler = async (event) => {
         repId: deal.ownerId,
         repName: deal.owner?.name || "Unassigned",
         accountName: deal.account?.name || "Unknown",
+        accountZohoId: deal.account?.zohoId || null,
         commission: comm,
         status: isLost ? "lost" : isClosed ? "fulfilled" : "pending",
+        invoiceZohoId: invoiceZohoId
       }
     })
 

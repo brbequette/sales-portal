@@ -2,21 +2,28 @@
 
 import { useState } from "react"
 import { usePagination, Pagination } from "./Pagination"
+import { FiFileText } from "react-icons/fi"
 
 interface AccountHistoryProps {
   accountId: string
   invoices?: any[]
   salesOrders?: any[]
+  quotes?: any[]
   notes?: any[]
+  onViewInvoice?: (zohoId: string) => void
+  onViewSalesDoc?: (type: 'SalesOrder' | 'Quote', doc: any) => void
 }
 
 export function AccountHistory({
   accountId,
   invoices = [],
   salesOrders = [],
-  notes = []
+  quotes = [],
+  notes = [],
+  onViewInvoice,
+  onViewSalesDoc
 }: AccountHistoryProps) {
-  const [activeTab, setActiveTab] = useState<'invoices' | 'orders' | 'logs'>('logs')
+  const [activeTab, setActiveTab] = useState<'invoices' | 'orders' | 'quotes' | 'logs'>('invoices')
 
   // Map database notes to communication logs
   const logs = notes.map((note) => ({
@@ -28,6 +35,7 @@ export function AccountHistory({
 
   const invoicesPagination = usePagination(invoices)
   const ordersPagination = usePagination(salesOrders)
+  const quotesPagination = usePagination(quotes)
   const logsPagination = usePagination(logs)
 
   return (
@@ -55,6 +63,16 @@ export function AccountHistory({
           }`}
         >
           Sales Orders
+        </button>
+        <button
+          onClick={() => setActiveTab('quotes')}
+          className={`px-4 py-2 font-medium text-sm transition-colors ${
+            activeTab === 'quotes' 
+              ? 'text-(--primary) border-b-2 border-(--primary)' 
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          Quotes
         </button>
         <button
           onClick={() => setActiveTab('logs')}
@@ -89,9 +107,17 @@ export function AccountHistory({
                     : (inv.zohoId || inv.id || "INV").slice(-6).toUpperCase();
 
                   return (
-                    <div key={inv.id} className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/50 transition-colors">
+                    <div 
+                      key={inv.id} 
+                      onClick={() => onViewInvoice && onViewInvoice(inv.zohoId)}
+                      className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/55 transition-colors cursor-pointer hover:bg-neutral-800/10 group"
+                      title="Click to view Invoice PDF"
+                    >
                       <div>
-                        <div className="font-medium">#{invoiceNumber}</div>
+                        <div className="font-medium flex items-center gap-1.5 text-emerald-400 group-hover:underline font-mono">
+                          <FiFileText className="text-amber-500 shrink-0" size={13} />
+                          <span>#{invoiceNumber}</span>
+                        </div>
                         <div className="text-sm text-gray-400">{formattedDate}</div>
                       </div>
                       <div className="text-right">
@@ -131,9 +157,17 @@ export function AccountHistory({
                   const formattedDate = so.orderDate ? new Date(so.orderDate).toLocaleDateString() : "—"
 
                   return (
-                    <div key={so.id} className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/50 transition-colors">
+                    <div 
+                      key={so.id} 
+                      onClick={() => onViewSalesDoc && onViewSalesDoc('SalesOrder', so)}
+                      className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/55 transition-colors cursor-pointer hover:bg-neutral-850/10 group"
+                      title="Click to view Sales Order details"
+                    >
                       <div>
-                        <div className="font-medium">#{so.id.slice(-6).toUpperCase()}</div>
+                        <div className="font-medium flex items-center gap-1.5 text-emerald-400 group-hover:underline font-mono">
+                          <FiFileText className="text-blue-500 shrink-0" size={13} />
+                          <span>#{so.id.slice(-6).toUpperCase()}</span>
+                        </div>
                         <div className="text-sm text-gray-400">{formattedDate}</div>
                       </div>
                       <div className="text-right">
@@ -155,6 +189,60 @@ export function AccountHistory({
                   totalItems={salesOrders.length}
                   onPageChange={ordersPagination.setCurrentPage}
                   onPageSizeChange={ordersPagination.setPageSize}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'quotes' && (
+          <div className="space-y-3">
+            {quotes.length === 0 ? (
+              <div className="p-8 text-center text-gray-500 border border-dashed border-(--border) rounded-lg">
+                No recent quotes found.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {quotesPagination.paginatedItems.map(quote => {
+                  const formattedAmount = parseFloat(quote.amount || 0).toLocaleString(undefined, { 
+                    style: 'currency', 
+                    currency: 'USD' 
+                  })
+                  const formattedDate = quote.createdAt ? new Date(quote.createdAt).toLocaleDateString() : "—"
+
+                  return (
+                    <div 
+                      key={quote.id} 
+                      onClick={() => onViewSalesDoc && onViewSalesDoc('Quote', quote)}
+                      className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/55 transition-colors cursor-pointer hover:bg-neutral-850/10 group"
+                      title="Click to view Quote details"
+                    >
+                      <div>
+                        <div className="font-medium flex items-center gap-1.5 text-emerald-400 group-hover:underline font-mono">
+                          <FiFileText className="text-purple-500 shrink-0" size={13} />
+                          <span>#{quote.id.slice(-6).toUpperCase()}</span>
+                        </div>
+                        <div className="text-sm text-gray-400">{formattedDate}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{formattedAmount}</div>
+                        <div className={`text-xs font-bold ${
+                          quote.status === 'Accepted' || quote.status === 'Sent' 
+                            ? 'text-emerald-400' 
+                            : 'text-amber-400'
+                        }`}>
+                          {quote.status}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+                <Pagination
+                  currentPage={quotesPagination.currentPage}
+                  pageSize={quotesPagination.pageSize}
+                  totalItems={quotes.length}
+                  onPageChange={quotesPagination.setCurrentPage}
+                  onPageSizeChange={quotesPagination.setPageSize}
                 />
               </div>
             )}

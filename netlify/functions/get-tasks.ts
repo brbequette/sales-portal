@@ -10,7 +10,7 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { zohoId, email, refresh } = event.queryStringParameters || {}
+    const { zohoId, email, refresh, ownerIdFilter, role: passedRole } = event.queryStringParameters || {}
 
     if (!zohoId && !email) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing zohoId or email parameter" }) }
@@ -33,12 +33,18 @@ export const handler: Handler = async (event, context) => {
             email: email || `${zohoId}@titandiamond.net`,
             zohoId: zohoId || `auto-${Date.now()}`,
             name: email ? email.split('@')[0] : 'User',
-            role: 'Sales Representative'
+            role: passedRole || 'Sales Representative'
           }
         })
       } else {
         return { statusCode: 404, body: JSON.stringify({ success: false, message: "User not found" }) }
       }
+    } else if (passedRole && user.role.toLowerCase() !== passedRole.toLowerCase()) {
+      console.log(`Updating database user role for ${user.email} from ${user.role} to ${passedRole}`)
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { role: passedRole }
+      })
     }
 
     const isAdmin = user.role?.toLowerCase().includes("admin") || user.role === "Administrator"
@@ -63,54 +69,80 @@ export const handler: Handler = async (event, context) => {
           const data = await res.json()
           const zohoTasks = data.data || []
 
+          // Prefetch matching Accounts, Deals, and Users to avoid N+1 DB calls
+          const whatIds = Array.from(new Set(zohoTasks.map((t: any) => t.What_Id?.id).filter(Boolean))) as string[]
+          const ownerIds = Array.from(new Set(zohoTasks.map((t: any) => t.Owner?.id || user.zohoId).filter(Boolean))) as string[]
+
+          const [dbAccounts, dbDeals, dbUsers] = await Promise.all([
+            prisma.account.findMany({
+              where: { zohoId: { in: whatIds } },
+              select: { id: true, zohoId: true }
+            }),
+            prisma.deal.findMany({
+              where: { zohoId: { in: whatIds } },
+              select: { id: true, zohoId: true }
+            }),
+            prisma.user.findMany({
+              where: { zohoId: { in: ownerIds } }
+            })
+          ])
+
+          const accountMap = new Map(dbAccounts.map(a => [a.zohoId, a.id]))
+          const dealMap = new Map(dbDeals.map(d => [d.zohoId, d.id]))
+          const userMap = new Map(dbUsers.map(u => [u.zohoId, u]))
+
+          const taskOps = []
           for (const task of zohoTasks) {
             const ownerId = task.Owner?.id || user.zohoId
             
-            // Try to resolve accountId or dealId from What_Id
+            // Try to resolve accountId or dealId from What_Id using pre-fetched maps
             let accountId = null
             let dealId = null
             
             if (task.What_Id) {
-               // Zoho's What_Id could be an Account, Deal, Quote, etc.
-               // We will attempt to link it by ID if it exists in our DB.
-               const acc = await prisma.account.findUnique({ where: { zohoId: task.What_Id.id } })
-               if (acc) accountId = acc.id
-               else {
-                 const deal = await prisma.deal.findUnique({ where: { zohoId: task.What_Id.id } })
-                 if (deal) dealId = deal.id
-               }
+              const targetId = task.What_Id.id
+              if (accountMap.has(targetId)) {
+                accountId = accountMap.get(targetId) || null
+              } else if (dealMap.has(targetId)) {
+                dealId = dealMap.get(targetId) || null
+              }
             }
             
-            // We need an internal user reference for owner
-            let internalOwner = await prisma.user.findUnique({ where: { zohoId: ownerId } })
-            if (!internalOwner) {
-              internalOwner = user // Fallback
-            }
+            // Resolve internal owner user reference
+            const internalOwner = userMap.get(ownerId) || user
 
-            await prisma.task.upsert({
-              where: { zohoId: task.id },
-              create: {
-                zohoId: task.id,
-                subject: task.Subject || "Untitled Task",
-                status: task.Status || "Not Started",
-                priority: task.Priority || "Normal",
-                dueDate: task.Due_Date ? new Date(task.Due_Date) : null,
-                description: task.Description || null,
-                ownerId: internalOwner.id,
-                accountId: accountId,
-                dealId: dealId
-              },
-              update: {
-                subject: task.Subject || "Untitled Task",
-                status: task.Status || "Not Started",
-                priority: task.Priority || "Normal",
-                dueDate: task.Due_Date ? new Date(task.Due_Date) : null,
-                description: task.Description || null,
-                ownerId: internalOwner.id,
-                accountId: accountId,
-                dealId: dealId
-              }
-            })
+            taskOps.push(
+              prisma.task.upsert({
+                where: { zohoId: task.id },
+                create: {
+                  zohoId: task.id,
+                  subject: task.Subject || "Untitled Task",
+                  status: task.Status || "Not Started",
+                  priority: task.Priority || "Normal",
+                  dueDate: task.Due_Date ? new Date(task.Due_Date) : null,
+                  description: task.Description || null,
+                  ownerId: internalOwner.id,
+                  accountId: accountId,
+                  dealId: dealId
+                },
+                update: {
+                  subject: task.Subject || "Untitled Task",
+                  status: task.Status || "Not Started",
+                  priority: task.Priority || "Normal",
+                  dueDate: task.Due_Date ? new Date(task.Due_Date) : null,
+                  description: task.Description || null,
+                  ownerId: internalOwner.id,
+                  accountId: accountId,
+                  dealId: dealId
+                }
+              })
+            )
+          }
+
+          // Execute in transaction batches of 50 to minimize connection pool usage
+          for (let i = 0; i < taskOps.length; i += 50) {
+            const chunk = taskOps.slice(i, i + 50)
+            await prisma.$transaction(chunk)
           }
         }
       } catch (syncErr) {
@@ -118,9 +150,21 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
+    // Calculate where filter based on admin role and ownerIdFilter parameter
+    let whereClause: any = { ownerId: user.id }
+    if (isAdmin) {
+      if (ownerIdFilter === "all") {
+        whereClause = {}
+      } else if (ownerIdFilter) {
+        whereClause = { ownerId: ownerIdFilter }
+      } else {
+        whereClause = { ownerId: user.id } // Default to admin's own tasks
+      }
+    }
+
     // Return tasks from DB
     const tasks = await prisma.task.findMany({
-      where: isAdmin ? {} : { ownerId: user.id },
+      where: whereClause,
       include: {
         account: true,
         deal: true

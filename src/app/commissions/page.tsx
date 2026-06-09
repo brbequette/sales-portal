@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
+import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
 import { usePagination, Pagination } from "@/components/Pagination"
-import { FiDollarSign, FiRefreshCw, FiChevronDown, FiChevronUp, FiTrendingUp, FiUsers, FiBarChart2, FiAward, FiFilter, FiX, FiSearch } from "react-icons/fi"
+import { FiDollarSign, FiRefreshCw, FiChevronDown, FiChevronUp, FiTrendingUp, FiUsers, FiBarChart2, FiAward, FiFilter, FiX, FiSearch, FiFileText } from "react-icons/fi"
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Deal = {
@@ -18,8 +19,10 @@ type Deal = {
   repId: string
   repName: string
   accountName: string
+  accountZohoId?: string | null
   commission: { total: number; upfront: number; final: number }
   status: "pending" | "fulfilled" | "lost"
+  invoiceZohoId?: string | null
 }
 
 type RepSummary = {
@@ -67,7 +70,7 @@ function stageColor(stage: string) {
 }
 
 // ── Rep Card ───────────────────────────────────────────────────────────
-function RepCard({ rep, isAdmin }: { rep: RepSummary; isAdmin: boolean }) {
+function RepCard({ rep, isAdmin, onViewInvoice }: { rep: RepSummary; isAdmin: boolean; onViewInvoice: (zohoId: string) => void }) {
   const [open, setOpen] = useState(false)
   const balance = rep.totalEarned - rep.totalPaid
   const pendingDeals = rep.deals.filter(d => d.status === "pending")
@@ -128,42 +131,69 @@ function RepCard({ rep, isAdmin }: { rep: RepSummary; isAdmin: boolean }) {
 
           {/* Deal rows */}
           <div className="divide-y divide-neutral-800/60">
-            {pagination.paginatedItems.map(deal => (
-              <div key={deal.id} className={`flex items-center justify-between px-5 py-3 hover:bg-neutral-800/30 transition-colors ${deal.status === "lost" ? "opacity-40" : ""}`}>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-semibold text-white truncate">{deal.name}</div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${stageColor(deal.stage)}`}>{deal.stage}</span>
-                    <span className="text-[10px] text-neutral-500">{fmtDate(deal.closeDate)}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 shrink-0 ml-3">
-                  <div className="text-right hidden sm:block">
-                    <div className="text-[10px] text-neutral-500">Deal</div>
-                    <div className="text-xs font-semibold text-white">{fmt(deal.amount)}</div>
-                  </div>
-                  <div className="text-right hidden sm:block">
-                    <div className="text-[10px] text-neutral-500">Profit</div>
-                    <div className={`text-xs font-semibold ${deal.status === "lost" ? "text-neutral-500" : "text-sky-400"}`}>
-                      {fmt(deal.profit || 0)}
+            {pagination.paginatedItems.map(deal => {
+              const hasInvoice = !!deal.invoiceZohoId
+              return (
+                <div 
+                  key={deal.id}
+                  onClick={() => hasInvoice && onViewInvoice && onViewInvoice(deal.invoiceZohoId!)}
+                  className={`flex items-center justify-between px-5 py-3 transition-colors ${
+                    hasInvoice ? "hover:bg-neutral-800 cursor-pointer" : ""
+                  } ${deal.status === "lost" ? "opacity-40" : ""}`}
+                >
+                  <div className="min-w-0 flex-1 flex items-center gap-2.5">
+                    {hasInvoice && (
+                      <FiFileText className="text-amber-500 shrink-0 text-sm" title="Attached Zoho Invoice available" />
+                    )}
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-white truncate">{deal.name}</div>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                        {deal.accountZohoId ? (
+                          <Link 
+                            href={`/account?id=${deal.accountZohoId}`}
+                            className="text-[10px] text-emerald-400 hover:underline font-bold"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            🏢 {deal.accountName}
+                          </Link>
+                        ) : (
+                          <span className="text-[10px] text-neutral-400">🏢 {deal.accountName}</span>
+                        )}
+                        <span className="text-[10px] text-neutral-600">•</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${stageColor(deal.stage)}`}>{deal.stage}</span>
+                        <span className="text-[10px] text-neutral-600">•</span>
+                        <span className="text-[10px] text-neutral-500">{fmtDate(deal.closeDate)}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-[10px] text-neutral-500">Commission</div>
-                    <div className={`text-xs font-bold ${deal.status === "lost" ? "text-neutral-500" : "text-emerald-400"}`}>
-                      {fmt(deal.commission.total)}
+                  <div className="flex items-center gap-4 shrink-0 ml-3">
+                    <div className="text-right hidden sm:block">
+                      <div className="text-[10px] text-neutral-500">Deal</div>
+                      <div className="text-xs font-semibold text-white">{fmt(deal.amount)}</div>
+                    </div>
+                    <div className="text-right hidden sm:block">
+                      <div className="text-[10px] text-neutral-500">Profit</div>
+                      <div className={`text-xs font-semibold ${deal.status === "lost" ? "text-neutral-500" : "text-sky-400"}`}>
+                        {fmt(deal.profit || 0)}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[10px] text-neutral-500">Commission</div>
+                      <div className={`text-xs font-bold ${deal.status === "lost" ? "text-neutral-500" : "text-emerald-400"}`}>
+                        {fmt(deal.commission.total)}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[10px] text-neutral-500">Status</div>
+                      <div className={`text-[10px] font-bold uppercase ${
+                        deal.status === "fulfilled" ? "text-blue-400" :
+                        deal.status === "lost" ? "text-red-400" : "text-amber-400"
+                      }`}>{deal.status}</div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-[10px] text-neutral-500">Status</div>
-                    <div className={`text-[10px] font-bold uppercase ${
-                      deal.status === "fulfilled" ? "text-blue-400" :
-                      deal.status === "lost" ? "text-red-400" : "text-amber-400"
-                    }`}>{deal.status}</div>
-                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
           {pagination.pageSize !== "All" && rep.deals.length > (pagination.pageSize as number) && (
             <Pagination
@@ -256,6 +286,7 @@ export default function CommissionsPage() {
   const [search, setSearch] = useState("")
   const [hideFulfilled, setHideFulfilled] = useState(false)
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
+  const [viewingInvoiceZohoId, setViewingInvoiceZohoId] = useState<string | null>(null)
 
   const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
 
@@ -323,7 +354,7 @@ export default function CommissionsPage() {
 
         {/* KPI strip */}
         {data && (
-          <div className="flex items-center gap-6 mt-3">
+          <div className="flex items-center gap-6 mt-3 overflow-x-auto pb-1.5 scrollbar-none flex-nowrap">
             <div>
               <div className="text-[10px] text-neutral-500 uppercase font-semibold">Total Earned</div>
               <div className="text-lg font-bold text-emerald-400">{fmt(totalEarned)}</div>
@@ -507,13 +538,64 @@ export default function CommissionsPage() {
             ) : (
               Object.values(filteredByRep)
                 .sort((a, b) => b.totalEarned - a.totalEarned)
-                .map(rep => <RepCard key={rep.repId} rep={rep} isAdmin={isAdmin} />)
+                .map(rep => (
+                  <RepCard 
+                    key={rep.repId} 
+                    rep={rep} 
+                    isAdmin={isAdmin} 
+                    onViewInvoice={setViewingInvoiceZohoId} 
+                  />
+                ))
             )}
           </div>
         ) : (
           <StatsTab data={data} />
         )}
       </div>
+
+      {/* ── Invoice PDF Modal ── */}
+      {viewingInvoiceZohoId && createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setViewingInvoiceZohoId(null)} />
+          <div className="relative bg-neutral-900 border border-neutral-850 w-full max-w-5xl h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10001]">
+            {/* Header */}
+            <div className="bg-neutral-850 px-6 py-4 border-b border-neutral-800 flex justify-between items-center shrink-0">
+              <div>
+                <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                  <FiFileText className="text-amber-500" /> Invoice PDF Preview
+                </h2>
+                <p className="text-[10px] text-neutral-400 mt-0.5 font-mono">Zoho ID: {viewingInvoiceZohoId}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <a
+                  href={`/api/get-invoice-pdf?id=${viewingInvoiceZohoId}&download=true`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-neutral-700 flex items-center gap-1.5 cursor-pointer"
+                >
+                  Download PDF
+                </a>
+                <button 
+                  onClick={() => setViewingInvoiceZohoId(null)} 
+                  className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-750 transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer"
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+
+            {/* Iframe container */}
+            <div className="flex-1 bg-neutral-950 p-2 relative">
+              <iframe
+                src={`/api/get-invoice-pdf?id=${viewingInvoiceZohoId}`}
+                className="w-full h-full border-0 rounded-lg bg-neutral-900"
+                title="Invoice PDF Preview"
+              />
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

@@ -69,6 +69,17 @@ function agingBucket(days: number) {
   return               { label: "1–30d",    cls: "text-yellow-400 bg-yellow-950/40 border-yellow-500/30" }
 }
 
+function getProductImage(name: string, sku?: string) {
+  const s = (sku || "").toLowerCase()
+  const n = (name || "").toLowerCase()
+  if (s.includes("td-bl-100") || n.includes("turbo blade")) return "/images/turbo_blade.png"
+  if (s.includes("td-bl-102") || n.includes("continuous rim")) return "/images/continuous_rim_blade.png"
+  if (s.includes("td-pp-200") || n.includes("polishing pad")) return "/images/polishing_pads.png"
+  if (s.includes("td-cb-300") || n.includes("core bit")) return "/images/core_bit.png"
+  if (s.includes("td-cw-400") || n.includes("cup wheel") || n.includes("grinding")) return "/images/cup_wheel.png"
+  return null
+}
+
 // ── Log Call Modal ─────────────────────────────────────────────────────
 function CallModal({ invoice, onClose, onSaved }: { invoice: Invoice, onClose: () => void, onSaved: () => void }) {
   const { zohoContext: user } = useZoho()
@@ -620,9 +631,10 @@ interface DrawerProps {
   invoice: Invoice
   onClose: () => void
   onRefresh: () => void
+  onViewInvoicePDF?: (zohoId: string) => void
 }
 
-function InvoiceDrawer({ invoice, onClose, onRefresh }: DrawerProps) {
+function InvoiceDrawer({ invoice, onClose, onRefresh, onViewInvoicePDF }: DrawerProps) {
   const [activeTab, setActiveTab] = useState<"details" | "logs">("details")
   const [details, setDetails] = useState<any>(null)
   const [logs, setLogs] = useState<any[]>([])
@@ -731,8 +743,15 @@ function InvoiceDrawer({ invoice, onClose, onRefresh }: DrawerProps) {
           <div>
             <span className="text-[10px] font-bold text-neutral-500 uppercase">Overdue Invoice Details</span>
             <h2 className="text-base font-bold text-white flex items-center gap-2 mt-0.5">
-              Inv #{invoice.invoice_number}
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded border border-red-500/30 text-red-400 bg-red-950/20`}>
+              Inv 
+              <button 
+                onClick={() => onViewInvoicePDF && onViewInvoicePDF(invoice.zohoId)}
+                className="text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer bg-transparent border-none p-0 focus:outline-none font-mono font-bold"
+                title="Click to view Invoice PDF"
+              >
+                #{invoice.invoice_number}
+              </button>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded border border-red-500/30 text-red-400 bg-red-950/20 font-sans`}>
                 {invoice.status}
               </span>
             </h2>
@@ -837,17 +856,35 @@ function InvoiceDrawer({ invoice, onClose, onRefresh }: DrawerProps) {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-800/50">
-                        {details.line_items?.map((item: any) => (
-                          <tr key={item.line_item_id || item.item_id}>
-                            <td className="px-3 py-2.5">
-                              <div className="font-semibold text-neutral-200">{item.name}</div>
-                              {item.description && <div className="text-[10px] text-neutral-500 mt-0.5">{item.description}</div>}
-                            </td>
-                            <td className="text-center px-3 py-2.5 text-neutral-300">{item.quantity}</td>
-                            <td className="text-right px-3 py-2.5 text-neutral-300">{fmt(item.rate)}</td>
-                            <td className="text-right px-3 py-2.5 text-neutral-200 font-semibold">{fmt(item.item_total)}</td>
-                          </tr>
-                        ))}
+                        {details.line_items?.map((item: any) => {
+                          const imgUrl = getProductImage(item.name, item.sku)
+                          return (
+                            <tr key={item.line_item_id || item.item_id}>
+                              <td className="px-3 py-2.5">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-lg bg-neutral-800 border border-neutral-700/50 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                                    {imgUrl ? (
+                                      <img 
+                                        src={imgUrl} 
+                                        alt={item.name} 
+                                        className="w-full h-full object-cover" 
+                                      />
+                                    ) : (
+                                      <FiFileText className="text-neutral-500" size={14} />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold text-neutral-200">{item.name}</div>
+                                    {item.description && <div className="text-[10px] text-neutral-500 mt-0.5">{item.description}</div>}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="text-center px-3 py-2.5 text-neutral-300">{item.quantity}</td>
+                              <td className="text-right px-3 py-2.5 text-neutral-300">{fmt(item.rate)}</td>
+                              <td className="text-right px-3 py-2.5 text-neutral-200 font-semibold">{fmt(item.item_total)}</td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1063,8 +1100,18 @@ export default function CollectionsPage() {
   const [callModal, setCallModal] = useState<Invoice | null>(null)
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   const [showRunCardDirect, setShowRunCardDirect] = useState<Invoice | null>(null)
+  const [viewingInvoiceZohoId, setViewingInvoiceZohoId] = useState<string | null>(null)
   
-  const [stats, setStats] = useState({ total: 0, accounts: 0, totalProfit: 0 })
+  const [showAllReps, setShowAllReps] = useState(false)
+
+  const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
+
+  useEffect(() => {
+    if (user) {
+      const isAdm = user.role?.toLowerCase().includes("admin") || user.role === "Administrator"
+      setShowAllReps(isAdm)
+    }
+  }, [user])
 
   const fetchInvoices = useCallback(async () => {
     setLoading(true)
@@ -1073,11 +1120,6 @@ export default function CollectionsPage() {
       const data = await res.json()
       if (data.success) {
         setInvoices(data.invoices)
-        setStats({
-          total: data.totalBalance,
-          accounts: data.uniqueAccounts,
-          totalProfit: data.totalProfit || 0
-        })
       }
     } catch (e) {
       console.error(e)
@@ -1088,13 +1130,35 @@ export default function CollectionsPage() {
 
   useEffect(() => { fetchInvoices() }, [fetchInvoices])
 
+  // Ownership filtering: My Invoices vs All Reps
+  const visibleInvoices = invoices.filter(i => {
+    if (showAllReps) return true
+    if (!user) return true
+    const myName = user.name?.toLowerCase() || ""
+    const myId = user.id || ""
+    const myEmail = user.email?.toLowerCase() || ""
+    return (i.salesperson_name && myName && i.salesperson_name.toLowerCase() === myName) ||
+           (i.salesperson_id && myId && i.salesperson_id === myId) ||
+           ((i as any).salesperson_zoho_id && myId && (i as any).salesperson_zoho_id === myId) ||
+           ((i as any).salesperson_email && myEmail && (i as any).salesperson_email.toLowerCase() === myEmail)
+  })
+
+  // Representative filtering
+  const repFilteredInvoices = visibleInvoices.filter(i => 
+    !selectedReps.length || selectedReps.includes(i.salesperson_name)
+  )
+
+  // Dynamic stats based on representative visibility
+  const totalBalance = repFilteredInvoices.reduce((s, i) => s + (i.balance || 0), 0)
+  const totalProfit = repFilteredInvoices.reduce((s, i) => s + (i.profit || 0), 0)
+  const uniqueAccountsCount = new Set(repFilteredInvoices.map(i => i.customer_id)).size
+
   // Filter + sort
   const reps = [...new Set(invoices.map(i => i.salesperson_name || "Unassigned"))].sort()
 
-  let filtered = invoices.filter(i => {
+  let filtered = repFilteredInvoices.filter(i => {
     const q = search.toLowerCase()
     const matchSearch = !q || i.customer_name.toLowerCase().includes(q) || i.invoice_number.toLowerCase().includes(q)
-    const matchRep = !selectedReps.length || selectedReps.includes(i.salesperson_name)
     const matchAging = !agingFilter || (() => {
       const d = i.days_overdue
       if (agingFilter === "1-30")  return d >= 1 && d <= 30
@@ -1103,7 +1167,7 @@ export default function CollectionsPage() {
       if (agingFilter === "90+")   return d > 90
       return true
     })()
-    return matchSearch && matchRep && (tab === "current" || matchAging)
+    return matchSearch && (tab === "current" || matchAging)
   })
 
   filtered.sort((a, b) => {
@@ -1124,7 +1188,7 @@ export default function CollectionsPage() {
     { key: "61-90", label: "61–90d",  cls: "border-orange-500/40 text-orange-400 bg-orange-900/10" },
     { key: "90+",   label: "90+ days",cls: "border-red-500/40 text-red-400 bg-red-900/10" },
   ].map(p => {
-    const bucket = invoices.filter(i => {
+    const bucket = repFilteredInvoices.filter(i => {
       const d = i.days_overdue
       if (p.key === "1-30")  return d >= 1 && d <= 30
       if (p.key === "31-60") return d >= 31 && d <= 60
@@ -1200,15 +1264,15 @@ export default function CollectionsPage() {
         <div className="flex items-center gap-6 mt-3 pb-1">
           <div>
             <div className="text-[10px] text-neutral-500 uppercase font-semibold">Total {tab === "overdue" ? "Overdue" : "Outstanding"}</div>
-            <div className="text-lg font-bold text-red-400">{fmt(stats.total)}</div>
+            <div className="text-lg font-bold text-red-400">{fmt(totalBalance)}</div>
           </div>
           <div>
             <div className="text-[10px] text-neutral-500 uppercase font-semibold">Total Profit</div>
-            <div className="text-lg font-bold text-sky-400">{fmt(stats.totalProfit)}</div>
+            <div className="text-lg font-bold text-sky-400">{fmt(totalProfit)}</div>
           </div>
           <div>
             <div className="text-[10px] text-neutral-500 uppercase font-semibold">Accounts</div>
-            <div className="text-lg font-bold text-white">{stats.accounts}</div>
+            <div className="text-lg font-bold text-white">{uniqueAccountsCount}</div>
           </div>
           <div>
             <div className="text-[10px] text-neutral-500 uppercase font-semibold">Invoices</div>
@@ -1232,14 +1296,48 @@ export default function CollectionsPage() {
 
       {/* Toolbar */}
       <div className="flex-none px-5 py-2 border-b border-neutral-800 bg-neutral-900 flex items-center justify-between gap-2 flex-wrap">
-        {/* Tab switcher */}
-        <div className="flex bg-neutral-800 border border-neutral-800 rounded-lg p-0.5 gap-0.5">
-          <button onClick={() => setTab("overdue")} className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${tab === "overdue" ? "bg-red-600 text-white" : "text-neutral-400 hover:text-white"}`}>
-            Overdue
+        {/* Tab switcher & Show All Toggle */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex bg-neutral-800 border border-neutral-800 rounded-lg p-0.5 gap-0.5">
+            <button onClick={() => setTab("overdue")} className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${tab === "overdue" ? "bg-red-600 text-white" : "text-neutral-400 hover:text-white"}`}>
+              Overdue
+            </button>
+            <button onClick={() => setTab("current")} className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${tab === "current" ? "bg-blue-600 text-white" : "text-neutral-400 hover:text-white"}`}>
+              Current
+            </button>
+          </div>
+
+          <button
+            onClick={() => {
+              setShowAllReps(!showAllReps)
+              setSelectedReps([]) // Clear specific rep filter on toggle
+            }}
+            className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors border ${
+              showAllReps 
+                ? "bg-emerald-600/80 text-white border-emerald-500 hover:bg-emerald-600" 
+                : "bg-neutral-800 text-neutral-400 border-neutral-700 hover:text-white hover:bg-neutral-750"
+            }`}
+          >
+            {showAllReps ? "Showing: All Sales Reps" : "Showing: My Invoices Only"}
           </button>
-          <button onClick={() => setTab("current")} className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${tab === "current" ? "bg-blue-600 text-white" : "text-neutral-400 hover:text-white"}`}>
-            Current
-          </button>
+
+          {showAllReps && isAdmin && reps.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Representative:</span>
+              <select
+                value={selectedReps[0] || ""}
+                onChange={e => setSelectedReps(e.target.value ? [e.target.value] : [])}
+                className="bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+              >
+                <option value="">All Reps</option>
+                {reps.map(r => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Filters Button */}
@@ -1305,7 +1403,7 @@ export default function CollectionsPage() {
                 </div>
 
                 {/* Representative */}
-                {reps.length > 1 && (
+                {showAllReps && isAdmin && reps.length > 0 && (
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Sales Representative</label>
                     <select 
@@ -1384,7 +1482,7 @@ export default function CollectionsPage() {
       )}
 
       {/* Invoice Table */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
+      <div className="flex-1 overflow-x-auto overflow-y-auto scrollbar-thin">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full text-neutral-500 gap-3">
             <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
@@ -1438,7 +1536,16 @@ export default function CollectionsPage() {
                         className="border-b border-neutral-800/60 hover:bg-neutral-800/20 transition-all group cursor-pointer"
                       >
                         <td className="px-4 py-3">
-                          <span className="font-mono text-xs text-neutral-300">#{inv.invoice_number}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewingInvoiceZohoId(inv.zohoId);
+                            }}
+                            className="font-mono text-xs text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer bg-transparent border-none p-0 text-left focus:outline-none font-bold"
+                            title="Click to view Invoice PDF"
+                          >
+                            #{inv.invoice_number}
+                          </button>
                         </td>
                         <td className="px-4 py-3">
                           <span className="font-semibold text-white text-xs">{inv.customer_name}</span>
@@ -1514,6 +1621,7 @@ export default function CollectionsPage() {
           invoice={selectedInvoice}
           onClose={() => setSelectedInvoice(null)}
           onRefresh={fetchInvoices}
+          onViewInvoicePDF={setViewingInvoiceZohoId}
         />
       )}
 
@@ -1532,6 +1640,44 @@ export default function CollectionsPage() {
           onClose={() => setShowRunCardDirect(null)}
           onSuccess={fetchInvoices}
         />
+      )}
+      {/* ── Invoice PDF Modal ── */}
+      {viewingInvoiceZohoId && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setViewingInvoiceZohoId(null)} />
+          <div className="relative w-full max-w-4xl h-[90vh] bg-neutral-900 border border-neutral-800 rounded-2xl flex flex-col shadow-2xl text-white z-[9999] p-5">
+            {/* Header */}
+            <div className="flex justify-between items-center pb-3 border-b border-neutral-800 mb-3 shrink-0">
+              <div className="flex items-center gap-2 text-sm font-bold">
+                <FiFileText className="text-amber-500" /> Invoice PDF Preview
+              </div>
+              <div className="flex items-center gap-2">
+                <a 
+                  href={`/api/get-invoice-pdf?id=${viewingInvoiceZohoId}&download=true`}
+                  className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-1 px-3 rounded-lg text-xs transition-colors flex items-center gap-1.5"
+                >
+                  Download
+                </a>
+                <button 
+                  onClick={() => setViewingInvoiceZohoId(null)} 
+                  className="text-neutral-400 hover:text-white bg-neutral-800 p-1.5 rounded-full transition-colors"
+                >
+                  <FiX size={15} />
+                </button>
+              </div>
+            </div>
+            
+            {/* PDF Viewer iframe */}
+            <div className="flex-1 w-full bg-neutral-950 rounded-xl overflow-hidden relative">
+              <iframe 
+                src={`/api/get-invoice-pdf?id=${viewingInvoiceZohoId}`}
+                className="w-full h-full border-none"
+                title="Invoice PDF Preview"
+              />
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   )

@@ -18,9 +18,9 @@ export function DealsHistory({ deals }: { deals: any[] }) {
         <FiDollarSign className="mr-2 text-emerald-500" /> Deals & Sales History
       </h3>
       
-      <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
         {pagination.paginatedItems.map(deal => (
-          <div key={deal.id} className="bg-neutral-800/50 border border-neutral-700 hover:border-emerald-500/30 p-5 rounded-xl transition-all group relative overflow-hidden">
+          <div key={deal.id} className="bg-neutral-800/50 border border-neutral-700 hover:border-emerald-500/30 p-5 rounded-xl transition-all group relative overflow-hidden flex flex-col justify-between h-full">
             {/* Background decoration */}
             {deal.stage.includes('Won') || deal.stage.includes('Paid') ? (
                <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-bl-full -mr-2 -mt-2"></div>
@@ -37,24 +37,26 @@ export function DealsHistory({ deals }: { deals: any[] }) {
               </span>
             </div>
             
-            <div className="flex items-end justify-between mb-4">
-              <div className="text-2xl font-bold text-white">
-                ${deal.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              <div className="flex items-center text-xs text-neutral-400">
-                <FiCalendar className="mr-1" />
-                {deal.closingDate ? new Date(deal.closingDate).toLocaleDateString() : 'N/A'}
-              </div>
-            </div>
-
-            {deal.invoicedItems && (
-              <div className="mt-4 pt-4 border-t border-neutral-700/50">
-                <div className="text-xs font-semibold text-neutral-500 flex items-center mb-2">
-                  <FiBox className="mr-1" /> Products Included
+            <div className="mt-auto pt-4">
+              <div className="flex items-end justify-between mb-4">
+                <div className="text-2xl font-bold text-white">
+                  ${deal.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
-                <p className="text-xs text-neutral-300 leading-relaxed max-h-24 overflow-y-auto bg-neutral-900 p-2 rounded border border-neutral-800" style={{ whiteSpace: 'pre-wrap' }}>{deal.invoicedItems}</p>
+                <div className="flex items-center text-xs text-neutral-400">
+                  <FiCalendar className="mr-1" />
+                  {deal.closingDate ? new Date(deal.closingDate).toLocaleDateString() : 'N/A'}
+                </div>
               </div>
-            )}
+
+              {deal.invoicedItems && (
+                <div className="mt-4 pt-4 border-t border-neutral-700/50">
+                  <div className="text-xs font-semibold text-neutral-500 flex items-center mb-2">
+                    <FiBox className="mr-1" /> Products Included
+                  </div>
+                  <p className="text-xs text-neutral-300 leading-relaxed max-h-24 overflow-y-auto bg-neutral-900 p-2 rounded border border-neutral-800" style={{ whiteSpace: 'pre-wrap' }}>{deal.invoicedItems}</p>
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>

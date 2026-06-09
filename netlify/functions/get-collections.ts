@@ -88,6 +88,8 @@ export const handler: Handler = async (event) => {
         customer_id: inv.account?.zohoId || inv.accountId,
         salesperson_name: inv.account?.owner?.name || "Unassigned",
         salesperson_id: inv.account?.owner?.id,
+        salesperson_zoho_id: inv.account?.owner?.zohoId || null,
+        salesperson_email: inv.account?.owner?.email || null,
         due_date: inv.dueDate ? inv.dueDate.toISOString().split("T")[0] : null,
         issue_date: inv.issueDate ? inv.issueDate.toISOString().split("T")[0] : null,
         balance: inv.amount,

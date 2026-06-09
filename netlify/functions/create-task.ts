@@ -20,7 +20,14 @@ export const handler: Handler = async (event, context) => {
     const token = await getZohoAccessToken()
     
     // Resolve user to get zohoId
-    const user = await prisma.user.findUnique({ where: { id: ownerId } })
+    let user = await prisma.user.findUnique({ where: { id: ownerId } })
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { zohoId: ownerId } })
+    }
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { email: ownerId } })
+    }
+    
     if (!user || !user.zohoId) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Owner has no valid Zoho ID" }) }
     }

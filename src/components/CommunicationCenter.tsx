@@ -77,26 +77,26 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
       </h2>
 
       {/* Tabs */}
-      <div className="flex space-x-2 border-b border-neutral-800 pb-2">
-        <button onClick={() => { setActiveTab("CALL"); setNote(""); }} className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors ${activeTab === 'CALL' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}><FiPhoneCall /> Call</button>
-        <button onClick={() => { setActiveTab("SMS"); setNote(templates.SMS); }} className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors ${activeTab === 'SMS' ? 'bg-emerald-600 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}><FiMessageSquare /> SMS</button>
-        <button onClick={() => { setActiveTab("EMAIL"); setNote(templates.EMAIL); }} className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors ${activeTab === 'EMAIL' ? 'bg-purple-600 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}><FiMail /> Email</button>
-        <button onClick={() => { setActiveTab("WHATSAPP"); setNote(templates.WHATSAPP); }} className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors ${activeTab === 'WHATSAPP' ? 'bg-green-500 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}><FiMessageSquare /> WhatsApp</button>
+      <div className="flex space-x-2 border-b border-neutral-800 pb-2 overflow-x-auto flex-nowrap scrollbar-none">
+        <button onClick={() => { setActiveTab("CALL"); setNote(""); }} className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors whitespace-nowrap ${activeTab === 'CALL' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}><FiPhoneCall /> Call</button>
+        <button onClick={() => { setActiveTab("SMS"); setNote(templates.SMS); }} className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors whitespace-nowrap ${activeTab === 'SMS' ? 'bg-emerald-600 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}><FiMessageSquare /> SMS</button>
+        <button onClick={() => { setActiveTab("EMAIL"); setNote(templates.EMAIL); }} className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors whitespace-nowrap ${activeTab === 'EMAIL' ? 'bg-purple-600 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}><FiMail /> Email</button>
+        <button onClick={() => { setActiveTab("WHATSAPP"); setNote(templates.WHATSAPP); }} className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors whitespace-nowrap ${activeTab === 'WHATSAPP' ? 'bg-green-500 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}><FiMessageSquare /> WhatsApp</button>
       </div>
 
       {/* Primary Contact Info */}
-      <div className="p-4 bg-neutral-800/50 border border-neutral-700 rounded-lg flex items-center justify-between">
+      <div className="p-4 bg-neutral-800/50 border border-neutral-700 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="text-sm text-neutral-400">Communicating with</div>
-          <div className="font-bold text-lg text-white">{primaryContact.firstName} {primaryContact.lastName}</div>
-          <div className="text-xs text-neutral-500">{activeTab === 'EMAIL' ? primaryContact.email : primaryContact.phone}</div>
+          <div className="text-xs text-neutral-400">Communicating with</div>
+          <div className="font-bold text-base sm:text-lg text-white">{primaryContact.firstName} {primaryContact.lastName}</div>
+          <div className="text-xs text-neutral-500 truncate max-w-[260px]">{activeTab === 'EMAIL' ? primaryContact.email : primaryContact.phone}</div>
         </div>
         
         {activeTab === 'CALL' && (
           <a 
             href={cleanPhone ? `tel:${cleanPhone}` : undefined}
             onClick={() => setIsCalling(!isCalling)}
-            className={`px-6 py-2 rounded font-bold transition-colors shadow-lg block text-center ${
+            className={`px-6 py-2 rounded font-bold transition-colors shadow-lg w-full sm:w-auto block text-center ${
               isCalling ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/50' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/50'
             } ${!cleanPhone ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
           >

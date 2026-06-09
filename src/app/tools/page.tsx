@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
 import { 
   FiSearch, FiFileText, FiImage, FiVideo, FiDownload, FiShare2, 
-  FiGrid, FiList, FiPlus, FiEdit2, FiTrash2, FiGlobe, FiCheck 
+  FiGrid, FiList, FiPlus, FiEdit2, FiTrash2, FiGlobe, FiCheck, FiPackage
 } from "react-icons/fi"
 
 interface MediaAsset {
@@ -26,6 +26,45 @@ export default function ToolsRepository() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
+  // Products State
+  const [activeTab, setActiveTab] = useState<"media" | "products">("media")
+  const [products, setProducts] = useState<any[]>([])
+  const [productsLoading, setProductsLoading] = useState(false)
+  const [productSearch, setProductSearch] = useState("")
+  const [productCategory, setProductCategory] = useState("All")
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null)
+
+  const parseProductDescription = (desc: string | null) => {
+    if (!desc) return { text: "—", cost: null, vendor: null, retail: null, pertinentInfo: null, image: null }
+    try {
+      const parsed = JSON.parse(desc)
+      if (parsed && typeof parsed === "object") {
+        return {
+          text: parsed.text || "—",
+          cost: parsed.cost !== undefined ? parsed.cost : null,
+          vendor: parsed.vendor || null,
+          retail: parsed.retail !== undefined ? parsed.retail : null,
+          pertinentInfo: parsed.pertinentInfo || null,
+          image: parsed.image || null
+        }
+      }
+    } catch (e) {
+      // Ignore and treat as plain text
+    }
+    return { text: desc, cost: null, vendor: null, retail: null, pertinentInfo: null, image: null }
+  }
+
+  const getProductImage = (name: string, sku: string) => {
+    const s = (sku || "").toLowerCase()
+    const n = (name || "").toLowerCase()
+    if (s.includes("td-bl-100") || n.includes("turbo blade")) return "/images/turbo_blade.png"
+    if (s.includes("td-bl-102") || n.includes("continuous rim")) return "/images/continuous_rim_blade.png"
+    if (s.includes("td-pp-200") || n.includes("polishing pad")) return "/images/polishing_pads.png"
+    if (s.includes("td-cb-300") || n.includes("core bit")) return "/images/core_bit.png"
+    if (s.includes("td-cw-400") || n.includes("cup wheel") || n.includes("grinding")) return "/images/cup_wheel.png"
+    return null
+  }
+
   // Admin Forms State
   const [showModal, setShowModal] = useState(false)
   const [editingAsset, setEditingAsset] = useState<MediaAsset | null>(null)
@@ -39,6 +78,7 @@ export default function ToolsRepository() {
 
   const categories = ["All", "Brochures", "Spec Sheets", "Social Media", "Training", "Branding"]
   const assetTypes = ["PDF", "Image", "Video", "ZIP", "Link"]
+  const productCategories = ["All", "Blades", "Polishing", "Core Bits", "Grinding"]
 
   // 1. Check if Admin
   const isAdmin = currentUser?.role?.toLowerCase().includes("admin") || 
@@ -61,9 +101,31 @@ export default function ToolsRepository() {
     }
   }
 
+  // Fetch Products
+  const fetchProducts = async () => {
+    setProductsLoading(true)
+    try {
+      const res = await fetch("/api/get-products")
+      const data = await res.json()
+      if (data.success) {
+        setProducts(data.products)
+      }
+    } catch (e) {
+      console.error("Error fetching products:", e)
+    } finally {
+      setProductsLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchAssets()
   }, [])
+
+  useEffect(() => {
+    if (activeTab === "products" && products.length === 0) {
+      fetchProducts()
+    }
+  }, [activeTab, products.length])
 
   // 3. Asset Action Handlers
   const handleDownload = (asset: MediaAsset) => {
@@ -176,6 +238,17 @@ export default function ToolsRepository() {
     return matchesSearch && matchesCategory
   })
 
+  const filteredProducts = products.filter(p => {
+    const parsed = parseProductDescription(p.description)
+    const matchesSearch = p.sku.toLowerCase().includes(productSearch.toLowerCase()) ||
+                          p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                          parsed.text.toLowerCase().includes(productSearch.toLowerCase()) ||
+                          (parsed.vendor && parsed.vendor.toLowerCase().includes(productSearch.toLowerCase())) ||
+                          (parsed.pertinentInfo && parsed.pertinentInfo.toLowerCase().includes(productSearch.toLowerCase()))
+    const matchesCategory = productCategory === "All" || p.category === productCategory
+    return matchesSearch && matchesCategory
+  })
+
   // Helper for rendering file icons
   const getIcon = (type: string) => {
     const t = type.toUpperCase()
@@ -200,7 +273,7 @@ export default function ToolsRepository() {
               📂 Tools & Media Repository
             </h1>
           </div>
-          {isAdmin && (
+          {isAdmin && activeTab === "media" && (
             <button
               onClick={openAddModal}
               className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 text-xs rounded-full transition-all shadow-lg hover:shadow-emerald-500/10"
@@ -213,198 +286,329 @@ export default function ToolsRepository() {
 
       {/* ── Main Container ── */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        
-        {/* Search, Layout Selector, and Roles */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="relative w-full md:w-96">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-            <input 
-              type="text" 
-              placeholder="Search marketing materials..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-emerald-500 transition-colors text-white"
-            />
-          </div>
-          
-          <div className="flex items-center justify-between md:justify-end gap-3">
-            <div className="text-[10px] uppercase font-bold tracking-widest text-neutral-500">
-              User Level: <span className={isAdmin ? "text-emerald-400 font-extrabold" : "text-neutral-400"}>{currentUser?.role || "Sales Rep"}</span>
-            </div>
-            <div className="bg-neutral-900 rounded-lg p-0.5 flex border border-neutral-800">
-              <button 
-                onClick={() => setViewMode("grid")} 
-                className={`p-2 rounded ${viewMode === 'grid' ? 'bg-neutral-800 text-emerald-400' : 'text-neutral-500 hover:text-white'}`}
-                title="Grid view"
-              >
-                <FiGrid />
-              </button>
-              <button 
-                onClick={() => setViewMode("list")} 
-                className={`p-2 rounded ${viewMode === 'list' ? 'bg-neutral-800 text-emerald-400' : 'text-neutral-500 hover:text-white'}`}
-                title="List view"
-              >
-                <FiList />
-              </button>
-            </div>
-          </div>
+
+        {/* Tab Switcher */}
+        <div className="flex bg-neutral-900 border border-neutral-800 rounded-xl p-1 gap-1 max-w-md">
+          <button
+            onClick={() => setActiveTab("media")}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              activeTab === "media"
+                ? "bg-emerald-600 text-white shadow-lg"
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            📁 Media & Marketing Assets
+          </button>
+          <button
+            onClick={() => setActiveTab("products")}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              activeTab === "products"
+                ? "bg-emerald-600 text-white shadow-lg"
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            💎 Product Catalog Lookup
+          </button>
         </div>
 
-        {/* Categories Bar */}
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-          {categories.map(cat => (
-            <button 
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                activeCategory === cat 
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                  : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white border border-neutral-800'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        {/* Loader */}
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : (
+        {activeTab === "media" ? (
           <>
-            {/* Grid View */}
-            {viewMode === 'grid' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {filteredAssets.map(asset => (
-                  <div key={asset.id} className="bg-neutral-900/60 border border-neutral-800 hover:border-neutral-700 rounded-xl overflow-hidden transition-all group flex flex-col shadow-xl">
-                    <div className="h-28 bg-neutral-900 flex items-center justify-center text-3xl group-hover:scale-105 transition-transform duration-300 relative border-b border-neutral-800">
-                      {getIcon(asset.type)}
-                      <div className="absolute top-2 right-2 bg-neutral-800 text-[9px] font-bold px-2 py-0.5 rounded text-neutral-400 border border-neutral-700">
-                        {asset.type}
-                      </div>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-between">
-                      <div>
-                        <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1">
-                          {asset.category}
-                        </div>
-                        <h3 className="text-xs font-bold text-white mb-2 line-clamp-2" title={asset.title}>
-                          {asset.title}
-                        </h3>
-                      </div>
-                      <div className="pt-3 border-t border-neutral-800/50 flex items-center justify-between">
-                        <span className="text-[10px] text-neutral-500">{asset.size}</span>
-                        <div className="flex gap-1">
-                          <button 
-                            onClick={() => handleDownload(asset)}
-                            className="p-1.5 bg-neutral-800 hover:bg-emerald-600 rounded text-neutral-300 hover:text-white transition-colors" 
-                            title="Download/Open"
-                          >
-                            <FiDownload size={13} />
-                          </button>
-                          <button 
-                            onClick={() => handleCopyLink(asset)}
-                            className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded text-neutral-300 hover:text-white transition-colors" 
-                            title="Copy link to send"
-                          >
-                            {copiedId === asset.id ? <FiCheck size={13} className="text-emerald-400" /> : <FiShare2 size={13} />}
-                          </button>
-                          {isAdmin && (
-                            <>
-                              <button 
-                                onClick={() => openEditModal(asset)}
-                                className="p-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white transition-colors" 
-                                title="Edit"
-                              >
-                                <FiEdit2 size={13} />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteAsset(asset)}
-                                className="p-1.5 bg-neutral-800 hover:bg-red-900 rounded text-neutral-400 hover:text-red-300 transition-colors" 
-                                title="Delete"
-                              >
-                                <FiTrash2 size={13} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            {/* Search, Layout Selector, and Roles */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="relative w-full md:w-96">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+                <input 
+                  type="text" 
+                  placeholder="Search marketing materials..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-emerald-500 transition-colors text-white"
+                />
+              </div>
+              
+              <div className="flex items-center justify-between md:justify-end gap-3">
+                <div className="text-[10px] uppercase font-bold tracking-widest text-neutral-500">
+                  User Level: <span className={isAdmin ? "text-emerald-400 font-extrabold" : "text-neutral-400"}>{currentUser?.role || "Sales Rep"}</span>
+                </div>
+                <div className="bg-neutral-900 rounded-lg p-0.5 flex border border-neutral-800">
+                  <button 
+                    onClick={() => setViewMode("grid")} 
+                    className={`p-2 rounded ${viewMode === 'grid' ? 'bg-neutral-800 text-emerald-400' : 'text-neutral-500 hover:text-white'}`}
+                    title="Grid view"
+                  >
+                    <FiGrid />
+                  </button>
+                  <button 
+                    onClick={() => setViewMode("list")} 
+                    className={`p-2 rounded ${viewMode === 'list' ? 'bg-neutral-800 text-emerald-400' : 'text-neutral-500 hover:text-white'}`}
+                    title="List view"
+                  >
+                    <FiList />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Categories Bar */}
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+              {categories.map(cat => (
+                <button 
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                    activeCategory === cat 
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                      : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white border border-neutral-800'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* Loader */}
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
             ) : (
-              /* List View */
+              <>
+                {/* Grid View */}
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {filteredAssets.map(asset => (
+                      <div key={asset.id} className="bg-neutral-900/60 border border-neutral-800 hover:border-neutral-700 rounded-xl overflow-hidden transition-all group flex flex-col shadow-xl">
+                        <div className="h-28 bg-neutral-900 flex items-center justify-center text-3xl group-hover:scale-105 transition-transform duration-300 relative border-b border-neutral-800">
+                          {getIcon(asset.type)}
+                          <div className="absolute top-2 right-2 bg-neutral-800 text-[9px] font-bold px-2 py-0.5 rounded text-neutral-400 border border-neutral-700">
+                            {asset.type}
+                          </div>
+                        </div>
+                        <div className="p-4 flex-1 flex flex-col justify-between">
+                          <div>
+                            <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1">
+                              {asset.category}
+                            </div>
+                            <h3 className="text-xs font-bold text-white mb-2 line-clamp-2" title={asset.title}>
+                              {asset.title}
+                            </h3>
+                          </div>
+                          <div className="pt-3 border-t border-neutral-800/50 flex items-center justify-between">
+                            <span className="text-[10px] text-neutral-500">{asset.size}</span>
+                            <div className="flex gap-1">
+                              <button 
+                                onClick={() => handleDownload(asset)}
+                                className="p-1.5 bg-neutral-800 hover:bg-emerald-600 rounded text-neutral-300 hover:text-white transition-colors" 
+                                title="Download/Open"
+                              >
+                                <FiDownload size={13} />
+                              </button>
+                              <button 
+                                onClick={() => handleCopyLink(asset)}
+                                className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded text-neutral-300 hover:text-white transition-colors" 
+                                title="Copy link to send"
+                              >
+                                {copiedId === asset.id ? <FiCheck size={13} className="text-emerald-400" /> : <FiShare2 size={13} />}
+                              </button>
+                              {isAdmin && (
+                                <>
+                                  <button 
+                                    onClick={() => openEditModal(asset)}
+                                    className="p-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white transition-colors" 
+                                    title="Edit"
+                                  >
+                                    <FiEdit2 size={13} />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteAsset(asset)}
+                                    className="p-1.5 bg-neutral-800 hover:bg-red-900 rounded text-neutral-400 hover:text-red-300 transition-colors" 
+                                    title="Delete"
+                                  >
+                                    <FiTrash2 size={13} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  /* List View */
+                  <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-x-auto shadow-2xl">
+                    <table className="w-full text-left text-xs min-w-[600px]">
+                      <thead className="bg-neutral-800/80 text-neutral-400 border-b border-neutral-800 uppercase tracking-wider text-[9px] font-bold">
+                        <tr>
+                          <th className="p-4">Name</th>
+                          <th className="p-4">Category</th>
+                          <th className="p-4">Type</th>
+                          <th className="p-4">Size</th>
+                          <th className="p-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-800">
+                        {filteredAssets.map(asset => (
+                          <tr key={asset.id} className="hover:bg-neutral-800/30 transition-colors">
+                            <td className="p-4 flex items-center gap-3">
+                              <div className="text-base shrink-0">{getIcon(asset.type)}</div>
+                              <span className="font-semibold text-white truncate max-w-xs sm:max-w-md">{asset.title}</span>
+                            </td>
+                            <td className="p-4 text-emerald-400 font-semibold">{asset.category}</td>
+                            <td className="p-4 text-neutral-400">{asset.type}</td>
+                            <td className="p-4 text-neutral-500">{asset.size}</td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button 
+                                  onClick={() => handleDownload(asset)}
+                                  className="p-1.5 bg-neutral-800 hover:bg-emerald-600 rounded text-neutral-300 hover:text-white transition-colors" 
+                                  title="Download/Open"
+                                >
+                                  <FiDownload size={12} />
+                                </button>
+                                <button 
+                                  onClick={() => handleCopyLink(asset)}
+                                  className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded text-neutral-300 hover:text-white transition-colors" 
+                                  title="Copy link to send"
+                                >
+                                  {copiedId === asset.id ? <FiCheck size={12} className="text-emerald-400" /> : <FiShare2 size={12} />}
+                                </button>
+                                {isAdmin && (
+                                  <>
+                                    <button 
+                                      onClick={() => openEditModal(asset)}
+                                      className="p-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white transition-colors" 
+                                      title="Edit"
+                                    >
+                                      <FiEdit2 size={12} />
+                                    </button>
+                                    <button 
+                                      onClick={() => handleDeleteAsset(asset)}
+                                      className="p-1.5 bg-neutral-800 hover:bg-red-900 rounded text-neutral-400 hover:text-red-300 transition-colors" 
+                                      title="Delete"
+                                    >
+                                      <FiTrash2 size={12} />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {filteredAssets.length === 0 && (
+                  <div className="p-16 text-center border border-dashed border-neutral-800 rounded-xl bg-neutral-900/10">
+                    <FiSearch className="mx-auto text-4xl text-neutral-600 mb-3" />
+                    <p className="text-neutral-400 font-medium text-sm">No assets found matching your criteria.</p>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Product Search View */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="relative w-full md:w-96">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+                <input 
+                  type="text" 
+                  placeholder="Search SKU, product name, or description..." 
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-emerald-500 transition-colors text-white"
+                />
+              </div>
+            </div>
+
+            {/* Product Categories Bar */}
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+              {productCategories.map(cat => (
+                <button 
+                  key={cat}
+                  onClick={() => setProductCategory(cat)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                    productCategory === cat 
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                      : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white border border-neutral-800'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* Products Table */}
+            {productsLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : (
               <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-x-auto shadow-2xl">
-                <table className="w-full text-left text-xs min-w-[600px]">
+                <table className="w-full text-left text-xs min-w-[700px]">
                   <thead className="bg-neutral-800/80 text-neutral-400 border-b border-neutral-800 uppercase tracking-wider text-[9px] font-bold">
                     <tr>
-                      <th className="p-4">Name</th>
+                      <th className="p-4 w-28">SKU</th>
+                      <th className="p-4">Product Name</th>
                       <th className="p-4">Category</th>
-                      <th className="p-4">Type</th>
-                      <th className="p-4">Size</th>
-                      <th className="p-4 text-right">Actions</th>
+                      <th className="p-4">Description</th>
+                      <th className="p-4 text-right">Price</th>
+                      <th className="p-4 text-right">Stock</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-800">
-                    {filteredAssets.map(asset => (
-                      <tr key={asset.id} className="hover:bg-neutral-800/30 transition-colors">
-                        <td className="p-4 flex items-center gap-3">
-                          <div className="text-base shrink-0">{getIcon(asset.type)}</div>
-                          <span className="font-semibold text-white truncate max-w-xs sm:max-w-md">{asset.title}</span>
-                        </td>
-                        <td className="p-4 text-emerald-400 font-semibold">{asset.category}</td>
-                        <td className="p-4 text-neutral-400">{asset.type}</td>
-                        <td className="p-4 text-neutral-500">{asset.size}</td>
-                        <td className="p-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button 
-                              onClick={() => handleDownload(asset)}
-                              className="p-1.5 bg-neutral-800 hover:bg-emerald-600 rounded text-neutral-300 hover:text-white transition-colors" 
-                              title="Download/Open"
-                            >
-                              <FiDownload size={12} />
-                            </button>
-                            <button 
-                              onClick={() => handleCopyLink(asset)}
-                              className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded text-neutral-300 hover:text-white transition-colors" 
-                              title="Copy link to send"
-                            >
-                              {copiedId === asset.id ? <FiCheck size={12} className="text-emerald-400" /> : <FiShare2 size={12} />}
-                            </button>
-                            {isAdmin && (
-                              <>
-                                <button 
-                                  onClick={() => openEditModal(asset)}
-                                  className="p-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white transition-colors" 
-                                  title="Edit"
-                                >
-                                  <FiEdit2 size={12} />
-                                </button>
-                                <button 
-                                  onClick={() => handleDeleteAsset(asset)}
-                                  className="p-1.5 bg-neutral-800 hover:bg-red-900 rounded text-neutral-400 hover:text-red-300 transition-colors" 
-                                  title="Delete"
-                                >
-                                  <FiTrash2 size={12} />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredProducts.map(p => {
+                      const parsed = parseProductDescription(p.description)
+                      return (
+                        <tr 
+                          key={p.id} 
+                          onClick={() => setSelectedProduct(p)}
+                          className="hover:bg-neutral-800/30 transition-colors cursor-pointer"
+                        >
+                          <td className="p-4 font-mono font-bold text-neutral-300">{p.sku}</td>
+                          <td className="p-4 font-semibold text-white">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-neutral-800 border border-neutral-700/50 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                                {parsed.image || getProductImage(p.name, p.sku) ? (
+                                  <img 
+                                    src={parsed.image || getProductImage(p.name, p.sku) || undefined} 
+                                    alt={p.name} 
+                                    className="w-full h-full object-cover" 
+                                  />
+                                ) : (
+                                  <FiPackage className="text-neutral-500" size={14} />
+                                )}
+                              </div>
+                              <span>{p.name}</span>
+                            </div>
+                          </td>
+                          <td className="p-4 text-emerald-400 font-semibold">{p.category}</td>
+                          <td className="p-4 text-neutral-400 max-w-xs truncate" title={parsed.text}>{parsed.text}</td>
+                          <td className="p-4 text-right text-white font-bold">${parseFloat(p.price || 0).toFixed(2)}</td>
+                          <td className="p-4 text-right">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              p.stock > 50 ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-500/20' :
+                              p.stock > 10 ? 'bg-amber-950/40 text-amber-400 border border-amber-500/20' :
+                              'bg-red-950/40 text-red-400 border border-red-500/20'
+                            }`}>
+                              {p.stock} in stock
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
-              </div>
-            )}
-
-            {filteredAssets.length === 0 && (
-              <div className="p-16 text-center border border-dashed border-neutral-800 rounded-xl bg-neutral-900/10">
-                <FiSearch className="mx-auto text-4xl text-neutral-600 mb-3" />
-                <p className="text-neutral-400 font-medium text-sm">No assets found matching your criteria.</p>
+                {filteredProducts.length === 0 && (
+                  <div className="p-16 text-center border-t border-neutral-800 bg-neutral-900/10">
+                    <FiSearch className="mx-auto text-4xl text-neutral-600 mb-3" />
+                    <p className="text-neutral-400 font-medium text-sm">No products found matching your search.</p>
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -517,6 +721,128 @@ export default function ToolsRepository() {
           </div>
         </div>
       )}
+
+      {/* ── Product Details Modal ── */}
+      {selectedProduct && (() => {
+        const parsed = parseProductDescription(selectedProduct.description)
+        const costVal = parsed.cost !== null ? parseFloat(parsed.cost as any) : null
+        const retailVal = parseFloat(selectedProduct.price || 0)
+        const profit = costVal !== null ? (retailVal - costVal) : null
+        const profitMargin = (profit !== null && retailVal > 0) ? ((profit / retailVal) * 100) : null
+
+        return (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+            <div className="bg-neutral-900 border border-neutral-800 w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl">
+              {/* Header */}
+              <div className="bg-neutral-800 px-6 py-4 border-b border-neutral-750 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    {selectedProduct.category}
+                  </span>
+                  <span className="font-mono text-neutral-400 text-xs font-bold">{selectedProduct.sku}</span>
+                </div>
+                <button 
+                  onClick={() => setSelectedProduct(null)}
+                  className="text-neutral-400 hover:text-white transition-colors text-xl font-bold p-1 hover:bg-neutral-700/40 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer"
+                >
+                  &times;
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-6">
+                {(parsed.image || getProductImage(selectedProduct.name, selectedProduct.sku)) && (
+                   <div className="w-full h-44 rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800 flex items-center justify-center relative shadow-inner">
+                     <img 
+                       src={parsed.image || getProductImage(selectedProduct.name, selectedProduct.sku) || undefined} 
+                       alt={selectedProduct.name} 
+                       className="w-full h-full object-cover animate-scaleIn" 
+                     />
+                   </div>
+                 )}
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2 mb-2">
+                    <FiPackage className="text-emerald-500 shrink-0" />
+                    {selectedProduct.name}
+                  </h3>
+                  <p className="text-xs text-neutral-400 leading-relaxed bg-neutral-950/45 border border-neutral-800/60 p-3 rounded-lg">
+                    {parsed.text}
+                  </p>
+                </div>
+
+                {/* Key Metrics Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {/* Retail Price */}
+                  <div className="bg-neutral-950/40 border border-neutral-800/80 p-3.5 rounded-xl flex flex-col justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Retail Price</span>
+                    <span className="text-base font-extrabold text-white mt-1">${retailVal.toFixed(2)}</span>
+                  </div>
+
+                  {/* Cost Price */}
+                  <div className="bg-neutral-950/40 border border-neutral-800/80 p-3.5 rounded-xl flex flex-col justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Vendor Cost</span>
+                    <span className="text-base font-extrabold text-neutral-300 mt-1">
+                      {costVal !== null ? `$${costVal.toFixed(2)}` : "—"}
+                    </span>
+                  </div>
+
+                  {/* Profit Margin */}
+                  <div className="bg-neutral-950/40 border border-neutral-800/80 p-3.5 rounded-xl flex flex-col justify-between col-span-2 sm:col-span-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Markup Margin</span>
+                    {profit !== null && profitMargin !== null ? (
+                      <div className="mt-1 flex flex-col">
+                        <span className="text-xs font-extrabold text-emerald-400">+${profit.toFixed(2)}</span>
+                        <span className="text-[9px] font-bold text-emerald-500/90">({profitMargin.toFixed(1)}% margin)</span>
+                      </div>
+                    ) : (
+                      <span className="text-base font-extrabold text-neutral-500 mt-1">—</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Vendor & Stock Info */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-neutral-950/20 border border-neutral-800/60 p-4 rounded-xl space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">Preferred Vendor</span>
+                    <span className="text-xs font-semibold text-neutral-350 block">{parsed.vendor || "Not Configured"}</span>
+                  </div>
+                  <div className="bg-neutral-950/20 border border-neutral-800/60 p-4 rounded-xl space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">Inventory Stock</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        selectedProduct.stock > 50 ? 'bg-emerald-500 shadow-sm shadow-emerald-500/20' :
+                        selectedProduct.stock > 10 ? 'bg-amber-500 shadow-sm shadow-amber-500/20' :
+                        'bg-red-500 shadow-sm shadow-red-500/20'
+                      }`} />
+                      <span className="text-xs font-bold text-white">{selectedProduct.stock} items in stock</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Specs / Pertinent Info */}
+                {parsed.pertinentInfo && (
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">Pertinent Info & Technical Specs</span>
+                    <div className="bg-neutral-950/50 border border-neutral-800 p-4 rounded-xl text-xs text-neutral-300 leading-relaxed font-sans whitespace-pre-line">
+                      {parsed.pertinentInfo}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="bg-neutral-900/60 px-6 py-4 border-t border-neutral-800 flex justify-end">
+                <button
+                  onClick={() => setSelectedProduct(null)}
+                  className="bg-neutral-850 hover:bg-neutral-800 text-white font-bold px-4 py-2 text-xs rounded-lg transition-colors cursor-pointer border border-neutral-800"
+                >
+                  Close Catalog Entry
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

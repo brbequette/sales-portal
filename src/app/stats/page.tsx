@@ -6,8 +6,15 @@ import { useEffect, useState, useMemo } from "react"
 import { usePagination, Pagination } from "@/components/Pagination"
 import {
   FiBarChart2, FiTrendingUp, FiDollarSign, FiUsers, FiAward,
-  FiChevronDown, FiChevronUp, FiX
+  FiChevronDown, FiChevronUp, FiX, FiTarget, FiCalendar
 } from "react-icons/fi"
+
+interface PeriodStats {
+  revenue: number
+  profit: number
+  closedWonDeals: number
+  commissions: number
+}
 
 interface Rep {
   repId: string
@@ -24,6 +31,10 @@ interface Rep {
   dealRevenue: number
   commissions: number
   overdueCollections: number
+  currentWeek: PeriodStats
+  weeklyRecord: PeriodStats
+  currentMonth: PeriodStats
+  monthlyRecord: PeriodStats
 }
 
 interface CompanyData {
@@ -43,6 +54,10 @@ function formatCurrency(value: number): string {
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`
   if (value >= 1000) return `$${(value / 1000).toFixed(1)}k`
   return `$${value.toFixed(0)}`
+}
+
+function formatPreciseCurrency(value: number): string {
+  return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function formatNumber(value: number): string {
@@ -69,6 +84,7 @@ export default function StatsPage() {
   const [selectedRep, setSelectedRep] = useState<Rep | null>(null)
   const [sortField, setSortField] = useState<SortField>("revenue")
   const [sortAsc, setSortAsc] = useState(false)
+  const [trackerPeriod, setTrackerPeriod] = useState<"week" | "month">("month")
 
   useEffect(() => {
     if (!isInitialized) return
@@ -442,6 +458,158 @@ export default function StatsPage() {
                   </div>
                 )
               })}
+            </div>
+
+            {/* Record Target Tracker Section */}
+            <div className="border-t border-neutral-800 bg-neutral-950/20 p-4 sm:p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-sky-950/60 border border-sky-500/20">
+                    <FiTarget className="text-sky-400" size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Record Target Tracker</h4>
+                    <p className="text-[9px] text-neutral-500">Current progress vs all-time records</p>
+                  </div>
+                </div>
+                {/* Period Selector Toggle */}
+                <div className="flex bg-neutral-850 p-0.5 rounded-lg border border-neutral-850 shrink-0 self-start sm:self-auto">
+                  <button
+                    onClick={() => setTrackerPeriod("week")}
+                    className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
+                      trackerPeriod === "week"
+                        ? "bg-sky-500 text-white shadow-md shadow-sky-500/10"
+                        : "text-neutral-400 hover:text-neutral-205"
+                    }`}
+                  >
+                    Weekly
+                  </button>
+                  <button
+                    onClick={() => setTrackerPeriod("month")}
+                    className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
+                      trackerPeriod === "month"
+                        ? "bg-sky-500 text-white shadow-md shadow-sky-500/10"
+                        : "text-neutral-400 hover:text-neutral-205"
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                </div>
+              </div>
+
+              {/* Progress Cards for the 4 Metrics */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {[
+                  {
+                    key: "revenue",
+                    label: "Revenue",
+                    current: trackerPeriod === "week" ? selectedRep.currentWeek?.revenue : selectedRep.currentMonth?.revenue,
+                    record: trackerPeriod === "week" ? selectedRep.weeklyRecord?.revenue : selectedRep.monthlyRecord?.revenue,
+                    isCurrency: true,
+                    barColor: "bg-emerald-500 shadow-sm shadow-emerald-500/30",
+                    trackColor: "bg-emerald-950/20 border-emerald-500/10",
+                  },
+                  {
+                    key: "profit",
+                    label: "Profit",
+                    current: trackerPeriod === "week" ? selectedRep.currentWeek?.profit : selectedRep.currentMonth?.profit,
+                    record: trackerPeriod === "week" ? selectedRep.weeklyRecord?.profit : selectedRep.monthlyRecord?.profit,
+                    isCurrency: true,
+                    barColor: "bg-teal-500 shadow-sm shadow-teal-500/30",
+                    trackColor: "bg-teal-950/20 border-teal-500/10",
+                  },
+                  {
+                    key: "commissions",
+                    label: "Commissions",
+                    current: trackerPeriod === "week" ? selectedRep.currentWeek?.commissions : selectedRep.currentMonth?.commissions,
+                    record: trackerPeriod === "week" ? selectedRep.weeklyRecord?.commissions : selectedRep.monthlyRecord?.commissions,
+                    isCurrency: true,
+                    barColor: "bg-sky-500 shadow-sm shadow-sky-500/30",
+                    trackColor: "bg-sky-950/20 border-sky-500/10",
+                  },
+                  {
+                    key: "closedWonDeals",
+                    label: "Deals Won",
+                    current: trackerPeriod === "week" ? selectedRep.currentWeek?.closedWonDeals : selectedRep.currentMonth?.closedWonDeals,
+                    record: trackerPeriod === "week" ? selectedRep.weeklyRecord?.closedWonDeals : selectedRep.monthlyRecord?.closedWonDeals,
+                    isCurrency: false,
+                    barColor: "bg-amber-500 shadow-sm shadow-amber-500/30",
+                    trackColor: "bg-amber-950/20 border-amber-500/10",
+                  },
+                ].map((item) => {
+                  const currentVal = item.current || 0
+                  const recordVal = item.record || 0
+                  const progressPct = recordVal > 0 ? (currentVal / recordVal) * 100 : (currentVal > 0 ? 100 : 0)
+                  
+                  // Status messages and deltas
+                  let statusMsg = ""
+                  if (recordVal === 0) {
+                    if (currentVal > 0) {
+                      statusMsg = item.isCurrency
+                        ? `🎉 Setting initial record! (${formatPreciseCurrency(currentVal)})`
+                        : `🎉 Setting initial record! (${currentVal} deal${currentVal > 1 ? 's' : ''})`
+                    } else {
+                      statusMsg = "No transactions logged to set the first record."
+                    }
+                  } else if (currentVal > recordVal) {
+                    const diff = currentVal - recordVal
+                    statusMsg = item.isCurrency
+                      ? `🎉 Record Beaten! (+${formatPreciseCurrency(diff)} above record)`
+                      : `🎉 Record Beaten! (+${diff} deal${diff > 1 ? 's' : ''} above record)`
+                  } else if (currentVal === recordVal) {
+                    statusMsg = item.isCurrency
+                      ? `🏆 Record Tied! Need $0.01 more to set a new record.`
+                      : `🏆 Record Tied! Need 1 more deal to set a new record.`
+                  } else {
+                    const diff = recordVal - currentVal
+                    if (item.isCurrency) {
+                      statusMsg = `Needs ${formatPreciseCurrency(diff)} more to tie, or ${formatPreciseCurrency(diff + 0.01)} to beat it.`
+                    } else {
+                      statusMsg = `Needs ${diff} more to tie, or ${diff + 1} to beat the record.`
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={item.key}
+                      className={`p-3.5 rounded-xl border ${item.trackColor} bg-neutral-900/60 space-y-2.5 hover:border-neutral-700/50 transition-all duration-200`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-neutral-450 uppercase tracking-wider">{item.label}</span>
+                        <div className="text-right">
+                          <span className="text-xs font-black text-white">
+                            {item.isCurrency ? formatPreciseCurrency(currentVal) : currentVal}
+                          </span>
+                          <span className="text-[10px] text-neutral-500 font-medium">
+                            {" "}/ {item.isCurrency ? formatPreciseCurrency(recordVal) : recordVal}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="h-2 w-full bg-neutral-850 rounded-full overflow-hidden border border-neutral-800">
+                        <div
+                          className={`h-full ${item.barColor} rounded-full transition-all duration-500 ease-out`}
+                          style={{ width: `${Math.min(progressPct, 100)}%` }}
+                        />
+                      </div>
+
+                      {/* Progress Percent & Instructions */}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex justify-between items-center text-[9px]">
+                          <span className="text-neutral-500">Progress</span>
+                          <span className={`font-bold ${progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>
+                            {progressPct.toFixed(1)}%
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-neutral-300 font-medium leading-relaxed">
+                          {statusMsg}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
         )}

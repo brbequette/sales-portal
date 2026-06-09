@@ -106,7 +106,7 @@ function LoginContent() {
       <div className="absolute top-[-15%] left-[-10%] w-[45%] h-[45%] bg-emerald-600 rounded-full opacity-15 blur-[140px]"></div>
       <div className="absolute bottom-[-15%] right-[-10%] w-[45%] h-[45%] bg-sky-600 rounded-full opacity-15 blur-[140px]"></div>
 
-      <div className="w-full max-w-md p-8 bg-neutral-900/80 backdrop-blur-xl border border-neutral-800 rounded-2xl shadow-2xl relative z-10">
+      <div className="w-full max-w-md p-6 sm:p-8 bg-neutral-900/80 backdrop-blur-xl border border-neutral-800 rounded-2xl shadow-2xl relative z-10">
         {/* Logo & Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 mb-4 shadow-[0_0_30px_rgba(16,185,129,0.3)]">

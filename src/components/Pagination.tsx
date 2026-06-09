@@ -81,7 +81,7 @@ export function Pagination({
   )
 }
 
-export function usePagination<T>(items: T[] | undefined | null, defaultPageSize: number | "All" = 25) {
+export function usePagination<T>(items: T[] | undefined | null, defaultPageSize: number | "All" = "All") {
   const [currentPage, setCurrentPage] = React.useState(1)
   const [pageSize, setPageSize] = React.useState<number | "All">(defaultPageSize)
 

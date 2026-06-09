@@ -19,20 +19,49 @@ export const handler: Handler = async (event, context) => {
       const accounts = payload.data || []
       let syncedCount = 0
 
+      // Prefetch unique owners to minimize DB calls
+      const ownerIds = Array.from(new Set(accounts.map((r: any) => r.Owner?.id).filter(Boolean))) as string[]
+      const existingOwners = await prisma.user.findMany({
+        where: { zohoId: { in: ownerIds } }
+      })
+      const ownerMap = new Map(existingOwners.map(u => [u.zohoId, u]))
+
+      // Identify missing owners and upsert them in a batch transaction
+      const missingOwnersToUpsert = []
       for (const record of accounts) {
-        // Upsert the sales rep / owner
+        if (!record.Owner?.id) continue;
         const ownerId = record.Owner.id
         const ownerName = record.Owner.name
         
-        const owner = await prisma.user.upsert({
-          where: { zohoId: ownerId },
-          update: { name: ownerName },
-          create: {
-            zohoId: ownerId,
-            name: ownerName,
-            email: `${ownerId}@dummy.titandiamond.com`, // We need an email for Prisma unique constraint
-          }
-        })
+        if (!ownerMap.has(ownerId)) {
+          missingOwnersToUpsert.push({ ownerId, ownerName })
+          // Temporarily set a dummy user in map to prevent duplicate inserts in same batch
+          ownerMap.set(ownerId, {} as any)
+        }
+      }
+
+      if (missingOwnersToUpsert.length > 0) {
+        const userUpsertOps = missingOwnersToUpsert.map(u => 
+          prisma.user.upsert({
+            where: { zohoId: u.ownerId },
+            update: { name: u.ownerName },
+            create: {
+              zohoId: u.ownerId,
+              name: u.ownerName,
+              email: `${u.ownerId}@dummy.titandiamond.com`
+            }
+          })
+        )
+        const upsertedUsers = await prisma.$transaction(userUpsertOps)
+        upsertedUsers.forEach(u => ownerMap.set(u.zohoId!, u))
+      }
+
+      const accountOps = []
+      for (const record of accounts) {
+        if (!record.Owner?.id) continue;
+        const ownerId = record.Owner.id
+        const owner = ownerMap.get(ownerId)
+        if (!owner || !owner.id) continue;
 
         // Determine Update Status logic (pseudo logic based on Last_Sale_Date if available)
         let status = 'Open'
@@ -49,27 +78,33 @@ export const handler: Handler = async (event, context) => {
           }
         }
 
-        // Upsert the account
-        await prisma.account.upsert({
-          where: { zohoId: record.id },
-          update: {
-            name: record.Account_Name,
-            industry: record.Industry,
-            status: status,
-            lastPurchaseAt: lastPurchaseDate,
-            ownerId: owner.id,
-          },
-          create: {
-            zohoId: record.id,
-            name: record.Account_Name,
-            industry: record.Industry,
-            status: status,
-            lastPurchaseAt: lastPurchaseDate,
-            ownerId: owner.id,
-          }
-        })
+        accountOps.push(
+          prisma.account.upsert({
+            where: { zohoId: record.id },
+            update: {
+              name: record.Account_Name,
+              industry: record.Industry,
+              status: status,
+              lastPurchaseAt: lastPurchaseDate,
+              ownerId: owner.id,
+            },
+            create: {
+              zohoId: record.id,
+              name: record.Account_Name,
+              industry: record.Industry,
+              status: status,
+              lastPurchaseAt: lastPurchaseDate,
+              ownerId: owner.id,
+            }
+          })
+        )
+      }
 
-        syncedCount++
+      // Execute in transaction batches of 50 to minimize connection pool usage
+      for (let i = 0; i < accountOps.length; i += 50) {
+        const chunk = accountOps.slice(i, i + 50)
+        await prisma.$transaction(chunk)
+        syncedCount += chunk.length
       }
 
       return {

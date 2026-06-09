@@ -6,7 +6,36 @@ const ZOHO_DC = process.env.ZOHO_DC || "com"
 
 export const handler: Handler = async (event) => {
   const path = event.path || ""
-  const isCallback = path.includes("callback")
+  const originalUri = event.headers?.["x-nf-request-uri"] || event.headers?.["x-forwarded-path"] || ""
+  const code = event.queryStringParameters?.code
+  const error = event.queryStringParameters?.error
+
+  // Detect callback based on path, headers, or query parameters
+  const isCallback = path.includes("callback") || originalUri.includes("callback") || !!code || !!error
+
+  const host = event.headers?.host || ""
+  const isLocal = host.includes("localhost") || 
+                  host.includes("127.0.0.1") || 
+                  host.includes("loca.lt") || 
+                  host.includes("localtunnel.me")
+
+  // Determine the base site URL for redirect
+  let oauthSiteUrl = ""
+  if (isLocal) {
+    // Local development: construct from current host header
+    // localtunnel is https, localhost is http
+    const protocol = host.includes("loca.lt") || host.includes("localtunnel.me") ? "https" : "http"
+    oauthSiteUrl = `${protocol}://${host}`
+  } else {
+    // Production/Branch: use env URL or fallback to Netlify URL
+    oauthSiteUrl = process.env.URL || process.env.SITE_URL || "https://titan-sales-portal.netlify.app"
+    if (oauthSiteUrl.endsWith("/")) {
+      oauthSiteUrl = oauthSiteUrl.slice(0, -1)
+    }
+  }
+
+  // Allow absolute override via environment variable if defined
+  const redirectUri = process.env.ZOHO_REDIRECT_URI || `${oauthSiteUrl}/api/auth/zoho/callback`
 
   // ── Step 1: Initiate OAuth → redirect user to Zoho login ──
   if (!isCallback) {
@@ -18,13 +47,9 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // Netlify provides URL automatically; fallback to SITE_URL or header origin
-    const siteUrl =
-      process.env.URL ||
-      process.env.SITE_URL ||
-      `https://${event.headers?.host || "localhost:8888"}`
-
-    const redirectUri = `${siteUrl}/api/auth/zoho/callback`
+    // Determine originating origin to return to after auth completes
+    const origin = oauthSiteUrl
+    const state = Buffer.from(origin).toString("base64")
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -33,6 +58,7 @@ export const handler: Handler = async (event) => {
       scope: "AaaServer.profile.READ",
       access_type: "offline",
       prompt: "consent",
+      state: state,
     })
 
     return {
@@ -46,20 +72,28 @@ export const handler: Handler = async (event) => {
   }
 
   // ── Step 2: Callback — exchange code for token, get user info ──
-  const code = event.queryStringParameters?.code
-  const error = event.queryStringParameters?.error
+  // Extract target site url from state parameter to support previews/branches
+  const stateParam = event.queryStringParameters?.state
+  let targetSiteUrl = oauthSiteUrl
 
-  const siteUrl =
-    process.env.URL ||
-    process.env.SITE_URL ||
-    `https://${event.headers?.host || "localhost:8888"}`
+  if (stateParam) {
+    try {
+      const decodedOrigin = Buffer.from(stateParam, "base64").toString("utf-8")
+      if (decodedOrigin.startsWith("http://") || decodedOrigin.startsWith("https://")) {
+        targetSiteUrl = decodedOrigin
+        console.log("Dynamically redirecting to target origin from state:", targetSiteUrl)
+      }
+    } catch (e) {
+      console.error("Failed to decode state parameter:", e)
+    }
+  }
 
   if (error) {
     console.error("Zoho OAuth error:", error)
     return {
       statusCode: 302,
       headers: {
-        Location: `${siteUrl}/login?error=${encodeURIComponent(error)}`,
+        Location: `${targetSiteUrl}/login?error=${encodeURIComponent(error)}`,
         "Cache-Control": "no-cache",
       },
       body: "",
@@ -70,7 +104,7 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 302,
       headers: {
-        Location: `${siteUrl}/login?error=no_code`,
+        Location: `${targetSiteUrl}/login?error=no_code`,
         "Cache-Control": "no-cache",
       },
       body: "",
@@ -80,7 +114,6 @@ export const handler: Handler = async (event) => {
   try {
     const clientId = process.env.ZOHO_CLIENT_ID!
     const clientSecret = process.env.ZOHO_CLIENT_SECRET!
-    const redirectUri = `${siteUrl}/api/auth/zoho/callback`
 
     // Exchange authorization code for access token
     const tokenParams = new URLSearchParams({
@@ -107,7 +140,7 @@ export const handler: Handler = async (event) => {
       return {
         statusCode: 302,
         headers: {
-          Location: `${siteUrl}/login?error=token_failed`,
+          Location: `${targetSiteUrl}/login?error=token_failed`,
           "Cache-Control": "no-cache",
         },
         body: "",
@@ -136,7 +169,7 @@ export const handler: Handler = async (event) => {
       return {
         statusCode: 302,
         headers: {
-          Location: `${siteUrl}/login?error=no_email`,
+          Location: `${targetSiteUrl}/login?error=no_email`,
           "Cache-Control": "no-cache",
         },
         body: "",
@@ -185,7 +218,7 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 302,
       headers: {
-        Location: `${siteUrl}/login?zoho_auth=${encodeURIComponent(encoded)}`,
+        Location: `${targetSiteUrl}/login?zoho_auth=${encodeURIComponent(encoded)}`,
         "Cache-Control": "no-cache",
       },
       body: "",
@@ -195,7 +228,7 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 302,
       headers: {
-        Location: `${siteUrl}/login?error=server_error`,
+        Location: `${targetSiteUrl}/login?error=server_error`,
         "Cache-Control": "no-cache",
       },
       body: "",

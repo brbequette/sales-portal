@@ -128,11 +128,11 @@ export const handler: Handler = async (event) => {
       )
     }
 
-    // Run updates in batches of 100 to prevent database exhaustion
+    // Run updates in transaction batches of 100 to maximize database efficiency and minimize connections
     const BATCH_SIZE = 100
     for (let i = 0; i < updatePromises.length; i += BATCH_SIZE) {
       const batch = updatePromises.slice(i, i + BATCH_SIZE)
-      await Promise.all(batch)
+      await prisma.$transaction(batch)
     }
 
     return {

@@ -1,54 +1,10 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient } from "@prisma/client"
+import { getZohoAccessToken as getAccessToken } from "./lib/zoho-auth"
 
 const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID;
-
-let _cachedToken: string | null = null;
-let _tokenExpiresAt = 0;
-
-async function getAccessToken() {
-  const now = Date.now();
-
-  if (_cachedToken && now < _tokenExpiresAt - 5 * 60 * 1000) {
-    return _cachedToken;
-  }
-
-  if (process.env.ZOHO_REFRESH_TOKEN && process.env.ZOHO_CLIENT_ID && process.env.ZOHO_CLIENT_SECRET) {
-    try {
-      const params = new URLSearchParams({
-        refresh_token: process.env.ZOHO_REFRESH_TOKEN,
-        client_id: process.env.ZOHO_CLIENT_ID,
-        client_secret: process.env.ZOHO_CLIENT_SECRET,
-        grant_type: 'refresh_token',
-      });
-
-      const res = await fetch(`https://accounts.zoho.${ZOHO_DC}/oauth/v2/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString(),
-      });
-
-      const data: any = await res.json();
-      if (data.access_token) {
-        _cachedToken = data.access_token;
-        _tokenExpiresAt = now + (data.expires_in || 3600) * 1000;
-        return _cachedToken;
-      }
-    } catch (e: any) {
-      console.warn('Zoho refresh token flow failed in zoho-apply-discount:', e.message);
-    }
-  }
-
-  if (process.env.ZOHO_ACCESS_TOKEN) {
-    _cachedToken = process.env.ZOHO_ACCESS_TOKEN;
-    _tokenExpiresAt = now + 55 * 60 * 1000;
-    return _cachedToken;
-  }
-
-  throw new Error('No Zoho access token available.');
-}
 
 export const handler: Handler = async (event) => {
   const cors = {

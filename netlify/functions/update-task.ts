@@ -11,22 +11,49 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { taskId, zohoId, status } = body
+    const { taskId, zohoId, subject, description, priority, dueDate, ownerId, status, whatId } = body
 
-    if (!zohoId || !status) {
-      return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing zohoId or status parameter" }) }
+    if (!zohoId) {
+      return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing zohoId parameter" }) }
+    }
+
+    const taskData: any = { id: zohoId }
+    if (subject) taskData.Subject = subject
+    if (description !== undefined) taskData.Description = description || null
+    if (priority) taskData.Priority = priority
+    if (status) taskData.Status = status
+    if (dueDate !== undefined) {
+      taskData.Due_Date = dueDate ? new Date(dueDate).toISOString().split('T')[0] : null
+    }
+
+    let resolvedOwnerId = null
+    if (ownerId) {
+      let internalOwner = await prisma.user.findUnique({ where: { id: ownerId } })
+      if (!internalOwner) {
+        internalOwner = await prisma.user.findUnique({ where: { zohoId: ownerId } })
+      }
+      if (!internalOwner) {
+        internalOwner = await prisma.user.findUnique({ where: { email: ownerId } })
+      }
+      if (internalOwner && internalOwner.zohoId) {
+        taskData.Owner = { id: internalOwner.zohoId }
+        resolvedOwnerId = internalOwner.id
+      }
+    }
+
+    if (whatId !== undefined) {
+      if (whatId) {
+        taskData.What_Id = { id: whatId }
+      } else {
+        taskData.What_Id = null
+      }
     }
 
     const token = await getZohoAccessToken()
     
     // Update in Zoho
     const payload = {
-      data: [
-        {
-          id: zohoId,
-          Status: status
-        }
-      ]
+      data: [taskData]
     }
 
     const res = await fetch(`https://www.zohoapis.com/crm/v3/Tasks`, {
@@ -47,15 +74,46 @@ export const handler: Handler = async (event, context) => {
     }
 
     // Update locally
+    const localUpdateData: any = {}
+    if (subject) localUpdateData.subject = subject
+    if (description !== undefined) localUpdateData.description = description || null
+    if (priority) localUpdateData.priority = priority
+    if (status) localUpdateData.status = status
+    if (dueDate !== undefined) {
+      localUpdateData.dueDate = dueDate ? new Date(dueDate) : null
+    }
+    if (resolvedOwnerId) {
+      localUpdateData.ownerId = resolvedOwnerId
+    }
+
+    if (whatId !== undefined) {
+      if (whatId) {
+        const acc = await prisma.account.findUnique({ where: { zohoId: whatId } })
+        if (acc) {
+          localUpdateData.accountId = acc.id
+          localUpdateData.dealId = null
+        } else {
+          const deal = await prisma.deal.findUnique({ where: { zohoId: whatId } })
+          if (deal) {
+            localUpdateData.dealId = deal.id
+            localUpdateData.accountId = null
+          }
+        }
+      } else {
+        localUpdateData.accountId = null
+        localUpdateData.dealId = null
+      }
+    }
+
     if (taskId) {
       await prisma.task.update({
         where: { id: taskId },
-        data: { status }
+        data: localUpdateData
       })
     } else {
       await prisma.task.update({
         where: { zohoId: zohoId },
-        data: { status }
+        data: localUpdateData
       })
     }
 
