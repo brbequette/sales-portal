@@ -44,7 +44,8 @@ export default function SalesListPage() {
     if (!user) return
     setLoading(true)
     try {
-      const res = await fetch(`/api/get-accounts?zohoId=${user.zohoId || ''}&email=${encodeURIComponent(user.email || '')}`)
+      const ts = Date.now()
+      const res = await fetch(`/api/get-accounts?zohoId=${user.zohoId || ''}&email=${encodeURIComponent(user.email || '')}&_t=${ts}`)
       const data = await res.json()
       if (data.success) {
         setAccounts(data.accounts)
@@ -83,16 +84,9 @@ export default function SalesListPage() {
   const allDocs = useMemo(() => {
     const docs: SalesDoc[] = []
     accounts.forEach(a => {
-      // Filter by reps
+      // Filter by reps if admin uses the dropdown
       const ownerName = a.owner?.name || ""
-      if (!showAllReps) {
-        if (ownerName.toLowerCase() !== (user?.name || "").toLowerCase() &&
-            a.ownerId !== user?.id &&
-            a.owner?.email?.toLowerCase() !== (user?.email || "").toLowerCase()
-        ) {
-          return // Skip accounts not owned by current user
-        }
-      } else if (selectedReps.length > 0 && !selectedReps.includes(ownerName)) {
+      if (showAllReps && selectedReps.length > 0 && !selectedReps.includes(ownerName)) {
         return
       }
 
