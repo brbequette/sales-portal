@@ -1,5 +1,6 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient } from "@prisma/client"
+import { getZohoAccessToken } from "./lib/zoho-auth"
 
 const prisma = new PrismaClient()
 
@@ -15,96 +16,69 @@ export const handler: Handler = async (event, context) => {
     const { reseed } = event.queryStringParameters || {}
 
     if (reseed === "true") {
-      await prisma.product.deleteMany()
-    }
+      const token = await getZohoAccessToken()
+      const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
+      const ZOHO_DC = process.env.ZOHO_DC || "com"
 
-    let products = await prisma.product.findMany({
-      orderBy: { category: 'asc' }
-    })
+      let page = 1
+      let hasMore = true
+      let allItems: any[] = []
 
-    // Auto-seed for demo if empty
-    if (products.length === 0) {
-      const demoProducts = [
-        {
-          sku: "TD-BL-100",
-          name: "Premium Turbo Blade 4.5\"",
-          description: JSON.stringify({
-            image: "/images/turbo_blade.png",
-            text: "Fast cutting for granite & concrete.",
-            cost: 18.50,
-            vendor: "Star Diamond Tools",
-            retail: 45.00,
-            pertinentInfo: "Diameter: 4.5 inches. Max RPM: 13,300. Arbor: 7/8\"-5/8\". Segment Height: 10mm. Use wet or dry."
-          }),
-          price: 45.00,
-          category: "Blades",
-          stock: 100
-        },
-        {
-          sku: "TD-BL-102",
-          name: "Continuous Rim Blade 7\"",
-          description: JSON.stringify({
-            image: "/images/continuous_rim_blade.png",
-            text: "Smooth cuts on tile and porcelain.",
-            cost: 28.00,
-            vendor: "Precision Cuts Inc.",
-            retail: 65.00,
-            pertinentInfo: "Diameter: 7 inches. Max RPM: 8,600. Arbor: 5/8\". Segment Width: 1.6mm. Best used wet to prevent chipping."
-          }),
-          price: 65.00,
-          category: "Blades",
-          stock: 85
-        },
-        {
-          sku: "TD-PP-200",
-          name: "Wet Polishing Pad Set (50-3000 grit)",
-          description: JSON.stringify({
-            image: "/images/polishing_pads.png",
-            text: "Complete set of 4\" wet pads.",
-            cost: 48.00,
-            vendor: "ShinePro Abrasives",
-            retail: 120.00,
-            pertinentInfo: "Set contains 7 pads: 50, 100, 200, 400, 800, 1500, 3000 grit. Backing: Hook & Loop. RPM limit: 4,000. Use wet only."
-          }),
-          price: 120.00,
-          category: "Polishing",
-          stock: 50
-        },
-        {
-          sku: "TD-CB-300",
-          name: "Dry Core Bit 1-3/8\"",
-          description: JSON.stringify({
-            image: "/images/core_bit.png",
-            text: "Laser welded dry core bit.",
-            cost: 35.00,
-            vendor: "Apex Drilling Corp",
-            retail: 85.00,
-            pertinentInfo: "Diameter: 1-3/8 inches. Thread: 5/8\"-11. Barrel Length: 4 inches. Laser-welded segments for long life. Use dry or wet on granite."
-          }),
-          price: 85.00,
-          category: "Core Bits",
-          stock: 30
-        },
-        {
-          sku: "TD-CW-400",
-          name: "Cup Wheel Double Row 4\"",
-          description: JSON.stringify({
-            image: "/images/cup_wheel.png",
-            text: "Heavy duty grinding cup wheel.",
-            cost: 22.00,
-            vendor: "Vulcan Grinding",
-            retail: 55.00,
-            pertinentInfo: "Diameter: 4 inches. Thread: 5/8\"-11. Double row segments for rapid material removal. Max RPM: 15,000. Dry use."
-          }),
-          price: 55.00,
-          category: "Grinding",
-          stock: 120
+      while (hasMore) {
+        const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ORG_ID}&page=${page}&per_page=200`, {
+          headers: { Authorization: `Zoho-oauthtoken ${token}` }
+        })
+        const data = await res.json()
+        if (data.code !== 0) throw new Error(`Zoho Books Error: ${data.message}`)
+
+        if (data.items && data.items.length > 0) {
+          allItems.push(...data.items)
         }
-      ]
 
-      await prisma.product.createMany({
-        data: demoProducts
+        hasMore = data.page_context?.has_more_page || false
+        page++
+      }
+
+      // Filter active items only
+      const activeItems = allItems.filter(i => i.status === "active")
+
+      const ops = activeItems.map(item => {
+        const sku = item.sku || item.item_id
+        const img = item.image_name ? `/api/zoho-image?sku=${encodeURIComponent(sku)}` : "/images/placeholder.png"
+
+        const info = JSON.stringify({
+          image: img,
+          text: item.description || "",
+          cost: item.purchase_rate || 0,
+          vendor: item.vendor_name || item.cf_vendor || "",
+          retail: item.rate || 0,
+          pertinentInfo: ""
+        })
+
+        return prisma.product.upsert({
+          where: { sku: sku },
+          update: {
+            name: item.name || "Unknown Product",
+            description: info,
+            price: item.rate || 0,
+            category: item.category_name || "Uncategorized",
+            stock: item.available_stock || item.stock_on_hand || 0
+          },
+          create: {
+            sku: sku,
+            name: item.name || "Unknown Product",
+            description: info,
+            price: item.rate || 0,
+            category: item.category_name || "Uncategorized",
+            stock: item.available_stock || item.stock_on_hand || 0
+          }
+        })
       })
+
+      // Execute in batches of 50 to avoid connection timeouts
+      for (let i = 0; i < ops.length; i += 50) {
+        await prisma.$transaction(ops.slice(i, i + 50))
+      }
 
       products = await prisma.product.findMany({
         orderBy: { category: 'asc' }
