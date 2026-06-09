@@ -5,11 +5,12 @@ import { corsHeaders, handleOptions } from "./lib/cors"
 const prisma = new PrismaClient()
 
 async function getZohoAccessToken() {
-  if (!process.env.ZOHO_REFRESH_TOKEN) return null;
+  const refreshToken = process.env.ZOHO_SMS_REFRESH_TOKEN || process.env.ZOHO_REFRESH_TOKEN
+  if (!refreshToken) return null;
   const params = new URLSearchParams({
-    refresh_token: process.env.ZOHO_REFRESH_TOKEN,
-    client_id: process.env.ZOHO_CLIENT_ID || '',
-    client_secret: process.env.ZOHO_CLIENT_SECRET || '',
+    refresh_token: refreshToken,
+    client_id: process.env.ZOHO_SMS_CLIENT_ID || process.env.ZOHO_CLIENT_ID || '',
+    client_secret: process.env.ZOHO_SMS_CLIENT_SECRET || process.env.ZOHO_CLIENT_SECRET || '',
     grant_type: "refresh_token",
   })
   
