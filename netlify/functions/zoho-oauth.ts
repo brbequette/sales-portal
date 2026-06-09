@@ -14,25 +14,11 @@ export const handler: Handler = async (event) => {
   const isCallback = path.includes("callback") || originalUri.includes("callback") || !!code || !!error
 
   const host = event.headers?.host || ""
-  const isLocal = host.includes("localhost") || 
-                  host.includes("127.0.0.1") || 
-                  host.includes("loca.lt") || 
-                  host.includes("localtunnel.me")
+  const protocol = event.headers?.["x-forwarded-proto"] || (host.includes("localhost") ? "http" : "https")
 
-  // Determine the base site URL for redirect
-  let oauthSiteUrl = ""
-  if (isLocal) {
-    // Local development: construct from current host header
-    // localtunnel is https, localhost is http
-    const protocol = host.includes("loca.lt") || host.includes("localtunnel.me") ? "https" : "http"
-    oauthSiteUrl = `${protocol}://${host}`
-  } else {
-    // Production/Branch: use env URL or fallback to Netlify URL
-    oauthSiteUrl = process.env.URL || process.env.SITE_URL || "https://titan-sales-portal.netlify.app"
-    if (oauthSiteUrl.endsWith("/")) {
-      oauthSiteUrl = oauthSiteUrl.slice(0, -1)
-    }
-  }
+  // Determine the base site URL for redirect dynamically based on the current host
+  // This ensures that custom domains (like salesportal.titandiamond.com) are preserved
+  let oauthSiteUrl = `${protocol}://${host}`
 
   // Allow absolute override via environment variable if defined
   const redirectUri = process.env.ZOHO_REDIRECT_URI || `${oauthSiteUrl}/api/auth/zoho/callback`
