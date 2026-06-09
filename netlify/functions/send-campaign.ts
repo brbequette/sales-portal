@@ -128,21 +128,23 @@ export const handler: Handler = async (event, context) => {
 
         try {
           const zohoVoiceUrl = `https://voice.zoho.${process.env.ZOHO_DC || 'com'}/rest/json/v2/sms/send`
-          const formData = new URLSearchParams()
-          formData.append('customerNumber', phoneNumber)
-          formData.append('message', text || campaignName || 'Titan Diamond Update')
           
-          if (process.env.ZOHO_VOICE_FROM_NUMBER) {
-            formData.append('senderId', process.env.ZOHO_VOICE_FROM_NUMBER)
+          const smsData = {
+            customerNumber: phoneNumber,
+            message: text || campaignName || 'Titan Diamond Update',
+            senderId: process.env.ZOHO_VOICE_FROM_NUMBER || '',
+            mms: false
           }
+          
+          const formData = new FormData()
+          formData.append('sms_data', JSON.stringify(smsData))
 
           const smsRes = await fetch(zohoVoiceUrl, {
             method: 'POST',
             headers: {
-              'Authorization': `Zoho-oauthtoken ${accessToken}`,
-              'Content-Type': 'application/x-www-form-urlencoded'
+              'Authorization': `Zoho-oauthtoken ${accessToken}`
             },
-            body: formData.toString()
+            body: formData
           })
 
           if (smsRes.ok) {
