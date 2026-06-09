@@ -521,41 +521,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ── Admin Rep Selection Dropdown ── */}
-        {isAdminUser && (
-          <div className="bg-neutral-900/60 border border-neutral-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
-            <div>
-              <h2 className="text-sm font-bold text-white tracking-tight">Admin Accounts Control</h2>
-              <p className="text-xs text-neutral-500 mt-0.5">Filter sales portal data by representative or view all company accounts</p>
-            </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <span className="text-xs text-neutral-400 font-semibold whitespace-nowrap">Show Accounts:</span>
-              <select
-                value={repFilter}
-                onChange={e => {
-                  setRepFilter(e.target.value)
-                  setOwnerFilter("All")
-                  setStatusFilter("All")
-                  setIndustryFilter("All")
-                  setSearchQuery("")
-                  setOnlyWithSales(false)
-                }}
-                className="w-full sm:w-56 bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
-              >
-                <option value="">My Assigned Accounts ({currentUser.name})</option>
-                <option value="all">All Company Accounts</option>
-                {repsList
-                  .filter(r => r.zohoId !== currentUser.id && r.email?.toLowerCase() !== currentUser.email?.toLowerCase())
-                  .map(r => (
-                    <option key={r.id} value={r.id}>
-                      Rep: {r.name || r.email}
-                    </option>
-                  ))
-                }
-              </select>
-            </div>
-          </div>
-        )}
 
         {/* ── Workspace / Effort Selector Switcher ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -743,6 +708,37 @@ export default function Dashboard() {
                 )}
               </h2>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                {isAdminUser && (
+                  <div className="relative w-full sm:w-48">
+                    <FiUsers className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={13} />
+                    <select
+                      value={repFilter}
+                      onChange={e => {
+                        setRepFilter(e.target.value)
+                        setOwnerFilter("All")
+                        setStatusFilter("All")
+                        setIndustryFilter("All")
+                        setSearchQuery("")
+                        setOnlyWithSales(false)
+                      }}
+                      className="w-full bg-neutral-900 border border-neutral-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
+                    >
+                      <option value="">My Accounts</option>
+                      <option value="all">All Representatives</option>
+                      {repsList
+                        .filter(r => r.zohoId !== currentUser?.id && r.email?.toLowerCase() !== currentUser?.email?.toLowerCase())
+                        .map(r => (
+                          <option key={r.id} value={r.id}>{r.name || r.email}</option>
+                        ))
+                      }
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg className="w-3 h-3 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                )}
                 <div className="relative w-full sm:w-48">
                   <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={13} />
                   <input
