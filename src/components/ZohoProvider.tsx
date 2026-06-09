@@ -38,9 +38,25 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
         role: params.get("role") || params.get("Role") || params.get("userRole") || "Sales Representative",
         isZohoUser: true,
       }
-      try { localStorage.setItem("sales_portal_user", JSON.stringify(portalUser)) } catch {}
       setZohoContext(portalUser)
       setIsInitialized(true)
+
+      // Always sync the fresh role from the database to override stale Web Tab parameters
+      fetch(`/api/get-user?email=${encodeURIComponent(email)}`)
+        .then(res => res.json())
+        .then(realUser => {
+          if (realUser?.email) {
+            const updatedUser = { ...portalUser, ...realUser, isZohoUser: true }
+            try { localStorage.setItem("sales_portal_user", JSON.stringify(updatedUser)) } catch {}
+            setZohoContext(updatedUser)
+          } else {
+            try { localStorage.setItem("sales_portal_user", JSON.stringify(portalUser)) } catch {}
+          }
+        })
+        .catch(() => {
+          try { localStorage.setItem("sales_portal_user", JSON.stringify(portalUser)) } catch {}
+        })
+
       return
     }
 
@@ -53,6 +69,19 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
           console.log("Restored session from localStorage:", parsedUser.email)
           setZohoContext(parsedUser)
           setIsInitialized(true)
+
+          // Always sync the fresh role from the database to override stale local cache
+          fetch(`/api/get-user?email=${encodeURIComponent(parsedUser.email)}`)
+            .then(res => res.json())
+            .then(realUser => {
+              if (realUser?.email) {
+                const updatedUser = { ...parsedUser, ...realUser, isZohoUser: true }
+                try { localStorage.setItem("sales_portal_user", JSON.stringify(updatedUser)) } catch {}
+                setZohoContext(updatedUser)
+              }
+            })
+            .catch(() => {})
+
           return
         }
       }
