@@ -50,6 +50,27 @@ function AccountHubContent() {
     }
   }
 
+  const handleDeleteTransaction = async (type: string, id: string) => {
+    if (!confirm(`Are you sure you want to delete this ${type}? This action cannot be undone in the hub.`)) return
+    
+    try {
+      const res = await fetch("/api/delete-transaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, id })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setViewingSalesDoc(null)
+        fetchAccountData(false)
+      } else {
+        alert(data.error || "Failed to delete transaction")
+      }
+    } catch (e: any) {
+      alert("Network error: " + e.message)
+    }
+  }
+
   useEffect(() => {
     if (!id) return
     fetchAccountData()
@@ -490,12 +511,20 @@ function AccountHubContent() {
                   Document ID: #{viewingSalesDoc.doc.id.slice(-6).toUpperCase()}
                 </p>
               </div>
-              <button 
-                onClick={() => setViewingSalesDoc(null)} 
-                className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-755 transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer"
-              >
-                &times;
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handleDeleteTransaction(viewingSalesDoc.type, viewingSalesDoc.doc.id)} 
+                  className="bg-red-900/30 hover:bg-red-900/60 text-red-400 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-red-500/20"
+                >
+                  Delete from Hub
+                </button>
+                <button 
+                  onClick={() => setViewingSalesDoc(null)} 
+                  className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-755 transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer"
+                >
+                  &times;
+                </button>
+              </div>
             </div>
 
             {/* Document Content */}
