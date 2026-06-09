@@ -40,11 +40,44 @@ export const handler: Handler = async (event, context) => {
     }
 
     const dbAccountId = account.id
-    const booksCustomerId = account.zohoId
+
+    const token = await getZohoAccessToken()
+    const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
+
+    // First, resolve the true Zoho Books Contact ID
+    let booksContactId = null;
+
+    // Search for existing contact by name
+    const searchRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&contact_name=${encodeURIComponent(account.name)}`, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    })
+    const searchData = await searchRes.json()
+    
+    if (searchData.contacts && searchData.contacts.length > 0) {
+      booksContactId = searchData.contacts[0].contact_id
+    } else {
+      // Create new contact in Zoho Books
+      const createRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Zoho-oauthtoken ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contact_name: account.name,
+          zcrm_account_id: account.zohoId // links to CRM if integration allows
+        })
+      })
+      const createData = await createRes.json()
+      if (createData.code !== 0) {
+        throw new Error(`Zoho Books Error (Create Contact): ${createData.message}`)
+      }
+      booksContactId = createData.contact.contact_id
+    }
 
     // Prepare Zoho Books Payload
     const payload = {
-      customer_id: booksCustomerId,
+      customer_id: booksContactId,
       line_items: (lineItems || []).map((li: any) => ({
         name: li.name,
         description: li.description,
@@ -57,9 +90,6 @@ export const handler: Handler = async (event, context) => {
       notes: "Created via Sales Portal POS"
     }
 
-    const token = await getZohoAccessToken()
-    const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
-    
     let booksRefId = null
 
     if (type === "Quote") {
