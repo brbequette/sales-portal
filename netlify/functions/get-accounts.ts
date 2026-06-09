@@ -297,12 +297,10 @@ export const handler: Handler = async (event, context) => {
     // Calculate where filter based on admin role and ownerIdFilter parameter
     let whereClause: any = { ownerId: user.id };
     if (isAdmin) {
-      if (ownerIdFilter === "all") {
-        whereClause = {};
-      } else if (ownerIdFilter) {
+      if (ownerIdFilter && ownerIdFilter !== "all" && ownerIdFilter !== "All") {
         whereClause = { ownerId: ownerIdFilter };
       } else {
-        whereClause = { ownerId: user.id };
+        whereClause = {}; // Admins see all reps by default
       }
     }
 

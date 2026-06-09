@@ -40,7 +40,7 @@ export default function Dashboard() {
   const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
   const [repsList, setRepsList] = useState<any[]>([])
-  const [repFilter, setRepFilter] = useState<string>("")
+
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)
 
   const [taskFilterTab, setTaskFilterTab] = useState<"due" | "pending" | "completed" | "all">("due")
@@ -169,7 +169,7 @@ export default function Dashboard() {
           : `email=${currentUser.email}`
 
         const roleQuery = currentUser.role ? `&role=${encodeURIComponent(currentUser.role)}` : ""
-        const accountsQuery = `${query}${repFilter ? `&ownerIdFilter=${repFilter}` : ""}${roleQuery}`
+        const accountsQuery = `${query}${roleQuery}`
 
         const ts = Date.now()
         const [resAccounts, resTasks] = await Promise.all([
@@ -193,7 +193,7 @@ export default function Dashboard() {
       }
     }
     fetchData()
-  }, [isInitialized, currentUser, router, repFilter])
+  }, [isInitialized, currentUser, router])
 
   const handleEffortChange = (val: "sales" | "call_list") => {
     setEffort(val)
@@ -213,7 +213,7 @@ export default function Dashboard() {
         : `email=${currentUser.email}`
       
       const roleQuery = currentUser.role ? `&role=${encodeURIComponent(currentUser.role)}` : ""
-      const accountsQuery = `${query}${repFilter ? `&ownerIdFilter=${repFilter}` : ""}${roleQuery}`
+      const accountsQuery = `${query}${roleQuery}`
 
       const [resAccounts, resTasks] = await Promise.all([
         fetch(`/api/get-accounts?${accountsQuery}&refresh=true`),
@@ -243,7 +243,7 @@ export default function Dashboard() {
         ? `zohoId=${currentUser.id}`
         : `email=${currentUser.email}`
       const roleQuery = currentUser.role ? `&role=${encodeURIComponent(currentUser.role)}` : ""
-      const accountsQuery = `${query}${repFilter ? `&ownerIdFilter=${repFilter}` : ""}${roleQuery}`
+      const accountsQuery = `${query}${roleQuery}`
       const res = await fetch(`/api/get-tasks?${accountsQuery}`)
       const data = await res.json()
       if (data.success) {
@@ -394,7 +394,7 @@ export default function Dashboard() {
   }
 
   const callListAccounts = accounts
-    .filter(a => a.quality !== "DO_NOT_CALL")
+    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter))
     .sort((a, b) => {
       const scoreA = qualityScores[a.quality] || 0
       const scoreB = qualityScores[b.quality] || 0
@@ -788,29 +788,18 @@ export default function Dashboard() {
                 )}
               </h2>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                {isAdminUser && (
+                {isAdminUser && owners.length > 0 && (
                   <div className="relative w-full sm:w-48">
                     <FiUsers className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={13} />
                     <select
-                      value={repFilter}
-                      onChange={e => {
-                        setRepFilter(e.target.value)
-                        setOwnerFilter("All")
-                        setStatusFilter("All")
-                        setIndustryFilter("All")
-                        setSearchQuery("")
-                        setOnlyWithSales(false)
-                      }}
+                      value={ownerFilter}
+                      onChange={e => setOwnerFilter(e.target.value)}
                       className="w-full bg-neutral-900 border border-neutral-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
                     >
-                      <option value="">My Accounts</option>
-                      <option value="all">All Representatives</option>
-                      {repsList
-                        .filter(r => r.zohoId !== currentUser?.id && r.email?.toLowerCase() !== currentUser?.email?.toLowerCase())
-                        .map(r => (
-                          <option key={r.id} value={r.id}>{r.name || r.email}</option>
-                        ))
-                      }
+                      <option value="All">All Representatives</option>
+                      {owners.map(o => (
+                        <option key={o.id} value={o.id}>{o.name || o.email}</option>
+                      ))}
                     </select>
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                       <svg className="w-3 h-3 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
