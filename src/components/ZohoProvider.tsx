@@ -118,8 +118,23 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
                 role: zohoUser.profile?.name || "Sales Representative",
                 isZohoUser: true,
               }
-              try { localStorage.setItem("sales_portal_user", JSON.stringify(portalUser)) } catch {}
               setZohoContext(portalUser)
+
+              // Always sync the fresh role from the database to override Zoho profile mismatch
+              fetch(`/api/get-user?email=${encodeURIComponent(zohoUser.email)}`)
+                .then(res => res.json())
+                .then(realUser => {
+                  if (realUser?.email) {
+                    const updatedUser = { ...portalUser, ...realUser, isZohoUser: true }
+                    try { localStorage.setItem("sales_portal_user", JSON.stringify(updatedUser)) } catch {}
+                    setZohoContext(updatedUser)
+                  } else {
+                    try { localStorage.setItem("sales_portal_user", JSON.stringify(portalUser)) } catch {}
+                  }
+                })
+                .catch(() => {
+                  try { localStorage.setItem("sales_portal_user", JSON.stringify(portalUser)) } catch {}
+                })
             }
           } catch (err) {
             console.error("Error fetching current Zoho user:", err)
