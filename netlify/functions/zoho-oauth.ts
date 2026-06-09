@@ -20,8 +20,9 @@ export const handler: Handler = async (event) => {
   // This ensures that custom domains (like salesportal.titandiamond.com) are preserved
   let oauthSiteUrl = `${protocol}://${host}`
 
-  // Allow absolute override via environment variable if defined
-  const redirectUri = process.env.ZOHO_REDIRECT_URI || `${oauthSiteUrl}/api/auth/zoho/callback`
+  // Always use the dynamic host to ensure the redirect_uri matches the current domain.
+  // We ignore process.env.ZOHO_REDIRECT_URI because Netlify might inject the .netlify.app URL there.
+  const redirectUri = `${oauthSiteUrl}/api/auth/zoho/callback`
 
   // ── Step 1: Initiate OAuth → redirect user to Zoho login ──
   if (!isCallback) {
