@@ -75,6 +75,19 @@ function AccountHubContent() {
   }
 
   useEffect(() => {
+    const handleInAppComm = (e: Event) => {
+      setActiveTab("ai")
+      setAiViewMode("comms")
+    }
+    window.addEventListener("inAppDial", handleInAppComm)
+    window.addEventListener("inAppSms", handleInAppComm)
+    return () => {
+      window.removeEventListener("inAppDial", handleInAppComm)
+      window.removeEventListener("inAppSms", handleInAppComm)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!isInitialized) return
     fetchAccountData()
   }, [isInitialized, id])

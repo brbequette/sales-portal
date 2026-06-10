@@ -187,10 +187,32 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     </span>
                   )}
                   {(c.phone || c.mobilePhone) && (
-                    <a href={`tel:${(c.phone || c.mobilePhone)?.replace(/[^0-9+]/g, '')}`} className="flex items-center gap-1.5 hover:underline hover:text-white transition-colors text-[10px] text-neutral-400">
-                      <FiPhone className="shrink-0 text-neutral-500" size={10} />
-                      {c.phone || c.mobilePhone}
-                    </a>
+                    <div className="flex items-center gap-2 mt-1" onClick={e => e.stopPropagation()}>
+                      <button 
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          window.dispatchEvent(new CustomEvent("inAppDial", { detail: { phone: c.phone || c.mobilePhone, contact: c } }))
+                        }}
+                        className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-blue-455 cursor-pointer"
+                      >
+                        <FiPhone className="shrink-0" size={10} />
+                        Call
+                      </button>
+                      <span className="text-neutral-700 text-[10px]">&bull;</span>
+                      <button 
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          window.dispatchEvent(new CustomEvent("inAppSms", { detail: { phone: c.phone || c.mobilePhone, contact: c } }))
+                        }}
+                        className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-emerald-455 cursor-pointer"
+                      >
+                        <FiMessageSquare className="shrink-0" size={10} />
+                        Text
+                      </button>
+                      <span className="text-neutral-500 font-mono text-[9px] ml-1">({c.phone || c.mobilePhone})</span>
+                    </div>
                   )}
                 </button>
               )
@@ -320,9 +342,21 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                   <div className="space-y-0.5">
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Office Phone</span>
                     {selectedContact.phone ? (
-                      <a href={`tel:${selectedContact.phone}`} className="text-xs text-neutral-350 hover:underline block">
-                        {selectedContact.phone}
-                      </a>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-neutral-300 font-mono">{selectedContact.phone}</span>
+                        <button
+                          onClick={() => window.dispatchEvent(new CustomEvent("inAppDial", { detail: { phone: selectedContact.phone, contact: selectedContact } }))}
+                          className="text-[10px] text-blue-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
+                        >
+                          Call
+                        </button>
+                        <button
+                          onClick={() => window.dispatchEvent(new CustomEvent("inAppSms", { detail: { phone: selectedContact.phone, contact: selectedContact } }))}
+                          className="text-[10px] text-emerald-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
+                        >
+                          Text
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-xs text-neutral-600 block">Not specified</span>
                     )}
@@ -330,9 +364,21 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                   <div className="space-y-0.5 sm:col-span-2">
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Mobile Phone</span>
                     {selectedContact.mobilePhone ? (
-                      <a href={`tel:${selectedContact.mobilePhone}`} className="text-xs text-neutral-350 hover:underline block">
-                        {selectedContact.mobilePhone}
-                      </a>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-neutral-300 font-mono">{selectedContact.mobilePhone}</span>
+                        <button
+                          onClick={() => window.dispatchEvent(new CustomEvent("inAppDial", { detail: { phone: selectedContact.mobilePhone, contact: selectedContact } }))}
+                          className="text-[10px] text-blue-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
+                        >
+                          Call
+                        </button>
+                        <button
+                          onClick={() => window.dispatchEvent(new CustomEvent("inAppSms", { detail: { phone: selectedContact.mobilePhone, contact: selectedContact } }))}
+                          className="text-[10px] text-emerald-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
+                        >
+                          Text
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-xs text-neutral-600 block">Not specified</span>
                     )}
