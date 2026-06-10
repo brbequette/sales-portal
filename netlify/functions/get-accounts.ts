@@ -220,7 +220,7 @@ export const handler: Handler = async (event, context) => {
                       prisma.invoice.upsert({
                         where: { zohoId: invRecord.id },
                         update: {
-                          amount: parseFloat(invRecord.Grand_Total || 0),
+                          amount: parseFloat(invRecord.Sub_Total || 0),
                           status: status,
                           issueDate: new Date(invRecord.Invoice_Date || invRecord.Created_Time),
                           dueDate: dueDate,
@@ -236,7 +236,7 @@ export const handler: Handler = async (event, context) => {
                         create: {
                           zohoId: invRecord.id,
                           accountId: dbAccountId,
-                          amount: parseFloat(invRecord.Grand_Total || 0),
+                          amount: parseFloat(invRecord.Sub_Total || 0),
                           status: status,
                           issueDate: new Date(invRecord.Invoice_Date || invRecord.Created_Time),
                           dueDate: dueDate,
