@@ -42,6 +42,8 @@ export default function Dashboard() {
   const [repsList, setRepsList] = useState<any[]>([])
 
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)
+  const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
+  const [isLoadingInvoiceDetails, setIsLoadingInvoiceDetails] = useState(false)
 
   const [taskFilterTab, setTaskFilterTab] = useState<"due" | "pending" | "completed" | "all">("due")
   const [showAddTaskModal, setShowAddTaskModal] = useState(false)
@@ -194,6 +196,32 @@ export default function Dashboard() {
     }
     fetchData()
   }, [isInitialized, currentUser, router])
+
+  useEffect(() => {
+    if (viewingInvoice) {
+      const fetchInvoiceDetails = async () => {
+        setIsLoadingInvoiceDetails(true)
+        setFullInvoiceDetails(null)
+        try {
+          const res = await fetch(`/api/get-invoice-details?targetId=${viewingInvoice.zohoId || viewingInvoice.id}`)
+          const data = await res.json()
+          if (data.success && data.invoice) {
+            setFullInvoiceDetails(data.invoice)
+          } else {
+            console.error("Failed to load invoice details", data.error)
+          }
+        } catch (error) {
+          console.error("Error fetching invoice details:", error)
+        } finally {
+          setIsLoadingInvoiceDetails(false)
+        }
+      }
+      fetchInvoiceDetails()
+    } else {
+      setFullInvoiceDetails(null)
+      setIsLoadingInvoiceDetails(false)
+    }
+  }, [viewingInvoice])
 
   const handleEffortChange = (val: "sales" | "call_list") => {
     setEffort(val)
@@ -1949,13 +1977,42 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-neutral-800 flex-1">
-                  <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3">All Data Fields</h4>
-                  <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 overflow-x-auto">
-                    <pre className="text-[10px] text-neutral-300 font-mono whitespace-pre-wrap break-all">
-                      {JSON.stringify(viewingInvoice.items || viewingInvoice, null, 2)}
-                    </pre>
-                  </div>
+                <div className="pt-4 border-t border-neutral-800 flex-1 overflow-y-auto pr-2">
+                  <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3">Custom Fields & Data</h4>
+                  
+                  {isLoadingInvoiceDetails ? (
+                    <div className="flex justify-center items-center py-8 gap-2 text-sm font-semibold text-neutral-400">
+                      <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      Loading details...
+                    </div>
+                  ) : fullInvoiceDetails?.custom_fields ? (
+                    <div className="flex flex-col gap-2.5 pb-4">
+                      {fullInvoiceDetails.custom_fields
+                        .filter((f: any) => f.value && f.value !== "" && f.value !== false)
+                        .map((field: any) => (
+                        <div key={field.customfield_id} className="bg-neutral-850 border border-neutral-800 rounded-lg p-3 shadow-sm">
+                          <label className="text-[10px] text-emerald-500/80 uppercase font-bold tracking-wider mb-1.5 block">
+                            {field.label}
+                          </label>
+                          {field.data_type === "multiline" ? (
+                            <pre className="text-xs text-neutral-200 font-mono whitespace-pre-wrap break-all bg-neutral-950 p-2.5 rounded border border-neutral-800/50">
+                              {field.value_formatted || field.value}
+                            </pre>
+                          ) : (
+                            <div className={`text-sm font-bold ${field.data_type === "amount" || field.data_type === "percent" ? "text-emerald-400" : "text-white"}`}>
+                              {field.value_formatted || field.value}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 overflow-x-auto">
+                      <pre className="text-[10px] text-neutral-300 font-mono whitespace-pre-wrap break-all">
+                        {JSON.stringify(viewingInvoice.items || viewingInvoice, null, 2)}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               </div>
 
