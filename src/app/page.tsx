@@ -38,6 +38,7 @@ export default function Dashboard() {
   const [effort, setEffort] = useState<"sales" | "call_list">("sales")
   const [ownerFilter, setOwnerFilter] = useState("All")
   const [onlyWithSales, setOnlyWithSales] = useState(false)
+  const [showDoNotCall, setShowDoNotCall] = useState(false)
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
   const [repsList, setRepsList] = useState<any[]>([])
 
@@ -407,7 +408,7 @@ export default function Dashboard() {
     ).values()
   ) as any[]
 
-  const activeAccounts = accounts
+  const activeAccounts = accounts.filter(a => showDoNotCall || a.quality !== "DO_NOT_CALL")
   const reactivationAccounts: any[] = []
 
   const filteredByOwnerActive = activeAccounts.filter(a => ownerFilter === "All" || a.ownerId === ownerFilter)
@@ -968,11 +969,6 @@ export default function Dashboard() {
                               <Link href={`/account?id=${account.zohoId}`} className="text-sm font-bold text-white truncate block hover:text-emerald-400 transition-colors">{account.name}</Link>
                               <div className="flex items-center gap-2 mt-1 flex-wrap">
                                 <span className="text-[10px] text-neutral-400 bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-700">{account.tags || "General"}</span>
-                                {account.status === "Update Status" && (
-                                  <span className="text-[10px] text-orange-400 bg-orange-950/30 px-1.5 py-0.5 rounded border border-orange-500/20 font-bold uppercase tracking-wider">
-                                    Update Account
-                                  </span>
-                                )}
                                 <StatusPicker
                                   zohoId={account.zohoId}
                                   accountId={account.id}
@@ -1401,6 +1397,17 @@ export default function Dashboard() {
                     </select>
                   </div>
                 )}
+                
+                {/* Do Not Call toggle */}
+                <label className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity bg-neutral-800/50 p-2.5 rounded-lg border border-neutral-700/50">
+                  <input 
+                    type="checkbox" 
+                    checked={showDoNotCall}
+                    onChange={(e) => setShowDoNotCall(e.target.checked)}
+                    className="w-4 h-4 rounded border-neutral-700 text-emerald-600 focus:ring-emerald-500 bg-neutral-900 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Show "Do Not Call" Accounts</span>
+                </label>
 
                 {/* Status selector (only active for sales pipeline effort) */}
                 {effort === "sales" && (
