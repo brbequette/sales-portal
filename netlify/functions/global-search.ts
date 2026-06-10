@@ -19,7 +19,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const { q } = event.queryStringParameters || {}
-    if (!q || q.length < 2) {
+    if (!q || q.length < 1) {
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, results: {} }) }
     }
 

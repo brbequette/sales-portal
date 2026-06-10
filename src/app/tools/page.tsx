@@ -315,16 +315,7 @@ export default function ToolsRepository() {
           <>
             {/* Search, Layout Selector, and Roles */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="relative w-full md:w-96">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-                <input 
-                  type="text" 
-                  placeholder="Search marketing materials..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-neutral-900 border border-neutral-800 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-emerald-500 transition-colors text-white"
-                />
-              </div>
+
               
               <div className="flex items-center justify-between md:justify-end gap-3">
                 <div className="text-[10px] uppercase font-bold tracking-widest text-neutral-500">
@@ -513,16 +504,7 @@ export default function ToolsRepository() {
           <>
             {/* Product Search View */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="relative w-full md:w-96">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-                <input 
-                  type="text" 
-                  placeholder="Search SKU, product name, or description..." 
-                  value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  className="w-full bg-neutral-900 border border-neutral-800 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-emerald-500 transition-colors text-white"
-                />
-              </div>
+
             </div>
 
             {/* Product Categories Bar */}

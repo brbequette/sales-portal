@@ -931,19 +931,7 @@ export default function CollectionsPage() {
 
               {/* Content */}
               <div className="flex-1 overflow-y-auto py-4 space-y-6 scrollbar-thin">
-                {/* Search */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Search</label>
-                  <div className="relative">
-                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={13} />
-                    <input 
-                      value={search} 
-                      onChange={e => setSearch(e.target.value)} 
-                      placeholder="Search customer / invoice..."
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500" 
-                    />
-                  </div>
-                </div>
+
 
                 {/* Representative */}
                 {showAllReps && isAdmin && reps.length > 0 && (

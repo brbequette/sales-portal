@@ -36,7 +36,7 @@ export function GlobalTopBar() {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
-      if (query.trim().length < 2) {
+      if (query.trim().length < 1) {
         setResults(null)
         setLoading(false)
         return

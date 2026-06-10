@@ -743,16 +743,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
-                <div className="relative flex-1 sm:w-64">
-                  <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
-                  <input
-                    type="text"
-                    placeholder="Search accounts, names, emails..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all placeholder-neutral-600"
-                  />
-                </div>
+
                 <button
                   onClick={() => setShowFiltersDrawer(true)}
                   className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-neutral-800 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white transition-colors cursor-pointer relative"
@@ -1327,19 +1318,7 @@ export default function Dashboard() {
 
               {/* Content */}
               <div className="flex-1 overflow-y-auto py-4 space-y-6 scrollbar-thin">
-                {/* Search query inside drawer */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Customer Name / ID</label>
-                  <div className="relative">
-                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={13} />
-                    <input 
-                      value={searchQuery} 
-                      onChange={e => setSearchQuery(e.target.value)} 
-                      placeholder="Search accounts..."
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500" 
-                    />
-                  </div>
-                </div>
+
 
                 {/* Sales rep selector (Admin user only) */}
                 {isAdminUser && (

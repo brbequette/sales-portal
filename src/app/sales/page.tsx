@@ -169,15 +169,7 @@ export default function SalesListPage() {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
-            <input 
-              value={search} 
-              onChange={e => setSearch(e.target.value)} 
-              placeholder="Search ID or Account..."
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-blue-500 transition-colors shadow-inner" 
-            />
-          </div>
+
           <button 
             onClick={() => setShowFiltersDrawer(true)} 
             className={`p-2 rounded-lg border transition-all ${showFiltersDrawer ? "bg-blue-500/20 border-blue-500/40 text-blue-400" : "bg-neutral-800 border-neutral-700 hover:bg-neutral-700 text-neutral-400"}`}
