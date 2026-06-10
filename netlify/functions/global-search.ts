@@ -39,16 +39,45 @@ export const handler: Handler = async (event) => {
     })
 
     // 2. Search Invoices (Prisma)
-    const invoices = await prisma.invoice.findMany({
-      where: {
-        OR: [
-          { invoiceNumber: { contains: query, mode: "insensitive" } },
-          { zohoId: { contains: query } },
-          { status: { contains: query, mode: "insensitive" } }
-        ]
-      },
-      take: 10
-    })
+    let invoices: any[] = []
+    try {
+      invoices = await prisma.invoice.findMany({
+        where: {
+          OR: [
+            { zohoId: { contains: query } },
+            { status: { contains: query, mode: "insensitive" } },
+            {
+              items: {
+                path: ['invoiceNumber'],
+                string_contains: query
+              }
+            },
+            {
+              items: {
+                path: ['invoice_number'],
+                string_contains: query
+              }
+            }
+          ]
+        },
+        take: 10
+      })
+    } catch (e) {
+      console.warn("Invoice search failed, attempting fallback query:", e)
+      try {
+        invoices = await prisma.invoice.findMany({
+          where: {
+            OR: [
+              { zohoId: { contains: query } },
+              { status: { contains: query, mode: "insensitive" } }
+            ]
+          },
+          take: 10
+        })
+      } catch (fallbackErr) {
+        console.error("Invoice fallback query failed:", fallbackErr)
+      }
+    }
 
     // 3. Search Deals (Prisma)
     const deals = await prisma.deal.findMany({
