@@ -46,13 +46,18 @@ export function ProductModalProvider({ children }: { children: React.ReactNode }
   }, [])
 
   const showProduct = (nameOrSku: string, fallbackData?: any) => {
-    // Try to find exact or partial match in catalog
-    const found = products.find(
+    let found = products.find(
       (p) =>
-        p.name.toLowerCase() === nameOrSku.toLowerCase() ||
         p.sku.toLowerCase() === nameOrSku.toLowerCase() ||
-        p.name.toLowerCase().includes(nameOrSku.toLowerCase())
+        p.name.toLowerCase() === nameOrSku.toLowerCase()
     )
+
+    if (!found) {
+      found = products.find(
+        (p) => p.name.toLowerCase().includes(nameOrSku.toLowerCase()) || 
+               p.sku.toLowerCase().includes(nameOrSku.toLowerCase())
+      )
+    }
 
     if (found) {
       setActiveProduct(found)
