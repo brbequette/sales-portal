@@ -25,10 +25,18 @@ type Deal = {
   invoiceZohoId?: string | null
 }
 
+type Payout = {
+  id: string
+  amount: number
+  date: string
+  notes?: string
+}
+
 type RepSummary = {
   repId: string
   repName: string
   deals: Deal[]
+  payouts: Payout[]
   totalEarned: number
   totalPaid: number
   totalProfit?: number
@@ -70,7 +78,7 @@ function stageColor(stage: string) {
 }
 
 // ── Rep Card ───────────────────────────────────────────────────────────
-function RepCard({ rep, isAdmin, onViewInvoice }: { rep: RepSummary; isAdmin: boolean; onViewInvoice: (zohoId: string) => void }) {
+function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: { rep: RepSummary; isAdmin: boolean; onViewInvoice: (zohoId: string) => void; onManagePayouts: (rep: RepSummary) => void }) {
   const [open, setOpen] = useState(false)
   const balance = rep.totalEarned - rep.totalPaid
   const pendingDeals = rep.deals.filter(d => d.status === "pending")
@@ -128,6 +136,17 @@ function RepCard({ rep, isAdmin, onViewInvoice }: { rep: RepSummary; isAdmin: bo
               </div>
             ))}
           </div>
+
+          {isAdmin && (
+            <div className="px-5 py-3 border-b border-neutral-800 bg-neutral-900/50 flex justify-end">
+              <button 
+                onClick={(e) => { e.stopPropagation(); onManagePayouts(rep); }}
+                className="text-xs font-bold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 rounded transition-colors"
+              >
+                Manage Payouts
+              </button>
+            </div>
+          )}
 
           {/* Deal rows */}
           <div className="divide-y divide-neutral-800/60">
@@ -287,8 +306,52 @@ export default function CommissionsPage() {
   const [hideFulfilled, setHideFulfilled] = useState(false)
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
   const [viewingInvoiceZohoId, setViewingInvoiceZohoId] = useState<string | null>(null)
+  const [managingPayoutsFor, setManagingPayoutsFor] = useState<RepSummary | null>(null)
+  const [payoutAmount, setPayoutAmount] = useState("")
+  const [payoutNotes, setPayoutNotes] = useState("")
+  const [isSubmittingPayout, setIsSubmittingPayout] = useState(false)
 
   const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
+
+  const handleAddPayout = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!managingPayoutsFor || !payoutAmount || isNaN(Number(payoutAmount))) return
+    
+    setIsSubmittingPayout(true)
+    try {
+      const res = await fetch('/api/add-payout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repId: managingPayoutsFor.repId,
+          amount: Number(payoutAmount),
+          notes: payoutNotes
+        })
+      })
+      const json = await res.json()
+      if (json.success) {
+        setPayoutAmount("")
+        setPayoutNotes("")
+        await fetchData() // refresh
+        // Update local state for immediate feedback
+        setManagingPayoutsFor(prev => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            payouts: [json.payout, ...prev.payouts],
+            totalPaid: prev.totalPaid + Number(payoutAmount),
+            balance: prev.balance - Number(payoutAmount)
+          }
+        })
+      } else {
+        alert("Failed to add payout: " + json.error)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setIsSubmittingPayout(false)
+    }
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -544,6 +607,7 @@ export default function CommissionsPage() {
                     rep={rep} 
                     isAdmin={isAdmin} 
                     onViewInvoice={setViewingInvoiceZohoId} 
+                    onManagePayouts={setManagingPayoutsFor}
                   />
                 ))
             )}
@@ -591,6 +655,105 @@ export default function CommissionsPage() {
                 className="w-full h-full border-0 rounded-lg bg-neutral-900"
                 title="Invoice PDF Preview"
               />
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Manage Payouts Modal ── */}
+      {managingPayoutsFor && createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setManagingPayoutsFor(null)} />
+          <div className="relative bg-neutral-900 border border-neutral-850 w-full max-w-2xl h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10001]">
+            <div className="bg-neutral-850 px-6 py-4 border-b border-neutral-800 flex justify-between items-center shrink-0">
+              <div>
+                <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                  <FiDollarSign className="text-amber-500" /> Manage Payouts
+                </h2>
+                <p className="text-[10px] text-neutral-400 mt-0.5">For: <span className="font-bold text-white">{managingPayoutsFor.repName}</span></p>
+              </div>
+              <button onClick={() => setManagingPayoutsFor(null)} className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-750 transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg">
+                &times;
+              </button>
+            </div>
+
+            <div className="flex flex-1 overflow-hidden">
+              {/* Form Side */}
+              <div className="w-1/2 p-5 border-r border-neutral-800 bg-neutral-950 flex flex-col">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-4">Add New Payout</h3>
+                <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl mb-4">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-xs text-neutral-400">Total Earned</span>
+                    <span className="text-xs font-bold text-emerald-400">{fmt(managingPayoutsFor.totalEarned)}</span>
+                  </div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-xs text-neutral-400">Total Paid</span>
+                    <span className="text-xs font-bold text-blue-400">{fmt(managingPayoutsFor.totalPaid)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-neutral-800 pt-2 mt-2">
+                    <span className="text-xs font-bold text-neutral-300">Balance Owed</span>
+                    <span className={`text-xs font-bold ${managingPayoutsFor.balance > 0 ? 'text-amber-400' : 'text-neutral-400'}`}>
+                      {fmt(managingPayoutsFor.balance)}
+                    </span>
+                  </div>
+                </div>
+
+                <form onSubmit={handleAddPayout} className="space-y-4 flex-1">
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">Amount ($)</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      required
+                      value={payoutAmount}
+                      onChange={e => setPayoutAmount(e.target.value)}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
+                      placeholder="e.g. 5000.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">Notes / Check # (Optional)</label>
+                    <textarea 
+                      value={payoutNotes}
+                      onChange={e => setPayoutNotes(e.target.value)}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500 h-24 resize-none"
+                      placeholder="Check #1042..."
+                    />
+                  </div>
+                  <button 
+                    type="submit" 
+                    disabled={isSubmittingPayout || !payoutAmount}
+                    className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:hover:bg-amber-600 text-white font-bold py-2 rounded-lg transition-colors"
+                  >
+                    {isSubmittingPayout ? "Saving..." : "Save Payout"}
+                  </button>
+                </form>
+              </div>
+
+              {/* History Side */}
+              <div className="w-1/2 p-0 flex flex-col bg-neutral-900">
+                <div className="p-4 border-b border-neutral-800 bg-neutral-850">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400">Payout History</h3>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin">
+                  {!managingPayoutsFor.payouts || managingPayoutsFor.payouts.length === 0 ? (
+                    <div className="text-center text-neutral-500 italic mt-10 text-sm">No payouts recorded yet.</div>
+                  ) : (
+                    managingPayoutsFor.payouts.map(p => (
+                      <div key={p.id} className="bg-neutral-800/60 border border-neutral-800 rounded-lg p-3">
+                        <div className="flex justify-between items-start mb-1">
+                          <div className="text-sm font-bold text-emerald-400">{fmt(p.amount)}</div>
+                          <div className="text-[10px] text-neutral-500 bg-neutral-900 px-1.5 py-0.5 rounded border border-neutral-800">
+                            {new Date(p.date).toLocaleDateString()}
+                          </div>
+                        </div>
+                        {p.notes && <div className="text-xs text-neutral-400 mt-2 bg-neutral-900/50 p-2 rounded border border-neutral-800/50">{p.notes}</div>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>,

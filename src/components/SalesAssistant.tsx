@@ -17,11 +17,15 @@ export function SalesAssistant({ accountId, accountData }: { accountId: string, 
           accountName: accountData?.name || "Acme Corporation",
           industry: accountData?.industry || "Manufacturing",
           status: accountData?.status || "Update Status",
+          quality: accountData?.quality || "WARM",
+          tags: accountData?.tags,
           lastPurchase: accountData?.lastPurchaseAt || "2024-05-12",
           callType: callType,
           daysSinceLastPurchase: accountData?.daysSinceLastPurchase,
           totalRevenue: accountData?.totalRevenue,
-          invoices: accountData?.invoices?.slice(0, 3) // Send top 3 for context
+          invoices: accountData?.invoices?.slice(0, 3), // Send top 3 for context
+          primaryContact: accountData?.contacts?.find((c: any) => c.isPrimary) || accountData?.contacts?.[0],
+          ownerName: accountData?.owner?.name
         })
       })
       const data = await response.json()

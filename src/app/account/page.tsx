@@ -13,7 +13,7 @@ import { AccountAnalytics } from "@/components/AccountAnalytics"
 import { DealsHistory } from "@/components/DealsHistory"
 import { PointOfSale } from "@/components/PointOfSale"
 import Link from "next/link"
-import { StatusPicker } from "@/components/StatusPicker"
+
 import { QualityPicker } from "@/components/QualityPicker"
 import { ContactsView } from "@/components/ContactsView"
 
@@ -31,9 +31,11 @@ function AccountHubContent() {
   const [drillTitle, setDrillTitle] = useState("")
   const [drillInvoices, setDrillInvoices] = useState<any[] | null>(null)
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)
+  const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
+  const [isLoadingInvoiceDetails, setIsLoadingInvoiceDetails] = useState(false)
   const [viewingSalesDoc, setViewingSalesDoc] = useState<{ type: 'SalesOrder' | 'Quote', doc: any } | null>(null)
   const [historyViewMode, setHistoryViewMode] = useState<"data" | "pdf">("data")
-  const [aiViewMode, setAiViewMode] = useState<"assistant" | "comms">("assistant")
+  const [aiViewMode, setAiViewMode] = useState<"assistant" | "comms">("comms")
 
   const fetchAccountData = async (showLoading = true) => {
     if (showLoading) setLoading(true)
@@ -72,11 +74,43 @@ function AccountHubContent() {
   }
 
   useEffect(() => {
-    if (!id) return
+    if (!isInitialized) return
     fetchAccountData()
-  }, [id])
+  }, [isInitialized, id])
 
-  if (loading) return (
+  useEffect(() => {
+    if (viewingInvoice) {
+      if (viewingInvoice.items?.custom_fields) {
+        setFullInvoiceDetails({ custom_fields: viewingInvoice.items.custom_fields, ...viewingInvoice })
+        setIsLoadingInvoiceDetails(false)
+        return
+      }
+
+      const fetchInvoiceDetails = async () => {
+        setIsLoadingInvoiceDetails(true)
+        setFullInvoiceDetails(null)
+        try {
+          const res = await fetch(`/api/get-invoice-details?targetId=${viewingInvoice.zohoId || viewingInvoice.id}`)
+          const data = await res.json()
+          if (data.success && data.invoice) {
+            setFullInvoiceDetails(data.invoice)
+          } else {
+            console.error("Failed to load invoice details", data.error)
+          }
+        } catch (error) {
+          console.error("Error fetching invoice details:", error)
+        } finally {
+          setIsLoadingInvoiceDetails(false)
+        }
+      }
+      fetchInvoiceDetails()
+    } else {
+      setFullInvoiceDetails(null)
+      setIsLoadingInvoiceDetails(false)
+    }
+  }, [viewingInvoice])
+
+  if (loading || !isInitialized) return (
     <div className="flex items-center justify-center min-h-[100dvh] bg-neutral-950 text-white">
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -127,12 +161,6 @@ function AccountHubContent() {
             <div className="min-w-0">
               <h1 className="text-base font-bold truncate">{account.name}</h1>
               <div className="flex items-center gap-2 mt-0.5">
-                <StatusPicker
-                  zohoId={account.zohoId}
-                  accountId={account.id}
-                  currentStatus={account.status || "Open"}
-                  onUpdated={(newStatus) => setAccount((a: any) => ({ ...a, status: newStatus }))}
-                />
                 <QualityPicker
                   zohoId={account.zohoId}
                   accountId={account.id}
@@ -143,12 +171,37 @@ function AccountHubContent() {
               </div>
             </div>
           </div>
-          <button
-            onClick={() => setShowPos(true)}
-            className="shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 text-xs sm:text-sm rounded-full font-bold transition-colors"
-          >
-            POS
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/create-books-contact', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ accountId: account.zohoId })
+                  })
+                  const data = await res.json()
+                  if (data.success) {
+                    alert(data.message || 'Successfully added to Zoho Books!')
+                  } else {
+                    alert('Error: ' + data.error)
+                  }
+                } catch (e: any) {
+                  alert('Error: ' + e.message)
+                }
+              }}
+              className="shrink-0 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-3 py-1.5 text-xs sm:text-sm rounded-full font-bold transition-colors border border-neutral-700 flex items-center gap-1.5"
+              title="Push this account to Zoho Books as a Customer"
+            >
+              <span>+ Books</span>
+            </button>
+            <button
+              onClick={() => setShowPos(true)}
+              className="shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 text-xs sm:text-sm rounded-full font-bold transition-colors"
+            >
+              POS
+            </button>
+          </div>
         </div>
       </header>
 
@@ -317,16 +370,6 @@ function AccountHubContent() {
               <div className="flex justify-end mb-2">
                 <div className="flex bg-neutral-950 p-0.5 rounded-lg border border-neutral-800 shrink-0">
                   <button
-                    onClick={() => setAiViewMode("assistant")}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      aiViewMode === "assistant"
-                        ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10"
-                        : "text-neutral-400 hover:text-neutral-200"
-                    }`}
-                  >
-                    AI Copilot ⚡
-                  </button>
-                  <button
                     onClick={() => setAiViewMode("comms")}
                     className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
                       aiViewMode === "comms"
@@ -335,6 +378,16 @@ function AccountHubContent() {
                     }`}
                   >
                     Comm Center 📞
+                  </button>
+                  <button
+                    onClick={() => setAiViewMode("assistant")}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      aiViewMode === "assistant"
+                        ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/10"
+                        : "text-neutral-400 hover:text-neutral-200"
+                    }`}
+                  >
+                    AI Copilot ⚡
                   </button>
                 </div>
               </div>
@@ -470,13 +523,42 @@ function AccountHubContent() {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-neutral-800 flex-1">
-                  <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3">All Data Fields</h4>
-                  <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 overflow-x-auto">
-                    <pre className="text-[10px] text-neutral-300 font-mono whitespace-pre-wrap break-all">
-                      {JSON.stringify(viewingInvoice.items || viewingInvoice, null, 2)}
-                    </pre>
-                  </div>
+                <div className="pt-4 border-t border-neutral-800 flex-1 overflow-y-auto pr-2">
+                  <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3">Custom Fields & Data</h4>
+                  
+                  {isLoadingInvoiceDetails ? (
+                    <div className="flex justify-center items-center py-8 gap-2 text-sm font-semibold text-neutral-400">
+                      <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      Loading details...
+                    </div>
+                  ) : fullInvoiceDetails?.custom_fields ? (
+                    <div className="flex flex-col gap-2.5 pb-4">
+                      {fullInvoiceDetails.custom_fields
+                        .filter((f: any) => f.value && f.value !== "" && f.value !== false)
+                        .map((field: any) => (
+                        <div key={field.customfield_id} className="bg-neutral-850 border border-neutral-800 rounded-lg p-3 shadow-sm">
+                          <label className="text-[10px] text-emerald-500/80 uppercase font-bold tracking-wider mb-1.5 block">
+                            {field.label}
+                          </label>
+                          {field.data_type === "multiline" ? (
+                            <pre className="text-xs text-neutral-200 font-mono whitespace-pre-wrap break-all bg-neutral-950 p-2.5 rounded border border-neutral-800/50">
+                              {field.value_formatted || field.value}
+                            </pre>
+                          ) : (
+                            <div className={`text-sm font-bold ${field.data_type === "amount" || field.data_type === "percent" ? "text-emerald-400" : "text-white"}`}>
+                              {field.value_formatted || field.value}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 overflow-x-auto">
+                      <pre className="text-[10px] text-neutral-300 font-mono whitespace-pre-wrap break-all">
+                        {JSON.stringify(viewingInvoice.items || viewingInvoice, null, 2)}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               </div>
 

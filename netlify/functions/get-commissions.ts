@@ -44,6 +44,12 @@ export const handler: Handler = async (event) => {
       }
     })
 
+    // Fetch payouts
+    const payouts = await prisma.payout.findMany({
+      where: repId ? { repId } : undefined,
+      orderBy: { date: "desc" }
+    })
+
     // Commission: 10% of gross revenue
     const COMMISSION_RATE = 0.10
     const calcCommission = (amount: number) => {
@@ -109,6 +115,7 @@ export const handler: Handler = async (event) => {
           repId: deal.repId,
           repName: deal.repName,
           deals: [],
+          payouts: [],
           totalEarned: 0,
           totalPaid: 0,
           totalProfit: 0,
@@ -121,6 +128,14 @@ export const handler: Handler = async (event) => {
         byRep[key].totalProfit += deal.profit || 0
       }
     }
+    // Add payouts and calculate balance
+    for (const payout of payouts) {
+      if (byRep[payout.repId]) {
+        byRep[payout.repId].payouts.push(payout)
+        byRep[payout.repId].totalPaid += payout.amount
+      }
+    }
+
     Object.values(byRep).forEach((rep: any) => {
       rep.balance = rep.totalEarned - rep.totalPaid
     })

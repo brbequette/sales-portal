@@ -15,19 +15,28 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { accountName, industry, status, lastPurchase, callType, daysSinceLastPurchase, totalRevenue, invoices } = body
+    const { accountName, industry, status, quality, tags, lastPurchase, callType, daysSinceLastPurchase, totalRevenue, invoices, primaryContact, ownerName } = body
 
-    const systemPrompt = `You are a top-tier B2B sales assistant for Titan Diamond. 
-Your goal is to write a short, highly persuasive, and conversational sales script for a sales rep to read when calling a client.
-The script should be tailored to the specific Call Type requested.
-The script should be no longer than 3-4 sentences. Do not include placeholder brackets except for [Rep Name].`
+    const systemPrompt = `You are an elite B2B sales representative for Titan Diamond. 
+Your goal is to write a highly persuasive, fluid, and natural-sounding sales script to use when calling a client.
+Guidelines:
+- Make it sound like a real human speaking casually but professionally. No robotic structures.
+- It must be short (3-4 sentences maximum).
+- Address the client by their First Name if known.
+- Introduce yourself using the Rep Name.
+- Use the provided context (industry, recent purchases, tags, quality) to personalize the hook.
+- Do NOT use any brackets or placeholders (e.g., [Client Name]). Use the actual data provided.`
 
-    let contextPrompt = `Client Name: ${accountName}\nIndustry: ${industry}\nAccount Status: ${status}\nLast Purchase Date: ${lastPurchase}\nDays Since Last Purchase: ${daysSinceLastPurchase || 'Unknown'}\nLifetime Value: $${totalRevenue || 'Unknown'}\nCall Type: ${callType || 'Standard'}\n`
+    let contextPrompt = `Client Company: ${accountName}\n`
+    if (primaryContact?.firstName) contextPrompt += `Client First Name: ${primaryContact.firstName}\n`
+    if (ownerName) contextPrompt += `Your Name (Rep): ${ownerName}\n`
+    contextPrompt += `Industry: ${industry}\nAccount Quality: ${quality}\nAccount Tags: ${tags || 'None'}\n`
+    contextPrompt += `Last Purchase Date: ${lastPurchase}\nDays Since Last Purchase: ${daysSinceLastPurchase || 'Unknown'}\nLifetime Value: $${totalRevenue || 'Unknown'}\nCall Type: ${callType || 'Standard'}\n`
     
     if (invoices && invoices.length > 0) {
       contextPrompt += `\nRecent Order History:\n`
       invoices.forEach((inv: any, i: number) => {
-        contextPrompt += `- Order ${i+1}: $${inv.amount} on ${new Date(inv.issueDate).toLocaleDateString()}. Items: ${inv.items ? JSON.stringify(inv.items) : 'General Assortment'}\n`
+        contextPrompt += `- Order ${i+1}: $${inv.amount}. Items: ${inv.items ? JSON.stringify(inv.items) : 'General Assortment'}\n`
       })
     }
     contextPrompt += `\n`
@@ -39,9 +48,9 @@ The script should be no longer than 3-4 sentences. Do not include placeholder br
     } else if (callType === 'Overdue Invoice') {
       contextPrompt += `Context: The client has an overdue invoice. Be polite but firm, asking for a status update on the payment while maintaining the relationship.\n`
     } else if (typeof daysSinceLastPurchase === 'number' && daysSinceLastPurchase > 365) {
-      contextPrompt += `Context: This client has not purchased anything in over a year. We need to re-engage them, ask about their current inventory needs, mention a returning-client discount, and reference their past orders to show we know them.\n`
+      contextPrompt += `Context: This client has not purchased anything in over a year. We need to re-engage them. Ask about their current inventory needs, mention a returning-client discount, and reference their past orders to show we know them.\n`
     } else {
-      contextPrompt += `Context: This is an active client. Pitch them an upgrade or ask if they need a restock based on their recent order history. Reference their recent items.\n`
+      contextPrompt += `Context: This is an active client. Pitch them an upgrade or ask if they need a restock based on their recent order history. Reference their recent items directly so it feels personalized.\n`
     }
 
     const response = await openai.chat.completions.create({

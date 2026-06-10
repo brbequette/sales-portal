@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
-import { StatusPicker } from "@/components/StatusPicker"
+
 import { QualityPicker } from "@/components/QualityPicker"
 import { Pagination, usePagination } from "@/components/Pagination"
-import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase } from "react-icons/fi"
+import { NewCustomerModal } from "@/components/NewCustomerModal"
+import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus } from "react-icons/fi"
 
 function formatLastCalled(dateStr: string | null) {
   if (!dateStr) return "Never called"
@@ -40,6 +41,7 @@ export default function Dashboard() {
   const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [showDoNotCall, setShowDoNotCall] = useState(false)
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
+  const [showNewCustomerModal, setShowNewCustomerModal] = useState(false)
   const [repsList, setRepsList] = useState<any[]>([])
 
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)
@@ -200,6 +202,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (viewingInvoice) {
+      if (viewingInvoice.items?.custom_fields) {
+        setFullInvoiceDetails({ custom_fields: viewingInvoice.items.custom_fields, ...viewingInvoice })
+        setIsLoadingInvoiceDetails(false)
+        return
+      }
+
       const fetchInvoiceDetails = async () => {
         setIsLoadingInvoiceDetails(true)
         setFullInvoiceDetails(null)
@@ -774,14 +782,20 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
-                <div className="relative w-full sm:w-48">
-                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={13} />
+                <button
+                  onClick={() => setShowNewCustomerModal(true)}
+                  className="bg-amber-500 hover:bg-amber-400 text-black font-bold px-4 py-2.5 rounded-xl text-sm transition-all shadow-lg flex items-center gap-2 whitespace-nowrap"
+                >
+                  <FiUserPlus size={16} /> <span className="hidden sm:inline">Add New Account</span>
+                </button>
+                <div className="relative flex-1 sm:w-64">
+                  <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
                   <input
                     type="text"
-                    placeholder="Search accounts..."
+                    placeholder="Search accounts, names, emails..."
                     value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className={`w-full bg-neutral-900 border border-neutral-800 rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-none ${effort === "sales" ? "focus:border-emerald-500" : "focus:border-sky-500"} text-white placeholder-neutral-600`}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all placeholder-neutral-600"
                   />
                 </div>
                 <button
@@ -969,15 +983,6 @@ export default function Dashboard() {
                               <Link href={`/account?id=${account.zohoId}`} className="text-sm font-bold text-white truncate block hover:text-emerald-400 transition-colors">{account.name}</Link>
                               <div className="flex items-center gap-2 mt-1 flex-wrap">
                                 <span className="text-[10px] text-neutral-400 bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-700">{account.tags || "General"}</span>
-                                <StatusPicker
-                                  zohoId={account.zohoId}
-                                  accountId={account.id}
-                                  currentStatus={account.status || "Open"}
-                                  compact
-                                  onUpdated={(newStatus) => {
-                                    setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, status: newStatus } : a))
-                                  }}
-                                />
                                 <QualityPicker
                                   zohoId={account.zohoId}
                                   accountId={account.id}
@@ -2036,6 +2041,13 @@ export default function Dashboard() {
         </div>,
         document.body
       )}
+      {/* ── New Customer Modal ── */}
+      <NewCustomerModal
+        isOpen={showNewCustomerModal}
+        onClose={() => setShowNewCustomerModal(false)}
+        currentUserId={currentUser?.id}
+      />
+
     </div>
   )
 }

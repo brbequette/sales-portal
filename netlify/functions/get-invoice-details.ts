@@ -65,6 +65,20 @@ export const handler: Handler = async (event) => {
       throw new Error(`Zoho error: ${zohoData.message}`)
     }
 
+    // Save custom fields to local DB to minimize future API calls
+    if (dbInvoice && zohoData.invoice.custom_fields) {
+      const currentItems = (dbInvoice.items as any) || {}
+      currentItems.custom_fields = zohoData.invoice.custom_fields
+      try {
+        await prisma.invoice.update({
+          where: { id: dbInvoice.id },
+          data: { items: currentItems }
+        })
+      } catch (dbErr) {
+        console.error("Failed to cache custom fields to DB:", dbErr)
+      }
+    }
+
     return {
       statusCode: 200,
       headers: cors,

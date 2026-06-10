@@ -19,6 +19,7 @@ model User {
   deals     Deal[]    // Deals owned by this sales rep
   notes     Note[]
   tasks     Task[]    // Tasks assigned to this sales rep
+  payouts   Payout[]  // Commission payouts for this sales rep
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -193,4 +194,17 @@ model SystemSetting {
   value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Payout {
+  id        String   @id @default(cuid())
+  repId     String
+  rep       User     @relation(fields: [repId], references: [id], onDelete: Cascade)
+  amount    Float
+  date      DateTime @default(now())
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([repId])
 }
