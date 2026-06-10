@@ -18,14 +18,14 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== "GET") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
-    const { id, invoiceId } = event.queryStringParameters || {}
-    let targetId = invoiceId || id
+    const { id, invoiceId, targetId: paramTargetId } = event.queryStringParameters || {}
+    let targetId = invoiceId || id || paramTargetId
 
     if (!targetId) {
       return {
         statusCode: 400,
         headers: cors,
-        body: JSON.stringify({ success: false, error: "Missing invoice identifier (id or invoiceId)" })
+        body: JSON.stringify({ success: false, error: "Missing invoice identifier (id, invoiceId, or targetId)" })
       }
     }
 
@@ -65,17 +65,38 @@ export const handler: Handler = async (event) => {
       throw new Error(`Zoho error: ${zohoData.message}`)
     }
 
-    // Save custom fields to local DB to minimize future API calls
-    if (dbInvoice && zohoData.invoice.custom_fields) {
+    // Save custom fields and update status/balance to local DB to keep database in sync
+    if (dbInvoice) {
+      const zohoInvoice = zohoData.invoice
+      let status = dbInvoice.status
+      if (zohoInvoice.status === 'paid' || zohoInvoice.balance === 0) {
+        status = 'Paid'
+      } else if (zohoInvoice.status === 'void') {
+        status = 'Void'
+      } else if (zohoInvoice.status === 'overdue' || (dbInvoice.dueDate && new Date(dbInvoice.dueDate) < new Date())) {
+        status = 'Overdue'
+      } else {
+        status = zohoInvoice.status.charAt(0).toUpperCase() + zohoInvoice.status.slice(1)
+      }
+
       const currentItems = (dbInvoice.items as any) || {}
-      currentItems.custom_fields = zohoData.invoice.custom_fields
+      currentItems.custom_fields = zohoInvoice.custom_fields
+      currentItems.balance = zohoInvoice.balance
+      if (zohoInvoice.last_payment_date) {
+        currentItems.paymentDate = zohoInvoice.last_payment_date
+      }
+
       try {
         await prisma.invoice.update({
           where: { id: dbInvoice.id },
-          data: { items: currentItems }
+          data: {
+            status: status,
+            amount: parseFloat(zohoInvoice.sub_total || dbInvoice.amount),
+            items: currentItems
+          }
         })
       } catch (dbErr) {
-        console.error("Failed to cache custom fields to DB:", dbErr)
+        console.error("Failed to sync invoice status to DB:", dbErr)
       }
     }
 

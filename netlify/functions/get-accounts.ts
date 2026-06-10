@@ -1,6 +1,7 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient } from "@prisma/client"
 import { getZohoAccessToken } from "./lib/zoho-auth"
+import { syncRecentBooksInvoices } from "./lib/zoho-books"
 
 const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
@@ -264,6 +265,9 @@ export const handler: Handler = async (event, context) => {
                 invoicePage++;
               }
               console.log(`Synced ${syncedInvoicesCount} invoices for owner ${user.zohoId}.`);
+              
+              // Sync the latest invoice states directly from Zoho Books to capture real-time payment updates
+              await syncRecentBooksInvoices();
             } catch (invError) {
               console.error("Failed to sync invoices:", invError);
             }
