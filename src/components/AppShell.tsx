@@ -7,6 +7,7 @@ import {
   FiHome, FiPhoneCall, FiDollarSign, FiTool, FiUser,
   FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings
 } from "react-icons/fi"
+import { GlobalTopBar } from "@/components/GlobalTopBar"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -179,7 +180,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* ── Main Content ── */}
       <main className="flex-1 overflow-hidden flex flex-col lg:pt-0 pt-12 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-24">
-        {children}
+        <GlobalTopBar />
+        <div className="flex-1 overflow-y-auto">
+          {children}
+        </div>
       </main>
     </div>
   )

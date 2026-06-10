@@ -554,9 +554,11 @@ export default function ToolsRepository() {
                     <tr>
                       <th className="p-4 w-28">SKU</th>
                       <th className="p-4">Product Name</th>
+                      <th className="p-4">Vendor</th>
                       <th className="p-4">Category</th>
                       <th className="p-4">Description</th>
                       <th className="p-4 text-right">Price</th>
+                      <th className="p-4 text-right">Cost</th>
                       <th className="p-4 text-right">Stock</th>
                     </tr>
                   </thead>
@@ -586,9 +588,14 @@ export default function ToolsRepository() {
                               <span>{p.name}</span>
                             </div>
                           </td>
+                          <td className="p-4 text-neutral-400 font-semibold">{parsed.vendor || "N/A"}</td>
                           <td className="p-4 text-emerald-400 font-semibold">{p.category}</td>
-                          <td className="p-4 text-neutral-400 max-w-xs truncate" title={parsed.text}>{parsed.text}</td>
+                          <td className="p-4 text-neutral-400 max-w-xs truncate" title={parsed.text}>
+                            {parsed.text}
+                            {parsed.pertinentInfo && <div className="text-[10px] text-amber-400 mt-1 truncate">{parsed.pertinentInfo}</div>}
+                          </td>
                           <td className="p-4 text-right text-white font-bold">${parseFloat(p.price || 0).toFixed(2)}</td>
+                          <td className="p-4 text-right text-neutral-400">${parsed.cost !== null ? parseFloat(parsed.cost).toFixed(2) : "—"}</td>
                           <td className="p-4 text-right">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                               p.stock > 50 ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-500/20' :

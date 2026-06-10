@@ -89,7 +89,13 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
         <div>
           <div className="text-xs text-neutral-400">Communicating with</div>
           <div className="font-bold text-base sm:text-lg text-white">{primaryContact.firstName} {primaryContact.lastName}</div>
-          <div className="text-xs text-neutral-500 truncate max-w-[260px]">{activeTab === 'EMAIL' ? primaryContact.email : primaryContact.phone}</div>
+          <div className="text-xs text-neutral-500 truncate max-w-[260px]">
+            {activeTab === 'EMAIL' ? (
+              <a href={`mailto:${primaryContact.email}`} className="hover:underline">{primaryContact.email}</a>
+            ) : (
+              <a href={`tel:${cleanPhone || primaryContact.phone}`} className="hover:underline">{primaryContact.phone}</a>
+            )}
+          </div>
         </div>
         
         {activeTab === 'CALL' && (

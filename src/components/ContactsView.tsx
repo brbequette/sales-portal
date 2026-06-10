@@ -187,10 +187,10 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     </span>
                   )}
                   {(c.phone || c.mobilePhone) && (
-                    <span className="text-[10px] text-neutral-400 truncate w-full flex items-center gap-1">
+                    <a href={`tel:${(c.phone || c.mobilePhone)?.replace(/[^0-9+]/g, '')}`} className="flex items-center gap-1.5 hover:underline hover:text-white transition-colors text-[10px] text-neutral-400">
                       <FiPhone className="shrink-0 text-neutral-500" size={10} />
                       {c.phone || c.mobilePhone}
-                    </span>
+                    </a>
                   )}
                 </button>
               )

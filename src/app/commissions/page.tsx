@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
 import { usePagination, Pagination } from "@/components/Pagination"
 import { FiDollarSign, FiRefreshCw, FiChevronDown, FiChevronUp, FiTrendingUp, FiUsers, FiBarChart2, FiAward, FiFilter, FiX, FiSearch, FiFileText } from "react-icons/fi"
+import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 
 // ── Types ──────────────────────────────────────────────────────────────
 type Deal = {
@@ -617,48 +618,12 @@ export default function CommissionsPage() {
         )}
       </div>
 
-      {/* ── Invoice PDF Modal ── */}
-      {viewingInvoiceZohoId && createPortal(
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setViewingInvoiceZohoId(null)} />
-          <div className="relative bg-neutral-900 border border-neutral-850 w-full max-w-5xl h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10001]">
-            {/* Header */}
-            <div className="bg-neutral-850 px-6 py-4 border-b border-neutral-800 flex justify-between items-center shrink-0">
-              <div>
-                <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                  <FiFileText className="text-amber-500" /> Invoice PDF Preview
-                </h2>
-                <p className="text-[10px] text-neutral-400 mt-0.5 font-mono">Zoho ID: {viewingInvoiceZohoId}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <a
-                  href={`/api/get-invoice-pdf?id=${viewingInvoiceZohoId}&download=true`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-neutral-700 flex items-center gap-1.5 cursor-pointer"
-                >
-                  Download PDF
-                </a>
-                <button 
-                  onClick={() => setViewingInvoiceZohoId(null)} 
-                  className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-750 transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer"
-                >
-                  &times;
-                </button>
-              </div>
-            </div>
-
-            {/* Iframe container */}
-            <div className="flex-1 bg-neutral-950 p-2 relative">
-              <iframe
-                src={`/api/get-invoice-pdf?id=${viewingInvoiceZohoId}`}
-                className="w-full h-full border-0 rounded-lg bg-neutral-900"
-                title="Invoice PDF Preview"
-              />
-            </div>
-          </div>
-        </div>,
-        document.body
+      {/* Invoice Details Modal */}
+      {viewingInvoiceZohoId && (
+        <InvoiceDetailsModal 
+          invoice={viewingInvoiceZohoId} 
+          onClose={() => setViewingInvoiceZohoId(null)} 
+        />
       )}
 
       {/* ── Manage Payouts Modal ── */}

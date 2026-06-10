@@ -194,9 +194,20 @@ export function DocumentFlipbook({
                   <div className="space-y-1 max-h-24 overflow-y-auto scrollbar-thin">
                     {Array.isArray(current?.items) && current.items.length > 0 ? (
                       current.items.map((item: any, i: number) => (
-                        <div key={i} className="text-xs text-gray-700 flex justify-between">
-                          <span>{typeof item === "string" ? item : item.name || JSON.stringify(item)}</span>
-                          {item.amount && <span className="font-medium">${item.amount}</span>}
+                        <div key={i} className="text-xs text-gray-700 flex flex-col mb-2 bg-gray-50/50 p-2 rounded">
+                          <div className="flex justify-between font-medium">
+                            <span>{typeof item === "string" ? item : item.name || JSON.stringify(item)}</span>
+                            {typeof item !== 'string' && item.amount && <span className="font-bold text-emerald-600">${parseFloat(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>}
+                          </div>
+                          {typeof item !== "string" && (item.sku || item.vendor || item.cost) && (
+                            <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-500">
+                              {item.sku && <span>SKU: <span className="font-mono text-gray-600">{item.sku}</span></span>}
+                              {item.sku && item.vendor && <span>|</span>}
+                              {item.vendor && <span>Vendor: <span className="font-semibold text-gray-600">{item.vendor}</span></span>}
+                              {(item.sku || item.vendor) && item.cost && <span>|</span>}
+                              {item.cost && <span className="text-emerald-600/80">Cost: ${parseFloat(item.cost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>}
+                            </div>
+                          )}
                         </div>
                       ))
                     ) : (

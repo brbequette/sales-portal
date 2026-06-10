@@ -437,13 +437,21 @@ export default function SalesListPage() {
                       <div key={i} className="bg-neutral-800/30 p-3 rounded-lg border border-neutral-800 flex justify-between items-center">
                         <div>
                           <p className="text-sm font-bold text-white">{typeof item === 'string' ? item : (item.name || 'Unknown Item')}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-neutral-400 font-mono">{(typeof item !== 'string' && item.sku) ? item.sku : 'SKU: N/A'}</span>
+                            <span className="text-[10px] text-neutral-500">|</span>
+                            <span className="text-[10px] text-neutral-400">Vendor: {(typeof item !== 'string' && item.vendor) ? item.vendor : 'N/A'}</span>
+                          </div>
                           {typeof item !== 'string' && item.quantity && (
-                            <p className="text-xs text-neutral-400 mt-0.5">Qty: {item.quantity} x ${parseFloat(item.price || item.rate || 0).toLocaleString()}</p>
+                            <p className="text-xs text-neutral-400 mt-1">Qty: {item.quantity} x ${parseFloat(item.price || item.rate || 0).toLocaleString()}</p>
                           )}
                         </div>
                         <div className="text-right">
                           {typeof item !== 'string' && item.amount && (
                             <p className="text-sm font-bold text-emerald-400">${parseFloat(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                          )}
+                          {typeof item !== 'string' && item.cost && (
+                            <p className="text-[10px] text-amber-400 font-semibold mt-0.5">Cost: ${parseFloat(item.cost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                           )}
                           {typeof item !== 'string' && item.profit && (
                             <p className="text-[10px] text-sky-400 font-semibold mt-0.5">Profit: ${parseFloat(item.profit).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>

@@ -8,6 +8,7 @@ import { useZoho } from "@/components/ZohoProvider"
 import { AccountHistory } from "@/components/AccountHistory"
 import { SalesAssistant } from "@/components/SalesAssistant"
 import { CommunicationCenter } from "@/components/CommunicationCenter"
+import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { DocumentFlipbook } from "@/components/DocumentFlipbook"
 import { AccountAnalytics } from "@/components/AccountAnalytics"
 import { DealsHistory } from "@/components/DealsHistory"
@@ -77,38 +78,6 @@ function AccountHubContent() {
     if (!isInitialized) return
     fetchAccountData()
   }, [isInitialized, id])
-
-  useEffect(() => {
-    if (viewingInvoice) {
-      if (viewingInvoice.items?.custom_fields) {
-        setFullInvoiceDetails({ custom_fields: viewingInvoice.items.custom_fields, ...viewingInvoice })
-        setIsLoadingInvoiceDetails(false)
-        return
-      }
-
-      const fetchInvoiceDetails = async () => {
-        setIsLoadingInvoiceDetails(true)
-        setFullInvoiceDetails(null)
-        try {
-          const res = await fetch(`/api/get-invoice-details?targetId=${viewingInvoice.zohoId || viewingInvoice.id}`)
-          const data = await res.json()
-          if (data.success && data.invoice) {
-            setFullInvoiceDetails(data.invoice)
-          } else {
-            console.error("Failed to load invoice details", data.error)
-          }
-        } catch (error) {
-          console.error("Error fetching invoice details:", error)
-        } finally {
-          setIsLoadingInvoiceDetails(false)
-        }
-      }
-      fetchInvoiceDetails()
-    } else {
-      setFullInvoiceDetails(null)
-      setIsLoadingInvoiceDetails(false)
-    }
-  }, [viewingInvoice])
 
   if (loading || !isInitialized) return (
     <div className="flex items-center justify-center min-h-[100dvh] bg-neutral-950 text-white">
@@ -445,7 +414,12 @@ function AccountHubContent() {
                           <FiFileText className="text-amber-500 shrink-0" size={12} />
                           <span>#{invoiceNum}</span>
                         </div>
-                        <div className="text-xs text-neutral-400">{inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : "—"}</div>
+                        <div className="text-xs text-neutral-400 mt-1 flex flex-col gap-0.5 border-l-2 border-neutral-700 pl-2">
+                          <span>Ordered: {inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : "—"}</span>
+                          {inv.status === 'Paid' && (
+                            <span className="text-blue-400">Paid: {new Date((inv.items as any)?.paymentDate || inv.updatedAt || inv.issueDate).toLocaleDateString()}</span>
+                          )}
+                        </div>
                       </div>
                       <div className="text-right">
                         <div className="font-bold text-blue-400">${parseFloat(inv.amount || 0).toLocaleString()}</div>
@@ -466,114 +440,11 @@ function AccountHubContent() {
           </div>
         </div>
       )}
-      {/* ── Invoice Details Modal ── */}
-      {viewingInvoice && createPortal(
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setViewingInvoice(null)} />
-          <div className="relative bg-neutral-900 border border-neutral-850 w-full max-w-6xl h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10001]">
-            {/* Header */}
-            <div className="bg-neutral-850 px-6 py-4 border-b border-neutral-800 flex justify-between items-center shrink-0">
-              <div>
-                <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                  <FiFileText className="text-amber-500" /> Invoice Details
-                </h2>
-                <p className="text-[10px] text-neutral-400 mt-0.5 font-mono">Zoho ID: {viewingInvoice.zohoId || viewingInvoice.id}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <a
-                  href={`/api/get-invoice-pdf?id=${viewingInvoice.zohoId || viewingInvoice.id}&download=true`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-neutral-700 flex items-center gap-1.5 cursor-pointer"
-                >
-                  Download PDF
-                </a>
-                <button 
-                  onClick={() => setViewingInvoice(null)} 
-                  className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-755 transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer"
-                >
-                  &times;
-                </button>
-              </div>
-            </div>
-
-            {/* Content Split */}
-            <div className="flex flex-1 overflow-hidden">
-              {/* Data View */}
-              <div className="w-1/3 min-w-[300px] bg-neutral-950 border-r border-neutral-800 overflow-y-auto p-5 flex flex-col gap-6">
-                <div>
-                  <h3 className="text-white font-bold text-sm mb-4 flex items-center gap-2"><FiDatabase className="text-sky-400" /> Data View</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Invoice #</label>
-                      <div className="text-sm text-white font-mono">{viewingInvoice.items?.invoiceNumber || viewingInvoice.id?.slice(-6) || "—"}</div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Amount</label>
-                      <div className="text-sm text-emerald-400 font-bold">${viewingInvoice.amount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}</div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Status</label>
-                      <div className={`text-sm font-bold ${viewingInvoice.status === 'Paid' ? 'text-blue-400' : 'text-amber-400'}`}>{viewingInvoice.status || "—"}</div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Issue Date</label>
-                      <div className="text-sm text-white">{viewingInvoice.issueDate ? new Date(viewingInvoice.issueDate).toLocaleDateString() : "—"}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-neutral-800 flex-1 overflow-y-auto pr-2">
-                  <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3">Custom Fields & Data</h4>
-                  
-                  {isLoadingInvoiceDetails ? (
-                    <div className="flex justify-center items-center py-8 gap-2 text-sm font-semibold text-neutral-400">
-                      <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                      Loading details...
-                    </div>
-                  ) : fullInvoiceDetails?.custom_fields ? (
-                    <div className="flex flex-col gap-2.5 pb-4">
-                      {fullInvoiceDetails.custom_fields
-                        .filter((f: any) => f.value && f.value !== "" && f.value !== false)
-                        .map((field: any) => (
-                        <div key={field.customfield_id} className="bg-neutral-850 border border-neutral-800 rounded-lg p-3 shadow-sm">
-                          <label className="text-[10px] text-emerald-500/80 uppercase font-bold tracking-wider mb-1.5 block">
-                            {field.label}
-                          </label>
-                          {field.data_type === "multiline" ? (
-                            <pre className="text-xs text-neutral-200 font-mono whitespace-pre-wrap break-all bg-neutral-950 p-2.5 rounded border border-neutral-800/50">
-                              {field.value_formatted || field.value}
-                            </pre>
-                          ) : (
-                            <div className={`text-sm font-bold ${field.data_type === "amount" || field.data_type === "percent" ? "text-emerald-400" : "text-white"}`}>
-                              {field.value_formatted || field.value}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 overflow-x-auto">
-                      <pre className="text-[10px] text-neutral-300 font-mono whitespace-pre-wrap break-all">
-                        {JSON.stringify(viewingInvoice.items || viewingInvoice, null, 2)}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* PDF Preview */}
-              <div className="flex-1 bg-neutral-900 p-3 relative flex flex-col">
-                <iframe
-                  src={`/api/get-invoice-pdf?id=${viewingInvoice.zohoId || viewingInvoice.id}`}
-                  className="w-full h-full border-0 rounded-xl bg-neutral-950 flex-1 shadow-inner"
-                  title="Invoice PDF Preview"
-                />
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
+      {viewingInvoice && (
+        <InvoiceDetailsModal 
+          invoice={viewingInvoice} 
+          onClose={() => setViewingInvoice(null)} 
+        />
       )}
 
       {/* ── Sales Document (Quote / Sales Order) Details Modal ── */}
@@ -645,19 +516,34 @@ function AccountHubContent() {
                   <table className="w-full text-xs">
                     <thead className="bg-neutral-950/60 border-b border-neutral-800 text-neutral-500 font-bold">
                       <tr>
+                        <th className="text-left px-3 py-2 w-20">SKU</th>
                         <th className="text-left px-3 py-2">Item Description</th>
-                        <th className="text-right px-3 py-2 w-24">Amount</th>
+                        <th className="text-left px-3 py-2">Vendor</th>
+                        <th className="text-right px-3 py-2">Cost</th>
+                        <th className="text-right px-3 py-2 w-24">Price</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800/50">
                       {Array.isArray(viewingSalesDoc.doc.items) && viewingSalesDoc.doc.items.length > 0 ? (
                         viewingSalesDoc.doc.items.map((item: any, i: number) => {
                           const name = typeof item === 'string' ? item : item.name || 'Product Item'
+                          const sku = typeof item === 'string' ? '' : item.sku || ''
+                          const vendor = typeof item === 'string' ? '' : item.vendor || ''
+                          const cost = typeof item === 'string' ? null : item.cost || null
                           const amount = typeof item === 'string' ? null : item.amount || null
                           return (
                             <tr key={i}>
+                              <td className="px-3 py-2.5 text-neutral-400 font-mono text-[10px]">
+                                {sku || '—'}
+                              </td>
                               <td className="px-3 py-2.5 text-neutral-200 font-semibold">
                                 {name}
+                              </td>
+                              <td className="px-3 py-2.5 text-neutral-400">
+                                {vendor || '—'}
+                              </td>
+                              <td className="px-3 py-2.5 text-right text-emerald-500/80">
+                                {cost ? `$${parseFloat(cost).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
                               </td>
                               <td className="px-3 py-2.5 text-right text-neutral-300">
                                 {amount ? `$${parseFloat(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
@@ -667,7 +553,7 @@ function AccountHubContent() {
                         })
                       ) : (
                         <tr>
-                          <td colSpan={2} className="px-3 py-4 text-center text-neutral-500 italic">
+                          <td colSpan={5} className="px-3 py-4 text-center text-neutral-500 italic">
                             Standard product assortment
                           </td>
                         </tr>

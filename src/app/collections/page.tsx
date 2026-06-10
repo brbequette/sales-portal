@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import { usePagination, Pagination } from "@/components/Pagination"
 import { useZoho } from "@/components/ZohoProvider"
 import { useProductModal } from "@/components/ProductModalProvider"
+import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import {
   FiPhoneCall, FiSearch, FiRefreshCw, FiDownload, FiAlertCircle,
   FiClock, FiCheckCircle, FiX, FiChevronRight, FiUser, FiFilter,
@@ -627,472 +628,6 @@ function RequestReturnModal({ invoice, onClose, onSuccess }: RequestReturnProps)
   )
 }
 
-// ── Invoice Details Side Drawer ─────────────────────────────────────────
-interface DrawerProps {
-  invoice: Invoice
-  onClose: () => void
-  onRefresh: () => void
-  onViewInvoicePDF?: (zohoId: string) => void
-}
-
-function InvoiceDrawer({ invoice, onClose, onRefresh, onViewInvoicePDF }: DrawerProps) {
-  const { showProduct } = useProductModal()
-  const { zohoContext: currentUser } = useZoho()
-  const [activeTab, setActiveTab] = useState<"details" | "logs">("details")
-  const [details, setDetails] = useState<any>(null)
-  const [logs, setLogs] = useState<any[]>([])
-  
-  const [loadingDetails, setLoadingDetails] = useState(true)
-  const [loadingLogs, setLoadingLogs] = useState(true)
-  
-  const [emailing, setEmailing] = useState(false)
-  const [applyingDiscount, setApplyingDiscount] = useState(false)
-  const [showRunCard, setShowRunCard] = useState(false)
-  const [showReturn, setShowReturn] = useState(false)
-
-  const fetchDetails = useCallback(async () => {
-    setLoadingDetails(true)
-    try {
-      const res = await fetch(`/api/get-invoice-details?invoiceId=${invoice.id}`)
-      const data = await res.json()
-      if (data.success) {
-        setDetails(data.invoice)
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoadingDetails(false)
-    }
-  }, [invoice.id])
-
-  const fetchLogs = useCallback(async () => {
-    setLoadingLogs(true)
-    try {
-      const res = await fetch(`/api/log-collection-call?invoiceId=${invoice.id}`)
-      const data = await res.json()
-      if (data.success) {
-        setLogs(data.logs || [])
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoadingLogs(false)
-    }
-  }, [invoice.id])
-
-  useEffect(() => {
-    fetchDetails()
-    fetchLogs()
-  }, [fetchDetails, fetchLogs])
-
-  const handleEmail = async () => {
-    setEmailing(true)
-    try {
-      const res = await fetch("/api/zoho-email-invoice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoiceId: invoice.id })
-      })
-      const data = await res.json()
-      if (data.success) {
-        alert("Invoice emailed successfully via Zoho Books!")
-      } else {
-        alert("Email failed: " + data.error)
-      }
-    } catch (err: any) {
-      alert("Error sending email: " + err.message)
-    } finally {
-      setEmailing(false)
-    }
-  }
-
-  const handleDiscountToggle = async () => {
-    setApplyingDiscount(true)
-    // Check if discount is already applied
-    const discountApplied = details?.discount_amount > 0 || (details?.discount_percent && details?.discount_percent !== 0) || details?.discount > 0
-    try {
-      const res = await fetch("/api/zoho-apply-discount", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoiceId: invoice.id, remove: !!discountApplied })
-      })
-      const data = await res.json()
-      if (data.success) {
-        alert(discountApplied ? "5% Discount removed!" : "5% Discount applied successfully!")
-        fetchDetails()
-        onRefresh()
-      } else {
-        alert("Failed to toggle discount: " + data.error)
-      }
-    } catch (err: any) {
-      alert("Error updating discount: " + err.message)
-    } finally {
-      setApplyingDiscount(false)
-    }
-  }
-
-  const isDiscountApplied = details?.discount_amount > 0 || (details?.discount_percent && details?.discount_percent !== 0) || details?.discount > 0
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30" onClick={onClose} />
-
-      {/* Drawer Container */}
-      <div className="fixed inset-y-0 right-0 z-40 w-full max-w-2xl bg-neutral-900 border-l border-neutral-800 shadow-2xl flex flex-col transition-all duration-300">
-        
-        {/* Header */}
-        <div className="flex-none p-5 border-b border-neutral-800 bg-neutral-950/60 flex items-start justify-between">
-          <div>
-            <span className="text-[10px] font-bold text-neutral-500 uppercase">Overdue Invoice Details</span>
-            <h2 className="text-base font-bold text-white flex items-center gap-2 mt-0.5">
-              Inv 
-              <button 
-                onClick={() => onViewInvoicePDF && onViewInvoicePDF(invoice.zohoId)}
-                className="text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer bg-transparent border-none p-0 focus:outline-none font-mono font-bold"
-                title="Click to view Invoice PDF"
-              >
-                #{invoice.invoice_number}
-              </button>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded border border-red-500/30 text-red-400 bg-red-950/20 font-sans`}>
-                {invoice.status}
-              </span>
-            </h2>
-            <p className="text-xs text-neutral-400 mt-1">{invoice.customer_name}</p>
-          </div>
-          <button onClick={onClose} className="text-neutral-400 hover:text-white p-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors">
-            <FiX />
-          </button>
-        </div>
-
-        {/* Action Panel Stripe */}
-        <div className="flex-none px-5 py-3 bg-neutral-950/30 border-b border-neutral-800 flex items-center gap-2 overflow-x-auto">
-          <button onClick={handleEmail} disabled={emailing}
-            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors">
-            <FiMail /> {emailing ? "Emailing..." : "Email Invoice"}
-          </button>
-
-          <button onClick={() => setShowRunCard(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold transition-colors">
-            <FiCreditCard /> Run Card
-          </button>
-
-          <button onClick={handleDiscountToggle} disabled={applyingDiscount}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
-              isDiscountApplied 
-                ? "bg-amber-700 hover:bg-amber-600 text-white" 
-                : "bg-neutral-800 hover:bg-neutral-700 text-amber-400 border border-neutral-700"
-            }`}>
-            <FiTag /> {applyingDiscount ? "Updating..." : isDiscountApplied ? "Remove 5% Discount" : "Apply 5% Discount"}
-          </button>
-
-          <button onClick={() => setShowReturn(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-red-950/60 border border-red-900/50 hover:bg-red-900/40 text-red-400 rounded-lg text-xs font-bold transition-colors ml-auto">
-            <FiTruck /> Return Label
-          </button>
-        </div>
-
-        {/* Tab Selection */}
-        <div className="flex-none flex border-b border-neutral-800 bg-neutral-950/10">
-          <button onClick={() => setActiveTab("details")}
-            className={`flex-1 py-3 text-xs font-bold text-center border-b-2 transition-colors ${
-              activeTab === "details" ? "border-emerald-500 text-emerald-400" : "border-transparent text-neutral-400 hover:text-white"
-            }`}>
-            Invoice Details
-          </button>
-          <button onClick={() => setActiveTab("logs")}
-            className={`flex-1 py-3 text-xs font-bold text-center border-b-2 transition-colors ${
-              activeTab === "logs" ? "border-emerald-500 text-emerald-400" : "border-transparent text-neutral-400 hover:text-white"
-            }`}>
-            Collection Logs ({logs.length})
-          </button>
-        </div>
-
-        {/* Drawer Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-thin">
-          {activeTab === "details" ? (
-            loadingDetails ? (
-              <div className="flex flex-col items-center justify-center py-20 text-neutral-500 gap-2">
-                <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs">Loading Books details...</span>
-              </div>
-            ) : !details ? (
-              <div className="text-center py-10 text-neutral-500 text-xs">
-                Failed to fetch invoice details from Zoho Books.
-              </div>
-            ) : (
-              <div className="space-y-6">
-                
-                {/* Meta details grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-neutral-950/30 border border-neutral-800 rounded-xl p-4">
-                  <div>
-                    <span className="text-[10px] text-neutral-500 uppercase font-bold">Issue Date</span>
-                    <div className="text-xs font-semibold text-neutral-300 mt-0.5">{details.date || invoice.issue_date || "—"}</div>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-neutral-500 uppercase font-bold">Due Date</span>
-                    <div className="text-xs font-semibold text-neutral-300 mt-0.5">{details.due_date || invoice.due_date || "—"}</div>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-neutral-500 uppercase font-bold">Status</span>
-                    <div className="text-xs font-semibold text-neutral-300 mt-0.5 capitalize">{details.status || invoice.status}</div>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-neutral-500 uppercase font-bold">Aging</span>
-                    <div className="text-xs font-semibold text-red-400 mt-0.5">{invoice.days_overdue} days</div>
-                  </div>
-                </div>
-
-                {/* Line Items */}
-                <div className="space-y-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
-                    <FiList /> Line Items
-                  </h3>
-                  <div className="border border-neutral-800 rounded-xl overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead className="bg-neutral-950/60 border-b border-neutral-800 text-neutral-500 font-bold">
-                        <tr>
-                          <th className="text-left px-3 py-2">Item</th>
-                          <th className="text-center px-3 py-2 w-16">Qty</th>
-                          <th className="text-right px-3 py-2 w-24">Rate</th>
-                          <th className="text-right px-3 py-2 w-24">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-800/50">
-                        {details.line_items?.map((item: any) => {
-                          const imgUrl = getProductImage(item.name, item.sku)
-                          return (
-                            <tr key={item.line_item_id || item.item_id}>
-                              <td className="px-3 py-2.5">
-                                <div className="flex items-center gap-2.5">
-                                  <div className="w-8 h-8 rounded-lg bg-neutral-800 border border-neutral-700/50 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                                    {imgUrl ? (
-                                      <img 
-                                        src={imgUrl} 
-                                        alt={item.name} 
-                                        className="w-full h-full object-cover" 
-                                      />
-                                    ) : (
-                                      <FiFileText className="text-neutral-500" size={14} />
-                                    )}
-                                  </div>
-                                  <div>
-                                    <div 
-                                      className="font-semibold text-neutral-200 cursor-pointer hover:underline hover:text-emerald-400 transition-colors"
-                                      onClick={() => showProduct(item.name, item)}
-                                    >
-                                      {item.name}
-                                    </div>
-                                    {item.description && <div className="text-[10px] text-neutral-500 mt-0.5">{item.description}</div>}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="text-center px-3 py-2.5 text-neutral-300">{item.quantity}</td>
-                              <td className="text-right px-3 py-2.5 text-neutral-300">{fmt(item.rate)}</td>
-                              <td className="text-right px-3 py-2.5 text-neutral-200 font-semibold">{fmt(item.item_total)}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Financial Summary */}
-                <div className="bg-neutral-950/20 border border-neutral-800/80 rounded-xl p-4 flex flex-col gap-2 max-w-sm ml-auto text-xs">
-                  <div className="flex justify-between text-neutral-400">
-                    <span>Subtotal</span>
-                    <span>{fmt(details.sub_total)}</span>
-                  </div>
-                  {details.discount_amount > 0 && (
-                    <div className="flex justify-between text-amber-500 font-semibold">
-                      <span>Discount ({details.discount})</span>
-                      <span>-{fmt(details.discount_amount)}</span>
-                    </div>
-                  )}
-                  {details.shipping_charge > 0 && (
-                    <div className="flex justify-between text-neutral-400">
-                      <span>Shipping</span>
-                      <span>{fmt(details.shipping_charge)}</span>
-                    </div>
-                  )}
-                  {details.adjustment !== 0 && (
-                    <div className="flex justify-between text-neutral-400">
-                      <span>Adjustment</span>
-                      <span>{fmt(details.adjustment)}</span>
-                    </div>
-                  )}
-                  {details.custom_fields && (
-                    <>
-                      <div className="border-t border-neutral-800/60 my-1"></div>
-                      <div className="flex justify-between text-neutral-400">
-                        <span>Dead Cost Total</span>
-                        <span>
-                          {fmt(parseFloat(details.custom_fields.find((f: any) => f.api_name === "cf_dead_cost_total")?.value || 0))}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-emerald-400 font-semibold">
-                        <span>Profit</span>
-                        <span>
-                          {fmt(parseFloat(details.custom_fields.find((f: any) => f.api_name === "cf_profit")?.value || 0))}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                  <div className="border-t border-neutral-800 my-1 pt-1.5 flex justify-between font-bold text-white">
-                    <span>Total Amount</span>
-                    <span>{fmt(details.total)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-red-400 text-sm">
-                    <span>Balance Due</span>
-                    <span>{fmt(details.balance)}</span>
-                  </div>
-                </div>
-
-                {/* Addresses */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-neutral-950/10 border border-neutral-800/60 rounded-xl p-3 text-xs space-y-1">
-                    <div className="font-bold text-neutral-400 flex items-center gap-1">
-                      <FiMapPin /> Billing Address
-                    </div>
-                    <div className="text-neutral-300">
-                      <div>{details.billing_address?.address || "—"}</div>
-                      {details.billing_address?.street2 && <div>{details.billing_address.street2}</div>}
-                      <div>
-                        {details.billing_address?.city}, {details.billing_address?.state} {details.billing_address?.zip}
-                      </div>
-                      <div>{details.billing_address?.country}</div>
-                    </div>
-                  </div>
-
-                  <div className="bg-neutral-950/10 border border-neutral-800/60 rounded-xl p-3 text-xs space-y-1">
-                    <div className="font-bold text-neutral-400 flex items-center gap-1">
-                      <FiMapPin /> Shipping Address
-                    </div>
-                    <div className="text-neutral-300">
-                      <div>{details.shipping_address?.address || "—"}</div>
-                      {details.shipping_address?.street2 && <div>{details.shipping_address.street2}</div>}
-                      <div>
-                        {details.shipping_address?.city}, {details.shipping_address?.state} {details.shipping_address?.zip}
-                      </div>
-                      <div>{details.shipping_address?.country}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Payments */}
-                {details.payments && details.payments.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
-                      <FiDollarSign /> Payments History
-                    </h3>
-                    <div className="border border-neutral-800 rounded-xl overflow-hidden text-xs">
-                      <table className="w-full">
-                        <thead className="bg-neutral-950/40 border-b border-neutral-800 text-neutral-500 font-bold">
-                          <tr>
-                            <th className="text-left px-3 py-2">Date</th>
-                            <th className="text-left px-3 py-2">Payment Mode</th>
-                            <th className="text-left px-3 py-2">Reference</th>
-                            <th className="text-right px-3 py-2">Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-neutral-800/50">
-                          {details.payments.map((p: any) => (
-                            <tr key={p.payment_id}>
-                              <td className="px-3 py-2 text-neutral-300">{p.date}</td>
-                              <td className="px-3 py-2 text-neutral-300">{p.payment_mode}</td>
-                              <td className="px-3 py-2 text-neutral-400 font-mono">{p.reference_number || "—"}</td>
-                              <td className="px-3 py-2 text-right text-emerald-400 font-semibold">{fmt(p.amount_applied || p.amount)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            )
-          ) : (
-            loadingLogs ? (
-              <div className="flex flex-col items-center justify-center py-20 text-neutral-500 gap-2">
-                <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs">Loading call logs...</span>
-              </div>
-            ) : logs.length === 0 ? (
-              <div className="text-center py-20 text-neutral-500 text-xs">
-                No collection logs recorded for this invoice yet.
-              </div>
-            ) : (
-              <div className="relative pl-6 border-l border-neutral-800 space-y-6">
-                {logs.map((log) => {
-                  const items = log.content.split("\n")
-                  const title = items[0] || "📞 Call Action"
-                  const detailsList = items.slice(1)
-                  
-                  return (
-                    <div key={log.id} className="relative">
-                      {/* Timeline dot */}
-                      <span className="absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-neutral-900 border border-neutral-700">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                      </span>
-                      
-                      <div className="bg-neutral-950/40 border border-neutral-800/80 rounded-xl p-4 space-y-2">
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <h4 className="text-xs font-bold text-neutral-200">{title}</h4>
-                          <span className="text-[10px] text-neutral-500">
-                            {new Date(log.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-
-                        <div className="text-xs text-neutral-400 space-y-1">
-                          {detailsList.map((d: string, idx: number) => (
-                            <div key={idx} className="leading-relaxed">{d}</div>
-                          ))}
-                        </div>
-
-                        {log.author && (
-                          <div className="text-[9px] text-neutral-500 flex items-center gap-1 pt-1 border-t border-neutral-800/40">
-                            <FiUser size={10} /> Rep: {log.author.name || log.author.email}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )
-          )}
-        </div>
-      </div>
-
-      {showRunCard && (
-        <RunCardModal
-          invoice={invoice}
-          onClose={() => setShowRunCard(false)}
-          onSuccess={() => {
-            fetchDetails()
-            fetchLogs()
-            onRefresh()
-          }}
-        />
-      )}
-
-      {showReturn && (
-        <RequestReturnModal
-          invoice={invoice}
-          onClose={() => setShowReturn(false)}
-          onSuccess={() => {
-            fetchDetails()
-            fetchLogs()
-            onRefresh()
-          }}
-        />
-      )}
-    </>
-  )
-}
-
 // ── Main Collections Page ──────────────────────────────────────────────
 export default function CollectionsPage() {
   const { zohoContext: user } = useZoho()
@@ -1106,7 +641,6 @@ export default function CollectionsPage() {
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
   
   const [callModal, setCallModal] = useState<Invoice | null>(null)
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   const [showRunCardDirect, setShowRunCardDirect] = useState<Invoice | null>(null)
   const [viewingInvoiceZohoId, setViewingInvoiceZohoId] = useState<string | null>(null)
   
@@ -1121,10 +655,11 @@ export default function CollectionsPage() {
     }
   }, [user])
 
-  const fetchInvoices = useCallback(async () => {
+  const fetchInvoices = useCallback(async (forceRefresh = false) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/get-collections?tab=${tab}`)
+      const refreshParam = forceRefresh ? `&refresh=true&zohoId=${user?.id || ""}&email=${user?.email || ""}` : ""
+      const res = await fetch(`/api/get-collections?tab=${tab}${refreshParam}`)
       const data = await res.json()
       if (data.success) {
         setInvoices(data.invoices)
@@ -1134,7 +669,7 @@ export default function CollectionsPage() {
     } finally {
       setLoading(false)
     }
-  }, [tab])
+  }, [tab, user])
 
   useEffect(() => { fetchInvoices() }, [fetchInvoices])
 
@@ -1259,7 +794,7 @@ export default function CollectionsPage() {
             <p className="text-xs text-neutral-400 mt-0.5">Track overdue invoices, log calling outcomes, capture card payments</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={fetchInvoices} className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white px-3 py-1.5 bg-neutral-800 rounded-lg transition-colors border border-neutral-700/60">
+            <button onClick={() => fetchInvoices(true)} className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white px-3 py-1.5 bg-neutral-800 rounded-lg transition-colors border border-neutral-700/60">
               <FiRefreshCw size={13} /> Refresh
             </button>
             <button onClick={exportCSV} className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white px-3 py-1.5 bg-neutral-800 rounded-lg transition-colors border border-neutral-700/60">
@@ -1540,20 +1075,13 @@ export default function CollectionsPage() {
                     const aging = agingBucket(inv.days_overdue)
                     return (
                       <tr key={inv.id} 
-                        onClick={() => setSelectedInvoice(inv)}
+                        onClick={() => setViewingInvoiceZohoId(inv.id)}
                         className="border-b border-neutral-800/60 hover:bg-neutral-800/20 transition-all group cursor-pointer"
                       >
                         <td className="px-4 py-3">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setViewingInvoiceZohoId(inv.zohoId);
-                            }}
-                            className="font-mono text-xs text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer bg-transparent border-none p-0 text-left focus:outline-none font-bold"
-                            title="Click to view Invoice PDF"
-                          >
+                          <span className="font-mono text-xs text-emerald-400 font-bold">
                             #{inv.invoice_number}
-                          </button>
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <span className="font-semibold text-white text-xs">{inv.customer_name}</span>
@@ -1623,16 +1151,6 @@ export default function CollectionsPage() {
         />
       )}
 
-      {/* Slide-out details drawer */}
-      {selectedInvoice && (
-        <InvoiceDrawer
-          invoice={selectedInvoice}
-          onClose={() => setSelectedInvoice(null)}
-          onRefresh={fetchInvoices}
-          onViewInvoicePDF={setViewingInvoiceZohoId}
-        />
-      )}
-
       {/* Modals */}
       {callModal && (
         <CallModal
@@ -1649,43 +1167,12 @@ export default function CollectionsPage() {
           onSuccess={fetchInvoices}
         />
       )}
-      {/* ── Invoice PDF Modal ── */}
-      {viewingInvoiceZohoId && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setViewingInvoiceZohoId(null)} />
-          <div className="relative w-full max-w-4xl h-[90vh] bg-neutral-900 border border-neutral-800 rounded-2xl flex flex-col shadow-2xl text-white z-[9999] p-5">
-            {/* Header */}
-            <div className="flex justify-between items-center pb-3 border-b border-neutral-800 mb-3 shrink-0">
-              <div className="flex items-center gap-2 text-sm font-bold">
-                <FiFileText className="text-amber-500" /> Invoice PDF Preview
-              </div>
-              <div className="flex items-center gap-2">
-                <a 
-                  href={`/api/get-invoice-pdf?id=${viewingInvoiceZohoId}&download=true`}
-                  className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-1 px-3 rounded-lg text-xs transition-colors flex items-center gap-1.5"
-                >
-                  Download
-                </a>
-                <button 
-                  onClick={() => setViewingInvoiceZohoId(null)} 
-                  className="text-neutral-400 hover:text-white bg-neutral-800 p-1.5 rounded-full transition-colors"
-                >
-                  <FiX size={15} />
-                </button>
-              </div>
-            </div>
-            
-            {/* PDF Viewer iframe */}
-            <div className="flex-1 w-full bg-neutral-950 rounded-xl overflow-hidden relative">
-              <iframe 
-                src={`/api/get-invoice-pdf?id=${viewingInvoiceZohoId}`}
-                className="w-full h-full border-none"
-                title="Invoice PDF Preview"
-              />
-            </div>
-          </div>
-        </div>,
-        document.body
+
+      {viewingInvoiceZohoId && (
+        <InvoiceDetailsModal 
+          invoice={viewingInvoiceZohoId} 
+          onClose={() => setViewingInvoiceZohoId(null)} 
+        />
       )}
     </div>
   )

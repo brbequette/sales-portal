@@ -28,9 +28,22 @@ export const handler: Handler = async (event) => {
     let ownerZohoId = null
     let ownerId = repId
     if (repId) {
-      const rep = await prisma.user.findUnique({ where: { id: repId } })
-      if (rep && rep.zohoId && !rep.zohoId.startsWith('mock-')) {
-        ownerZohoId = rep.zohoId
+      const rep = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { id: repId },
+            { zohoId: repId },
+            { email: repId }
+          ]
+        }
+      })
+      if (rep) {
+        ownerId = rep.id
+        if (rep.zohoId && !rep.zohoId.startsWith('mock-')) {
+          ownerZohoId = rep.zohoId
+        }
+      } else {
+        ownerId = null
       }
     }
 

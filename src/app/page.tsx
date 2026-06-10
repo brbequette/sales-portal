@@ -1,6 +1,7 @@
 "use client"
 
 import { useZoho } from "@/components/ZohoProvider"
+import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
@@ -8,7 +9,6 @@ import Link from "next/link"
 
 import { QualityPicker } from "@/components/QualityPicker"
 import { Pagination, usePagination } from "@/components/Pagination"
-import { NewCustomerModal } from "@/components/NewCustomerModal"
 import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus } from "react-icons/fi"
 
 function formatLastCalled(dateStr: string | null) {
@@ -41,19 +41,9 @@ export default function Dashboard() {
   const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [showDoNotCall, setShowDoNotCall] = useState(false)
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
-  const [showNewCustomerModal, setShowNewCustomerModal] = useState(false)
   const [repsList, setRepsList] = useState<any[]>([])
 
-  const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)
-  const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
-  const [isLoadingInvoiceDetails, setIsLoadingInvoiceDetails] = useState(false)
-
-  const [taskFilterTab, setTaskFilterTab] = useState<"due" | "pending" | "completed" | "all">("due")
-  const [showAddTaskModal, setShowAddTaskModal] = useState(false)
-  const [showEditTaskModal, setShowEditTaskModal] = useState(false)
   const [editingTask, setEditingTask] = useState<any | null>(null)
-
-  // Task Form States
   const [taskSubject, setTaskSubject] = useState("")
   const [taskDescription, setTaskDescription] = useState("")
   const [taskPriority, setTaskPriority] = useState("Normal")
@@ -62,6 +52,13 @@ export default function Dashboard() {
   const [taskStatus, setTaskStatus] = useState("Not Started")
   const [taskWhatId, setTaskWhatId] = useState("")
   const [taskSaving, setTaskSaving] = useState(false)
+  const [showEditTaskModal, setShowEditTaskModal] = useState(false)
+
+  const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)
+  const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
+  const [isLoadingInvoiceDetails, setIsLoadingInvoiceDetails] = useState(false)
+
+  const [taskFilterTab, setTaskFilterTab] = useState<"due" | "pending" | "completed" | "all">("due")
 
   // Campaign States
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([])
@@ -319,10 +316,6 @@ export default function Dashboard() {
     setTaskWhatId("")
   }
 
-  const handleOpenAddTask = () => {
-    resetTaskForm()
-    setShowAddTaskModal(true)
-  }
 
   const handleOpenEditTask = (task: any) => {
     setEditingTask(task)
@@ -334,38 +327,6 @@ export default function Dashboard() {
     setTaskStatus(task.status || "Not Started")
     setTaskWhatId(task.accountId || "")
     setShowEditTaskModal(true)
-  }
-
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!taskSubject.trim()) return
-    setTaskSaving(true)
-    try {
-      const res = await fetch("/api/create-task", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: taskSubject,
-          description: taskDescription,
-          priority: taskPriority,
-          dueDate: taskDueDate || null,
-          ownerId: taskOwnerId || currentUser.id,
-          whatId: taskWhatId || null
-        })
-      })
-      const data = await res.json()
-      if (data.success) {
-        setShowAddTaskModal(false)
-        resetTaskForm()
-        await refreshTasks()
-      } else {
-        alert("Failed to create task: " + data.message)
-      }
-    } catch (err: any) {
-      alert("Error creating task: " + err.message)
-    } finally {
-      setTaskSaving(false)
-    }
   }
 
   const handleUpdateTask = async (e: React.FormEvent) => {
@@ -623,7 +584,7 @@ export default function Dashboard() {
               const loadedAccounts = accounts
               const allPaidInvoices = loadedAccounts.flatMap(a => 
                 (a.invoices || []).filter((i: any) => i.status === "Paid").map((i: any) => ({ ...i, accountName: a.name, accountZohoId: a.zohoId }))
-              ).sort((a: any, b: any) => new Date(b.issueDate || 0).getTime() - new Date(a.issueDate || 0).getTime()).slice(0, 50)
+              ).sort((a: any, b: any) => new Date((b.items as any)?.paymentDate || b.updatedAt || b.issueDate || 0).getTime() - new Date((a.items as any)?.paymentDate || a.updatedAt || a.issueDate || 0).getTime()).slice(0, 50)
               
               setDrillType("invoices")
               setDrillTitle("Recent Paid Invoices (Last 50)")
@@ -782,12 +743,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
-                <button
-                  onClick={() => setShowNewCustomerModal(true)}
-                  className="bg-amber-500 hover:bg-amber-400 text-black font-bold px-4 py-2.5 rounded-xl text-sm transition-all shadow-lg flex items-center gap-2 whitespace-nowrap"
-                >
-                  <FiUserPlus size={16} /> <span className="hidden sm:inline">Add New Account</span>
-                </button>
                 <div className="relative flex-1 sm:w-64">
                   <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
                   <input
@@ -1097,7 +1052,7 @@ export default function Dashboard() {
 
           {/* Tasks — stacks below on mobile, column on desktop */}
           <div className={`space-y-3 ${mobileTab === "accounts" ? "hidden sm:block" : ""}`}>
-            {/* Header with "+ Add Task" */}
+            {/* Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FiCheckCircle className="text-emerald-500" size={16} />
@@ -1108,13 +1063,6 @@ export default function Dashboard() {
                   </span>
                 )}
               </div>
-              <button 
-                onClick={handleOpenAddTask}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer"
-              >
-                <FiPlus size={13} />
-                <span>Add Task</span>
-              </button>
             </div>
 
             {/* Quick Filters Tab Row */}
@@ -1320,7 +1268,12 @@ export default function Dashboard() {
                         <p className="text-neutral-400 text-xs mt-1 flex items-center gap-1.5">
                           <FiFileText className="text-amber-500 shrink-0" size={11} />
                           <span className="text-emerald-400 group-hover:underline font-mono">#{((item.items as any)?.invoiceNumber) || item.zohoId?.slice(-6) || item.id?.slice(-6) || "—"}</span>
-                          <span className="text-neutral-500 font-sans"> • {new Date(item.issueDate || item.orderDate || item.createdAt || Date.now()).toLocaleDateString()}</span>
+                          <span className="text-neutral-500 font-sans ml-1 flex flex-col gap-0.5 border-l border-neutral-700 pl-2">
+                            <span>Ordered: {new Date(item.issueDate || item.orderDate || item.createdAt || Date.now()).toLocaleDateString()}</span>
+                            {item.status === 'Paid' && (
+                              <span className="text-blue-400">Paid: {new Date((item.items as any)?.paymentDate || item.updatedAt || item.issueDate).toLocaleDateString()}</span>
+                            )}
+                          </span>
                         </p>
                       </div>
                       <div className="text-right">
@@ -1431,7 +1384,7 @@ export default function Dashboard() {
 
                 {/* Industry selector */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Industry</label>
+                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider Industry">Industry</label>
                   <select 
                     value={industryFilter} 
                     onChange={e => setIndustryFilter(e.target.value)}
@@ -1481,110 +1434,6 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {showAddTaskModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddTaskModal(false)} />
-          <div className="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl flex flex-col shadow-2xl text-white z-[9999] p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center pb-4 border-b border-neutral-800 mb-4">
-              <h3 className="font-bold text-lg text-white">Create New Task</h3>
-              <button onClick={() => setShowAddTaskModal(false)} className="text-neutral-400 hover:text-white bg-neutral-850 p-1 rounded-full">
-                <FiX size={16} />
-              </button>
-            </div>
-            <form onSubmit={handleCreateTask} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Subject *</label>
-                <input 
-                  type="text" 
-                  value={taskSubject} 
-                  onChange={e => setTaskSubject(e.target.value)} 
-                  required
-                  placeholder="Task subject..."
-                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Description</label>
-                <textarea 
-                  value={taskDescription} 
-                  onChange={e => setTaskDescription(e.target.value)} 
-                  placeholder="Task details..."
-                  rows={3}
-                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Priority</label>
-                  <select 
-                    value={taskPriority} 
-                    onChange={e => setTaskPriority(e.target.value)}
-                    className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
-                  >
-                    <option value="Normal">Normal</option>
-                    <option value="High">High</option>
-                    <option value="Low">Low</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Due Date</label>
-                  <input 
-                    type="date" 
-                    value={taskDueDate} 
-                    onChange={e => setTaskDueDate(e.target.value)} 
-                    className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Assignee</label>
-                <select 
-                  value={taskOwnerId} 
-                  onChange={e => setTaskOwnerId(e.target.value)}
-                  disabled={!isAdminUser}
-                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer disabled:opacity-50"
-                >
-                  <option value={currentUser?.id}>Me ({currentUser?.name})</option>
-                  {repsList.map(r => (
-                    <option key={r.id} value={r.id}>{r.name || r.email}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Link to Account (Optional)</label>
-                <select 
-                  value={taskWhatId} 
-                  onChange={e => setTaskWhatId(e.target.value)}
-                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
-                >
-                  <option value="">-- No Linked Account (Company Task) --</option>
-                  {accounts.map(a => (
-                    <option key={a.id} value={a.zohoId}>{a.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="pt-4 flex justify-end gap-2 border-t border-neutral-800">
-                <button 
-                  type="button" 
-                  onClick={() => setShowAddTaskModal(false)}
-                  className="px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-sm font-semibold transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={taskSaving}
-                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-semibold text-white transition-colors disabled:opacity-50"
-                >
-                  {taskSaving ? "Creating..." : "Create Task"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>,
         document.body
@@ -1933,122 +1782,12 @@ export default function Dashboard() {
         document.body
       )}
       {/* ── Invoice Details Modal ── */}
-      {viewingInvoice && createPortal(
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setViewingInvoice(null)} />
-          <div className="relative bg-neutral-900 border border-neutral-850 w-full max-w-6xl h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10001]">
-            {/* Header */}
-            <div className="bg-neutral-850 px-6 py-4 border-b border-neutral-800 flex justify-between items-center shrink-0">
-              <div>
-                <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                  <FiFileText className="text-amber-500" /> Invoice Details
-                </h2>
-                <p className="text-[10px] text-neutral-400 mt-0.5 font-mono">Zoho ID: {viewingInvoice.zohoId || viewingInvoice.id}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <a
-                  href={`/api/get-invoice-pdf?id=${viewingInvoice.zohoId || viewingInvoice.id}&download=true`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-neutral-700 flex items-center gap-1.5 cursor-pointer"
-                >
-                  Download PDF
-                </a>
-                <button 
-                  onClick={() => setViewingInvoice(null)} 
-                  className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-755 transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer"
-                >
-                  &times;
-                </button>
-              </div>
-            </div>
-
-            {/* Content Split */}
-            <div className="flex flex-1 overflow-hidden">
-              {/* Data View */}
-              <div className="w-1/3 min-w-[300px] bg-neutral-950 border-r border-neutral-800 overflow-y-auto p-5 flex flex-col gap-6">
-                <div>
-                  <h3 className="text-white font-bold text-sm mb-4 flex items-center gap-2"><FiDatabase className="text-sky-400" /> Data View</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Invoice #</label>
-                      <div className="text-sm text-white font-mono">{viewingInvoice.items?.invoiceNumber || viewingInvoice.id?.slice(-6) || "—"}</div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Amount</label>
-                      <div className="text-sm text-emerald-400 font-bold">${viewingInvoice.amount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}</div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Status</label>
-                      <div className={`text-sm font-bold ${viewingInvoice.status === 'Paid' ? 'text-blue-400' : 'text-amber-400'}`}>{viewingInvoice.status || "—"}</div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Issue Date</label>
-                      <div className="text-sm text-white">{viewingInvoice.issueDate ? new Date(viewingInvoice.issueDate).toLocaleDateString() : "—"}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-neutral-800 flex-1 overflow-y-auto pr-2">
-                  <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3">Custom Fields & Data</h4>
-                  
-                  {isLoadingInvoiceDetails ? (
-                    <div className="flex justify-center items-center py-8 gap-2 text-sm font-semibold text-neutral-400">
-                      <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                      Loading details...
-                    </div>
-                  ) : fullInvoiceDetails?.custom_fields ? (
-                    <div className="flex flex-col gap-2.5 pb-4">
-                      {fullInvoiceDetails.custom_fields
-                        .filter((f: any) => f.value && f.value !== "" && f.value !== false)
-                        .map((field: any) => (
-                        <div key={field.customfield_id} className="bg-neutral-850 border border-neutral-800 rounded-lg p-3 shadow-sm">
-                          <label className="text-[10px] text-emerald-500/80 uppercase font-bold tracking-wider mb-1.5 block">
-                            {field.label}
-                          </label>
-                          {field.data_type === "multiline" ? (
-                            <pre className="text-xs text-neutral-200 font-mono whitespace-pre-wrap break-all bg-neutral-950 p-2.5 rounded border border-neutral-800/50">
-                              {field.value_formatted || field.value}
-                            </pre>
-                          ) : (
-                            <div className={`text-sm font-bold ${field.data_type === "amount" || field.data_type === "percent" ? "text-emerald-400" : "text-white"}`}>
-                              {field.value_formatted || field.value}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 overflow-x-auto">
-                      <pre className="text-[10px] text-neutral-300 font-mono whitespace-pre-wrap break-all">
-                        {JSON.stringify(viewingInvoice.items || viewingInvoice, null, 2)}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* PDF Preview */}
-              <div className="flex-1 bg-neutral-900 p-3 relative flex flex-col">
-                <iframe
-                  src={`/api/get-invoice-pdf?id=${viewingInvoice.zohoId || viewingInvoice.id}`}
-                  className="w-full h-full border-0 rounded-xl bg-neutral-950 flex-1 shadow-inner"
-                  title="Invoice PDF Preview"
-                />
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
+      {viewingInvoice && (
+        <InvoiceDetailsModal 
+          invoice={viewingInvoice} 
+          onClose={() => setViewingInvoice(null)} 
+        />
       )}
-      {/* ── New Customer Modal ── */}
-      <NewCustomerModal
-        isOpen={showNewCustomerModal}
-        onClose={() => setShowNewCustomerModal(false)}
-        currentUserId={currentUser?.id}
-      />
-
     </div>
   )
 }
-
