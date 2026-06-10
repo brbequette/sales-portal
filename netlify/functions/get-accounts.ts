@@ -122,6 +122,57 @@ export const handler: Handler = async (event, context) => {
               await prisma.$transaction(chunk)
             }
 
+            // Reassignment check: find local accounts previously owned by this user but not returned by Zoho in this sync
+            const zohoZohoIds = new Set(zohoAccounts.map((r: any) => r.id));
+            const localAccountsBeforeReassign = await prisma.account.findMany({
+              where: { ownerId: user.id },
+              select: { id: true, zohoId: true }
+            });
+            
+            const missingAccountZohoIds = localAccountsBeforeReassign
+              .map(a => a.zohoId)
+              .filter(zid => !zohoZohoIds.has(zid));
+
+            if (missingAccountZohoIds.length > 0) {
+              console.log(`Detected ${missingAccountZohoIds.length} accounts locally owned by ${user.email} that are no longer returned by Zoho. Syncing their current owners...`);
+              try {
+                for (let j = 0; j < missingAccountZohoIds.length; j += 50) {
+                  const idChunk = missingAccountZohoIds.slice(j, j + 50);
+                  const fetchRes = await fetch(
+                    `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts?ids=${idChunk.join(",")}`,
+                    { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                  );
+                  if (fetchRes.ok) {
+                    const fetchData = await fetchRes.json();
+                    const updatedRecords = fetchData.data || [];
+                    for (const record of updatedRecords) {
+                      const newOwnerZohoId = record.Owner?.id;
+                      if (newOwnerZohoId && newOwnerZohoId !== user.zohoId) {
+                        let dbNewOwner = await prisma.user.findUnique({ where: { zohoId: newOwnerZohoId } });
+                        if (!dbNewOwner) {
+                          dbNewOwner = await prisma.user.create({
+                            data: {
+                              zohoId: newOwnerZohoId,
+                              name: record.Owner.name || "Unknown Owner",
+                              email: `${newOwnerZohoId}@dummy.titandiamond.com`,
+                              role: "Sales Representative"
+                            }
+                          });
+                        }
+                        await prisma.account.update({
+                          where: { zohoId: record.id },
+                          data: { ownerId: dbNewOwner.id }
+                        });
+                        console.log(`Reassigned account ${record.Account_Name} (Zoho ID: ${record.id}) to new owner ${record.Owner.name}`);
+                      }
+                    }
+                  }
+                }
+              } catch (reassignErr) {
+                console.error("Failed to process reassigned accounts:", reassignErr);
+              }
+            }
+
             // Cache the newly synced account IDs in a local Map to prevent redundant DB reads
             const localAccounts = await prisma.account.findMany({
               where: { ownerId: user.id },
