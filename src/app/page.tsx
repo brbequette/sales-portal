@@ -8,6 +8,7 @@ import { createPortal } from "react-dom"
 import Link from "next/link"
 
 import { QualityPicker } from "@/components/QualityPicker"
+import { TimezonePicker } from "@/components/TimezonePicker"
 import { Pagination, usePagination } from "@/components/Pagination"
 import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus } from "react-icons/fi"
 
@@ -38,6 +39,8 @@ export default function Dashboard() {
   const [drillType, setDrillType] = useState<"invoices" | "deals" | "accounts" | null>(null)
   const [effort, setEffort] = useState<"sales" | "call_list">("sales")
   const [ownerFilter, setOwnerFilter] = useState("All")
+  const [timezoneFilter, setTimezoneFilter] = useState("All")
+  const [sortBy, setSortBy] = useState<"default" | "timezone">("default")
   const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [showDoNotCall, setShowDoNotCall] = useState(false)
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
@@ -234,6 +237,7 @@ export default function Dashboard() {
     setStatusFilter("All")
     setSearchQuery("")
     setOwnerFilter("All")
+    setTimezoneFilter("All")
     setOnlyWithSales(false)
   }
 
@@ -406,9 +410,13 @@ export default function Dashboard() {
     })
     .slice(0, 50)
 
-  const effortAccounts = effort === "sales"
+  let effortAccounts = effort === "sales"
     ? filteredByOwnerActive
     : callListAccounts
+
+  if (sortBy === "timezone") {
+    effortAccounts = [...effortAccounts].sort((a, b) => (a.timeZone || "ZZZ").localeCompare(b.timeZone || "ZZZ"))
+  }
 
   const effortTasks = tasks
     .filter(t => ownerFilter === "All" || t.ownerId === ownerFilter)
@@ -438,17 +446,19 @@ export default function Dashboard() {
 
   const allStatuses = Array.from(new Set(effortAccounts.map(a => a.status).filter(Boolean))) as string[]
   const allIndustries = Array.from(new Set(effortAccounts.map(a => a.industry).filter(Boolean))) as string[]
+  const allTimezones = Array.from(new Set(effortAccounts.map(a => a.timeZone).filter(Boolean))) as string[]
 
   const filteredAccounts = effortAccounts.filter(a => {
     const matchesSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (a.zohoId && a.zohoId.toLowerCase().includes(searchQuery.toLowerCase()))
     const matchesStatus = statusFilter === "All" || a.status === statusFilter
     const matchesIndustry = industryFilter === "All" || a.industry === industryFilter
+    const matchesTimezone = timezoneFilter === "All" || a.timeZone === timezoneFilter
     
     const ltv = (a.invoices || []).reduce((sum: number, inv: any) => sum + (parseFloat(inv.amount) || 0), 0)
     const matchesSalesFilter = !onlyWithSales || ltv > 0
 
-    return matchesSearch && matchesStatus && matchesIndustry && matchesSalesFilter
+    return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesSalesFilter
   })
 
   const filteredTasksList = tasks.filter(task => {
@@ -487,7 +497,7 @@ export default function Dashboard() {
   ]
 
   const accentColor = effort === "sales" ? "emerald" : "sky"
-  const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0)
+  const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (timezoneFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0)
 
   if (!isInitialized || loading) {
     return (
@@ -744,6 +754,23 @@ export default function Dashboard() {
                   </div>
                 )}
 
+                <div className="relative w-full sm:w-40">
+                  <FiClock className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={13} />
+                  <select
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value as any)}
+                    className="w-full bg-neutral-900 border border-neutral-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
+                  >
+                    <option value="default">Default Sort</option>
+                    <option value="timezone">Sort by Time Zone</option>
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-3 h-3 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+
                 <button
                   onClick={() => setShowFiltersDrawer(true)}
                   className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-neutral-800 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white transition-colors cursor-pointer relative"
@@ -794,6 +821,12 @@ export default function Dashboard() {
                     <button onClick={() => setIndustryFilter("All")} className="text-neutral-500 hover:text-white"><FiX size={12} /></button>
                   </span>
                 )}
+                {timezoneFilter !== "All" && (
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-neutral-800 border border-neutral-700 text-xs text-neutral-300">
+                    Zone: {timezoneFilter}
+                    <button onClick={() => setTimezoneFilter("All")} className="text-neutral-500 hover:text-white"><FiX size={12} /></button>
+                  </span>
+                )}
                 {onlyWithSales && (
                   <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-neutral-800 border border-neutral-700 text-xs text-neutral-300">
                     Has Purchases
@@ -805,6 +838,7 @@ export default function Dashboard() {
                     setOwnerFilter("All")
                     setStatusFilter("All")
                     setIndustryFilter("All")
+                    setTimezoneFilter("All")
                     setOnlyWithSales(false)
                   }}
                   className="text-[10px] uppercase font-bold text-neutral-500 hover:text-neutral-300 ml-1 transition-colors"
@@ -936,6 +970,15 @@ export default function Dashboard() {
                                   compact
                                   onUpdated={(newQuality) => {
                                     setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, quality: newQuality } : a))
+                                  }}
+                                />
+                                <TimezonePicker
+                                  zohoId={account.zohoId}
+                                  accountId={account.id}
+                                  currentTimezone={account.timeZone || ""}
+                                  compact
+                                  onUpdated={(newTz) => {
+                                    setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, timeZone: newTz } : a))
                                   }}
                                 />
                               </div>
@@ -1335,6 +1378,18 @@ export default function Dashboard() {
                   </div>
                 )}
                 
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Time Zone</label>
+                  <select 
+                    value={timezoneFilter} 
+                    onChange={e => setTimezoneFilter(e.target.value)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  >
+                    <option value="All">All Time Zones</option>
+                    {allTimezones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                  </select>
+                </div>
+                
                 {/* Do Not Call toggle */}
                 <label className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity bg-neutral-800/50 p-2.5 rounded-lg border border-neutral-700/50">
                   <input 
@@ -1396,6 +1451,7 @@ export default function Dashboard() {
                     setOwnerFilter("All")
                     setStatusFilter("All")
                     setIndustryFilter("All")
+                    setTimezoneFilter("All")
                     setOnlyWithSales(false)
                     setShowFiltersDrawer(false)
                   }}

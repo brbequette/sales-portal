@@ -9,6 +9,7 @@ type CartItem = {
   product: any
   quantity: number
   customPrice: number
+  customMsrp: number
 }
 
 export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: string; onCancel: () => void; onSuccess?: () => void }) {
@@ -23,6 +24,8 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
   const [activeCategory, setActiveCategory] = useState("All")
   const [editingPrice, setEditingPrice] = useState<string | null>(null)
   const [tempPrice, setTempPrice] = useState("")
+  const [editingMsrp, setEditingMsrp] = useState<string | null>(null)
+  const [tempMsrp, setTempMsrp] = useState("")
   const [mobileTab, setMobileTab] = useState<"catalog" | "cart">("catalog")
 
   useEffect(() => {
@@ -55,7 +58,7 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
     if (existing) {
       setCart(cart.map((i) => (i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)))
     } else {
-      setCart([...cart, { product, quantity: 1, customPrice: product.price }])
+      setCart([...cart, { product, quantity: 1, customPrice: product.price, customMsrp: product.price }])
     }
   }
 
@@ -88,6 +91,19 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
     setEditingPrice(null)
   }
 
+  const startEditMsrp = (productId: string, currentMsrp: number) => {
+    setEditingMsrp(productId)
+    setTempMsrp(currentMsrp.toFixed(2))
+  }
+
+  const commitMsrp = (productId: string) => {
+    const parsed = parseFloat(tempMsrp)
+    if (!isNaN(parsed) && parsed >= 0) {
+      setCart(cart.map((i) => (i.product.id === productId ? { ...i, customMsrp: parsed } : i)))
+    }
+    setEditingMsrp(null)
+  }
+
   const subtotal = cart.reduce((sum, item) => sum + item.customPrice * item.quantity, 0)
   const total = subtotal
 
@@ -98,12 +114,12 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
       const itemsFormatted = cart.map(
         (i) =>
           `${i.quantity}x ${i.product.name} (${i.product.sku}) - $${i.customPrice.toFixed(2)} ea` +
-          (i.customPrice !== i.product.price
-            ? ` [Discounted from $${i.product.price.toFixed(2)}]`
+          (i.customMsrp !== i.customPrice
+            ? ` [Discounted from $${i.customMsrp.toFixed(2)}]`
             : "")
       )
       const totalDiscount = cart.reduce(
-        (sum, i) => sum + (i.product.price - i.customPrice) * i.quantity,
+        (sum, i) => sum + (i.customMsrp - i.customPrice) * i.quantity,
         0
       )
       const res = await fetch("/api/create-transaction", {
@@ -117,8 +133,8 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
           lineItems: cart.map((i) => ({
             name: i.product.name,
             sku: i.product.sku,
-            rate: i.product.price,
-            discount: i.product.price > i.customPrice ? (i.product.price - i.customPrice) * i.quantity : 0,
+            rate: i.customMsrp,
+            discount: i.customMsrp > i.customPrice ? (i.customMsrp - i.customPrice) * i.quantity : 0,
             quantity: i.quantity,
             description: `SKU: ${i.product.sku}`
           })),
@@ -281,7 +297,7 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
             ) : (
               <div className="divide-y divide-neutral-800">
                 {cart.map((item) => {
-                  const discounted = item.customPrice < item.product.price
+                  const discounted = item.customPrice < item.customMsrp
                   return (
                     <div key={item.product.id} className="p-4 space-y-2">
                       {/* Product name + remove */}
@@ -303,39 +319,67 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
                         </button>
                       </div>
 
-                      {/* Price edit row */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-neutral-500">Unit price:</span>
-                        {editingPrice === item.product.id ? (
-                          <div className="flex items-center gap-1 flex-1">
-                            <span className="text-xs text-neutral-400">$</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={tempPrice}
-                              onChange={(e) => setTempPrice(e.target.value)}
-                              onKeyDown={(e) => e.key === "Enter" && commitPrice(item.product.id)}
-                              className="w-24 bg-neutral-700 border border-blue-500 rounded px-2 py-0.5 text-sm text-white focus:outline-none"
-                              autoFocus
-                            />
-                            <button onClick={() => commitPrice(item.product.id)} className="text-green-400 hover:text-green-300"><FiCheck size={14} /></button>
-                            <button onClick={() => setEditingPrice(null)} className="text-red-400 hover:text-red-300"><FiX size={14} /></button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => startEditPrice(item.product.id, item.customPrice)}
-                            className="flex items-center gap-1 text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
-                          >
-                            ${item.customPrice.toFixed(2)}
-                            <FiEdit2 size={11} className="text-neutral-500" />
-                          </button>
-                        )}
-                        {discounted && (
-                          <span className="text-[10px] text-red-400 line-through ml-auto">
-                            ${item.product.price.toFixed(2)}
-                          </span>
-                        )}
+                      {/* Price edit rows */}
+                      <div className="flex flex-col gap-2 mt-1 bg-neutral-800/30 p-2 rounded">
+                        {/* MSRP Row */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-neutral-500 w-12">MSRP:</span>
+                          {editingMsrp === item.product.id ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-neutral-400">$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={tempMsrp}
+                                onChange={(e) => setTempMsrp(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && commitMsrp(item.product.id)}
+                                className="w-20 bg-neutral-700 border border-red-500 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none"
+                                autoFocus
+                              />
+                              <button onClick={() => commitMsrp(item.product.id)} className="text-green-400 hover:text-green-300"><FiCheck size={14} /></button>
+                              <button onClick={() => setEditingMsrp(null)} className="text-red-400 hover:text-red-300"><FiX size={14} /></button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => startEditMsrp(item.product.id, item.customMsrp)}
+                              className={`flex items-center gap-1 text-xs font-bold transition-colors ${discounted ? 'text-red-400 line-through' : 'text-neutral-400 hover:text-neutral-300'}`}
+                            >
+                              ${item.customMsrp.toFixed(2)}
+                              <FiEdit2 size={10} className="text-neutral-500 no-underline" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Sell Row */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-neutral-500 w-12">Sell:</span>
+                          {editingPrice === item.product.id ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-neutral-400">$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={tempPrice}
+                                onChange={(e) => setTempPrice(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && commitPrice(item.product.id)}
+                                className="w-20 bg-neutral-700 border border-emerald-500 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none"
+                                autoFocus
+                              />
+                              <button onClick={() => commitPrice(item.product.id)} className="text-green-400 hover:text-green-300"><FiCheck size={14} /></button>
+                              <button onClick={() => setEditingPrice(null)} className="text-red-400 hover:text-red-300"><FiX size={14} /></button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => startEditPrice(item.product.id, item.customPrice)}
+                              className="flex items-center gap-1 text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+                            >
+                              ${item.customPrice.toFixed(2)}
+                              <FiEdit2 size={11} className="text-neutral-500" />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {/* Qty + line total */}
@@ -358,7 +402,7 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
 
                       {discounted && (
                         <div className="text-[10px] text-amber-400 bg-amber-900/20 rounded px-2 py-0.5">
-                          Saving ${((item.product.price - item.customPrice) * item.quantity).toFixed(2)} on this item
+                          Saving ${((item.customMsrp - item.customPrice) * item.quantity).toFixed(2)} on this item
                         </div>
                       )}
                     </div>
@@ -374,11 +418,11 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
               <span>Subtotal ({cart.reduce((s, i) => s + i.quantity, 0)} units)</span>
               <span className="text-white font-semibold">${subtotal.toFixed(2)}</span>
             </div>
-            {cart.some((i) => i.customPrice < i.product.price) && (
+            {cart.some((i) => i.customPrice < i.customMsrp) && (
               <div className="flex justify-between text-sm text-amber-400">
                 <span>Total Discount</span>
                 <span>
-                  -${cart.reduce((s, i) => s + (i.product.price - i.customPrice) * i.quantity, 0).toFixed(2)}
+                  -${cart.reduce((s, i) => s + (i.customMsrp - i.customPrice) * i.quantity, 0).toFixed(2)}
                 </span>
               </div>
             )}

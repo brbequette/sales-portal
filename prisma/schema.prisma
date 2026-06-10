@@ -37,6 +37,7 @@ model Account {
   nextActionDate DateTime?
   ownerId        String
   owner          User     @relation(fields: [ownerId], references: [id])
+  timeZone       String?
   invoices       Invoice[]
   salesOrders    SalesOrder[]
   quotes         Quote[]
