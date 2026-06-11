@@ -57,6 +57,9 @@ export const handler: Handler = async (event) => {
       return { total, upfront: total * 0.5, final: total * 0.5 }
     }
 
+    // Map of users by name to lookup the salesman
+    const userByName = new Map(users.map(u => [u.name?.toLowerCase().trim(), u]))
+
     const dealsWithCommission = deals.map(deal => {
       const amount = deal.amount || 0
       const comm = calcCommission(amount)
@@ -74,6 +77,7 @@ export const handler: Handler = async (event) => {
       let profit = 0
       let deadCost = 0
       let invoiceZohoId = null
+      let salespersonName = null
 
       if (docNum) {
         const matchingInvoice = invoices.find(inv => {
@@ -84,7 +88,14 @@ export const handler: Handler = async (event) => {
           profit = (matchingInvoice.items as any)?.profit || 0
           deadCost = (matchingInvoice.items as any)?.deadCostTotal || 0
           invoiceZohoId = matchingInvoice.zohoId
+          salespersonName = (matchingInvoice.items as any)?.salesperson
         }
+      }
+
+      // Check if we have a salesman name that matches a user in our DB
+      let matchedRep = null
+      if (salespersonName) {
+        matchedRep = userByName.get(salespersonName.toLowerCase().trim())
       }
 
       return {
@@ -96,8 +107,8 @@ export const handler: Handler = async (event) => {
         profit,
         deadCost,
         closeDate: deal.closingDate,
-        repId: deal.ownerId,
-        repName: deal.owner?.name || "Unassigned",
+        repId: matchedRep ? matchedRep.id : (deal.ownerId || "unassigned"),
+        repName: matchedRep ? matchedRep.name : (deal.owner?.name || "Unassigned"),
         accountName: deal.account?.name || "Unknown",
         accountZohoId: deal.account?.zohoId || null,
         commission: comm,

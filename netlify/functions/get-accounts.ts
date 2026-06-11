@@ -231,7 +231,8 @@ export const handler: Handler = async (event, context) => {
                             balance: invRecord.Balance || 0,
                             profit: parseFloat(invRecord.Profit || 0),
                             deadCostTotal: parseFloat(invRecord.Dead_Cost_Total || 0),
-                            paymentDate: invRecord.Paid_In_Full_Date
+                            paymentDate: invRecord.Paid_In_Full_Date,
+                            salesperson: invRecord.Sales_Person || null
                           }
                         },
                         create: {
@@ -247,7 +248,8 @@ export const handler: Handler = async (event, context) => {
                             balance: invRecord.Balance || 0,
                             profit: parseFloat(invRecord.Profit || 0),
                             deadCostTotal: parseFloat(invRecord.Dead_Cost_Total || 0),
-                            paymentDate: invRecord.Paid_In_Full_Date
+                            paymentDate: invRecord.Paid_In_Full_Date,
+                            salesperson: invRecord.Sales_Person || null
                           }
                         }
                       })
