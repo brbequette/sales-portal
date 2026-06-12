@@ -98,7 +98,8 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   }
 
   const primaryContact = activeAccount.contacts?.find((c: any) => c.isPrimary) || activeAccount.contacts?.[0]
-  const cleanPhone = primaryContact?.phone ? primaryContact.phone.replace(/[^0-9+]/g, '') : ''
+  const displayPhone = primaryContact?.phone || primaryContact?.mobilePhone || ''
+  const cleanPhone = displayPhone ? displayPhone.replace(/[^0-9+]/g, '') : ''
   const contactName = spokeTo || (primaryContact ? `${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim() : "there")
 
   // Script Generator
@@ -268,8 +269,8 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
 
                 <div className="space-y-1">
                   <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Phone Details</span>
-                  {primaryContact?.phone ? (
-                    <a href={`tel:${primaryContact.phone.replace(/[^0-9+]/g, '')}`} className="text-xs text-blue-400 hover:text-blue-300 hover:underline font-bold font-mono">{primaryContact.phone}</a>
+                  {displayPhone ? (
+                    <a href={`tel:${cleanPhone}`} className="text-xs text-blue-400 hover:text-blue-300 hover:underline font-bold font-mono">{displayPhone}</a>
                   ) : (
                     <p className="text-xs text-neutral-500 font-mono">—</p>
                   )}

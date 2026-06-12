@@ -39,7 +39,8 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   const primaryContact = contacts?.find(c => c.isPrimary) || contacts?.[0] || null
-  const cleanPhone = primaryContact?.phone ? primaryContact.phone.replace(/[^0-9+]/g, '') : ''
+  const displayPhone = primaryContact?.phone || primaryContact?.mobilePhone || ''
+  const cleanPhone = displayPhone ? displayPhone.replace(/[^0-9+]/g, '') : ''
 
   // Scroll to bottom of chat
   useEffect(() => {
@@ -221,8 +222,8 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
             <div className="text-xs text-neutral-500 truncate max-w-[260px] font-mono">
               {activeTab === 'EMAIL' ? primaryContact.email : (
                 cleanPhone ? (
-                  <a href={`tel:${cleanPhone}`} className="hover:text-blue-400 transition-colors underline">{primaryContact.phone}</a>
-                ) : primaryContact.phone
+                  <a href={`tel:${cleanPhone}`} className="hover:text-blue-400 transition-colors underline">{displayPhone}</a>
+                ) : displayPhone || "No contact on file"
               )}
             </div>
           </div>
