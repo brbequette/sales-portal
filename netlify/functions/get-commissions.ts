@@ -10,43 +10,42 @@ export const handler: Handler = async (event) => {
   try {
     const { repId, year } = event.queryStringParameters || {}
 
-    // Pull all deals from DB with correct field names
-    const whereClause: any = {}
-    if (year) {
-      const start = new Date(`${year}-01-01`)
-      const end = new Date(`${parseInt(year) + 1}-01-01`)
-      whereClause.closingDate = { gte: start, lt: end }
-    }
+    // Default to current year to limit payload size
+    const targetYear = year || new Date().getFullYear().toString()
+    const start = new Date(`${targetYear}-01-01`)
+    const end = new Date(`${parseInt(targetYear) + 1}-01-01`)
+
     const deals = await prisma.deal.findMany({
-      where: whereClause,
-      include: {
-        account: true,
-        owner: true,
+      where: { closingDate: { gte: start, lt: end } },
+      select: {
+        id: true,
+        zohoId: true,
+        name: true,
+        stage: true,
+        amount: true,
+        closingDate: true,
+        ownerId: true,
+        owner: { select: { id: true, name: true } },
+        account: { select: { name: true, zohoId: true } },
       },
       orderBy: { closingDate: "desc" },
     })
 
-    // Get all reps
     const users = await prisma.user.findMany({
       select: { id: true, name: true, email: true, role: true },
       orderBy: { name: "asc" },
     })
 
-    // Fetch invoices to match for profit numbers
+    // Only fetch invoice number + profit data
     const invoices = await prisma.invoice.findMany({
-      select: {
-        zohoId: true,
-        items: true,
-      }
+      select: { zohoId: true, items: true }
     })
 
-    // Fetch payouts
     const payouts = await prisma.payout.findMany({
       where: repId ? { repId } : undefined,
       orderBy: { date: "desc" }
     })
 
-    // Map of users by name to lookup the salesman
     const userByName = new Map(users.map(u => [u.name?.toLowerCase().trim(), u]))
 
     const dealsWithCommission = deals.map(deal => {
@@ -55,7 +54,6 @@ export const handler: Handler = async (event) => {
       const isClosed = stage.includes("closed won") || stage.includes("fulfilled") || stage.includes("paid")
       const isLost = stage.includes("closed lost")
 
-      // Extract document number from deal name
       const parts = deal.name.split('|')
       let docNum = null
       if (parts.length >= 2) {
@@ -80,20 +78,12 @@ export const handler: Handler = async (event) => {
         }
       }
 
-      // Calculate commission: 10% of profit if available and closed/fulfilled, otherwise fallback to 10% of amount
       const baseValue = (profit > 0) ? profit : amount
       const commissionTotal = baseValue * 0.10
-      const comm = {
-        total: commissionTotal,
-        upfront: commissionTotal * 0.5,
-        final: commissionTotal * 0.5
-      }
+      const comm = { total: commissionTotal, upfront: commissionTotal * 0.5, final: commissionTotal * 0.5 }
 
-      // Check if we have a salesman name that matches a user in our DB
       let matchedRep = null
-      if (salespersonName) {
-        matchedRep = userByName.get(salespersonName.toLowerCase().trim())
-      }
+      if (salespersonName) matchedRep = userByName.get(salespersonName.toLowerCase().trim())
 
       return {
         id: deal.id,
@@ -110,7 +100,7 @@ export const handler: Handler = async (event) => {
         accountZohoId: deal.account?.zohoId || null,
         commission: comm,
         status: isLost ? "lost" : isClosed ? "fulfilled" : "pending",
-        invoiceZohoId: invoiceZohoId
+        invoiceZohoId
       }
     })
 
@@ -119,16 +109,7 @@ export const handler: Handler = async (event) => {
     for (const deal of dealsWithCommission) {
       const key = deal.repId || "unassigned"
       if (!byRep[key]) {
-        byRep[key] = {
-          repId: deal.repId,
-          repName: deal.repName,
-          deals: [],
-          payouts: [],
-          totalEarned: 0,
-          totalPaid: 0,
-          totalProfit: 0,
-          balance: 0,
-        }
+        byRep[key] = { repId: deal.repId, repName: deal.repName, deals: [], payouts: [], totalEarned: 0, totalPaid: 0, totalProfit: 0, balance: 0 }
       }
       byRep[key].deals.push(deal)
       if (deal.status !== "lost") {
@@ -136,55 +117,58 @@ export const handler: Handler = async (event) => {
         byRep[key].totalProfit += deal.profit || 0
       }
     }
-    // Add payouts and calculate balance
+
     for (const payout of payouts) {
       if (byRep[payout.repId]) {
         byRep[payout.repId].payouts.push(payout)
         byRep[payout.repId].totalPaid += payout.amount
       }
     }
+    Object.values(byRep).forEach((rep: any) => { rep.balance = rep.totalEarned - rep.totalPaid })
 
-    Object.values(byRep).forEach((rep: any) => {
-      rep.balance = rep.totalEarned - rep.totalPaid
-    })
-
-    // Available years from deal closingDate
-    const allYears = deals
-      .map(d => d.closingDate ? new Date(d.closingDate).getFullYear() : null)
-      .filter((y): y is number => y !== null)
-    const years = [...new Set(allYears)].sort((a, b) => b - a)
+    // Get available years via raw query (fast)
+    const yearRows = await prisma.$queryRaw<{y: number}[]>`
+      SELECT DISTINCT EXTRACT(YEAR FROM "closingDate")::int AS y
+      FROM "Deal" WHERE "closingDate" IS NOT NULL ORDER BY y DESC
+    `
+    const years = yearRows.map(r => r.y)
 
     let finalDeals = dealsWithCommission
     let finalByRep = byRep
     if (repId) {
       finalDeals = dealsWithCommission.filter(d => d.repId === repId)
       finalByRep = {}
-      if (byRep[repId]) {
-        finalByRep[repId] = byRep[repId]
-      }
+      if (byRep[repId]) finalByRep[repId] = byRep[repId]
     }
 
     const totalDeals = finalDeals.length
     const totalRevenue = finalDeals.reduce((s, d) => s + (d.amount || 0), 0)
-    const totalCommissions = finalDeals
-      .filter(d => d.status !== "lost")
-      .reduce((s, d) => s + d.commission.total, 0)
-    const totalProfit = finalDeals
-      .filter(d => d.status !== "lost")
-      .reduce((s, d) => s + d.profit, 0)
+    const totalCommissions = finalDeals.filter(d => d.status !== "lost").reduce((s, d) => s + d.commission.total, 0)
+    const totalProfit = finalDeals.filter(d => d.status !== "lost").reduce((s, d) => s + d.profit, 0)
 
-    return {
-      statusCode: 200,
-      headers: cors,
-      body: JSON.stringify({
-        success: true,
-        deals: finalDeals,
-        byRep: finalByRep,
-        users,
-        years,
-        stats: { totalDeals, totalRevenue, totalCommissions, totalProfit },
-      }),
+    const responseBody = JSON.stringify({
+      success: true,
+      year: targetYear,
+      deals: finalDeals,
+      byRep: finalByRep,
+      users,
+      years,
+      stats: { totalDeals, totalRevenue, totalCommissions, totalProfit },
+    })
+
+    // Safety valve: if still too large, strip deals array and return summaries only
+    if (responseBody.length > 5 * 1024 * 1024) {
+      return {
+        statusCode: 200,
+        headers: cors,
+        body: JSON.stringify({
+          success: true, year: targetYear, deals: [], byRep: finalByRep,
+          users, years, stats: { totalDeals, totalRevenue, totalCommissions, totalProfit }, truncated: true,
+        }),
+      }
     }
+
+    return { statusCode: 200, headers: cors, body: responseBody }
   } catch (err: any) {
     console.error("get-commissions error:", err)
     return { statusCode: 500, headers: cors, body: JSON.stringify({ success: false, error: err.message }) }
