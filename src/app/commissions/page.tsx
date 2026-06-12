@@ -8,22 +8,43 @@ import { usePagination, Pagination } from "@/components/Pagination"
 import { FiDollarSign, FiRefreshCw, FiChevronDown, FiChevronUp, FiTrendingUp, FiUsers, FiBarChart2, FiAward, FiFilter, FiX, FiSearch, FiFileText } from "react-icons/fi"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 
+function fmt(n: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0)
+}
+
 // ── Types ──────────────────────────────────────────────────────────────
-type Deal = {
+type InvoiceRecord = {
   id: string
+  zohoId: string
+  invoiceNumber: string | null
   name: string
-  stage: string
   amount: number
-  profit?: number
-  deadCost?: number
-  closeDate: string | null
+  profit: number
+  deadCost: number
+  status: string
+  issueDate: string | null
+  paymentDate: string | null
   repId: string
   repName: string
   accountName: string
   accountZohoId?: string | null
   commission: { total: number; upfront: number; final: number }
+  type: "invoice"
+}
+
+type DealRecord = {
+  id: string
+  zohoId: string
+  name: string
+  stage: string
+  amount: number
+  closeDate: string | null
+  repId: string
+  repName: string
+  accountName: string
+  accountZohoId?: string | null
   status: "pending" | "fulfilled" | "lost"
-  invoiceZohoId?: string | null
+  type: "deal"
 }
 
 type Payout = {
@@ -36,25 +57,32 @@ type Payout = {
 type RepSummary = {
   repId: string
   repName: string
-  deals: Deal[]
+  invoices: InvoiceRecord[]
+  deals: DealRecord[]
   payouts: Payout[]
   totalEarned: number
   totalPaid: number
-  totalProfit?: number
+  totalProfit: number
+  totalSales: number
   balance: number
 }
 
 type CommData = {
-  deals: Deal[]
+  invoices: InvoiceRecord[]
+  deals: DealRecord[]
   byRep: Record<string, RepSummary>
   users: any[]
   years: number[]
-  stats: { totalDeals: number; totalRevenue: number; totalCommissions: number; totalProfit?: number }
+  stats: {
+    totalInvoices: number
+    totalRevenue: number
+    totalProfit: number
+    totalCommissions: number
+    totalDealsInPipeline: number
+    totalPipelineValue: number
+  }
 }
 
-function fmt(n: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0)
-}
 
 function fmtDate(s: string | null) {
   if (!s) return "—"
@@ -79,50 +107,41 @@ function stageColor(stage: string) {
 }
 
 // ── Rep Card ───────────────────────────────────────────────────────────
-function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: { 
-  rep: RepSummary, 
+function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
+  rep: RepSummary,
   isAdmin: boolean,
   onViewInvoice?: (id: string) => void,
   onManagePayouts: (rep: RepSummary) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<"invoices" | "pipeline">("invoices")
   const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({})
 
-  // Group by year and week
-  const groupedDeals = useCallback(() => {
-    const groups: Record<number, Record<string, { deals: Deal[], totalCommission: number, startOfWeek: string }>> = {}
-    rep.deals.forEach(deal => {
-      const d = deal.closeDate ? new Date(deal.closeDate) : new Date()
+  // Group invoices by year → week
+  const groupedInvoices = useCallback(() => {
+    const groups: Record<number, Record<string, { invoices: InvoiceRecord[], totalCommission: number, startOfWeek: string }>> = {}
+    rep.invoices.forEach(inv => {
+      const d = inv.paymentDate ? new Date(inv.paymentDate) : inv.issueDate ? new Date(inv.issueDate) : new Date()
       const year = d.getFullYear()
       const day = d.getDay()
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
-      const startOfWeekDate = new Date(d.setDate(diff))
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+      const startOfWeekDate = new Date(d)
+      startOfWeekDate.setDate(diff)
       startOfWeekDate.setHours(0, 0, 0, 0)
-      const startStr = startOfWeekDate.toISOString().split('T')[0] // YYYY-MM-DD
-      
+      const startStr = startOfWeekDate.toISOString().split('T')[0]
       if (!groups[year]) groups[year] = {}
-      if (!groups[year][startStr]) {
-        groups[year][startStr] = { deals: [], totalCommission: 0, startOfWeek: startStr }
-      }
-      groups[year][startStr].deals.push(deal)
-      if (deal.status !== "lost") {
-        groups[year][startStr].totalCommission += deal.commission.total
-      }
+      if (!groups[year][startStr]) groups[year][startStr] = { invoices: [], totalCommission: 0, startOfWeek: startStr }
+      groups[year][startStr].invoices.push(inv)
+      groups[year][startStr].totalCommission += inv.commission.total
     })
-    
-    // Sort years descending, weeks descending
     const sortedYears = Object.keys(groups).map(Number).sort((a, b) => b - a)
-    const sortedGroups = sortedYears.map(year => {
-      const weeks = Object.values(groups[year]).sort((a, b) => new Date(b.startOfWeek).getTime() - new Date(a.startOfWeek).getTime())
-      return { year, weeks }
-    })
-    
-    return sortedGroups
-  }, [rep.deals])()
+    return sortedYears.map(year => ({
+      year,
+      weeks: Object.values(groups[year]).sort((a, b) => new Date(b.startOfWeek).getTime() - new Date(a.startOfWeek).getTime())
+    }))
+  }, [rep.invoices])()
 
   const balance = rep.totalEarned - rep.totalPaid
-  const pendingDeals = rep.deals.filter(d => d.status === "pending")
-  const fulfilledDeals = rep.deals.filter(d => d.status === "fulfilled")
 
   return (
     <div className="bg-neutral-800/40 border border-neutral-800 rounded-xl overflow-hidden">
@@ -136,7 +155,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
           </div>
           <div className="min-w-0 text-left">
             <div className="text-sm font-bold text-white truncate">{rep.repName}</div>
-            <div className="text-[10px] text-neutral-500">{rep.deals.length} deals · {pendingDeals.length} pending</div>
+            <div className="text-[10px] text-neutral-500">{rep.invoices.length} paid invoices · {rep.deals.length} pipeline deals</div>
           </div>
         </div>
         <div className="flex items-center gap-6 shrink-0 ml-4">
@@ -158,16 +177,15 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
         </div>
       </button>
 
-      {/* Deals list */}
       {open && (
         <div className="border-t border-neutral-800">
           {/* Mini stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-neutral-800 border-b border-neutral-800">
             {[
+              { label: "Total Sales", value: fmt(rep.totalSales || 0), color: "text-white" },
               { label: "Total Profit", value: fmt(rep.totalProfit || 0), color: "text-sky-400" },
-              { label: "Total Earned", value: fmt(rep.totalEarned), color: "text-emerald-400" },
-              { label: "Paid Out", value: fmt(rep.totalPaid), color: "text-blue-400" },
-              { label: "Balance", value: fmt(balance), color: balance > 0 ? "text-amber-400" : "text-neutral-400" },
+              { label: "Commission Earned", value: fmt(rep.totalEarned), color: "text-emerald-400" },
+              { label: "Balance Owed", value: fmt(balance), color: balance > 0 ? "text-amber-400" : "text-neutral-400" },
             ].map(s => (
               <div key={s.label} className="px-4 py-3 text-center">
                 <div className="text-[10px] text-neutral-500 uppercase font-semibold">{s.label}</div>
@@ -178,7 +196,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
 
           {isAdmin && (
             <div className="px-5 py-3 border-b border-neutral-800 bg-neutral-900/50 flex justify-end">
-              <button 
+              <button
                 onClick={(e) => { e.stopPropagation(); onManagePayouts(rep); }}
                 className="text-xs font-bold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 rounded transition-colors"
               >
@@ -187,106 +205,139 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
             </div>
           )}
 
-          {/* Deal rows grouped by year and week */}
-          <div className="divide-y divide-neutral-800/60 pb-2">
-            {groupedDeals.map(({ year, weeks }) => (
-              <div key={year} className="mb-4">
-                <div className="px-5 py-2 bg-neutral-900 text-sm font-bold text-neutral-300 border-y border-neutral-800">
-                  {year}
-                </div>
-                {weeks.map((week) => {
-                  const isExpanded = expandedWeeks[`${year}-${week.startOfWeek}`]
-                  return (
-                    <div key={week.startOfWeek} className="border-b border-neutral-800/40">
-                      <div 
-                        className="px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-neutral-800/50 transition-colors"
-                        onClick={() => setExpandedWeeks(prev => ({ ...prev, [`${year}-${week.startOfWeek}`]: !prev[`${year}-${week.startOfWeek}`] }))}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-neutral-500">
-                            {isExpanded ? <FiChevronDown /> : <FiChevronUp />}
-                          </span>
-                          <span className="text-sm font-semibold text-white">Week of {fmtDate(week.startOfWeek)}</span>
-                          <span className="text-xs text-neutral-500">({week.deals.length} deals)</span>
+          {/* Tab switcher */}
+          <div className="flex border-b border-neutral-800">
+            <button
+              onClick={() => setActiveTab("invoices")}
+              className={`px-5 py-2.5 text-xs font-bold transition-colors ${
+                activeTab === "invoices" ? "text-emerald-400 border-b-2 border-emerald-400" : "text-neutral-500 hover:text-neutral-300"
+              }`}
+            >
+              Paid Invoices ({rep.invoices.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("pipeline")}
+              className={`px-5 py-2.5 text-xs font-bold transition-colors ${
+                activeTab === "pipeline" ? "text-blue-400 border-b-2 border-blue-400" : "text-neutral-500 hover:text-neutral-300"
+              }`}
+            >
+              Pipeline Activity ({rep.deals.length})
+            </button>
+          </div>
+
+          {/* Invoice ledger - commission source */}
+          {activeTab === "invoices" && (
+            <div className="divide-y divide-neutral-800/60 pb-2">
+              {groupedInvoices.length === 0 && (
+                <div className="px-5 py-8 text-center text-neutral-500 text-sm">No paid invoices this period</div>
+              )}
+              {groupedInvoices.map(({ year, weeks }) => (
+                <div key={year} className="mb-4">
+                  <div className="px-5 py-2 bg-neutral-900 text-sm font-bold text-neutral-300 border-y border-neutral-800">{year}</div>
+                  {weeks.map((week) => {
+                    const isExpanded = expandedWeeks[`${year}-${week.startOfWeek}`]
+                    return (
+                      <div key={week.startOfWeek} className="border-b border-neutral-800/40">
+                        <div
+                          className="px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-neutral-800/50 transition-colors"
+                          onClick={() => setExpandedWeeks(prev => ({ ...prev, [`${year}-${week.startOfWeek}`]: !prev[`${year}-${week.startOfWeek}`] }))}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-neutral-500">{isExpanded ? <FiChevronDown /> : <FiChevronUp />}</span>
+                            <span className="text-sm font-semibold text-white">Week of {fmtDate(week.startOfWeek)}</span>
+                            <span className="text-xs text-neutral-500">({week.invoices.length} invoices)</span>
+                          </div>
+                          <div className="text-sm font-bold text-emerald-400">{fmt(week.totalCommission)}</div>
                         </div>
-                        <div className="text-sm font-bold text-emerald-400">
-                          {fmt(week.totalCommission)}
-                        </div>
-                      </div>
-                      
-                      {isExpanded && (
-                        <div className="bg-neutral-900/20 pl-4 border-t border-neutral-800/30">
-                          {week.deals.map(deal => {
-                            const hasInvoice = !!deal.invoiceZohoId
-                            return (
-                              <div 
-                                key={deal.id}
-                                onClick={() => hasInvoice && onViewInvoice && onViewInvoice(deal.invoiceZohoId!)}
-                                className={`flex items-center justify-between px-5 py-3 transition-colors border-b border-neutral-800/30 last:border-0 ${
-                                  hasInvoice ? "hover:bg-neutral-800 cursor-pointer" : ""
-                                } ${deal.status === "lost" ? "opacity-40" : ""}`}
+                        {isExpanded && (
+                          <div className="bg-neutral-900/20 pl-4 border-t border-neutral-800/30">
+                            {week.invoices.map(inv => (
+                              <div
+                                key={inv.id}
+                                onClick={() => onViewInvoice && onViewInvoice(inv.zohoId)}
+                                className="flex items-center justify-between px-5 py-3 transition-colors border-b border-neutral-800/30 last:border-0 hover:bg-neutral-800 cursor-pointer"
                               >
                                 <div className="min-w-0 flex-1 flex items-center gap-2.5">
-                                  {hasInvoice && (
-                                    <FiFileText className="text-amber-500 shrink-0 text-sm" title="Attached Zoho Invoice available" />
-                                  )}
+                                  <FiFileText className="text-emerald-500 shrink-0 text-sm" />
                                   <div className="min-w-0">
-                                    <div className="text-xs font-semibold text-white truncate">{deal.name}</div>
+                                    <div className="text-xs font-semibold text-white truncate">
+                                      {inv.invoiceNumber ? `INV-${inv.invoiceNumber}` : inv.zohoId}
+                                    </div>
                                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
-                                      {deal.accountZohoId ? (
-                                        <Link 
-                                          href={`/account?id=${deal.accountZohoId}`}
-                                          className="text-[10px] text-emerald-400 hover:underline font-bold"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          🏢 {deal.accountName}
+                                      {inv.accountZohoId ? (
+                                        <Link href={`/account?id=${inv.accountZohoId}`} className="text-[10px] text-emerald-400 hover:underline font-bold" onClick={(e) => e.stopPropagation()}>
+                                          🏢 {inv.accountName}
                                         </Link>
                                       ) : (
-                                        <span className="text-[10px] text-neutral-400">🏢 {deal.accountName}</span>
+                                        <span className="text-[10px] text-neutral-400">🏢 {inv.accountName}</span>
                                       )}
                                       <span className="text-[10px] text-neutral-600">•</span>
-                                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${stageColor(deal.stage)}`}>{deal.stage}</span>
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/30 text-emerald-400 font-bold">{inv.status}</span>
                                       <span className="text-[10px] text-neutral-600">•</span>
-                                      <span className="text-[10px] text-neutral-500">{fmtDate(deal.closeDate)}</span>
+                                      <span className="text-[10px] text-neutral-500">{fmtDate(inv.paymentDate || inv.issueDate)}</span>
                                     </div>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-4 shrink-0 ml-3">
                                   <div className="text-right hidden sm:block">
-                                    <div className="text-[10px] text-neutral-500">Deal</div>
-                                    <div className="text-xs font-semibold text-white">{fmt(deal.amount)}</div>
+                                    <div className="text-[10px] text-neutral-500">Invoice</div>
+                                    <div className="text-xs font-semibold text-white">{fmt(inv.amount)}</div>
                                   </div>
                                   <div className="text-right hidden sm:block">
                                     <div className="text-[10px] text-neutral-500">Profit</div>
-                                    <div className={`text-xs font-semibold ${deal.status === "lost" ? "text-neutral-500" : "text-sky-400"}`}>
-                                      {fmt(deal.profit || 0)}
-                                    </div>
+                                    <div className="text-xs font-semibold text-sky-400">{fmt(inv.profit)}</div>
                                   </div>
                                   <div className="text-right">
                                     <div className="text-[10px] text-neutral-500">Commission</div>
-                                    <div className={`text-xs font-bold ${deal.status === "lost" ? "text-neutral-500" : "text-emerald-400"}`}>
-                                      {fmt(deal.commission.total)}
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-[10px] text-neutral-500">Status</div>
-                                    <div className={`text-[10px] font-bold uppercase ${
-                                      deal.status === "fulfilled" ? "text-blue-400" :
-                                      deal.status === "lost" ? "text-red-400" : "text-amber-400"
-                                    }`}>{deal.status}</div>
+                                    <div className="text-xs font-bold text-emerald-400">{fmt(inv.commission.total)}</div>
                                   </div>
                                 </div>
                               </div>
-                            )
-                          })}
-                        </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pipeline deals - activity only, no commission */}
+          {activeTab === "pipeline" && (
+            <div className="divide-y divide-neutral-800/60 pb-2">
+              {rep.deals.length === 0 && (
+                <div className="px-5 py-8 text-center text-neutral-500 text-sm">No pipeline activity this period</div>
+              )}
+              {rep.deals.map(deal => (
+                <div key={deal.id} className={`flex items-center justify-between px-5 py-3 hover:bg-neutral-800/50 transition-colors ${
+                  deal.status === "lost" ? "opacity-40" : ""
+                }`}>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-semibold text-white truncate">{deal.name}</div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                      {deal.accountZohoId ? (
+                        <Link href={`/account?id=${deal.accountZohoId}`} className="text-[10px] text-blue-400 hover:underline font-bold">
+                          🏢 {deal.accountName}
+                        </Link>
+                      ) : (
+                        <span className="text-[10px] text-neutral-400">🏢 {deal.accountName}</span>
                       )}
+                      <span className="text-[10px] text-neutral-600">•</span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${stageColor(deal.stage)}`}>{deal.stage}</span>
+                      <span className="text-[10px] text-neutral-600">•</span>
+                      <span className="text-[10px] text-neutral-500">{fmtDate(deal.closeDate)}</span>
                     </div>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
+                  </div>
+                  <div className="shrink-0 ml-3 text-right">
+                    <div className="text-[10px] text-neutral-500">Est. Value</div>
+                    <div className="text-xs font-semibold text-blue-400">{fmt(deal.amount)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -295,16 +346,16 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
 
 // ── Performance Stats ──────────────────────────────────────────────────
 function StatsTab({ data }: { data: CommData }) {
-  // Top reps by revenue
+  // Top reps by commission earned
   const topReps = Object.values(data.byRep)
     .sort((a, b) => b.totalEarned - a.totalEarned)
     .slice(0, 10)
 
-  // Top accounts by deal amount
+  // Top accounts by invoice amount
   const accountTotals: Record<string, number> = {}
-  data.deals.forEach(d => {
-    if (!accountTotals[d.accountName]) accountTotals[d.accountName] = 0
-    accountTotals[d.accountName] += d.amount
+  data.invoices.forEach(inv => {
+    if (!accountTotals[inv.accountName]) accountTotals[inv.accountName] = 0
+    accountTotals[inv.accountName] += inv.amount
   })
   const topAccounts = Object.entries(accountTotals)
     .sort(([, a], [, b]) => b - a)
