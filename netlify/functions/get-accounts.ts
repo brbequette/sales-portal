@@ -468,59 +468,13 @@ export const handler: Handler = async (event, context) => {
             { ownerId: user.id },
             {
               invoices: {
-                some: {
-                  items: {
-                    path: ['salesperson'],
-                    equals: user.name || ''
-                  }
-                }
-              }
-            }
-          ]
-        },
-        orderBy: { name: 'asc' },
-        select: {
-          id: true,
-          zohoId: true,
-          name: true,
-          tags: true,
-          status: true,
-          quality: true,
-          lastCalledAt: true,
-          lastPurchaseAt: true,
-          ownerId: true,
-          industry: true,
-          invoices: {
             where: {
               status: {
                 notIn: ['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft']
               }
             },
             select: {
-              id: true,
-              zohoId: true,
-              amount: true,
-              status: true,
-              issueDate: true,
-              dueDate: true
-            }
-          },
-          quotes: {
-            select: {
-              id: true,
-              amount: true,
-              status: true,
-              validUntil: true,
-              createdAt: true
-            }
-          },
-          salesOrders: {
-            select: {
-              id: true,
-              amount: true,
-              status: true,
-              orderDate: true,
-              createdAt: true
+              amount: true
             }
           },
           contacts: {
