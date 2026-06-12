@@ -22,6 +22,7 @@ type InvoiceRecord = {
   profit: number
   deadCost: number
   status: string
+  isPaid: boolean
   issueDate: string | null
   paymentDate: string | null
   repId: string
@@ -117,23 +118,45 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
   const [activeTab, setActiveTab] = useState<"invoices" | "pipeline">("invoices")
   const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({})
 
-  // Group invoices by year → week
+  // Generate commission events from invoices:
+  // - Upfront (25% of profit) always on the issue-date week
+  // - Final   (25% of profit) on the payment-date week when paid (following week's pay)
   const groupedInvoices = useCallback(() => {
-    const groups: Record<number, Record<string, { invoices: InvoiceRecord[], totalCommission: number, startOfWeek: string }>> = {}
+    type CommEvent = {
+      inv: InvoiceRecord
+      commissionAmount: number
+      eventType: 'upfront' | 'final'
+      eventDate: string
+    }
+    const events: CommEvent[] = []
     rep.invoices.forEach(inv => {
-      const d = inv.paymentDate ? new Date(inv.paymentDate) : inv.issueDate ? new Date(inv.issueDate) : new Date()
+      // Always add upfront event (issue date)
+      if (inv.issueDate) {
+        events.push({ inv, commissionAmount: inv.commission.upfront, eventType: 'upfront', eventDate: inv.issueDate })
+      }
+      // Add final event only when paid (payment date)
+      if (inv.isPaid && inv.paymentDate && inv.commission.final !== 0) {
+        events.push({ inv, commissionAmount: inv.commission.final, eventType: 'final', eventDate: inv.paymentDate })
+      }
+    })
+
+    // Group events into year → week buckets
+    const groups: Record<number, Record<string, { events: CommEvent[], totalCommission: number, startOfWeek: string }>> = {}
+    events.forEach(ev => {
+      const d = new Date(ev.eventDate)
       const year = d.getFullYear()
       const day = d.getDay()
       const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-      const startOfWeekDate = new Date(d)
-      startOfWeekDate.setDate(diff)
-      startOfWeekDate.setHours(0, 0, 0, 0)
-      const startStr = startOfWeekDate.toISOString().split('T')[0]
+      const weekStart = new Date(d)
+      weekStart.setDate(diff)
+      weekStart.setHours(0, 0, 0, 0)
+      const startStr = weekStart.toISOString().split('T')[0]
       if (!groups[year]) groups[year] = {}
-      if (!groups[year][startStr]) groups[year][startStr] = { invoices: [], totalCommission: 0, startOfWeek: startStr }
-      groups[year][startStr].invoices.push(inv)
-      groups[year][startStr].totalCommission += inv.commission.total
+      if (!groups[year][startStr]) groups[year][startStr] = { events: [], totalCommission: 0, startOfWeek: startStr }
+      groups[year][startStr].events.push(ev)
+      groups[year][startStr].totalCommission += ev.commissionAmount
     })
+
     const sortedYears = Object.keys(groups).map(Number).sort((a, b) => b - a)
     return sortedYears.map(year => ({
       year,
@@ -155,7 +178,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
           </div>
           <div className="min-w-0 text-left">
             <div className="text-sm font-bold text-white truncate">{rep.repName}</div>
-            <div className="text-[10px] text-neutral-500">{rep.invoices.length} paid invoices · {rep.deals.length} pipeline deals</div>
+            <div className="text-[10px] text-neutral-500">{rep.invoices.length} invoices · {rep.deals.length} pipeline deals</div>
           </div>
         </div>
         <div className="flex items-center gap-6 shrink-0 ml-4">
@@ -213,7 +236,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
                 activeTab === "invoices" ? "text-emerald-400 border-b-2 border-emerald-400" : "text-neutral-500 hover:text-neutral-300"
               }`}
             >
-              Paid Invoices ({rep.invoices.length})
+              Commission Ledger ({rep.invoices.length})
             </button>
             <button
               onClick={() => setActiveTab("pipeline")}
@@ -229,7 +252,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
           {activeTab === "invoices" && (
             <div className="divide-y divide-neutral-800/60 pb-2">
               {groupedInvoices.length === 0 && (
-                <div className="px-5 py-8 text-center text-neutral-500 text-sm">No paid invoices this period</div>
+                <div className="px-5 py-8 text-center text-neutral-500 text-sm">No commission events this period</div>
               )}
               {groupedInvoices.map(({ year, weeks }) => (
                 <div key={year} className="mb-4">
@@ -245,55 +268,72 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
                           <div className="flex items-center gap-2">
                             <span className="text-neutral-500">{isExpanded ? <FiChevronDown /> : <FiChevronUp />}</span>
                             <span className="text-sm font-semibold text-white">Week of {fmtDate(week.startOfWeek)}</span>
-                            <span className="text-xs text-neutral-500">({week.invoices.length} invoices)</span>
+                            <span className="text-xs text-neutral-500">({week.events.length} events)</span>
                           </div>
                           <div className="text-sm font-bold text-emerald-400">{fmt(week.totalCommission)}</div>
                         </div>
                         {isExpanded && (
                           <div className="bg-neutral-900/20 pl-4 border-t border-neutral-800/30">
-                            {week.invoices.map(inv => (
-                              <div
-                                key={inv.id}
-                                onClick={() => onViewInvoice && onViewInvoice(inv.zohoId)}
-                                className="flex items-center justify-between px-5 py-3 transition-colors border-b border-neutral-800/30 last:border-0 hover:bg-neutral-800 cursor-pointer"
-                              >
-                                <div className="min-w-0 flex-1 flex items-center gap-2.5">
-                                  <FiFileText className="text-emerald-500 shrink-0 text-sm" />
-                                  <div className="min-w-0">
-                                    <div className="text-xs font-semibold text-white truncate">
-                                      {inv.invoiceNumber ? `INV-${inv.invoiceNumber}` : inv.zohoId}
+                            {week.events.map((ev, ei) => {
+                              const { inv, commissionAmount, eventType, eventDate } = ev
+                              const isUpfront = eventType === 'upfront'
+                              return (
+                                <div
+                                  key={`${inv.id}-${eventType}`}
+                                  onClick={() => onViewInvoice && onViewInvoice(inv.zohoId)}
+                                  className="flex items-center justify-between px-5 py-3 transition-colors border-b border-neutral-800/30 last:border-0 hover:bg-neutral-800 cursor-pointer"
+                                >
+                                  <div className="min-w-0 flex-1 flex items-center gap-2.5">
+                                    <FiFileText className={`shrink-0 text-sm ${isUpfront ? 'text-amber-400' : 'text-emerald-500'}`} />
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-semibold text-white">
+                                          {inv.invoiceNumber ? `INV-${inv.invoiceNumber}` : inv.zohoId}
+                                        </span>
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                          isUpfront
+                                            ? 'bg-amber-900/30 text-amber-400'
+                                            : 'bg-emerald-900/30 text-emerald-400'
+                                        }`}>
+                                          {isUpfront ? '½ Upfront' : '½ Final'}
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                                        {inv.accountZohoId ? (
+                                          <Link href={`/account?id=${inv.accountZohoId}`} className="text-[10px] text-blue-400 hover:underline font-bold" onClick={(e) => e.stopPropagation()}>
+                                            🏢 {inv.accountName}
+                                          </Link>
+                                        ) : (
+                                          <span className="text-[10px] text-neutral-400">🏢 {inv.accountName}</span>
+                                        )}
+                                        <span className="text-[10px] text-neutral-600">•</span>
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                          inv.isPaid ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/20 text-amber-400'
+                                        } font-bold`}>{inv.status}</span>
+                                        <span className="text-[10px] text-neutral-600">•</span>
+                                        <span className="text-[10px] text-neutral-500">{fmtDate(eventDate)}</span>
+                                      </div>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
-                                      {inv.accountZohoId ? (
-                                        <Link href={`/account?id=${inv.accountZohoId}`} className="text-[10px] text-emerald-400 hover:underline font-bold" onClick={(e) => e.stopPropagation()}>
-                                          🏢 {inv.accountName}
-                                        </Link>
-                                      ) : (
-                                        <span className="text-[10px] text-neutral-400">🏢 {inv.accountName}</span>
-                                      )}
-                                      <span className="text-[10px] text-neutral-600">•</span>
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/30 text-emerald-400 font-bold">{inv.status}</span>
-                                      <span className="text-[10px] text-neutral-600">•</span>
-                                      <span className="text-[10px] text-neutral-500">{fmtDate(inv.paymentDate || inv.issueDate)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-4 shrink-0 ml-3">
+                                    <div className="text-right hidden sm:block">
+                                      <div className="text-[10px] text-neutral-500">Invoice</div>
+                                      <div className="text-xs font-semibold text-white">{fmt(inv.amount)}</div>
+                                    </div>
+                                    <div className="text-right hidden sm:block">
+                                      <div className="text-[10px] text-neutral-500">Profit</div>
+                                      <div className="text-xs font-semibold text-sky-400">{fmt(inv.profit)}</div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-[10px] text-neutral-500">Commission</div>
+                                      <div className={`text-xs font-bold ${commissionAmount < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                        {fmt(commissionAmount)}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-4 shrink-0 ml-3">
-                                  <div className="text-right hidden sm:block">
-                                    <div className="text-[10px] text-neutral-500">Invoice</div>
-                                    <div className="text-xs font-semibold text-white">{fmt(inv.amount)}</div>
-                                  </div>
-                                  <div className="text-right hidden sm:block">
-                                    <div className="text-[10px] text-neutral-500">Profit</div>
-                                    <div className="text-xs font-semibold text-sky-400">{fmt(inv.profit)}</div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-[10px] text-neutral-500">Commission</div>
-                                    <div className="text-xs font-bold text-emerald-400">{fmt(inv.commission.total)}</div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
+                              )
+                            })}
                           </div>
                         )}
                       </div>
@@ -303,6 +343,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
               ))}
             </div>
           )}
+
 
           {/* Pipeline deals - activity only, no commission */}
           {activeTab === "pipeline" && (

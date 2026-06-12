@@ -3,8 +3,10 @@ import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
 
-// Statuses that count as commission-eligible (paid invoices)
-const PAID_STATUSES = new Set(['Paid', 'paid', 'Closed', 'closed', 'Fulfilled', 'fulfilled'])
+// Statuses where the FINAL half is earned (invoice has been paid)
+const FINAL_PAID_STATUSES = new Set(['Paid', 'paid', 'Closed', 'closed', 'Fulfilled', 'fulfilled'])
+// Statuses where at least the UPFRONT half is earned (invoice created/open)
+const SKIP_STATUSES = new Set(['Void', 'void', 'Draft', 'draft'])
 
 export const handler: Handler = async (event) => {
   const cors = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
@@ -18,12 +20,12 @@ export const handler: Handler = async (event) => {
     const start = new Date(`${targetYear}-01-01`)
     const end = new Date(`${parseInt(targetYear) + 1}-01-01`)
 
-    // --- Commission source: INVOICES ONLY ---
-    // Fetch all paid/closed invoices for the target year
+    // --- Commission source: ALL invoices except Void/Draft ---
+    // Upfront half earned on creation, final half earned on payment
     const rawInvoices = await prisma.invoice.findMany({
       where: {
         issueDate: { gte: start, lt: end },
-        status: { in: Array.from(PAID_STATUSES) }
+        status: { notIn: Array.from(SKIP_STATUSES) }
       },
       select: {
         id: true,
@@ -50,7 +52,6 @@ export const handler: Handler = async (event) => {
       }
       return false // duplicate with lower amount — skip
     })
-
 
     // --- Pipeline source: DEALS only (estimates/SOs for activity metrics) ---
     const deals = await prisma.deal.findMany({
@@ -84,6 +85,9 @@ export const handler: Handler = async (event) => {
     const userByName = new Map(users.map(u => [u.name?.toLowerCase().trim(), u]))
 
     // ── Build invoice-based commission records ──────────────────────────
+    // Commission is split 50/50:
+    //   - Upfront (25% of profit): earned when invoice is created, appears in that week's ledger
+    //   - Final  (25% of profit): earned when invoice is paid, appears in the following week's pay
     const invoiceRecords = invoices.map(inv => {
       const items = inv.items as any || {}
       const salespersonName = items.salesperson as string | null
@@ -94,10 +98,14 @@ export const handler: Handler = async (event) => {
 
       const matchedRep = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
 
-      // Commission: 50% of actual profit (already net of VIGs + all costs)
-      // Profit is set directly on each invoice — no fallback to invoice amount
-      const commissionTotal = profit * 0.50
-      const comm = { total: commissionTotal, upfront: commissionTotal * 0.5, final: commissionTotal * 0.5 }
+      const isPaid = FINAL_PAID_STATUSES.has(inv.status)
+
+      // Two-stage commission split (each = 25% of profit = 50% of the 50% split):
+      //   Upfront: earned at invoice creation  → this week's pay
+      //   Final:   earned at invoice payment   → following week's pay
+      const upfront = profit * 0.25          // half of rep's share, earned now
+      const final   = isPaid ? profit * 0.25 : 0  // second half, only after payment
+      const total   = upfront + final
 
       return {
         id: inv.id,
@@ -108,13 +116,14 @@ export const handler: Handler = async (event) => {
         profit,
         deadCost,
         status: inv.status,
+        isPaid,
         issueDate: inv.issueDate,
         paymentDate,
         repId: matchedRep?.id || "unassigned",
         repName: matchedRep?.name || salespersonName || "Unassigned",
         accountName: inv.account?.name || "Unknown",
         accountZohoId: inv.account?.zohoId || null,
-        commission: comm,
+        commission: { total, upfront, final },
         type: "invoice" as const
       }
     })
@@ -151,7 +160,7 @@ export const handler: Handler = async (event) => {
           repId: inv.repId,
           repName: inv.repName,
           invoices: [],
-          deals: [],         // pipeline activity, no commission
+          deals: [],
           payouts: [],
           totalEarned: 0,
           totalPaid: 0,
@@ -161,9 +170,9 @@ export const handler: Handler = async (event) => {
         }
       }
       byRep[key].invoices.push(inv)
-      byRep[key].totalEarned += inv.commission.total
+      byRep[key].totalEarned += inv.commission.total   // upfront + final (if paid)
       byRep[key].totalProfit += inv.profit
-      byRep[key].totalSales += inv.amount
+      byRep[key].totalSales  += inv.amount
     }
 
     // Attach deal pipeline activity to reps (for display only)
@@ -194,7 +203,7 @@ export const handler: Handler = async (event) => {
     const yearRows = await prisma.$queryRaw<{ y: number }[]>`
       SELECT DISTINCT y FROM (
         SELECT EXTRACT(YEAR FROM "issueDate")::int AS y FROM "Invoice"
-          WHERE "issueDate" IS NOT NULL AND status IN ('Paid','paid','Closed','closed','Fulfilled','fulfilled')
+          WHERE "issueDate" IS NOT NULL AND status NOT IN ('Void','void','Draft','draft')
         UNION
         SELECT EXTRACT(YEAR FROM "closingDate")::int AS y FROM "Deal" WHERE "closingDate" IS NOT NULL
         UNION
@@ -228,14 +237,14 @@ export const handler: Handler = async (event) => {
       success: true,
       year: targetYear,
       invoices: allInvoices,
-      deals: dealRecords,    // pipeline activity only
+      deals: dealRecords,
       byRep: finalByRep,
       users,
       years,
       stats,
     })
 
-    // Safety valve: if still somehow too large, drop invoice details
+    // Safety valve
     if (responseBody.length > 5 * 1024 * 1024) {
       return {
         statusCode: 200,
