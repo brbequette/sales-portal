@@ -79,9 +79,9 @@ export const handler: Handler = async (event) => {
 
       const matchedRep = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
 
-      // Commission: 50% of profit (rep/company split), fallback to 50% of invoice amount if no profit
-      const baseValue = profit > 0 ? profit : (inv.amount || 0)
-      const commissionTotal = baseValue * 0.50
+      // Commission: 50% of actual profit (already net of VIGs + all costs)
+      // Profit is set directly on each invoice — no fallback to invoice amount
+      const commissionTotal = profit * 0.50
       const comm = { total: commissionTotal, upfront: commissionTotal * 0.5, final: commissionTotal * 0.5 }
 
       return {
