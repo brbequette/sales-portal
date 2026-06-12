@@ -268,7 +268,11 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
 
                 <div className="space-y-1">
                   <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Phone Details</span>
-                  <p className="text-xs text-white font-bold font-mono">{primaryContact?.phone || "—"}</p>
+                  {primaryContact?.phone ? (
+                    <a href={`tel:${primaryContact.phone.replace(/[^0-9+]/g, '')}`} className="text-xs text-blue-400 hover:text-blue-300 hover:underline font-bold font-mono">{primaryContact.phone}</a>
+                  ) : (
+                    <p className="text-xs text-neutral-500 font-mono">—</p>
+                  )}
                 </div>
               </div>
             </div>

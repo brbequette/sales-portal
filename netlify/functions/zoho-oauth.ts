@@ -24,7 +24,7 @@ export const handler: Handler = async (event) => {
   // If we're in production and somehow the Netlify URL leaked through (e.g., from old cached frontend),
   // forcefully rewrite it to the known custom domain to ensure Zoho accepts the redirect_uri.
   if (!isLocal && oauthSiteUrl.includes("netlify.app")) {
-    oauthSiteUrl = "https://salesportal.titandiamond.com"
+    oauthSiteUrl = "https://titan-sales-portal.netlify.app"
   }
 
   // Ensure redirect_uri matches the domain exactly

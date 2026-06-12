@@ -212,7 +212,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                         Text
                       </button>
                       <span className="text-neutral-500 font-mono text-[9px] ml-1">
-                        (<a href={`zdialer:${(c.phone || c.mobilePhone || '').replace(/[^0-9+]/g, '')}`} className="text-blue-400 hover:underline">
+                        (<a href={`tel:${(c.phone || c.mobilePhone || '').replace(/[^0-9+]/g, '')}`} className="text-blue-400 hover:underline">
                           {c.phone || c.mobilePhone}
                         </a>)
                       </span>
@@ -348,7 +348,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     {selectedContact.phone ? (
                       <div className="flex items-center gap-3">
                         <a
-                          href={`zdialer:${selectedContact.phone.replace(/[^0-9+]/g, '')}`}
+                          href={`tel:${selectedContact.phone.replace(/[^0-9+]/g, '')}`}
                           className="text-xs text-blue-400 hover:underline font-mono"
                         >
                           {selectedContact.phone}
@@ -375,7 +375,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     {selectedContact.mobilePhone ? (
                       <div className="flex items-center gap-3">
                         <a
-                          href={`zdialer:${selectedContact.mobilePhone.replace(/[^0-9+]/g, '')}`}
+                          href={`tel:${selectedContact.mobilePhone.replace(/[^0-9+]/g, '')}`}
                           className="text-xs text-blue-400 hover:underline font-mono"
                         >
                           {selectedContact.mobilePhone}
