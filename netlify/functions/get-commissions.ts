@@ -15,8 +15,14 @@ export const handler: Handler = async (event) => {
     const start = new Date(`${targetYear}-01-01`)
     const end = new Date(`${parseInt(targetYear) + 1}-01-01`)
 
+    // Filter deals by closingDate OR createdAt falling in the target year
     const deals = await prisma.deal.findMany({
-      where: { closingDate: { gte: start, lt: end } },
+      where: {
+        OR: [
+          { closingDate: { gte: start, lt: end } },
+          { AND: [{ closingDate: null }, { createdAt: { gte: start, lt: end } }] }
+        ]
+      },
       select: {
         id: true,
         zohoId: true,
@@ -126,10 +132,15 @@ export const handler: Handler = async (event) => {
     }
     Object.values(byRep).forEach((rep: any) => { rep.balance = rep.totalEarned - rep.totalPaid })
 
-    // Get available years via raw query (fast)
+    // Get available years from both deals (closingDate OR createdAt) and invoices (issueDate)
     const yearRows = await prisma.$queryRaw<{y: number}[]>`
-      SELECT DISTINCT EXTRACT(YEAR FROM "closingDate")::int AS y
-      FROM "Deal" WHERE "closingDate" IS NOT NULL ORDER BY y DESC
+      SELECT DISTINCT y FROM (
+        SELECT EXTRACT(YEAR FROM "closingDate")::int AS y FROM "Deal" WHERE "closingDate" IS NOT NULL
+        UNION
+        SELECT EXTRACT(YEAR FROM "createdAt")::int AS y FROM "Deal" WHERE "closingDate" IS NULL
+        UNION
+        SELECT EXTRACT(YEAR FROM "issueDate")::int AS y FROM "Invoice" WHERE "issueDate" IS NOT NULL
+      ) t WHERE y IS NOT NULL ORDER BY y DESC
     `
     const years = yearRows.map(r => r.y)
 

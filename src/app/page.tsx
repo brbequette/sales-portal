@@ -205,6 +205,10 @@ export default function Dashboard() {
           setAccountsHasMore(dataAccounts.pagination.hasMore)
           setAccountsTotalCount(dataAccounts.pagination.totalCount)
           setAccountsPage(pageNum)
+          // On first page, kick off background load of all remaining pages
+          if (pageNum === 1 && dataAccounts.pagination.hasMore) {
+            setTimeout(() => autoLoadAllAccounts(dataAccounts.pagination.totalCount, dataAccounts.accounts.length), 100)
+          }
         }
       } else {
         setApiError(dataAccounts.error || dataAccounts.message)
@@ -215,10 +219,14 @@ export default function Dashboard() {
     }
   }
 
-  const loadMoreAccounts = async () => {
-    setLoadingMore(true)
-    await fetchLocalData(accountsPage + 1, true)
-    setLoadingMore(false)
+  // After first page loads, automatically fetch all remaining pages in background
+  const autoLoadAllAccounts = async (totalCount: number, firstPageSize: number) => {
+    const pageSize = firstPageSize
+    const totalPages = Math.ceil(totalCount / pageSize)
+    if (totalPages <= 1) return
+    for (let pg = 2; pg <= totalPages; pg++) {
+      await fetchLocalData(pg, true)
+    }
   }
 
   useEffect(() => {
@@ -227,7 +235,6 @@ export default function Dashboard() {
       router.push("/login")
       return
     }
-
     const fetchData = async () => {
       setLoading(true)
       await fetchLocalData()
@@ -1199,15 +1206,9 @@ export default function Dashboard() {
                     onPageSizeChange={accountsPagination.setPageSize}
                   />
                   {accountsHasMore && (
-                    <div className="flex flex-col items-center gap-1 mt-3">
-                      <p className="text-[11px] text-neutral-500">Showing {accounts.length.toLocaleString()} of {accountsTotalCount.toLocaleString()} accounts</p>
-                      <button
-                        onClick={loadMoreAccounts}
-                        disabled={loadingMore}
-                        className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 transition-colors disabled:opacity-50"
-                      >
-                        {loadingMore ? "Loading..." : "Load More Accounts"}
-                      </button>
+                    <div className="flex items-center justify-center gap-2 mt-2 py-1">
+                      <div className="w-3 h-3 rounded-full border-2 border-neutral-600 border-t-blue-400 animate-spin" />
+                      <p className="text-[11px] text-neutral-500">Loading accounts… {accounts.length.toLocaleString()} of {accountsTotalCount.toLocaleString()}</p>
                     </div>
                   )}
                 </div>

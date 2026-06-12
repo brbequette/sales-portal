@@ -364,7 +364,7 @@ export default function CommissionsPage() {
   const [data, setData] = useState<CommData | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"ledger" | "stats">("ledger")
-  const [selectedYear, setSelectedYear] = useState<string>("")
+  const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()))
   const [selectedRep, setSelectedRep] = useState<string>("")
   const [search, setSearch] = useState("")
   const [hideFulfilled, setHideFulfilled] = useState(false)
