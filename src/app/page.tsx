@@ -47,6 +47,10 @@ export default function Dashboard() {
   const [showDoNotCall, setShowDoNotCall] = useState(false)
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
   const [repsList, setRepsList] = useState<any[]>([])
+  const [accountsPage, setAccountsPage] = useState(1)
+  const [accountsHasMore, setAccountsHasMore] = useState(false)
+  const [accountsTotalCount, setAccountsTotalCount] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const [editingTask, setEditingTask] = useState<any | null>(null)
   const [taskSubject, setTaskSubject] = useState("")
@@ -171,7 +175,7 @@ export default function Dashboard() {
     }
   }, [showCampaignModal])
 
-  const fetchLocalData = async () => {
+  const fetchLocalData = async (pageNum = 1, append = false) => {
     if (!currentUser) return
     try {
       const query = currentUser.id && !currentUser.id.includes("@")
@@ -179,26 +183,42 @@ export default function Dashboard() {
         : `email=${currentUser.email}`
 
       const roleQuery = currentUser.role ? `&role=${encodeURIComponent(currentUser.role)}` : ""
-      const accountsQuery = `${query}${roleQuery}`
+      const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ""
+      const accountsQuery = `${query}${roleQuery}&page=${pageNum}${searchParam}`
 
       const ts = Date.now()
       const [resAccounts, resTasks] = await Promise.all([
         fetch(`/api/get-accounts?${accountsQuery}&_t=${ts}`),
-        fetch(`/api/get-tasks?${accountsQuery}&_t=${ts}`),
+        pageNum === 1 ? fetch(`/api/get-tasks?${query}${roleQuery}&_t=${ts}`) : Promise.resolve(null),
       ])
       const dataAccounts = await resAccounts.json()
-      const dataTasks = await resTasks.json()
+      const dataTasks = resTasks ? await resTasks.json() : null
 
       if (dataAccounts.success) {
-        setAccounts(dataAccounts.accounts)
+        if (append) {
+          setAccounts(prev => [...prev, ...dataAccounts.accounts])
+        } else {
+          setAccounts(dataAccounts.accounts)
+        }
         if (dataAccounts.reps) setRepsList(dataAccounts.reps)
+        if (dataAccounts.pagination) {
+          setAccountsHasMore(dataAccounts.pagination.hasMore)
+          setAccountsTotalCount(dataAccounts.pagination.totalCount)
+          setAccountsPage(pageNum)
+        }
       } else {
         setApiError(dataAccounts.error || dataAccounts.message)
       }
-      if (dataTasks.success) setTasks(dataTasks.tasks)
+      if (dataTasks?.success) setTasks(dataTasks.tasks)
     } catch (err: any) {
       setApiError(err.message)
     }
+  }
+
+  const loadMoreAccounts = async () => {
+    setLoadingMore(true)
+    await fetchLocalData(accountsPage + 1, true)
+    setLoadingMore(false)
   }
 
   useEffect(() => {
@@ -1206,6 +1226,18 @@ export default function Dashboard() {
                     onPageChange={accountsPagination.setCurrentPage}
                     onPageSizeChange={accountsPagination.setPageSize}
                   />
+                  {accountsHasMore && (
+                    <div className="flex flex-col items-center gap-1 mt-3">
+                      <p className="text-[11px] text-neutral-500">Showing {accounts.length.toLocaleString()} of {accountsTotalCount.toLocaleString()} accounts</p>
+                      <button
+                        onClick={loadMoreAccounts}
+                        disabled={loadingMore}
+                        className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 transition-colors disabled:opacity-50"
+                      >
+                        {loadingMore ? "Loading..." : "Load More Accounts"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

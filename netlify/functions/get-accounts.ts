@@ -14,7 +14,9 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { zohoId, email, refresh, force, ownerIdFilter, role: passedRole } = event.queryStringParameters || {}
+    const { zohoId, email, refresh, force, ownerIdFilter, role: passedRole, page: pageParam, search } = event.queryStringParameters || {}
+    const PAGE_SIZE = 400
+    const page = parseInt(pageParam || '1', 10)
 
     if (!zohoId && !email) {
       return {
@@ -459,9 +461,14 @@ export const handler: Handler = async (event, context) => {
     let dbAccounts: any[] = [];
     if (isSalesOnly) {
       // Sales rep: only fetch accounts they own
+      const salesRepWhere: any = { ownerId: user.id };
+      if (search) salesRepWhere.name = { contains: search, mode: 'insensitive' };
+      const totalCount = await prisma.account.count({ where: salesRepWhere });
       dbAccounts = await prisma.account.findMany({
-        where: { ownerId: user.id },
+        where: salesRepWhere,
         orderBy: { name: 'asc' },
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
         select: {
           id: true,
           zohoId: true,
@@ -479,29 +486,19 @@ export const handler: Handler = async (event, context) => {
                 notIn: ['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft']
               }
             },
-            select: {
-              amount: true
-            }
+            select: { amount: true }
           },
           contacts: {
             select: {
-              phone: true,
-              mobilePhone: true,
-              isPrimary: true,
-              firstName: true,
-              lastName: true
+              phone: true, mobilePhone: true, isPrimary: true, firstName: true, lastName: true
             }
           },
           owner: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true,
-            }
+            select: { id: true, name: true, email: true, role: true }
           }
         }
       });
+      (dbAccounts as any)._totalCount = totalCount;
 
     } else {
       // Admin / Manager / Collections: can see all
@@ -510,9 +507,13 @@ export const handler: Handler = async (event, context) => {
         adminWhere = { ownerId: ownerIdFilter };
       }
       
+      if (search) adminWhere.name = { contains: search, mode: 'insensitive' };
+      const totalCount = await prisma.account.count({ where: adminWhere });
       dbAccounts = await prisma.account.findMany({
         where: adminWhere,
         orderBy: { name: 'asc' },
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
         select: {
           id: true,
           zohoId: true,
@@ -530,32 +531,23 @@ export const handler: Handler = async (event, context) => {
                 notIn: ['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft']
               }
             },
-            select: {
-              amount: true
-            }
+            select: { amount: true }
           },
           contacts: {
             select: {
-              phone: true,
-              mobilePhone: true,
-              isPrimary: true,
-              firstName: true,
-              lastName: true
+              phone: true, mobilePhone: true, isPrimary: true, firstName: true, lastName: true
             }
           },
           owner: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true,
-            }
+            select: { id: true, name: true, email: true, role: true }
           }
         }
       });
+      (dbAccounts as any)._totalCount = totalCount;
     }
 
-    // Prune: aggregate invoices into a single totalSales number, strip arrays to stay under Lambda 6MB limit
+    // Prune: aggregate invoices -> totalSales, keep only primary contact. Stays well under 6MB Lambda limit.
+    const totalCount = (dbAccounts as any)._totalCount ?? dbAccounts.length;
     const accounts = dbAccounts.map((acc: any) => {
       const totalSales = acc.invoices ? acc.invoices.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0) : 0;
       const primaryContact = acc.contacts?.find((c: any) => c.isPrimary) || acc.contacts?.[0] || null;
@@ -594,7 +586,17 @@ export const handler: Handler = async (event, context) => {
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ success: true, accounts, reps })
+      body: JSON.stringify({
+        success: true,
+        accounts,
+        reps,
+        pagination: {
+          page,
+          pageSize: PAGE_SIZE,
+          totalCount,
+          hasMore: page * PAGE_SIZE < totalCount
+        }
+      })
     }
 
   } catch (error: any) {
