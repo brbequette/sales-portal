@@ -456,18 +456,24 @@ export const handler: Handler = async (event, context) => {
     // 2. Sales rep can see any accounts where they are the salesperson on any invoice, quote, or salesOrder, with minimal account info if they do not own the account.
     // To support this, we must fetch accounts, quotes, and salesOrders, plus the items inside invoices.
     
-    let dbAccounts = [];
+    let dbAccounts: any[] = [];
     if (isSalesOnly) {
-      // Find all accounts owned by the user
-      // OR accounts containing invoices where salespersonName matches user.name
-      const userNameLower = user.name?.toLowerCase().trim() || "";
-      
+      // Sales rep: only fetch accounts they own
       dbAccounts = await prisma.account.findMany({
-        where: {
-          OR: [
-            { ownerId: user.id },
-            {
-              invoices: {
+        where: { ownerId: user.id },
+        orderBy: { name: 'asc' },
+        select: {
+          id: true,
+          zohoId: true,
+          name: true,
+          tags: true,
+          status: true,
+          quality: true,
+          lastCalledAt: true,
+          lastPurchaseAt: true,
+          ownerId: true,
+          industry: true,
+          invoices: {
             where: {
               status: {
                 notIn: ['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft']
@@ -494,40 +500,6 @@ export const handler: Handler = async (event, context) => {
               role: true,
             }
           }
-        }
-      });
-
-      // Filter and prune accounts not owned by the user (only return their docs and minimal account info)
-      dbAccounts = dbAccounts.map(acc => {
-        const isOwner = acc.ownerId === user.id;
-        if (isOwner) {
-          return acc;
-        } else {
-          // Sales Rep doesn't own this account. Prune details.
-          // Filter invoices, quotes, salesOrders to only show those where salespersonName matches user.name
-          const filteredInvoices = acc.invoices.filter((inv: any) => {
-            const salesperson = inv.items?.salesperson || '';
-            return salesperson.toLowerCase().trim() === userNameLower;
-          });
-          
-          return {
-            id: acc.id,
-            zohoId: acc.zohoId,
-            name: acc.name, // keep name so they know which account it is
-            status: acc.status,
-            quality: acc.quality,
-            ownerId: acc.ownerId,
-            owner: acc.owner,
-            // Pruned account fields
-            tags: "Restricted Scope",
-            industry: "Restricted Scope",
-            lastCalledAt: null,
-            lastPurchaseAt: null,
-            contacts: [], // no contacts list
-            invoices: filteredInvoices,
-            quotes: [], // quotes & salesOrders typically don't have salesperson name field synced, but filter if applicable
-            salesOrders: []
-          };
         }
       });
 
@@ -559,30 +531,7 @@ export const handler: Handler = async (event, context) => {
               }
             },
             select: {
-              id: true,
-              zohoId: true,
-              amount: true,
-              status: true,
-              issueDate: true,
-              dueDate: true
-            }
-          },
-          quotes: {
-            select: {
-              id: true,
-              amount: true,
-              status: true,
-              validUntil: true,
-              createdAt: true
-            }
-          },
-          salesOrders: {
-            select: {
-              id: true,
-              amount: true,
-              status: true,
-              orderDate: true,
-              createdAt: true
+              amount: true
             }
           },
           contacts: {
@@ -606,7 +555,26 @@ export const handler: Handler = async (event, context) => {
       });
     }
 
-    const accounts = dbAccounts;
+    // Prune: aggregate invoices into a single totalSales number, strip arrays to stay under Lambda 6MB limit
+    const accounts = dbAccounts.map((acc: any) => {
+      const totalSales = acc.invoices ? acc.invoices.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0) : 0;
+      const primaryContact = acc.contacts?.find((c: any) => c.isPrimary) || acc.contacts?.[0] || null;
+      return {
+        id: acc.id,
+        zohoId: acc.zohoId,
+        name: acc.name,
+        tags: acc.tags,
+        status: acc.status,
+        quality: acc.quality,
+        lastCalledAt: acc.lastCalledAt,
+        lastPurchaseAt: acc.lastPurchaseAt,
+        ownerId: acc.ownerId,
+        industry: acc.industry,
+        owner: acc.owner,
+        totalSales,
+        contacts: primaryContact ? [primaryContact] : [],
+      };
+    });
 
     // Query list of reps for admin dropdown population
     let reps: any[] = [];

@@ -1043,19 +1043,9 @@ export default function Dashboard() {
 
                   <ul className="divide-y divide-neutral-800">
                     {accountsPagination.paginatedItems.map(account => {
-                    const invoices = account.invoices || []
-                    const ltv = invoices.reduce((sum: number, inv: any) => sum + (parseFloat(inv.amount) || 0), 0)
-                    const overdueCount = invoices.filter((inv: any) => inv.status === "Overdue").length
-                    
-                    const overdueBalance = invoices.reduce((sum: number, inv: any) => {
-                      if (inv.status === "Overdue") {
-                        const balance = typeof inv.items === "object" && inv.items !== null && "balance" in inv.items
-                          ? parseFloat((inv.items as any).balance)
-                          : parseFloat(inv.amount || 0);
-                        return sum + (isNaN(balance) ? 0 : balance);
-                      }
-                      return sum;
-                    }, 0);
+                    const ltv = account.totalSales || 0
+                    const overdueCount = 0
+                    const overdueBalance = 0;
 
                     const primaryContact = account.contacts?.find((c: any) => c.isPrimary) || account.contacts?.[0]
                     const cleanPhone = primaryContact?.phone ? primaryContact.phone.replace(/[^0-9+]/g, '') : ''
