@@ -20,7 +20,7 @@ export const handler: Handler = async (event) => {
 
     // --- Commission source: INVOICES ONLY ---
     // Fetch all paid/closed invoices for the target year
-    const invoices = await prisma.invoice.findMany({
+    const rawInvoices = await prisma.invoice.findMany({
       where: {
         issueDate: { gte: start, lt: end },
         status: { in: Array.from(PAID_STATUSES) }
@@ -36,6 +36,21 @@ export const handler: Handler = async (event) => {
       },
       orderBy: { issueDate: "desc" }
     })
+
+    // Deduplicate by invoiceNumber — same invoice can be synced from both Zoho CRM and Zoho Books.
+    // Keep the record with the highest amount (Books record is always the authoritative one).
+    const seenInvoiceNumbers = new Map<string, typeof rawInvoices[0]>()
+    const invoices = rawInvoices.filter(inv => {
+      const num = (inv.items as any)?.invoiceNumber
+      if (!num) return true // no invoice number — keep as-is
+      const existing = seenInvoiceNumbers.get(num)
+      if (!existing || (inv.amount || 0) > (existing.amount || 0)) {
+        seenInvoiceNumbers.set(num, inv)
+        return true
+      }
+      return false // duplicate with lower amount — skip
+    })
+
 
     // --- Pipeline source: DEALS only (estimates/SOs for activity metrics) ---
     const deals = await prisma.deal.findMany({
