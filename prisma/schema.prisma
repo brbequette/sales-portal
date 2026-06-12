@@ -9,51 +9,51 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String?  // Nullable because Zoho SSO might not have one initially
-  name      String?
-  zohoId    String?  @unique // ID mapped from Zoho CRM
-  role      String   @default("AGENT")
-  accounts  Account[] // Accounts owned by this sales rep
-  deals     Deal[]    // Deals owned by this sales rep
-  notes     Note[]
-  tasks     Task[]    // Tasks assigned to this sales rep
-  payouts   Payout[]  // Commission payouts for this sales rep
-  constantVigEnabled Boolean @default(false)
-  constantVigValue   Float?  @default(1.5)
+  id                 String           @id @default(cuid())
+  email              String           @unique
+  password           String?
+  name               String?
+  zohoId             String?          @unique
+  role               String           @default("AGENT")
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  constantVigEnabled Boolean          @default(false)
+  constantVigValue   Float?           @default(1.5)
+  accounts           Account[]
+  deals              Deal[]
   monthlyVigGoals    MonthlyVigGoal[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  notes              Note[]
+  payouts            Payout[]
+  tasks              Task[]
 }
 
 model Account {
-  id             String   @id @default(cuid())
-  zohoId         String   @unique
-  name           String
-  industry       String?
-  tags           String?
-  status         String   @default("Update Status") // 'Personal', 'Update Status', 'Open'
-  quality        String   @default("WARM")
-  lastCalledAt   DateTime?
-  lastPurchaseAt DateTime?
-  nextActionDate DateTime?
-  ownerId        String
-  owner          User     @relation(fields: [ownerId], references: [id])
-  timeZone       String?
-  invoices       Invoice[]
-  salesOrders    SalesOrder[]
-  quotes         Quote[]
-  deals          Deal[]
-  notes          Note[]
-  tasks          Task[]
-  contacts       Contact[]
-  bladeSizes     String?
-  materialsCut   String?
-  currentSupplier String?
+  id               String       @id @default(cuid())
+  zohoId           String       @unique
+  name             String
+  industry         String?
+  status           String       @default("Update Status")
+  lastPurchaseAt   DateTime?
+  ownerId          String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  nextActionDate   DateTime?
+  tags             String?
+  quality          String       @default("WARM")
+  lastCalledAt     DateTime?
+  timeZone         String?
+  bladeSizes       String?
+  materialsCut     String?
+  currentSupplier  String?
   averageBladeCost String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  owner            User         @relation(fields: [ownerId], references: [id])
+  contacts         Contact[]
+  deals            Deal[]
+  invoices         Invoice[]
+  notes            Note[]
+  quotes           Quote[]
+  salesOrders      SalesOrder[]
+  tasks            Task[]
 
   @@index([ownerId])
   @@index([status])
@@ -63,7 +63,6 @@ model Contact {
   id          String   @id @default(cuid())
   zohoId      String   @unique
   accountId   String
-  account     Account  @relation(fields: [accountId], references: [id])
   firstName   String?
   lastName    String?
   email       String?
@@ -72,53 +71,53 @@ model Contact {
   isPrimary   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  account     Account  @relation(fields: [accountId], references: [id])
 }
 
-
 model Deal {
-  id             String   @id @default(cuid())
-  zohoId         String   @unique
-  accountId      String
-  account        Account  @relation(fields: [accountId], references: [id])
-  name           String
-  amount         Float
-  stage          String   @default("Open")
-  closingDate    DateTime?
-  invoicedItems  String?
-  ownerId        String
-  owner          User     @relation(fields: [ownerId], references: [id])
-  tasks          Task[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String    @id @default(cuid())
+  zohoId        String    @unique
+  accountId     String
+  name          String
+  amount        Float
+  stage         String    @default("Open")
+  closingDate   DateTime?
+  invoicedItems String?
+  ownerId       String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  account       Account   @relation(fields: [accountId], references: [id])
+  owner         User      @relation(fields: [ownerId], references: [id])
+  tasks         Task[]
 
   @@index([ownerId])
   @@index([accountId])
 }
 
 model SalesOrder {
-  id          String   @id @default(cuid())
-  zohoId      String?
-  accountId   String
-  account     Account  @relation(fields: [accountId], references: [id])
-  amount      Float
-  status      String   @default("Pending") // Pending, Processed, Shipped
-  orderDate   DateTime @default(now())
-  items       Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  accountId String
+  amount    Float
+  status    String   @default("Pending")
+  orderDate DateTime @default(now())
+  items     Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  zohoId    String?
+  account   Account  @relation(fields: [accountId], references: [id])
 }
 
 model Quote {
-  id          String   @id @default(cuid())
-  zohoId      String?
-  accountId   String
-  account     Account  @relation(fields: [accountId], references: [id])
-  amount      Float
-  status      String   @default("Draft") // Draft, Sent, Accepted, Rejected
-  validUntil  DateTime?
-  items       Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String    @id @default(cuid())
+  accountId  String
+  amount     Float
+  status     String    @default("Draft")
+  validUntil DateTime?
+  items      Json?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  zohoId     String?
+  account    Account   @relation(fields: [accountId], references: [id])
 }
 
 model Product {
@@ -134,34 +133,34 @@ model Product {
 }
 
 model Invoice {
-  id          String   @id @default(cuid())
-  zohoId      String   @unique
-  accountId   String
-  account     Account  @relation(fields: [accountId], references: [id])
-  amount      Float
-  status      String   // e.g., 'Paid', 'Overdue'
-  issueDate   DateTime
-  dueDate     DateTime?
-  items       Json?    // Store line items here
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String    @id @default(cuid())
+  zohoId    String    @unique
+  accountId String
+  amount    Float
+  status    String
+  issueDate DateTime
+  dueDate   DateTime?
+  items     Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  account   Account   @relation(fields: [accountId], references: [id])
 
   @@index([accountId])
   @@index([status])
 }
 
 model Note {
-  id          String   @id @default(cuid())
-  accountId   String
-  account     Account  @relation(fields: [accountId], references: [id])
-  authorId    String
-  author      User     @relation(fields: [authorId], references: [id])
-  content     String
-  callSid     String?  // If tied to a Zoho Voice call
-  sentiment   String?  // AI analyzed sentiment
-  isAutoGenerated Boolean @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  accountId       String
+  authorId        String
+  content         String
+  callSid         String?
+  sentiment       String?
+  isAutoGenerated Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  account         Account  @relation(fields: [accountId], references: [id])
+  author          User     @relation(fields: [authorId], references: [id])
 
   @@index([accountId])
 }
@@ -169,8 +168,8 @@ model Note {
 model MediaAsset {
   id        String   @id @default(cuid())
   title     String
-  type      String   // PDF, Image, Video, ZIP, Link
-  category  String   // Brochures, Spec Sheets, Social Media, Training, Branding
+  type      String
+  category  String
   url       String
   size      String
   createdAt DateTime @default(now())
@@ -178,26 +177,26 @@ model MediaAsset {
 }
 
 model Task {
-  id          String   @id @default(cuid())
-  zohoId      String   @unique
-  subject     String
-  description String?
-  status      String   @default("Not Started")
-  priority    String   @default("Normal")
-  type        String   @default("Task")
-  dueDate     DateTime?
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
-  accountId   String?
-  account     Account? @relation(fields: [accountId], references: [id])
-  dealId      String?
-  deal        Deal?    @relation(fields: [dealId], references: [id])
-  invoiceId   String?
+  id           String    @id @default(cuid())
+  zohoId       String    @unique
+  subject      String
+  description  String?
+  status       String    @default("Not Started")
+  priority     String    @default("Normal")
+  dueDate      DateTime?
+  ownerId      String
+  accountId    String?
+  dealId       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  invoiceId    String?
   salesOrderId String?
-  quoteId     String?
-  estimateId  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  quoteId      String?
+  estimateId   String?
+  type         String    @default("Task")
+  account      Account?  @relation(fields: [accountId], references: [id])
+  deal         Deal?     @relation(fields: [dealId], references: [id])
+  owner        User      @relation(fields: [ownerId], references: [id])
 
   @@index([ownerId])
   @@index([status])
@@ -214,27 +213,27 @@ model SystemSetting {
 model Payout {
   id        String   @id @default(cuid())
   repId     String
-  rep       User     @relation(fields: [repId], references: [id], onDelete: Cascade)
   amount    Float
   date      DateTime @default(now())
   notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  rep       User     @relation(fields: [repId], references: [id], onDelete: Cascade)
 
   @@index([repId])
 }
 
 model MonthlyVigGoal {
   id            String   @id @default(cuid())
-  monthKey      String   // e.g., "2026-06"
+  monthKey      String
   repId         String
-  rep           User     @relation(fields: [repId], references: [id], onDelete: Cascade)
-  metric        String   @default("PROFIT") // "PROFIT" | "SUBTOTAL"
+  metric        String   @default("PROFIT")
   profitGoal    Float    @default(20000)
   subtotalGoal  Float    @default(40000)
-  manualVigRate Float?   
+  manualVigRate Float?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  rep           User     @relation(fields: [repId], references: [id], onDelete: Cascade)
 
   @@unique([repId, monthKey])
   @@index([repId])

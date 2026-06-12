@@ -502,8 +502,7 @@ export const handler: Handler = async (event, context) => {
               amount: true,
               status: true,
               issueDate: true,
-              dueDate: true,
-              items: true
+              dueDate: true
             }
           },
           quotes: {
@@ -512,7 +511,6 @@ export const handler: Handler = async (event, context) => {
               amount: true,
               status: true,
               validUntil: true,
-              items: true,
               createdAt: true
             }
           },
@@ -522,7 +520,6 @@ export const handler: Handler = async (event, context) => {
               amount: true,
               status: true,
               orderDate: true,
-              items: true,
               createdAt: true
             }
           },
@@ -613,8 +610,7 @@ export const handler: Handler = async (event, context) => {
               amount: true,
               status: true,
               issueDate: true,
-              dueDate: true,
-              items: true
+              dueDate: true
             }
           },
           quotes: {
@@ -623,7 +619,6 @@ export const handler: Handler = async (event, context) => {
               amount: true,
               status: true,
               validUntil: true,
-              items: true,
               createdAt: true
             }
           },
@@ -633,7 +628,6 @@ export const handler: Handler = async (event, context) => {
               amount: true,
               status: true,
               orderDate: true,
-              items: true,
               createdAt: true
             }
           },
