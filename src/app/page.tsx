@@ -1159,6 +1159,7 @@ export default function Dashboard() {
                                 </div>
                               </>
                             ) : (
+                              <>
                                 <p className="text-sm font-bold text-emerald-400">
                                   ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)} LTV
                                 </p>
