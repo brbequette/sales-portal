@@ -168,16 +168,7 @@ export default function StatsPage() {
     )
   }
 
-  if (!isInitialized || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-neutral-900 text-white">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-neutral-400 font-medium text-sm">Loading Rep Stats...</p>
-        </div>
-      </div>
-    )
-  }
+
 
   const metricConfigs = [
     { key: "revenue", label: "Revenue", format: formatCurrency, barColor: "bg-emerald-500", avgColor: "border-emerald-300" },
@@ -205,6 +196,17 @@ export default function StatsPage() {
     })
     return { revenue, profit, dealsWon, target }
   }, [reps, selectedPeriod])
+
+  if (!isInitialized || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[100dvh] bg-neutral-900 text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-neutral-400 font-medium text-sm">Loading Rep Stats...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col text-neutral-100 font-sans overflow-y-auto" style={{ height: "100%" }}>

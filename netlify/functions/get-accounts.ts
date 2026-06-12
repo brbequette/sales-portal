@@ -508,8 +508,10 @@ export const handler: Handler = async (event, context) => {
           contacts: {
             select: {
               phone: true,
+              mobilePhone: true,
               isPrimary: true,
-              firstName: true
+              firstName: true,
+              lastName: true
             }
           },
           owner: {
@@ -612,8 +614,10 @@ export const handler: Handler = async (event, context) => {
           contacts: {
             select: {
               phone: true,
+              mobilePhone: true,
               isPrimary: true,
-              firstName: true
+              firstName: true,
+              lastName: true
             }
           },
           owner: {
