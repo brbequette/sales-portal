@@ -46,7 +46,7 @@ export const handler: Handler = async (event, context) => {
       body: JSON.stringify({
         success: true,
         user: {
-          id: user.id,
+          id: user.zohoId || user.id,
           email: user.email,
           name: user.name,
           role: user.role

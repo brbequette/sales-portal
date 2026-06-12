@@ -20,6 +20,18 @@ function statusColor(status: string) {
   return "bg-gray-100 text-gray-700"
 }
 
+const getDocTypeParam = (tab: DocType): "Invoice" | "Quote" | "SalesOrder" => {
+  if (tab === "invoices") return "Invoice"
+  if (tab === "quotes") return "Quote"
+  return "SalesOrder"
+}
+
+const getDocNumber = (doc: any, tab: DocType) => {
+  if (tab === "invoices") return doc?.items?.invoiceNumber || doc?.zohoId?.slice(-6).toUpperCase() || doc?.id?.slice(-6) || "—";
+  if (tab === "quotes") return doc?.quoteNumber || doc?.zohoId?.slice(-6).toUpperCase() || doc?.id?.slice(-6) || "—";
+  return doc?.orderNumber || doc?.zohoId?.slice(-6).toUpperCase() || doc?.id?.slice(-6) || "—";
+}
+
 interface DocumentFlipbookProps {
   invoices?: any[]
   quotes?: any[]
@@ -97,133 +109,63 @@ export function DocumentFlipbook({
             </div>
           </div>
 
-          {/* Document Card or PDF Viewer */}
-          {activeDoc === "invoices" ? (
-            <div className="space-y-3">
-              {/* Actual PDF Container */}
-              <div className="w-full h-[600px] bg-neutral-900 rounded-xl overflow-hidden shadow-2xl border border-neutral-800 relative group">
-                <iframe
-                  src={`/api/get-invoice-pdf?id=${current.zohoId}`}
-                  className="w-full h-full border-0"
-                  title={`Invoice PDF`}
-                />
-                
-                {/* Maximize Button overlayed at the top right of the PDF */}
+          {/* Unified PDF Document Viewer */}
+          <div className="space-y-3">
+            {/* Actual PDF Container */}
+            <div className="w-full h-[600px] bg-neutral-900 rounded-xl overflow-hidden shadow-2xl border border-neutral-800 relative group">
+              <iframe
+                src={`/api/get-invoice-pdf?id=${current.zohoId || current.id}&type=${getDocTypeParam(activeDoc)}`}
+                className="w-full h-full border-0"
+                title={`${cfg.label} PDF`}
+              />
+              
+              {/* Maximize Button overlayed at the top right of the PDF */}
+              <button
+                onClick={() => setIsFullscreen(true)}
+                className="absolute top-4 right-4 bg-neutral-950/80 hover:bg-neutral-950 text-neutral-300 hover:text-white p-2.5 rounded-xl border border-neutral-800 shadow-xl transition-all hover:scale-105"
+                title="Expand to Full Screen"
+              >
+                <FiMaximize2 size={16} />
+              </button>
+            </div>
+
+            {/* Download / Status Footer */}
+            <div className="flex justify-between items-center bg-neutral-900/50 p-3 rounded-lg border border-neutral-800">
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusColor(current?.status)}`}>
+                  {current?.status || "—"}
+                </span>
+                <span className="text-xs text-neutral-400">
+                  {cfg.label.slice(0, -1)} #{getDocNumber(current, activeDoc)}
+                </span>
+                {activeDoc !== "invoices" && (
+                  <button
+                    onClick={() => {
+                      const type = activeDoc === "quotes" ? "Quote" : "SalesOrder"
+                      if (onViewSalesDoc) onViewSalesDoc(type, current)
+                    }}
+                    className="text-[10px] text-blue-400 hover:underline ml-2"
+                  >
+                    View Details Card
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => setIsFullscreen(true)}
-                  className="absolute top-4 right-4 bg-neutral-950/80 hover:bg-neutral-950 text-neutral-300 hover:text-white p-2.5 rounded-xl border border-neutral-800 shadow-xl transition-all hover:scale-105"
-                  title="Expand to Full Screen"
+                  className="flex items-center gap-1.5 text-xs text-neutral-300 hover:text-white font-semibold transition-colors bg-neutral-800 hover:bg-neutral-700 px-3 py-1.5 rounded-lg border border-neutral-800"
                 >
-                  <FiMaximize2 size={16} />
+                  <FiMaximize2 size={12} /> Full Screen
                 </button>
-              </div>
-
-              {/* Download / Status Footer */}
-              <div className="flex justify-between items-center bg-neutral-900/50 p-3 rounded-lg border border-neutral-800">
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusColor(current?.status)}`}>
-                    {current?.status || "—"}
-                  </span>
-                  <span className="text-xs text-neutral-400">
-                    Invoice #{current?.items?.invoiceNumber || current?.zohoId?.slice(-6).toUpperCase() || "—"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsFullscreen(true)}
-                    className="flex items-center gap-1.5 text-xs text-neutral-300 hover:text-white font-semibold transition-colors bg-neutral-800 hover:bg-neutral-700 px-3 py-1.5 rounded-lg border border-neutral-800"
-                  >
-                    <FiMaximize2 size={12} /> Full Screen
-                  </button>
-                  <a
-                    href={`/api/get-invoice-pdf?id=${current.zohoId}&download=true`}
-                    className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg border border-blue-500/20"
-                  >
-                    <FiDownload /> Download PDF
-                  </a>
-                </div>
+                <a
+                  href={`/api/get-invoice-pdf?id=${current.zohoId || current.id}&type=${getDocTypeParam(activeDoc)}&download=true`}
+                  className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg border border-blue-500/20"
+                >
+                  <FiDownload /> Download PDF
+                </a>
               </div>
             </div>
-          ) : (
-            <div 
-              onClick={() => {
-                const type = activeDoc === "quotes" ? "Quote" : "SalesOrder"
-                if (onViewSalesDoc) onViewSalesDoc(type, current)
-              }}
-              className="bg-white text-gray-900 rounded-xl shadow-2xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500/50 hover:scale-[1.01] transition-all duration-200"
-              title="Click to view full record details"
-            >
-              {/* Doc Header */}
-              <div className="bg-gradient-to-r from-blue-900 to-blue-700 px-5 py-4 flex justify-between items-start">
-                <div>
-                  <div className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-1">Titan Diamond</div>
-                  <div className="text-white font-bold text-lg">
-                    {cfg.label.slice(0, -1)} #{current?.[cfg.idField]?.slice(-6) || current?.id?.slice(-6) || "—"}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className={`text-xs font-bold px-2 py-1 rounded-full inline-block ${statusColor(current?.status)}`}>
-                    {current?.status || "—"}
-                  </div>
-                  <div className="text-blue-200 text-xs mt-1">
-                    {currentIndex + 1} / {docs.length}
-                  </div>
-                </div>
-              </div>
-
-              {/* Doc Body */}
-              <div className="px-5 py-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <div className="text-gray-400 text-xs uppercase font-semibold mb-0.5">Date</div>
-                    <div className="font-medium">
-                      {current?.[cfg.dateField] ? new Date(current[cfg.dateField]).toLocaleDateString() : "—"}
-                    </div>
-                  </div>
-                  {activeDoc === "quotes" && (
-                    <div>
-                      <div className="text-gray-400 text-xs uppercase font-semibold mb-0.5">Valid Until</div>
-                      <div className="font-medium">{current?.validUntil ? new Date(current.validUntil).toLocaleDateString() : "—"}</div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Line Items */}
-                <div className="border-t border-gray-100 pt-3">
-                  <div className="text-xs font-semibold text-gray-400 uppercase mb-2">Line Items</div>
-                  <div className="space-y-1 max-h-24 overflow-y-auto scrollbar-thin">
-                    {Array.isArray(current?.items) && current.items.length > 0 ? (
-                      current.items.map((item: any, i: number) => (
-                        <div key={i} className="text-xs text-gray-700 flex flex-col mb-2 bg-gray-50/50 p-2 rounded">
-                          <div className="flex justify-between font-medium">
-                            <span>{typeof item === "string" ? item : item.name || JSON.stringify(item)}</span>
-                            {typeof item !== 'string' && item.amount && <span className="font-bold text-emerald-600">${parseFloat(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>}
-                          </div>
-                          {typeof item !== "string" && (item.sku || item.vendor || item.cost) && (
-                            <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-500">
-                              {item.sku && <span>SKU: <span className="font-mono text-gray-600">{item.sku}</span></span>}
-                              {item.sku && item.vendor && <span>|</span>}
-                              {item.vendor && <span>Vendor: <span className="font-semibold text-gray-600">{item.vendor}</span></span>}
-                              {(item.sku || item.vendor) && item.cost && <span>|</span>}
-                              {item.cost && <span className="text-emerald-600/80">Cost: ${parseFloat(item.cost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>}
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-xs text-gray-400 italic">Standard product assortment</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Total */}
-                <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
-                  <span className="text-sm font-bold text-gray-500">Total Amount</span>
-                  <span className="text-2xl font-bold text-blue-900">${parseFloat(current?.amount || 0).toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-          )}
+          </div>
 
           {/* Navigation */}
           <div className="flex items-center justify-between">
@@ -258,7 +200,7 @@ export function DocumentFlipbook({
       )}
 
       {/* Immersive Fullscreen PDF Modal Viewer */}
-      {isFullscreen && activeDoc === "invoices" && current && (
+      {isFullscreen && current && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col p-4 safe-top safe-bottom">
           {/* Fullscreen Header */}
           <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-3 shrink-0">
@@ -267,12 +209,12 @@ export function DocumentFlipbook({
                 {current?.status || "—"}
               </span>
               <h3 className="text-white font-bold text-sm sm:text-base">
-                Invoice #{current?.items?.invoiceNumber || current?.zohoId?.slice(-6).toUpperCase() || "—"}
+                {cfg.label.slice(0, -1)} #{getDocNumber(current, activeDoc)}
               </h3>
             </div>
             <div className="flex items-center gap-2">
               <a
-                href={`/api/get-invoice-pdf?id=${current.zohoId}&download=true`}
+                href={`/api/get-invoice-pdf?id=${current.zohoId || current.id}&type=${getDocTypeParam(activeDoc)}&download=true`}
                 className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-semibold bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg border border-blue-500/20 transition-all"
               >
                 <FiDownload /> Download
@@ -290,9 +232,9 @@ export function DocumentFlipbook({
           {/* Fullscreen Body */}
           <div className="flex-1 w-full bg-neutral-950 rounded-xl overflow-hidden border border-neutral-800 relative">
             <iframe
-              src={`/api/get-invoice-pdf?id=${current.zohoId}`}
+              src={`/api/get-invoice-pdf?id=${current.zohoId || current.id}&type=${getDocTypeParam(activeDoc)}`}
               className="w-full h-full border-0"
-              title={`Invoice PDF Fullscreen`}
+              title={`${cfg.label} PDF Fullscreen`}
             />
           </div>
 

@@ -19,27 +19,44 @@ export async function syncRecentBooksInvoices() {
     if (data.code === 0 && data.invoices) {
       console.log(`Fetched ${data.invoices.length} recent invoices from Zoho Books to sync status.`)
       const updateOps = []
-      
-      for (const booksInv of data.invoices) {
-        // Find matching invoice in DB by booksInvoiceId or invoiceNumber inside the items Json column
-        const localInvoice = await prisma.invoice.findFirst({
-          where: {
-            OR: [
-              {
-                items: {
-                  path: ['booksInvoiceId'],
-                  equals: booksInv.invoice_id
-                }
-              },
-              {
-                items: {
-                  path: ['invoiceNumber'],
-                  equals: booksInv.invoice_number
-                }
-              }
-            ]
-          }
-        })
+
+      // --- Bulk fetch: single query replaces N findFirst calls ---
+      const booksInvoices = data.invoices as any[]
+      const allBookIds = booksInvoices.map((inv: any) => inv.invoice_id).filter(Boolean)
+      const allInvNumbers = booksInvoices.map((inv: any) => inv.invoice_number).filter(Boolean)
+
+      const matchingInvoices = await prisma.invoice.findMany({
+        where: {
+          OR: [
+            ...(allBookIds.length > 0
+              ? allBookIds.map((bid: string) => ({
+                  items: { path: ['booksInvoiceId'], equals: bid }
+                }))
+              : []),
+            ...(allInvNumbers.length > 0
+              ? allInvNumbers.map((num: string) => ({
+                  items: { path: ['invoiceNumber'], equals: num }
+                }))
+              : [])
+          ]
+        }
+      })
+
+      // Build O(1) lookup maps
+      const byBooksId = new Map<string, typeof matchingInvoices[0]>()
+      const byInvNumber = new Map<string, typeof matchingInvoices[0]>()
+      for (const inv of matchingInvoices) {
+        const items = inv.items as any
+        if (items?.booksInvoiceId) byBooksId.set(items.booksInvoiceId, inv)
+        if (items?.invoiceNumber) byInvNumber.set(items.invoiceNumber, inv)
+      }
+
+      for (const booksInv of booksInvoices) {
+        // O(1) map lookup instead of DB query
+        const localInvoice =
+          byBooksId.get(booksInv.invoice_id) ||
+          byInvNumber.get(booksInv.invoice_number) ||
+          null
         
         if (localInvoice) {
           let status = localInvoice.status

@@ -81,6 +81,9 @@ export function ProductModalProvider({ children }: { children: React.ReactNode }
 }
 
 function ProductModal({ product, fallback, onClose }: { product: ProductInfo | null; fallback: any; onClose: () => void }) {
+  const [purchases, setPurchases] = useState<any[]>([])
+  const [loadingPurchases, setLoadingPurchases] = useState(false)
+
   let parsedDesc: any = {}
   let rawDesc = ""
   
@@ -103,6 +106,25 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
   let vendor = parsedDesc.vendor || ""
   let costVal = parsedDesc.cost !== undefined && parsedDesc.cost !== null ? parseFloat(parsedDesc.cost as any) : null
   let pertinentInfo = parsedDesc.pertinentInfo || ""
+
+  useEffect(() => {
+    if (!sku || sku === "N/A") return
+    const fetchHistory = async () => {
+      setLoadingPurchases(true)
+      try {
+        const res = await fetch(`/api/get-product-purchases?sku=${encodeURIComponent(sku)}`)
+        const data = await res.json()
+        if (data.success) {
+          setPurchases(data.purchaseHistory || [])
+        }
+      } catch (err) {
+        console.error("Failed to fetch product purchase history:", err)
+      } finally {
+        setLoadingPurchases(false)
+      }
+    }
+    fetchHistory()
+  }, [sku])
 
   // Keep a local fallback URL for the onError handler
   const lowerName = name.toLowerCase()
@@ -237,6 +259,45 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
               </div>
             </div>
           )}
+
+          {/* Purchase History */}
+          <div className="space-y-2 border-t border-neutral-800/40 pt-4">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">Purchase History</span>
+            {loadingPurchases ? (
+              <div className="flex justify-center py-6">
+                <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : purchases.length === 0 ? (
+              <p className="text-xs text-neutral-500 italic py-2">No purchase history recorded for this item.</p>
+            ) : (
+              <div className="border border-neutral-800 rounded-xl overflow-hidden overflow-x-auto bg-neutral-950/20 max-h-48 scrollbar-thin">
+                <table className="w-full text-left text-[11px] min-w-[400px]">
+                  <thead className="bg-neutral-900/60 text-neutral-400 border-b border-neutral-800 uppercase text-[9px] font-bold">
+                    <tr>
+                      <th className="px-3 py-2">Date</th>
+                      <th className="px-3 py-2">Account</th>
+                      <th className="px-3 py-2 text-right">Invoice</th>
+                      <th className="px-3 py-2 text-right">Qty</th>
+                      <th className="px-3 py-2 text-right">Rate</th>
+                      <th className="px-3 py-2 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-850">
+                    {purchases.map((p, idx) => (
+                      <tr key={idx} className="hover:bg-neutral-800/20 text-neutral-300">
+                        <td className="px-3 py-2 whitespace-nowrap">{p.date}</td>
+                        <td className="px-3 py-2 font-semibold text-white truncate max-w-[120px]">{p.accountName}</td>
+                        <td className="px-3 py-2 text-right text-neutral-400 font-mono">#{p.invoiceNumber}</td>
+                        <td className="px-3 py-2 text-right">{p.quantity}</td>
+                        <td className="px-3 py-2 text-right font-mono">${p.rate.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right text-emerald-400 font-bold font-mono">${p.total.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}

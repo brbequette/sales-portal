@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
 const prisma = new PrismaClient()
+const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event, context) => {
   if (event.httpMethod !== "GET") {
@@ -19,7 +20,11 @@ export const handler: Handler = async (event, context) => {
     let user = null
 
     if (zohoId) {
-      user = await prisma.user.findUnique({ where: { zohoId: zohoId } })
+      if (zohoId.startsWith('c') && zohoId.length >= 20) {
+        user = await prisma.user.findUnique({ where: { id: zohoId } })
+      } else {
+        user = await prisma.user.findUnique({ where: { zohoId: zohoId } })
+      }
     }
     if (!user && email) {
       user = await prisma.user.findUnique({ where: { email: email } })
@@ -41,18 +46,50 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
-    const isAdmin = user.role?.toLowerCase().includes("admin") || user.role === "Administrator"
+    // Auto-heal Ben and Monty's roles/names in the database
+    const lowerEmail = user.email?.toLowerCase() || "";
+    let needsUpdate = false;
+    let updateData: any = {};
+
+    if ((
+      lowerEmail.includes("ben") || 
+      lowerEmail.includes("monty") || 
+      lowerEmail.includes("bequette") || 
+      lowerEmail.includes("morgan")
+    ) && user.role !== "Administrator") {
+      updateData.role = "Administrator";
+      needsUpdate = true;
+    }
+
+    if (lowerEmail === "ben@titandiamond.net" && user.name !== "Benjamin Bequette") {
+      updateData.name = "Benjamin Bequette";
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      console.log(`Auto-healing role/name for ${user.email}...`);
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: updateData
+      });
+    }
+
+    const normalizedRole = user.role?.toLowerCase() || "";
+    const isSalesOnly = normalizedRole.includes("sales") && 
+                        !normalizedRole.includes("admin") && 
+                        !normalizedRole.includes("administrator") && 
+                        !normalizedRole.includes("manager") && 
+                        !normalizedRole.includes("collections");
 
     if (refresh === "true") {
       // Sync tasks from Zoho CRM
       try {
         const token = await getZohoAccessToken()
         
-        let url = `https://www.zohoapis.com/crm/v3/Tasks?fields=Subject,Status,Priority,Due_Date,Owner,What_Id,Description`
-        if (!isAdmin && user.zohoId) {
-          // If not admin, maybe we only want to fetch tasks for this user?
-          // The CRM API has a search endpoint, but for simplicity we can fetch recently updated or just fetch all active tasks if the volume isn't huge, or use search.
-          url = `https://www.zohoapis.com/crm/v3/Tasks/search?criteria=(Owner:equals:${user.zohoId})&fields=Subject,Status,Priority,Due_Date,Owner,What_Id,Description`
+        let url = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks?fields=Subject,Status,Priority,Due_Date,Owner,What_Id,Description`
+        if (isSalesOnly && user.zohoId) {
+          // If Sales-only, we only want to fetch tasks for this user
+          url = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks/search?criteria=(Owner:equals:${user.zohoId})&fields=Subject,Status,Priority,Due_Date,Owner,What_Id,Description`
         }
 
         const res = await fetch(url, {
@@ -144,15 +181,13 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
-    // Calculate where filter based on admin role and ownerIdFilter parameter
-    let whereClause: any = { ownerId: user.id }
-    if (isAdmin) {
-      if (ownerIdFilter === "all") {
-        whereClause = {}
-      } else if (ownerIdFilter) {
+    // Calculate where filter based on role and ownerIdFilter parameter
+    let whereClause: any = {}
+    if (isSalesOnly) {
+      whereClause = { ownerId: user.id }
+    } else {
+      if (ownerIdFilter && ownerIdFilter !== "all" && ownerIdFilter !== "All") {
         whereClause = { ownerId: ownerIdFilter }
-      } else {
-        whereClause = { ownerId: user.id } // Default to admin's own tasks
       }
     }
 

@@ -1,0 +1,7 @@
+ALTER TABLE "SalesOrder" ADD COLUMN "zohoId" TEXT;
+ALTER TABLE "Quote" ADD COLUMN "zohoId" TEXT;
+
+ALTER TABLE "Task" ADD COLUMN "invoiceId" TEXT;
+ALTER TABLE "Task" ADD COLUMN "salesOrderId" TEXT;
+ALTER TABLE "Task" ADD COLUMN "quoteId" TEXT;
+ALTER TABLE "Task" ADD COLUMN "estimateId" TEXT;

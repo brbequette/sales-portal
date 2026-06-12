@@ -16,7 +16,7 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { accountId, type, amount, items, lineItems, discountTotal, userId, userEmail } = body
+    const { accountId, type, amount, items, lineItems, discountTotal, userId, userEmail, processingNotes, assigneeId } = body
 
     if (!accountId || !type || amount === undefined) {
       return {
@@ -99,6 +99,7 @@ export const handler: Handler = async (event, context) => {
       customer_id: booksContactId,
       salesperson_name: author?.name || "System Admin",
       line_items: (lineItems || []).map((li: any) => ({
+        item_id: li.itemId || undefined,
         name: li.name,
         description: li.description,
         rate: li.rate,
@@ -141,10 +142,11 @@ export const handler: Handler = async (event, context) => {
     }
 
     // Now save to Prisma database
-    let transaction;
+    let transaction: any;
     if (type === "Quote") {
       transaction = await prisma.quote.create({
         data: {
+          zohoId: booksRefId,
           accountId: dbAccountId,
           amount,
           items: items || [],
@@ -155,12 +157,90 @@ export const handler: Handler = async (event, context) => {
     } else if (type === "SalesOrder") {
       transaction = await prisma.salesOrder.create({
         data: {
+          zohoId: booksRefId,
           accountId: dbAccountId,
           amount,
           items: items || [],
           status: "Pending",
         }
       })
+    }
+
+    // Automatically create a processing Task if notes or assignee are set
+    if (processingNotes || assigneeId) {
+      try {
+        let assigneeUser = null
+        if (assigneeId) {
+          assigneeUser = await prisma.user.findUnique({ where: { id: assigneeId } })
+        }
+        if (!assigneeUser) {
+          assigneeUser = await prisma.user.findUnique({ where: { id: account.ownerId } })
+        }
+        if (!assigneeUser && author) {
+          assigneeUser = author
+        }
+
+        if (assigneeUser) {
+          const subject = `Process POS ${type} - ${account.name}`
+          const description = `Processing notes:\n${processingNotes || "RUSH order or custom instructions."}`
+
+          // Sync Task to Zoho CRM
+          let zohoTaskId = `mock-task-${Date.now()}`
+          if (assigneeUser.zohoId) {
+            try {
+              const zohoTaskPayload = {
+                data: [{
+                  Subject: subject,
+                  Description: description + (type === "Quote" ? `\nLinked Estimate: ${booksRefId}` : `\nLinked Sales Order: SO-${transaction.id}`),
+                  Status: "Not Started",
+                  Priority: "Normal",
+                  Owner: { id: assigneeUser.zohoId },
+                  What_Id: { id: account.zohoId },
+                  $se_module: "Accounts"
+                }]
+              }
+
+              const crmTaskRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks`, {
+                method: "POST",
+                headers: {
+                  'Authorization': `Zoho-oauthtoken ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(zohoTaskPayload)
+              })
+              const crmTaskData = await crmTaskRes.json()
+              if (crmTaskRes.ok && crmTaskData.data && crmTaskData.data[0]?.code === "SUCCESS") {
+                zohoTaskId = crmTaskData.data[0].details.id
+              }
+            } catch (zohoTaskErr: any) {
+              console.warn("Failed to create task in Zoho CRM, falling back to mock ID:", zohoTaskErr.message)
+            }
+          }
+
+          const taskData: any = {
+            zohoId: zohoTaskId,
+            subject,
+            description,
+            status: "Not Started",
+            priority: "Normal",
+            ownerId: assigneeUser.id,
+            accountId: account.id
+          }
+
+          if (type === "Quote") {
+            taskData.quoteId = transaction.id
+            taskData.estimateId = booksRefId
+          } else if (type === "SalesOrder") {
+            taskData.salesOrderId = transaction.id
+          }
+
+          await prisma.task.create({
+            data: taskData
+          })
+        }
+      } catch (taskErr: any) {
+        console.error("Failed to automatically create task from POS:", taskErr.message)
+      }
     }
 
     return {

@@ -44,11 +44,84 @@ export const handler: Handler = async (event) => {
     const origin = oauthSiteUrl
     const state = Buffer.from(origin).toString("base64")
 
+    // ── Full scope list for all Zoho APIs used in this application ──────
+    // CRM: Accounts, Contacts, Tasks, Custom Modules (invoices), Users
+    // Books: Invoices, Estimates, Sales Orders, Contacts, Items, Payments, PDFs
+    // Voice: SMS/MMS, Power Dialer campaigns, Call logs
+    // Auth: User profile for login
+    const REQUIRED_SCOPES = [
+      // Authentication / Profile
+      "AaaServer.profile.READ",
+
+      // Zoho CRM — Accounts (read + write for upsert/sync)
+      "ZohoCRM.modules.accounts.READ",
+      "ZohoCRM.modules.accounts.WRITE",
+
+      // Zoho CRM — Contacts (read + write for upsert/sync)
+      "ZohoCRM.modules.contacts.READ",
+      "ZohoCRM.modules.contacts.WRITE",
+
+      // Zoho CRM — Tasks (read + write for create-task, update-task, get-tasks)
+      "ZohoCRM.modules.tasks.READ",
+      "ZohoCRM.modules.tasks.WRITE",
+
+      // Zoho CRM — Custom Modules (CustomModule5001 = Invoices in CRM)
+      "ZohoCRM.modules.ALL",
+
+      // Zoho CRM — Users (sync active sales reps)
+      "ZohoCRM.users.READ",
+
+      // Zoho Books — Invoices
+      "ZohoBooks.invoices.READ",
+      "ZohoBooks.invoices.CREATE",
+      "ZohoBooks.invoices.UPDATE",
+
+      // Zoho Books — Estimates / Quotes
+      "ZohoBooks.estimates.READ",
+      "ZohoBooks.estimates.CREATE",
+      "ZohoBooks.estimates.UPDATE",
+
+      // Zoho Books — Sales Orders
+      "ZohoBooks.salesorders.READ",
+      "ZohoBooks.salesorders.CREATE",
+      "ZohoBooks.salesorders.UPDATE",
+
+      // Zoho Books — Contacts (used when creating transactions)
+      "ZohoBooks.contacts.READ",
+      "ZohoBooks.contacts.CREATE",
+
+      // Zoho Books — Items / Products catalog
+      "ZohoBooks.items.READ",
+
+      // Zoho Books — Payments (apply payments to invoices)
+      "ZohoBooks.payments.CREATE",
+      "ZohoBooks.payments.READ",
+
+      // Zoho Books — Settings (org-level access for PDFs and emails)
+      "ZohoBooks.settings.READ",
+
+      // Zoho Voice — SMS / MMS (send-campaign, zoho-voice)
+      "ZohoVoice.sms.CREATE",
+
+      // Zoho Voice — Power Dialer (create/read/update/delete campaigns)
+      "ZohoVoice.powerdialer.CREATE",
+      "ZohoVoice.powerdialer.READ",
+      "ZohoVoice.powerdialer.UPDATE",
+      "ZohoVoice.powerdialer.DELETE",
+
+      // Zoho Voice — Call Logs (read call history + recordings)
+      "ZohoVoice.call.READ",
+
+      // Zoho Voice — Contacts sync
+      "ZohoVoice.contacts.READ",
+      "ZohoVoice.contacts.CREATE",
+    ].join(",")
+
     const params = new URLSearchParams({
       client_id: clientId,
       response_type: "code",
       redirect_uri: redirectUri,
-      scope: "AaaServer.profile.READ",
+      scope: REQUIRED_SCOPES,
       access_type: "offline",
       prompt: "consent",
       state: state,
@@ -172,10 +245,15 @@ export const handler: Handler = async (event) => {
     }
 
     // Find or create user in the database
+    // IMPORTANT: Look up by email, NOT by zohoId. The zohoUserId from accounts.zoho.com
+    // is the ZUID, which is DIFFERENT from the CRM user ID stored in user.zohoId.
+    // We must never overwrite an existing CRM zohoId with the ZUID.
     let user = await prisma.user.findUnique({ where: { email } })
 
     if (!user) {
       // Auto-create user for team members
+      // Note: For new users, we store the ZUID as a temporary zohoId.
+      // It will be replaced with the real CRM user ID during the next account sync.
       user = await prisma.user.create({
         data: {
           email,
@@ -186,7 +264,8 @@ export const handler: Handler = async (event) => {
       })
       console.log("Created new user via Zoho OAuth:", email)
     } else {
-      // Update name/zohoId if missing
+      // Update name if missing. NEVER overwrite zohoId if it already exists —
+      // the existing zohoId is the CRM user ID which is correct for API calls.
       const updates: any = {}
       if (!user.name && fullName) updates.name = fullName
       if (!user.zohoId && zohoUserId) updates.zohoId = zohoUserId
@@ -199,13 +278,17 @@ export const handler: Handler = async (event) => {
     }
 
     // Build the portal user payload
+    // Use the DB user's zohoId (CRM ID) for API calls, fall back to cuid
     const portalUser = {
       id: user.zohoId || user.id,
+      dbId: user.id,  // Always include the Prisma cuid for direct DB lookups
       name: user.name || fullName,
       email: user.email,
       role: user.role,
       isZohoUser: true,
     }
+
+    console.log("OAuth login successful:", { email: user.email, zohoId: user.zohoId, role: user.role })
 
     // Encode as base64 and redirect to login page which will read it
     const encoded = Buffer.from(JSON.stringify(portalUser)).toString("base64")

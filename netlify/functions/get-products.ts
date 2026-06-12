@@ -30,7 +30,7 @@ export const handler: Handler = async (event, context) => {
       if (data.code !== 0) throw new Error(`Zoho Books Error: ${data.message}`)
 
       const items = data.items || []
-      const activeItems = items.filter((i: any) => i.status === "active")
+      const activeItems = items.filter((i: any) => i.status === "active" || i.status === "inactive")
 
       const ops = activeItems.map((item: any) => {
         const sku = item.sku || item.item_id
@@ -42,7 +42,8 @@ export const handler: Handler = async (event, context) => {
           cost: item.purchase_rate || 0,
           vendor: item.vendor_name || item.cf_vendor || "",
           retail: item.rate || 0,
-          pertinentInfo: ""
+          pertinentInfo: "",
+          itemId: item.item_id
         })
 
         return prisma.product.upsert({

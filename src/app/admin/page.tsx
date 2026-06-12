@@ -6,7 +6,7 @@ import { useEffect, useState, useCallback } from "react"
 import { usePagination, Pagination } from "@/components/Pagination"
 import {
   FiSettings, FiUsers, FiRefreshCw, FiSave, FiAlertTriangle,
-  FiShield, FiCheckCircle, FiX, FiChevronDown, FiActivity
+  FiShield, FiCheckCircle, FiX, FiChevronDown, FiActivity, FiTarget
 } from "react-icons/fi"
 
 interface User {
@@ -22,6 +22,8 @@ interface Config {
   group2RepId: string
   group3RepId: string
   group4RepId: string
+  holidays: string[]
+  salesTargets: Record<string, number>
 }
 
 interface ReassignmentResult {
@@ -49,7 +51,10 @@ export default function AdminSettingsPage() {
     group2RepId: "",
     group3RepId: "",
     group4RepId: "",
+    holidays: [],
+    salesTargets: {},
   })
+  const [newHoliday, setNewHoliday] = useState("")
   const [users, setUsers] = useState<User[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
 
@@ -57,9 +62,8 @@ export default function AdminSettingsPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [reassignResult, setReassignResult] = useState<ReassignmentResult | null>(null)
 
-  const isAdmin =
-    currentUser?.role?.toLowerCase().includes("admin") ||
-    currentUser?.role === "Administrator"
+  const normalizedRole = currentUser?.role?.toLowerCase() || ""
+  const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
 
   const detailsPagination = usePagination(reassignResult?.reassignedDetails || [])
 
@@ -372,6 +376,97 @@ export default function AdminSettingsPage() {
                       </div>
                     </div>
                   )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Holidays Card */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg">
+          <div className="flex items-center gap-2 mb-4">
+            <FiActivity size={16} className="text-purple-400" />
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Workday Holiday Exclusions</h2>
+          </div>
+          <p className="text-xs text-neutral-400 mb-4">
+            Add holidays to exclude them from the workday target calculations.
+          </p>
+          <div className="flex gap-2 mb-4">
+            <input
+              type="date"
+              value={newHoliday}
+              onChange={(e) => setNewHoliday(e.target.value)}
+              className="bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+            <button
+              onClick={() => {
+                if (newHoliday && !config.holidays.includes(newHoliday)) {
+                  setConfig((c) => ({ ...c, holidays: [...c.holidays, newHoliday].sort() }))
+                  setNewHoliday("")
+                }
+              }}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition-all"
+            >
+              Add Holiday
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {config.holidays.length === 0 ? (
+              <span className="text-xs text-neutral-500">No holidays added yet.</span>
+            ) : (
+              config.holidays.map((h) => (
+                <span key={h} className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white">
+                  {h}
+                  <button
+                    onClick={() => {
+                      setConfig((c) => ({ ...c, holidays: c.holidays.filter((item) => item !== h) }))
+                    }}
+                    className="text-red-400 hover:text-red-300 font-bold ml-1"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Rep Targets Card */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg">
+          <div className="flex items-center gap-2 mb-4">
+            <FiTarget size={16} className="text-purple-400" />
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Representative Daily Sales Targets</h2>
+          </div>
+          <p className="text-xs text-neutral-400 mb-4">
+            Set individual daily sales targets (profit goals) for each rep.
+          </p>
+          <div className="space-y-3">
+            {users.map((u) => {
+              const currentVal = config.salesTargets[u.id] ?? 0
+              return (
+                <div key={u.id} className="flex items-center justify-between border-b border-neutral-800 pb-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white truncate">{u.name}</p>
+                    <p className="text-[10px] text-neutral-500 truncate">{u.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-neutral-500 text-xs">$</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={currentVal || ""}
+                      placeholder="0"
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0
+                        setConfig((c) => ({
+                          ...c,
+                          salesTargets: { ...c.salesTargets, [u.id]: val }
+                        }))
+                      }}
+                      className="w-28 bg-neutral-950 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 text-right font-mono"
+                    />
+                  </div>
                 </div>
               )
             })}

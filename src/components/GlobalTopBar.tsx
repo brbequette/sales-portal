@@ -205,6 +205,12 @@ export function GlobalTopBar() {
       {/* Right side: Quick Add Actions */}
       <div className="flex items-center gap-2 lg:gap-3 ml-4 shrink-0">
         <button
+          onClick={() => router.push("/catalog")}
+          className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-full text-xs lg:text-sm transition-all flex items-center gap-2 border border-neutral-700"
+        >
+          <FiBox size={14} /> <span className="hidden sm:inline">Catalog Lookup</span>
+        </button>
+        <button
           onClick={() => setShowAddTask(true)}
           className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-full text-xs lg:text-sm transition-all flex items-center gap-2 border border-neutral-700"
         >

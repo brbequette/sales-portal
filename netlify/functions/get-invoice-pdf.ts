@@ -7,6 +7,18 @@ const ZOHO_DC = process.env.ZOHO_DC || 'com';
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID;
 
 export const handler: Handler = async (event, context) => {
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "GET, OPTIONS"
+      },
+      body: ""
+    }
+  }
+
   if (event.httpMethod !== "GET") {
     return {
       statusCode: 405,
@@ -15,43 +27,56 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { id, booksInvoiceId: queryBooksId, download } = event.queryStringParameters || {}
+    const { id, type = "Invoice", booksInvoiceId: queryBooksId, download } = event.queryStringParameters || {}
 
-    let booksInvoiceId = queryBooksId
+    let booksDocId = queryBooksId
 
-    // If booksInvoiceId was not passed directly, look it up in local Prisma DB by invoice id or zohoId
-    if (!booksInvoiceId && id) {
-      // Find invoice in database
-      let dbInvoice = await prisma.invoice.findUnique({
-        where: { zohoId: id }
-      })
-
-      if (!dbInvoice) {
-        dbInvoice = await prisma.invoice.findUnique({
-          where: { id: id }
+    // If direct books ID not provided, look up by DB id / zohoId
+    if (!booksDocId && id) {
+      if (type === "Invoice") {
+        let dbInvoice = await prisma.invoice.findUnique({ where: { zohoId: id } })
+        if (!dbInvoice) dbInvoice = await prisma.invoice.findUnique({ where: { id: id } })
+        if (dbInvoice) {
+          const metadata = dbInvoice.items as any
+          booksDocId = metadata?.booksInvoiceId
+        }
+      } else if (type === "SalesOrder") {
+        let dbSO = await prisma.salesOrder.findFirst({
+          where: { OR: [{ id: id }, { zohoId: id }] }
         })
-      }
-
-      if (dbInvoice) {
-        const metadata = dbInvoice.items as any
-        booksInvoiceId = metadata?.booksInvoiceId
+        if (dbSO) {
+          booksDocId = dbSO.zohoId
+        }
+      } else if (type === "Quote") {
+        let dbQuote = await prisma.quote.findFirst({
+          where: { OR: [{ id: id }, { zohoId: id }] }
+        })
+        if (dbQuote) {
+          booksDocId = dbQuote.zohoId
+        }
       }
     }
 
-    if (!booksInvoiceId) {
+    if (!booksDocId) {
       return {
         statusCode: 400,
         headers: { 
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*"
         },
-        body: JSON.stringify({ success: false, message: "Missing booksInvoiceId or valid invoice id" })
+        body: JSON.stringify({ success: false, message: `Missing valid document ID for ${type}` })
       }
     }
 
-    console.log(`Fetching PDF for Zoho Books Invoice ID: ${booksInvoiceId}...`);
+    console.log(`Fetching PDF for Zoho Books ${type} ID: ${booksDocId}...`);
     const token = await getZohoAccessToken();
-    const pdfUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${booksInvoiceId}?organization_id=${ORG_ID}&accept=pdf`;
+    
+    // Determine the path based on doc type
+    let modulePath = "invoices"
+    if (type === "SalesOrder") modulePath = "salesorders"
+    else if (type === "Quote") modulePath = "estimates"
+
+    const pdfUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/${modulePath}/${booksDocId}?organization_id=${ORG_ID}&accept=pdf`;
     
     const pdfRes = await fetch(pdfUrl, {
       headers: { Authorization: `Zoho-oauthtoken ${token}` }
@@ -79,9 +104,9 @@ export const handler: Handler = async (event, context) => {
     }
 
     if (download === "true") {
-      headers["Content-Disposition"] = `attachment; filename="Invoice_${booksInvoiceId}.pdf"`;
+      headers["Content-Disposition"] = `attachment; filename="${type}_${booksDocId}.pdf"`;
     } else {
-      headers["Content-Disposition"] = "inline; filename=invoice.pdf";
+      headers["Content-Disposition"] = `inline; filename=${type.toLowerCase()}.pdf`;
     }
 
     return {

@@ -2,6 +2,7 @@
 
 import { useZoho } from "@/components/ZohoProvider"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
+import { SalesCallCampaignModal } from "@/components/SalesCallCampaignModal"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
@@ -10,6 +11,7 @@ import Link from "next/link"
 import { QualityPicker } from "@/components/QualityPicker"
 import { TimezonePicker } from "@/components/TimezonePicker"
 import { Pagination, usePagination } from "@/components/Pagination"
+import { usePreferences } from "@/components/PreferencesProvider"
 import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus } from "react-icons/fi"
 
 function formatLastCalled(dateStr: string | null) {
@@ -66,6 +68,7 @@ export default function Dashboard() {
   // Campaign States
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([])
   const [showCampaignModal, setShowCampaignModal] = useState(false)
+  const [showCallCampaignModal, setShowCallCampaignModal] = useState(false)
   const [campaignName, setCampaignName] = useState("")
   const [campaignChannel, setCampaignChannel] = useState<"SMS" | "EMAIL" | "WHATSAPP">("SMS")
   const [campaignText, setCampaignText] = useState("")
@@ -160,6 +163,36 @@ export default function Dashboard() {
     }
   }, [showCampaignModal])
 
+  const fetchLocalData = async () => {
+    if (!currentUser) return
+    try {
+      const query = currentUser.id && !currentUser.id.includes("@")
+        ? `zohoId=${currentUser.id}`
+        : `email=${currentUser.email}`
+
+      const roleQuery = currentUser.role ? `&role=${encodeURIComponent(currentUser.role)}` : ""
+      const accountsQuery = `${query}${roleQuery}`
+
+      const ts = Date.now()
+      const [resAccounts, resTasks] = await Promise.all([
+        fetch(`/api/get-accounts?${accountsQuery}&_t=${ts}`),
+        fetch(`/api/get-tasks?${accountsQuery}&_t=${ts}`),
+      ])
+      const dataAccounts = await resAccounts.json()
+      const dataTasks = await resTasks.json()
+
+      if (dataAccounts.success) {
+        setAccounts(dataAccounts.accounts)
+        if (dataAccounts.reps) setRepsList(dataAccounts.reps)
+      } else {
+        setApiError(dataAccounts.error || dataAccounts.message)
+      }
+      if (dataTasks.success) setTasks(dataTasks.tasks)
+    } catch (err: any) {
+      setApiError(err.message)
+    }
+  }
+
   useEffect(() => {
     if (!isInitialized) return
     if (!currentUser) {
@@ -168,34 +201,9 @@ export default function Dashboard() {
     }
 
     const fetchData = async () => {
-      try {
-        const query = currentUser.id && !currentUser.id.includes("@")
-          ? `zohoId=${currentUser.id}`
-          : `email=${currentUser.email}`
-
-        const roleQuery = currentUser.role ? `&role=${encodeURIComponent(currentUser.role)}` : ""
-        const accountsQuery = `${query}${roleQuery}`
-
-        const ts = Date.now()
-        const [resAccounts, resTasks] = await Promise.all([
-          fetch(`/api/get-accounts?${accountsQuery}&_t=${ts}`),
-          fetch(`/api/get-tasks?${accountsQuery}&_t=${ts}`),
-        ])
-        const dataAccounts = await resAccounts.json()
-        const dataTasks = await resTasks.json()
-
-        if (dataAccounts.success) {
-          setAccounts(dataAccounts.accounts)
-          if (dataAccounts.reps) setRepsList(dataAccounts.reps)
-        } else {
-          setApiError(dataAccounts.error || dataAccounts.message)
-        }
-        if (dataTasks.success) setTasks(dataTasks.tasks)
-      } catch (err: any) {
-        setApiError(err.message)
-      } finally {
-        setLoading(false)
-      }
+      setLoading(true)
+      await fetchLocalData()
+      setLoading(false)
     }
     fetchData()
   }, [isInitialized, currentUser, router])
@@ -254,7 +262,7 @@ export default function Dashboard() {
       const accountsQuery = `${query}${roleQuery}`
 
       const [resAccounts, resTasks] = await Promise.all([
-        fetch(`/api/get-accounts?${accountsQuery}&refresh=true`),
+        fetch(`/api/get-accounts?${accountsQuery}&refresh=true&force=true`),
         fetch(`/api/get-tasks?${accountsQuery}&refresh=true`),
       ])
       const dataAccounts = await resAccounts.json()
@@ -370,7 +378,8 @@ export default function Dashboard() {
   }
 
   // ── Separation Logic ──
-  const isAdminUser = currentUser?.role?.toLowerCase().includes("admin") || currentUser?.role === "Administrator"
+  const normalizedRole = currentUser?.role?.toLowerCase() || ""
+  const isAdminUser = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
 
   const owners = Array.from(
     new Map(
@@ -476,9 +485,12 @@ export default function Dashboard() {
     return true // "all"
   })
 
-  const accountsPagination = usePagination(filteredAccounts)
-  const tasksPagination = usePagination(filteredTasksList)
-  const drillPagination = usePagination(drillItems || [])
+  const { preferences } = usePreferences()
+  const defaultSize = preferences.defaultPageSize
+
+  const accountsPagination = usePagination(filteredAccounts, defaultSize)
+  const tasksPagination = usePagination(filteredTasksList, defaultSize)
+  const drillPagination = usePagination(drillItems || [], defaultSize)
 
   // Count Call List stats for metrics
   const hotCount = callListAccounts.filter(a => a.quality === "HOT").length
@@ -723,7 +735,7 @@ export default function Dashboard() {
                 {effort === "sales" ? (
                   <>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span>{currentUser?.role?.toLowerCase().includes("admin") || currentUser?.role === "Administrator" ? "All Pipeline Accounts" : "My Pipeline Accounts"}</span>
+                    <span>{isAdminUser ? "All Pipeline Accounts" : "My Pipeline Accounts"}</span>
                   </>
                 ) : (
                   <>
@@ -889,13 +901,22 @@ export default function Dashboard() {
                       </span>
                     </div>
                     {selectedAccountIds.length > 0 && (
-                      <button 
-                        onClick={() => setShowCampaignModal(true)}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-md shadow-emerald-950/20 hover:shadow-emerald-950/45 transition-all flex items-center gap-1.5 text-xs sm:text-sm"
-                      >
-                        <FiMail className="shrink-0" size={14} />
-                        <span>Create Campaign</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => setShowCallCampaignModal(true)}
+                          className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-black font-extrabold shadow-md shadow-sky-950/20 hover:shadow-sky-950/45 transition-all flex items-center gap-1.5 text-xs sm:text-sm cursor-pointer"
+                        >
+                          <FiPhoneCall className="shrink-0" size={14} />
+                          <span>Start Call Campaign</span>
+                        </button>
+                        <button 
+                          onClick={() => setShowCampaignModal(true)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-md shadow-emerald-950/20 hover:shadow-emerald-950/45 transition-all flex items-center gap-1.5 text-xs sm:text-sm cursor-pointer"
+                        >
+                          <FiMail className="shrink-0" size={14} />
+                          <span>Create Campaign</span>
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -1051,7 +1072,7 @@ export default function Dashboard() {
                             </div>
                             <div className="flex items-center gap-1.5">
                               {cleanPhone ? (
-                                <a href={`tel:${cleanPhone}`} className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
+                                <a href={`zdialer:${cleanPhone}`} className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
                                   <FiPhoneCall size={12} />
                                 </a>
                               ) : (
@@ -1226,6 +1247,33 @@ export default function Dashboard() {
                                 <span className="text-neutral-500 italic">Company-wide / General Task</span>
                               )}
                             </div>
+
+                            {/* Linked Transactions */}
+                            {(task.invoiceId || task.salesOrderId || task.quoteId || task.estimateId) && (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-neutral-500 font-medium">Docs:</span>
+                                {task.invoiceId && (
+                                  <span className="bg-neutral-800 border border-neutral-700 px-1.5 py-0.5 rounded text-[10px] text-blue-400 font-mono font-bold">
+                                    INV: {task.invoiceId}
+                                  </span>
+                                )}
+                                {task.salesOrderId && (
+                                  <span className="bg-neutral-800 border border-neutral-700 px-1.5 py-0.5 rounded text-[10px] text-purple-400 font-mono font-bold">
+                                    SO: {task.salesOrderId}
+                                  </span>
+                                )}
+                                {task.quoteId && (
+                                  <span className="bg-neutral-800 border border-neutral-700 px-1.5 py-0.5 rounded text-[10px] text-amber-400 font-mono font-bold">
+                                    Quote: {task.quoteId}
+                                  </span>
+                                )}
+                                {task.estimateId && (
+                                  <span className="bg-neutral-800 border border-neutral-700 px-1.5 py-0.5 rounded text-[10px] text-emerald-400 font-mono font-bold">
+                                    EST: {task.estimateId}
+                                  </span>
+                                )}
+                              </div>
+                            )}
 
                             {/* Assignee (visible to all but useful for admin contexts) */}
                             <div className="flex items-center gap-1">
@@ -1814,6 +1862,14 @@ export default function Dashboard() {
             </form>
           </div>
         </div>,
+        document.body
+      )}
+      {showCallCampaignModal && createPortal(
+        <SalesCallCampaignModal
+          accounts={accounts.filter(a => selectedAccountIds.includes(a.id))}
+          onClose={() => setShowCallCampaignModal(false)}
+          onRefresh={fetchLocalData}
+        />,
         document.body
       )}
       {/* ── Invoice Details Modal ── */}

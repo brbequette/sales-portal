@@ -21,9 +21,27 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return
 
-    // 1. URL params (Zoho Web Tab with Append Params or merge fields)
+    const currentPath = window.location.pathname
+
+    // ── LOGIN PAGE: Never run SDK init, only handle incoming zoho_auth ──
+    // The login page handles its own zoho_auth param decoding.
+    // We just need to check if there's already a session to redirect away.
+    if (currentPath.includes("/login")) {
+      try {
+        const saved = localStorage.getItem("sales_portal_user")
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          if (parsed?.email) {
+            setZohoContext(parsed)
+          }
+        }
+      } catch {}
+      setIsInitialized(true)
+      return // No SDK init needed on login page
+    }
+
+    // ── STEP 1: URL params (Zoho Web Tab with Append Params or merge fields) ──
     const params = new URLSearchParams(window.location.search)
-    // Handle all common Zoho param name formats
     const email = params.get("email") || params.get("userEmail") || params.get("user_email") || params.get("Email")
     const name = params.get("name") || params.get("userName") || params.get("user_name") || params.get("fullName") || params.get("Name")
     const zohoId = params.get("zohoId") || params.get("id") || params.get("userId") || params.get("user_id") || params.get("userID") || params.get("ID")
@@ -41,7 +59,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
       setZohoContext(portalUser)
       setIsInitialized(true)
 
-      // Always sync the fresh role from the database to override stale Web Tab parameters
+      // Sync fresh role from DB in background
       fetch(`/api/get-user?email=${encodeURIComponent(email)}`)
         .then(res => res.json())
         .then(realUser => {
@@ -60,7 +78,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // 2. Existing saved session (standalone / mobile app)
+    // ── STEP 2: Existing saved session (standalone / mobile) ──
     try {
       const saved = localStorage.getItem("sales_portal_user")
       if (saved) {
@@ -70,7 +88,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
           setZohoContext(parsedUser)
           setIsInitialized(true)
 
-          // Always sync the fresh role from the database to override stale local cache
+          // Sync fresh role from DB in background (non-blocking)
           fetch(`/api/get-user?email=${encodeURIComponent(parsedUser.email)}`)
             .then(res => res.json())
             .then(realUser => {
@@ -82,22 +100,26 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
             })
             .catch(() => {})
 
-          return
+          return // ← CRITICAL: Skip SDK init entirely when localStorage session exists
         }
       }
     } catch {}
 
-    // 3. Check for Zoho SDK (embedded CRM widget)
+    // ── STEP 3: Check for Zoho SDK (embedded CRM widget) ──
+    // Only reached when there's NO localStorage session and NO URL params.
+    // This means we're either:
+    //   a) Running inside a Zoho CRM iframe (widget)
+    //   b) A new user with no session → will fall through to login redirect
     const checkZoho = setInterval(() => {
       if ((window as any).ZOHO) {
         clearInterval(checkZoho)
         clearTimeout(timeout)
         console.log("Zoho SDK detected, initializing embeddedApp...")
 
-        // Failsafe timeout in case init() hangs (e.g. running standalone but script is loaded)
+        // Failsafe: if init() hangs (running standalone but SDK script loaded), give up after 3s
         const initFallback = setTimeout(() => {
-          console.warn("Zoho embeddedApp.init timed out. Proceeding in standalone mode.")
-          setIsInitialized(true)
+          console.warn("Zoho embeddedApp.init timed out. Standalone mode — redirecting to login.")
+          setIsInitialized(true) // Let AuthWrapper redirect to /login
         }, 3000)
 
         ;(window as any).ZOHO.embeddedApp.on("PageLoad", (entity: any) => {
@@ -120,7 +142,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
               }
               setZohoContext(portalUser)
 
-              // Always sync the fresh role from the database to override Zoho profile mismatch
+              // Sync fresh role from DB
               fetch(`/api/get-user?email=${encodeURIComponent(zohoUser.email)}`)
                 .then(res => res.json())
                 .then(realUser => {
@@ -149,10 +171,11 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
       }
     }, 100)
 
-    // 4. No Zoho SDK after 2 seconds → standalone mode, go to login
+    // ── STEP 4: No SDK after 2 seconds → standalone mode, go to login ──
     const timeout = setTimeout(() => {
       clearInterval(checkZoho)
-      setIsInitialized(true) // Let the app redirect to /login
+      console.log("No Zoho SDK and no session. Standalone mode.")
+      setIsInitialized(true) // AuthWrapper or page will redirect to /login
     }, 2000)
 
     return () => {

@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
 const prisma = new PrismaClient()
+const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event, context) => {
   if (event.httpMethod !== "PUT") {
@@ -56,7 +57,7 @@ export const handler: Handler = async (event, context) => {
       data: [taskData]
     }
 
-    const res = await fetch(`https://www.zohoapis.com/crm/v3/Tasks`, {
+    const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks`, {
       method: "PUT",
       headers: {
         'Authorization': `Zoho-oauthtoken ${token}`,

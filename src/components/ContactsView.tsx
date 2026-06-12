@@ -211,7 +211,11 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                         <FiMessageSquare className="shrink-0" size={10} />
                         Text
                       </button>
-                      <span className="text-neutral-500 font-mono text-[9px] ml-1">({c.phone || c.mobilePhone})</span>
+                      <span className="text-neutral-500 font-mono text-[9px] ml-1">
+                        (<a href={`zdialer:${(c.phone || c.mobilePhone || '').replace(/[^0-9+]/g, '')}`} className="text-blue-400 hover:underline">
+                          {c.phone || c.mobilePhone}
+                        </a>)
+                      </span>
                     </div>
                   )}
                 </button>
@@ -343,7 +347,12 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Office Phone</span>
                     {selectedContact.phone ? (
                       <div className="flex items-center gap-3">
-                        <span className="text-xs text-neutral-300 font-mono">{selectedContact.phone}</span>
+                        <a
+                          href={`zdialer:${selectedContact.phone.replace(/[^0-9+]/g, '')}`}
+                          className="text-xs text-blue-400 hover:underline font-mono"
+                        >
+                          {selectedContact.phone}
+                        </a>
                         <button
                           onClick={() => window.dispatchEvent(new CustomEvent("inAppDial", { detail: { phone: selectedContact.phone, contact: selectedContact } }))}
                           className="text-[10px] text-blue-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
@@ -365,7 +374,12 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Mobile Phone</span>
                     {selectedContact.mobilePhone ? (
                       <div className="flex items-center gap-3">
-                        <span className="text-xs text-neutral-300 font-mono">{selectedContact.mobilePhone}</span>
+                        <a
+                          href={`zdialer:${selectedContact.mobilePhone.replace(/[^0-9+]/g, '')}`}
+                          className="text-xs text-blue-400 hover:underline font-mono"
+                        >
+                          {selectedContact.mobilePhone}
+                        </a>
                         <button
                           onClick={() => window.dispatchEvent(new CustomEvent("inAppDial", { detail: { phone: selectedContact.mobilePhone, contact: selectedContact } }))}
                           className="text-[10px] text-blue-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"

@@ -45,6 +45,10 @@ model Account {
   notes          Note[]
   tasks          Task[]
   contacts       Contact[]
+  bladeSizes     String?
+  materialsCut   String?
+  currentSupplier String?
+  averageBladeCost String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -90,6 +94,7 @@ model Deal {
 
 model SalesOrder {
   id          String   @id @default(cuid())
+  zohoId      String?
   accountId   String
   account     Account  @relation(fields: [accountId], references: [id])
   amount      Float
@@ -102,6 +107,7 @@ model SalesOrder {
 
 model Quote {
   id          String   @id @default(cuid())
+  zohoId      String?
   accountId   String
   account     Account  @relation(fields: [accountId], references: [id])
   amount      Float
@@ -182,6 +188,10 @@ model Task {
   account     Account? @relation(fields: [accountId], references: [id])
   dealId      String?
   deal        Deal?    @relation(fields: [dealId], references: [id])
+  invoiceId   String?
+  salesOrderId String?
+  quoteId     String?
+  estimateId  String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

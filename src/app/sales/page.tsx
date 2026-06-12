@@ -31,6 +31,7 @@ export default function SalesListPage() {
   const [viewingSalesDoc, setViewingSalesDoc] = useState<{ type: 'Quote' | 'SalesOrder' | 'Invoice', doc: any } | null>(null)
   const [showAllReps, setShowAllReps] = useState(false)
   const [selectedReps, setSelectedReps] = useState<string[]>([])
+  const [sortBy, setSortBy] = useState<"date-desc" | "date-asc" | "amount-desc" | "amount-asc">("date-desc")
 
   const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
 
@@ -118,10 +119,19 @@ export default function SalesListPage() {
       ;(a.invoices || []).forEach((i: any) => docs.push(buildDoc(i, "Invoice")))
     })
     
-    // Sort descending by date
-    docs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    // Sort logic based on selected option
+    if (sortBy === "date-desc") {
+      docs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    } else if (sortBy === "date-asc") {
+      docs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    } else if (sortBy === "amount-desc") {
+      docs.sort((a, b) => b.amount - a.amount)
+    } else if (sortBy === "amount-asc") {
+      docs.sort((a, b) => a.amount - b.amount)
+    }
+    
     return docs
-  }, [accounts, user, showAllReps, selectedReps])
+  }, [accounts, user, showAllReps, selectedReps, sortBy])
 
   const reps = useMemo(() => {
     const repSet = new Set<string>()
@@ -169,10 +179,20 @@ export default function SalesListPage() {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
+            <input
+              type="text"
+              placeholder="Search account or doc..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg pl-9 pr-4 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-blue-500 transition-all"
+            />
+          </div>
 
           <button 
             onClick={() => setShowFiltersDrawer(true)} 
-            className={`p-2 rounded-lg border transition-all ${showFiltersDrawer ? "bg-blue-500/20 border-blue-500/40 text-blue-400" : "bg-neutral-800 border-neutral-700 hover:bg-neutral-700 text-neutral-400"}`}
+            className={`p-2 rounded-lg border transition-all shrink-0 ${showFiltersDrawer ? "bg-blue-500/20 border-blue-500/40 text-blue-400" : "bg-neutral-800 border-neutral-700 hover:bg-neutral-700 text-neutral-400"}`}
           >
             <FiFilter size={18} />
           </button>
@@ -316,7 +336,7 @@ export default function SalesListPage() {
               <div className="flex-1 overflow-y-auto py-4 space-y-6 scrollbar-thin">
                 {showAllReps && isAdmin && reps.length > 0 && (
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Sales Representative</label>
+                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Sales Representative</label>
                     <select 
                       value={selectedReps[0] || ""} 
                       onChange={e => setSelectedReps(e.target.value ? [e.target.value] : [])}
@@ -327,6 +347,21 @@ export default function SalesListPage() {
                     </select>
                   </div>
                 )}
+
+                {/* Sort Order */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Sort Documents By</label>
+                  <select 
+                    value={sortBy} 
+                    onChange={e => setSortBy(e.target.value as any)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                  >
+                    <option value="date-desc">Date: Newest First</option>
+                    <option value="date-asc">Date: Oldest First</option>
+                    <option value="amount-desc">Amount: High to Low</option>
+                    <option value="amount-asc">Amount: Low to High</option>
+                  </select>
+                </div>
               </div>
           </div>
         </div>, document.body

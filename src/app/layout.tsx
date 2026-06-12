@@ -6,6 +6,8 @@ import { AppShell } from "@/components/AppShell";
 import { ProductModalProvider } from "@/components/ProductModalProvider";
 import "./globals.css";
 
+import { PreferencesProvider } from "@/components/PreferencesProvider";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -37,13 +39,15 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <ZohoProvider>
-          <AuthWrapper>
-            <ProductModalProvider>
-              <AppShell>
-                {children}
-              </AppShell>
-            </ProductModalProvider>
-          </AuthWrapper>
+          <PreferencesProvider>
+            <AuthWrapper>
+              <ProductModalProvider>
+                <AppShell>
+                  {children}
+                </AppShell>
+              </ProductModalProvider>
+            </AuthWrapper>
+          </PreferencesProvider>
         </ZohoProvider>
       </body>
     </html>

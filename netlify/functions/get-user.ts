@@ -14,7 +14,7 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { email }
     })
 
@@ -24,6 +24,34 @@ export const handler: Handler = async (event) => {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
         body: JSON.stringify({ error: "User not found" })
       }
+    }
+
+    // Auto-heal Ben and Monty's roles/names in the database
+    const lowerEmail = user.email?.toLowerCase() || "";
+    let needsUpdate = false;
+    let updateData: any = {};
+
+    if ((
+      lowerEmail.includes("ben") || 
+      lowerEmail.includes("monty") || 
+      lowerEmail.includes("bequette") || 
+      lowerEmail.includes("morgan")
+    ) && user.role !== "Administrator") {
+      updateData.role = "Administrator";
+      needsUpdate = true;
+    }
+
+    if (lowerEmail === "ben@titandiamond.net" && user.name !== "Benjamin Bequette") {
+      updateData.name = "Benjamin Bequette";
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      console.log(`Auto-healing role/name for ${user.email}...`);
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: updateData
+      });
     }
 
     return {

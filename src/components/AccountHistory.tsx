@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { usePagination, Pagination } from "./Pagination"
-import { FiFileText } from "react-icons/fi"
+import { FiFileText, FiDownload } from "react-icons/fi"
 
 interface AccountHistoryProps {
   accountId: string
@@ -120,10 +120,21 @@ export function AccountHistory({
                         </div>
                         <div className="text-sm text-gray-400">{formattedDate}</div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-semibold">{formattedAmount}</div>
-                        <div className={`text-xs font-bold ${inv.status === 'Paid' ? 'text-emerald-400' : 'text-rose-500'}`}>
-                          {inv.status}
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="font-semibold">{formattedAmount}</div>
+                          <div className={`text-xs font-bold ${inv.status === 'Paid' ? 'text-emerald-400' : 'text-rose-500'}`}>
+                            {inv.status}
+                          </div>
+                        </div>
+                        <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <a
+                            href={`/api/get-invoice-pdf?id=${inv.zohoId || inv.id}&type=Invoice&download=true`}
+                            className="p-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/20 transition-colors"
+                            title="Download Invoice PDF"
+                          >
+                            <FiDownload size={14} />
+                          </a>
                         </div>
                       </div>
                     </div>
@@ -166,18 +177,29 @@ export function AccountHistory({
                       <div>
                         <div className="font-medium flex items-center gap-1.5 text-emerald-400 group-hover:underline font-mono">
                           <FiFileText className="text-blue-500 shrink-0" size={13} />
-                          <span>#{so.id.slice(-6).toUpperCase()}</span>
+                          <span>#{so.zohoId?.slice(-6).toUpperCase() || so.id.slice(-6).toUpperCase()}</span>
                         </div>
                         <div className="text-sm text-gray-400">{formattedDate}</div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-semibold">{formattedAmount}</div>
-                        <div className={`text-xs font-bold ${
-                          so.status === 'Shipped' || so.status === 'Processed' 
-                            ? 'text-emerald-400' 
-                            : 'text-amber-400'
-                        }`}>
-                          {so.status}
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="font-semibold">{formattedAmount}</div>
+                          <div className={`text-xs font-bold ${
+                            so.status === 'Shipped' || so.status === 'Processed' 
+                              ? 'text-emerald-400' 
+                              : 'text-amber-400'
+                          }`}>
+                            {so.status}
+                          </div>
+                        </div>
+                        <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <a
+                            href={`/api/get-invoice-pdf?id=${so.zohoId || so.id}&type=SalesOrder&download=true`}
+                            className="p-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/20 transition-colors"
+                            title="Download Sales Order PDF"
+                          >
+                            <FiDownload size={14} />
+                          </a>
                         </div>
                       </div>
                     </div>
@@ -220,18 +242,29 @@ export function AccountHistory({
                       <div>
                         <div className="font-medium flex items-center gap-1.5 text-emerald-400 group-hover:underline font-mono">
                           <FiFileText className="text-purple-500 shrink-0" size={13} />
-                          <span>#{quote.id.slice(-6).toUpperCase()}</span>
+                          <span>#{quote.zohoId?.slice(-6).toUpperCase() || quote.id.slice(-6).toUpperCase()}</span>
                         </div>
                         <div className="text-sm text-gray-400">{formattedDate}</div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-semibold">{formattedAmount}</div>
-                        <div className={`text-xs font-bold ${
-                          quote.status === 'Accepted' || quote.status === 'Sent' 
-                            ? 'text-emerald-400' 
-                            : 'text-amber-400'
-                        }`}>
-                          {quote.status}
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="font-semibold">{formattedAmount}</div>
+                          <div className={`text-xs font-bold ${
+                            quote.status === 'Accepted' || quote.status === 'Sent' 
+                              ? 'text-emerald-400' 
+                              : 'text-amber-400'
+                          }`}>
+                            {quote.status}
+                          </div>
+                        </div>
+                        <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <a
+                            href={`/api/get-invoice-pdf?id=${quote.zohoId || quote.id}&type=Quote&download=true`}
+                            className="p-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/20 transition-colors"
+                            title="Download Quote PDF"
+                          >
+                            <FiDownload size={14} />
+                          </a>
                         </div>
                       </div>
                     </div>

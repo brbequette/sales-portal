@@ -62,6 +62,6 @@
   status = 200
 
 [[redirects]]
-  from = "/account/*"
-  to = "/account/[id].html"
+  from = "/account/:id"
+  to = "/account?id=:id"
   status = 200

@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom"
 import { usePagination, Pagination } from "@/components/Pagination"
+import { usePreferences } from "@/components/PreferencesProvider"
 import { useZoho } from "@/components/ZohoProvider"
 import { useProductModal } from "@/components/ProductModalProvider"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
@@ -21,6 +22,8 @@ type Invoice = {
   customer_name: string
   salesperson_name: string
   salesperson_id: string
+  salesperson_zoho_id?: string | null
+  salesperson_email?: string | null
   due_date: string | null
   issue_date: string | null
   balance: number
@@ -628,10 +631,437 @@ function RequestReturnModal({ invoice, onClose, onSuccess }: RequestReturnProps)
   )
 }
 
+// ── Call Campaign / Collections Script Modal ──────────────────────────
+function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice[], onClose: () => void, onRefresh: () => void }) {
+  const { zohoContext: user } = useZoho()
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedAccountIndex, setSelectedAccountIndex] = useState(0)
+  
+  // Disposition state
+  const [outcome, setOutcome] = useState<CallOutcome>("left_voicemail")
+  const [callerName, setCallerName] = useState("")
+  const [contactReached, setContactReached] = useState(false)
+  const [spokeTo, setSpokeTo] = useState("")
+  const [notes, setNotes] = useState("")
+  const [promiseDate, setPromiseDate] = useState("")
+  const [followUpDate, setFollowUpDate] = useState("")
+  const [duration, setDuration] = useState("")
+  const [timerRunning, setTimerRunning] = useState(false)
+  const [timerSeconds, setTimerSeconds] = useState(0)
+  const [saving, setSaving] = useState(false)
+
+  // Initialize caller name
+  useEffect(() => {
+    if (user?.name) {
+      setCallerName(user.name)
+    } else if (user?.email) {
+      setCallerName(user.email.split("@")[0])
+    }
+  }, [user])
+
+  // Timer
+  useEffect(() => {
+    let t: ReturnType<typeof setInterval>
+    if (timerRunning) {
+      t = setInterval(() => setTimerSeconds(s => s + 1), 1005)
+    }
+    return () => clearInterval(t)
+  }, [timerRunning])
+
+  const toggleTimer = () => {
+    if (timerRunning) {
+      setDuration(Math.ceil(timerSeconds / 60).toString())
+      setTimerRunning(false)
+    } else {
+      setTimerSeconds(0)
+      setTimerRunning(true)
+    }
+  }
+
+  // Group outstanding invoices by customer/account
+  const accounts = useMemo(() => {
+    const map: Record<string, {
+      customerId: string
+      customerName: string
+      invoices: Invoice[]
+      totalBalance: number
+      oldestInvoice: Invoice | null
+    }> = {}
+
+    invoices.forEach(inv => {
+      const cid = inv.customer_id
+      if (!map[cid]) {
+        map[cid] = {
+          customerId: cid,
+          customerName: inv.customer_name,
+          invoices: [],
+          totalBalance: 0,
+          oldestInvoice: null
+        }
+      }
+      map[cid].invoices.push(inv)
+      map[cid].totalBalance += inv.balance
+
+      if (!map[cid].oldestInvoice || inv.days_overdue > (map[cid].oldestInvoice?.days_overdue || 0)) {
+        map[cid].oldestInvoice = inv
+      }
+    })
+
+    return Object.values(map)
+      .filter(acc => acc.customerName.toLowerCase().includes(searchTerm.toLowerCase()))
+      .sort((a, b) => b.totalBalance - a.totalBalance)
+  }, [invoices, searchTerm])
+
+  const activeAccount = accounts[selectedAccountIndex] || null
+
+  // Selection of invoices for batch disposition
+  const [selectedInvoices, setSelectedInvoices] = useState<Record<string, boolean>>({})
+
+  // Automatically select all invoices of the active customer when active customer changes
+  useEffect(() => {
+    if (activeAccount) {
+      const initial: Record<string, boolean> = {}
+      activeAccount.invoices.forEach(inv => {
+        initial[inv.id] = true
+      })
+      setSelectedInvoices(initial)
+      // Reset form states
+      setOutcome("left_voicemail")
+      setSpokeTo("")
+      setContactReached(false)
+      setNotes("")
+      setPromiseDate("")
+      setFollowUpDate("")
+      setDuration("")
+      setTimerRunning(false)
+      setTimerSeconds(0)
+    }
+  }, [activeAccount])
+
+  const handleSave = async () => {
+    if (!activeAccount) return
+    const idsToSave = Object.keys(selectedInvoices).filter(id => selectedInvoices[id])
+    if (idsToSave.length === 0) {
+      alert("Please select at least one invoice to disposition.")
+      return
+    }
+
+    setSaving(true)
+    try {
+      await Promise.all(idsToSave.map(invoiceId => 
+        fetch("/api/log-collection-call", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            invoiceId,
+            outcome,
+            callerName,
+            contactReached,
+            spokeTo,
+            notes: notes ? `${notes} (Logged via Batch Call campaign)` : "Logged via Batch Call campaign",
+            promiseDate,
+            followUpDate,
+            durationMinutes: parseInt(duration) || 0,
+          }),
+        })
+      ))
+
+      onRefresh()
+      // Move to next account or reset selection
+      if (selectedAccountIndex < accounts.length - 1) {
+        setSelectedAccountIndex(prev => prev + 1)
+      } else {
+        alert("Completed all accounts in this campaign!")
+        onClose()
+      }
+    } catch (e) {
+      console.error(e)
+      alert("An error occurred while saving dispositions.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const mm = String(Math.floor(timerSeconds / 60)).padStart(2, "0")
+  const ss = String(timerSeconds % 60).padStart(2, "0")
+
+  return (
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-3xl w-full max-w-6xl h-[90vh] shadow-2xl flex flex-col overflow-hidden text-white">
+        
+        {/* Header */}
+        <div className="flex-none px-6 py-4 border-b border-neutral-800 bg-neutral-950 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <FiPhoneCall className="text-red-400 animate-pulse" /> Collections Call Campaign
+            </h2>
+            <p className="text-xs text-neutral-500 mt-0.5">Automated script workflow & batch invoice dispositioning</p>
+          </div>
+          <button onClick={onClose} className="text-neutral-500 hover:text-white p-2 rounded-full bg-neutral-905 hover:bg-neutral-800 transition-colors">
+            <FiX size={18} />
+          </button>
+        </div>
+
+        {/* Content body split-screen */}
+        <div className="flex-1 flex overflow-hidden min-h-0">
+          
+          {/* Left panel - Accounts list */}
+          <div className="w-1/3 border-r border-neutral-800 flex flex-col bg-neutral-950/20">
+            <div className="p-4 border-b border-neutral-800 flex items-center gap-2 bg-neutral-950/40">
+              <FiSearch className="text-neutral-500" />
+              <input 
+                type="text" 
+                placeholder="Search accounts..." 
+                value={searchTerm}
+                onChange={e => {
+                  setSearchTerm(e.target.value)
+                  setSelectedAccountIndex(0)
+                }}
+                className="w-full bg-transparent text-sm text-white placeholder-neutral-500 focus:outline-none"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto divide-y divide-neutral-850 scrollbar-thin">
+              {accounts.length === 0 ? (
+                <div className="p-6 text-center text-xs text-neutral-605">No accounts require collections.</div>
+              ) : (
+                accounts.map((acc, idx) => {
+                  const isActive = idx === selectedAccountIndex
+                  return (
+                    <button 
+                      key={acc.customerId}
+                      onClick={() => setSelectedAccountIndex(idx)}
+                      className={`w-full text-left p-4 transition-colors flex justify-between items-start ${
+                        isActive ? "bg-red-955 border-l-4 border-l-red-500" : "hover:bg-neutral-850/30"
+                      }`}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <p className={`text-xs font-bold truncate ${isActive ? "text-red-400" : "text-white"}`}>
+                          {acc.customerName}
+                        </p>
+                        <p className="text-[10px] text-neutral-500 mt-1">
+                          Oldest: {acc.oldestInvoice ? `${acc.oldestInvoice.days_overdue}d overdue` : "N/A"}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-black text-red-400">{fmt(acc.totalBalance)}</p>
+                        <span className="inline-block text-[9px] bg-neutral-850 border border-neutral-750 px-1.5 py-0.5 rounded-full text-neutral-400 mt-1">
+                          {acc.invoices.length} inv
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Right panel - Script, Invoices, Disposition */}
+          {activeAccount ? (
+            <div className="flex-1 flex flex-col overflow-y-auto p-6 space-y-6">
+              
+              {/* Customer Contact & Summary */}
+              <div className="bg-neutral-950/40 border border-neutral-805 rounded-2xl p-4 flex justify-between items-start gap-4">
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-white uppercase tracking-tight">{activeAccount.customerName}</h3>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-neutral-455">
+                    <span className="flex items-center gap-1.5"><FiUser size={13} /> Rep: {activeAccount.invoices[0]?.salesperson_name || "Unassigned"}</span>
+                    {activeAccount.invoices[0]?.salesperson_email && (
+                      <span className="flex items-center gap-1.5"><FiMail size={13} /> {activeAccount.invoices[0]?.salesperson_email}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[9px] uppercase font-bold text-neutral-500 block mb-1">Total Outstanding</span>
+                  <span className="text-xl font-black text-red-400">{fmt(activeAccount.totalBalance)}</span>
+                </div>
+              </div>
+
+              {/* Standardized Script */}
+              <div className="bg-gradient-to-r from-red-955 to-neutral-900 border border-red-500/10 rounded-2xl p-5 space-y-3 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-2 text-[9px] uppercase font-bold text-red-500/50">Call Script</div>
+                <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <FiFileText size={13} /> Collections Script
+                </h4>
+                <div className="text-sm text-neutral-300 leading-relaxed font-sans border-l-2 border-red-500/30 pl-3.5 whitespace-pre-line py-1">
+                  {`“Hello, is this the accounts payable department for ${activeAccount.customerName}?
+
+                  My name is ${callerName || "[caller]"} from Titan Diamond. I am calling to follow up on some outstanding invoices on your account. 
+
+                  Currently, you have ${Object.keys(selectedInvoices).filter(id => selectedInvoices[id]).length} outstanding invoice(s) selected, totaling ${fmt(Object.keys(selectedInvoices).filter(id => selectedInvoices[id]).reduce((sum, id) => sum + (activeAccount.invoices.find(i => i.id === id)?.balance || 0), 0))}.
+
+                  ${activeAccount.oldestInvoice ? `Our oldest pending invoice is #${activeAccount.oldestInvoice.invoice_number}, which was due on ${activeAccount.oldestInvoice.due_date || "—"} and is currently ${activeAccount.oldestInvoice.days_overdue} days overdue.` : ""}
+
+                  Would you like to process a credit card payment for this balance today, or could you provide a promise date for when we can expect a check payment?”`}
+                </div>
+              </div>
+
+              {/* Invoices Selection List */}
+              <div className="space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Select Invoices to Disposition</h4>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        const all: Record<string, boolean> = {}
+                        activeAccount.invoices.forEach(i => all[i.id] = true)
+                        setSelectedInvoices(all)
+                      }}
+                      className="text-[10px] text-neutral-450 hover:text-white"
+                    >
+                      Select All
+                    </button>
+                    <button 
+                      onClick={() => setSelectedInvoices({})}
+                      className="text-[10px] text-neutral-450 hover:text-white"
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="border border-neutral-800 rounded-xl overflow-hidden divide-y divide-neutral-850">
+                  {activeAccount.invoices.map(inv => {
+                    const checked = !!selectedInvoices[inv.id]
+                    return (
+                      <div 
+                        key={inv.id} 
+                        onClick={() => setSelectedInvoices(prev => ({ ...prev, [inv.id]: !checked }))}
+                        className={`p-3.5 flex items-center justify-between text-xs transition-colors cursor-pointer ${
+                          checked ? "bg-neutral-800/40" : "hover:bg-neutral-850/20"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <input 
+                            type="checkbox" 
+                            checked={checked}
+                            onChange={() => {}} // Controlled via row click
+                            className="accent-red-500 cursor-pointer"
+                          />
+                          <div>
+                            <span className="font-mono font-bold text-emerald-400">#{inv.invoice_number}</span>
+                            <span className="text-neutral-505 ml-2">Due: {inv.due_date || "—"}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 shrink-0">
+                          <span className="font-bold text-red-400">{fmt(inv.balance)}</span>
+                          <span className="text-[10px] text-neutral-400 bg-neutral-800 border border-neutral-750 px-2 py-0.5 rounded">
+                            {inv.days_overdue} days overdue
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Disposition Form */}
+              <div className="bg-neutral-950/30 border border-neutral-800 rounded-2xl p-5 space-y-4">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Log Call Outcome (Disposition)</h4>
+                
+                {/* Outcomes Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {(Object.keys(OUTCOME_LABELS) as CallOutcome[]).map(k => (
+                    <button 
+                      key={k} 
+                      onClick={() => setOutcome(k)}
+                      className={`text-xs font-bold px-3 py-2.5 rounded-xl border transition-all text-left ${
+                        outcome === k 
+                          ? OUTCOME_COLORS[k] + " border-current" 
+                          : "text-neutral-400 bg-neutral-900 border-transparent hover:border-neutral-850"
+                      }`}
+                    >
+                      {OUTCOME_LABELS[k]}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Optional parameters */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  
+                  {/* Contact reached */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox" id="reaching" checked={contactReached} onChange={e => setContactReached(e.target.checked)}
+                        className="w-4 h-4 accent-red-500 cursor-pointer" />
+                      <label htmlFor="reaching" className="text-xs font-semibold text-neutral-300 cursor-pointer">Spoke to someone?</label>
+                    </div>
+                    {contactReached && (
+                      <input value={spokeTo} onChange={e => setSpokeTo(e.target.value)} placeholder="Who did you speak with?"
+                        className="w-full bg-neutral-900 border border-neutral-850 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-red-500 font-medium" />
+                    )}
+                  </div>
+
+                  {/* Promise date / follow-up */}
+                  <div className="space-y-3">
+                    {["promise_to_pay", "early_pay_discount"].includes(outcome) && (
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-neutral-400 mb-1.5 block">Promise to Pay By</label>
+                        <input type="date" value={promiseDate} onChange={e => setPromiseDate(e.target.value)}
+                          className="w-full bg-neutral-900 border border-neutral-850 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500" />
+                      </div>
+                    )}
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-neutral-400 mb-1.5 block">Follow-up Date</label>
+                      <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
+                        className="w-full bg-neutral-900 border border-neutral-850 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Duration timer */}
+                <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-850 p-2 rounded-xl max-w-sm">
+                  <input value={timerRunning ? `${mm}:${ss}` : duration} onChange={e => setDuration(e.target.value)}
+                    placeholder="Duration (minutes)" readOnly={timerRunning}
+                    className="flex-1 bg-transparent text-xs text-white placeholder-neutral-500 focus:outline-none px-2 font-mono" />
+                  <button onClick={toggleTimer}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-colors shrink-0 ${
+                      timerRunning ? "bg-red-600 hover:bg-red-550 text-white" : "bg-neutral-850 hover:bg-neutral-800 text-white border border-neutral-750"
+                    }`}
+                  >
+                    {timerRunning ? `⏱ Stop` : "Start Timer"}
+                  </button>
+                </div>
+
+                {/* Notes */}
+                <textarea 
+                  value={notes} 
+                  onChange={e => setNotes(e.target.value)} 
+                  placeholder="Summarize the details of the call & next steps..." 
+                  rows={3}
+                  className="w-full bg-neutral-900 border border-neutral-850 rounded-xl p-3.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-red-500 font-medium resize-none" 
+                />
+
+                {/* Save button */}
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {saving ? "Saving Batch Dispositions..." : "Save Disposition & Go to Next Account"}
+                  </button>
+                </div>
+
+              </div>
+
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-neutral-500 text-sm">
+              Please select a collections account from the left.
+            </div>
+          )}
+
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
 // ── Main Collections Page ──────────────────────────────────────────────
 export default function CollectionsPage() {
   const { zohoContext: user } = useZoho()
-  const [tab, setTab] = useState<"overdue" | "current">("overdue")
+  const [tab, setTab] = useState<"overdue" | "current" | "all">("overdue")
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -643,6 +1073,7 @@ export default function CollectionsPage() {
   const [callModal, setCallModal] = useState<Invoice | null>(null)
   const [showRunCardDirect, setShowRunCardDirect] = useState<Invoice | null>(null)
   const [viewingInvoiceZohoId, setViewingInvoiceZohoId] = useState<string | null>(null)
+  const [showCallCampaign, setShowCallCampaign] = useState(false)
   
   const [showAllReps, setShowAllReps] = useState(false)
 
@@ -680,10 +1111,18 @@ export default function CollectionsPage() {
     const myName = user.name?.toLowerCase() || ""
     const myId = user.id || ""
     const myEmail = user.email?.toLowerCase() || ""
-    return (i.salesperson_name && myName && i.salesperson_name.toLowerCase() === myName) ||
-           (i.salesperson_id && myId && i.salesperson_id === myId) ||
-           ((i as any).salesperson_zoho_id && myId && (i as any).salesperson_zoho_id === myId) ||
-           ((i as any).salesperson_email && myEmail && (i as any).salesperson_email.toLowerCase() === myEmail)
+    
+    const isSalesperson = (i.salesperson_name && myName && i.salesperson_name.toLowerCase() === myName) ||
+                          (i.salesperson_id && myId && i.salesperson_id === myId) ||
+                          ((i as any).salesperson_zoho_id && myId && (i as any).salesperson_zoho_id === myId) ||
+                          ((i as any).salesperson_email && myEmail && (i as any).salesperson_email.toLowerCase() === myEmail)
+
+    const isAccountOwner = ((i as any).account_owner_name && myName && (i as any).account_owner_name.toLowerCase() === myName) ||
+                           ((i as any).account_owner_id && myId && (i as any).account_owner_id === myId) ||
+                           ((i as any).account_owner_zoho_id && myId && (i as any).account_owner_zoho_id === myId) ||
+                           ((i as any).account_owner_email && myEmail && (i as any).account_owner_email.toLowerCase() === myEmail)
+
+    return isSalesperson || isAccountOwner
   })
 
   // Representative filtering
@@ -722,7 +1161,9 @@ export default function CollectionsPage() {
     return 0
   })
 
-  const pagination = usePagination(filtered)
+  const { preferences } = usePreferences()
+  const defaultSize = preferences.defaultPageSize
+  const pagination = usePagination(filtered, defaultSize)
 
   // Aging pill stats
   const pills = [
@@ -826,6 +1267,11 @@ export default function CollectionsPage() {
         {/* Aging pills — overdue tab only */}
         {tab === "overdue" && (
           <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
+            <button onClick={() => setAgingFilter("")}
+              className={`shrink-0 flex flex-col items-center px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all border-orange-500/40 text-orange-400 bg-orange-900/10 ${agingFilter === "" ? "ring-1 ring-orange-500 border-orange-500" : "border-transparent"}`}>
+              <span className="font-bold">All Overdue</span>
+              <span className="text-[10px] opacity-75">{repFilteredInvoices.length} · {fmt(repFilteredInvoices.reduce((s, i) => s + i.balance, 0))}</span>
+            </button>
             {pills.map(p => (
               <button key={p.key} onClick={() => setAgingFilter(agingFilter === p.key ? "" : p.key)}
                 className={`shrink-0 flex flex-col items-center px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${p.cls} ${agingFilter === p.key ? "ring-1 ring-current border-current" : "border-transparent"}`}>
@@ -842,6 +1288,9 @@ export default function CollectionsPage() {
         {/* Tab switcher & Show All Toggle */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex bg-neutral-800 border border-neutral-800 rounded-lg p-0.5 gap-0.5">
+            <button onClick={() => setTab("all")} className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${tab === "all" ? "bg-purple-600 text-white" : "text-neutral-400 hover:text-white"}`}>
+              All
+            </button>
             <button onClick={() => setTab("overdue")} className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${tab === "overdue" ? "bg-red-600 text-white" : "text-neutral-400 hover:text-white"}`}>
               Overdue
             </button>
@@ -849,6 +1298,13 @@ export default function CollectionsPage() {
               Current
             </button>
           </div>
+
+          <button
+            onClick={() => setShowCallCampaign(true)}
+            className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg transition-colors border border-red-500/30 bg-red-950/20 text-red-400 hover:bg-red-950/40"
+          >
+            <FiPhoneCall size={12} className="animate-pulse" /> Start Call Campaign
+          </button>
 
           <button
             onClick={() => {
@@ -953,6 +1409,15 @@ export default function CollectionsPage() {
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Aging Category</label>
                     <div className="grid grid-cols-2 gap-2">
+                      <button 
+                        onClick={() => setAgingFilter("")}
+                        className={`flex flex-col items-center p-2 rounded-lg border text-xs font-semibold transition-all border-orange-500/40 text-orange-400 bg-orange-900/10 col-span-2 ${
+                          agingFilter === "" ? "ring-2 ring-orange-500 border-orange-500 bg-orange-950/20" : "border-transparent"
+                        }`}
+                      >
+                        <span className="font-bold text-xs">All Overdue</span>
+                        <span className="text-[9px] opacity-75">{repFilteredInvoices.length} · {fmt(repFilteredInvoices.reduce((s, i) => s + i.balance, 0))}</span>
+                      </button>
                       {pills.map(p => (
                         <button 
                           key={p.key} 
@@ -1160,6 +1625,14 @@ export default function CollectionsPage() {
         <InvoiceDetailsModal 
           invoice={viewingInvoiceZohoId} 
           onClose={() => setViewingInvoiceZohoId(null)} 
+        />
+      )}
+
+      {showCallCampaign && (
+        <CallCampaignModal
+          invoices={invoices}
+          onClose={() => setShowCallCampaign(false)}
+          onRefresh={fetchInvoices}
         />
       )}
     </div>

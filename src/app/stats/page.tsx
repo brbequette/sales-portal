@@ -9,11 +9,12 @@ import {
   FiChevronDown, FiChevronUp, FiX, FiTarget, FiCalendar
 } from "react-icons/fi"
 
-interface PeriodStats {
+interface RepPeriodStats {
   revenue: number
   profit: number
-  closedWonDeals: number
-  commissions: number
+  dealsWon: number
+  target: number
+  vigRate?: number
 }
 
 interface Rep {
@@ -31,10 +32,9 @@ interface Rep {
   dealRevenue: number
   commissions: number
   overdueCollections: number
-  currentWeek: PeriodStats
-  weeklyRecord: PeriodStats
-  currentMonth: PeriodStats
-  monthlyRecord: PeriodStats
+  daily: RepPeriodStats
+  weekly: RepPeriodStats
+  monthly: RepPeriodStats
 }
 
 interface CompanyData {
@@ -81,6 +81,8 @@ export default function StatsPage() {
   const [reps, setReps] = useState<Rep[]>([])
   const [companyTotals, setCompanyTotals] = useState<CompanyData | null>(null)
   const [companyAverages, setCompanyAverages] = useState<CompanyData | null>(null)
+  const [historicalVigRates, setHistoricalVigRates] = useState<any[]>([])
+  const [selectedPeriod, setSelectedPeriod] = useState<"daily" | "weekly" | "monthly">("monthly")
   const [selectedRep, setSelectedRep] = useState<Rep | null>(null)
   const [sortField, setSortField] = useState<SortField>("revenue")
   const [sortAsc, setSortAsc] = useState(false)
@@ -101,6 +103,7 @@ export default function StatsPage() {
           setReps(data.reps || [])
           setCompanyTotals(data.companyTotals || null)
           setCompanyAverages(data.companyAverages || null)
+          setHistoricalVigRates(data.historicalVigRates || [])
         } else {
           setApiError(data.error || "Failed to load stats")
         }
@@ -115,11 +118,21 @@ export default function StatsPage() {
 
   const sortedReps = useMemo(() => {
     return [...reps].sort((a, b) => {
-      const av = a[sortField] ?? 0
-      const bv = b[sortField] ?? 0
-      return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number)
+      let av = 0
+      let bv = 0
+      if (sortField === "revenue" || sortField === "profit") {
+        av = a[selectedPeriod][sortField] ?? 0
+        bv = b[selectedPeriod][sortField] ?? 0
+      } else if (sortField === "totalDeals") {
+        av = a[selectedPeriod].dealsWon ?? 0
+        bv = b[selectedPeriod].dealsWon ?? 0
+      } else {
+        av = (a as any)[sortField] ?? 0
+        bv = (b as any)[sortField] ?? 0
+      }
+      return sortAsc ? av - bv : bv - av
     })
-  }, [reps, sortField, sortAsc])
+  }, [reps, sortField, sortAsc, selectedPeriod])
 
   const pagination = usePagination(sortedReps)
 
@@ -178,18 +191,55 @@ export default function StatsPage() {
     { key: "overdueCollections", label: "Overdue Collections", format: formatCurrency, barColor: "bg-red-500", avgColor: "border-red-300" },
   ]
 
+  const periodTotals = useMemo(() => {
+    let revenue = 0
+    let profit = 0
+    let dealsWon = 0
+    let target = 0
+    reps.forEach(r => {
+      const stats = r[selectedPeriod] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
+      revenue += stats.revenue || 0
+      profit += stats.profit || 0
+      dealsWon += stats.dealsWon || 0
+      target += stats.target || 0
+    })
+    return { revenue, profit, dealsWon, target }
+  }, [reps, selectedPeriod])
+
   return (
     <div className="flex flex-col text-neutral-100 font-sans overflow-y-auto" style={{ height: "100%" }}>
       <main className="flex-1 px-4 sm:px-6 py-4 space-y-5 overflow-y-auto safe-bottom">
 
         {/* Page Header */}
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-sky-950/40 border border-sky-500/30">
-            <FiBarChart2 size={20} className="text-sky-400" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-sky-950/40 border border-sky-500/30">
+              <FiBarChart2 size={20} className="text-sky-400" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-white tracking-tight">Rep Stats Dashboard</h1>
+              <p className="text-xs text-neutral-500">Performance metrics &amp; leaderboard</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-white tracking-tight">Rep Stats Dashboard</h1>
-            <p className="text-xs text-neutral-500">Performance metrics &amp; leaderboard</p>
+
+          {/* Timeframe Filter Selector */}
+          <div className="flex bg-neutral-950 border border-neutral-850 p-0.5 rounded-xl gap-0.5 shrink-0 self-start sm:self-auto w-full sm:w-auto sm:min-w-[240px]">
+            {(["daily", "weekly", "monthly"] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => {
+                  setSelectedPeriod(p)
+                  setSelectedRep(null) // Reset detail panel on timeframe switch
+                }}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg uppercase tracking-wider transition-all ${
+                  selectedPeriod === p
+                    ? "bg-sky-600 text-white shadow-md shadow-sky-650/20"
+                    : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -200,33 +250,42 @@ export default function StatsPage() {
         )}
 
         {/* Company Summary Cards */}
-        {companyTotals && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[
-              { label: "Total Revenue", value: formatCurrency(companyTotals.revenue), icon: <FiDollarSign />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
-              { label: "Total Profit", value: formatCurrency(companyTotals.profit), icon: <FiTrendingUp />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
-              { label: "Total Deals", value: formatNumber(companyTotals.totalDeals), icon: <FiAward />, color: "text-amber-400", border: "border-amber-500/20", bg: "bg-amber-950/20" },
-              { label: "Total Commissions", value: formatCurrency(companyTotals.commissions), icon: <FiDollarSign />, color: "text-sky-400", border: "border-sky-500/20", bg: "bg-sky-950/20" },
-            ].map((card) => (
-              <div
-                key={card.label}
-                className={`${card.bg} border ${card.border} rounded-2xl p-4 hover:scale-[1.02] transition-all duration-200 backdrop-blur-sm`}
-              >
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label: `${selectedPeriod} Revenue`, value: formatPreciseCurrency(periodTotals.revenue), icon: <FiDollarSign />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
+            { label: `${selectedPeriod} Profit`, value: formatPreciseCurrency(periodTotals.profit), icon: <FiTrendingUp />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
+            { label: `${selectedPeriod} Deals Won`, value: formatNumber(periodTotals.dealsWon), icon: <FiAward />, color: "text-amber-400", border: "border-amber-500/20", bg: "bg-amber-950/20" },
+            { 
+              label: `${selectedPeriod} Target Progress`, 
+              value: periodTotals.target > 0 ? `${((periodTotals.profit / periodTotals.target) * 100).toFixed(1)}%` : "N/A", 
+              icon: <FiTarget />, 
+              color: "text-sky-400", 
+              border: "border-sky-500/20", 
+              bg: "bg-sky-950/20",
+              subtext: `Target: ${formatCurrency(periodTotals.target)}`
+            },
+          ].map((card) => (
+            <div
+              key={card.label}
+              className={`${card.bg} border ${card.border} rounded-2xl p-4 hover:scale-[1.02] transition-all duration-200 backdrop-blur-sm flex flex-col justify-between`}
+            >
+              <div>
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-[10px] uppercase text-neutral-500 font-semibold tracking-wider">{card.label}</span>
                   <span className={`${card.color}`}>{card.icon}</span>
                 </div>
-                <p className={`text-xl font-bold ${card.color}`}>{card.value}</p>
+                <p className={`text-base sm:text-lg font-bold ${card.color}`}>{card.value}</p>
               </div>
-            ))}
-          </div>
-        )}
+              {card.subtext && <p className="text-[10px] text-neutral-500 mt-1 font-mono">{card.subtext}</p>}
+            </div>
+          ))}
+        </div>
 
         {/* Leaderboard Table */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-lg overflow-hidden">
           <div className="px-4 sm:px-5 py-3.5 border-b border-neutral-800 flex items-center gap-2">
             <FiAward size={16} className="text-sky-400" />
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Leaderboard</h2>
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Leaderboard ({selectedPeriod})</h2>
             <span className="ml-auto text-[10px] text-neutral-500 font-medium">{reps.length} reps</span>
           </div>
 
@@ -253,32 +312,24 @@ export default function StatsPage() {
                     className="text-right px-4 py-2.5 font-semibold cursor-pointer hover:text-white transition-colors select-none"
                     onClick={() => handleSort("totalDeals")}
                   >
-                    <span className="inline-flex items-center gap-1">Deals <SortIcon field="totalDeals" /></span>
+                    <span className="inline-flex items-center gap-1">Deals Won <SortIcon field="totalDeals" /></span>
                   </th>
-                  <th
-                    className="text-right px-4 py-2.5 font-semibold cursor-pointer hover:text-white transition-colors select-none"
-                    onClick={() => handleSort("commissions")}
-                  >
-                    <span className="inline-flex items-center gap-1">Commissions <SortIcon field="commissions" /></span>
-                  </th>
-                  <th
-                    className="text-right px-4 py-2.5 font-semibold cursor-pointer hover:text-white transition-colors select-none"
-                    onClick={() => handleSort("activeAccounts")}
-                  >
-                    <span className="inline-flex items-center gap-1">Accounts <SortIcon field="activeAccounts" /></span>
-                  </th>
-                  <th
-                    className="text-right px-4 py-2.5 font-semibold cursor-pointer hover:text-white transition-colors select-none"
-                    onClick={() => handleSort("overdueCollections")}
-                  >
-                    <span className="inline-flex items-center gap-1">Overdue <SortIcon field="overdueCollections" /></span>
-                  </th>
+                  <th className="text-right px-4 py-2.5 font-semibold text-neutral-500">Target</th>
+                  <th className="text-right px-4 py-2.5 font-semibold text-neutral-500">Progress</th>
+                  <th className="text-center px-4 py-2.5 font-semibold text-neutral-500">Vig Rate</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-800">
                 {pagination.paginatedItems.map((rep, idx) => {
                   const rank = pagination.pageSize === "All" ? idx + 1 : (pagination.currentPage - 1) * (pagination.pageSize as number) + idx + 1
                   const isSelected = selectedRep?.repId === rep.repId
+                  const periodStats = rep[selectedPeriod] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
+                  const progressPct = periodStats.target > 0 ? (periodStats.profit / periodStats.target) * 100 : 0
+                  
+                  // Monthly vig rate computation
+                  const metGoal = rep.monthly.profit >= rep.monthly.target
+                  const vigRate = metGoal ? 1.3 : 1.5
+
                   return (
                     <tr
                       key={rep.repId}
@@ -306,7 +357,7 @@ export default function StatsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-[10px] font-bold text-neutral-300 shrink-0">
+                           <div className="w-7 h-7 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-[10px] font-bold text-neutral-300 shrink-0">
                             {rep.repName?.charAt(0) || "?"}
                           </div>
                           <div className="min-w-0">
@@ -315,12 +366,26 @@ export default function StatsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right font-bold text-emerald-400">{formatCurrency(rep.revenue)}</td>
-                      <td className="px-4 py-3 text-right font-medium text-emerald-500">{formatCurrency(rep.profit)}</td>
-                      <td className="px-4 py-3 text-right font-medium text-amber-400">{rep.totalDeals}</td>
-                      <td className="px-4 py-3 text-right font-medium text-sky-400">{formatCurrency(rep.commissions)}</td>
-                      <td className="px-4 py-3 text-right font-medium text-neutral-300">{rep.activeAccounts}</td>
-                      <td className="px-4 py-3 text-right font-medium text-red-400">{formatCurrency(rep.overdueCollections)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-emerald-400">{formatPreciseCurrency(periodStats.revenue)}</td>
+                      <td className="px-4 py-3 text-right font-medium text-emerald-500">{formatPreciseCurrency(periodStats.profit)}</td>
+                      <td className="px-4 py-3 text-right font-medium text-amber-400">{periodStats.dealsWon}</td>
+                      <td className="px-4 py-3 text-right font-medium text-neutral-400">{formatCurrency(periodStats.target)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <span className={`font-bold font-mono ${progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>
+                          {progressPct.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span
+                          className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            vigRate === 1.3
+                              ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/30"
+                              : "bg-red-950/40 text-red-400 border-red-500/30"
+                          }`}
+                        >
+                          {vigRate.toFixed(1)} vig
+                        </span>
+                      </td>
                     </tr>
                   )
                 })}
@@ -344,6 +409,11 @@ export default function StatsPage() {
             {pagination.paginatedItems.map((rep, idx) => {
               const rank = pagination.pageSize === "All" ? idx + 1 : (pagination.currentPage - 1) * (pagination.pageSize as number) + idx + 1
               const isSelected = selectedRep?.repId === rep.repId
+              const periodStats = rep[selectedPeriod] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
+              const progressPct = periodStats.target > 0 ? (periodStats.profit / periodStats.target) * 100 : 0
+              const metGoal = rep.monthly.profit >= rep.monthly.target
+              const vigRate = metGoal ? 1.3 : 1.5
+
               return (
                 <div
                   key={rep.repId}
@@ -352,37 +422,48 @@ export default function StatsPage() {
                   }`}
                   onClick={() => setSelectedRep(isSelected ? null : rep)}
                 >
-                  <div className="flex items-center gap-3 mb-2">
-                    {rank <= 3 ? (
-                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black shrink-0 ${
-                        rank === 1
-                          ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                          : rank === 2
-                          ? "bg-neutral-400/20 text-neutral-300 border border-neutral-400/30"
-                          : "bg-amber-900/20 text-amber-600 border border-amber-900/30"
-                      }`}>
-                        {rank}
-                      </span>
-                    ) : (
-                      <span className="text-neutral-600 text-xs font-bold w-6 text-center shrink-0">{rank}</span>
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-white truncate">{rep.repName}</p>
-                      <p className="text-[10px] text-neutral-500 truncate">{rep.email}</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      {rank <= 3 ? (
+                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black shrink-0 ${
+                          rank === 1
+                            ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                            : rank === 2
+                            ? "bg-neutral-400/20 text-neutral-300 border border-neutral-400/30"
+                            : "bg-amber-900/20 text-amber-600 border border-amber-900/30"
+                        }`}>
+                          {rank}
+                        </span>
+                      ) : (
+                        <span className="text-neutral-600 text-xs font-bold w-6 text-center shrink-0">{rank}</span>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-white truncate">{rep.repName}</p>
+                        <p className="text-[10px] text-neutral-500 truncate">{rep.email}</p>
+                      </div>
                     </div>
+                    <span
+                      className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${
+                        vigRate === 1.3
+                          ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/30"
+                          : "bg-red-950/40 text-red-400 border-red-500/30"
+                      }`}
+                    >
+                      {vigRate.toFixed(1)} vig
+                    </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <p className="text-[9px] text-neutral-500 uppercase">Revenue</p>
-                      <p className="text-xs font-bold text-emerald-400">{formatCurrency(rep.revenue)}</p>
+                      <p className="text-[9px] text-neutral-500 uppercase">Profit</p>
+                      <p className="text-xs font-bold text-emerald-405">{formatCurrency(periodStats.profit)}</p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-neutral-500 uppercase">Deals</p>
-                      <p className="text-xs font-bold text-amber-400">{rep.totalDeals}</p>
+                      <p className="text-[9px] text-neutral-500 uppercase">Progress</p>
+                      <p className={`text-xs font-bold ${progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>{progressPct.toFixed(1)}%</p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-neutral-500 uppercase">Commissions</p>
-                      <p className="text-xs font-bold text-sky-400">{formatCurrency(rep.commissions)}</p>
+                      <p className="text-[9px] text-neutral-500 uppercase">Target</p>
+                      <p className="text-xs font-bold text-neutral-450">{formatCurrency(periodStats.target)}</p>
                     </div>
                   </div>
                 </div>
@@ -412,7 +493,7 @@ export default function StatsPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">{selectedRep.repName}</h3>
-                  <p className="text-[10px] text-neutral-500">{selectedRep.email} • Margin: {formatPercent(selectedRep.margin)}</p>
+                  <p className="text-[10px] text-neutral-500">{selectedRep.email} • Margin: {formatPercent(selectedRep.margin / 100)}</p>
                 </div>
               </div>
               <button
@@ -423,193 +504,110 @@ export default function StatsPage() {
               </button>
             </div>
 
-            <div className="p-4 sm:p-5 space-y-3">
-              {metricConfigs.map((mc) => {
-                const repValue = (selectedRep as any)[mc.key] as number
-                const avgValue = (companyAverages as any)[mc.key] as number
-                const maxVal = (maxValues as any)[mc.key] as number
-                const barWidth = maxVal > 0 ? (repValue / maxVal) * 100 : 0
-                const avgPosition = maxVal > 0 ? (avgValue / maxVal) * 100 : 0
+            {/* Target Tracker Section */}
+            <div className="p-4 sm:p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-sky-950/60 border border-sky-500/20">
+                  <FiTarget className="text-sky-400" size={16} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">{selectedPeriod} Sales Goal Tracker</h4>
+                  <p className="text-[9px] text-neutral-500">Progress against computed workday targets</p>
+                </div>
+              </div>
+
+              {(() => {
+                const periodStats = selectedRep[selectedPeriod] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
+                const progressPct = periodStats.target > 0 ? (periodStats.profit / periodStats.target) * 100 : 0
+                const diff = periodStats.target - periodStats.profit
+                let statusMsg = ""
+                if (periodStats.target === 0) {
+                  statusMsg = "No target configured for this period."
+                } else if (periodStats.profit >= periodStats.target) {
+                  statusMsg = `🏆 Goal Hit! ${formatPreciseCurrency(periodStats.profit - periodStats.target)} over target.`
+                } else {
+                  statusMsg = `Needs ${formatPreciseCurrency(diff)} more to hit the period profit target.`
+                }
 
                 return (
-                  <div key={mc.key}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">{mc.label}</span>
-                      <span className="text-xs font-bold text-white">{mc.format(repValue)}</span>
+                  <div className="p-3.5 rounded-xl border border-sky-500/10 bg-neutral-900/60 space-y-2.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-neutral-450 uppercase tracking-wider">Profit Goal</span>
+                      <div className="text-right">
+                        <span className="text-xs font-black text-white">
+                          {formatPreciseCurrency(periodStats.profit)}
+                        </span>
+                        <span className="text-[10px] text-neutral-500 font-medium">
+                          {" "}/ {formatPreciseCurrency(periodStats.target)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="relative h-5 bg-neutral-800 rounded-full overflow-hidden">
-                      {/* Rep bar */}
+                    {/* Progress Bar */}
+                    <div className="h-2 w-full bg-neutral-850 rounded-full overflow-hidden border border-neutral-800">
                       <div
-                        className={`absolute inset-y-0 left-0 ${mc.barColor} rounded-full transition-all duration-700 ease-out`}
-                        style={{ width: `${Math.min(barWidth, 100)}%` }}
+                        className={`h-full bg-sky-500 shadow-sm shadow-sky-500/30 rounded-full transition-all duration-500 ease-out`}
+                        style={{ width: `${Math.min(progressPct, 100)}%` }}
                       />
-                      {/* Average indicator */}
-                      {avgPosition > 0 && avgPosition <= 100 && (
-                        <div
-                          className={`absolute inset-y-0 w-0.5 ${mc.avgColor} border-l border-dashed opacity-80 transition-all duration-700`}
-                          style={{ left: `${Math.min(avgPosition, 100)}%` }}
-                        />
-                      )}
                     </div>
-                    <div className="flex justify-between mt-0.5">
-                      <span className="text-[9px] text-neutral-600">0</span>
-                      <span className="text-[9px] text-neutral-500">Avg: {mc.format(avgValue)}</span>
+                    <div className="flex justify-between items-center text-[9px]">
+                      <span className="text-neutral-500">{statusMsg}</span>
+                      <span className={`font-bold ${progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>
+                        {progressPct.toFixed(1)}%
+                      </span>
                     </div>
                   </div>
                 )
-              })}
+              })()}
             </div>
+          </div>
+        )}
 
-            {/* Record Target Tracker Section */}
-            <div className="border-t border-neutral-800 bg-neutral-950/20 p-4 sm:p-5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-sky-950/60 border border-sky-500/20">
-                    <FiTarget className="text-sky-400" size={16} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Record Target Tracker</h4>
-                    <p className="text-[9px] text-neutral-500">Current progress vs all-time records</p>
-                  </div>
-                </div>
-                {/* Period Selector Toggle */}
-                <div className="flex bg-neutral-850 p-0.5 rounded-lg border border-neutral-850 shrink-0 self-start sm:self-auto">
-                  <button
-                    onClick={() => setTrackerPeriod("week")}
-                    className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
-                      trackerPeriod === "week"
-                        ? "bg-sky-500 text-white shadow-md shadow-sky-500/10"
-                        : "text-neutral-400 hover:text-neutral-205"
-                    }`}
-                  >
-                    Weekly
-                  </button>
-                  <button
-                    onClick={() => setTrackerPeriod("month")}
-                    className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
-                      trackerPeriod === "month"
-                        ? "bg-sky-500 text-white shadow-md shadow-sky-500/10"
-                        : "text-neutral-400 hover:text-neutral-205"
-                    }`}
-                  >
-                    Monthly
-                  </button>
-                </div>
-              </div>
-
-              {/* Progress Cards for the 4 Metrics */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {[
-                  {
-                    key: "revenue",
-                    label: "Revenue",
-                    current: trackerPeriod === "week" ? selectedRep.currentWeek?.revenue : selectedRep.currentMonth?.revenue,
-                    record: trackerPeriod === "week" ? selectedRep.weeklyRecord?.revenue : selectedRep.monthlyRecord?.revenue,
-                    isCurrency: true,
-                    barColor: "bg-emerald-500 shadow-sm shadow-emerald-500/30",
-                    trackColor: "bg-emerald-950/20 border-emerald-500/10",
-                  },
-                  {
-                    key: "profit",
-                    label: "Profit",
-                    current: trackerPeriod === "week" ? selectedRep.currentWeek?.profit : selectedRep.currentMonth?.profit,
-                    record: trackerPeriod === "week" ? selectedRep.weeklyRecord?.profit : selectedRep.monthlyRecord?.profit,
-                    isCurrency: true,
-                    barColor: "bg-teal-500 shadow-sm shadow-teal-500/30",
-                    trackColor: "bg-teal-950/20 border-teal-500/10",
-                  },
-                  {
-                    key: "commissions",
-                    label: "Commissions",
-                    current: trackerPeriod === "week" ? selectedRep.currentWeek?.commissions : selectedRep.currentMonth?.commissions,
-                    record: trackerPeriod === "week" ? selectedRep.weeklyRecord?.commissions : selectedRep.monthlyRecord?.commissions,
-                    isCurrency: true,
-                    barColor: "bg-sky-500 shadow-sm shadow-sky-500/30",
-                    trackColor: "bg-sky-950/20 border-sky-500/10",
-                  },
-                  {
-                    key: "closedWonDeals",
-                    label: "Deals Won",
-                    current: trackerPeriod === "week" ? selectedRep.currentWeek?.closedWonDeals : selectedRep.currentMonth?.closedWonDeals,
-                    record: trackerPeriod === "week" ? selectedRep.weeklyRecord?.closedWonDeals : selectedRep.monthlyRecord?.closedWonDeals,
-                    isCurrency: false,
-                    barColor: "bg-amber-500 shadow-sm shadow-amber-500/30",
-                    trackColor: "bg-amber-950/20 border-amber-500/10",
-                  },
-                ].map((item) => {
-                  const currentVal = item.current || 0
-                  const recordVal = item.record || 0
-                  const progressPct = recordVal > 0 ? (currentVal / recordVal) * 100 : (currentVal > 0 ? 100 : 0)
-                  
-                  // Status messages and deltas
-                  let statusMsg = ""
-                  if (recordVal === 0) {
-                    if (currentVal > 0) {
-                      statusMsg = item.isCurrency
-                        ? `🎉 Setting initial record! (${formatPreciseCurrency(currentVal)})`
-                        : `🎉 Setting initial record! (${currentVal} deal${currentVal > 1 ? 's' : ''})`
-                    } else {
-                      statusMsg = "No transactions logged to set the first record."
-                    }
-                  } else if (currentVal > recordVal) {
-                    const diff = currentVal - recordVal
-                    statusMsg = item.isCurrency
-                      ? `🎉 Record Beaten! (+${formatPreciseCurrency(diff)} above record)`
-                      : `🎉 Record Beaten! (+${diff} deal${diff > 1 ? 's' : ''} above record)`
-                  } else if (currentVal === recordVal) {
-                    statusMsg = item.isCurrency
-                      ? `🏆 Record Tied! Need $0.01 more to set a new record.`
-                      : `🏆 Record Tied! Need 1 more deal to set a new record.`
-                  } else {
-                    const diff = recordVal - currentVal
-                    if (item.isCurrency) {
-                      statusMsg = `Needs ${formatPreciseCurrency(diff)} more to tie, or ${formatPreciseCurrency(diff + 0.01)} to beat it.`
-                    } else {
-                      statusMsg = `Needs ${diff} more to tie, or ${diff + 1} to beat the record.`
-                    }
-                  }
-
-                  return (
-                    <div
-                      key={item.key}
-                      className={`p-3.5 rounded-xl border ${item.trackColor} bg-neutral-900/60 space-y-2.5 hover:border-neutral-700/50 transition-all duration-200`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-neutral-450 uppercase tracking-wider">{item.label}</span>
-                        <div className="text-right">
-                          <span className="text-xs font-black text-white">
-                            {item.isCurrency ? formatPreciseCurrency(currentVal) : currentVal}
-                          </span>
-                          <span className="text-[10px] text-neutral-500 font-medium">
-                            {" "}/ {item.isCurrency ? formatPreciseCurrency(recordVal) : recordVal}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div className="h-2 w-full bg-neutral-850 rounded-full overflow-hidden border border-neutral-800">
-                        <div
-                          className={`h-full ${item.barColor} rounded-full transition-all duration-500 ease-out`}
-                          style={{ width: `${Math.min(progressPct, 100)}%` }}
-                        />
-                      </div>
-
-                      {/* Progress Percent & Instructions */}
-                      <div className="flex flex-col gap-1">
-                        <div className="flex justify-between items-center text-[9px]">
-                          <span className="text-neutral-500">Progress</span>
-                          <span className={`font-bold ${progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>
-                            {progressPct.toFixed(1)}%
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-neutral-300 font-medium leading-relaxed">
-                          {statusMsg}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+        {/* Historical Vig Rates Table */}
+        {historicalVigRates.length > 0 && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-lg overflow-hidden">
+            <div className="px-4 sm:px-5 py-3.5 border-b border-neutral-800 flex items-center gap-2">
+              <FiCalendar size={16} className="text-sky-400" />
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">Historical Vig Rates</h2>
+              <span className="ml-auto text-[10px] text-neutral-500 font-medium">Last 6 Months</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-neutral-800 text-neutral-500">
+                    <th className="text-left px-4 py-2.5 font-semibold">Representative</th>
+                    {historicalVigRates.map((h) => (
+                      <th key={h.monthKey} className="text-center px-4 py-2.5 font-semibold">
+                        {h.monthName}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-800">
+                  {reps.map((rep) => (
+                    <tr key={rep.repId} className="hover:bg-neutral-800/30">
+                      <td className="px-4 py-3 font-semibold text-white">{rep.repName}</td>
+                      {historicalVigRates.map((h) => {
+                        const repData = h.reps[rep.repId]
+                        const vig = repData ? repData.vigRate : 1.5
+                        return (
+                          <td key={h.monthKey} className="px-4 py-3 text-center">
+                            <span
+                              className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                vig === 1.3
+                                  ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/30"
+                                  : "bg-red-950/40 text-red-400 border-red-500/30"
+                              }`}
+                              title={repData ? `Sales: ${formatPreciseCurrency(repData.sales)} / Target: ${formatPreciseCurrency(repData.target)}` : ""}
+                            >
+                              {vig.toFixed(1)} vig
+                            </span>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

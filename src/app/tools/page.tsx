@@ -273,7 +273,7 @@ export default function ToolsRepository() {
               📂 Tools & Media Repository
             </h1>
           </div>
-          {isAdmin && activeTab === "media" && (
+          {isAdmin && (
             <button
               onClick={openAddModal}
               className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 text-xs rounded-full transition-all shadow-lg hover:shadow-emerald-500/10"
@@ -287,34 +287,8 @@ export default function ToolsRepository() {
       {/* ── Main Container ── */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
-        {/* Tab Switcher */}
-        <div className="flex bg-neutral-900 border border-neutral-800 rounded-xl p-1 gap-1 max-w-md">
-          <button
-            onClick={() => setActiveTab("media")}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-              activeTab === "media"
-                ? "bg-emerald-600 text-white shadow-lg"
-                : "text-neutral-400 hover:text-white"
-            }`}
-          >
-            📁 Media & Marketing Assets
-          </button>
-          <button
-            onClick={() => setActiveTab("products")}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-              activeTab === "products"
-                ? "bg-emerald-600 text-white shadow-lg"
-                : "text-neutral-400 hover:text-white"
-            }`}
-          >
-            💎 Product Catalog Lookup
-          </button>
-        </div>
-
-        {activeTab === "media" ? (
-          <>
-            {/* Search, Layout Selector, and Roles */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Search, Layout Selector, and Roles */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 
               
               <div className="flex items-center justify-between md:justify-end gap-3">
@@ -499,109 +473,6 @@ export default function ToolsRepository() {
                 )}
               </>
             )}
-          </>
-        ) : (
-          <>
-            {/* Product Search View */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-
-            </div>
-
-            {/* Product Categories Bar */}
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-              {productCategories.map(cat => (
-                <button 
-                  key={cat}
-                  onClick={() => setProductCategory(cat)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                    productCategory === cat 
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                      : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white border border-neutral-800'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            {/* Products Table */}
-            {productsLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : (
-              <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-x-auto shadow-2xl">
-                <table className="w-full text-left text-xs min-w-[700px]">
-                  <thead className="bg-neutral-800/80 text-neutral-400 border-b border-neutral-800 uppercase tracking-wider text-[9px] font-bold">
-                    <tr>
-                      <th className="p-4 w-28">SKU</th>
-                      <th className="p-4">Product Name</th>
-                      <th className="p-4">Vendor</th>
-                      <th className="p-4">Category</th>
-                      <th className="p-4">Description</th>
-                      <th className="p-4 text-right">Price</th>
-                      <th className="p-4 text-right">Cost</th>
-                      <th className="p-4 text-right">Stock</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-800">
-                    {filteredProducts.map(p => {
-                      const parsed = parseProductDescription(p.description)
-                      return (
-                        <tr 
-                          key={p.id} 
-                          onClick={() => showProduct(p.name, p)}
-                          className="hover:bg-neutral-800/30 transition-colors cursor-pointer"
-                        >
-                          <td className="p-4 font-mono font-bold text-neutral-300">{p.sku}</td>
-                          <td className="p-4 font-semibold text-white">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-lg bg-neutral-800 border border-neutral-700/50 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                                {parsed.image || getProductImage(p.name, p.sku) ? (
-                                  <img 
-                                    src={parsed.image || getProductImage(p.name, p.sku) || undefined} 
-                                    alt={p.name} 
-                                    className="w-full h-full object-cover" 
-                                  />
-                                ) : (
-                                  <FiPackage className="text-neutral-500" size={14} />
-                                )}
-                              </div>
-                              <span>{p.name}</span>
-                            </div>
-                          </td>
-                          <td className="p-4 text-neutral-400 font-semibold">{parsed.vendor || "N/A"}</td>
-                          <td className="p-4 text-emerald-400 font-semibold">{p.category}</td>
-                          <td className="p-4 text-neutral-400 max-w-xs truncate" title={parsed.text}>
-                            {parsed.text}
-                            {parsed.pertinentInfo && <div className="text-[10px] text-amber-400 mt-1 truncate">{parsed.pertinentInfo}</div>}
-                          </td>
-                          <td className="p-4 text-right text-white font-bold">${parseFloat(p.price || 0).toFixed(2)}</td>
-                          <td className="p-4 text-right text-neutral-400">${parsed.cost !== null ? parseFloat(parsed.cost).toFixed(2) : "—"}</td>
-                          <td className="p-4 text-right">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              p.stock > 50 ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-500/20' :
-                              p.stock > 10 ? 'bg-amber-950/40 text-amber-400 border border-amber-500/20' :
-                              'bg-red-950/40 text-red-400 border border-red-500/20'
-                            }`}>
-                              {p.stock} in stock
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                {filteredProducts.length === 0 && (
-                  <div className="p-16 text-center border-t border-neutral-800 bg-neutral-900/10">
-                    <FiSearch className="mx-auto text-4xl text-neutral-600 mb-3" />
-                    <p className="text-neutral-400 font-medium text-sm">No products found matching your search.</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
       </main>
 
       {/* ── Add / Edit Asset Modal (Admin Only) ── */}

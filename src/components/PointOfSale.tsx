@@ -27,6 +27,9 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
   const [editingMsrp, setEditingMsrp] = useState<string | null>(null)
   const [tempMsrp, setTempMsrp] = useState("")
   const [mobileTab, setMobileTab] = useState<"catalog" | "cart">("catalog")
+  const [users, setUsers] = useState<any[]>([])
+  const [assigneeId, setAssigneeId] = useState("")
+  const [processingNotes, setProcessingNotes] = useState("")
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -40,8 +43,24 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
         setLoading(false)
       }
     }
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch("/api/get-update-config")
+        const data = await res.json()
+        if (data.success && data.users) {
+          setUsers(data.users)
+          const currentRep = data.users.find((u: any) => u.id === currentUser?.id || u.zohoId === currentUser?.id)
+          if (currentRep) {
+            setAssigneeId(currentRep.id)
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch users:", e)
+      }
+    }
     fetchProducts()
-  }, [])
+    fetchUsers()
+  }, [currentUser])
 
   const categories = ["All", ...Array.from(new Set(products.map((p) => p.category))).sort()]
 
@@ -130,17 +149,29 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
           type,
           amount: total,
           items: itemsFormatted,
-          lineItems: cart.map((i) => ({
-            name: i.product.name,
-            sku: i.product.sku,
-            rate: i.customMsrp,
-            discount: i.customMsrp > i.customPrice ? (i.customMsrp - i.customPrice) * i.quantity : 0,
-            quantity: i.quantity,
-            description: `SKU: ${i.product.sku}`
-          })),
+          lineItems: cart.map((i) => {
+            let itemId = null
+            if (i.product.description) {
+              try {
+                const parsed = JSON.parse(i.product.description)
+                itemId = parsed.itemId || null
+              } catch (e) {}
+            }
+            return {
+              name: i.product.name,
+              sku: i.product.sku,
+              itemId: itemId,
+              rate: i.customMsrp,
+              discount: i.customMsrp > i.customPrice ? (i.customMsrp - i.customPrice) * i.quantity : 0,
+              quantity: i.quantity,
+              description: `SKU: ${i.product.sku}`
+            }
+          }),
           discountTotal: undefined,
           userId: currentUser?.id,
           userEmail: currentUser?.email,
+          processingNotes: processingNotes.trim() || undefined,
+          assigneeId: assigneeId || undefined
         }),
       })
       if (res.ok) {
@@ -408,6 +439,45 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
                     </div>
                   )
                 })}
+              </div>
+            )}
+            
+            {/* Processing details form (Notes + Assignee) */}
+            {cart.length > 0 && (
+              <div className="p-4 border-t border-neutral-800 space-y-4 bg-neutral-950/40">
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
+                    Assign Processing Task To
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={assigneeId}
+                      onChange={(e) => setAssigneeId(e.target.value)}
+                      className="w-full bg-neutral-850 border border-neutral-700 rounded px-2.5 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer appearance-none pr-8"
+                    >
+                      <option value="">— Select Representative —</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.email.split("@")[0]})
+                        </option>
+                      ))}
+                    </select>
+                    <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">
+                    Order Processing Notes
+                  </label>
+                  <textarea
+                    value={processingNotes}
+                    onChange={(e) => setProcessingNotes(e.target.value)}
+                    placeholder="Enter processing notes (e.g. Rush processing needed, custom delivery instructions, priority item handling...)"
+                    rows={3}
+                    className="w-full bg-neutral-850 border border-neutral-700 rounded p-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-blue-500 resize-none font-sans"
+                  />
+                </div>
               </div>
             )}
           </div>

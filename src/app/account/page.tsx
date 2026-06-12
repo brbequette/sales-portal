@@ -1,9 +1,9 @@
 "use client"
 
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Suspense, useState, useEffect } from "react"
 import { createPortal } from "react-dom"
-import { FiFileText, FiX, FiDatabase } from "react-icons/fi"
+import { FiFileText, FiX, FiDatabase, FiDownload, FiMaximize2 } from "react-icons/fi"
 import { useZoho } from "@/components/ZohoProvider"
 import { AccountHistory } from "@/components/AccountHistory"
 import { SalesAssistant } from "@/components/SalesAssistant"
@@ -17,11 +17,13 @@ import Link from "next/link"
 
 import { QualityPicker } from "@/components/QualityPicker"
 import { ContactsView } from "@/components/ContactsView"
+import { AccountProductsPurchased } from "@/components/AccountProductsPurchased"
 
-type ActiveTab = "overview" | "history" | "ai" | "tasks"
+type ActiveTab = "overview" | "history" | "purchased" | "tasks" | "ai"
 
 function AccountHubContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const id = searchParams.get("id") || ""
   const { isInitialized } = useZoho()
   const [account, setAccount] = useState<any>(null)
@@ -89,8 +91,17 @@ function AccountHubContent() {
 
   useEffect(() => {
     if (!isInitialized) return
+    
+    const cleanId = id?.trim()
+    const isPlaceholder = !cleanId || cleanId.startsWith("{") || cleanId === "undefined" || cleanId === "null"
+    
+    if (isPlaceholder) {
+      router.push("/")
+      return
+    }
+    
     fetchAccountData()
-  }, [isInitialized, id])
+  }, [isInitialized, id, router])
 
   if (loading || !isInitialized) return (
     <div className="flex items-center justify-center min-h-[100dvh] bg-neutral-950 text-white">
@@ -205,6 +216,7 @@ function AccountHubContent() {
           {([
             { id: "overview", label: "Overview", icon: "📊" },
             { id: "history", label: "Transactions & Docs", icon: "🧾" },
+            { id: "purchased", label: "Products Purchased", icon: "💎" },
             { id: "tasks", label: "Tasks", icon: "✓" },
             { id: "ai", label: "AI & Comm Center", icon: "⚡" },
           ] as { id: ActiveTab, label: string, icon: string }[]).map(tab => (
@@ -230,6 +242,111 @@ function AccountHubContent() {
 
           {activeTab === "overview" && (
             <div className="flex flex-col space-y-8">
+              {/* Account Profile and Addresses Cards */}
+              {account.crmDetails && (
+                <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-5 shadow-xl space-y-5 animate-in fade-in slide-in-from-top-4 duration-300">
+                  <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-wider">
+                      <FiDatabase className="text-blue-500" />
+                      <span>Account Profile &amp; Addresses</span>
+                    </h3>
+                    {account.crmDetails.Phone && (
+                      <a
+                        href={`zdialer:${account.crmDetails.Phone.replace(/[^0-9+]/g, '')}`}
+                        className="text-xs text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1.5"
+                        title="Click to dial account main line"
+                      >
+                        📞 Dial Main: {account.crmDetails.Phone}
+                      </a>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    {/* Billing Address */}
+                    <div className="bg-neutral-950/40 p-4 border border-neutral-800 rounded-xl space-y-1.5">
+                      <h4 className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Billing Address</h4>
+                      <div className="text-xs text-neutral-300 leading-relaxed font-sans">
+                        {account.crmDetails.Billing_Street ? (
+                          <>
+                            <p className="font-semibold text-white">{account.crmDetails.Billing_Street}</p>
+                            <p>{account.crmDetails.Billing_City || ''}, {account.crmDetails.Billing_State || ''} {account.crmDetails.Billing_Code || ''}</p>
+                            <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.crmDetails.Billing_Country || 'U.S.A'}</p>
+                          </>
+                        ) : (
+                          <p className="text-neutral-500 italic text-[11px]">No billing address configured</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Shipping Address */}
+                    <div className="bg-neutral-950/40 p-4 border border-neutral-800 rounded-xl space-y-1.5">
+                      <h4 className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Shipping Address</h4>
+                      <div className="text-xs text-neutral-300 leading-relaxed font-sans">
+                        {account.crmDetails.Shipping_Street ? (
+                          <>
+                            <p className="font-semibold text-white">{account.crmDetails.Shipping_Street}</p>
+                            <p>{account.crmDetails.Shipping_City || ''}, {account.crmDetails.Shipping_State || ''} {account.crmDetails.Shipping_Code || ''}</p>
+                            <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.crmDetails.Shipping_Country || 'U.S.A'}</p>
+                          </>
+                        ) : (
+                          <p className="text-neutral-500 italic text-[11px]">No shipping address configured</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Company Details */}
+                    <div className="bg-neutral-950/40 p-4 border border-neutral-800 rounded-xl space-y-2.5">
+                      <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Company Profile</h4>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Phone</span>
+                          {account.crmDetails.Phone ? (
+                            <a
+                              href={`zdialer:${account.crmDetails.Phone.replace(/[^0-9+]/g, '')}`}
+                              className="text-blue-450 hover:underline font-bold font-mono truncate block"
+                            >
+                              {account.crmDetails.Phone}
+                            </a>
+                          ) : (
+                            <span className="text-neutral-200 font-bold block">—</span>
+                          )}
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Website</span>
+                          {account.crmDetails.Website ? (
+                            <a 
+                              href={account.crmDetails.Website.startsWith('http') ? account.crmDetails.Website : `https://${account.crmDetails.Website}`} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="text-blue-400 hover:underline truncate block font-bold font-mono"
+                            >
+                              {account.crmDetails.Website}
+                            </a>
+                          ) : (
+                            <span className="text-neutral-400 font-bold">—</span>
+                          )}
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Industry</span>
+                          <span className="text-neutral-200 font-bold truncate block">{account.crmDetails.Industry || account.industry || '—'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Tags / Segment</span>
+                          <span className="text-neutral-200 font-bold truncate block">{account.crmDetails.Tags || account.tags || 'General'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {account.crmDetails.Description && (
+                    <div className="bg-neutral-950/20 p-4 border border-neutral-800/80 rounded-xl">
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold mb-1">CRM Account Description</span>
+                      <p className="text-xs text-neutral-300 leading-relaxed italic whitespace-pre-line">{account.crmDetails.Description}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="w-full">
                 <AccountAnalytics
                   invoices={account.invoices}
@@ -319,6 +436,10 @@ function AccountHubContent() {
                 />
               )}
             </div>
+          )}
+
+          {activeTab === "purchased" && (
+            <AccountProductsPurchased accountId={account.zohoId} />
           )}
 
           {activeTab === "tasks" && (
@@ -586,7 +707,29 @@ function AccountHubContent() {
             </div>
 
             {/* Footer */}
-            <div className="mt-4 pt-4 border-t border-neutral-800 flex justify-end shrink-0">
+            <div className="mt-4 pt-4 border-t border-neutral-800 flex justify-between items-center shrink-0">
+              <div>
+                {(viewingSalesDoc.doc.zohoId || viewingSalesDoc.doc.id) && (
+                  <div className="flex gap-2">
+                    <a
+                      href={`/api/get-invoice-pdf?id=${viewingSalesDoc.doc.zohoId || viewingSalesDoc.doc.id}&type=${viewingSalesDoc.type}&download=true`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 hover:text-blue-300 font-bold py-2 px-3 rounded-lg text-xs transition-colors border border-blue-500/20 inline-flex items-center gap-1.5"
+                    >
+                      <FiDownload size={13} /> Download PDF
+                    </a>
+                    <a
+                      href={`/api/get-invoice-pdf?id=${viewingSalesDoc.doc.zohoId || viewingSalesDoc.doc.id}&type=${viewingSalesDoc.type}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors border border-neutral-700/80 inline-flex items-center gap-1.5"
+                    >
+                      <FiMaximize2 size={13} /> View PDF
+                    </a>
+                  </div>
+                )}
+              </div>
               <button 
                 onClick={() => setViewingSalesDoc(null)}
                 className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-2 px-4 rounded-lg text-xs transition-colors cursor-pointer"

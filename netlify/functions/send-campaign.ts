@@ -1,32 +1,9 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient } from "@prisma/client"
 import { corsHeaders, handleOptions } from "./lib/cors"
+import { getZohoAccessToken } from "./lib/zoho-auth"
 
 const prisma = new PrismaClient()
-
-async function getZohoAccessToken() {
-  const refreshToken = process.env.ZOHO_SMS_REFRESH_TOKEN || process.env.ZOHO_REFRESH_TOKEN
-  if (!refreshToken) return null;
-  const params = new URLSearchParams({
-    refresh_token: refreshToken,
-    client_id: process.env.ZOHO_SMS_CLIENT_ID || process.env.ZOHO_CLIENT_ID || '',
-    client_secret: process.env.ZOHO_SMS_CLIENT_SECRET || process.env.ZOHO_CLIENT_SECRET || '',
-    grant_type: "refresh_token",
-  })
-  
-  try {
-    const res = await fetch(`https://accounts.zoho.${process.env.ZOHO_DC || 'com'}/oauth/v2/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params.toString(),
-    })
-    const data = await res.json()
-    return data.access_token
-  } catch (e) {
-    console.error("Error refreshing Zoho Token:", e)
-    return null
-  }
-}
 
 export const handler: Handler = async (event, context) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
@@ -140,15 +117,41 @@ export const handler: Handler = async (event, context) => {
         try {
           const zohoVoiceUrl = `https://voice.zoho.${process.env.ZOHO_DC || 'com'}/rest/json/v2/sms/send`
           
+          const isMms = !!imageUrl
           const smsData = {
             customerNumber: phoneNumber,
             message: text || campaignName || 'Titan Diamond Update',
             senderId: process.env.ZOHO_VOICE_FROM_NUMBER || '',
-            mms: false
+            mms: isMms
           }
           
           const formData = new FormData()
           formData.append('sms_data', JSON.stringify(smsData))
+
+          if (isMms) {
+            try {
+              if (imageUrl.startsWith('data:')) {
+                const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/)
+                if (match) {
+                  const contentType = match[1]
+                  const base64Data = match[2]
+                  const buffer = Buffer.from(base64Data, 'base64')
+                  const blob = new Blob([buffer], { type: contentType })
+                  formData.append('mms_media', blob, `attachment.${contentType.split('/')[1] || 'jpg'}`)
+                }
+              } else {
+                const imgRes = await fetch(imageUrl)
+                if (imgRes.ok) {
+                  const arrayBuffer = await imgRes.arrayBuffer()
+                  const contentType = imgRes.headers.get('content-type') || 'image/jpeg'
+                  const blob = new Blob([arrayBuffer], { type: contentType })
+                  formData.append('mms_media', blob, `attachment.${contentType.split('/')[1] || 'jpg'}`)
+                }
+              }
+            } catch (err) {
+              console.error("Error attaching MMS media:", err)
+            }
+          }
 
           const smsRes = await fetch(zohoVoiceUrl, {
             method: 'POST',

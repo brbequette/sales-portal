@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
 const prisma = new PrismaClient()
+const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event, context) => {
   if (event.httpMethod !== "POST") {
@@ -11,7 +12,10 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { subject, description, priority, dueDate, ownerId, whatId, status = "Not Started" } = body
+    const { 
+      subject, description, priority, dueDate, ownerId, whatId, status = "Not Started",
+      invoiceId, salesOrderId, quoteId, estimateId
+    } = body
 
     if (!subject || !ownerId) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing required fields (subject, ownerId)" }) }
@@ -44,23 +48,32 @@ export const handler: Handler = async (event, context) => {
       taskData.Due_Date = new Date(dueDate).toISOString().split('T')[0] // format YYYY-MM-DD
     }
     
-    if (description) {
-      taskData.Description = description
+    let finalDescription = description || ""
+    const extraDescLines = []
+    if (invoiceId) extraDescLines.push(`Linked Invoice: ${invoiceId}`)
+    if (salesOrderId) extraDescLines.push(`Linked Sales Order: ${salesOrderId}`)
+    if (quoteId) extraDescLines.push(`Linked Quote: ${quoteId}`)
+    if (estimateId) extraDescLines.push(`Linked Estimate: ${estimateId}`)
+    
+    if (extraDescLines.length > 0) {
+      finalDescription = (finalDescription + "\n\n" + extraDescLines.join("\n")).trim()
+    }
+
+    if (finalDescription) {
+      taskData.Description = finalDescription
     }
 
     // What_Id refers to Account, Deal, etc.
     if (whatId) {
-      // whatId is expected to be a valid Zoho ID for the related record
-      // You can pass the module name as se_module (e.g., Accounts, Deals)
       taskData.What_Id = { id: whatId }
-      // taskData.$se_module = "Accounts" // Usually Zoho infers it, but we'll let Zoho handle it
+      taskData.$se_module = "Accounts"
     }
 
     const payload = {
       data: [taskData]
     }
 
-    const res = await fetch(`https://www.zohoapis.com/crm/v3/Tasks`, {
+    const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks`, {
       method: "POST",
       headers: {
         'Authorization': `Zoho-oauthtoken ${token}`,
@@ -102,7 +115,11 @@ export const handler: Handler = async (event, context) => {
         dueDate: dueDate ? new Date(dueDate) : null,
         ownerId: user.id,
         accountId,
-        dealId
+        dealId,
+        invoiceId: invoiceId || null,
+        salesOrderId: salesOrderId || null,
+        quoteId: quoteId || null,
+        estimateId: estimateId || null
       }
     })
 

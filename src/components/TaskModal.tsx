@@ -20,6 +20,14 @@ export function TaskModal({
   const [taskOwnerId, setTaskOwnerId] = useState("")
   const [taskWhatId, setTaskWhatId] = useState("")
   const [taskSaving, setTaskSaving] = useState(false)
+  const [taskInvoiceId, setTaskInvoiceId] = useState("")
+  const [taskSalesOrderId, setTaskSalesOrderId] = useState("")
+  const [taskQuoteId, setTaskQuoteId] = useState("")
+  const [taskEstimateId, setTaskEstimateId] = useState("")
+  
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [selectedTransaction, setSelectedTransaction] = useState("")
+  const [loadingTransactions, setLoadingTransactions] = useState(false)
   
   const [accounts, setAccounts] = useState<any[]>([])
   const [repsList, setRepsList] = useState<any[]>([])
@@ -36,8 +44,11 @@ export function TaskModal({
     // Fetch basic data for dropdowns
     const fetchData = async () => {
       try {
+        const query = currentUser?.id && !currentUser.id.includes('@')
+          ? `zohoId=${currentUser.id}`
+          : `email=${currentUser?.email}`
         const [accRes, repRes] = await Promise.all([
-          fetch("/api/get-accounts"),
+          fetch(`/api/get-accounts?${query}`),
           fetch("/api/get-user?all=true")
         ])
         
@@ -50,8 +61,87 @@ export function TaskModal({
         console.error("Error fetching modal dropdown data", e)
       }
     }
-    fetchData()
-  }, [])
+    if (currentUser?.id || currentUser?.email) fetchData()
+  }, [currentUser])
+
+  useEffect(() => {
+    if (!taskWhatId) {
+      setTransactions([])
+      setSelectedTransaction("")
+      return
+    }
+    const fetchTransactions = async () => {
+      setLoadingTransactions(true)
+      try {
+        const res = await fetch(`/api/get-account-details?id=${encodeURIComponent(taskWhatId)}`)
+        const data = await res.json()
+        if (data.success && data.account) {
+          const txs: any[] = []
+          
+          if (data.account.invoices) {
+            data.account.invoices.forEach((inv: any) => {
+              txs.push({
+                id: inv.id,
+                zohoId: inv.zohoId,
+                type: "Invoice",
+                label: `Invoice: ${inv.zohoId || inv.id} ($${(inv.amount || 0).toLocaleString()})`
+              })
+            })
+          }
+
+          if (data.account.salesOrders) {
+            data.account.salesOrders.forEach((so: any) => {
+              txs.push({
+                id: so.id,
+                zohoId: so.zohoId || so.id,
+                type: "SalesOrder",
+                label: `Sales Order: SO-${so.id} ($${(so.amount || 0).toLocaleString()})`
+              })
+            })
+          }
+
+          if (data.account.quotes) {
+            data.account.quotes.forEach((q: any) => {
+              txs.push({
+                id: q.id,
+                zohoId: q.zohoId || q.id,
+                type: "Quote",
+                label: `Quote/Est: ${q.zohoId || q.id} ($${(q.amount || 0).toLocaleString()})`
+              })
+            })
+          }
+
+          setTransactions(txs)
+        }
+      } catch (e) {
+        console.error("Failed to fetch transactions for account:", e)
+      } finally {
+        setLoadingTransactions(false)
+      }
+    }
+    fetchTransactions()
+  }, [taskWhatId])
+
+  const handleTransactionChange = (val: string) => {
+    setSelectedTransaction(val)
+    setTaskInvoiceId("")
+    setTaskSalesOrderId("")
+    setTaskQuoteId("")
+    setTaskEstimateId("")
+
+    if (!val) return
+    const tx = transactions.find(t => t.id === val || t.zohoId === val)
+    if (!tx) return
+
+    if (tx.type === "Invoice") {
+      setTaskInvoiceId(tx.zohoId || tx.id)
+    } else if (tx.type === "SalesOrder") {
+      setTaskSalesOrderId(tx.id || tx.zohoId)
+    } else if (tx.type === "Quote") {
+      setTaskQuoteId(tx.id)
+      setTaskEstimateId(tx.zohoId || tx.id)
+    }
+  }
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,7 +156,11 @@ export function TaskModal({
         dueDate: taskDueDate || null,
         status: "Not Started",
         ownerId: taskOwnerId || currentUser?.id,
-        whatId: taskWhatId || null
+        whatId: taskWhatId || null,
+        invoiceId: taskInvoiceId || null,
+        salesOrderId: taskSalesOrderId || null,
+        quoteId: taskQuoteId || null,
+        estimateId: taskEstimateId || null
       }
       
       const res = await fetch("/api/create-task", {
@@ -170,6 +264,72 @@ export function TaskModal({
                 <option key={a.id} value={a.zohoId}>{a.name}</option>
               ))}
             </select>
+          </div>
+          {taskWhatId && (
+            <div>
+              <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Link to Transaction (Optional)</label>
+              {loadingTransactions ? (
+                <p className="text-xs text-neutral-500 animate-pulse italic">Loading account documents...</p>
+              ) : (
+                <select
+                  value={selectedTransaction}
+                  onChange={e => handleTransactionChange(e.target.value)}
+                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                >
+                  <option value="">-- No Linked Document --</option>
+                  {transactions.map(t => (
+                    <option key={t.id || t.zohoId} value={t.id || t.zohoId}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+          <div className="border-t border-neutral-800 pt-3">
+            <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Linked Documents (Optional)</h4>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Estimate ID</label>
+                <input 
+                  type="text" 
+                  value={taskEstimateId} 
+                  onChange={e => setTaskEstimateId(e.target.value)} 
+                  placeholder="e.g. EST-12345"
+                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Sales Order ID</label>
+                <input 
+                  type="text" 
+                  value={taskSalesOrderId} 
+                  onChange={e => setTaskSalesOrderId(e.target.value)} 
+                  placeholder="e.g. SO-12345"
+                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Quote ID</label>
+                <input 
+                  type="text" 
+                  value={taskQuoteId} 
+                  onChange={e => setTaskQuoteId(e.target.value)} 
+                  placeholder="e.g. Q-12345"
+                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Invoice ID</label>
+                <input 
+                  type="text" 
+                  value={taskInvoiceId} 
+                  onChange={e => setTaskInvoiceId(e.target.value)} 
+                  placeholder="e.g. INV-12345"
+                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
           </div>
           <div className="pt-4 flex justify-end gap-2 border-t border-neutral-800">
             <button 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useZoho } from "./ZohoProvider"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 
 export function AuthWrapper({ children }: { children: React.ReactNode }) {
@@ -10,19 +10,13 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [isAuthorized, setIsAuthorized] = useState(false)
   const [checking, setChecking] = useState(true)
-  const [isLoginPage, setIsLoginPage] = useState(false)
+  const redirected = useRef(false)
 
-  // Use synchronous window.location to determine initial login page status
-  // which is immune to Next.js client-side router hydration delay
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsLoginPage(window.location.pathname.includes("/login"))
-    }
-  }, [pathname])
+  // Detect login page synchronously from window.location (immune to Next.js hydration delay)
+  const isLoginPage = typeof window !== "undefined" && window.location.pathname.includes("/login")
 
   // Fast-path: if URL carries Zoho merge-field params (email or zohoId),
-  // the user is already identified — authorize immediately without waiting
-  // for the full SDK. This mirrors how the Commission Hub handles autologin.
+  // the user is already identified — authorize immediately
   useEffect(() => {
     if (typeof window === "undefined") return
     const params = new URLSearchParams(window.location.search)
@@ -33,72 +27,75 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
+    // Login page always renders — no auth gating needed
     if (isLoginPage) {
-      if (isInitialized && zohoContext) {
-        console.log("Zoho session found while on login page. Redirecting to dashboard.")
-        window.location.href = "/"
-        return
-      }
       setIsAuthorized(true)
       setChecking(false)
       return
     }
 
-    // 2. Read local user safely to prevent SecurityErrors in sandboxed frames
-    let localUserJson = null
+    // Check localStorage directly for fast unlock (before ZohoProvider finishes)
     try {
-      localUserJson = typeof window !== "undefined" ? localStorage.getItem("sales_portal_user") : null
-    } catch (e) {
-      console.warn("localStorage read blocked:", e)
-    }
-    const hasLocalUser = !!localUserJson
-
-    // 3. If we have a local user cached (already logged in), authorize immediately.
-    if (hasLocalUser) {
-      setIsAuthorized(true)
-      setChecking(false)
-      return
-    }
-
-    // 4. If the Zoho SDK successfully initialized (running as a Widget), authorize immediately.
-    // Wait, if isInitialized is true but no zohoContext, we shouldn't authorize them if they have no session,
-    // but the downstream page.tsx handles redirecting to /login if !currentUser. So we just unblock rendering.
-    if (isInitialized) {
-      setIsAuthorized(true)
-      setChecking(false)
-      return
-    }
-
-    // 5. Fallback: Wait for Zoho SDK initialization.
-    // If it doesn't initialize and we don't have a local user, redirect to /login.
-    // We wait 10s to give the Zoho embedded app SDK enough time to load inside
-    // Zoho CRM iframes — matching the Commission Hub's behavior.
-    const timer = setTimeout(() => {
-      let currentLocalUserJson = null
-      try {
-        currentLocalUserJson = typeof window !== "undefined" ? localStorage.getItem("sales_portal_user") : null
-      } catch (e) {
-        console.warn("localStorage read blocked in timer:", e)
+      const saved = typeof window !== "undefined" ? localStorage.getItem("sales_portal_user") : null
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed?.email) {
+          setIsAuthorized(true)
+          setChecking(false)
+          return
+        }
       }
-      const currentHasLocalUser = !!currentLocalUserJson
+    } catch {}
 
-      // Also check URL params one more time before giving up
+    // If ZohoProvider has finished initializing
+    if (isInitialized) {
+      if (zohoContext?.email) {
+        // User is authenticated
+        setIsAuthorized(true)
+        setChecking(false)
+      } else {
+        // No session found — redirect to login
+        if (!redirected.current) {
+          redirected.current = true
+          console.log("No session found. Redirecting to login.")
+          window.location.href = "/login"
+        }
+        setChecking(false)
+      }
+      return
+    }
+
+    // Fallback timeout: if ZohoProvider hasn't initialized after 5 seconds,
+    // check localStorage one more time then redirect
+    const timer = setTimeout(() => {
+      let hasUser = false
+      try {
+        const saved = typeof window !== "undefined" ? localStorage.getItem("sales_portal_user") : null
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          if (parsed?.email) hasUser = true
+        }
+      } catch {}
+
       const params = new URLSearchParams(window.location.search)
       const hasUrlParams = !!(params.get("email") || params.get("zohoId") || params.get("id"))
-      
-      if (!isInitialized && !currentHasLocalUser && !hasUrlParams) {
-        console.log("Authorization timeout. Redirecting to login.")
+
+      if (!hasUser && !hasUrlParams && !redirected.current) {
+        redirected.current = true
+        console.log("Auth timeout. Redirecting to login.")
         window.location.href = "/login"
       }
       setChecking(false)
-    }, 10000)
+    }, 5000)
 
     return () => clearTimeout(timer)
 
-  }, [isInitialized, zohoContext, router, isLoginPage])
+  }, [isInitialized, zohoContext, isLoginPage])
 
+  // Login page always renders immediately
   if (isLoginPage) return <>{children}</>
 
+  // Still checking — show loading
   if (checking || !isAuthorized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-(--background) text-(--foreground)">

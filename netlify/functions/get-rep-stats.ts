@@ -3,6 +3,51 @@ import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
 
+// Workday calculation helpers
+function getWorkdaysCount(startDate: Date, endDate: Date, holidays: string[]): number {
+  let count = 0;
+  const cur = new Date(startDate);
+  cur.setHours(0,0,0,0);
+  const targetEnd = new Date(endDate);
+  targetEnd.setHours(0,0,0,0);
+  
+  const holidaySet = new Set(holidays);
+
+  while (cur <= targetEnd) {
+    const day = cur.getDay();
+    if (day !== 0 && day !== 6) { // Not Sunday or Saturday
+      const dateStr = cur.toISOString().split('T')[0];
+      if (!holidaySet.has(dateStr)) {
+        count++;
+      }
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
+
+function getWorkdaysInMonth(year: number, month: number, holidays: string[]): number {
+  const startDate = new Date(year, month, 1);
+  const endDate = new Date(year, month + 1, 0); // Last day of month
+  return getWorkdaysCount(startDate, endDate, holidays);
+}
+
+function getWorkdaysInWeek(date: Date, holidays: string[]): number {
+  // Find Monday of the week
+  const monday = new Date(date);
+  const day = monday.getDay();
+  const diff = monday.getDate() - day + (day === 0 ? -6 : 1);
+  monday.setDate(diff);
+  monday.setHours(0,0,0,0);
+  
+  // Sunday of the week
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  
+  return getWorkdaysCount(monday, sunday, holidays);
+}
+
 export const handler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
@@ -15,13 +60,34 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    // 1. Fetch all users
+    // 1. Fetch settings (holidays, sales targets)
+    const settings = await prisma.systemSetting.findMany()
+    const settingsMap = new Map(settings.map(s => [s.key, s.value]))
+    const holidays: string[] = JSON.parse(settingsMap.get("holidays") || "[]")
+    const salesTargets: Record<string, number> = JSON.parse(settingsMap.get("sales_targets") || "{}")
+
+    // 2. Fetch all users (excluding inactive dummy/test users)
     const users = await prisma.user.findMany({
+      where: {
+        AND: [
+          { NOT: { email: { contains: "dummy.titandiamond.com" } } },
+          { NOT: { email: { contains: "example.com" } } },
+          { NOT: { name: { contains: "test_migration" } } }
+        ]
+      },
       select: { id: true, name: true, email: true, role: true },
       orderBy: { name: "asc" }
     })
 
-    // 2. Fetch all accounts with invoices
+    // 3. Map usernames to user IDs for salesperson matching
+    const userNameToIdMap: Record<string, string> = {}
+    users.forEach(u => {
+      if (u.name) {
+        userNameToIdMap[u.name.toLowerCase().trim()] = u.id
+      }
+    })
+
+    // 4. Fetch all accounts
     const accounts = await prisma.account.findMany({
       select: {
         id: true,
@@ -38,52 +104,69 @@ export const handler: Handler = async (event) => {
       }
     })
 
-    // 3. Fetch all deals
+    // 5. Fetch all deals
     const deals = await prisma.deal.findMany({
       select: {
         id: true,
         ownerId: true,
+        name: true,
         amount: true,
         stage: true,
         closingDate: true
       }
     })
 
-    // 4. Group metrics by User ID
+    // 6. Fetch all invoices for deal matching
+    const allInvoicesForMatching = await prisma.invoice.findMany({
+      select: {
+        zohoId: true,
+        items: true
+      }
+    })
+
+    const unassignedId = "unassigned"
+
+    // Time ranges
+    const now = new Date()
+    // Daily range
+    const todayStart = new Date(now)
+    todayStart.setHours(0,0,0,0)
+    const todayEnd = new Date(now)
+    todayEnd.setHours(23,59,59,999)
+
+    // Weekly range (Monday to Sunday)
+    const monday = new Date(now)
+    const day = monday.getDay()
+    const diff = monday.getDate() - day + (day === 0 ? -6 : 1)
+    monday.setDate(diff)
+    monday.setHours(0,0,0,0)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    sunday.setHours(23,59,59,999)
+
+    // Monthly range
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    lastOfMonth.setHours(23,59,59,999)
+
+    // Workdays count for targets
+    const workdaysInWeek = getWorkdaysInWeek(now, holidays)
+    const workdaysInMonth = getWorkdaysInMonth(now.getFullYear(), now.getMonth(), holidays)
+
+    // Initialize repStatsMap
     const repStatsMap: Record<string, any> = {}
-    const repWeeklyStats: Record<string, Record<string, any>> = {}
-    const repMonthlyStats: Record<string, Record<string, any>> = {}
-
-    const getMonday = (d: Date | string) => {
-      const date = new Date(d)
-      const day = date.getDay()
-      const diff = date.getDate() - day + (day === 0 ? -6 : 1)
-      const monday = new Date(date.setDate(diff))
-      monday.setHours(0, 0, 0, 0)
-      return monday
-    }
-
-    const formatDateKey = (d: Date) => {
-      const yyyy = d.getFullYear()
-      const mm = String(d.getMonth() + 1).padStart(2, '0')
-      const dd = String(d.getDate()).padStart(2, '0')
-      return `${yyyy}-${mm}-${dd}`
-    }
-
-    const getMonthKey = (d: Date | string) => {
-      const date = new Date(d)
-      const yyyy = date.getFullYear()
-      const mm = String(date.getMonth() + 1).padStart(2, '0')
-      return `${yyyy}-${mm}`
-    }
-
-    // Initialize map
+    
     users.forEach(u => {
+      const dailyGoal = salesTargets[u.id] || 0
+      const weeklyGoal = dailyGoal * workdaysInWeek
+      const monthlyGoal = dailyGoal * workdaysInMonth
+
       repStatsMap[u.id] = {
         repId: u.id,
         repName: u.name || u.email.split("@")[0],
         email: u.email,
         role: u.role,
+        // All-time totals
         revenue: 0,
         profit: 0,
         margin: 0,
@@ -93,12 +176,22 @@ export const handler: Handler = async (event) => {
         closedWonDeals: 0,
         dealRevenue: 0,
         commissions: 0,
-        overdueCollections: 0
+        overdueCollections: 0,
+        
+        // Target settings
+        salesTargets: {
+          daily: dailyGoal,
+          weekly: weeklyGoal,
+          monthly: monthlyGoal
+        },
+
+        // Periodic breakdowns
+        daily: { revenue: 0, profit: 0, dealsWon: 0, target: dailyGoal },
+        weekly: { revenue: 0, profit: 0, dealsWon: 0, target: weeklyGoal },
+        monthly: { revenue: 0, profit: 0, dealsWon: 0, target: monthlyGoal }
       }
     })
 
-    // Add unassigned key just in case
-    const unassignedId = "unassigned"
     repStatsMap[unassignedId] = {
       repId: unassignedId,
       repName: "Unassigned",
@@ -113,23 +206,17 @@ export const handler: Handler = async (event) => {
       closedWonDeals: 0,
       dealRevenue: 0,
       commissions: 0,
-      overdueCollections: 0
+      overdueCollections: 0,
+      salesTargets: { daily: 0, weekly: 0, monthly: 0 },
+      daily: { revenue: 0, profit: 0, dealsWon: 0, target: 0 },
+      weekly: { revenue: 0, profit: 0, dealsWon: 0, target: 0 },
+      monthly: { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
     }
 
-    const getInitialMetrics = () => ({
-      revenue: 0,
-      profit: 0,
-      closedWonDeals: 0,
-      commissions: 0
-    })
-
-    // Process accounts and invoices
+    // Process accounts (account owner attributes counts)
     accounts.forEach(acc => {
       const ownerId = acc.ownerId || unassignedId
-      if (!repStatsMap[ownerId]) {
-        // Fallback for missing reps
-        return
-      }
+      if (!repStatsMap[ownerId]) return
 
       if (acc.status === "Update Status") {
         repStatsMap[ownerId].updateAccounts++
@@ -140,39 +227,45 @@ export const handler: Handler = async (event) => {
       const invoices = acc.invoices || []
       invoices.forEach(inv => {
         const amount = parseFloat(inv.amount as any) || 0
-        repStatsMap[ownerId].revenue += amount
-
         const profit = parseFloat((inv.items as any)?.profit as any) || 0
-        repStatsMap[ownerId].profit += profit
+        const issueDate = inv.issueDate ? new Date(inv.issueDate) : null
 
-        if (inv.status === "Overdue") {
-          const balance = typeof inv.items === "object" && inv.items !== null && "balance" in inv.items
-            ? parseFloat((inv.items as any).balance)
-            : amount;
-          repStatsMap[ownerId].overdueCollections += isNaN(balance) ? 0 : balance
+        // Find salesperson on invoice
+        const salespersonName = (inv.items as any)?.salesperson
+        let repId = unassignedId
+        if (salespersonName) {
+          const matchedId = userNameToIdMap[salespersonName.toLowerCase().trim()]
+          if (matchedId) repId = matchedId
+        }
+        if (repId === unassignedId) {
+          repId = acc.ownerId || unassignedId
         }
 
-        // Aggregate by week/month for the rep
-        if (inv.issueDate) {
-          const date = new Date(inv.issueDate)
-          if (!isNaN(date.getTime())) {
-            const monday = getMonday(date)
-            const weekKey = formatDateKey(monday)
-            const monthKey = getMonthKey(date)
+        if (repStatsMap[repId]) {
+          repStatsMap[repId].revenue += amount
+          repStatsMap[repId].profit += profit
 
-            if (!repWeeklyStats[ownerId]) repWeeklyStats[ownerId] = {}
-            if (!repWeeklyStats[ownerId][weekKey]) {
-              repWeeklyStats[ownerId][weekKey] = getInitialMetrics()
-            }
-            repWeeklyStats[ownerId][weekKey].revenue += amount
-            repWeeklyStats[ownerId][weekKey].profit += profit
+          if (inv.status === "Overdue") {
+            const balance = typeof inv.items === "object" && inv.items !== null && "balance" in inv.items
+              ? parseFloat((inv.items as any).balance)
+              : amount;
+            repStatsMap[repId].overdueCollections += isNaN(balance) ? 0 : balance
+          }
 
-            if (!repMonthlyStats[ownerId]) repMonthlyStats[ownerId] = {}
-            if (!repMonthlyStats[ownerId][monthKey]) {
-              repMonthlyStats[ownerId][monthKey] = getInitialMetrics()
+          // Aggregates for periods
+          if (issueDate) {
+            if (issueDate >= todayStart && issueDate <= todayEnd) {
+              repStatsMap[repId].daily.revenue += amount
+              repStatsMap[repId].daily.profit += profit
             }
-            repMonthlyStats[ownerId][monthKey].revenue += amount
-            repMonthlyStats[ownerId][monthKey].profit += profit
+            if (issueDate >= monday && issueDate <= sunday) {
+              repStatsMap[repId].weekly.revenue += amount
+              repStatsMap[repId].weekly.profit += profit
+            }
+            if (issueDate >= firstOfMonth && issueDate <= lastOfMonth) {
+              repStatsMap[repId].monthly.revenue += amount
+              repStatsMap[repId].monthly.profit += profit
+            }
           }
         }
       })
@@ -180,108 +273,181 @@ export const handler: Handler = async (event) => {
 
     // Process deals
     deals.forEach(deal => {
-      const ownerId = deal.ownerId || unassignedId
-      if (!repStatsMap[ownerId]) return
+      const parts = deal.name.split('|')
+      let docNum = null
+      if (parts.length >= 2) {
+        docNum = parts[1].trim().replace('EST-', '').replace('SO-', '')
+      }
 
-      repStatsMap[ownerId].totalDeals++
+      let salespersonName = null
+      if (docNum) {
+        const matchingInvoice = allInvoicesForMatching.find(inv => {
+          const invNum = (inv.items as any)?.invoiceNumber || (inv.items as any)?.invoice_number || ''
+          return invNum === docNum || inv.zohoId.endsWith(docNum)
+        })
+        if (matchingInvoice) {
+          salespersonName = (matchingInvoice.items as any)?.salesperson
+        }
+      }
 
-      const stage = (deal.stage || "").toLowerCase()
-      const isClosedWon = stage.includes("closed won") || stage.includes("fulfilled") || stage.includes("paid")
-      
-      if (isClosedWon) {
-        repStatsMap[ownerId].closedWonDeals++
-        const amount = parseFloat(deal.amount as any) || 0
-        const commission = amount * 0.10 // 10% rate
-        repStatsMap[ownerId].dealRevenue += amount
-        repStatsMap[ownerId].commissions += commission
+      let repId = unassignedId
+      if (salespersonName) {
+        const matchedId = userNameToIdMap[salespersonName.toLowerCase().trim()]
+        if (matchedId) repId = matchedId
+      }
+      if (repId === unassignedId) {
+        repId = deal.ownerId || unassignedId
+      }
 
-        // Aggregate by week/month for the rep
-        if (deal.closingDate) {
-          const date = new Date(deal.closingDate)
-          if (!isNaN(date.getTime())) {
-            const monday = getMonday(date)
-            const weekKey = formatDateKey(monday)
-            const monthKey = getMonthKey(date)
+      if (repStatsMap[repId]) {
+        repStatsMap[repId].totalDeals++
+        const stage = (deal.stage || "").toLowerCase()
+        const isClosedWon = stage.includes("closed won") || stage.includes("fulfilled") || stage.includes("paid")
+        
+        if (isClosedWon) {
+          repStatsMap[repId].closedWonDeals++
+          const amount = parseFloat(deal.amount as any) || 0
+          const commission = amount * 0.10 // 10% rate
+          repStatsMap[repId].dealRevenue += amount
+          repStatsMap[repId].commissions += commission
 
-            if (!repWeeklyStats[ownerId]) repWeeklyStats[ownerId] = {}
-            if (!repWeeklyStats[ownerId][weekKey]) {
-              repWeeklyStats[ownerId][weekKey] = getInitialMetrics()
+          // Aggregates for periods
+          const closeDate = deal.closingDate ? new Date(deal.closingDate) : null
+          if (closeDate) {
+            if (closeDate >= todayStart && closeDate <= todayEnd) {
+              repStatsMap[repId].daily.dealsWon++
             }
-            repWeeklyStats[ownerId][weekKey].closedWonDeals++
-            repWeeklyStats[ownerId][weekKey].commissions += commission
-
-            if (!repMonthlyStats[ownerId]) repMonthlyStats[ownerId] = {}
-            if (!repMonthlyStats[ownerId][monthKey]) {
-              repMonthlyStats[ownerId][monthKey] = getInitialMetrics()
+            if (closeDate >= monday && closeDate <= sunday) {
+              repStatsMap[repId].weekly.dealsWon++
             }
-            repMonthlyStats[ownerId][monthKey].closedWonDeals++
-            repMonthlyStats[ownerId][monthKey].commissions += commission
+            if (closeDate >= firstOfMonth && closeDate <= lastOfMonth) {
+              repStatsMap[repId].monthly.dealsWon++
+            }
           }
         }
       }
     })
 
-    // Calculate margins & determine target records
-    const now = new Date()
-    const currentWeekKey = formatDateKey(getMonday(now))
-    const currentMonthKey = getMonthKey(now)
-
+    // Finalize margins, vig rates, and progress for current period
     Object.keys(repStatsMap).forEach(key => {
       const rep = repStatsMap[key]
       if (rep.revenue > 0) {
         rep.margin = (rep.profit / rep.revenue) * 100
       }
 
-      // Calculate weeklyRecord (excluding currentWeekKey)
-      const weeklyRecord = getInitialMetrics()
-      if (repWeeklyStats[key]) {
-        Object.keys(repWeeklyStats[key]).forEach(w => {
-          if (w === currentWeekKey) return
-          const ws = repWeeklyStats[key][w]
-          if (ws.revenue > weeklyRecord.revenue) weeklyRecord.revenue = ws.revenue
-          if (ws.profit > weeklyRecord.profit) weeklyRecord.profit = ws.profit
-          if (ws.closedWonDeals > weeklyRecord.closedWonDeals) weeklyRecord.closedWonDeals = ws.closedWonDeals
-          if (ws.commissions > weeklyRecord.commissions) weeklyRecord.commissions = ws.commissions
-        })
-      }
-
-      // Current week stats
-      const currentWeek = repWeeklyStats[key]?.[currentWeekKey] || getInitialMetrics()
-
-      // Calculate monthlyRecord (excluding currentMonthKey)
-      const monthlyRecord = getInitialMetrics()
-      if (repMonthlyStats[key]) {
-        Object.keys(repMonthlyStats[key]).forEach(m => {
-          if (m === currentMonthKey) return
-          const ms = repMonthlyStats[key][m]
-          if (ms.revenue > monthlyRecord.revenue) monthlyRecord.revenue = ms.revenue
-          if (ms.profit > monthlyRecord.profit) monthlyRecord.profit = ms.profit
-          if (ms.closedWonDeals > monthlyRecord.closedWonDeals) monthlyRecord.closedWonDeals = ms.closedWonDeals
-          if (ms.commissions > monthlyRecord.commissions) monthlyRecord.commissions = ms.commissions
-        })
-      }
-
-      // Current month stats
-      const currentMonth = repMonthlyStats[key]?.[currentMonthKey] || getInitialMetrics()
-
-      rep.currentWeek = currentWeek
-      rep.weeklyRecord = weeklyRecord
-      rep.currentMonth = currentMonth
-      rep.monthlyRecord = monthlyRecord
+      // Calculate vigRate for the current month based on profit target
+      const isMontgomery = rep.repName && rep.repName.toLowerCase().includes("montgomery") && rep.repName.toLowerCase().includes("morgan")
+      const metGoal = rep.monthly.profit >= rep.monthly.target
+      rep.monthly.vigRate = isMontgomery ? 1.0 : (metGoal ? 1.3 : 1.5)
     })
 
-    // Filter out unassigned and users who have absolutely zero activity to keep list clean
-    // (but keep standard users)
+    // Compute historical vig rates (last 6 months, excluding the current month)
+    // Single bulk query replaces 6 individual findMany calls
+    const historicalVigRates: any[] = []
+    const historyMonths = 6
+
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - historyMonths, 1)
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+
+    const allHistoricalInvoices = await prisma.invoice.findMany({
+      where: {
+        issueDate: { gte: sixMonthsAgo, lte: endOfLastMonth }
+      },
+      select: {
+        issueDate: true,
+        items: true,
+        accountId: true,
+        account: {
+          select: { ownerId: true }
+        }
+      }
+    })
+
+    // Group invoices by month key in JS
+    const invoicesByMonth = new Map<string, typeof allHistoricalInvoices>()
+    for (const inv of allHistoricalInvoices) {
+      if (!inv.issueDate) continue
+      const d = new Date(inv.issueDate)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      if (!invoicesByMonth.has(key)) invoicesByMonth.set(key, [])
+      invoicesByMonth.get(key)!.push(inv)
+    }
+
+    for (let m = 1; m <= historyMonths; m++) {
+      const targetMonthDate = new Date(now.getFullYear(), now.getMonth() - m, 1)
+      const year = targetMonthDate.getFullYear()
+      const monthIdx = targetMonthDate.getMonth() // 0-indexed
+      
+      const monthName = targetMonthDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+      const monthKey = `${year}-${String(monthIdx + 1).padStart(2, '0')}`
+
+      const workdays = getWorkdaysInMonth(year, monthIdx, holidays)
+
+      // Use pre-fetched invoices for this month
+      const monthInvoices = invoicesByMonth.get(monthKey) || []
+
+      // Group profit by rep
+      const repProfit: Record<string, number> = {}
+      users.forEach(u => { repProfit[u.id] = 0 })
+
+      monthInvoices.forEach(inv => {
+        const profit = parseFloat((inv.items as any)?.profit as any) || 0
+        const salespersonName = (inv.items as any)?.salesperson
+        let repId = unassignedId
+        if (salespersonName) {
+          const matchedId = userNameToIdMap[salespersonName.toLowerCase().trim()]
+          if (matchedId) repId = matchedId
+        }
+        if (repId === unassignedId) {
+          repId = inv.account?.ownerId || unassignedId
+        }
+
+        if (repProfit[repId] !== undefined) {
+          repProfit[repId] += profit
+        }
+      })
+
+      // Build stats for each rep based on profit target
+      const repVigs: Record<string, { target: number, sales: number, vigRate: number }> = {}
+      users.forEach(u => {
+        const dailyGoal = salesTargets[u.id] || 0
+        const target = dailyGoal * workdays
+        const profit = repProfit[u.id] || 0
+        const met = profit >= target
+        const isMontgomery = u.name && u.name.toLowerCase().includes("montgomery") && u.name.toLowerCase().includes("morgan")
+        const vigRate = isMontgomery ? 1.0 : (met ? 1.3 : 1.5)
+        repVigs[u.id] = { target, sales: profit, vigRate }
+      })
+
+      historicalVigRates.push({
+        monthKey,
+        monthName,
+        workdays,
+        reps: repVigs
+      })
+    }
+
+    // Explicit allowlist of active rep emails
+    const activeRepEmails = new Set([
+      'bobby@titandiamond.net',
+      'monty@titandiamond.net',
+      'ross@titandiamond.net',
+      'ben@titandiamond.net'
+    ])
+
     const activeReps = Object.values(repStatsMap).filter((rep: any) => {
       if (rep.repId === unassignedId) {
         return rep.revenue > 0 || rep.totalDeals > 0
       }
-      // Keep all seeded reps
-      return true
+      const lowerEmail = (rep.email || "").toLowerCase();
+      // Exclude dummy/test accounts
+      if (lowerEmail.includes('dummy.titandiamond.com') || lowerEmail.includes('example.com')) {
+        return false;
+      }
+      return activeRepEmails.has(lowerEmail) || rep.revenue > 0 || rep.totalDeals > 0;
     })
 
-    // 5. Calculate company totals & averages
-    // Only count users who are actual sales reps or admins with accounts
+    // Calculate company totals & averages
     const companyTotals = {
       revenue: 0,
       profit: 0,
@@ -295,7 +461,6 @@ export const handler: Handler = async (event) => {
     }
 
     let repCountForAvg = 0
-
     activeReps.forEach((rep: any) => {
       if (rep.repId !== unassignedId) {
         companyTotals.revenue += rep.revenue
@@ -329,9 +494,12 @@ export const handler: Handler = async (event) => {
       headers: cors,
       body: JSON.stringify({
         success: true,
-        reps: activeReps.filter((r: any) => r.repId !== unassignedId || r.revenue > 0),
+        reps: activeReps,
         companyTotals,
-        companyAverages
+        companyAverages,
+        historicalVigRates,
+        holidays,
+        salesTargets
       })
     }
 

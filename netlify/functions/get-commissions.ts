@@ -17,10 +17,6 @@ export const handler: Handler = async (event) => {
       const end = new Date(`${parseInt(year) + 1}-01-01`)
       whereClause.closingDate = { gte: start, lt: end }
     }
-    if (repId) {
-      whereClause.ownerId = repId
-    }
-
     const deals = await prisma.deal.findMany({
       where: whereClause,
       include: {
@@ -50,19 +46,11 @@ export const handler: Handler = async (event) => {
       orderBy: { date: "desc" }
     })
 
-    // Commission: 10% of gross revenue
-    const COMMISSION_RATE = 0.10
-    const calcCommission = (amount: number) => {
-      const total = amount * COMMISSION_RATE
-      return { total, upfront: total * 0.5, final: total * 0.5 }
-    }
-
     // Map of users by name to lookup the salesman
     const userByName = new Map(users.map(u => [u.name?.toLowerCase().trim(), u]))
 
     const dealsWithCommission = deals.map(deal => {
       const amount = deal.amount || 0
-      const comm = calcCommission(amount)
       const stage = (deal.stage || "").toLowerCase()
       const isClosed = stage.includes("closed won") || stage.includes("fulfilled") || stage.includes("paid")
       const isLost = stage.includes("closed lost")
@@ -90,6 +78,15 @@ export const handler: Handler = async (event) => {
           invoiceZohoId = matchingInvoice.zohoId
           salespersonName = (matchingInvoice.items as any)?.salesperson
         }
+      }
+
+      // Calculate commission: 10% of profit if available and closed/fulfilled, otherwise fallback to 10% of amount
+      const baseValue = (profit > 0) ? profit : amount
+      const commissionTotal = baseValue * 0.10
+      const comm = {
+        total: commissionTotal,
+        upfront: commissionTotal * 0.5,
+        final: commissionTotal * 0.5
       }
 
       // Check if we have a salesman name that matches a user in our DB
@@ -157,12 +154,22 @@ export const handler: Handler = async (event) => {
       .filter((y): y is number => y !== null)
     const years = [...new Set(allYears)].sort((a, b) => b - a)
 
-    const totalDeals = deals.length
-    const totalRevenue = deals.reduce((s, d) => s + (d.amount || 0), 0)
-    const totalCommissions = dealsWithCommission
+    let finalDeals = dealsWithCommission
+    let finalByRep = byRep
+    if (repId) {
+      finalDeals = dealsWithCommission.filter(d => d.repId === repId)
+      finalByRep = {}
+      if (byRep[repId]) {
+        finalByRep[repId] = byRep[repId]
+      }
+    }
+
+    const totalDeals = finalDeals.length
+    const totalRevenue = finalDeals.reduce((s, d) => s + (d.amount || 0), 0)
+    const totalCommissions = finalDeals
       .filter(d => d.status !== "lost")
       .reduce((s, d) => s + d.commission.total, 0)
-    const totalProfit = dealsWithCommission
+    const totalProfit = finalDeals
       .filter(d => d.status !== "lost")
       .reduce((s, d) => s + d.profit, 0)
 
@@ -171,8 +178,8 @@ export const handler: Handler = async (event) => {
       headers: cors,
       body: JSON.stringify({
         success: true,
-        deals: dealsWithCommission,
-        byRep,
+        deals: finalDeals,
+        byRep: finalByRep,
         users,
         years,
         stats: { totalDeals, totalRevenue, totalCommissions, totalProfit },

@@ -9,12 +9,16 @@ import {
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 
+import { UserSettingsModal } from "@/components/UserSettingsModal"
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { zohoContext: user } = useZoho()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
-  const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
+  const normalizedRole = user?.role?.toLowerCase() || ""
+  const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
 
   const navItems = [
     { href: "/",            icon: FiHome,      label: "Sales Hub",    color: "text-emerald-400" },
@@ -89,15 +93,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* User / Signout at bottom */}
         <div className="mt-auto flex flex-col gap-3 items-center border-t border-neutral-800/60 pt-4 w-full px-2">
           {user && (
-            <div className="relative group cursor-pointer">
-              <div className="w-8 h-8 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center shrink-0">
-                <FiUser size={13} className="text-neutral-300" />
+            <div className="relative group cursor-pointer" onClick={() => setShowSettings(true)}>
+              <div className="w-8 h-8 rounded-full bg-neutral-800 hover:bg-neutral-750 border border-neutral-750 transition-colors flex items-center justify-center shrink-0">
+                <FiUser size={13} className="text-neutral-300 animate-pulse" />
               </div>
               
               {/* User details card on hover */}
               <div className="absolute left-14 bottom-0 bg-neutral-900 border border-neutral-800 rounded-xl p-3 shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 w-44">
                 <div className="text-xs font-bold text-white truncate">{user.name}</div>
                 <div className="text-[10px] text-neutral-500 truncate mt-0.5">{user.role}</div>
+                <div className="text-[9px] text-emerald-400 mt-1 font-bold">Click to edit settings</div>
               </div>
             </div>
           )}
@@ -185,6 +190,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+      {/* User Settings Modal */}
+      <UserSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   )
 }
