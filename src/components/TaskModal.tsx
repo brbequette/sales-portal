@@ -16,6 +16,7 @@ export function TaskModal({
   const [taskSubject, setTaskSubject] = useState("")
   const [taskDescription, setTaskDescription] = useState("")
   const [taskPriority, setTaskPriority] = useState("Normal")
+  const [taskType, setTaskType] = useState("Task")
   const [taskDueDate, setTaskDueDate] = useState("")
   const [taskOwnerId, setTaskOwnerId] = useState("")
   const [taskWhatId, setTaskWhatId] = useState("")
@@ -153,6 +154,7 @@ export function TaskModal({
         subject: taskSubject,
         description: taskDescription,
         priority: taskPriority,
+        type: taskType,
         dueDate: taskDueDate || null,
         status: "Not Started",
         ownerId: taskOwnerId || currentUser?.id,
@@ -215,6 +217,20 @@ export function TaskModal({
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Type</label>
+              <select 
+                value={taskType} 
+                onChange={e => setTaskType(e.target.value)}
+                className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+              >
+                <option value="Task">Task</option>
+                <option value="Call">Call</option>
+                <option value="Email">Email</option>
+                <option value="Text">Text</option>
+                <option value="Processing">Processing</option>
+              </select>
+            </div>
             <div>
               <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Priority</label>
               <select 

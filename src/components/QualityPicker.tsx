@@ -8,6 +8,7 @@ export const CUSTOMER_QUALITIES = [
   { value: "COLD",        label: "❄️ COLD",        color: "bg-sky-900/40 text-sky-400 border-sky-500/30" },
   { value: "ON_HOLD",     label: "⏸️ ON HOLD",     color: "bg-neutral-800 text-neutral-400 border-neutral-700" },
   { value: "DO_NOT_CALL", label: "🚫 DO NOT CALL", color: "bg-red-950 text-red-600 border-red-900/50" },
+  { value: "NEVER_STATUSED", label: "❓ NEVER STATUSED", color: "bg-neutral-800 text-neutral-400 border-neutral-700" },
 ]
 
 export function qualityStyle(quality: string) {
@@ -29,7 +30,7 @@ interface Props {
 export function QualityPicker({ accountId, zohoId, currentQuality, onUpdated, compact = false }: Props) {
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [quality, setQuality] = useState(currentQuality || "WARM")
+  const [quality, setQuality] = useState(currentQuality || "NEVER_STATUSED")
 
   const update = async (newQuality: string) => {
     if (newQuality === quality) { setOpen(false); return }

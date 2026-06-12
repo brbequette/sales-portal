@@ -56,6 +56,13 @@ export default function Dashboard() {
   const [taskOwnerId, setTaskOwnerId] = useState("")
   const [taskStatus, setTaskStatus] = useState("Not Started")
   const [taskWhatId, setTaskWhatId] = useState("")
+  const [taskInvoiceId, setTaskInvoiceId] = useState("")
+  const [taskSalesOrderId, setTaskSalesOrderId] = useState("")
+  const [taskQuoteId, setTaskQuoteId] = useState("")
+  const [taskEstimateId, setTaskEstimateId] = useState("")
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [selectedTransaction, setSelectedTransaction] = useState("")
+  const [loadingTransactions, setLoadingTransactions] = useState(false)
   const [taskSaving, setTaskSaving] = useState(false)
   const [showEditTaskModal, setShowEditTaskModal] = useState(false)
 
@@ -64,6 +71,7 @@ export default function Dashboard() {
   const [isLoadingInvoiceDetails, setIsLoadingInvoiceDetails] = useState(false)
 
   const [taskFilterTab, setTaskFilterTab] = useState<"due" | "pending" | "completed" | "all">("due")
+  const [taskTypeFilter, setTaskTypeFilter] = useState<string>("All")
 
   // Campaign States
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([])
@@ -326,8 +334,95 @@ export default function Dashboard() {
     setTaskOwnerId(currentUser?.id || "")
     setTaskStatus("Not Started")
     setTaskWhatId("")
+    setTaskInvoiceId("")
+    setTaskSalesOrderId("")
+    setTaskQuoteId("")
+    setTaskEstimateId("")
+    setSelectedTransaction("")
   }
 
+
+  useEffect(() => {
+    if (!taskWhatId) {
+      setTransactions([])
+      setSelectedTransaction("")
+      return
+    }
+    const fetchTransactions = async () => {
+      setLoadingTransactions(true)
+      try {
+        const res = await fetch(`/api/get-account-details?id=${encodeURIComponent(taskWhatId)}`)
+        const data = await res.json()
+        if (data.success && data.account) {
+          const txs: any[] = []
+          
+          if (data.account.invoices) {
+            data.account.invoices.forEach((inv: any) => {
+              txs.push({
+                id: inv.id,
+                zohoId: inv.zohoId,
+                type: "Invoice",
+                label: `Invoice: ${inv.zohoId || inv.id} ($${(inv.amount || 0).toLocaleString()})`
+              })
+            })
+          }
+
+          if (data.account.salesOrders) {
+            data.account.salesOrders.forEach((so: any) => {
+              txs.push({
+                id: so.id,
+                zohoId: so.zohoId || so.id,
+                type: "SalesOrder",
+                label: `Sales Order: SO-${so.id} ($${(so.amount || 0).toLocaleString()})`
+              })
+            })
+          }
+
+          if (data.account.quotes) {
+            data.account.quotes.forEach((q: any) => {
+              txs.push({
+                id: q.id,
+                zohoId: q.zohoId || q.id,
+                type: "Quote",
+                label: `Quote: Q-${q.id} ($${(q.amount || 0).toLocaleString()})`
+              })
+            })
+          }
+
+          setTransactions(txs)
+        } else {
+          setTransactions([])
+        }
+      } catch (e) {
+        console.error("Error fetching transactions", e)
+      } finally {
+        setLoadingTransactions(false)
+      }
+    }
+    fetchTransactions()
+  }, [taskWhatId])
+
+  const handleTransactionChange = (val: string) => {
+    setSelectedTransaction(val)
+    if (!val) {
+      setTaskInvoiceId("")
+      setTaskSalesOrderId("")
+      setTaskQuoteId("")
+      setTaskEstimateId("")
+      return
+    }
+    const tx = transactions.find(t => (t.id === val || t.zohoId === val))
+    if (!tx) return
+    
+    setTaskInvoiceId("")
+    setTaskSalesOrderId("")
+    setTaskQuoteId("")
+    setTaskEstimateId("")
+
+    if (tx.type === "Invoice") setTaskInvoiceId(tx.id)
+    if (tx.type === "SalesOrder") setTaskSalesOrderId(tx.id)
+    if (tx.type === "Quote") setTaskQuoteId(tx.id)
+  }
 
   const handleOpenEditTask = (task: any) => {
     setEditingTask(task)
@@ -337,7 +432,26 @@ export default function Dashboard() {
     setTaskDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : "")
     setTaskOwnerId(task.ownerId || currentUser?.id || "")
     setTaskStatus(task.status || "Not Started")
-    setTaskWhatId(task.accountId || "")
+    
+    // Convert local accountId back to Zoho ID for the dropdown if possible
+    let wId = task.accountId || task.dealId || ""
+    if (task.accountId) {
+      const acct = accounts.find(a => a.id === task.accountId)
+      if (acct) wId = acct.zohoId
+    }
+    setTaskWhatId(wId)
+
+    setTaskInvoiceId(task.invoiceId || "")
+    setTaskSalesOrderId(task.salesOrderId || "")
+    setTaskQuoteId(task.quoteId || "")
+    setTaskEstimateId(task.estimateId || "")
+    
+    if (task.invoiceId) setSelectedTransaction(task.invoiceId)
+    else if (task.salesOrderId) setSelectedTransaction(task.salesOrderId)
+    else if (task.quoteId) setSelectedTransaction(task.quoteId)
+    else if (task.estimateId) setSelectedTransaction(task.estimateId)
+    else setSelectedTransaction("")
+
     setShowEditTaskModal(true)
   }
 
@@ -358,7 +472,11 @@ export default function Dashboard() {
           dueDate: taskDueDate || null,
           ownerId: taskOwnerId,
           status: taskStatus,
-          whatId: taskWhatId || null
+          whatId: taskWhatId || null,
+          invoiceId: taskInvoiceId || null,
+          salesOrderId: taskSalesOrderId || null,
+          quoteId: taskQuoteId || null,
+          estimateId: taskEstimateId || null
         })
       })
       const data = await res.json()
@@ -399,6 +517,7 @@ export default function Dashboard() {
   // Prioritize Call List (excluding DO NOT CALL, limit to top 50, sort by quality then lastCalledAt oldest/nulls first)
   const qualityScores: Record<string, number> = {
     HOT: 4,
+    NEVER_STATUSED: 3,
     WARM: 3,
     COLD: 2,
     ON_HOLD: 1,
@@ -471,6 +590,8 @@ export default function Dashboard() {
   })
 
   const filteredTasksList = tasks.filter(task => {
+    if (taskTypeFilter !== "All" && task.type !== taskTypeFilter) return false
+
     if (taskFilterTab === "completed") {
       return task.status === "Completed"
     } else if (taskFilterTab === "due") {
@@ -494,7 +615,7 @@ export default function Dashboard() {
 
   // Count Call List stats for metrics
   const hotCount = callListAccounts.filter(a => a.quality === "HOT").length
-  const warmCount = callListAccounts.filter(a => a.quality === "WARM").length
+  const neverStatusedCount = callListAccounts.filter(a => a.quality === "NEVER_STATUSED").length
 
   // Effort Metrics Config
   const metrics = effort === "sales" ? [
@@ -505,7 +626,7 @@ export default function Dashboard() {
   ] : [
     { id: "queue", label: "Call Queue", value: callListAccounts.length, sub: "Top priority list", icon: <FiPhoneCall />, color: "text-sky-400" },
     { id: "hot", label: "HOT Customers", value: hotCount, sub: "Needs immediate touch", icon: <FiTrendingUp />, color: "text-red-400" },
-    { id: "warm", label: "WARM Customers", value: warmCount, sub: "Steady outreach", icon: <FiUsers />, color: "text-amber-400" },
+    { id: "never_statused", label: "NEVER STATUSED", value: neverStatusedCount, sub: "Needs triage", icon: <FiUsers />, color: "text-amber-400" },
   ]
 
   const accentColor = effort === "sales" ? "emerald" : "sky"
@@ -698,10 +819,10 @@ export default function Dashboard() {
                   setDrillType("accounts")
                   setDrillTitle("HOT Call Queue Accounts")
                   setDrillItems(callListAccounts.filter(a => a.quality === "HOT"))
-                } else if (m.id === "warm") {
+                } else if (m.id === "never_statused") {
                   setDrillType("accounts")
-                  setDrillTitle("WARM Call Queue Accounts")
-                  setDrillItems(callListAccounts.filter(a => a.quality === "WARM"))
+                  setDrillTitle("NEVER STATUSED Accounts")
+                  setDrillItems(callListAccounts.filter(a => a.quality === "NEVER_STATUSED"))
                 }
               }
             }}>
@@ -987,7 +1108,7 @@ export default function Dashboard() {
                                 <QualityPicker
                                   zohoId={account.zohoId}
                                   accountId={account.id}
-                                  currentQuality={account.quality || "WARM"}
+                                  currentQuality={account.quality || "NEVER_STATUSED"}
                                   compact
                                   onUpdated={(newQuality) => {
                                     setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, quality: newQuality } : a))
@@ -1162,6 +1283,22 @@ export default function Dashboard() {
               >
                 All Tasks
               </button>
+            </div>
+
+            <div className="flex items-center gap-2 mb-3 mt-4">
+              <label className="text-xs font-semibold text-neutral-400">Type:</label>
+              <select 
+                value={taskTypeFilter} 
+                onChange={e => setTaskTypeFilter(e.target.value)}
+                className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+              >
+                <option value="All">All Types</option>
+                <option value="Task">Task</option>
+                <option value="Call">Call</option>
+                <option value="Email">Email</option>
+                <option value="Text">Text</option>
+                <option value="Processing">Processing</option>
+              </select>
             </div>
 
             {/* Tasks List Container */}
@@ -1618,6 +1755,72 @@ export default function Dashboard() {
                   ))}
                 </select>
               </div>
+              {taskWhatId && (
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Link to Transaction (Optional)</label>
+                  {loadingTransactions ? (
+                    <p className="text-xs text-neutral-500 animate-pulse italic">Loading account documents...</p>
+                  ) : (
+                    <select
+                      value={selectedTransaction}
+                      onChange={e => handleTransactionChange(e.target.value)}
+                      className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    >
+                      <option value="">-- No Linked Document --</option>
+                      {transactions.map(t => (
+                        <option key={t.id || t.zohoId} value={t.id || t.zohoId}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+              <div className="border-t border-neutral-800 pt-3 mt-2">
+                <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Linked Documents (Optional)</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Estimate ID</label>
+                    <input 
+                      type="text" 
+                      value={taskEstimateId} 
+                      onChange={e => setTaskEstimateId(e.target.value)} 
+                      placeholder="e.g. EST-12345"
+                      className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Sales Order ID</label>
+                    <input 
+                      type="text" 
+                      value={taskSalesOrderId} 
+                      onChange={e => setTaskSalesOrderId(e.target.value)} 
+                      placeholder="e.g. SO-12345"
+                      className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Quote ID</label>
+                    <input 
+                      type="text" 
+                      value={taskQuoteId} 
+                      onChange={e => setTaskQuoteId(e.target.value)} 
+                      placeholder="e.g. Q-12345"
+                      className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Invoice ID</label>
+                    <input 
+                      type="text" 
+                      value={taskInvoiceId} 
+                      onChange={e => setTaskInvoiceId(e.target.value)} 
+                      placeholder="e.g. INV-12345"
+                      className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
               <div className="pt-4 flex justify-end gap-2 border-t border-neutral-800">
                 <button 
                   type="button" 
@@ -1866,7 +2069,7 @@ export default function Dashboard() {
       )}
       {showCallCampaignModal && createPortal(
         <SalesCallCampaignModal
-          accounts={accounts.filter(a => selectedAccountIds.includes(a.id))}
+          accounts={accounts.filter(a => selectedAccountIds.includes(a.id) && a.ownerId === currentUser?.id)}
           onClose={() => setShowCallCampaignModal(false)}
           onRefresh={fetchLocalData}
         />,

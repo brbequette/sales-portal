@@ -12,15 +12,37 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { taskId, zohoId, subject, description, priority, dueDate, ownerId, status, whatId } = body
+    const { taskId, zohoId, subject, description, priority, dueDate, ownerId, status, whatId, invoiceId, salesOrderId, quoteId, estimateId, type } = body
 
     if (!zohoId) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing zohoId parameter" }) }
     }
 
     const taskData: any = { id: zohoId }
-    if (subject) taskData.Subject = subject
-    if (description !== undefined) taskData.Description = description || null
+    let capSubject = subject
+    if (subject) {
+      capSubject = subject.charAt(0).toUpperCase() + subject.slice(1)
+      taskData.Subject = capSubject
+    }
+
+    let capDesc = description ? description.charAt(0).toUpperCase() + description.slice(1) : (description || "")
+    let finalDescription = capDesc
+    const extraDescLines = []
+    if (invoiceId) extraDescLines.push(`Linked Invoice: ${invoiceId}`)
+    if (salesOrderId) extraDescLines.push(`Linked Sales Order: ${salesOrderId}`)
+    if (quoteId) extraDescLines.push(`Linked Quote: ${quoteId}`)
+    if (estimateId) extraDescLines.push(`Linked Estimate: ${estimateId}`)
+    
+    if (extraDescLines.length > 0) {
+      finalDescription = (finalDescription + "\n\n" + extraDescLines.join("\n")).trim()
+    }
+
+    if (finalDescription) {
+      taskData.Description = finalDescription
+    } else if (description === "") {
+      taskData.Description = null
+    }
+
     if (priority) taskData.Priority = priority
     if (status) taskData.Status = status
     if (dueDate !== undefined) {
@@ -76,16 +98,22 @@ export const handler: Handler = async (event, context) => {
 
     // Update locally
     const localUpdateData: any = {}
-    if (subject) localUpdateData.subject = subject
-    if (description !== undefined) localUpdateData.description = description || null
+    if (subject) localUpdateData.subject = capSubject
+    if (description !== undefined) localUpdateData.description = capDesc || null
     if (priority) localUpdateData.priority = priority
     if (status) localUpdateData.status = status
+    if (type) localUpdateData.type = type
     if (dueDate !== undefined) {
       localUpdateData.dueDate = dueDate ? new Date(dueDate) : null
     }
     if (resolvedOwnerId) {
       localUpdateData.ownerId = resolvedOwnerId
     }
+    
+    if (invoiceId !== undefined) localUpdateData.invoiceId = invoiceId || null
+    if (salesOrderId !== undefined) localUpdateData.salesOrderId = salesOrderId || null
+    if (quoteId !== undefined) localUpdateData.quoteId = quoteId || null
+    if (estimateId !== undefined) localUpdateData.estimateId = estimateId || null
 
     if (whatId !== undefined) {
       if (whatId) {

@@ -3,7 +3,9 @@ import { FiDollarSign, FiCalendar, FiBox, FiCheckCircle } from 'react-icons/fi'
 import { usePagination, Pagination } from './Pagination'
 
 export function DealsHistory({ deals }: { deals: any[] }) {
-  const pagination = usePagination(deals)
+  const [showLost, setShowLost] = React.useState(false)
+  const filteredDeals = showLost ? deals : deals.filter(d => !d.stage?.includes('Lost'))
+  const pagination = usePagination(filteredDeals)
   if (!deals || deals.length === 0) {
     return (
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 text-center text-neutral-500">
@@ -14,9 +16,23 @@ export function DealsHistory({ deals }: { deals: any[] }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold text-white flex items-center mb-4">
-        <FiDollarSign className="mr-2 text-emerald-500" /> Deals & Sales History
-      </h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-bold text-white flex items-center">
+          <FiDollarSign className="mr-2 text-emerald-500" /> Deals & Sales History
+        </h3>
+        {deals.some(d => d.stage?.includes('Lost')) && (
+          <label className="flex items-center cursor-pointer">
+            <div className="relative">
+              <input type="checkbox" className="sr-only" checked={showLost} onChange={() => setShowLost(!showLost)} />
+              <div className={`block w-10 h-6 rounded-full transition-colors ${showLost ? 'bg-red-500' : 'bg-neutral-700'}`}></div>
+              <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${showLost ? 'transform translate-x-4' : ''}`}></div>
+            </div>
+            <div className="ml-3 text-xs font-medium text-neutral-400 uppercase tracking-wider">
+              Show Lost Deals
+            </div>
+          </label>
+        )}
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
         {pagination.paginatedItems.map(deal => (
@@ -60,11 +76,11 @@ export function DealsHistory({ deals }: { deals: any[] }) {
           </div>
         ))}
       </div>
-      {pagination.pageSize !== "All" && deals.length > (pagination.pageSize as number) && (
+      {pagination.pageSize !== "All" && filteredDeals.length > (pagination.pageSize as number) && (
         <Pagination
           currentPage={pagination.currentPage}
           pageSize={pagination.pageSize}
-          totalItems={deals.length}
+          totalItems={filteredDeals.length}
           onPageChange={pagination.setCurrentPage}
           onPageSizeChange={pagination.setPageSize}
         />

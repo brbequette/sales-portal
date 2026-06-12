@@ -157,7 +157,7 @@ function AccountHubContent() {
                 <QualityPicker
                   zohoId={account.zohoId}
                   accountId={account.id}
-                  currentQuality={account.quality || "WARM"}
+                  currentQuality={account.quality || "NEVER_STATUSED"}
                   onUpdated={(newQuality) => setAccount((a: any) => ({ ...a, quality: newQuality }))}
                 />
                 {account.industry && <span className="text-[10px] text-neutral-500 hidden sm:inline">{account.industry}</span>}

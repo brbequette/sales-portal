@@ -60,6 +60,12 @@ export const handler: Handler = async (event) => {
               sentiment: "neutral",
             }
           })
+
+          // Push Note to Zoho CRM
+          if (account.zohoId) {
+            const { pushZohoNote } = await import("./lib/zoho-auth")
+            await pushZohoNote(account.zohoId, `Account Status Updated`, `Status changed to "${status}"${note ? `: ${note}` : ""}`)
+          }
         }
       }
 

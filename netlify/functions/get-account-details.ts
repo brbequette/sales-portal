@@ -29,7 +29,10 @@ export const handler: Handler = async (event, context) => {
       account = await prisma.account.findUnique({
         where: { zohoId: id },
         include: {
-          invoices: { orderBy: { issueDate: 'desc' } },
+          invoices: { 
+            where: { status: { notIn: ['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft'] } },
+            orderBy: { issueDate: 'desc' } 
+          },
           salesOrders: { orderBy: { orderDate: 'desc' } },
           quotes: { orderBy: { createdAt: 'desc' } },
           deals: { orderBy: { closingDate: 'desc' } },
@@ -43,7 +46,10 @@ export const handler: Handler = async (event, context) => {
         account = await prisma.account.findUnique({
           where: { id: id },
           include: {
-            invoices: { orderBy: { issueDate: 'desc' } },
+            invoices: { 
+              where: { status: { notIn: ['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft'] } },
+              orderBy: { issueDate: 'desc' } 
+            },
             salesOrders: { orderBy: { orderDate: 'desc' } },
             quotes: { orderBy: { createdAt: 'desc' } },
             deals: { orderBy: { closingDate: 'desc' } },

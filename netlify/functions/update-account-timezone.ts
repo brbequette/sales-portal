@@ -1,5 +1,8 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient } from "@prisma/client"
+import { getZohoAccessToken } from "./lib/zoho-auth"
+
+const ZOHO_DC = process.env.ZOHO_DC || 'com'
 
 const prisma = new PrismaClient()
 
@@ -46,6 +49,30 @@ export const handler: Handler = async (event) => {
         where: { id: account.id },
         data: { timeZone }
       })
+
+      // Push to Zoho CRM
+      if (account.zohoId) {
+        try {
+          const token = await getZohoAccessToken()
+          const baseUrl = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`
+          await fetch(`${baseUrl}/${account.zohoId}`, {
+            method: "PUT",
+            headers: {
+              Authorization: `Zoho-oauthtoken ${token}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              data: [
+                {
+                  Time_Zone: timeZone || ""
+                }
+              ]
+            })
+          })
+        } catch (syncErr) {
+          console.error("Failed to push timezone to Zoho CRM:", syncErr)
+        }
+      }
 
       // Log a history note if requested
       const owner = await prisma.user.findUnique({ where: { id: account.ownerId || "" } })

@@ -24,28 +24,7 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Account Name is required" }) }
     }
 
-    // Resolve owner's zohoId
-    let ownerZohoId = null
-    let ownerId = repId
-    if (repId) {
-      const rep = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { id: repId },
-            { zohoId: repId },
-            { email: repId }
-          ]
-        }
-      })
-      if (rep) {
-        ownerId = rep.id
-        if (rep.zohoId && !rep.zohoId.startsWith('mock-')) {
-          ownerZohoId = rep.zohoId
-        }
-      } else {
-        ownerId = null
-      }
-    }
+    // Ignore creator repId, we will let CRM assign owner
 
     const token = await getZohoAccessToken();
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/crm/v3`;
@@ -73,17 +52,16 @@ export const handler: Handler = async (event) => {
       accountPayload.Tag = tags.split(',').map((t: string) => ({ name: t.trim() })).filter((t: any) => t.name)
     }
 
-    if (ownerZohoId) {
-      accountPayload.Owner = { id: ownerZohoId }
-    }
-
     const crmRes = await fetch(`${baseUrl}/Accounts`, {
       method: 'POST',
       headers: {
         'Authorization': `Zoho-oauthtoken ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ data: [accountPayload] })
+      body: JSON.stringify({ 
+        data: [accountPayload],
+        trigger: ["assignment_rule", "workflow", "blueprint"]
+      })
     })
 
     const crmData = await crmRes.json()
@@ -118,8 +96,35 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // 3. Create Account in Prisma Local DB
-    // Find a fallback owner if ownerId wasn't passed or doesn't exist
+    // Fetch the newly created account from Zoho CRM to find out who the CRM assigned it to
+    let ownerId = null
+    const fetchRes = await fetch(`${baseUrl}/Accounts/${newAccountId}`, {
+      headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
+    })
+    
+    if (fetchRes.ok) {
+      const fetchData = await fetchRes.json()
+      const record = fetchData.data?.[0]
+      const ownerZohoId = record?.Owner?.id
+      const ownerName = record?.Owner?.name
+      
+      if (ownerZohoId) {
+        let dbOwner = await prisma.user.findUnique({ where: { zohoId: ownerZohoId } })
+        if (!dbOwner) {
+          dbOwner = await prisma.user.create({
+            data: {
+              zohoId: ownerZohoId,
+              name: ownerName || "Unknown Owner",
+              email: `${ownerZohoId}@dummy.titandiamond.com`,
+              role: "Sales Representative"
+            }
+          })
+        }
+        ownerId = dbOwner.id
+      }
+    }
+
+    // Fallback if we couldn't fetch or map the owner
     if (!ownerId) {
       const fallbackUser = await prisma.user.findFirst()
       if (fallbackUser) ownerId = fallbackUser.id
@@ -132,7 +137,7 @@ export const handler: Handler = async (event) => {
         industry: industry || null,
         tags: tags || null,
         status: 'Open',
-        quality: 'WARM',
+        quality: 'NEVER_STATUSED',
         ownerId: ownerId,
       }
     })

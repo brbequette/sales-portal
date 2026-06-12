@@ -77,6 +77,7 @@ export const handler: Handler = async (event, context) => {
             status = 'Personal' // Recently bought
           }
         }
+        const timeZone = record.Time_Zone || record.Timezone || record.timeZone || record.timezone || null;
 
         accountOps.push(
           prisma.account.upsert({
@@ -87,6 +88,7 @@ export const handler: Handler = async (event, context) => {
               status: status,
               lastPurchaseAt: lastPurchaseDate,
               ownerId: owner.id,
+              timeZone: timeZone,
             },
             create: {
               zohoId: record.id,
@@ -95,6 +97,7 @@ export const handler: Handler = async (event, context) => {
               status: status,
               lastPurchaseAt: lastPurchaseDate,
               ownerId: owner.id,
+              timeZone: timeZone,
             }
           })
         )

@@ -4,14 +4,15 @@ import { PrismaClient } from "@prisma/client"
 const prisma = new PrismaClient()
 
 // Workday calculation helpers
-function getWorkdaysCount(startDate: Date, endDate: Date, holidays: string[]): number {
+function getWorkdaysCount(startDate: Date, endDate: Date, holidays: any[]): number {
   let count = 0;
   const cur = new Date(startDate);
   cur.setHours(0,0,0,0);
   const targetEnd = new Date(endDate);
   targetEnd.setHours(0,0,0,0);
   
-  const holidaySet = new Set(holidays);
+  const holidayStrings = holidays.map(h => typeof h === 'string' ? h : h.date);
+  const holidaySet = new Set(holidayStrings);
 
   while (cur <= targetEnd) {
     const day = cur.getDay();
@@ -26,13 +27,13 @@ function getWorkdaysCount(startDate: Date, endDate: Date, holidays: string[]): n
   return count;
 }
 
-function getWorkdaysInMonth(year: number, month: number, holidays: string[]): number {
+function getWorkdaysInMonth(year: number, month: number, holidays: any[]): number {
   const startDate = new Date(year, month, 1);
   const endDate = new Date(year, month + 1, 0); // Last day of month
   return getWorkdaysCount(startDate, endDate, holidays);
 }
 
-function getWorkdaysInWeek(date: Date, holidays: string[]): number {
+function getWorkdaysInWeek(date: Date, holidays: any[]): number {
   // Find Monday of the week
   const monday = new Date(date);
   const day = monday.getDay();
@@ -65,6 +66,7 @@ export const handler: Handler = async (event) => {
     const settingsMap = new Map(settings.map(s => [s.key, s.value]))
     const holidays: string[] = JSON.parse(settingsMap.get("holidays") || "[]")
     const salesTargets: Record<string, number> = JSON.parse(settingsMap.get("sales_targets") || "{}")
+    const subtotalTargets: Record<string, number> = JSON.parse(settingsMap.get("subtotal_targets") || "{}")
 
     // 2. Fetch all users (excluding inactive dummy/test users)
     const users = await prisma.user.findMany({
@@ -75,7 +77,15 @@ export const handler: Handler = async (event) => {
           { NOT: { name: { contains: "test_migration" } } }
         ]
       },
-      select: { id: true, name: true, email: true, role: true },
+      select: { 
+        id: true, 
+        name: true, 
+        email: true, 
+        role: true,
+        constantVigEnabled: true,
+        constantVigValue: true,
+        monthlyVigGoals: true
+      },
       orderBy: { name: "asc" }
     })
 
@@ -160,12 +170,19 @@ export const handler: Handler = async (event) => {
       const dailyGoal = salesTargets[u.id] || 0
       const weeklyGoal = dailyGoal * workdaysInWeek
       const monthlyGoal = dailyGoal * workdaysInMonth
+      
+      const dailySubtotalGoal = subtotalTargets[u.id] || (dailyGoal * 2)
+      const weeklySubtotalGoal = dailySubtotalGoal * workdaysInWeek
+      const monthlySubtotalGoal = dailySubtotalGoal * workdaysInMonth
 
       repStatsMap[u.id] = {
         repId: u.id,
         repName: u.name || u.email.split("@")[0],
         email: u.email,
         role: u.role,
+        constantVigEnabled: u.constantVigEnabled,
+        constantVigValue: u.constantVigValue,
+        monthlyVigGoals: u.monthlyVigGoals,
         // All-time totals
         revenue: 0,
         profit: 0,
@@ -182,7 +199,10 @@ export const handler: Handler = async (event) => {
         salesTargets: {
           daily: dailyGoal,
           weekly: weeklyGoal,
-          monthly: monthlyGoal
+          monthly: monthlyGoal,
+          dailySubtotal: dailySubtotalGoal,
+          weeklySubtotal: weeklySubtotalGoal,
+          monthlySubtotal: monthlySubtotalGoal
         },
 
         // Periodic breakdowns
@@ -197,6 +217,9 @@ export const handler: Handler = async (event) => {
       repName: "Unassigned",
       email: "",
       role: "",
+      constantVigEnabled: false,
+      constantVigValue: 1.5,
+      monthlyVigGoals: [],
       revenue: 0,
       profit: 0,
       margin: 0,
@@ -207,7 +230,7 @@ export const handler: Handler = async (event) => {
       dealRevenue: 0,
       commissions: 0,
       overdueCollections: 0,
-      salesTargets: { daily: 0, weekly: 0, monthly: 0 },
+      salesTargets: { daily: 0, weekly: 0, monthly: 0, dailySubtotal: 0, weeklySubtotal: 0, monthlySubtotal: 0 },
       daily: { revenue: 0, profit: 0, dealsWon: 0, target: 0 },
       weekly: { revenue: 0, profit: 0, dealsWon: 0, target: 0 },
       monthly: { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
@@ -336,25 +359,57 @@ export const handler: Handler = async (event) => {
       }
 
       // Calculate vigRate for the current month based on profit target
-      const isMontgomery = rep.repName && rep.repName.toLowerCase().includes("montgomery") && rep.repName.toLowerCase().includes("morgan")
-      const metGoal = rep.monthly.profit >= rep.monthly.target
-      rep.monthly.vigRate = isMontgomery ? 1.0 : (metGoal ? 1.3 : 1.5)
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const dailyGoal = rep.salesTargets?.daily || 0;
+      const defaultProfitGoal = dailyGoal * workdaysInMonth;
+      const defaultSubtotalGoal = defaultProfitGoal * 2;
+      
+      const vigGoal = rep.monthlyVigGoals?.find((g: any) => g.monthKey === currentMonthKey) || {
+        metric: 'PROFIT',
+        profitGoal: defaultProfitGoal || 20000,
+        subtotalGoal: defaultSubtotalGoal || 40000,
+        manualVigRate: null
+      };
+
+      if (rep.constantVigEnabled && rep.constantVigValue !== null) {
+        rep.monthly.vigRate = rep.constantVigValue;
+      } else if (vigGoal.manualVigRate !== null) {
+        rep.monthly.vigRate = vigGoal.manualVigRate;
+      } else {
+        const target = vigGoal.metric === 'SUBTOTAL' ? vigGoal.subtotalGoal : vigGoal.profitGoal;
+        const actual = vigGoal.metric === 'SUBTOTAL' ? rep.monthly.revenue : rep.monthly.profit;
+        const metGoal = actual >= target;
+        // Keep Montgomery hardcode fallback if constantVig is not enabled yet
+        const isMontgomery = rep.repName && rep.repName.toLowerCase().includes("montgomery") && rep.repName.toLowerCase().includes("morgan");
+        rep.monthly.vigRate = isMontgomery ? 1.0 : (metGoal ? 1.3 : 1.5);
+      }
     })
 
-    // Compute historical vig rates (last 6 months, excluding the current month)
-    // Single bulk query replaces 6 individual findMany calls
+    // Compute historical vig rates (ALL TIME)
     const historicalVigRates: any[] = []
-    const historyMonths = 6
+    
+    // Find the oldest invoice date
+    const oldestInvoice = await prisma.invoice.findFirst({
+      orderBy: { issueDate: 'asc' },
+      select: { issueDate: true }
+    });
+    
+    let historyMonths = 6; // default fallback
+    if (oldestInvoice?.issueDate) {
+      const oldestDate = new Date(oldestInvoice.issueDate);
+      const monthsDiff = (now.getFullYear() - oldestDate.getFullYear()) * 12 + (now.getMonth() - oldestDate.getMonth());
+      historyMonths = Math.max(1, monthsDiff);
+    }
 
-    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - historyMonths, 1)
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
 
     const allHistoricalInvoices = await prisma.invoice.findMany({
       where: {
-        issueDate: { gte: sixMonthsAgo, lte: endOfLastMonth }
+        issueDate: { lte: endOfLastMonth }
       },
       select: {
         issueDate: true,
+        amount: true,
         items: true,
         accountId: true,
         account: {
@@ -386,12 +441,17 @@ export const handler: Handler = async (event) => {
       // Use pre-fetched invoices for this month
       const monthInvoices = invoicesByMonth.get(monthKey) || []
 
-      // Group profit by rep
+      // Group profit and subtotal by rep
       const repProfit: Record<string, number> = {}
-      users.forEach(u => { repProfit[u.id] = 0 })
+      const repSubtotal: Record<string, number> = {}
+      users.forEach(u => { 
+        repProfit[u.id] = 0;
+        repSubtotal[u.id] = 0;
+      })
 
       monthInvoices.forEach(inv => {
         const profit = parseFloat((inv.items as any)?.profit as any) || 0
+        const subtotal = parseFloat(inv.amount as any) || 0
         const salespersonName = (inv.items as any)?.salesperson
         let repId = unassignedId
         if (salespersonName) {
@@ -404,19 +464,55 @@ export const handler: Handler = async (event) => {
 
         if (repProfit[repId] !== undefined) {
           repProfit[repId] += profit
+          repSubtotal[repId] += subtotal
         }
       })
 
-      // Build stats for each rep based on profit target
-      const repVigs: Record<string, { target: number, sales: number, vigRate: number }> = {}
+      // Build stats for each rep based on DB targets or defaults
+      const repVigs: Record<string, { metric: string, target: number, subtotalGoal: number, profitGoal: number, sales: number, profit: number, subtotal: number, vigRate: number, manualVigRate: number | null }> = {}
       users.forEach(u => {
-        const dailyGoal = salesTargets[u.id] || 0
-        const target = dailyGoal * workdays
-        const profit = repProfit[u.id] || 0
-        const met = profit >= target
-        const isMontgomery = u.name && u.name.toLowerCase().includes("montgomery") && u.name.toLowerCase().includes("morgan")
-        const vigRate = isMontgomery ? 1.0 : (met ? 1.3 : 1.5)
-        repVigs[u.id] = { target, sales: profit, vigRate }
+        const dailyGoal = salesTargets[u.id] || 0;
+        const defaultProfitGoal = dailyGoal * workdays;
+        
+        const dailySubtotalGoal = subtotalTargets[u.id] || (dailyGoal * 2);
+        const defaultSubtotalGoal = dailySubtotalGoal * workdays;
+
+        const vigGoal = (u as any).monthlyVigGoals?.find((g: any) => g.monthKey === monthKey) || {
+          metric: 'PROFIT',
+          profitGoal: defaultProfitGoal || 20000,
+          subtotalGoal: defaultSubtotalGoal || 40000,
+          manualVigRate: null
+        };
+        
+        const profit = repProfit[u.id] || 0;
+        const subtotal = repSubtotal[u.id] || 0;
+        
+        const target = vigGoal.metric === 'SUBTOTAL' ? vigGoal.subtotalGoal : vigGoal.profitGoal;
+        const actual = vigGoal.metric === 'SUBTOTAL' ? subtotal : profit;
+        
+        let vigRate = 1.5;
+        
+        if ((u as any).constantVigEnabled && (u as any).constantVigValue !== null) {
+          vigRate = (u as any).constantVigValue;
+        } else if (vigGoal.manualVigRate !== null) {
+          vigRate = vigGoal.manualVigRate;
+        } else {
+          const met = actual >= target;
+          const isMontgomery = u.name && u.name.toLowerCase().includes("montgomery") && u.name.toLowerCase().includes("morgan");
+          vigRate = isMontgomery ? 1.0 : (met ? 1.3 : 1.5);
+        }
+        
+        repVigs[u.id] = { 
+          metric: vigGoal.metric,
+          target, 
+          profitGoal: vigGoal.profitGoal,
+          subtotalGoal: vigGoal.subtotalGoal,
+          sales: actual, // for backward compatibility in UI
+          profit,
+          subtotal,
+          vigRate,
+          manualVigRate: vigGoal.manualVigRate
+        }
       })
 
       historicalVigRates.push({

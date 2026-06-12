@@ -34,6 +34,9 @@ type Invoice = {
   customer_id: string
   profit?: number
   dead_cost?: number
+  account?: {
+    ownerId?: string | null
+  } | null
 }
 
 type CallOutcome =
@@ -1630,7 +1633,7 @@ export default function CollectionsPage() {
 
       {showCallCampaign && (
         <CallCampaignModal
-          invoices={invoices}
+          invoices={invoices.filter(inv => inv.account?.ownerId === user?.id)}
           onClose={() => setShowCallCampaign(false)}
           onRefresh={fetchInvoices}
         />

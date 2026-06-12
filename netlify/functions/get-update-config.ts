@@ -20,14 +20,21 @@ export const handler: Handler = async (event) => {
     const settingsMap = new Map(settings.map(s => [s.key, s.value]))
 
     const usHolidays = [
-      "2026-01-01", "2026-01-19", "2026-02-16", "2026-05-25", "2026-06-19",
-      "2026-07-04", "2026-09-07", "2026-10-12", "2026-11-11", "2026-11-26", "2026-12-25",
-      "2027-01-01", "2027-01-18", "2027-02-15", "2027-05-31", "2027-06-18",
-      "2027-07-05", "2027-09-06", "2027-10-11", "2027-11-11", "2027-11-25", "2027-12-24"
+      { date: "2026-01-01", name: "New Year's Day" },
+      { date: "2026-01-19", name: "Martin Luther King Jr. Day" },
+      { date: "2026-02-16", name: "Presidents' Day" },
+      { date: "2026-05-25", name: "Memorial Day" },
+      { date: "2026-06-19", name: "Juneteenth" },
+      { date: "2026-07-04", name: "Independence Day" },
+      { date: "2026-09-07", name: "Labor Day" },
+      { date: "2026-10-12", name: "Columbus Day" },
+      { date: "2026-11-11", name: "Veterans Day" },
+      { date: "2026-11-26", name: "Thanksgiving Day" },
+      { date: "2026-12-25", name: "Christmas Day" }
     ]
 
     const existingHolidays = settingsMap.get("holidays")
-    let holidaysList: string[] = []
+    let holidaysList: any[] = []
     // If setting is entirely missing, seed US government holidays
     if (existingHolidays === undefined) {
       holidaysList = usHolidays
@@ -48,6 +55,7 @@ export const handler: Handler = async (event) => {
       group4RepId: settingsMap.get("update_group_4_rep_id") || "",
       holidays: holidaysList,
       salesTargets: JSON.parse(settingsMap.get("sales_targets") || "{}"),
+      subtotalTargets: JSON.parse(settingsMap.get("subtotal_targets") || "{}"),
     }
 
     // 2. Fetch all sales reps and admins (to assign)

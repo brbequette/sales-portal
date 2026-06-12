@@ -14,12 +14,16 @@ export const handler: Handler = async (event, context) => {
     const body = JSON.parse(event.body || "{}")
     const { 
       subject, description, priority, dueDate, ownerId, whatId, status = "Not Started",
-      invoiceId, salesOrderId, quoteId, estimateId
+      invoiceId, salesOrderId, quoteId, estimateId, type = "Task"
     } = body
 
     if (!subject || !ownerId) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing required fields (subject, ownerId)" }) }
     }
+
+    // Capitalize inputs
+    const capSubject = subject.charAt(0).toUpperCase() + subject.slice(1)
+    const capDesc = description ? description.charAt(0).toUpperCase() + description.slice(1) : ""
 
     const token = await getZohoAccessToken()
     
@@ -38,7 +42,7 @@ export const handler: Handler = async (event, context) => {
 
     // Prepare payload for Zoho
     const taskData: any = {
-      Subject: subject,
+      Subject: capSubject,
       Status: status,
       Priority: priority || "Normal",
       Owner: { id: user.zohoId }
@@ -48,7 +52,7 @@ export const handler: Handler = async (event, context) => {
       taskData.Due_Date = new Date(dueDate).toISOString().split('T')[0] // format YYYY-MM-DD
     }
     
-    let finalDescription = description || ""
+    let finalDescription = capDesc
     const extraDescLines = []
     if (invoiceId) extraDescLines.push(`Linked Invoice: ${invoiceId}`)
     if (salesOrderId) extraDescLines.push(`Linked Sales Order: ${salesOrderId}`)
@@ -108,18 +112,19 @@ export const handler: Handler = async (event, context) => {
     const newTask = await prisma.task.create({
       data: {
         zohoId: newZohoId,
-        subject,
-        description,
-        priority: priority || "Normal",
+        subject: capSubject,
+        description: finalDescription,
         status: status,
+        priority: priority || "Normal",
         dueDate: dueDate ? new Date(dueDate) : null,
         ownerId: user.id,
-        accountId,
-        dealId,
+        accountId: accountId,
+        dealId: dealId,
         invoiceId: invoiceId || null,
         salesOrderId: salesOrderId || null,
         quoteId: quoteId || null,
-        estimateId: estimateId || null
+        estimateId: estimateId || null,
+        type: type
       }
     })
 

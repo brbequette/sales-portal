@@ -93,3 +93,36 @@ export async function getZohoAccessToken() {
 
   throw new Error('No Zoho access token available. Please set ZOHO_REFRESH_TOKEN in Environment Variables.');
 }
+
+export async function pushZohoNote(accountId: string, title: string, content: string) {
+  try {
+    const token = await getZohoAccessToken()
+    const baseUrl = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Notes`
+    const zohoPayload = {
+      data: [{
+        Note_Title: title,
+        Note_Content: content,
+        Parent_Id: {
+          id: accountId
+        },
+        $se_module: "Accounts"
+      }]
+    }
+
+    const res = await fetch(baseUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Zoho-oauthtoken ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(zohoPayload)
+    })
+    
+    const data = await res.json()
+    if (data?.data?.[0]?.code !== "SUCCESS") {
+      console.warn("Zoho CRM Note push returned non-success:", data)
+    }
+  } catch (err: any) {
+    console.error("pushZohoNote failed:", err.message)
+  }
+}

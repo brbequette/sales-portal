@@ -186,6 +186,12 @@ export const handler: Handler = async (event) => {
       }),
     ])
 
+    // Push Note to Zoho CRM
+    if (account.zohoId) {
+      const { pushZohoNote } = await import("./lib/zoho-auth")
+      await pushZohoNote(account.zohoId, `Sales Call Log: ${outcomeLabels[outcome] || outcome}`, fullContent)
+    }
+
     // ── Follow-up task ───────────────────────────────────────────────
     if (followUpDate) {
       try {

@@ -142,6 +142,13 @@ export const handler: Handler = async (event, context) => {
             // Resolve internal owner user reference
             const internalOwner = userMap.get(ownerId) || user
 
+            const subjLower = (task.Subject || "").toLowerCase()
+            let inferredType = "Task"
+            if (subjLower.includes("call")) inferredType = "Call"
+            else if (subjLower.includes("email")) inferredType = "Email"
+            else if (subjLower.includes("text") || subjLower.includes("sms")) inferredType = "Text"
+            else if (subjLower.includes("processing") || subjLower.includes("process")) inferredType = "Processing"
+
             taskOps.push(
               prisma.task.upsert({
                 where: { zohoId: task.id },
@@ -154,7 +161,8 @@ export const handler: Handler = async (event, context) => {
                   description: task.Description || null,
                   ownerId: internalOwner.id,
                   accountId: accountId,
-                  dealId: dealId
+                  dealId: dealId,
+                  type: inferredType
                 },
                 update: {
                   subject: task.Subject || "Untitled Task",

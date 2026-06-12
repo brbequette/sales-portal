@@ -20,6 +20,9 @@ model User {
   notes     Note[]
   tasks     Task[]    // Tasks assigned to this sales rep
   payouts   Payout[]  // Commission payouts for this sales rep
+  constantVigEnabled Boolean @default(false)
+  constantVigValue   Float?  @default(1.5)
+  monthlyVigGoals    MonthlyVigGoal[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -181,6 +184,7 @@ model Task {
   description String?
   status      String   @default("Not Started")
   priority    String   @default("Normal")
+  type        String   @default("Task")
   dueDate     DateTime?
   ownerId     String
   owner       User     @relation(fields: [ownerId], references: [id])
@@ -217,5 +221,21 @@ model Payout {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([repId])
+}
+
+model MonthlyVigGoal {
+  id            String   @id @default(cuid())
+  monthKey      String   // e.g., "2026-06"
+  repId         String
+  rep           User     @relation(fields: [repId], references: [id], onDelete: Cascade)
+  metric        String   @default("PROFIT") // "PROFIT" | "SUBTOTAL"
+  profitGoal    Float    @default(20000)
+  subtotalGoal  Float    @default(40000)
+  manualVigRate Float?   
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([repId, monthKey])
   @@index([repId])
 }

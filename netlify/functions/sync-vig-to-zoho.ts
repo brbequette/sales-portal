@@ -1,0 +1,132 @@
+import { Handler } from "@netlify/functions"
+import { PrismaClient } from "@prisma/client"
+import { getZohoAccessToken } from "./lib/zoho-auth"
+
+const prisma = new PrismaClient()
+const ZOHO_DC = process.env.ZOHO_DC || "com"
+const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
+
+async function updateCustomFieldInZoho(module: string, docId: string, token: string, apiName: string, newValue: any) {
+  const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/${module}`
+  
+  // 1. Fetch document to get the correct customfield_id
+  const getRes = await fetch(`${baseUrl}/${docId}?organization_id=${ORG_ID}`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` }
+  })
+  if (!getRes.ok) return false
+  const data = await getRes.json()
+  const docType = module === "invoices" ? "invoice" : module === "salesorders" ? "salesorder" : "estimate"
+  const doc = data[docType]
+  if (!doc || !doc.custom_fields) return false
+
+  const field = doc.custom_fields.find((f: any) => f.api_name === apiName)
+  if (!field) return false
+
+  // 2. PUT update
+  const putRes = await fetch(`${baseUrl}/${docId}?organization_id=${ORG_ID}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Zoho-oauthtoken ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      custom_fields: [
+        {
+          customfield_id: field.customfield_id,
+          value: newValue
+        }
+      ]
+    })
+  })
+
+  return putRes.ok
+}
+
+export const handler: Handler = async (event) => {
+  const cors = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS"
+  }
+
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 204, headers: cors, body: "" }
+  }
+
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, headers: cors, body: "Method Not Allowed" }
+  }
+
+  try {
+    const data = JSON.parse(event.body || "{}")
+    const { repId, monthKey, newVigRate } = data
+
+    if (!repId || !monthKey || newVigRate === undefined) {
+      return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing required fields" }) }
+    }
+
+    const token = await getZohoAccessToken()
+
+    const startOfMonth = new Date(`${monthKey}-01T00:00:00Z`)
+    const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0, 23, 59, 59, 999)
+
+    // Find user by repId
+    const repUser = await prisma.user.findUnique({ where: { id: repId } })
+    if (!repUser) {
+      return { statusCode: 404, headers: cors, body: JSON.stringify({ error: "Rep not found" }) }
+    }
+
+    // Since our local Invoices map to Zoho Books invoices and contain the salesperson name
+    const localInvoices = await prisma.invoice.findMany({
+      where: {
+        issueDate: { gte: startOfMonth, lte: endOfMonth }
+      }
+    })
+
+    const repNameLower = repUser.name?.toLowerCase().trim() || repUser.email.split('@')[0].toLowerCase()
+
+    let successCount = 0
+    let failCount = 0
+
+    // Filter to only those invoices belonging to this rep
+    for (const inv of localInvoices) {
+      const items = inv.items as any
+      const salespersonName = items?.salesperson?.toLowerCase().trim()
+      
+      let matches = false
+      if (salespersonName === repNameLower) matches = true
+      
+      if (!matches) {
+        // Check account owner as fallback
+        if (inv.accountId) {
+          const acc = await prisma.account.findUnique({ where: { id: inv.accountId } })
+          if (acc?.ownerId === repId) matches = true
+        }
+      }
+
+      if (matches && inv.zohoId) {
+        const ok = await updateCustomFieldInZoho("invoices", inv.zohoId, token, "cf_salesperson_vig", newVigRate)
+        if (ok) successCount++
+        else failCount++
+      }
+    }
+
+    return { 
+      statusCode: 200, 
+      headers: cors, 
+      body: JSON.stringify({ 
+        success: true, 
+        message: `Synced VIG ${newVigRate} to ${successCount} invoices (failed: ${failCount})` 
+      }) 
+    }
+
+  } catch (err: any) {
+    console.error("Sync Vig Error:", err)
+    return {
+      statusCode: 500,
+      headers: cors,
+      body: JSON.stringify({ success: false, error: err.message })
+    }
+  }
+}

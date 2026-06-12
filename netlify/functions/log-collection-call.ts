@@ -79,6 +79,12 @@ export const handler: Handler = async (event) => {
         console.warn("Failed to update lastCalledAt on account:", err)
       }
 
+      // Push Note to Zoho CRM
+      if (invoice.account?.zohoId) {
+        const { pushZohoNote } = await import("./lib/zoho-auth")
+        await pushZohoNote(invoice.account.zohoId, `Collection Call Log: ${outcomeLabels[outcome] || outcome}`, content)
+      }
+
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, noteId: note.id }) }
     }
 

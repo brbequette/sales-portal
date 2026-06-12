@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
 
-const VALID_QUALITIES = ["HOT", "WARM", "COLD", "ON_HOLD", "DO_NOT_CALL"]
+const VALID_QUALITIES = ["HOT", "WARM", "COLD", "ON_HOLD", "DO_NOT_CALL", "NEVER_STATUSED"]
 
 export const handler: Handler = async (event) => {
   const cors = {
@@ -59,6 +59,12 @@ export const handler: Handler = async (event) => {
             sentiment: "neutral",
           }
         })
+
+        // Push Note to Zoho CRM
+        if (account.zohoId) {
+          const { pushZohoNote } = await import("./lib/zoho-auth")
+          await pushZohoNote(account.zohoId, `Account Quality Updated`, `Customer Quality status changed to "${quality}"${note ? `: ${note}` : ""}`)
+        }
       }
 
       return {

@@ -22,8 +22,9 @@ interface Config {
   group2RepId: string
   group3RepId: string
   group4RepId: string
-  holidays: string[]
+  holidays: { date: string, name: string }[]
   salesTargets: Record<string, number>
+  subtotalTargets: Record<string, number>
 }
 
 interface ReassignmentResult {
@@ -53,8 +54,10 @@ export default function AdminSettingsPage() {
     group4RepId: "",
     holidays: [],
     salesTargets: {},
+    subtotalTargets: {},
   })
-  const [newHoliday, setNewHoliday] = useState("")
+  const [newHolidayDate, setNewHolidayDate] = useState("")
+  const [newHolidayName, setNewHolidayName] = useState("")
   const [users, setUsers] = useState<User[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
 
@@ -257,14 +260,22 @@ export default function AdminSettingsPage() {
       <main className="flex-1 px-4 sm:px-6 py-4 space-y-5 overflow-y-auto safe-bottom">
 
         {/* Page Header */}
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/30">
-            <FiSettings size={20} className="text-purple-400" />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/30">
+              <FiSettings size={20} className="text-purple-400" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-white tracking-tight">Admin Settings</h1>
+              <p className="text-xs text-neutral-500">Manage update account configuration &amp; assignments</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-white tracking-tight">Admin Settings</h1>
-            <p className="text-xs text-neutral-500">Manage update account configuration &amp; assignments</p>
-          </div>
+          <button
+            onClick={() => router.push('/admin/vig')}
+            className="px-4 py-2 bg-emerald-900/30 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-900/50 rounded-lg text-sm font-bold flex items-center gap-2 transition"
+          >
+            VIG Management &rarr;
+          </button>
         </div>
 
         {/* Feedback Messages */}
@@ -394,18 +405,29 @@ export default function AdminSettingsPage() {
           <div className="flex gap-2 mb-4">
             <input
               type="date"
-              value={newHoliday}
-              onChange={(e) => setNewHoliday(e.target.value)}
+              value={newHolidayDate}
+              onChange={(e) => setNewHolidayDate(e.target.value)}
               className="bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
+            <input
+              type="text"
+              placeholder="Holiday Name"
+              value={newHolidayName}
+              onChange={(e) => setNewHolidayName(e.target.value)}
+              className="bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 flex-1"
             />
             <button
               onClick={() => {
-                if (newHoliday && !config.holidays.includes(newHoliday)) {
-                  setConfig((c) => ({ ...c, holidays: [...c.holidays, newHoliday].sort() }))
-                  setNewHoliday("")
+                if (newHolidayDate && newHolidayName && !config.holidays.some(h => h.date === newHolidayDate)) {
+                  setConfig((c) => ({ 
+                    ...c, 
+                    holidays: [...c.holidays, { date: newHolidayDate, name: newHolidayName }].sort((a,b) => a.date.localeCompare(b.date)) 
+                  }))
+                  setNewHolidayDate("")
+                  setNewHolidayName("")
                 }
               }}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition-all"
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap"
             >
               Add Holiday
             </button>
@@ -415,11 +437,12 @@ export default function AdminSettingsPage() {
               <span className="text-xs text-neutral-500">No holidays added yet.</span>
             ) : (
               config.holidays.map((h) => (
-                <span key={h} className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white">
-                  {h}
+                <span key={h.date} className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white">
+                  <span>{h.date}</span>
+                  <span className="text-neutral-400">({h.name})</span>
                   <button
                     onClick={() => {
-                      setConfig((c) => ({ ...c, holidays: c.holidays.filter((item) => item !== h) }))
+                      setConfig((c) => ({ ...c, holidays: c.holidays.filter((item) => item.date !== h.date) }))
                     }}
                     className="text-red-400 hover:text-red-300 font-bold ml-1"
                   >
@@ -438,7 +461,7 @@ export default function AdminSettingsPage() {
             <h2 className="text-sm font-bold text-white uppercase tracking-wider">Representative Daily Sales Targets</h2>
           </div>
           <p className="text-xs text-neutral-400 mb-4">
-            Set individual daily sales targets (profit goals) for each rep.
+            Set individual daily sales targets (profit and subtotal goals) for each rep.
           </p>
           <div className="space-y-3">
             {users.map((u) => {
@@ -449,23 +472,43 @@ export default function AdminSettingsPage() {
                     <p className="text-xs font-bold text-white truncate">{u.name}</p>
                     <p className="text-[10px] text-neutral-500 truncate">{u.email}</p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-neutral-500 text-xs">$</span>
-                    <input
-                      type="number"
-                      min={0}
-                      step={100}
-                      value={currentVal || ""}
-                      placeholder="0"
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0
-                        setConfig((c) => ({
-                          ...c,
-                          salesTargets: { ...c.salesTargets, [u.id]: val }
-                        }))
-                      }}
-                      className="w-28 bg-neutral-950 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 text-right font-mono"
-                    />
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-neutral-500 text-xs">Profit $</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={100}
+                        value={currentVal || ""}
+                        placeholder="0"
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0
+                          setConfig((c) => ({
+                            ...c,
+                            salesTargets: { ...c.salesTargets, [u.id]: val }
+                          }))
+                        }}
+                        className="w-24 bg-neutral-950 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 text-right font-mono"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-neutral-500 text-xs">Subtotal $</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={100}
+                        value={config.subtotalTargets?.[u.id] || ""}
+                        placeholder="0"
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0
+                          setConfig((c) => ({
+                            ...c,
+                            subtotalTargets: { ...(c.subtotalTargets || {}), [u.id]: val }
+                          }))
+                        }}
+                        className="w-24 bg-neutral-950 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 text-right font-mono"
+                      />
+                    </div>
                   </div>
                 </div>
               )

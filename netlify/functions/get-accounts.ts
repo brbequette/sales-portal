@@ -158,17 +158,33 @@ export const handler: Handler = async (event, context) => {
           
           const baseUrl = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`;
           
-          // Search Zoho CRM for Accounts assigned to this user
-          const searchRes = await fetch(`${baseUrl}/search?criteria=(Owner.id:equals:${syncUser.zohoId})`, {
-            headers: { Authorization: `Zoho-oauthtoken ${token}` },
-          });
+          // Search Zoho CRM for Accounts assigned to this user, paginating to get all of them
+          let page = 1;
+          let zohoAccounts: any[] = [];
+          let hasMore = true;
 
-          if (searchRes.ok) {
-            const searchData = await searchRes.json();
-            const zohoAccounts = searchData.data || [];
-            
-            if (zohoAccounts.length > 0) {
-              console.log(`Found ${zohoAccounts.length} live accounts from Zoho for user ${syncUser.email}`);
+          while (hasMore) {
+            const searchRes = await fetch(`${baseUrl}/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${page}&per_page=200`, {
+              headers: { Authorization: `Zoho-oauthtoken ${token}` },
+            });
+
+            if (searchRes.ok) {
+              const searchData = await searchRes.json();
+              const pageRecords = searchData.data || [];
+              zohoAccounts = [...zohoAccounts, ...pageRecords];
+              
+              if (searchData.info && searchData.info.more_records) {
+                page++;
+              } else {
+                hasMore = false;
+              }
+            } else {
+              hasMore = false;
+            }
+          }
+
+          if (zohoAccounts.length > 0) {
+            console.log(`Found ${zohoAccounts.length} live accounts from Zoho for user ${syncUser.email}`);
               
               // Upsert each account in transaction batches of 50
               const accountOps = zohoAccounts.map((record: any) => {
@@ -182,6 +198,7 @@ export const handler: Handler = async (event, context) => {
                 const tagsStr = Array.isArray(record.Tag)
                   ? record.Tag.map((t: any) => t.name).filter(Boolean).join(', ')
                   : null;
+                const timeZone = record.Time_Zone || record.Timezone || record.timeZone || record.timezone || null;
 
                 return prisma.account.upsert({
                   where: { zohoId: record.id },
@@ -192,6 +209,7 @@ export const handler: Handler = async (event, context) => {
                     status: status,
                     lastPurchaseAt: lastPurchaseDate,
                     ownerId: syncUser.id,
+                    timeZone: timeZone,
                   },
                   create: {
                     zohoId: record.id,
@@ -201,6 +219,7 @@ export const handler: Handler = async (event, context) => {
                     status: status,
                     lastPurchaseAt: lastPurchaseDate,
                     ownerId: syncUser.id,
+                    timeZone: timeZone,
                   }
                 })
               });
@@ -422,10 +441,7 @@ export const handler: Handler = async (event, context) => {
                 console.error("Failed to sync contacts:", contactError);
               }
             }
-          } else {
-            console.warn(`Zoho CRM API responded with status ${searchRes.status}`);
           }
-        }
 
         // Sync books payments in real-time
         await syncRecentBooksInvoices();
@@ -475,6 +491,11 @@ export const handler: Handler = async (event, context) => {
           ownerId: true,
           industry: true,
           invoices: {
+            where: {
+              status: {
+                notIn: ['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft']
+              }
+            },
             select: {
               id: true,
               zohoId: true,
@@ -581,6 +602,11 @@ export const handler: Handler = async (event, context) => {
           ownerId: true,
           industry: true,
           invoices: {
+            where: {
+              status: {
+                notIn: ['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft']
+              }
+            },
             select: {
               id: true,
               zohoId: true,

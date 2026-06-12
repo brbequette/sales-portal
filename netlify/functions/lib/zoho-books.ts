@@ -10,18 +10,32 @@ export async function syncRecentBooksInvoices() {
     const token = await getZohoAccessToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
     
-    // Fetch 100 most recently modified invoices
-    const res = await fetch(`${baseUrl}/invoices?organization_id=${ORG_ID}&per_page=100&sort_column=last_modified_time&sort_order=D`, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` }
-    })
-    const data = await res.json()
+    // Fetch 500 most recently modified invoices (5 pages of 100)
+    let page = 1;
+    let hasMore = true;
+    let allBooksInvoices: any[] = [];
     
-    if (data.code === 0 && data.invoices) {
-      console.log(`Fetched ${data.invoices.length} recent invoices from Zoho Books to sync status.`)
+    while (hasMore && page <= 5) {
+      const res = await fetch(`${baseUrl}/invoices?organization_id=${ORG_ID}&per_page=100&page=${page}&sort_column=last_modified_time&sort_order=D`, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` }
+      })
+      const data = await res.json()
+      
+      if (data.code === 0 && data.invoices) {
+        allBooksInvoices = [...allBooksInvoices, ...data.invoices];
+        hasMore = data.page_context?.has_more_page || false;
+        page++;
+      } else {
+        hasMore = false;
+      }
+    }
+    
+    if (allBooksInvoices.length > 0) {
+      console.log(`Fetched ${allBooksInvoices.length} recent invoices from Zoho Books to sync status.`)
       const updateOps = []
 
       // --- Bulk fetch: single query replaces N findFirst calls ---
-      const booksInvoices = data.invoices as any[]
+      const booksInvoices = allBooksInvoices
       const allBookIds = booksInvoices.map((inv: any) => inv.invoice_id).filter(Boolean)
       const allInvNumbers = booksInvoices.map((inv: any) => inv.invoice_number).filter(Boolean)
 
