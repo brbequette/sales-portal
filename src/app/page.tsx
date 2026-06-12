@@ -570,27 +570,13 @@ export default function Dashboard() {
     .filter(t => ownerFilter === "All" || t.ownerId === ownerFilter)
 
   // Compute LTV for Sales Pipeline (filtered by owner)
-  const activeLtv = filteredByOwnerActive.reduce((sum, a) => {
-    return sum + (a.invoices || []).reduce((s: number, i: any) => s + (parseFloat(i.amount) || 0), 0)
-  }, 0)
+  const activeLtv = filteredByOwnerActive.reduce((sum, a) => sum + (a.totalSales || 0), 0)
 
   // Compute Profit for Sales Pipeline (filtered by owner)
-  const activeProfit = filteredByOwnerActive.reduce((sum, a) => {
-    return sum + (a.invoices || []).reduce((s: number, i: any) => s + (parseFloat(i.items?.profit || 0)), 0)
-  }, 0)
+  const activeProfit = filteredByOwnerActive.reduce((sum, a) => sum + (a.totalProfit || 0), 0)
 
   // Compute Overdue Balance for all Accounts (filtered by owner)
-  const totalOverdueBalance = filteredByOwnerActive.reduce((sum, a) => {
-    return sum + (a.invoices || []).reduce((s: number, i: any) => {
-      if (i.status === "Overdue" || i.status?.toLowerCase() === "overdue") {
-        const balance = typeof i.items === "object" && i.items !== null && "balance" in i.items
-          ? parseFloat((i.items as any).balance)
-          : parseFloat(i.amount || 0);
-        return s + (isNaN(balance) ? 0 : balance);
-      }
-      return s;
-    }, 0);
-  }, 0)
+  const totalOverdueBalance = filteredByOwnerActive.reduce((sum, a) => sum + (a.overdueBalance || 0), 0)
 
   const allStatuses = Array.from(new Set(effortAccounts.map(a => a.status).filter(Boolean))) as string[]
   const allIndustries = Array.from(new Set(effortAccounts.map(a => a.industry).filter(Boolean))) as string[]
@@ -603,7 +589,7 @@ export default function Dashboard() {
     const matchesIndustry = industryFilter === "All" || a.industry === industryFilter
     const matchesTimezone = timezoneFilter === "All" || a.timeZone === timezoneFilter
     
-    const ltv = (a.invoices || []).reduce((sum: number, inv: any) => sum + (parseFloat(inv.amount) || 0), 0)
+    const ltv = a.totalSales || 0
     const matchesSalesFilter = !onlyWithSales || ltv > 0
 
     return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesSalesFilter
@@ -744,62 +730,51 @@ export default function Dashboard() {
           </span>
           <button
             onClick={() => {
-              const loadedAccounts = accounts
-              const allPaidInvoices = loadedAccounts.flatMap(a => 
-                (a.invoices || []).filter((i: any) => i.status === "Paid").map((i: any) => ({ ...i, accountName: a.name, accountZohoId: a.zohoId }))
-              ).sort((a: any, b: any) => new Date((b.items as any)?.paymentDate || b.updatedAt || b.issueDate || 0).getTime() - new Date((a.items as any)?.paymentDate || a.updatedAt || a.issueDate || 0).getTime()).slice(0, 50)
-              
-              setDrillType("invoices")
-              setDrillTitle("Recent Paid Invoices (Last 50)")
-              setDrillItems(allPaidInvoices)
+              const recentPaid = accounts
+                .filter(a => (a.totalSales || 0) > 0)
+                .sort((a: any, b: any) => new Date(b.lastPurchaseAt || 0).getTime() - new Date(a.lastPurchaseAt || 0).getTime())
+                .slice(0, 50)
+              setDrillType("accounts")
+              setDrillTitle("Recent Paid Accounts (Last 50)")
+              setDrillItems(recentPaid)
             }}
             className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer"
           >
             <FiCheckCircle size={13} />
-            <span>Recent Paid Invoices</span>
-            <span className="bg-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{
-              Math.min(50, accounts.flatMap(a => (a.invoices || []).filter((i: any) => i.status === "Paid")).length)
-            }</span>
+            <span>Recent Paid Accounts</span>
+            <span className="bg-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{Math.min(50, accounts.filter(a => (a.totalSales || 0) > 0).length)}</span>
           </button>
 
           <button
             onClick={() => {
-              const loadedAccounts = accounts
-              const allUnpaidInvoices = loadedAccounts.flatMap(a => 
-                (a.invoices || []).filter((i: any) => i.status !== "Paid" && i.status !== "Draft" && i.status !== "Void").map((i: any) => ({ ...i, accountName: a.name, accountZohoId: a.zohoId }))
-              ).sort((a: any, b: any) => new Date(b.issueDate || 0).getTime() - new Date(a.issueDate || 0).getTime())
-              
-              setDrillType("invoices")
-              setDrillTitle("All Unpaid Invoices")
-              setDrillItems(allUnpaidInvoices)
+              const unpaidAccounts = accounts
+                .filter(a => (a.overdueCount || 0) > 0 || (a.overdueBalance || 0) > 0)
+                .sort((a: any, b: any) => (b.overdueBalance || 0) - (a.overdueBalance || 0))
+              setDrillType("accounts")
+              setDrillTitle("Accounts with Unpaid Invoices")
+              setDrillItems(unpaidAccounts)
             }}
             className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-all cursor-pointer"
           >
             <FiAlertCircle size={13} />
-            <span>All Unpaid Invoices</span>
-            <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{
-              accounts.flatMap(a => (a.invoices || []).filter((i: any) => i.status !== "Paid" && i.status !== "Draft" && i.status !== "Void")).length
-            }</span>
+            <span>Accounts with Unpaid</span>
+            <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => (a.overdueCount || 0) > 0).length}</span>
           </button>
 
           <button
             onClick={() => {
-              const loadedAccounts = accounts
-              const allOverdueInvoices = loadedAccounts.flatMap(a => 
-                (a.invoices || []).filter((i: any) => i.status === "Overdue" || i.status?.toLowerCase() === "overdue").map((i: any) => ({ ...i, accountName: a.name, accountZohoId: a.zohoId }))
-              ).sort((a: any, b: any) => new Date(b.issueDate || 0).getTime() - new Date(a.issueDate || 0).getTime())
-              
-              setDrillType("invoices")
-              setDrillTitle("All Overdue Invoices")
-              setDrillItems(allOverdueInvoices)
+              const overdueAccounts = accounts
+                .filter(a => (a.overdueCount || 0) > 0)
+                .sort((a: any, b: any) => (b.overdueBalance || 0) - (a.overdueBalance || 0))
+              setDrillType("accounts")
+              setDrillTitle("Accounts with Overdue Invoices")
+              setDrillItems(overdueAccounts)
             }}
             className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-all cursor-pointer"
           >
             <FiAlertCircle size={13} />
-            <span>All Overdue Invoices</span>
-            <span className="bg-rose-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{
-              accounts.flatMap(a => (a.invoices || []).filter((i: any) => i.status === "Overdue" || i.status?.toLowerCase() === "overdue")).length
-            }</span>
+            <span>All Overdue Accounts</span>
+            <span className="bg-rose-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => (a.overdueCount || 0) > 0).length}</span>
           </button>
         </div>
 
@@ -810,20 +785,17 @@ export default function Dashboard() {
             <div key={m.label} className="bg-neutral-800/50 rounded-xl p-3 border border-neutral-800 cursor-pointer hover:bg-neutral-800 transition-all duration-200 hover:scale-[1.01]" onClick={() => {
               if (effort === "sales") {
                 if (m.id === "revenue") {
-                  const allInvoices = filteredByOwnerActive.flatMap(a => (a.invoices || []).map((i: any) => ({ ...i, accountName: a.name, accountZohoId: a.zohoId })))
-                  setDrillType("invoices")
-                  setDrillTitle("Active Pipeline Invoices")
-                  setDrillItems(allInvoices)
+                  setDrillType("accounts")
+                  setDrillTitle("Active Pipeline Accounts")
+                  setDrillItems(filteredByOwnerActive.filter(a => (a.totalSales || 0) > 0).sort((a: any, b: any) => (b.totalSales || 0) - (a.totalSales || 0)))
                 } else if (m.id === "profit") {
-                  const allInvoices = filteredByOwnerActive.flatMap(a => (a.invoices || []).map((i: any) => ({ ...i, accountName: a.name, accountZohoId: a.zohoId })))
-                  setDrillType("invoices")
-                  setDrillTitle("Active Pipeline Invoices (Profit)")
-                  setDrillItems(allInvoices)
+                  setDrillType("accounts")
+                  setDrillTitle("Active Pipeline Accounts (by Profit)")
+                  setDrillItems(filteredByOwnerActive.filter(a => (a.totalProfit || 0) > 0).sort((a: any, b: any) => (b.totalProfit || 0) - (a.totalProfit || 0)))
                 } else if (m.id === "overdue") {
-                  const allOverdueInvoices = filteredByOwnerActive.flatMap(a => (a.invoices || []).filter((i: any) => i.status === "Overdue" || i.status?.toLowerCase() === "overdue").map((i: any) => ({ ...i, accountName: a.name, accountZohoId: a.zohoId })))
-                  setDrillType("invoices")
-                  setDrillTitle("Overdue Accounts Invoices")
-                  setDrillItems(allOverdueInvoices)
+                  setDrillType("accounts")
+                  setDrillTitle("Overdue Accounts")
+                  setDrillItems(filteredByOwnerActive.filter(a => (a.overdueCount || 0) > 0).sort((a: any, b: any) => (b.overdueBalance || 0) - (a.overdueBalance || 0)))
                 } else if (m.id === "accounts") {
                   setDrillType("accounts")
                   setDrillTitle("Pipeline Accounts")

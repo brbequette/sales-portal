@@ -481,12 +481,7 @@ export const handler: Handler = async (event, context) => {
           ownerId: true,
           industry: true,
           invoices: {
-            where: {
-              status: {
-                notIn: ['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft']
-              }
-            },
-            select: { amount: true }
+            select: { amount: true, status: true, items: true }
           },
           contacts: {
             select: {
@@ -526,12 +521,7 @@ export const handler: Handler = async (event, context) => {
           ownerId: true,
           industry: true,
           invoices: {
-            where: {
-              status: {
-                notIn: ['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft']
-              }
-            },
-            select: { amount: true }
+            select: { amount: true, status: true, items: true }
           },
           contacts: {
             select: {
@@ -546,10 +536,23 @@ export const handler: Handler = async (event, context) => {
       (dbAccounts as any)._totalCount = totalCount;
     }
 
-    // Prune: aggregate invoices -> totalSales, keep only primary contact. Stays well under 6MB Lambda limit.
+    // Prune: aggregate invoices server-side, keep only primary contact. Stays well under 6MB Lambda limit.
     const totalCount = (dbAccounts as any)._totalCount ?? dbAccounts.length;
+    const EXCLUDED_STATUSES = new Set(['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft']);
     const accounts = dbAccounts.map((acc: any) => {
-      const totalSales = acc.invoices ? acc.invoices.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0) : 0;
+      const invoices: any[] = acc.invoices || [];
+      let totalSales = 0, totalProfit = 0, overdueBalance = 0, overdueCount = 0;
+      for (const inv of invoices) {
+        const s = inv.status || '';
+        if (EXCLUDED_STATUSES.has(s)) continue;
+        totalSales += inv.amount || 0;
+        totalProfit += parseFloat(inv.items?.profit || 0);
+        if (s === 'Overdue' || s.toLowerCase() === 'overdue') {
+          overdueCount++;
+          const bal = inv.items?.balance != null ? parseFloat(inv.items.balance) : (inv.amount || 0);
+          overdueBalance += isNaN(bal) ? 0 : bal;
+        }
+      }
       const primaryContact = acc.contacts?.find((c: any) => c.isPrimary) || acc.contacts?.[0] || null;
       return {
         id: acc.id,
@@ -564,6 +567,9 @@ export const handler: Handler = async (event, context) => {
         industry: acc.industry,
         owner: acc.owner,
         totalSales,
+        totalProfit,
+        overdueBalance,
+        overdueCount,
         contacts: primaryContact ? [primaryContact] : [],
       };
     });
