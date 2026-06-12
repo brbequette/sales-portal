@@ -1159,17 +1159,11 @@ export default function Dashboard() {
                                 </div>
                               </>
                             ) : (
-                              <>
                                 <p className="text-sm font-bold text-emerald-400">
                                   ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)} LTV
                                 </p>
                                 <div className="flex items-center justify-end gap-1.5 mt-0.5">
-                                  <span className="text-[10px] text-neutral-400">{invoices.length} {invoices.length === 1 ? 'invoice' : 'invoices'}</span>
-                                  {overdueCount > 0 && (
-                                    <span className="text-[9px] bg-red-950/80 text-red-400 border border-red-900/50 px-1.5 rounded font-bold uppercase whitespace-nowrap">
-                                      ${overdueBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })} Overdue
-                                    </span>
-                                  )}
+                                  <span className="text-[10px] text-neutral-400">Total Sales</span>
                                 </div>
                               </>
                             )}
