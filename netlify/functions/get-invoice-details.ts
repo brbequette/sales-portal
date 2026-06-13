@@ -85,6 +85,11 @@ export const handler: Handler = async (event) => {
       if (zohoInvoice.last_payment_date) {
         currentItems.paymentDate = zohoInvoice.last_payment_date
       }
+      // Always write the authoritative salesperson from Zoho Books back to the DB
+      // This self-corrects stale salesperson data (e.g. wrong name from old CRM sync)
+      if (zohoInvoice.salesperson_name) {
+        currentItems.salesperson = zohoInvoice.salesperson_name.toUpperCase().trim()
+      }
 
       try {
         await prisma.invoice.update({
@@ -98,6 +103,7 @@ export const handler: Handler = async (event) => {
       } catch (dbErr) {
         console.error("Failed to sync invoice status to DB:", dbErr)
       }
+
     }
 
     return {
