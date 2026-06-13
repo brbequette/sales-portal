@@ -106,7 +106,7 @@ export const handler: Handler = async (event) => {
     //
     // Rep attribution: items.salesperson on the document — the rep who drove the sale.
     // Account owner is a CRM assignment only and does NOT drive commissions.
-    const invoiceRecords = invoices.flatMap(inv => {
+    const invoiceRecords = invoices.map(inv => {
       const items = inv.items as any || {}
       const salespersonName = items.salesperson as string | null
       const profit = parseFloat(items.profit || 0)
@@ -125,9 +125,6 @@ export const handler: Handler = async (event) => {
       const final   = isPaid ? profit * 0.25 : 0  // second half, only after payment
       const total   = upfront + final
 
-      // Skip invoices with no matching portal user — former reps or unknown salespersons
-      // are excluded from commission calculations entirely
-      if (!matchedRep) return []  // former/unknown rep — exclude from commission
 
       return {
         id: inv.id,
@@ -141,13 +138,13 @@ export const handler: Handler = async (event) => {
         isPaid,
         issueDate: inv.issueDate,
         paymentDate,
-        repId: matchedRep.id,
-        repName: matchedRep.name,
+        repId: matchedRep?.id || "unassigned",
+        repName: matchedRep?.name || salespersonName || "Unassigned",
         accountName: inv.account?.name || "Unknown",
         accountZohoId: inv.account?.zohoId || null,
         commission: { total, upfront, final },
         type: "invoice" as const
-      }]
+      }
     })
 
     // ── Build deal pipeline records (activity only, no commission) ───────
