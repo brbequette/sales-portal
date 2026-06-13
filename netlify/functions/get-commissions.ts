@@ -34,7 +34,14 @@ export const handler: Handler = async (event) => {
         status: true,
         issueDate: true,
         items: true,
-        account: { select: { name: true, zohoId: true } }
+        account: {
+          select: {
+            name: true,
+            zohoId: true,
+            ownerId: true,                          // account's assigned sales rep
+            owner: { select: { id: true, name: true } }
+          }
+        }
       },
       orderBy: { issueDate: "desc" }
     })
@@ -98,11 +105,16 @@ export const handler: Handler = async (event) => {
     })
 
     const userByName = new Map(users.map(u => [u.name?.toLowerCase().trim(), u]))
+    const userById   = new Map(users.map(u => [u.id, u]))
 
     // ── Build invoice-based commission records ──────────────────────────
     // Commission is split 50/50:
     //   - Upfront (25% of profit): earned when invoice is created, appears in that week's ledger
     //   - Final  (25% of profit): earned when invoice is paid, appears in the following week's pay
+    //
+    // Rep attribution priority:
+    //   1. Account owner (ownerId → User) — the assigned sales rep owns the commission
+    //   2. items.salesperson name match — fallback if account has no owner
     const invoiceRecords = invoices.map(inv => {
       const items = inv.items as any || {}
       const salespersonName = items.salesperson as string | null
@@ -111,7 +123,11 @@ export const handler: Handler = async (event) => {
       const invoiceNumber = items.invoiceNumber || items.invoice_number || null
       const paymentDate = items.paymentDate || null
 
-      const matchedRep = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
+      // Primary: account owner
+      const accountOwner = (inv.account as any)?.owner
+      // Fallback: salesperson name lookup
+      const nameMatch = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
+      const matchedRep = accountOwner || nameMatch
 
       const isPaid = FINAL_PAID_STATUSES.has(inv.status)
 
