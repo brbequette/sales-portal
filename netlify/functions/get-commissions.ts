@@ -40,17 +40,26 @@ export const handler: Handler = async (event) => {
     })
 
     // Deduplicate by invoiceNumber — same invoice can be synced from both Zoho CRM and Zoho Books.
-    // Keep the record with the highest amount (Books record is always the authoritative one).
+    // Prefer the record with the highest profit (real profit data beats zero-profit Books record).
+    // Fall back to highest amount if profit is equal.
     const seenInvoiceNumbers = new Map<string, typeof rawInvoices[0]>()
     const invoices = rawInvoices.filter(inv => {
       const num = (inv.items as any)?.invoiceNumber
       if (!num) return true // no invoice number — keep as-is
       const existing = seenInvoiceNumbers.get(num)
-      if (!existing || (inv.amount || 0) > (existing.amount || 0)) {
+      if (!existing) {
         seenInvoiceNumbers.set(num, inv)
         return true
       }
-      return false // duplicate with lower amount — skip
+      const invProfit = parseFloat((inv.items as any)?.profit || 0)
+      const existProfit = parseFloat((existing.items as any)?.profit || 0)
+      // Prefer higher profit; if equal prefer higher amount
+      const isBetter = invProfit > existProfit || (invProfit === existProfit && (inv.amount || 0) > (existing.amount || 0))
+      if (isBetter) {
+        seenInvoiceNumbers.set(num, inv)
+        return true
+      }
+      return false // worse or equal — skip
     })
 
     // --- Pipeline source: DEALS only (estimates/SOs for activity metrics) ---
@@ -76,9 +85,15 @@ export const handler: Handler = async (event) => {
       orderBy: { name: "asc" }
     })
 
-    // Fetch payouts
+    // Fetch payouts — scoped to the target year so historical backfill payouts
+    // don't zero out the current year's balance
+    const payoutStart = new Date(`${targetYear}-01-01`)
+    const payoutEnd = new Date(`${parseInt(targetYear) + 1}-01-01`)
     const payouts = await prisma.payout.findMany({
-      where: repId ? { repId } : undefined,
+      where: {
+        ...(repId ? { repId } : {}),
+        date: { gte: payoutStart, lt: payoutEnd }
+      },
       orderBy: { date: "desc" }
     })
 
