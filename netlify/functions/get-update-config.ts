@@ -44,7 +44,12 @@ export const handler: Handler = async (event) => {
         create: { key: "holidays", value: JSON.stringify(usHolidays) }
       })
     } else {
-      holidaysList = JSON.parse(existingHolidays || "[]")
+      const rawHolidays = JSON.parse(existingHolidays || "[]")
+      // Normalize: the reseeded data uses 'description' instead of 'name'
+      holidaysList = rawHolidays.map((h: any) => ({
+        date: h.date,
+        name: h.name || h.description || ""
+      }))
     }
 
     const config = {
