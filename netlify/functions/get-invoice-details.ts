@@ -103,6 +103,7 @@ export const handler: Handler = async (event) => {
       } catch (dbErr) {
         console.error("Failed to sync invoice status to DB:", dbErr)
       }
+    }
 
     let vigRate = 1.5; // Default
 
