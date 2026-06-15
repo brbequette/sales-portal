@@ -397,7 +397,7 @@ export const handler: Handler = async (event, context) => {
                     // Zoho CRM uses "Closed" for paid invoices
                     if (status === 'Closed') status = 'Paid';
                     const dueDate = invRecord.Due_Date ? new Date(invRecord.Due_Date) : null;
-                    const NON_OVERDUE = new Set(['Paid', 'Void', 'Voided', 'Draft', 'Writeoff', 'Write_off', 'Write Off', 'Bad Debt']);
+                    const NON_OVERDUE = new Set(['Paid', 'Void', 'Voided', 'Draft', 'Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'paid', 'void', 'voided', 'draft', 'writeoff', 'write_off', 'write off', 'bad debt']);
                     if (!NON_OVERDUE.has(status) && dueDate && dueDate < new Date()) {
                       status = 'Overdue';
                     }

@@ -279,7 +279,7 @@ export const handler: Handler = async (event) => {
                   let status = invRecord.Status || "Paid"
                   if (status === "Closed") status = "Paid"
                   const dueDate = invRecord.Due_Date ? new Date(invRecord.Due_Date) : null
-                  const NON_OVERDUE = new Set(["Paid", "Void", "Voided", "Draft", "Writeoff", "Write_off", "Write Off", "Bad Debt"])
+                  const NON_OVERDUE = new Set(["Paid", "Void", "Voided", "Draft", "Writeoff", "Write_off", "Write Off", "Bad Debt", "paid", "void", "voided", "draft", "writeoff", "write_off", "write off", "bad debt"])
                   if (!NON_OVERDUE.has(status) && dueDate && dueDate < new Date()) {
                     status = "Overdue"
                   }
@@ -361,7 +361,7 @@ export const handler: Handler = async (event) => {
       // All Outstanding: unpaid status
       invoices = await prisma.invoice.findMany({
         where: {
-          status: { notIn: ["Paid", "Closed", "Void", "Voided", "Draft", "Writeoff", "Write_off", "Write Off", "Bad Debt"] }
+          status: { notIn: ["Paid", "Closed", "Void", "Voided", "Draft", "Writeoff", "Write_off", "Write Off", "Bad Debt", "paid", "closed", "void", "voided", "draft", "writeoff", "write_off", "write off", "bad debt"] }
         },
         include: {
           account: {
@@ -375,7 +375,7 @@ export const handler: Handler = async (event) => {
       invoices = await prisma.invoice.findMany({
         where: {
           AND: [
-            { status: { notIn: ["Void", "Voided", "Draft", "Paid", "Closed", "Writeoff", "Write_off", "Write Off", "Bad Debt"] } },
+            { status: { notIn: ["Paid", "Closed", "Void", "Voided", "Draft", "Writeoff", "Write_off", "Write Off", "Bad Debt", "paid", "closed", "void", "voided", "draft", "writeoff", "write_off", "write off", "bad debt"] } },
             {
               OR: [
                 // Explicit Overdue status
@@ -399,7 +399,7 @@ export const handler: Handler = async (event) => {
       // Current: unpaid and not overdue
       invoices = await prisma.invoice.findMany({
         where: {
-          status: { notIn: ["Paid", "Closed", "Void", "Voided", "Draft", "Writeoff", "Write_off", "Write Off", "Bad Debt"] },
+          status: { notIn: ["Paid", "Closed", "Void", "Voided", "Draft", "Writeoff", "Write_off", "Write Off", "Bad Debt", "paid", "closed", "void", "voided", "draft", "writeoff", "write_off", "write off", "bad debt"] },
           AND: [
             {
               NOT: {
