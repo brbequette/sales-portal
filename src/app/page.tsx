@@ -1535,7 +1535,12 @@ export default function Dashboard() {
                   )}
                   {drillType === "accounts" && (
                     <div className="flex justify-between items-center">
-                      <p className="text-white text-sm font-bold">{item.name}</p>
+                      <div>
+                        <p className="text-white text-sm font-bold">{item.name}</p>
+                        {item._latestPaymentTime > 0 && (
+                          <p className="text-neutral-500 text-xs mt-0.5 flex items-center gap-1"><FiCalendar size={10} /> Paid: {new Date(item._latestPaymentTime).toLocaleDateString()}</p>
+                        )}
+                      </div>
                       <Link href={`/account?id=${item.zohoId}`} onClick={() => setDrillItems(null)} className="text-emerald-400 text-xs hover:underline flex items-center gap-1">
                         View <FiChevronRight />
                       </Link>
