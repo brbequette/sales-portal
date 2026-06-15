@@ -2,27 +2,27 @@
 
 :root {
   /* Core layout backgrounds */
-  --background: #0f172a; /* Slate 900 */
-  --foreground: #f8fafc; /* Slate 50 */
+  --background: #0c0d0f;
+  --foreground: #f4f2ee;
   
   /* Primary accents */
-  --primary: #3b82f6; /* Blue 500 */
-  --primary-foreground: #ffffff;
+  --primary: #d7b46a;
+  --primary-foreground: #111111;
   
   /* Secondary / Card backgrounds */
-  --card: #1e293b; /* Slate 800 */
-  --card-foreground: #f8fafc;
+  --card: #151618;
+  --card-foreground: #f4f2ee;
   
   /* Borders and lines */
-  --border: #334155; /* Slate 700 */
+  --border: #2a2c30;
   
   /* Status Colors */
-  --success: #10b981; /* Emerald 500 */
-  --warning: #f59e0b; /* Amber 500 */
-  --danger: #ef4444; /* Red 500 */
+  --success: #46b48c;
+  --warning: #d7b46a;
+  --danger: #d76666;
   
   /* Primary RGB (for glow effects) */
-  --primary-rgb: 16, 185, 129;
+  --primary-rgb: 215, 180, 106;
   
   /* Fonts */
   --font-sans: "Geist", system-ui, sans-serif;
@@ -43,11 +43,32 @@
 }
 
 body {
-  background-color: var(--background);
+  background:
+    radial-gradient(circle at top left, rgba(215, 180, 106, 0.08), transparent 28rem),
+    linear-gradient(180deg, #101113 0%, var(--background) 42%);
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  letter-spacing: 0;
+}
+
+input,
+select,
+textarea {
+  color-scheme: dark;
+}
+
+::selection {
+  background: rgba(215, 180, 106, 0.28);
+  color: #fffaf0;
 }
 
 /* Custom scrollbar for modern feel */
@@ -68,6 +89,6 @@ body {
 
 /* Style option elements in select dropdowns to prevent black-on-black text in dark mode */
 select option {
-  background-color: #1e293b; /* var(--card) */
-  color: #f8fafc; /* var(--foreground) */
+  background-color: #151618;
+  color: #f4f2ee;
 }

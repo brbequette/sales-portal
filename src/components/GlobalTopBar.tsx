@@ -84,7 +84,7 @@ export function GlobalTopBar() {
   }
 
   return (
-    <div className="bg-neutral-900 border-b border-neutral-800 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+    <div className="bg-[#101113]/90 backdrop-blur border-b border-white/10 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
       
       {/* Left side: Search */}
       <div className="flex-1 max-w-2xl relative" ref={searchRef}>
@@ -96,35 +96,35 @@ export function GlobalTopBar() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => { if (results) setShowResults(true) }}
-            className="w-full bg-neutral-950 border border-neutral-800 rounded-full pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+            className="w-full bg-white/[0.035] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary)] focus:bg-white/[0.055] transition-colors"
           />
           {loading && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
           )}
         </div>
 
         {/* Dropdown Results */}
         {showResults && results && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl overflow-hidden max-h-[80vh] overflow-y-auto z-50">
+          <div className="absolute top-full left-0 right-0 mt-2 bg-[#151618] border border-white/10 rounded-xl shadow-[0_22px_70px_rgba(0,0,0,0.45)] overflow-hidden max-h-[80vh] overflow-y-auto z-50">
             {Object.keys(results).every(k => results[k].length === 0) ? (
-              <div className="p-4 text-center text-sm text-neutral-500">No results found for "{query}"</div>
+              <div className="p-4 text-center text-sm text-neutral-500">No results found for &quot;{query}&quot;</div>
             ) : (
               <div className="py-2">
                 {results.accounts?.length > 0 && (
                   <div className="mb-2">
-                    <div className="px-4 py-1 text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-neutral-950/50">Accounts</div>
+                    <div className="px-4 py-1 text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-black/20">Accounts</div>
                     {results.accounts.map((a: any) => (
                       <div 
                         key={a.id} 
                         onClick={() => handleResultClick("accounts", a)}
-                        className="px-4 py-2 hover:bg-neutral-800 cursor-pointer flex items-center gap-3 transition-colors"
+                        className="px-4 py-2 hover:bg-white/[0.055] cursor-pointer flex items-center gap-3 transition-colors"
                       >
                         <div className="w-8 h-8 rounded bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
                           <FiUserPlus />
                         </div>
                         <div className="min-w-0">
                           <div className="text-sm font-bold text-white truncate">{a.name}</div>
-                          <div className="text-xs text-neutral-500 truncate">{a.zohoId} &bull; {a.industry || "No Industry"}</div>
+                          <div className="text-xs text-neutral-500 truncate">{a.zohoId} - {a.industry || "No Industry"}</div>
                         </div>
                       </div>
                     ))}
@@ -133,12 +133,12 @@ export function GlobalTopBar() {
                 
                 {results.invoices?.length > 0 && (
                   <div className="mb-2">
-                    <div className="px-4 py-1 text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-neutral-950/50">Invoices & Sales Orders</div>
+                    <div className="px-4 py-1 text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-black/20">Invoices & Sales Orders</div>
                     {results.invoices.map((i: any) => (
                       <div 
                         key={i.id} 
                         onClick={() => handleResultClick("invoices", i)}
-                        className="px-4 py-2 hover:bg-neutral-800 cursor-pointer flex items-center gap-3 transition-colors"
+                        className="px-4 py-2 hover:bg-white/[0.055] cursor-pointer flex items-center gap-3 transition-colors"
                       >
                         <div className="w-8 h-8 rounded bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
                           <FiFileText />
@@ -155,12 +155,12 @@ export function GlobalTopBar() {
 
                 {results.deals?.length > 0 && (
                   <div className="mb-2">
-                    <div className="px-4 py-1 text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-neutral-950/50">Deals & Quotes</div>
+                    <div className="px-4 py-1 text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-black/20">Deals & Quotes</div>
                     {results.deals.map((d: any) => (
                       <div 
                         key={d.id} 
                         onClick={() => handleResultClick("deals", d)}
-                        className="px-4 py-2 hover:bg-neutral-800 cursor-pointer flex items-center gap-3 transition-colors"
+                        className="px-4 py-2 hover:bg-white/[0.055] cursor-pointer flex items-center gap-3 transition-colors"
                       >
                         <div className="w-8 h-8 rounded bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
                           <FiDollarSign />
@@ -177,12 +177,12 @@ export function GlobalTopBar() {
 
                 {results.products?.length > 0 && (
                   <div className="mb-0">
-                    <div className="px-4 py-1 text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-neutral-950/50">Products</div>
+                    <div className="px-4 py-1 text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-black/20">Products</div>
                     {results.products.map((p: any) => (
                       <div 
                         key={p.id || p.sku} 
                         onClick={() => handleResultClick("products", p)}
-                        className="px-4 py-2 hover:bg-neutral-800 cursor-pointer flex items-center gap-3 transition-colors"
+                        className="px-4 py-2 hover:bg-white/[0.055] cursor-pointer flex items-center gap-3 transition-colors"
                       >
                         <div className="w-8 h-8 rounded bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0">
                           <FiBox />
@@ -206,19 +206,19 @@ export function GlobalTopBar() {
       <div className="flex items-center gap-2 lg:gap-3 ml-4 shrink-0">
         <button
           onClick={() => router.push("/catalog")}
-          className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-full text-xs lg:text-sm transition-all flex items-center gap-2 border border-neutral-700"
+          className="bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center gap-2 border border-white/10"
         >
           <FiBox size={14} /> <span className="hidden sm:inline">Catalog Lookup</span>
         </button>
         <button
           onClick={() => setShowAddTask(true)}
-          className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-full text-xs lg:text-sm transition-all flex items-center gap-2 border border-neutral-700"
+          className="bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center gap-2 border border-white/10"
         >
           <FiCheckSquare size={14} /> <span className="hidden sm:inline">Add Task</span>
         </button>
         <button
           onClick={() => setShowAddAccount(true)}
-          className="bg-amber-500 hover:bg-amber-400 text-black font-bold px-3 lg:px-4 py-2 rounded-full text-xs lg:text-sm transition-all shadow-lg flex items-center gap-2 whitespace-nowrap"
+          className="bg-[var(--primary)] hover:brightness-110 text-black font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center gap-2 whitespace-nowrap"
         >
           <FiUserPlus size={14} /> <span className="hidden sm:inline">Add Account</span>
         </button>
