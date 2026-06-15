@@ -12,6 +12,7 @@
     "packageJson": {
       "dependencies": [
         "npm:@netlify/database@1",
+        "npm:@netlify/functions@^5.3.0",
         "npm:@prisma/client@^5.22.0",
         "npm:@tailwindcss/postcss@4",
         "npm:@types/bcryptjs@^2.4.6",

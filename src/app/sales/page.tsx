@@ -167,12 +167,12 @@ export default function SalesListPage() {
   }, [allDocs, search, typeFilter, statusFilter])
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0f1e] text-white">
+    <div className="flex flex-col h-full bg-[var(--background)] text-white">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-center justify-between p-4 sm:p-6 border-b border-neutral-800 bg-neutral-900/50 backdrop-blur shrink-0 gap-4">
+      <div className="flex flex-col sm:flex-row items-center justify-between p-4 sm:p-6 border-b border-white/10 bg-[#151618]/70 backdrop-blur shrink-0 gap-4">
         <div>
           <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-            <FiFileText className="text-blue-500" />
+            <FiFileText className="text-[var(--primary)]" />
             Sales Documents
           </h1>
           <p className="text-xs text-neutral-400 mt-1">Manage Quotes, Orders, and Invoices.</p>
@@ -186,13 +186,13 @@ export default function SalesListPage() {
               placeholder="Search account or doc..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg pl-9 pr-4 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-blue-500 transition-all"
+              className="w-full bg-white/[0.035] border border-white/10 rounded-lg pl-9 pr-4 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary)] transition-all"
             />
           </div>
 
           <button 
             onClick={() => setShowFiltersDrawer(true)} 
-            className={`p-2 rounded-lg border transition-all shrink-0 ${showFiltersDrawer ? "bg-blue-500/20 border-blue-500/40 text-blue-400" : "bg-neutral-800 border-neutral-700 hover:bg-neutral-700 text-neutral-400"}`}
+            className={`p-2 rounded-lg border transition-all shrink-0 ${showFiltersDrawer ? "bg-[var(--primary)]/15 border-[var(--primary)]/35 text-[var(--primary)]" : "bg-white/[0.045] border-white/10 hover:bg-white/[0.075] text-neutral-400"}`}
           >
             <FiFilter size={18} />
           </button>
@@ -210,8 +210,8 @@ export default function SalesListPage() {
                 onClick={() => setTypeFilter(t as any)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
                   typeFilter === t 
-                    ? "bg-blue-500/20 text-blue-400 border-blue-500/40 shadow-md shadow-blue-500/10" 
-                    : "bg-neutral-800/50 text-neutral-400 border-neutral-700 hover:bg-neutral-800"
+                    ? "bg-[var(--primary)]/14 text-[var(--primary)] border-[var(--primary)]/35" 
+                    : "bg-white/[0.035] text-neutral-400 border-white/10 hover:bg-white/[0.06]"
                 }`}
               >
                 {t === "SalesOrder" ? "Orders" : t === "Quote" ? "Quotes" : t === "Invoice" ? "Invoices" : "All Docs"}
@@ -227,8 +227,8 @@ export default function SalesListPage() {
                 onClick={() => setStatusFilter(s as any)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
                   statusFilter === s 
-                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-md shadow-emerald-500/10" 
-                    : "bg-neutral-800/50 text-neutral-400 border-neutral-700 hover:bg-neutral-800"
+                    ? "bg-[var(--primary)]/14 text-[var(--primary)] border-[var(--primary)]/35" 
+                    : "bg-white/[0.035] text-neutral-400 border-white/10 hover:bg-white/[0.06]"
                 }`}
               >
                 {s}
@@ -245,7 +245,7 @@ export default function SalesListPage() {
               <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
           ) : (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden shadow-2xl flex-1 flex flex-col">
+            <div className="bg-[#151618]/80 border border-white/10 rounded-xl overflow-hidden flex-1 flex flex-col">
               {filteredDocs.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-neutral-400">
                   <FiFileText size={48} className="mb-4 text-neutral-600" />
@@ -256,7 +256,7 @@ export default function SalesListPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-neutral-950 border-b border-neutral-800 text-[10px] uppercase font-black tracking-wider text-neutral-500">
+                      <tr className="bg-black/25 border-b border-white/10 text-[10px] uppercase font-black tracking-wider text-neutral-500">
                         <th className="py-3 px-4 w-32">Date</th>
                         <th className="py-3 px-4 w-28">Type</th>
                         <th className="py-3 px-4 min-w-[150px]">Account</th>
@@ -265,21 +265,21 @@ export default function SalesListPage() {
                         <th className="py-3 px-4 w-12 text-center"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-800/50">
+                    <tbody className="divide-y divide-white/10">
                       {filteredDocs.map((doc, idx) => (
                         <tr 
                           key={idx}
                           onClick={() => setViewingSalesDoc({ type: doc.type, doc: doc.raw })}
-                          className="hover:bg-neutral-800/50 cursor-pointer transition-colors group"
+                          className="hover:bg-white/[0.045] cursor-pointer transition-colors group"
                         >
                           <td className="py-3 px-4 text-xs text-neutral-300">
                             {new Date(doc.date).toLocaleDateString()}
                           </td>
                           <td className="py-3 px-4">
                             <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold ${
-                              doc.type === "Invoice" ? "bg-emerald-900/40 text-emerald-400 border border-emerald-800/30" :
-                              doc.type === "SalesOrder" ? "bg-blue-900/40 text-blue-400 border border-blue-800/30" :
-                              "bg-purple-900/40 text-purple-400 border border-purple-800/30"
+                              doc.type === "Invoice" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20" :
+                              doc.type === "SalesOrder" ? "bg-sky-500/10 text-sky-300 border border-sky-500/20" :
+                              "bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/20"
                             }`}>
                               {doc.type === "Invoice" ? "Invoice" : doc.type === "SalesOrder" ? "Order" : "Quote"}
                             </span>
@@ -321,9 +321,9 @@ export default function SalesListPage() {
       {showFiltersDrawer && createPortal(
         <div className="fixed inset-0 z-[9999]">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFiltersDrawer(false)} />
-          <div className="fixed top-0 right-0 h-full w-full max-w-sm bg-neutral-900 border-l border-neutral-800 p-6 flex flex-col shadow-2xl text-white z-[9999]">
+          <div className="fixed top-0 right-0 h-full w-full max-w-sm bg-[#151618] border-l border-white/10 p-6 flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)] text-white z-[9999]">
               {/* Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
+              <div className="flex items-center justify-between pb-4 border-b border-white/10">
                 <h2 className="text-sm font-bold flex items-center gap-2 uppercase tracking-wider text-neutral-300">
                   <FiFilter className="text-blue-400" /> Filters
                 </h2>
@@ -340,7 +340,7 @@ export default function SalesListPage() {
                     <select 
                       value={selectedReps[0] || ""} 
                       onChange={e => setSelectedReps(e.target.value ? [e.target.value] : [])}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                      className="w-full bg-neutral-800 border border-white/15 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
                     >
                       <option value="">All Reps</option>
                       {reps.map(r => <option key={r} value={r}>{r}</option>)}
@@ -354,7 +354,7 @@ export default function SalesListPage() {
                   <select 
                     value={sortBy} 
                     onChange={e => setSortBy(e.target.value as any)}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                    className="w-full bg-neutral-800 border border-white/15 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
                   >
                     <option value="date-desc">Date: Newest First</option>
                     <option value="date-asc">Date: Oldest First</option>
@@ -371,13 +371,13 @@ export default function SalesListPage() {
       {viewingSalesDoc && createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setViewingSalesDoc(null)} />
-          <div className="relative w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-2xl flex flex-col shadow-2xl text-white z-[10001] p-6 max-h-[85vh]">
+          <div className="relative w-full max-w-2xl bg-[#151618] border border-white/10 rounded-xl flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)] text-white z-[10001] p-6 max-h-[85vh]">
             
             {/* Header */}
-            <div className="flex justify-between items-center pb-4 border-b border-neutral-800 mb-4 shrink-0">
+            <div className="flex justify-between items-center pb-4 border-b border-white/10 mb-4 shrink-0">
               <div>
                 <h3 className="font-bold text-lg text-white flex items-center gap-2">
-                  <FiFileText className={viewingSalesDoc.type === 'Quote' ? "text-purple-500 animate-pulse" : viewingSalesDoc.type === 'SalesOrder' ? "text-blue-500 animate-pulse" : "text-emerald-500 animate-pulse"} />
+                  <FiFileText className={viewingSalesDoc.type === 'Quote' ? "text-purple-500 " : viewingSalesDoc.type === 'SalesOrder' ? "text-blue-500 " : "text-emerald-500 "} />
                   <span>{viewingSalesDoc.type === 'Quote' ? 'Quote / Estimate Details' : viewingSalesDoc.type === 'SalesOrder' ? 'Sales Order Details' : 'Invoice Details'}</span>
                 </h3>
                 <p className="text-neutral-500 text-xs mt-0.5 font-mono">
@@ -398,14 +398,14 @@ export default function SalesListPage() {
                     href={`/api/get-invoice-pdf?id=${viewingSalesDoc.doc.zohoId || viewingSalesDoc.doc.id}&download=true`}
                     target="_blank"
                     rel="noreferrer"
-                    className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-neutral-700 flex items-center gap-1.5 cursor-pointer"
+                    className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-white/15 flex items-center gap-1.5 cursor-pointer"
                   >
                     Download PDF
                   </a>
                 )}
                 <button 
                   onClick={() => setViewingSalesDoc(null)} 
-                  className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-755 transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer"
+                  className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-white/[0.06] transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer"
                 >
                   &times;
                 </button>
@@ -414,7 +414,7 @@ export default function SalesListPage() {
 
             {/* Document Content */}
             <div className="space-y-4 overflow-y-auto flex-1 pr-1 scrollbar-thin">
-              <div className="grid grid-cols-2 gap-4 bg-neutral-950/40 p-4 border border-neutral-800 rounded-xl">
+              <div className="grid grid-cols-2 gap-4 bg-black/25/40 p-4 border border-white/10 rounded-xl">
                 <div>
                   <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Status</span>
                   <p className={`text-xs font-bold mt-0.5 ${
@@ -456,12 +456,12 @@ export default function SalesListPage() {
                 </h4>
                 <div className="space-y-2">
                   {(!viewingSalesDoc.doc.items || (Array.isArray(viewingSalesDoc.doc.items) && viewingSalesDoc.doc.items.length === 0)) ? (
-                    <div className="bg-neutral-800/30 p-3 rounded-lg border border-neutral-800 text-sm text-neutral-400">
+                    <div className="bg-neutral-800/30 p-3 rounded-lg border border-white/10 text-sm text-neutral-400">
                       No line items detailed.
                     </div>
                   ) : Array.isArray(viewingSalesDoc.doc.items) ? (
                     viewingSalesDoc.doc.items.map((item: any, i: number) => (
-                      <div key={i} className="bg-neutral-800/30 p-3 rounded-lg border border-neutral-800 flex justify-between items-center">
+                      <div key={i} className="bg-neutral-800/30 p-3 rounded-lg border border-white/10 flex justify-between items-center">
                         <div>
                           <p className="text-sm font-bold text-white">{typeof item === 'string' ? item : (item.name || 'Unknown Item')}</p>
                           <div className="flex items-center gap-2 mt-0.5">
@@ -488,7 +488,7 @@ export default function SalesListPage() {
                     ))
                   ) : (
                     // It's an object instead of array (e.g. from Zoho directly)
-                    <div className="bg-neutral-800/30 p-3 rounded-lg border border-neutral-800 flex justify-between items-center">
+                    <div className="bg-neutral-800/30 p-3 rounded-lg border border-white/10 flex justify-between items-center">
                       <div>
                         <p className="text-sm font-bold text-white">Invoice Items Summary</p>
                         <p className="text-xs text-neutral-400 mt-0.5">Details aggregated.</p>
@@ -502,7 +502,7 @@ export default function SalesListPage() {
               </div>
 
               {/* Total Summary */}
-              <div className="flex justify-between items-center pt-4 border-t border-neutral-800">
+              <div className="flex justify-between items-center pt-4 border-t border-white/10">
                 <span className="text-sm font-bold text-neutral-400 uppercase">Total Amount</span>
                 <span className="text-xl font-black text-white">
                   ${parseFloat(viewingSalesDoc.doc.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
