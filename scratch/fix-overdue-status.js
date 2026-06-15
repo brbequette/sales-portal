@@ -3,7 +3,7 @@ const { PrismaClient } = require('@prisma/client')
 const { getZohoAccessToken } = require('../netlify/functions/lib/zoho-auth')
 const p = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID
+const ORG_ID = '664670946'
 
 async function run() {
   const overdueInvoices = await p.invoice.findMany({

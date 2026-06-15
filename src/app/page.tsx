@@ -185,7 +185,7 @@ export default function Dashboard() {
 
       const roleQuery = currentUser.role ? `&role=${encodeURIComponent(currentUser.role)}` : ""
       const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ""
-      const accountsQuery = `${query}${roleQuery}&page=${pageNum}${searchParam}`
+      const accountsQuery = `${query}${roleQuery}&page=${pageNum}${searchParam}&includeDocs=true`
 
       const ts = Date.now()
       const [resAccounts, resTasks] = await Promise.all([
@@ -307,7 +307,7 @@ export default function Dashboard() {
       const accountsQuery = `${query}${roleQuery}`
 
       const [resAccounts, resTasks] = await Promise.all([
-        fetch(`/api/get-accounts?${accountsQuery}&refresh=true&force=true`),
+        fetch(`/api/get-accounts?${accountsQuery}&refresh=true&force=true&includeDocs=true`),
         fetch(`/api/get-tasks?${accountsQuery}&refresh=true`),
       ])
       const dataAccounts = await resAccounts.json()
