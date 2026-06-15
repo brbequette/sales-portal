@@ -43,24 +43,30 @@ export const handler: Handler = async (event) => {
     // Prefer the record with the highest profit (real profit data beats zero-profit Books record).
     // Fall back to highest amount if profit is equal.
     const seenInvoiceNumbers = new Map<string, typeof rawInvoices[0]>()
-    const invoices = rawInvoices.filter(inv => {
+    const invoicesWithoutNumber: typeof rawInvoices = []
+    
+    for (const inv of rawInvoices) {
       const num = (inv.items as any)?.invoiceNumber
-      if (!num) return true // no invoice number — keep as-is
+      if (!num) {
+        invoicesWithoutNumber.push(inv)
+        continue
+      }
+      
       const existing = seenInvoiceNumbers.get(num)
       if (!existing) {
         seenInvoiceNumbers.set(num, inv)
-        return true
+      } else {
+        const invProfit = parseFloat((inv.items as any)?.profit || 0)
+        const existProfit = parseFloat((existing.items as any)?.profit || 0)
+        // Prefer higher profit; if equal prefer higher amount
+        const isBetter = invProfit > existProfit || (invProfit === existProfit && (inv.amount || 0) > (existing.amount || 0))
+        if (isBetter) {
+          seenInvoiceNumbers.set(num, inv)
+        }
       }
-      const invProfit = parseFloat((inv.items as any)?.profit || 0)
-      const existProfit = parseFloat((existing.items as any)?.profit || 0)
-      // Prefer higher profit; if equal prefer higher amount
-      const isBetter = invProfit > existProfit || (invProfit === existProfit && (inv.amount || 0) > (existing.amount || 0))
-      if (isBetter) {
-        seenInvoiceNumbers.set(num, inv)
-        return true
-      }
-      return false // worse or equal — skip
-    })
+    }
+    
+    const invoices = [...Array.from(seenInvoiceNumbers.values()), ...invoicesWithoutNumber]
 
     // --- Pipeline source: DEALS only (estimates/SOs for activity metrics) ---
     const deals = await prisma.deal.findMany({
