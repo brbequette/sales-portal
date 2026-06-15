@@ -200,8 +200,30 @@ export const handler: Handler = async (event, context) => {
                 const tagsStr = Array.isArray(record.Tag)
                   ? record.Tag.map((t: any) => t.name).filter(Boolean).join(', ')
                   : null;
-                const timeZone = record.Time_Zone || record.Timezone || record.timeZone || record.timezone || null;
-
+                
+                let timeZone = record.Time_Zone || record.Timezone || record.timeZone || record.timezone || null;
+                if (!timeZone && record.Billing_Code) {
+                  const match = String(record.Billing_Code).match(/\d{5}/);
+                  if (match) {
+                    const prefix = parseInt(match[0].substring(0, 3), 10);
+                    if (prefix >= 0 && prefix <= 349) timeZone = 'EST';
+                    else if (prefix >= 430 && prefix <= 499) timeZone = 'EST';
+                    else if (prefix >= 350 && prefix <= 427) timeZone = 'CST';
+                    else if (prefix >= 500 && prefix <= 589) timeZone = 'CST';
+                    else if (prefix >= 600 && prefix <= 689) timeZone = 'CST';
+                    else if (prefix >= 700 && prefix <= 789) timeZone = 'CST';
+                    else if (prefix >= 590 && prefix <= 599) timeZone = 'MST';
+                    else if (prefix >= 690 && prefix <= 693) timeZone = 'MST';
+                    else if (prefix >= 790 && prefix <= 799) timeZone = 'MST';
+                    else if (prefix >= 800 && prefix <= 849) timeZone = 'MST';
+                    else if (prefix >= 850 && prefix <= 884) timeZone = 'MST';
+                    else if (prefix >= 889 && prefix <= 899) timeZone = 'PST';
+                    else if (prefix >= 900 && prefix <= 961) timeZone = 'PST';
+                    else if (prefix >= 970 && prefix <= 994) timeZone = 'PST';
+                    else if (prefix >= 995 && prefix <= 999) timeZone = 'AST';
+                    else if (prefix === 967 || prefix === 968) timeZone = 'HST';
+                  }
+                }
                 return prisma.account.upsert({
                   where: { zohoId: record.id },
                   update: {

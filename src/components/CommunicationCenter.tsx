@@ -33,6 +33,23 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
   const [emailText, setEmailText] = useState("")
   const [whatsappText, setWhatsappText] = useState("")
   
+  const [outboundNumbers, setOutboundNumbers] = useState<any[]>([])
+  const [selectedOutboundNumber, setSelectedOutboundNumber] = useState("")
+
+  useEffect(() => {
+    fetch('/api/manage-zoho-numbers')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.numbers && data.numbers.length > 0) {
+          setOutboundNumbers(data.numbers)
+          const defaultNum = data.numbers.find((n: any) => n.isDefault)
+          if (defaultNum) setSelectedOutboundNumber(defaultNum.number)
+          else setSelectedOutboundNumber(data.numbers[0].number)
+        }
+      })
+      .catch(console.error)
+  }, [])
+  
   const [isSaving, setIsSaving] = useState(false)
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   
@@ -119,6 +136,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
           userEmail: currentUser?.email,
           noteContent: newMsg.text,
           sentiment: 'Neutral',
+          fromNumber: selectedOutboundNumber,
           reminderDate
         })
       })
@@ -295,6 +313,20 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
       {/* ── SMS TAB ── */}
       {activeTab === "SMS" && (
         <div className="flex-1 flex flex-col bg-neutral-950 border border-neutral-800 rounded-xl p-4 min-h-[300px] justify-between overflow-hidden">
+          {outboundNumbers.length > 0 && (
+            <div className="mb-3 pb-3 border-b border-neutral-800 flex items-center gap-2">
+              <label className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">Send From:</label>
+              <select 
+                value={selectedOutboundNumber} 
+                onChange={e => setSelectedOutboundNumber(e.target.value)}
+                className="bg-black border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-300 focus:border-emerald-500 focus:outline-none"
+              >
+                {outboundNumbers.map((num, i) => (
+                  <option key={i} value={num.number}>{num.label || 'Number'} ({num.number})</option>
+                ))}
+              </select>
+            </div>
+          )}
           {/* Scrollable messages box */}
           <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-4 scrollbar-thin max-h-[220px]">
             {chatMessages.map(msg => {

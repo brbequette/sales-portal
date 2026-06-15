@@ -100,6 +100,20 @@ export function InvoiceDetailsModal({ invoice, onClose }: InvoiceDetailsModalPro
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Issue Date</label>
                   <div className="text-sm text-white">{displayData.issueDate || displayData.date ? new Date(displayData.issueDate || displayData.date).toLocaleDateString() : "—"}</div>
                 </div>
+                {displayData.salesperson_name && (
+                  <div>
+                    <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Salesperson</label>
+                    <div className="text-sm text-white font-semibold">{displayData.salesperson_name}</div>
+                  </div>
+                )}
+                {displayData.vigRate && (
+                  <div>
+                    <label className="text-[10px] text-emerald-500 uppercase font-bold tracking-wider flex items-center gap-1">VIG Rate</label>
+                    <div className="text-sm font-black text-emerald-400 bg-emerald-500/10 inline-block px-2 py-0.5 rounded border border-emerald-500/20">
+                      {displayData.vigRate}x
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

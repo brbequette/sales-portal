@@ -16,6 +16,7 @@ export default function ProductCatalogPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("All")
+  const [showInactive, setShowInactive] = useState(false)
   
   const [syncing, setSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState("")
@@ -82,13 +83,14 @@ export default function ProductCatalogPage() {
           vendor: parsed.vendor || null,
           retail: parsed.retail !== undefined ? parsed.retail : null,
           pertinentInfo: parsed.pertinentInfo || null,
-          image: parsed.image || null
+          image: parsed.image || null,
+          status: parsed.status || "active"
         }
       }
     } catch (e) {
       // Ignore
     }
-    return { text: desc, cost: null, vendor: null, retail: null, pertinentInfo: null, image: null }
+    return { text: desc, cost: null, vendor: null, retail: null, pertinentInfo: null, image: null, status: "active" }
   }
 
   const getProductImage = (name: string, sku: string) => {
@@ -110,7 +112,8 @@ export default function ProductCatalogPage() {
                           (parsed.vendor && parsed.vendor.toLowerCase().includes(search.toLowerCase())) ||
                           (parsed.pertinentInfo && parsed.pertinentInfo.toLowerCase().includes(search.toLowerCase()))
     const matchesCategory = category === "All" || p.category === category
-    return matchesSearch && matchesCategory
+    const isActive = parsed.status !== "inactive"
+    return matchesSearch && matchesCategory && (showInactive || isActive)
   })
 
   if (!isInitialized || (loading && products.length === 0)) {
@@ -153,6 +156,16 @@ export default function ProductCatalogPage() {
               </svg>
               <span>{syncing ? "Syncing..." : "Sync from Zoho"}</span>
             </button>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-neutral-400 mt-2 sm:mt-0">
+            <input 
+              type="checkbox" 
+              id="showInactive" 
+              checked={showInactive} 
+              onChange={e => setShowInactive(e.target.checked)} 
+              className="rounded border-neutral-700 bg-neutral-900 text-emerald-500 focus:ring-emerald-500"
+            />
+            <label htmlFor="showInactive" className="cursor-pointer select-none text-xs font-bold uppercase tracking-wide">Show Inactive</label>
           </div>
         </div>
       </header>

@@ -18,6 +18,7 @@ import Link from "next/link"
 import { QualityPicker } from "@/components/QualityPicker"
 import { ContactsView } from "@/components/ContactsView"
 import { AccountProductsPurchased } from "@/components/AccountProductsPurchased"
+import { TaskEditor } from "@/components/TaskEditor"
 
 type ActiveTab = "overview" | "history" | "purchased" | "tasks" | "ai"
 
@@ -450,16 +451,18 @@ function AccountHubContent() {
               ) : (
                 <div className="space-y-3">
                   {account.tasks.map((task: any) => (
-                    <div key={task.id} className="bg-neutral-800/50 border border-neutral-700 p-4 rounded-lg flex justify-between items-center">
-                      <div>
-                        <div className="font-bold text-white">{task.subject}</div>
-                        <div className="text-xs text-neutral-400 mt-1">{task.description || "No description"}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`text-xs font-bold px-2 py-0.5 rounded-full inline-block ${task.status === 'Completed' ? 'bg-emerald-900/40 text-emerald-400' : 'bg-amber-900/40 text-amber-400'}`}>{task.status}</div>
-                        {task.dueDate && <div className="text-xs text-neutral-500 mt-1">Due: {new Date(task.dueDate).toLocaleDateString()}</div>}
-                      </div>
-                    </div>
+                    <TaskEditor 
+                      key={task.id} 
+                      task={task} 
+                      onSave={() => {
+                        // Refresh data after save
+                        fetch(`/api/get-account-details?accountId=${account.zohoId}`)
+                          .then(r => r.json())
+                          .then(d => {
+                            if (d.success) setAccount(d.account)
+                          })
+                      }} 
+                    />
                   ))}
                 </div>
               )}

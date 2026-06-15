@@ -1,56 +1,74 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-const usHolidays = [
-  "2026-01-01", // New Year's Day
-  "2026-01-19", // Martin Luther King Jr. Day
-  "2026-02-16", // Washington's Birthday (Presidents' Day)
-  "2026-05-25", // Memorial Day
-  "2026-06-19", // Juneteenth
-  "2026-07-04", // Independence Day
-  "2026-09-07", // Labor Day
-  "2026-10-12", // Columbus Day
-  "2026-11-11", // Veterans Day
-  "2026-11-26", // Thanksgiving Day
-  "2026-12-25", // Christmas Day
-  // Adding 2027 as well for foresight
-  "2027-01-01",
-  "2027-01-18",
-  "2027-02-15",
-  "2027-05-31",
-  "2027-06-18",
-  "2027-07-05",
-  "2027-09-06",
-  "2027-10-11",
-  "2027-11-11",
-  "2027-11-25",
-  "2027-12-24"
-];
-
-async function main() {
-  const existingSetting = await prisma.systemSetting.findUnique({
-    where: { key: "holidays" }
-  });
-
-  let currentHolidays = [];
-  if (existingSetting && existingSetting.value) {
-    try {
-      currentHolidays = JSON.parse(existingSetting.value);
-    } catch (e) {
-      currentHolidays = [];
+function getNthDayOfMonth(year, month, dayOfWeek, n) {
+  let count = 0;
+  for (let d = 1; d <= 31; d++) {
+    let date = new Date(year, month, d);
+    if (date.getMonth() !== month) break;
+    if (date.getDay() === dayOfWeek) {
+      count++;
+      if (count === n) return date;
     }
   }
+  return null;
+}
 
-  // Merge lists uniquely and sort
-  const combined = Array.from(new Set([...currentHolidays, ...usHolidays])).sort();
+function getLastDayOfMonth(year, month, dayOfWeek) {
+  let last = null;
+  for (let d = 1; d <= 31; d++) {
+    let date = new Date(year, month, d);
+    if (date.getMonth() !== month) break;
+    if (date.getDay() === dayOfWeek) last = date;
+  }
+  return last;
+}
 
+function observeDate(date) {
+  const d = new Date(date);
+  if (d.getDay() === 0) { // Sunday -> Monday
+    d.setDate(d.getDate() + 1);
+  } else if (d.getDay() === 6) { // Saturday -> Friday
+    d.setDate(d.getDate() - 1);
+  }
+  return d;
+}
+
+function format(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+const holidays = [];
+
+for (let y = 2018; y <= 2028; y++) {
+  holidays.push({ date: format(observeDate(new Date(y, 0, 1))), description: "New Year's Day" });
+  holidays.push({ date: format(getNthDayOfMonth(y, 0, 1, 3)), description: "Martin Luther King Jr. Day" });
+  holidays.push({ date: format(getNthDayOfMonth(y, 1, 1, 3)), description: "Washington's Birthday" });
+  holidays.push({ date: format(getLastDayOfMonth(y, 4, 1)), description: "Memorial Day" });
+  
+  if (y >= 2021) {
+    holidays.push({ date: format(observeDate(new Date(y, 5, 19))), description: "Juneteenth" });
+  }
+  
+  holidays.push({ date: format(observeDate(new Date(y, 6, 4))), description: "Independence Day" });
+  holidays.push({ date: format(getNthDayOfMonth(y, 8, 1, 1)), description: "Labor Day" });
+  holidays.push({ date: format(getNthDayOfMonth(y, 9, 1, 2)), description: "Columbus Day" });
+  holidays.push({ date: format(observeDate(new Date(y, 10, 11))), description: "Veterans Day" });
+  holidays.push({ date: format(getNthDayOfMonth(y, 10, 4, 4)), description: "Thanksgiving Day" });
+  holidays.push({ date: format(observeDate(new Date(y, 11, 25))), description: "Christmas Day" });
+}
+
+async function main() {
   await prisma.systemSetting.upsert({
     where: { key: "holidays" },
-    update: { value: JSON.stringify(combined) },
-    create: { key: "holidays", value: JSON.stringify(combined) }
+    update: { value: JSON.stringify(holidays) },
+    create: { key: "holidays", value: JSON.stringify(holidays) }
   });
 
-  console.log("Successfully seeded government holidays in system settings.");
+  console.log(`Successfully seeded ${holidays.length} government holidays from 2018 to 2028 in system settings.`);
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());

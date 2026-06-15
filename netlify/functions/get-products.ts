@@ -43,7 +43,8 @@ export const handler: Handler = async (event, context) => {
           vendor: item.vendor_name || item.cf_vendor || "",
           retail: item.rate || 0,
           pertinentInfo: "",
-          itemId: item.item_id
+          itemId: item.item_id,
+          status: item.status || "active"
         })
 
         return prisma.product.upsert({

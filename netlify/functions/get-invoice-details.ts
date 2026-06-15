@@ -104,12 +104,43 @@ export const handler: Handler = async (event) => {
         console.error("Failed to sync invoice status to DB:", dbErr)
       }
 
+    let vigRate = 1.5; // Default
+
+    const salespersonName = zohoData.invoice.salesperson_name;
+    if (salespersonName) {
+      const isMontgomery = salespersonName.toLowerCase().includes('montgomery') || salespersonName.toLowerCase().includes('morgan');
+      if (isMontgomery) {
+        vigRate = 1.0;
+      } else {
+        // Find user by name
+        const users = await prisma.user.findMany();
+        const user = users.find(u => salespersonName.toLowerCase().includes(u.name.toLowerCase()) || u.name.toLowerCase().includes(salespersonName.toLowerCase()));
+        
+        if (user) {
+          const settings = await prisma.systemSetting.findUnique({ where: { key: 'vig_settings' } });
+          const allVigSettings = settings ? JSON.parse(settings.value) : {};
+          const userVig = allVigSettings[user.id];
+          
+          if (userVig) {
+            if (userVig.constantVigEnabled && userVig.constantVigValue !== null) {
+              vigRate = userVig.constantVigValue;
+            } else {
+              // Get current month
+              const currentMonthKey = new Date().toISOString().substring(0, 7);
+              const monthlyGoal = (userVig.monthlyVigGoals || []).find((g: any) => g.monthKey === currentMonthKey);
+              if (monthlyGoal && monthlyGoal.manualVigRate !== null) {
+                vigRate = monthlyGoal.manualVigRate;
+              }
+            }
+          }
+        }
+      }
     }
 
     return {
       statusCode: 200,
       headers: cors,
-      body: JSON.stringify({ success: true, invoice: zohoData.invoice })
+      body: JSON.stringify({ success: true, invoice: zohoData.invoice, vigRate })
     }
   } catch (err: any) {
     console.error("get-invoice-details error:", err)

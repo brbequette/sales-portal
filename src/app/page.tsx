@@ -739,7 +739,22 @@ export default function Dashboard() {
             onClick={() => {
               const recentPaid = accounts
                 .filter(a => (a.totalSales || 0) > 0)
-                .sort((a: any, b: any) => new Date(b.lastPurchaseAt || 0).getTime() - new Date(a.lastPurchaseAt || 0).getTime())
+                .map(a => {
+                  let maxDate = new Date(a.lastPurchaseAt || 0).getTime()
+                  if (a.invoices && Array.isArray(a.invoices)) {
+                    a.invoices.forEach((inv: any) => {
+                      if (inv.status === 'Paid' || inv.status === 'Closed') {
+                        const pDateStr = (inv.items as any)?.paymentDate || inv.issueDate
+                        if (pDateStr) {
+                          const pTime = new Date(pDateStr).getTime()
+                          if (pTime > maxDate) maxDate = pTime
+                        }
+                      }
+                    })
+                  }
+                  return { ...a, _latestPaymentTime: maxDate }
+                })
+                .sort((a, b) => b._latestPaymentTime - a._latestPaymentTime)
                 .slice(0, 50)
               setDrillType("accounts")
               setDrillTitle("Recent Paid Accounts (Last 50)")

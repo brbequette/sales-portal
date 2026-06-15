@@ -265,8 +265,17 @@ export const handler: Handler = async (event) => {
         }
 
         if (repStatsMap[repId]) {
-          repStatsMap[repId].revenue += amount
-          repStatsMap[repId].profit += profit
+          const isValidInvoice = inv.status !== 'Void' && inv.status !== 'Draft'
+          const isVoided = inv.status === 'Void'
+
+          if (isValidInvoice) {
+            repStatsMap[repId].revenue += amount
+            repStatsMap[repId].profit += profit
+            repStatsMap[repId].commissions += profit * 0.50
+          } else if (isVoided) {
+            const deadCostTotal = parseFloat((inv.items as any)?.deadCostTotal as any) || 0
+            repStatsMap[repId].commissions -= deadCostTotal * 0.50
+          }
 
           if (inv.status === "Overdue") {
             const balance = typeof inv.items === "object" && inv.items !== null && "balance" in inv.items
@@ -276,7 +285,7 @@ export const handler: Handler = async (event) => {
           }
 
           // Aggregates for periods
-          if (issueDate) {
+          if (issueDate && isValidInvoice) {
             if (issueDate >= todayStart && issueDate <= todayEnd) {
               repStatsMap[repId].daily.revenue += amount
               repStatsMap[repId].daily.profit += profit
@@ -410,6 +419,7 @@ export const handler: Handler = async (event) => {
       select: {
         issueDate: true,
         amount: true,
+        status: true,
         items: true,
         accountId: true,
         account: {
@@ -462,7 +472,8 @@ export const handler: Handler = async (event) => {
           repId = inv.account?.ownerId || unassignedId
         }
 
-        if (repProfit[repId] !== undefined) {
+        const isValidInvoice = inv.status !== 'Void' && inv.status !== 'Draft'
+        if (isValidInvoice && repProfit[repId] !== undefined) {
           repProfit[repId] += profit
           repSubtotal[repId] += subtotal
         }
