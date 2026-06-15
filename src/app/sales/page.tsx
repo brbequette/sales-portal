@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import Link from "next/link"
 import { FiSearch, FiFilter, FiFileText, FiCheckCircle, FiAlertCircle, FiX, FiChevronRight } from "react-icons/fi"
@@ -41,20 +41,43 @@ export default function SalesListPage() {
     }
   }, [user, isAdmin])
 
+  const fetchAccountsRef = useRef(0)
+
   const fetchAccounts = useCallback(async () => {
     if (!user) return
+    const loadId = ++fetchAccountsRef.current
     setLoading(true)
+    
     try {
       const ts = Date.now()
       const roleParam = user.role ? `&role=${encodeURIComponent(user.role)}` : ''
-      const res = await fetch(`/api/get-accounts?zohoId=${user.zohoId || ''}&email=${encodeURIComponent(user.email || '')}&includeDocs=true${roleParam}&_t=${ts}`)
+      const res = await fetch(`/api/get-accounts?zohoId=${user.zohoId || ''}&email=${encodeURIComponent(user.email || '')}&includeDocs=true${roleParam}&page=1&_t=${ts}`)
       const data = await res.json()
+      
       if (data.success) {
         setAccounts(data.accounts)
+        setLoading(false)
+        
+        if (data.pagination && data.pagination.hasMore) {
+          const totalPages = Math.ceil(data.pagination.totalCount / data.accounts.length)
+          for (let pg = 2; pg <= totalPages; pg++) {
+            if (fetchAccountsRef.current !== loadId) return
+            const pgRes = await fetch(`/api/get-accounts?zohoId=${user.zohoId || ''}&email=${encodeURIComponent(user.email || '')}&includeDocs=true${roleParam}&page=${pg}&_t=${Date.now()}`)
+            const pgData = await pgRes.json()
+            if (pgData.success) {
+              setAccounts(prev => {
+                const existingIds = new Set(prev.map(a => a.id))
+                const newAccounts = pgData.accounts.filter((a: any) => !existingIds.has(a.id))
+                return [...prev, ...newAccounts]
+              })
+            }
+          }
+        }
+      } else {
+        setLoading(false)
       }
     } catch (e) {
       console.error(e)
-    } finally {
       setLoading(false)
     }
   }, [user])
