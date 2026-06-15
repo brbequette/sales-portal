@@ -1,6 +1,6 @@
 require('dotenv').config()
 const { PrismaClient } = require('@prisma/client')
-const { getZohoAccessToken } = require('./netlify/functions/lib/zoho-auth')
+const { getZohoAccessToken } = require('../netlify/functions/lib/zoho-auth')
 const p = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID
@@ -11,28 +11,29 @@ async function run() {
     select: { id: true, zohoId: true, status: true, amount: true, items: true }
   })
   
-  console.log(`Found ${overdueInvoices.length} invoices marked as Overdue. Fetching fresh statuses from Zoho Books...`)
+  console.log(`Found ${overdueInvoices.length} invoices marked as Overdue.`)
   
-  let token
-  try {
-    token = await getZohoAccessToken()
-  } catch(e) {
-    console.error("Failed to get token", e)
-    process.exit(1)
-  }
-
+  let token = await getZohoAccessToken()
   let fixedCount = 0
   
   for (const inv of overdueInvoices) {
+    let targetId = inv.zohoId;
+    if (inv.items && typeof inv.items === 'object' && inv.items.booksInvoiceId) {
+      targetId = inv.items.booksInvoiceId;
+    } else if (inv.zohoId && inv.zohoId.startsWith('1')) {
+      targetId = inv.zohoId;
+    }
+    
+    // Test the targetId
+    console.log(`Inv ${inv.id}: targetId=${targetId}`)
     try {
-      const isBooksId = inv.zohoId && inv.zohoId.startsWith('1') && inv.zohoId.length > 15
-      const targetId = isBooksId ? inv.zohoId : (inv.items?.booksInvoiceId || inv.zohoId)
-      
       const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${targetId}?organization_id=${ORG_ID}`, {
         headers: { Authorization: `Zoho-oauthtoken ${token}` }
       })
-      
-      if (!res.ok) continue
+      if (!res.ok) {
+        console.log(`API failed for ${targetId}: ${res.status}`)
+        continue
+      }
       
       const data = await res.json()
       if (data.code === 0 && data.invoice) {
@@ -51,9 +52,7 @@ async function run() {
           fixedCount++
         }
       }
-    } catch(e) {
-      // skip
-    }
+    } catch(e) { }
   }
   
   console.log(`Fixed ${fixedCount} invoices in the DB!`)

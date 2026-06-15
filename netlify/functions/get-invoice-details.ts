@@ -69,11 +69,16 @@ export const handler: Handler = async (event) => {
     if (dbInvoice) {
       const zohoInvoice = zohoData.invoice
       let status = dbInvoice.status
-      if (zohoInvoice.status === 'paid' || zohoInvoice.balance === 0) {
+      const zStatus = (zohoInvoice.status || '').toLowerCase()
+      if (zStatus === 'paid' || zohoInvoice.balance === 0 || zStatus === 'closed') {
         status = 'Paid'
-      } else if (zohoInvoice.status === 'void') {
+      } else if (zStatus === 'void' || zStatus === 'voided') {
         status = 'Void'
-      } else if (zohoInvoice.status === 'overdue' || (dbInvoice.dueDate && new Date(dbInvoice.dueDate) < new Date())) {
+      } else if (zStatus === 'writeoff' || zStatus === 'write_off' || zStatus === 'write off' || zStatus === 'bad debt') {
+        status = 'Writeoff'
+      } else if (zStatus === 'draft') {
+        status = 'Draft'
+      } else if (zStatus === 'overdue' || (dbInvoice.dueDate && new Date(dbInvoice.dueDate) < new Date())) {
         status = 'Overdue'
       } else {
         status = zohoInvoice.status.charAt(0).toUpperCase() + zohoInvoice.status.slice(1)

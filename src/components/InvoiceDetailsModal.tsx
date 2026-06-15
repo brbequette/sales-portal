@@ -86,7 +86,7 @@ export function InvoiceDetailsModal({ invoice, onClose }: InvoiceDetailsModalPro
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Invoice #</label>
-                  <div className="text-sm text-white font-mono">{displayData.items?.invoiceNumber || displayData.invoiceNumber || displayData.id?.slice(-6) || "—"}</div>
+                  <div className="text-sm text-white font-mono">{displayData.items?.invoiceNumber || displayData.invoiceNumber || displayData.invoice_number || displayData.id?.slice(-6) || "—"}</div>
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Amount</label>
