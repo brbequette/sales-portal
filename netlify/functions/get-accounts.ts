@@ -394,6 +394,8 @@ export const handler: Handler = async (event, context) => {
                     const dbAccountId = accountZohoId ? accountMap.get(accountZohoId) : null;
                     
                     let status = invRecord.Status || 'Paid';
+                    // Zoho CRM uses "Closed" for paid invoices
+                    if (status === 'Closed') status = 'Paid';
                     const dueDate = invRecord.Due_Date ? new Date(invRecord.Due_Date) : null;
                     if (status !== 'Paid' && status !== 'Void' && dueDate && dueDate < new Date()) {
                       status = 'Overdue';
@@ -452,6 +454,130 @@ export const handler: Handler = async (event, context) => {
                 console.log(`Synced ${syncedInvoicesCount} invoices for owner ${syncUser.zohoId}.`);
               } catch (invError) {
                 console.error("Failed to sync invoices:", invError);
+              }
+
+              // Sync Sales Orders from Zoho Books — once per full sync
+              if (syncUser.id === usersToSync[0]?.id) {
+                try {
+                  const ZOHO_DC = process.env.ZOHO_DC || 'com';
+                  const ORG_ID = process.env.ZOHO_ORGANIZATION_ID;
+                  const booksBase = `https://www.zohoapis.${ZOHO_DC}/books/v3`;
+
+                  // Build a name-to-accountId map for matching
+                  const allAccounts = await prisma.account.findMany({ select: { id: true, name: true } });
+                  const nameMap = new Map<string, string>();
+                  allAccounts.forEach(a => nameMap.set(a.name.toLowerCase().trim(), a.id));
+
+                  // Sync Sales Orders
+                  console.log("Syncing sales orders from Zoho Books...");
+                  let soPage = 1;
+                  let soSynced = 0;
+                  let hasMoreSO = true;
+                  while (hasMoreSO && soPage <= 3) {
+                    const soRes = await fetch(
+                      `${booksBase}/salesorders?organization_id=${ORG_ID}&page=${soPage}&per_page=200&sort_column=date&sort_order=D`,
+                      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                    );
+                    if (!soRes.ok) break;
+                    const soData: any = await soRes.json();
+                    const orders = soData.salesorders || [];
+                    if (orders.length === 0) break;
+
+                    const soOps = [];
+                    for (const so of orders) {
+                      const custName = (so.customer_name || '').toLowerCase().trim();
+                      const dbAccountId = nameMap.get(custName);
+                      if (!dbAccountId || !so.salesorder_id) continue;
+                      soOps.push(
+                        prisma.salesOrder.upsert({
+                          where: { zohoId: so.salesorder_id },
+                          update: {
+                            amount: parseFloat(so.sub_total || so.total || 0),
+                            status: so.order_status || so.status || 'Pending',
+                            orderDate: new Date(so.date || so.created_time),
+                            items: {
+                              salesOrderNumber: so.salesorder_number,
+                              salesperson: so.salesperson_name || null,
+                            }
+                          },
+                          create: {
+                            zohoId: so.salesorder_id,
+                            accountId: dbAccountId,
+                            amount: parseFloat(so.sub_total || so.total || 0),
+                            status: so.order_status || so.status || 'Pending',
+                            orderDate: new Date(so.date || so.created_time),
+                            items: {
+                              salesOrderNumber: so.salesorder_number,
+                              salesperson: so.salesperson_name || null,
+                            }
+                          }
+                        })
+                      );
+                    }
+                    for (let i = 0; i < soOps.length; i += 50) {
+                      await prisma.$transaction(soOps.slice(i, i + 50));
+                      soSynced += Math.min(50, soOps.length - i);
+                    }
+                    hasMoreSO = soData.page_context?.has_more_page || false;
+                    soPage++;
+                  }
+                  console.log(`Synced ${soSynced} sales orders from Books.`);
+
+                  // Sync Estimates (Quotes)
+                  console.log("Syncing estimates (quotes) from Zoho Books...");
+                  let estPage = 1;
+                  let estSynced = 0;
+                  let hasMoreEst = true;
+                  while (hasMoreEst && estPage <= 3) {
+                    const estRes = await fetch(
+                      `${booksBase}/estimates?organization_id=${ORG_ID}&page=${estPage}&per_page=200&sort_column=date&sort_order=D`,
+                      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                    );
+                    if (!estRes.ok) break;
+                    const estData: any = await estRes.json();
+                    const estimates = estData.estimates || [];
+                    if (estimates.length === 0) break;
+
+                    const estOps = [];
+                    for (const est of estimates) {
+                      const custName = (est.customer_name || '').toLowerCase().trim();
+                      const dbAccountId = nameMap.get(custName);
+                      if (!dbAccountId || !est.estimate_id) continue;
+                      estOps.push(
+                        prisma.quote.upsert({
+                          where: { zohoId: est.estimate_id },
+                          update: {
+                            amount: parseFloat(est.sub_total || est.total || 0),
+                            status: est.status || 'Draft',
+                            items: {
+                              estimateNumber: est.estimate_number,
+                              salesperson: est.salesperson_name || null,
+                            }
+                          },
+                          create: {
+                            zohoId: est.estimate_id,
+                            accountId: dbAccountId,
+                            amount: parseFloat(est.sub_total || est.total || 0),
+                            status: est.status || 'Draft',
+                            items: {
+                              estimateNumber: est.estimate_number,
+                              salesperson: est.salesperson_name || null,
+                            }
+                          }
+                        })
+                      );
+                    }
+                    for (let i = 0; i < estOps.length; i += 50) {
+                      await prisma.$transaction(estOps.slice(i, i + 50));
+                      estSynced += Math.min(50, estOps.length - i);
+                    }
+                    hasMoreEst = estData.page_context?.has_more_page || false;
+                    estPage++;
+                  }
+                  console.log(`Synced ${estSynced} estimates (quotes) from Books.`);
+                } catch (booksErr) {
+                  console.error("Failed to sync sales orders/estimates from Books:", booksErr);
+                }
               }
 
               // Sync Contacts — cap at 3 pages (300 records)

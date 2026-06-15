@@ -103,7 +103,7 @@ model SalesOrder {
   items     Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  zohoId    String?
+  zohoId    String?  @unique
   account   Account  @relation(fields: [accountId], references: [id])
 }
 
@@ -116,7 +116,7 @@ model Quote {
   items      Json?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
-  zohoId     String?
+  zohoId     String?  @unique
   account    Account   @relation(fields: [accountId], references: [id])
 }
 

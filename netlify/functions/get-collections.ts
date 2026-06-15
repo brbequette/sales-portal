@@ -359,7 +359,7 @@ export const handler: Handler = async (event) => {
       // All Outstanding: unpaid status
       invoices = await prisma.invoice.findMany({
         where: {
-          status: { notIn: ["Paid", "Void", "Voided", "Draft"] }
+          status: { notIn: ["Paid", "Closed", "Void", "Voided", "Draft", "Writeoff", "Write_off", "Write Off", "Bad Debt"] }
         },
         include: {
           account: {
@@ -373,7 +373,7 @@ export const handler: Handler = async (event) => {
       invoices = await prisma.invoice.findMany({
         where: {
           AND: [
-            { status: { notIn: ["Void", "Voided", "Draft", "Paid"] } },
+            { status: { notIn: ["Void", "Voided", "Draft", "Paid", "Closed", "Writeoff", "Write_off", "Write Off", "Bad Debt"] } },
             {
               OR: [
                 // Explicit Overdue status
@@ -397,7 +397,7 @@ export const handler: Handler = async (event) => {
       // Current: unpaid and not overdue
       invoices = await prisma.invoice.findMany({
         where: {
-          status: { notIn: ["Paid", "Void", "Voided", "Draft"] },
+          status: { notIn: ["Paid", "Closed", "Void", "Voided", "Draft", "Writeoff", "Write_off", "Write Off", "Bad Debt"] },
           AND: [
             {
               NOT: {
