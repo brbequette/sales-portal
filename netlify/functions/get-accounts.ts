@@ -188,8 +188,27 @@ export const handler: Handler = async (event, context) => {
           if (zohoAccounts.length > 0) {
             console.log(`Found ${zohoAccounts.length} live accounts from Zoho for user ${syncUser.email}`);
               
-              // Upsert each account in transaction batches of 50
-              const accountOps = zohoAccounts.map((record: any) => {
+              // Deduplicate incoming Zoho accounts by name
+              const localAccountsBefore = await prisma.account.findMany({
+                where: { ownerId: syncUser.id },
+                select: { id: true, zohoId: true, name: true }
+              });
+              const nameMap = new Map();
+              localAccountsBefore.forEach(a => nameMap.set(a.name.toLowerCase().trim(), a.id));
+
+              const uniqueZohoAccounts = [];
+              const seenNames = new Set(nameMap.keys());
+
+              for (const record of zohoAccounts) {
+                const nameKey = (record.Account_Name || record.name || 'Unnamed Account').toLowerCase().trim();
+                if (!seenNames.has(nameKey)) {
+                  seenNames.add(nameKey);
+                  uniqueZohoAccounts.push(record);
+                }
+              }
+
+              // Upsert each unique account
+              const accountOps = uniqueZohoAccounts.map((record: any) => {
                 let status = 'Open'
                 const lastPurchaseDate = record.Last_Purchase_Date ? new Date(record.Last_Purchase_Date) : null
                 if (lastPurchaseDate) {
@@ -253,12 +272,28 @@ export const handler: Handler = async (event, context) => {
                 await prisma.$transaction(chunk)
               }
 
+              // Cache the newly synced account IDs in a local Map
+              const localAccountsAfter = await prisma.account.findMany({
+                where: { ownerId: syncUser.id },
+                select: { id: true, zohoId: true, name: true }
+              });
+              const accountMap = new Map(localAccountsAfter.map(a => [a.zohoId, a.id]));
+              
+              const updatedNameMap = new Map();
+              localAccountsAfter.forEach(a => updatedNameMap.set(a.name.toLowerCase().trim(), a.id));
+
+              // Ensure duplicate Zoho IDs point to the kept canonical account ID
+              for (const record of zohoAccounts) {
+                const nameKey = (record.Account_Name || record.name || 'Unnamed Account').toLowerCase().trim();
+                if (!accountMap.has(record.id)) {
+                  const keptId = updatedNameMap.get(nameKey);
+                  if (keptId) accountMap.set(record.id, keptId);
+                }
+              }
+
               // Reassignment check: find local accounts owned by this user but not returned by Zoho
               const zohoZohoIds = new Set(zohoAccounts.map((r: any) => r.id));
-              const localAccountsBeforeReassign = await prisma.account.findMany({
-                where: { ownerId: syncUser.id },
-                select: { id: true, zohoId: true }
-              });
+              const localAccountsBeforeReassign = localAccountsAfter;
               
               const missingAccountZohoIds = localAccountsBeforeReassign
                 .map(a => a.zohoId)
@@ -303,13 +338,7 @@ export const handler: Handler = async (event, context) => {
                 }
               }
 
-              // Cache the newly synced account IDs in a local Map
-              const localAccounts = await prisma.account.findMany({
-                where: { ownerId: syncUser.id },
-                select: { id: true, zohoId: true }
-              });
-              const accountMap = new Map(localAccounts.map(a => [a.zohoId, a.id]));
-
+              // accountMap is already populated above with duplicate handling included.
               // Sync Invoices — cap at 5 pages (500 records)
               try {
                 console.log(`Syncing invoices for owner ${syncUser.zohoId}...`);
@@ -407,6 +436,17 @@ export const handler: Handler = async (event, context) => {
                 let syncedContactsCount = 0;
                 const MAX_CONTACT_PAGES = 3;
 
+                const localContactsBefore = await prisma.contact.findMany({
+                  where: { accountId: { in: Array.from(accountMap.values()) } },
+                  select: { id: true, email: true, phone: true, accountId: true }
+                });
+                const seenContactEmails = new Set();
+                const seenContactPhones = new Set();
+                localContactsBefore.forEach(c => {
+                  if (c.email) seenContactEmails.add(`${c.accountId}-${c.email.toLowerCase().trim()}`);
+                  if (c.phone) seenContactPhones.add(`${c.accountId}-${c.phone.trim()}`);
+                });
+
                 while (hasMoreContacts && contactPage <= MAX_CONTACT_PAGES) {
                   const contactRes = await fetch(
                     `https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${contactPage}`,
@@ -427,6 +467,18 @@ export const handler: Handler = async (event, context) => {
                     const accountZohoId = contactRecord.Account_Name?.id;
                     const dbAccountId = accountZohoId ? accountMap.get(accountZohoId) : null;
                     if (dbAccountId) {
+                      const emailVal = contactRecord.Email;
+                      const phoneVal = contactRecord.Phone;
+                      const emailKey = emailVal ? `${dbAccountId}-${emailVal.toLowerCase().trim()}` : null;
+                      const phoneKey = phoneVal ? `${dbAccountId}-${phoneVal.trim()}` : null;
+
+                      if ((emailKey && seenContactEmails.has(emailKey)) || (phoneKey && seenContactPhones.has(phoneKey))) {
+                        continue;
+                      }
+
+                      if (emailKey) seenContactEmails.add(emailKey);
+                      if (phoneKey) seenContactPhones.add(phoneKey);
+
                       contactOps.push(
                         prisma.contact.upsert({
                           where: { zohoId: contactRecord.id },
