@@ -583,9 +583,20 @@ export default function Dashboard() {
     effortAccounts = [...effortAccounts].sort((a, b) => (a.timeZone || "ZZZ").localeCompare(b.timeZone || "ZZZ"))
   } else if (sortBy === "recentOrders") {
     effortAccounts = [...effortAccounts].sort((a, b) => {
-      const aDate = a.lastPurchaseAt ? new Date(a.lastPurchaseAt).getTime() : 0
-      const bDate = b.lastPurchaseAt ? new Date(b.lastPurchaseAt).getTime() : 0
-      return bDate - aDate
+      const getLatestDate = (acc: any) => {
+        let maxDate = acc.lastPurchaseAt ? new Date(acc.lastPurchaseAt).getTime() : 0
+        if (acc.invoices && Array.isArray(acc.invoices)) {
+          acc.invoices.forEach((inv: any) => {
+            const dStr = (inv.items as any)?.paymentDate || inv.issueDate
+            if (dStr) {
+              const t = new Date(dStr).getTime()
+              if (t > maxDate) maxDate = t
+            }
+          })
+        }
+        return maxDate
+      }
+      return getLatestDate(b) - getLatestDate(a)
     })
   }
 
