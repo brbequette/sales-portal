@@ -757,20 +757,21 @@ export default function Dashboard() {
               const recentPaid = accounts
                 .filter(a => (a.totalSales || 0) > 0)
                 .map(a => {
-                  let maxDate = new Date(a.lastPurchaseAt || 0).getTime()
+                  let maxPaidDate = 0
                   if (a.invoices && Array.isArray(a.invoices)) {
                     a.invoices.forEach((inv: any) => {
                       if (inv.status === 'Paid' || inv.status === 'Closed') {
                         const pDateStr = (inv.items as any)?.paymentDate || inv.issueDate
                         if (pDateStr) {
                           const pTime = new Date(pDateStr).getTime()
-                          if (pTime > maxDate) maxDate = pTime
+                          if (pTime > maxPaidDate) maxPaidDate = pTime
                         }
                       }
                     })
                   }
-                  return { ...a, _latestPaymentTime: maxDate }
+                  return { ...a, _latestPaymentTime: maxPaidDate }
                 })
+                .filter(a => a._latestPaymentTime > 0)
                 .sort((a, b) => b._latestPaymentTime - a._latestPaymentTime)
                 .slice(0, 50)
               setDrillType("accounts")
