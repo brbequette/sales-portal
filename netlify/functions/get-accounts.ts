@@ -300,7 +300,8 @@ export const handler: Handler = async (event, context) => {
                 .filter(zid => !zohoZohoIds.has(zid));
 
               if (missingAccountZohoIds.length > 0) {
-                console.log(`Detected ${missingAccountZohoIds.length} accounts locally owned by ${syncUser.email} that are no longer returned by Zoho. Syncing owners...`);
+                console.log(`Detected ${missingAccountZohoIds.length} accounts locally owned by ${syncUser.email} that are no longer returned by Zoho. Syncing owners / cleaning deleted...`);
+                const foundInZoho = new Set<string>();
                 try {
                   for (let j = 0; j < missingAccountZohoIds.length; j += 50) {
                     const idChunk = missingAccountZohoIds.slice(j, j + 50);
@@ -312,6 +313,7 @@ export const handler: Handler = async (event, context) => {
                       const fetchData = await fetchRes.json();
                       const updatedRecords = fetchData.data || [];
                       for (const record of updatedRecords) {
+                        foundInZoho.add(record.id);
                         const newOwnerZohoId = record.Owner?.id;
                         if (newOwnerZohoId && newOwnerZohoId !== syncUser.zohoId) {
                           let dbNewOwner = await prisma.user.findUnique({ where: { zohoId: newOwnerZohoId } });
@@ -333,8 +335,31 @@ export const handler: Handler = async (event, context) => {
                       }
                     }
                   }
+
+                  // Cascade-delete accounts that Zoho confirmed are gone
+                  const deletedZohoIds = missingAccountZohoIds.filter(zid => !foundInZoho.has(zid));
+                  if (deletedZohoIds.length > 0) {
+                    console.log(`Cascade-deleting ${deletedZohoIds.length} accounts removed from Zoho CRM...`);
+                    const accountsToDelete = await prisma.account.findMany({
+                      where: { zohoId: { in: deletedZohoIds } },
+                      select: { id: true }
+                    });
+                    const idsToDelete = accountsToDelete.map(a => a.id);
+                    if (idsToDelete.length > 0) {
+                      // Delete child records first, then the accounts
+                      await prisma.note.deleteMany({ where: { accountId: { in: idsToDelete } } });
+                      await prisma.task.deleteMany({ where: { accountId: { in: idsToDelete } } });
+                      await prisma.invoice.deleteMany({ where: { accountId: { in: idsToDelete } } });
+                      await prisma.deal.deleteMany({ where: { accountId: { in: idsToDelete } } });
+                      await prisma.contact.deleteMany({ where: { accountId: { in: idsToDelete } } });
+                      await prisma.quote.deleteMany({ where: { accountId: { in: idsToDelete } } });
+                      await prisma.salesOrder.deleteMany({ where: { accountId: { in: idsToDelete } } });
+                      await prisma.account.deleteMany({ where: { id: { in: idsToDelete } } });
+                      console.log(`Deleted ${idsToDelete.length} orphaned accounts and their child records.`);
+                    }
+                  }
                 } catch (reassignErr) {
-                  console.error("Failed to process reassigned accounts:", reassignErr);
+                  console.error("Failed to process reassigned/deleted accounts:", reassignErr);
                 }
               }
 
@@ -513,6 +538,48 @@ export const handler: Handler = async (event, context) => {
                   contactPage++;
                 }
                 console.log(`Synced ${syncedContactsCount} contacts for owner ${syncUser.zohoId}.`);
+
+                // Delete contacts that no longer exist in Zoho
+                try {
+                  const syncedContactZohoIds = new Set<string>();
+                  // We need to collect all contact zohoIds we just synced
+                  const localContactsAfterSync = await prisma.contact.findMany({
+                    where: { accountId: { in: Array.from(new Set(accountMap.values())) } },
+                    select: { id: true, zohoId: true }
+                  });
+                  // Check which local contacts are NOT in Zoho anymore
+                  const contactZohoIdsToCheck = localContactsAfterSync
+                    .map(c => c.zohoId)
+                    .filter(Boolean);
+                  
+                  if (contactZohoIdsToCheck.length > 0) {
+                    const deletedContactIds: string[] = [];
+                    for (let ci = 0; ci < contactZohoIdsToCheck.length; ci += 50) {
+                      const chunk = contactZohoIdsToCheck.slice(ci, ci + 50);
+                      const checkRes = await fetch(
+                        `https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts?ids=${chunk.join(",")}`,
+                        { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                      );
+                      const foundIds = new Set<string>();
+                      if (checkRes.ok) {
+                        const checkData = await checkRes.json();
+                        (checkData.data || []).forEach((r: any) => foundIds.add(r.id));
+                      }
+                      for (const zid of chunk) {
+                        if (!foundIds.has(zid)) {
+                          const localContact = localContactsAfterSync.find(c => c.zohoId === zid);
+                          if (localContact) deletedContactIds.push(localContact.id);
+                        }
+                      }
+                    }
+                    if (deletedContactIds.length > 0) {
+                      await prisma.contact.deleteMany({ where: { id: { in: deletedContactIds } } });
+                      console.log(`Deleted ${deletedContactIds.length} contacts removed from Zoho CRM.`);
+                    }
+                  }
+                } catch (delContactErr) {
+                  console.error("Failed to delete orphaned contacts:", delContactErr);
+                }
               } catch (contactError) {
                 console.error("Failed to sync contacts:", contactError);
               }
@@ -554,6 +621,7 @@ export const handler: Handler = async (event, context) => {
           lastPurchaseAt: true,
           ownerId: true,
           industry: true,
+          timeZone: true,
           invoices: {
             select: { amount: true, status: true, items: true }
           },
@@ -594,6 +662,7 @@ export const handler: Handler = async (event, context) => {
           lastPurchaseAt: true,
           ownerId: true,
           industry: true,
+          timeZone: true,
           invoices: {
             select: { amount: true, status: true, items: true }
           },
@@ -639,6 +708,7 @@ export const handler: Handler = async (event, context) => {
         lastPurchaseAt: acc.lastPurchaseAt,
         ownerId: acc.ownerId,
         industry: acc.industry,
+        timeZone: acc.timeZone,
         owner: acc.owner,
         totalSales,
         totalProfit,

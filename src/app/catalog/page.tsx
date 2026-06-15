@@ -247,6 +247,18 @@ export default function ProductCatalogPage() {
                           )}
                         </div>
                         <span>{p.name}</span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold leading-none whitespace-nowrap ${
+                          p.subjectToVig
+                            ? 'bg-emerald-500/20 text-emerald-400'
+                            : 'bg-neutral-700 text-neutral-400'
+                        }`}>
+                          {p.subjectToVig ? 'VIG' : 'No VIG'}
+                        </span>
+                        {p.giftItem && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold leading-none whitespace-nowrap bg-purple-500/20 text-purple-400">
+                            Gift
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="p-4 text-neutral-400 font-semibold">{parsed.vendor || "N/A"}</td>

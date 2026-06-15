@@ -42,7 +42,7 @@ export default function Dashboard() {
   const [effort, setEffort] = useState<"sales" | "call_list">("sales")
   const [ownerFilter, setOwnerFilter] = useState("All")
   const [timezoneFilter, setTimezoneFilter] = useState("All")
-  const [sortBy, setSortBy] = useState<"default" | "timezone">("default")
+  const [sortBy, setSortBy] = useState<"default" | "timezone" | "recentOrders">("default")
   const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [showDoNotCall, setShowDoNotCall] = useState(false)
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
@@ -571,6 +571,12 @@ export default function Dashboard() {
 
   if (sortBy === "timezone") {
     effortAccounts = [...effortAccounts].sort((a, b) => (a.timeZone || "ZZZ").localeCompare(b.timeZone || "ZZZ"))
+  } else if (sortBy === "recentOrders") {
+    effortAccounts = [...effortAccounts].sort((a, b) => {
+      const aDate = a.lastPurchaseAt ? new Date(a.lastPurchaseAt).getTime() : 0
+      const bDate = b.lastPurchaseAt ? new Date(b.lastPurchaseAt).getTime() : 0
+      return bDate - aDate
+    })
   }
 
   const effortTasks = tasks
@@ -910,6 +916,7 @@ export default function Dashboard() {
                   >
                     <option value="default">Default Sort</option>
                     <option value="timezone">Sort by Time Zone</option>
+                    <option value="recentOrders">Most Recent Orders</option>
                   </select>
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                     <svg className="w-3 h-3 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

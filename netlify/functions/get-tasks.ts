@@ -183,6 +183,21 @@ export const handler: Handler = async (event, context) => {
             const chunk = taskOps.slice(i, i + 50)
             await prisma.$transaction(chunk)
           }
+
+          // Delete tasks that no longer exist in Zoho
+          const syncedTaskZohoIds = new Set(zohoTasks.map((t: any) => t.id));
+          const ownerWhere = isSalesOnly ? { ownerId: user.id } : {};
+          const localTasks = await prisma.task.findMany({
+            where: ownerWhere,
+            select: { id: true, zohoId: true }
+          });
+          const orphanedTaskIds = localTasks
+            .filter(t => t.zohoId && !syncedTaskZohoIds.has(t.zohoId))
+            .map(t => t.id);
+          if (orphanedTaskIds.length > 0) {
+            await prisma.task.deleteMany({ where: { id: { in: orphanedTaskIds } } });
+            console.log(`Deleted ${orphanedTaskIds.length} tasks removed from Zoho CRM.`);
+          }
         }
       } catch (syncErr) {
         console.error("Task sync error:", syncErr)
