@@ -46,7 +46,8 @@ export default function SalesListPage() {
     setLoading(true)
     try {
       const ts = Date.now()
-      const res = await fetch(`/api/get-accounts?zohoId=${user.zohoId || ''}&email=${encodeURIComponent(user.email || '')}&_t=${ts}`)
+      const roleParam = user.role ? `&role=${encodeURIComponent(user.role)}` : ''
+      const res = await fetch(`/api/get-accounts?zohoId=${user.zohoId || ''}&email=${encodeURIComponent(user.email || '')}&includeDocs=true${roleParam}&_t=${ts}`)
       const data = await res.json()
       if (data.success) {
         setAccounts(data.accounts)

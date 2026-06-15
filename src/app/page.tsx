@@ -4,7 +4,7 @@ import { useZoho } from "@/components/ZohoProvider"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { SalesCallCampaignModal } from "@/components/SalesCallCampaignModal"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
 
@@ -197,7 +197,11 @@ export default function Dashboard() {
 
       if (dataAccounts.success) {
         if (append) {
-          setAccounts(prev => [...prev, ...dataAccounts.accounts])
+          setAccounts(prev => {
+            const existingIds = new Set(prev.map(a => a.id))
+            const newAccounts = dataAccounts.accounts.filter((a: any) => !existingIds.has(a.id))
+            return [...prev, ...newAccounts]
+          })
         } else {
           setAccounts(dataAccounts.accounts)
         }
@@ -208,7 +212,7 @@ export default function Dashboard() {
           setAccountsPage(pageNum)
           // On first page, kick off background load of all remaining pages
           if (pageNum === 1 && dataAccounts.pagination.hasMore) {
-            setTimeout(() => autoLoadAllAccounts(dataAccounts.pagination.totalCount, dataAccounts.accounts.length), 100)
+            autoLoadAllAccounts(dataAccounts.pagination.totalCount, dataAccounts.accounts.length)
           }
         }
       } else {
@@ -221,11 +225,14 @@ export default function Dashboard() {
   }
 
   // After first page loads, automatically fetch all remaining pages in background
+  const autoLoadRef = useRef(0)
   const autoLoadAllAccounts = async (totalCount: number, firstPageSize: number) => {
+    const loadId = ++autoLoadRef.current
     const pageSize = firstPageSize
     const totalPages = Math.ceil(totalCount / pageSize)
     if (totalPages <= 1) return
     for (let pg = 2; pg <= totalPages; pg++) {
+      if (autoLoadRef.current !== loadId) return // cancelled by newer load
       await fetchLocalData(pg, true)
     }
   }
@@ -236,6 +243,8 @@ export default function Dashboard() {
       router.push("/login")
       return
     }
+    // Cancel any in-flight auto-load from a previous render
+    autoLoadRef.current++
     const fetchData = async () => {
       setLoading(true)
       await fetchLocalData()

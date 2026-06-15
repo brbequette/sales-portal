@@ -14,7 +14,8 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { zohoId, email, refresh, force, ownerIdFilter, role: passedRole, page: pageParam, search } = event.queryStringParameters || {}
+    const { zohoId, email, refresh, force, ownerIdFilter, role: passedRole, page: pageParam, search, includeDocs } = event.queryStringParameters || {}
+    const wantDocs = includeDocs === 'true'
     const PAGE_SIZE = 400
     const page = parseInt(pageParam || '1', 10)
 
@@ -685,8 +686,15 @@ export const handler: Handler = async (event, context) => {
           industry: true,
           timeZone: true,
           invoices: {
-            select: { amount: true, status: true, items: true }
+            select: {
+              id: true, zohoId: true, amount: true, status: true, items: true,
+              ...(wantDocs ? { issueDate: true, dueDate: true, createdAt: true } : {})
+            }
           },
+          ...(wantDocs ? {
+            quotes: { select: { id: true, zohoId: true, amount: true, status: true, items: true, createdAt: true } },
+            salesOrders: { select: { id: true, zohoId: true, amount: true, status: true, items: true, orderDate: true, createdAt: true } }
+          } : {}),
           contacts: {
             select: {
               phone: true, mobilePhone: true, isPrimary: true, firstName: true, lastName: true
@@ -726,8 +734,15 @@ export const handler: Handler = async (event, context) => {
           industry: true,
           timeZone: true,
           invoices: {
-            select: { amount: true, status: true, items: true }
+            select: {
+              id: true, zohoId: true, amount: true, status: true, items: true,
+              ...(wantDocs ? { issueDate: true, dueDate: true, createdAt: true } : {})
+            }
           },
+          ...(wantDocs ? {
+            quotes: { select: { id: true, zohoId: true, amount: true, status: true, items: true, createdAt: true } },
+            salesOrders: { select: { id: true, zohoId: true, amount: true, status: true, items: true, orderDate: true, createdAt: true } }
+          } : {}),
           contacts: {
             select: {
               phone: true, mobilePhone: true, isPrimary: true, firstName: true, lastName: true
@@ -777,6 +792,11 @@ export const handler: Handler = async (event, context) => {
         overdueBalance,
         overdueCount,
         contacts: primaryContact ? [primaryContact] : [],
+        ...(wantDocs ? {
+          invoices: acc.invoices || [],
+          quotes: acc.quotes || [],
+          salesOrders: acc.salesOrders || [],
+        } : {}),
       };
     });
 
