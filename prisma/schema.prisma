@@ -39,7 +39,7 @@ model Account {
   updatedAt        DateTime     @updatedAt
   nextActionDate   DateTime?
   tags             String?
-  quality          String       @default("WARM")
+  quality          String       @default("NEVER_STATUSED")
   lastCalledAt     DateTime?
   timeZone         String?
   bladeSizes       String?

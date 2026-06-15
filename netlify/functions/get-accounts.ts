@@ -589,6 +589,68 @@ export const handler: Handler = async (event, context) => {
         // Sync books payments in real-time
         await syncRecentBooksInvoices();
 
+        // Auto-compute customer quality based on invoice history
+        // Rules: no invoices = NEVER_STATUSED, >12 months = COLD, 6-12 months = WARM, <6 months = HOT
+        // Skip DO_NOT_CALL and ON_HOLD (manual overrides)
+        try {
+          const sixMonthsAgo = new Date();
+          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+          const twelveMonthsAgo = new Date();
+          twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+          const accountIds = Array.from(new Set(accountMap.values()));
+          const accountsWithInvoices = await prisma.account.findMany({
+            where: {
+              id: { in: accountIds },
+              quality: { notIn: ['DO_NOT_CALL', 'ON_HOLD'] }
+            },
+            select: {
+              id: true,
+              quality: true,
+              invoices: {
+                select: { issueDate: true, status: true },
+                where: { status: { notIn: ['Void', 'Draft', 'Writeoff', 'Write_off', 'Write Off', 'Bad Debt'] } },
+                orderBy: { issueDate: 'desc' },
+                take: 1
+              }
+            }
+          });
+
+          const qualityUpdates: any[] = [];
+          for (const acct of accountsWithInvoices) {
+            let newQuality: string;
+            const latestInvoice = acct.invoices[0];
+            if (!latestInvoice || !latestInvoice.issueDate) {
+              newQuality = 'NEVER_STATUSED';
+            } else {
+              const invoiceDate = new Date(latestInvoice.issueDate);
+              if (invoiceDate >= sixMonthsAgo) {
+                newQuality = 'HOT';
+              } else if (invoiceDate >= twelveMonthsAgo) {
+                newQuality = 'WARM';
+              } else {
+                newQuality = 'COLD';
+              }
+            }
+            if (newQuality !== acct.quality) {
+              qualityUpdates.push(
+                prisma.account.update({
+                  where: { id: acct.id },
+                  data: { quality: newQuality }
+                })
+              );
+            }
+          }
+          if (qualityUpdates.length > 0) {
+            for (let qi = 0; qi < qualityUpdates.length; qi += 50) {
+              await prisma.$transaction(qualityUpdates.slice(qi, qi + 50));
+            }
+            console.log(`Auto-computed quality for ${qualityUpdates.length} accounts.`);
+          }
+        } catch (qualityErr) {
+          console.error("Failed to auto-compute customer quality:", qualityErr);
+        }
+
       } catch (zohoError) {
         console.error("Failed to sync with live Zoho CRM:", zohoError);
       }

@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [sortBy, setSortBy] = useState<"default" | "timezone" | "recentOrders">("default")
   const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [showDoNotCall, setShowDoNotCall] = useState(false)
+  const [qualityFilter, setQualityFilter] = useState("All")
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
   const [repsList, setRepsList] = useState<any[]>([])
   const [accountsPage, setAccountsPage] = useState(1)
@@ -601,11 +602,12 @@ export default function Dashboard() {
     const matchesStatus = statusFilter === "All" || a.status === statusFilter
     const matchesIndustry = industryFilter === "All" || a.industry === industryFilter
     const matchesTimezone = timezoneFilter === "All" || a.timeZone === timezoneFilter
+    const matchesQuality = qualityFilter === "All" || a.quality === qualityFilter
     
     const ltv = a.totalSales || 0
     const matchesSalesFilter = !onlyWithSales || ltv > 0
 
-    return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesSalesFilter
+    return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesQuality && matchesSalesFilter
   })
 
   const filteredTasksList = tasks.filter(task => {
@@ -649,7 +651,7 @@ export default function Dashboard() {
   ]
 
   const accentColor = effort === "sales" ? "emerald" : "sky"
-  const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (timezoneFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0)
+  const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (timezoneFilter !== "All" ? 1 : 0) + (qualityFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0)
 
   if (!isInitialized || loading) {
     return (
@@ -1598,6 +1600,24 @@ export default function Dashboard() {
                   <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Show "Do Not Call" Accounts</span>
                 </label>
 
+                {/* Customer Quality filter */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Customer Quality</label>
+                  <select 
+                    value={qualityFilter} 
+                    onChange={e => setQualityFilter(e.target.value)}
+                    className="w-full bg-neutral-800 border border-white/15 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  >
+                    <option value="All">All Qualities</option>
+                    <option value="HOT">🔥 HOT</option>
+                    <option value="WARM">☀️ WARM</option>
+                    <option value="COLD">❄️ COLD</option>
+                    <option value="NEVER_STATUSED">❓ NEVER STATUSED</option>
+                    <option value="ON_HOLD">⏸️ ON HOLD</option>
+                    <option value="DO_NOT_CALL">🚫 DO NOT CALL</option>
+                  </select>
+                </div>
+
                 {/* Status selector (only active for sales pipeline effort) */}
                 {effort === "sales" && (
                   <div className="space-y-1.5">
@@ -1649,6 +1669,7 @@ export default function Dashboard() {
                     setStatusFilter("All")
                     setIndustryFilter("All")
                     setTimezoneFilter("All")
+                    setQualityFilter("All")
                     setOnlyWithSales(false)
                     setShowFiltersDrawer(false)
                   }}
