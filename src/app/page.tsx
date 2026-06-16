@@ -649,7 +649,6 @@ export default function Dashboard() {
     return true // "all"
   })
 
-  const { preferences } = usePreferences()
   const defaultSize = preferences.defaultPageSize
 
   const accountsPagination = usePagination(filteredAccounts, defaultSize)
