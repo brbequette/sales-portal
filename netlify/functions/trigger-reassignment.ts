@@ -1,7 +1,9 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient } from "@prisma/client"
+import { getZohoAccessToken } from "./lib/zoho-auth"
 
 const prisma = new PrismaClient()
+const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event) => {
   const cors = {
@@ -62,8 +64,11 @@ export const handler: Handler = async (event) => {
     // 4. Fetch all update status accounts
     const updateAccounts = await prisma.account.findMany({
       where: { status: "Update Status" },
-      select: { id: true, name: true, ownerId: true }
+      select: { id: true, zohoId: true, name: true, ownerId: true }
     })
+    
+    const allUsers = await prisma.user.findMany({ select: { id: true, zohoId: true } })
+    const userToZohoMap = Object.fromEntries(allUsers.map(u => [u.id, u.zohoId]))
 
     // Initialize counts
     const repCounts: Record<string, number> = {}
@@ -101,6 +106,7 @@ export const handler: Handler = async (event) => {
     // 5. Load balance
     const updatePromises: any[] = []
     const reassignedDetails: any[] = []
+    const zohoUpdates: any[] = []
 
     for (const account of accountsToAssign) {
       // Find rep with the lowest count
@@ -123,6 +129,13 @@ export const handler: Handler = async (event) => {
         toOwnerId: selectedRep
       })
 
+      if (account.zohoId && userToZohoMap[selectedRep]) {
+        zohoUpdates.push({
+          id: account.zohoId,
+          Owner: userToZohoMap[selectedRep]
+        })
+      }
+
       updatePromises.push(
         prisma.account.update({
           where: { id: account.id },
@@ -131,11 +144,41 @@ export const handler: Handler = async (event) => {
       )
     }
 
+    let token = ""
+    if (zohoUpdates.length > 0) {
+      try {
+        token = await getZohoAccessToken()
+      } catch (err) {
+        console.error("Failed to get Zoho token for reassignment", err)
+      }
+    }
+
     // Run updates in transaction batches of 100 to maximize database efficiency and minimize connections
     const BATCH_SIZE = 100
     for (let i = 0; i < updatePromises.length; i += BATCH_SIZE) {
       const batch = updatePromises.slice(i, i + BATCH_SIZE)
       await prisma.$transaction(batch)
+    }
+
+    // Run Zoho CRM updates in batches of 100 (Zoho API limit for bulk updates)
+    if (token) {
+      for (let i = 0; i < zohoUpdates.length; i += BATCH_SIZE) {
+        const batch = zohoUpdates.slice(i, i + BATCH_SIZE)
+        try {
+          const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`, {
+            method: "PUT",
+            headers: {
+              "Authorization": `Zoho-oauthtoken ${token}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ data: batch })
+          })
+          const crmData = await crmRes.json()
+          console.log(`Synced batch of ${batch.length} account owner updates to Zoho`, crmData.data?.[0]?.code)
+        } catch (err) {
+          console.error("Failed to sync batch to Zoho CRM:", err)
+        }
+      }
     }
 
     return {

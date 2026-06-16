@@ -137,7 +137,7 @@ export const handler: Handler = async (event, context) => {
                   const base64Data = match[2]
                   const buffer = Buffer.from(base64Data, 'base64')
                   const blob = new Blob([buffer], { type: contentType })
-                  formData.append('mms_media', blob, `attachment.${contentType.split('/')[1] || 'jpg'}`)
+                  formData.append('file', blob, `attachment.${contentType.split('/')[1] || 'jpg'}`)
                 }
               } else {
                 const imgRes = await fetch(imageUrl)
@@ -145,7 +145,7 @@ export const handler: Handler = async (event, context) => {
                   const arrayBuffer = await imgRes.arrayBuffer()
                   const contentType = imgRes.headers.get('content-type') || 'image/jpeg'
                   const blob = new Blob([arrayBuffer], { type: contentType })
-                  formData.append('mms_media', blob, `attachment.${contentType.split('/')[1] || 'jpg'}`)
+                  formData.append('file', blob, `attachment.${contentType.split('/')[1] || 'jpg'}`)
                 }
               }
             } catch (err) {

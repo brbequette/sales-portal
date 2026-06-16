@@ -247,7 +247,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       window.dispatchEvent(event);
 
                       // Standard dialer fallback
-                      window.location.href = `tel:${cleanPhone}`;
+                      window.location.href = `zdialer:${cleanPhone}`;
                     }}
                     className="p-3 bg-sky-500 hover:bg-sky-400 text-black rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shadow-sky-500/10 cursor-pointer"
                     title={`Dial ${cleanPhone}`}
@@ -270,7 +270,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 <div className="space-y-1">
                   <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Phone Details</span>
                   {displayPhone ? (
-                    <a href={`tel:${cleanPhone}`} className="text-xs text-blue-400 hover:text-blue-300 hover:underline font-bold font-mono">{displayPhone}</a>
+                    <a href={`zdialer:${cleanPhone}`} className="text-xs text-blue-400 hover:text-blue-300 hover:underline font-bold font-mono">{displayPhone}</a>
                   ) : (
                     <p className="text-xs text-neutral-500 font-mono">—</p>
                   )}

@@ -1226,7 +1226,7 @@ export default function Dashboard() {
                             </div>
                             <div className="flex items-center gap-1.5">
                               {cleanPhone ? (
-                                <a href={`tel:${cleanPhone}`} className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
+                                <a href={`zdialer:${cleanPhone}`} className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
                                   <FiPhoneCall size={12} />
                                 </a>
                               ) : (

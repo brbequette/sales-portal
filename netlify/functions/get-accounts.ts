@@ -14,7 +14,7 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { zohoId, email, refresh, force, ownerIdFilter, role: passedRole, page: pageParam, search, includeDocs, includeHidden } = event.queryStringParameters || {}
+    const { zohoId, email, refresh, force, ownerIdFilter, statusFilter, role: passedRole, page: pageParam, search, includeDocs, includeHidden } = event.queryStringParameters || {}
     const wantDocs = includeDocs === 'true'
     const showHidden = includeHidden === 'true'
     const PAGE_SIZE = 400
@@ -799,6 +799,7 @@ export const handler: Handler = async (event, context) => {
       // Sales rep: only fetch accounts they own
       const salesRepWhere: any = { ownerId: user.id };
       if (search) salesRepWhere.name = { contains: search, mode: 'insensitive' };
+      if (statusFilter) salesRepWhere.status = statusFilter;
       const totalCount = await prisma.account.count({ where: salesRepWhere });
       dbAccounts = await prisma.account.findMany({
         where: salesRepWhere,
@@ -847,6 +848,7 @@ export const handler: Handler = async (event, context) => {
       }
       
       if (search) adminWhere.name = { contains: search, mode: 'insensitive' };
+      if (statusFilter) adminWhere.status = statusFilter;
       const totalCount = await prisma.account.count({ where: adminWhere });
       dbAccounts = await prisma.account.findMany({
         where: adminWhere,
