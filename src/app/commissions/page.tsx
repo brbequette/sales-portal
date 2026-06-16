@@ -466,47 +466,116 @@ export default function CommissionsPage() {
   const [payoutAmount, setPayoutAmount] = useState("")
   const [payoutNotes, setPayoutNotes] = useState("")
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false)
+  const [editingPayoutId, setEditingPayoutId] = useState<string | null>(null)
 
   const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
 
-  const handleAddPayout = async (e: React.FormEvent) => {
+  const handleSubmitPayout = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!managingPayoutsFor || !payoutAmount || isNaN(Number(payoutAmount))) return
     
     setIsSubmittingPayout(true)
     try {
-      const res = await fetch('/api/add-payout', {
-        method: 'POST',
+      const isEditing = !!editingPayoutId
+      const url = isEditing ? '/api/update-payout' : '/api/add-payout'
+      const method = isEditing ? 'PATCH' : 'POST'
+      
+      const payload: any = {
+        amount: Number(payoutAmount),
+        notes: payoutNotes
+      }
+      
+      if (isEditing) {
+        payload.payoutId = editingPayoutId
+      } else {
+        payload.repId = managingPayoutsFor.repId
+      }
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          repId: managingPayoutsFor.repId,
-          amount: Number(payoutAmount),
-          notes: payoutNotes
-        })
+        body: JSON.stringify(payload)
       })
       const json = await res.json()
       if (json.success) {
         setPayoutAmount("")
         setPayoutNotes("")
+        setEditingPayoutId(null)
         await fetchData() // refresh
+        
         // Update local state for immediate feedback
         setManagingPayoutsFor(prev => {
           if (!prev) return prev
-          return {
-            ...prev,
-            payouts: [json.payout, ...prev.payouts],
-            totalPaid: prev.totalPaid + Number(payoutAmount),
-            balance: prev.balance - Number(payoutAmount)
+          
+          if (isEditing) {
+            const oldPayout = prev.payouts.find(p => p.id === editingPayoutId)
+            const diffAmount = Number(payoutAmount) - (oldPayout?.amount || 0)
+            return {
+              ...prev,
+              payouts: prev.payouts.map(p => p.id === editingPayoutId ? json.payout : p),
+              totalPaid: prev.totalPaid + diffAmount,
+              balance: prev.balance - diffAmount
+            }
+          } else {
+            return {
+              ...prev,
+              payouts: [json.payout, ...prev.payouts],
+              totalPaid: prev.totalPaid + Number(payoutAmount),
+              balance: prev.balance - Number(payoutAmount)
+            }
           }
         })
       } else {
-        alert("Failed to add payout: " + json.error)
+        alert("Failed to save payout: " + json.error)
       }
     } catch (e) {
       console.error(e)
     } finally {
       setIsSubmittingPayout(false)
     }
+  }
+
+  const handleDeletePayout = async (payoutId: string, amount: number) => {
+    if (!confirm("Are you sure you want to delete this payout? This will increase the balance owed.")) return
+    
+    try {
+      const res = await fetch('/api/delete-payout', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payoutId })
+      })
+      const json = await res.json()
+      if (json.success) {
+        await fetchData() // refresh
+        
+        // Update local state
+        setManagingPayoutsFor(prev => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            payouts: prev.payouts.filter(p => p.id !== payoutId),
+            totalPaid: prev.totalPaid - amount,
+            balance: prev.balance + amount
+          }
+        })
+      } else {
+        alert("Failed to delete payout: " + json.error)
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const handleEditClick = (p: Payout) => {
+    setEditingPayoutId(p.id)
+    setPayoutAmount(p.amount.toString())
+    setPayoutNotes(p.notes || "")
+  }
+
+  const handleCancelEdit = () => {
+    setEditingPayoutId(null)
+    setPayoutAmount("")
+    setPayoutNotes("")
   }
 
   const fetchData = useCallback(async () => {
@@ -788,8 +857,19 @@ export default function CommissionsPage() {
 
             <div className="flex flex-1 overflow-hidden">
               {/* Form Side */}
-              <div className="w-1/2 p-5 border-r border-neutral-800 bg-neutral-950 flex flex-col">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-4">Add New Payout</h3>
+              <div className="w-1/2 p-5 border-r border-neutral-800 bg-neutral-950 flex flex-col relative">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-4">
+                  {editingPayoutId ? "Edit Payout" : "Add New Payout"}
+                </h3>
+                {editingPayoutId && (
+                  <button 
+                    onClick={handleCancelEdit}
+                    type="button"
+                    className="absolute top-5 right-5 text-[10px] uppercase font-bold text-neutral-500 hover:text-white transition-colors bg-neutral-900 px-2 py-1 rounded"
+                  >
+                    Cancel
+                  </button>
+                )}
                 <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl mb-4">
                   <div className="flex justify-between mb-2">
                     <span className="text-xs text-neutral-400">Total Earned</span>
@@ -807,7 +887,7 @@ export default function CommissionsPage() {
                   </div>
                 </div>
 
-                <form onSubmit={handleAddPayout} className="space-y-4 flex-1">
+                <form onSubmit={handleSubmitPayout} className="space-y-4 flex-1">
                   <div>
                     <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">Amount ($)</label>
                     <input 
@@ -834,7 +914,7 @@ export default function CommissionsPage() {
                     disabled={isSubmittingPayout || !payoutAmount}
                     className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:hover:bg-amber-600 text-white font-bold py-2 rounded-lg transition-colors"
                   >
-                    {isSubmittingPayout ? "Saving..." : "Save Payout"}
+                    {isSubmittingPayout ? "Saving..." : editingPayoutId ? "Update Payout" : "Save Payout"}
                   </button>
                 </form>
               </div>
@@ -849,9 +929,15 @@ export default function CommissionsPage() {
                     <div className="text-center text-neutral-500 italic mt-10 text-sm">No payouts recorded yet.</div>
                   ) : (
                     managingPayoutsFor.payouts.map(p => (
-                      <div key={p.id} className="bg-neutral-800/60 border border-neutral-800 rounded-lg p-3">
+                      <div key={p.id} className="group bg-neutral-800/60 border border-neutral-800 rounded-lg p-3 hover:border-neutral-700 transition-colors">
                         <div className="flex justify-between items-start mb-1">
-                          <div className="text-sm font-bold text-emerald-400">{fmt(p.amount)}</div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-sm font-bold text-emerald-400">{fmt(p.amount)}</div>
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => handleEditClick(p)} className="text-[10px] text-amber-500 hover:text-amber-400 font-bold uppercase">Edit</button>
+                              <button onClick={() => handleDeletePayout(p.id, p.amount)} className="text-[10px] text-red-500 hover:text-red-400 font-bold uppercase">Delete</button>
+                            </div>
+                          </div>
                           <div className="text-[10px] text-neutral-500 bg-neutral-900 px-1.5 py-0.5 rounded border border-neutral-800">
                             {new Date(p.date).toLocaleDateString()}
                           </div>

@@ -244,17 +244,21 @@ export const handler: Handler = async (event, context) => {
                     else if (prefix === 967 || prefix === 968) timeZone = 'HST';
                   }
                 }
+                const updateData: any = {
+                  name: record.Account_Name || record.name || 'Unnamed Account',
+                  industry: record.Industry || 'Unknown',
+                  tags: tagsStr,
+                  ownerId: syncUser.id,
+                  timeZone: timeZone,
+                }
+                if (lastPurchaseDate) {
+                  updateData.lastPurchaseAt = lastPurchaseDate
+                  updateData.status = status
+                }
+                
                 return prisma.account.upsert({
                   where: { zohoId: record.id },
-                  update: {
-                    name: record.Account_Name || record.name || 'Unnamed Account',
-                    industry: record.Industry || 'Unknown',
-                    tags: tagsStr,
-                    status: status,
-                    lastPurchaseAt: lastPurchaseDate,
-                    ownerId: syncUser.id,
-                    timeZone: timeZone,
-                  },
+                  update: updateData,
                   create: {
                     zohoId: record.id,
                     name: record.Account_Name || record.name || 'Unnamed Account',
