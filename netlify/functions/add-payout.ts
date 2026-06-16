@@ -14,7 +14,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { repId, amount, date, notes } = body
+    const { repId, amount, date, notes, method, caughtUpTo } = body
 
     if (!repId || amount === undefined) {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing required fields: repId, amount" }) }
@@ -27,7 +27,9 @@ export const handler: Handler = async (event) => {
         repId,
         amount: parseFloat(amount),
         date: payoutDate,
-        notes: notes || null
+        method: method || "Check",
+        notes: notes || null,
+        caughtUpTo: caughtUpTo || null
       }
     })
 

@@ -19,18 +19,23 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { payoutId, amount, notes } = body
+    const { payoutId, amount, notes, method, caughtUpTo } = body
 
     if (!payoutId || amount === undefined) {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing required fields: payoutId, amount" }) }
     }
 
+    const dataToUpdate: any = {
+      amount: parseFloat(amount),
+      notes: notes || null,
+    }
+    
+    if (method !== undefined) dataToUpdate.method = method
+    if (caughtUpTo !== undefined) dataToUpdate.caughtUpTo = caughtUpTo
+
     const payout = await prisma.payout.update({
       where: { id: payoutId },
-      data: {
-        amount: parseFloat(amount),
-        notes: notes || null
-      }
+      data: dataToUpdate
     })
 
     return {

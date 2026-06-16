@@ -12,7 +12,7 @@ import { QualityPicker } from "@/components/QualityPicker"
 import { TimezonePicker } from "@/components/TimezonePicker"
 import { Pagination, usePagination } from "@/components/Pagination"
 import { usePreferences } from "@/components/PreferencesProvider"
-import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus } from "react-icons/fi"
+import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand } from "react-icons/fi"
 
 function formatLastCalled(dateStr: string | null) {
   if (!dateStr) return "Never called"
@@ -94,6 +94,11 @@ export default function Dashboard() {
   const [loadingMedia, setLoadingMedia] = useState(false)
   const [showAssetSelector, setShowAssetSelector] = useState(false)
 
+  // AI Magic States
+  const [aiPrompt, setAiPrompt] = useState("")
+  const [generatingAiText, setGeneratingAiText] = useState(false)
+  const [generatingAiImage, setGeneratingAiImage] = useState(false)
+
   // Fetch Media Assets
   const fetchMediaAssets = async () => {
     setLoadingMedia(true)
@@ -126,6 +131,52 @@ export default function Dashboard() {
 
   const handleClearImage = () => {
     setCampaignImageUrl("")
+  }
+
+  const handleGenerateAiText = async () => {
+    if (!aiPrompt) return
+    setGeneratingAiText(true)
+    setCampaignError("")
+    try {
+      const res = await fetch("/api/generate-campaign-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: aiPrompt, type: "text", channel: campaignChannel })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setCampaignText(data.result)
+      } else {
+        setCampaignError(data.error || "Failed to generate text.")
+      }
+    } catch (err: any) {
+      setCampaignError(err.message || "AI Error")
+    } finally {
+      setGeneratingAiText(false)
+    }
+  }
+
+  const handleGenerateAiImage = async () => {
+    if (!aiPrompt) return
+    setGeneratingAiImage(true)
+    setCampaignError("")
+    try {
+      const res = await fetch("/api/generate-campaign-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: aiPrompt, type: "image", channel: campaignChannel })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setCampaignImageUrl(data.result)
+      } else {
+        setCampaignError(data.error || "Failed to generate image.")
+      }
+    } catch (err: any) {
+      setCampaignError(err.message || "AI Error")
+    } finally {
+      setGeneratingAiImage(false)
+    }
   }
 
   const handleSendCampaign = async (e: React.FormEvent) => {
@@ -1992,6 +2043,41 @@ export default function Dashboard() {
                     <span>{channel}</span>
                   </button>
                 ))}
+              </div>
+
+              {/* AI Magic */}
+              <div className="bg-purple-900/20 border border-purple-500/30 p-4 rounded-xl space-y-3">
+                <div className="flex items-center gap-2 text-purple-400 font-bold text-sm">
+                  <FiCommand size={16} />
+                  <span>AI Magic Generator</span>
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder="Describe what you want to say or the image you want..."
+                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleGenerateAiText}
+                    disabled={generatingAiText || !aiPrompt}
+                    className="flex-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                  >
+                    {generatingAiText ? "Generating..." : "Generate Ad Copy"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGenerateAiImage}
+                    disabled={generatingAiImage || !aiPrompt}
+                    className="flex-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                  >
+                    {generatingAiImage ? "Generating..." : "Generate Ad Image"}
+                  </button>
+                </div>
               </div>
 
               {/* Message Text */}

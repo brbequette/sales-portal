@@ -213,14 +213,16 @@ model SystemSetting {
 }
 
 model Payout {
-  id        String   @id @default(cuid())
-  repId     String
-  amount    Float
-  date      DateTime @default(now())
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  rep       User     @relation(fields: [repId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  repId      String
+  amount     Float
+  date       DateTime @default(now())
+  method     String   @default("Check")
+  notes      String?
+  caughtUpTo String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  rep        User     @relation(fields: [repId], references: [id], onDelete: Cascade)
 
   @@index([repId])
 }

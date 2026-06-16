@@ -137,8 +137,12 @@ export const handler: Handler = async (event) => {
       //   Final:   earned at invoice payment   → following week's pay
       const upfront = profit * 0.25          // half of rep's share, earned now
       const final   = isPaid ? profit * 0.25 : 0  // second half, only after payment
+      const future  = !isPaid ? profit * 0.25 : 0 // what they will earn when paid
       const total   = upfront + final
 
+      const daysOld = inv.issueDate ? (Date.now() - inv.issueDate.getTime()) / (1000 * 60 * 60 * 24) : 0
+      const isAtRisk = !isPaid && daysOld >= 120
+      const atRiskAmount = isAtRisk ? (upfront + future) : 0
 
       return {
         id: inv.id,
@@ -150,13 +154,15 @@ export const handler: Handler = async (event) => {
         deadCost,
         status: inv.status,
         isPaid,
+        daysOld,
+        isAtRisk,
         issueDate: inv.issueDate,
         paymentDate,
         repId: matchedRep?.id || "unassigned",
         repName: matchedRep?.name || salespersonName || "Unassigned",
         accountName: inv.account?.name || "Unknown",
         accountZohoId: inv.account?.zohoId || null,
-        commission: { total, upfront, final },
+        commission: { total, upfront, final, future, atRiskAmount },
         type: "invoice" as const
       }
     })
@@ -199,6 +205,8 @@ export const handler: Handler = async (event) => {
           totalPaid: 0,
           totalProfit: 0,
           totalSales: 0,
+          totalFutures: 0,
+          totalAtRisk: 0,
           balance: 0,
         }
       }
@@ -206,6 +214,8 @@ export const handler: Handler = async (event) => {
       byRep[key].totalEarned += inv.commission.total   // upfront + final (if paid)
       byRep[key].totalProfit += inv.profit
       byRep[key].totalSales  += inv.amount
+      byRep[key].totalFutures += inv.commission.future
+      byRep[key].totalAtRisk += inv.commission.atRiskAmount
     }
 
     // Attach deal pipeline activity to reps (for display only)
@@ -215,7 +225,7 @@ export const handler: Handler = async (event) => {
         byRep[key] = {
           repId: deal.repId, repName: deal.repName,
           invoices: [], deals: [], payouts: [],
-          totalEarned: 0, totalPaid: 0, totalProfit: 0, totalSales: 0, balance: 0
+          totalEarned: 0, totalPaid: 0, totalProfit: 0, totalSales: 0, totalFutures: 0, totalAtRisk: 0, balance: 0
         }
       }
       byRep[key].deals.push(deal)
