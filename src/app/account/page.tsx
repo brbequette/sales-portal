@@ -552,9 +552,9 @@ function AccountHubContent() {
                           <span>#{invoiceNum}</span>
                         </div>
                         <div className="text-xs text-neutral-400 mt-1 flex flex-col gap-0.5 border-l-2 border-neutral-700 pl-2">
-                          <span>Ordered: {inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : "—"}</span>
+                          <span>Ordered: {inv.issueDate ? new Date(inv.issueDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "—"}</span>
                           {inv.status === 'Paid' && (
-                            <span className="text-blue-400">Paid: {new Date((inv.items as any)?.paymentDate || inv.updatedAt || inv.issueDate).toLocaleDateString()}</span>
+                            <span className="text-blue-400">Paid: {new Date((inv.items as any)?.paymentDate || inv.updatedAt || inv.issueDate).toLocaleDateString(undefined, { timeZone: 'UTC' })}</span>
                           )}
                         </div>
                       </div>
@@ -585,164 +585,12 @@ function AccountHubContent() {
       )}
 
       {/* ── Sales Document (Quote / Sales Order) Details Modal ── */}
-      {viewingSalesDoc && createPortal(
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setViewingSalesDoc(null)} />
-          <div className="relative w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-2xl flex flex-col shadow-2xl text-white z-[10001] p-6 max-h-[85vh]">
-            
-            {/* Header */}
-            <div className="flex justify-between items-center pb-4 border-b border-neutral-800 mb-4 shrink-0">
-              <div>
-                <h3 className="font-bold text-lg text-white flex items-center gap-2">
-                  <FiFileText className={viewingSalesDoc.type === 'Quote' ? "text-purple-500 animate-pulse" : "text-blue-500 animate-pulse"} />
-                  <span>{viewingSalesDoc.type === 'Quote' ? 'Quote / Estimate Details' : 'Sales Order Details'}</span>
-                </h3>
-                <p className="text-neutral-500 text-xs mt-0.5 font-mono">
-                  Document ID: #{viewingSalesDoc.doc.id.slice(-6).toUpperCase()}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => handleDeleteTransaction(viewingSalesDoc.type, viewingSalesDoc.doc.id)} 
-                  className="bg-red-900/30 hover:bg-red-900/60 text-red-400 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-red-500/20"
-                >
-                  Delete from Hub
-                </button>
-                <button 
-                  onClick={() => setViewingSalesDoc(null)} 
-                  className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-755 transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer"
-                >
-                  &times;
-                </button>
-              </div>
-            </div>
-
-            {/* Document Content */}
-            <div className="space-y-4 overflow-y-auto flex-1 pr-1 scrollbar-thin">
-              <div className="grid grid-cols-2 gap-4 bg-neutral-950/40 p-4 border border-neutral-800 rounded-xl">
-                <div>
-                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Status</span>
-                  <p className={`text-xs font-bold mt-0.5 ${
-                    viewingSalesDoc.doc.status === 'Accepted' || viewingSalesDoc.doc.status === 'Shipped' || viewingSalesDoc.doc.status === 'Processed'
-                      ? 'text-emerald-400' 
-                      : 'text-amber-400'
-                  }`}>
-                    {viewingSalesDoc.doc.status || 'Draft'}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Date</span>
-                  <p className="text-xs text-neutral-200 font-semibold mt-0.5">
-                    {new Date(viewingSalesDoc.doc.orderDate || viewingSalesDoc.doc.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-                {viewingSalesDoc.type === 'Quote' && viewingSalesDoc.doc.validUntil && (
-                  <div className="col-span-2">
-                    <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Valid Until</span>
-                    <p className="text-xs text-neutral-200 font-semibold mt-0.5">
-                      {new Date(viewingSalesDoc.doc.validUntil).toLocaleDateString()}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Line Items Table */}
-              <div className="space-y-2">
-                <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Items Breakdown</span>
-                <div className="border border-neutral-800 rounded-xl overflow-hidden max-h-[250px] overflow-y-auto scrollbar-thin">
-                  <table className="w-full text-xs">
-                    <thead className="bg-neutral-950/60 border-b border-neutral-800 text-neutral-500 font-bold">
-                      <tr>
-                        <th className="text-left px-3 py-2 w-20">SKU</th>
-                        <th className="text-left px-3 py-2">Item Description</th>
-                        <th className="text-left px-3 py-2">Vendor</th>
-                        <th className="text-right px-3 py-2">Cost</th>
-                        <th className="text-right px-3 py-2 w-24">Price</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-800/50">
-                      {Array.isArray(viewingSalesDoc.doc.items) && viewingSalesDoc.doc.items.length > 0 ? (
-                        viewingSalesDoc.doc.items.map((item: any, i: number) => {
-                          const name = typeof item === 'string' ? item : item.name || 'Product Item'
-                          const sku = typeof item === 'string' ? '' : item.sku || ''
-                          const vendor = typeof item === 'string' ? '' : item.vendor || ''
-                          const cost = typeof item === 'string' ? null : item.cost || null
-                          const amount = typeof item === 'string' ? null : item.amount || null
-                          return (
-                            <tr key={i}>
-                              <td className="px-3 py-2.5 text-neutral-400 font-mono text-[10px]">
-                                {sku || '—'}
-                              </td>
-                              <td className="px-3 py-2.5 text-neutral-200 font-semibold">
-                                {name}
-                              </td>
-                              <td className="px-3 py-2.5 text-neutral-400">
-                                {vendor || '—'}
-                              </td>
-                              <td className="px-3 py-2.5 text-right text-emerald-500/80">
-                                {cost ? `$${parseFloat(cost).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
-                              </td>
-                              <td className="px-3 py-2.5 text-right text-neutral-300">
-                                {amount ? `$${parseFloat(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
-                              </td>
-                            </tr>
-                          )
-                        })
-                      ) : (
-                        <tr>
-                          <td colSpan={5} className="px-3 py-4 text-center text-neutral-500 italic">
-                            Standard product assortment
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Financial Summary */}
-              <div className="flex justify-between items-center bg-neutral-950/20 border border-neutral-800/80 rounded-xl p-4 mt-2">
-                <span className="text-sm font-bold text-neutral-400">Total Document Amount</span>
-                <span className="text-xl font-bold text-emerald-400 font-mono">
-                  ${parseFloat(viewingSalesDoc.doc.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="mt-4 pt-4 border-t border-neutral-800 flex justify-between items-center shrink-0">
-              <div>
-                {(viewingSalesDoc.doc.zohoId || viewingSalesDoc.doc.id) && (
-                  <div className="flex gap-2">
-                    <a
-                      href={`/api/get-invoice-pdf?id=${viewingSalesDoc.doc.zohoId || viewingSalesDoc.doc.id}&type=${viewingSalesDoc.type}&download=true`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 hover:text-blue-300 font-bold py-2 px-3 rounded-lg text-xs transition-colors border border-blue-500/20 inline-flex items-center gap-1.5"
-                    >
-                      <FiDownload size={13} /> Download PDF
-                    </a>
-                    <a
-                      href={`/api/get-invoice-pdf?id=${viewingSalesDoc.doc.zohoId || viewingSalesDoc.doc.id}&type=${viewingSalesDoc.type}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors border border-neutral-700/80 inline-flex items-center gap-1.5"
-                    >
-                      <FiMaximize2 size={13} /> View PDF
-                    </a>
-                  </div>
-                )}
-              </div>
-              <button 
-                onClick={() => setViewingSalesDoc(null)}
-                className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-2 px-4 rounded-lg text-xs transition-colors cursor-pointer"
-              >
-                Close Details
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
+      {viewingSalesDoc && (
+        <InvoiceDetailsModal 
+          invoice={viewingSalesDoc.doc} 
+          type={viewingSalesDoc.type}
+          onClose={() => setViewingSalesDoc(null)} 
+        />
       )}
     </div>
   )

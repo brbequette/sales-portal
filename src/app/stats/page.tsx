@@ -3,6 +3,7 @@
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useMemo } from "react"
+import { usePreferences } from "@/components/PreferencesProvider"
 import { usePagination, Pagination } from "@/components/Pagination"
 import {
   FiBarChart2, FiTrendingUp, FiDollarSign, FiUsers, FiAward,
@@ -74,6 +75,7 @@ type SortField = "revenue" | "profit" | "totalDeals" | "commissions" | "activeAc
 
 export default function StatsPage() {
   const { isInitialized, zohoContext: currentUser } = useZoho()
+  const { preferences } = usePreferences()
   const router = useRouter()
 
   const [loading, setLoading] = useState(true)
@@ -97,7 +99,8 @@ export default function StatsPage() {
 
     const fetchStats = async () => {
       try {
-        const res = await fetch("/api/get-rep-stats")
+        const hiddenParam = preferences.showHiddenReps ? "?includeHidden=true" : ""
+        const res = await fetch(`/api/get-rep-stats${hiddenParam}`)
         const data = await res.json()
         if (data.success) {
           setReps(data.reps || [])

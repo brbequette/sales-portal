@@ -4,6 +4,7 @@ import { useZoho } from "@/components/ZohoProvider"
 import Link from "next/link"
 import { FiSearch, FiFilter, FiFileText, FiCheckCircle, FiAlertCircle, FiX, FiChevronRight } from "react-icons/fi"
 import { createPortal } from "react-dom"
+import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 
 type SalesDoc = {
   id: string
@@ -297,7 +298,7 @@ export default function SalesListPage() {
                           className="hover:bg-white/[0.045] cursor-pointer transition-colors group"
                         >
                           <td className="py-3 px-4 text-xs text-neutral-300">
-                            {new Date(doc.date).toLocaleDateString()}
+                            {new Date(doc.date).toLocaleDateString(undefined, { timeZone: 'UTC' })}
                           </td>
                           <td className="py-3 px-4">
                             <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -392,150 +393,12 @@ export default function SalesListPage() {
       )}
 
       {/* ── Sales Document (Quote / Sales Order / Invoice) Details Modal ── */}
-      {viewingSalesDoc && createPortal(
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setViewingSalesDoc(null)} />
-          <div className="relative w-full max-w-2xl bg-[#151618] border border-white/10 rounded-xl flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)] text-white z-[10001] p-6 max-h-[85vh]">
-            
-            {/* Header */}
-            <div className="flex justify-between items-center pb-4 border-b border-white/10 mb-4 shrink-0">
-              <div>
-                <h3 className="font-bold text-lg text-white flex items-center gap-2">
-                  <FiFileText className={viewingSalesDoc.type === 'Quote' ? "text-purple-500 " : viewingSalesDoc.type === 'SalesOrder' ? "text-blue-500 " : "text-emerald-500 "} />
-                  <span>{viewingSalesDoc.type === 'Quote' ? 'Quote / Estimate Details' : viewingSalesDoc.type === 'SalesOrder' ? 'Sales Order Details' : 'Invoice Details'}</span>
-                </h3>
-                <p className="text-neutral-500 text-xs mt-0.5 font-mono">
-                  Document ID: #{viewingSalesDoc.doc.id.slice(-6).toUpperCase()}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {(viewingSalesDoc.type === 'Quote' || viewingSalesDoc.type === 'SalesOrder') && (
-                  <button 
-                    onClick={() => handleDeleteTransaction(viewingSalesDoc.type, viewingSalesDoc.doc.id)} 
-                    className="bg-red-900/30 hover:bg-red-900/60 text-red-400 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-red-500/20"
-                  >
-                    Delete from Hub
-                  </button>
-                )}
-                {viewingSalesDoc.type === 'Invoice' && (
-                  <a
-                    href={`/api/get-invoice-pdf?id=${viewingSalesDoc.doc.zohoId || viewingSalesDoc.doc.id}&download=true`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-white/15 flex items-center gap-1.5 cursor-pointer"
-                  >
-                    Download PDF
-                  </a>
-                )}
-                <button 
-                  onClick={() => setViewingSalesDoc(null)} 
-                  className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-white/[0.06] transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer"
-                >
-                  &times;
-                </button>
-              </div>
-            </div>
-
-            {/* Document Content */}
-            <div className="space-y-4 overflow-y-auto flex-1 pr-1 scrollbar-thin">
-              <div className="grid grid-cols-2 gap-4 bg-black/25/40 p-4 border border-white/10 rounded-xl">
-                <div>
-                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Status</span>
-                  <p className={`text-xs font-bold mt-0.5 ${
-                    viewingSalesDoc.doc.status === 'Accepted' || viewingSalesDoc.doc.status === 'Shipped' || viewingSalesDoc.doc.status === 'Processed' || viewingSalesDoc.doc.status === 'Paid'
-                      ? 'text-emerald-400' 
-                      : 'text-amber-400'
-                  }`}>
-                    {viewingSalesDoc.doc.status || 'Draft'}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Date</span>
-                  <p className="text-xs text-neutral-200 font-semibold mt-0.5">
-                    {new Date(viewingSalesDoc.doc.issueDate || viewingSalesDoc.doc.orderDate || viewingSalesDoc.doc.createdAt || Date.now()).toLocaleDateString()}
-                  </p>
-                </div>
-                {viewingSalesDoc.type === 'Quote' && viewingSalesDoc.doc.validUntil && (
-                  <div>
-                    <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Valid Until</span>
-                    <p className="text-xs text-neutral-200 font-semibold mt-0.5">
-                      {new Date(viewingSalesDoc.doc.validUntil).toLocaleDateString()}
-                    </p>
-                  </div>
-                )}
-                {viewingSalesDoc.type === 'Invoice' && viewingSalesDoc.doc.dueDate && (
-                  <div>
-                    <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Due Date</span>
-                    <p className="text-xs text-neutral-200 font-semibold mt-0.5">
-                      {new Date(viewingSalesDoc.doc.dueDate).toLocaleDateString()}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Line Items */}
-              <div>
-                <h4 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
-                  <FiCheckCircle className="text-blue-500" /> Line Items
-                </h4>
-                <div className="space-y-2">
-                  {(!viewingSalesDoc.doc.items || (Array.isArray(viewingSalesDoc.doc.items) && viewingSalesDoc.doc.items.length === 0)) ? (
-                    <div className="bg-neutral-800/30 p-3 rounded-lg border border-white/10 text-sm text-neutral-400">
-                      No line items detailed.
-                    </div>
-                  ) : Array.isArray(viewingSalesDoc.doc.items) ? (
-                    viewingSalesDoc.doc.items.map((item: any, i: number) => (
-                      <div key={i} className="bg-neutral-800/30 p-3 rounded-lg border border-white/10 flex justify-between items-center">
-                        <div>
-                          <p className="text-sm font-bold text-white">{typeof item === 'string' ? item : (item.name || 'Unknown Item')}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] text-neutral-400 font-mono">{(typeof item !== 'string' && item.sku) ? item.sku : 'SKU: N/A'}</span>
-                            <span className="text-[10px] text-neutral-500">|</span>
-                            <span className="text-[10px] text-neutral-400">Vendor: {(typeof item !== 'string' && item.vendor) ? item.vendor : 'N/A'}</span>
-                          </div>
-                          {typeof item !== 'string' && item.quantity && (
-                            <p className="text-xs text-neutral-400 mt-1">Qty: {item.quantity} x ${parseFloat(item.price || item.rate || 0).toLocaleString()}</p>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          {typeof item !== 'string' && item.amount && (
-                            <p className="text-sm font-bold text-emerald-400">${parseFloat(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                          )}
-                          {typeof item !== 'string' && item.cost && (
-                            <p className="text-[10px] text-amber-400 font-semibold mt-0.5">Cost: ${parseFloat(item.cost).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                          )}
-                          {typeof item !== 'string' && item.profit && (
-                            <p className="text-[10px] text-sky-400 font-semibold mt-0.5">Profit: ${parseFloat(item.profit).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    // It's an object instead of array (e.g. from Zoho directly)
-                    <div className="bg-neutral-800/30 p-3 rounded-lg border border-white/10 flex justify-between items-center">
-                      <div>
-                        <p className="text-sm font-bold text-white">Invoice Items Summary</p>
-                        <p className="text-xs text-neutral-400 mt-0.5">Details aggregated.</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-emerald-400">${parseFloat(viewingSalesDoc.doc.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Total Summary */}
-              <div className="flex justify-between items-center pt-4 border-t border-white/10">
-                <span className="text-sm font-bold text-neutral-400 uppercase">Total Amount</span>
-                <span className="text-xl font-black text-white">
-                  ${parseFloat(viewingSalesDoc.doc.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
+      {viewingSalesDoc && (
+        <InvoiceDetailsModal 
+          invoice={viewingSalesDoc.doc} 
+          type={viewingSalesDoc.type}
+          onClose={() => setViewingSalesDoc(null)} 
+        />
       )}
     </div>
   )

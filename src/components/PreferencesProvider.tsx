@@ -4,6 +4,7 @@ import { useZoho } from "./ZohoProvider"
 
 interface UserPreferences {
   defaultPageSize: number | "All"
+  showHiddenReps?: boolean
 }
 
 interface PreferencesContextProps {
@@ -12,7 +13,7 @@ interface PreferencesContextProps {
 }
 
 const PreferencesContext = createContext<PreferencesContextProps>({
-  preferences: { defaultPageSize: 25 },
+  preferences: { defaultPageSize: 25, showHiddenReps: false },
   updatePreferences: () => {},
 })
 

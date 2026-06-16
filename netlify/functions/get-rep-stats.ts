@@ -61,12 +61,16 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    const { includeHidden } = event.queryStringParameters || {}
+    const showHidden = includeHidden === 'true'
+
     // 1. Fetch settings (holidays, sales targets)
     const settings = await prisma.systemSetting.findMany()
     const settingsMap = new Map(settings.map(s => [s.key, s.value]))
     const holidays: string[] = JSON.parse(settingsMap.get("holidays") || "[]")
     const salesTargets: Record<string, number> = JSON.parse(settingsMap.get("sales_targets") || "{}")
     const subtotalTargets: Record<string, number> = JSON.parse(settingsMap.get("subtotal_targets") || "{}")
+    const visibleReps: string[] = JSON.parse(settingsMap.get("visible_reps") || "[]")
 
     // 2. Fetch all users (excluding inactive dummy/test users)
     const users = await prisma.user.findMany({
@@ -380,7 +384,14 @@ export const handler: Handler = async (event) => {
         manualVigRate: null
       };
 
-      if (rep.constantVigEnabled && rep.constantVigValue !== null) {
+      // Ensure 2026+ is always PROFIT
+      if (now.getFullYear() >= 2026) {
+        vigGoal.metric = 'PROFIT';
+      }
+
+      if (now.getFullYear() < 2025) {
+        rep.monthly.vigRate = 1.3;
+      } else if (rep.constantVigEnabled && rep.constantVigValue !== null) {
         rep.monthly.vigRate = rep.constantVigValue;
       } else if (vigGoal.manualVigRate !== null) {
         rep.monthly.vigRate = vigGoal.manualVigRate;
@@ -495,6 +506,11 @@ export const handler: Handler = async (event) => {
           manualVigRate: null
         };
         
+        // Ensure 2026+ is always PROFIT
+        if (year >= 2026) {
+          vigGoal.metric = 'PROFIT';
+        }
+
         const profit = repProfit[u.id] || 0;
         const subtotal = repSubtotal[u.id] || 0;
         
@@ -503,7 +519,9 @@ export const handler: Handler = async (event) => {
         
         let vigRate = 1.5;
         
-        if ((u as any).constantVigEnabled && (u as any).constantVigValue !== null) {
+        if (year < 2025) {
+          vigRate = 1.3;
+        } else if ((u as any).constantVigEnabled && (u as any).constantVigValue !== null) {
           vigRate = (u as any).constantVigValue;
         } else if (vigGoal.manualVigRate !== null) {
           vigRate = vigGoal.manualVigRate;
@@ -534,25 +552,22 @@ export const handler: Handler = async (event) => {
       })
     }
 
-    // Explicit allowlist of active rep emails
-    const activeRepEmails = new Set([
-      'bobby@titandiamond.net',
-      'monty@titandiamond.net',
-      'ross@titandiamond.net',
-      'ben@titandiamond.net'
-    ])
-
     const activeReps = Object.values(repStatsMap).filter((rep: any) => {
       if (rep.repId === unassignedId) {
         return rep.revenue > 0 || rep.totalDeals > 0
       }
       const lowerEmail = (rep.email || "").toLowerCase();
       // Exclude dummy/test accounts
-      if (lowerEmail.includes('dummy.titandiamond.com') || lowerEmail.includes('example.com')) {
-        return false;
+      if (lowerEmail.includes('dummy') || lowerEmail.includes('example.com') || lowerEmail.includes('test_migration')) return false;
+
+      // Filter by visibleReps if it exists
+      if (!showHidden && visibleReps.length > 0) {
+        return visibleReps.includes(rep.repId);
       }
-      return activeRepEmails.has(lowerEmail) || rep.revenue > 0 || rep.totalDeals > 0;
-    })
+      
+      // Fallback: if visibleReps is empty or showHidden is true, only show those with actual activity (like before)
+      return rep.revenue > 0 || rep.totalDeals > 0;
+    }).sort((a: any, b: any) => b.revenue - a.revenue)
 
     // Calculate company totals & averages
     const companyTotals = {

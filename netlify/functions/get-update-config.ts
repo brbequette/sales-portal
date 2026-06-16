@@ -61,20 +61,11 @@ export const handler: Handler = async (event) => {
       holidays: holidaysList,
       salesTargets: JSON.parse(settingsMap.get("sales_targets") || "{}"),
       subtotalTargets: JSON.parse(settingsMap.get("subtotal_targets") || "{}"),
+      visibleReps: JSON.parse(settingsMap.get("visible_reps") || "[]"),
     }
 
     // 2. Fetch all sales reps and admins (to assign)
     const users = await prisma.user.findMany({
-      where: {
-        email: {
-          in: [
-            "bobby@titandiamond.net",
-            "monty@titandiamond.net",
-            "ross@titandiamond.net",
-            "ben@titandiamond.net"
-          ]
-        }
-      },
       select: { id: true, name: true, email: true, role: true },
       orderBy: { name: "asc" }
     })

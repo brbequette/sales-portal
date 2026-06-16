@@ -18,40 +18,44 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== "GET") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
-    const { id, invoiceId, targetId: paramTargetId } = event.queryStringParameters || {}
+    const { id, invoiceId, targetId: paramTargetId, type = "Invoice" } = event.queryStringParameters || {}
     let targetId = invoiceId || id || paramTargetId
 
     if (!targetId) {
       return {
         statusCode: 400,
         headers: cors,
-        body: JSON.stringify({ success: false, error: "Missing invoice identifier (id, invoiceId, or targetId)" })
+        body: JSON.stringify({ success: false, error: "Missing document identifier" })
       }
     }
 
-    let booksInvoiceId = targetId
+    let booksDocId = targetId
 
-    // Try to check if targetId is an internal ID or zohoId and lookup booksInvoiceId
-    const dbInvoice = await prisma.invoice.findFirst({
-      where: {
-        OR: [
-          { id: targetId },
-          { zohoId: targetId }
-        ]
-      }
-    })
+    // Try to check if targetId is an internal ID or zohoId
+    let dbDoc = null
+    if (type === "Invoice") {
+      dbDoc = await prisma.invoice.findFirst({ where: { OR: [{ id: targetId }, { zohoId: targetId }] } })
+    } else if (type === "SalesOrder") {
+      dbDoc = await prisma.salesOrder.findFirst({ where: { OR: [{ id: targetId }, { zohoId: targetId }] } })
+    } else if (type === "Quote") {
+      dbDoc = await prisma.quote.findFirst({ where: { OR: [{ id: targetId }, { zohoId: targetId }] } })
+    }
 
-    if (dbInvoice) {
-      const items = dbInvoice.items as any
-      if (items?.booksInvoiceId) {
-        booksInvoiceId = items.booksInvoiceId
-      }
+    if (dbDoc) {
+      const items = dbDoc.items as any
+      if (items?.booksInvoiceId) booksDocId = items.booksInvoiceId
+      else if (items?.booksSalesOrderId) booksDocId = items.booksSalesOrderId
+      else if (items?.booksEstimateId) booksDocId = items.booksEstimateId
     }
 
     const token = await getZohoAccessToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
-    const zohoRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
+    let modulePath = "invoices"
+    if (type === "SalesOrder") modulePath = "salesorders"
+    if (type === "Quote") modulePath = "estimates"
+
+    const zohoRes = await fetch(`${baseUrl}/${modulePath}/${booksDocId}?organization_id=${ORG_ID}`, {
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
     })
 
@@ -65,54 +69,66 @@ export const handler: Handler = async (event) => {
       throw new Error(`Zoho error: ${zohoData.message}`)
     }
 
+    let returnedDoc = zohoData.invoice
+    if (type === "SalesOrder") returnedDoc = zohoData.salesorder
+    if (type === "Quote") returnedDoc = zohoData.estimate
+
     // Save custom fields and update status/balance to local DB to keep database in sync
-    if (dbInvoice) {
-      const zohoInvoice = zohoData.invoice
-      let status = dbInvoice.status
-      const zStatus = (zohoInvoice.status || '').toLowerCase()
-      if (zStatus === 'paid' || zohoInvoice.balance === 0 || zStatus === 'closed') {
+    if (dbDoc) {
+      const zohoDoc = returnedDoc
+      let status = dbDoc.status
+      const zStatus = (zohoDoc.status || '').toLowerCase()
+      if (zStatus === 'paid' || zohoDoc.balance === 0 || zStatus === 'closed' || zStatus === 'invoiced') {
         status = 'Paid'
-      } else if (zStatus === 'void' || zStatus === 'voided') {
+      } else if (zStatus === 'void' || zStatus === 'voided' || zStatus === 'declined') {
         status = 'Void'
       } else if (zStatus === 'writeoff' || zStatus === 'write_off' || zStatus === 'write off' || zStatus === 'bad debt') {
         status = 'Writeoff'
       } else if (zStatus === 'draft') {
         status = 'Draft'
-      } else if (zStatus === 'overdue' || (dbInvoice.dueDate && new Date(dbInvoice.dueDate) < new Date())) {
+      } else if (zStatus === 'overdue' || (dbDoc.dueDate && new Date(dbDoc.dueDate) < new Date())) {
         status = 'Overdue'
       } else {
-        status = zohoInvoice.status.charAt(0).toUpperCase() + zohoInvoice.status.slice(1)
+        status = zohoDoc.status.charAt(0).toUpperCase() + zohoDoc.status.slice(1)
       }
 
-      const currentItems = (dbInvoice.items as any) || {}
-      currentItems.custom_fields = zohoInvoice.custom_fields
-      currentItems.balance = zohoInvoice.balance
-      if (zohoInvoice.last_payment_date) {
-        currentItems.paymentDate = zohoInvoice.last_payment_date
+      const currentItems = (dbDoc.items as any) || {}
+      currentItems.custom_fields = zohoDoc.custom_fields
+      currentItems.balance = zohoDoc.balance
+      if (zohoDoc.last_payment_date) {
+        currentItems.paymentDate = zohoDoc.last_payment_date
       }
       // Always write the authoritative salesperson from Zoho Books back to the DB
       // This self-corrects stale salesperson data (e.g. wrong name from old CRM sync)
-      if (zohoInvoice.salesperson_name) {
-        currentItems.salesperson = zohoInvoice.salesperson_name.toUpperCase().trim()
+      if (zohoDoc.salesperson_name) {
+        currentItems.salesperson = zohoDoc.salesperson_name.toUpperCase().trim()
       }
 
       try {
-        await prisma.invoice.update({
-          where: { id: dbInvoice.id },
-          data: {
-            status: status,
-            amount: parseFloat(zohoInvoice.sub_total || dbInvoice.amount),
-            items: currentItems
-          }
-        })
+        if (type === "Invoice") {
+          await prisma.invoice.update({
+            where: { id: dbDoc.id },
+            data: { status, items: currentItems }
+          })
+        } else if (type === "SalesOrder") {
+          await prisma.salesOrder.update({
+            where: { id: dbDoc.id },
+            data: { status, items: currentItems }
+          })
+        } else if (type === "Quote") {
+          await prisma.quote.update({
+            where: { id: dbDoc.id },
+            data: { status, items: currentItems }
+          })
+        }
       } catch (dbErr) {
-        console.error("Failed to sync invoice status to DB:", dbErr)
+        console.error("Failed to update local db with synced details", dbErr)
       }
     }
 
     let vigRate = 1.5; // Default
 
-    const salespersonName = zohoData.invoice.salesperson_name;
+    const salespersonName = returnedDoc.salesperson_name;
     if (salespersonName) {
       const isMontgomery = salespersonName.toLowerCase().includes('montgomery') || salespersonName.toLowerCase().includes('morgan');
       if (isMontgomery) {

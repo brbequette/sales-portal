@@ -72,10 +72,13 @@ export const handler: Handler = async (event) => {
     })
 
     let accountsToAssign: any[] = []
+    
+    // Protect Montgomery Morgan's accounts from being reassigned
+    const MONTGOMERY_ID = "cmppb3de4000013bxtcprpvww"
 
     if (rebalanceAll) {
-      // Reassign everything from scratch
-      accountsToAssign = updateAccounts
+      // Reassign everything from scratch, except Montgomery Morgan's accounts
+      accountsToAssign = updateAccounts.filter(a => a.ownerId !== MONTGOMERY_ID)
     } else {
       // Incremental: Count how many "Update Status" accounts each group rep currently owns
       const currentCounts = await prisma.account.groupBy({
@@ -91,8 +94,8 @@ export const handler: Handler = async (event) => {
         repCounts[c.ownerId] = c._count.id
       })
 
-      // Accounts that need assignment: owner is not in the assigned group reps list
-      accountsToAssign = updateAccounts.filter(a => !assignedReps.includes(a.ownerId))
+      // Accounts that need assignment: owner is not in the assigned group reps list, and exclude Montgomery's existing accounts
+      accountsToAssign = updateAccounts.filter(a => !assignedReps.includes(a.ownerId) && a.ownerId !== MONTGOMERY_ID)
     }
 
     // 5. Load balance

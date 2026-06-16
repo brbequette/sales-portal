@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
+import { usePreferences } from "@/components/PreferencesProvider"
 import { usePagination, Pagination } from "@/components/Pagination"
 import { FiDollarSign, FiRefreshCw, FiChevronDown, FiChevronUp, FiTrendingUp, FiUsers, FiBarChart2, FiAward, FiFilter, FiX, FiSearch, FiFileText } from "react-icons/fi"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
@@ -453,6 +454,7 @@ function StatsTab({ data }: { data: CommData }) {
 // ── Main Commissions Page ──────────────────────────────────────────────
 export default function CommissionsPage() {
   const { zohoContext: user } = useZoho()
+  const { preferences } = usePreferences()
   const [data, setData] = useState<CommData | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"ledger" | "stats">("ledger")
@@ -584,6 +586,7 @@ export default function CommissionsPage() {
       const params = new URLSearchParams()
       if (selectedYear) params.set("year", selectedYear)
       if (selectedRep) params.set("repId", selectedRep)
+      if (preferences.showHiddenReps) params.set("includeHidden", "true")
       const res = await fetch(`/api/get-commissions?${params}`)
       const json = await res.json()
       if (json.success) {

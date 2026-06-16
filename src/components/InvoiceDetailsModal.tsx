@@ -2,16 +2,24 @@
 
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
-import { FiFileText, FiDatabase } from "react-icons/fi"
+import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck } from "react-icons/fi"
+import { CreatePackageModal } from "./CreatePackageModal"
+import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
 
 interface InvoiceDetailsModalProps {
   invoice: any | string; // Can be an invoice object or just the zohoId string
+  type?: "Quote" | "SalesOrder" | "Invoice";
   onClose: () => void;
 }
 
-export function InvoiceDetailsModal({ invoice, onClose }: InvoiceDetailsModalProps) {
+export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: InvoiceDetailsModalProps) {
   const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isConverting, setIsConverting] = useState(false)
+  
+  // Modals state
+  const [showPackageModal, setShowPackageModal] = useState(false)
+  const [showDropshipmentModal, setShowDropshipmentModal] = useState(false)
 
   // Determine the base zoho ID and any existing data
   const isString = typeof invoice === "string"
@@ -26,42 +34,130 @@ export function InvoiceDetailsModal({ invoice, onClose }: InvoiceDetailsModalPro
       setFullInvoiceDetails({ custom_fields: invoice.items.custom_fields, ...invoice })
     }
 
-    // Fetch the full detailed invoice from Zoho Books
+    // Fetch the full detailed document from Zoho Books
     const fetchDetails = async () => {
       setIsLoading(true)
       try {
-        const res = await fetch(`/api/get-invoice-details?targetId=${zohoId}`)
+        const res = await fetch(`/api/get-invoice-details?targetId=${zohoId}&type=${type}`)
         const data = await res.json()
         if (data.success && data.invoice) {
           setFullInvoiceDetails(data.invoice)
         }
       } catch (e) {
-        console.error("Failed to load full invoice details", e)
+        console.error("Failed to load full document details", e)
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchDetails()
-  }, [zohoId, invoice, isString])
+  }, [zohoId, invoice, isString, type])
 
   const displayData = fullInvoiceDetails || initialData
+
+  const handleConvert = async (targetType: "SalesOrder" | "Invoice") => {
+    setIsConverting(true)
+    try {
+      const res = await fetch("/api/zoho-convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceType: type,
+          sourceId: zohoId,
+          targetType
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert(`Successfully converted to ${targetType}!`)
+        onClose()
+      } else {
+        alert(`Failed to convert: ${data.message || data.error}`)
+      }
+    } catch (e: any) {
+      alert(`Error converting document: ${e.message}`)
+    } finally {
+      setIsConverting(false)
+    }
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-neutral-900 border border-neutral-850 w-full max-w-6xl h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10001]">
+        
+        {/* Modals */}
+        {showPackageModal && displayData?.line_items && (
+          <CreatePackageModal 
+            salesOrderId={zohoId} 
+            lineItems={displayData.line_items}
+            onClose={() => setShowPackageModal(false)}
+            onSuccess={(pkgId) => {
+              alert(`Package created successfully! ID: ${pkgId}`)
+              setShowPackageModal(false)
+            }}
+          />
+        )}
+        {showDropshipmentModal && displayData?.line_items && (
+          <CreateDropshipmentModal 
+            salesOrderId={zohoId} 
+            lineItems={displayData.line_items}
+            onClose={() => setShowDropshipmentModal(false)}
+            onSuccess={(poId) => {
+              alert(`Dropshipment Purchase Order created successfully! ID: ${poId}`)
+              setShowDropshipmentModal(false)
+            }}
+          />
+        )}
+
         {/* Header */}
         <div className="bg-neutral-850 px-6 py-4 border-b border-neutral-800 flex justify-between items-center shrink-0">
           <div>
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <FiFileText className="text-amber-500" /> Invoice Details
+            <h2 className={`text-sm font-bold flex items-center gap-2 ${type === 'Quote' ? 'text-purple-400' : type === 'SalesOrder' ? 'text-blue-400' : 'text-amber-500'}`}>
+              <FiFileText /> {type === 'Quote' ? 'Quote/Estimate' : type === 'SalesOrder' ? 'Sales Order' : 'Invoice'} Details
             </h2>
             <p className="text-[10px] text-neutral-400 mt-0.5 font-mono">Zoho ID: {zohoId}</p>
           </div>
+          
           <div className="flex items-center gap-3">
+            {/* Actions Bar */}
+            {type === "Quote" && (
+              <button 
+                onClick={() => handleConvert("SalesOrder")}
+                disabled={isConverting}
+                className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow shadow-blue-900/20 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <FiRefreshCw className={isConverting ? "animate-spin" : ""} /> Convert to Sales Order
+              </button>
+            )}
+            
+            {type === "SalesOrder" && (
+              <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-lg p-1 mr-2">
+                <button 
+                  onClick={() => setShowPackageModal(true)}
+                  className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1"
+                >
+                  <FiBox /> Package
+                </button>
+                <button 
+                  onClick={() => setShowDropshipmentModal(true)}
+                  className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1"
+                >
+                  <FiTruck /> Dropship
+                </button>
+                <div className="w-px h-4 bg-neutral-800 mx-1"></div>
+                <button 
+                  onClick={() => handleConvert("Invoice")}
+                  disabled={isConverting}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors shadow shadow-emerald-900/20 disabled:opacity-50 flex items-center gap-1"
+                >
+                  <FiRefreshCw className={isConverting ? "animate-spin" : ""} /> Invoice
+                </button>
+              </div>
+            )}
+
             <a
-              href={`/api/get-invoice-pdf?id=${zohoId}&download=true`}
+              href={`/api/get-invoice-pdf?id=${zohoId}&type=${type}&download=true`}
               target="_blank"
               rel="noreferrer"
               className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-neutral-700 flex items-center gap-1.5 cursor-pointer"
@@ -98,7 +194,7 @@ export function InvoiceDetailsModal({ invoice, onClose }: InvoiceDetailsModalPro
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Issue Date</label>
-                  <div className="text-sm text-white">{displayData.issueDate || displayData.date ? new Date(displayData.issueDate || displayData.date).toLocaleDateString() : "—"}</div>
+                  <div className="text-sm text-white">{displayData.issueDate || displayData.date ? new Date(displayData.issueDate || displayData.date).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "—"}</div>
                 </div>
                 {displayData.salesperson_name && (
                   <div>
@@ -193,7 +289,7 @@ export function InvoiceDetailsModal({ invoice, onClose }: InvoiceDetailsModalPro
           {/* PDF Preview */}
           <div className="flex-1 bg-neutral-900 p-3 relative flex flex-col">
             <iframe
-              src={`/api/get-invoice-pdf?id=${zohoId}`}
+              src={`/api/get-invoice-pdf?id=${zohoId}&type=${type}`}
               className="w-full h-full border-0 rounded-xl bg-neutral-950 flex-1 shadow-inner"
               title="Invoice PDF Preview"
             />

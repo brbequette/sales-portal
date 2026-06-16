@@ -25,6 +25,7 @@ function formatLastCalled(dateStr: string | null) {
 
 export default function Dashboard() {
   const { isInitialized, zohoContext: currentUser } = useZoho()
+  const { preferences, updatePreferences } = usePreferences()
   const router = useRouter()
 
   const [accounts, setAccounts] = useState<any[]>([])
@@ -185,7 +186,8 @@ export default function Dashboard() {
 
       const roleQuery = currentUser.role ? `&role=${encodeURIComponent(currentUser.role)}` : ""
       const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ""
-      const accountsQuery = `${query}${roleQuery}&page=${pageNum}${searchParam}&includeDocs=true`
+      const hiddenParam = preferences.showHiddenReps ? "&includeHidden=true" : ""
+      const accountsQuery = `${query}${roleQuery}&page=${pageNum}${searchParam}${hiddenParam}&includeDocs=true`
 
       const ts = Date.now()
       const [resAccounts, resTasks] = await Promise.all([
@@ -1685,6 +1687,18 @@ export default function Dashboard() {
                       className={`rounded bg-[#151618] border-white/15 ${effort === "sales" ? "text-emerald-500" : "text-amber-500"} focus:ring-0 focus:ring-offset-0 w-4 h-4`}
                     />
                     <span>Only show accounts with purchase history</span>
+                  </label>
+                  <label className="flex items-center gap-3 text-xs font-semibold text-neutral-300 cursor-pointer select-none bg-neutral-800 border border-white/15 rounded-lg px-3 py-2.5 hover:border-neutral-600 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={preferences.showHiddenReps || false}
+                      onChange={e => {
+                        updatePreferences({ showHiddenReps: e.target.checked })
+                        setTimeout(() => fetchLocalData(1, false), 100)
+                      }}
+                      className={`rounded bg-[#151618] border-white/15 ${effort === "sales" ? "text-emerald-500" : "text-amber-500"} focus:ring-0 focus:ring-offset-0 w-4 h-4`}
+                    />
+                    <span>Include hidden reps in dropdowns</span>
                   </label>
                 </div>
               </div>

@@ -25,6 +25,7 @@ interface Config {
   holidays: { date: string, name: string }[]
   salesTargets: Record<string, number>
   subtotalTargets: Record<string, number>
+  visibleReps: string[]
 }
 
 interface ReassignmentResult {
@@ -33,6 +34,81 @@ interface ReassignmentResult {
   totalUpdateAccounts: number
   reassignedCount: number
   reassignedDetails: any[]
+}
+
+const STANDARD_HOLIDAYS = [
+  { id: "new_year", name: "New Year's Day" },
+  { id: "mlk", name: "Martin Luther King Jr. Day" },
+  { id: "washington", name: "Washington's Birthday" },
+  { id: "memorial", name: "Memorial Day" },
+  { id: "juneteenth", name: "Juneteenth" },
+  { id: "independence", name: "Independence Day" },
+  { id: "labor", name: "Labor Day" },
+  { id: "columbus", name: "Columbus Day" },
+  { id: "veterans", name: "Veterans Day" },
+  { id: "thanksgiving", name: "Thanksgiving Day" },
+  { id: "christmas", name: "Christmas Day" }
+]
+
+function getNthDayOfMonth(year: number, month: number, dayOfWeek: number, n: number) {
+  let count = 0;
+  for (let d = 1; d <= 31; d++) {
+    const date = new Date(year, month, d);
+    if (date.getMonth() !== month) break;
+    if (date.getDay() === dayOfWeek) {
+      count++;
+      if (count === n) return date;
+    }
+  }
+  return null;
+}
+
+function getLastDayOfMonth(year: number, month: number, dayOfWeek: number) {
+  let last = null;
+  for (let d = 1; d <= 31; d++) {
+    const date = new Date(year, month, d);
+    if (date.getMonth() !== month) break;
+    if (date.getDay() === dayOfWeek) last = date;
+  }
+  return last;
+}
+
+function observeDate(date: Date) {
+  const d = new Date(date);
+  if (d.getDay() === 0) { // Sunday -> Monday
+    d.setDate(d.getDate() + 1);
+  } else if (d.getDay() === 6) { // Saturday -> Friday
+    d.setDate(d.getDate() - 1);
+  }
+  return d;
+}
+
+function formatHolidayDate(date: Date | null) {
+  if (!date) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function generateHoliday(id: string, year: number): { date: string, name: string } | null {
+  let d: Date | null = null;
+  let name = "";
+  switch(id) {
+    case "new_year": d = observeDate(new Date(year, 0, 1)); name = "New Year's Day"; break;
+    case "mlk": d = getNthDayOfMonth(year, 0, 1, 3); name = "Martin Luther King Jr. Day"; break;
+    case "washington": d = getNthDayOfMonth(year, 1, 1, 3); name = "Washington's Birthday"; break;
+    case "memorial": d = getLastDayOfMonth(year, 4, 1); name = "Memorial Day"; break;
+    case "juneteenth": d = observeDate(new Date(year, 5, 19)); name = "Juneteenth"; break;
+    case "independence": d = observeDate(new Date(year, 6, 4)); name = "Independence Day"; break;
+    case "labor": d = getNthDayOfMonth(year, 8, 1, 1); name = "Labor Day"; break;
+    case "columbus": d = getNthDayOfMonth(year, 9, 1, 2); name = "Columbus Day"; break;
+    case "veterans": d = observeDate(new Date(year, 10, 11)); name = "Veterans Day"; break;
+    case "thanksgiving": d = getNthDayOfMonth(year, 10, 4, 4); name = "Thanksgiving Day"; break;
+    case "christmas": d = observeDate(new Date(year, 11, 25)); name = "Christmas Day"; break;
+  }
+  if (!d) return null;
+  return { date: formatHolidayDate(d), name };
 }
 
 export default function AdminSettingsPage() {
@@ -55,9 +131,13 @@ export default function AdminSettingsPage() {
     holidays: [],
     salesTargets: {},
     subtotalTargets: {},
+    visibleReps: [],
   })
   const [newHolidayDate, setNewHolidayDate] = useState("")
   const [newHolidayName, setNewHolidayName] = useState("")
+  const [holidayStartYear, setHolidayStartYear] = useState(new Date().getFullYear())
+  const [holidayEndYear, setHolidayEndYear] = useState(new Date().getFullYear() + 4)
+  const [selectedStandardHolidays, setSelectedStandardHolidays] = useState<Set<string>>(new Set(STANDARD_HOLIDAYS.map(h => h.id)))
   const [users, setUsers] = useState<User[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
 
@@ -399,10 +479,74 @@ export default function AdminSettingsPage() {
             <FiActivity size={16} className="text-purple-400" />
             <h2 className="text-sm font-bold text-white uppercase tracking-wider">Workday Holiday Exclusions</h2>
           </div>
-          <p className="text-xs text-neutral-400 mb-4">
-            Add holidays to exclude them from the workday target calculations.
+          <p className="text-xs text-neutral-400 mb-6">
+            Exclude holidays from the workday target calculations.
           </p>
-          <div className="flex gap-2 mb-4">
+
+          <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-4 mb-6">
+            <h3 className="text-[10px] uppercase tracking-wider font-bold text-neutral-500 mb-3">Generate Standard Holidays</h3>
+            
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-sm text-neutral-400">Generate from</span>
+              <input 
+                type="number" 
+                value={holidayStartYear} 
+                onChange={e => setHolidayStartYear(parseInt(e.target.value) || new Date().getFullYear())}
+                className="w-20 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-purple-500"
+              />
+              <span className="text-sm text-neutral-400">to</span>
+              <input 
+                type="number" 
+                value={holidayEndYear} 
+                onChange={e => setHolidayEndYear(parseInt(e.target.value) || new Date().getFullYear() + 4)}
+                className="w-20 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-purple-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+              {STANDARD_HOLIDAYS.map(h => (
+                <label key={h.id} className="flex items-center gap-2 cursor-pointer group">
+                  <input 
+                    type="checkbox" 
+                    checked={selectedStandardHolidays.has(h.id)}
+                    onChange={(e) => {
+                      const newSet = new Set(selectedStandardHolidays)
+                      if (e.target.checked) newSet.add(h.id)
+                      else newSet.delete(h.id)
+                      setSelectedStandardHolidays(newSet)
+                    }}
+                    className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-purple-600 focus:ring-purple-500 focus:ring-offset-neutral-950"
+                  />
+                  <span className="text-xs text-neutral-300 group-hover:text-white transition-colors truncate">{h.name}</span>
+                </label>
+              ))}
+            </div>
+
+            <button
+              onClick={() => {
+                let newHols: {date: string, name: string}[] = []
+                for (let y = holidayStartYear; y <= holidayEndYear; y++) {
+                  Array.from(selectedStandardHolidays).forEach(hId => {
+                    const hd = generateHoliday(hId, y)
+                    if (hd) newHols.push(hd)
+                  })
+                }
+                setConfig((c) => {
+                  const merged = [...c.holidays]
+                  newHols.forEach(nh => {
+                    if (!merged.some(m => m.date === nh.date)) merged.push(nh)
+                  })
+                  merged.sort((a,b) => a.date.localeCompare(b.date))
+                  return { ...c, holidays: merged }
+                })
+              }}
+              className="px-4 py-2 bg-purple-600/20 text-purple-400 border border-purple-500/30 hover:bg-purple-600/30 text-xs font-bold rounded-xl transition-all"
+            >
+              Generate & Add
+            </button>
+          </div>
+
+          <div className="flex gap-2 mb-6">
             <input
               type="date"
               value={newHolidayDate}
@@ -411,7 +555,7 @@ export default function AdminSettingsPage() {
             />
             <input
               type="text"
-              placeholder="Holiday Name"
+              placeholder="Custom Holiday Name"
               value={newHolidayName}
               onChange={(e) => setNewHolidayName(e.target.value)}
               className="bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 flex-1"
@@ -427,30 +571,96 @@ export default function AdminSettingsPage() {
                   setNewHolidayName("")
                 }
               }}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap"
+              className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition-all whitespace-nowrap"
             >
-              Add Holiday
+              Add Custom
             </button>
           </div>
-          <div className="flex flex-wrap gap-2">
+
+          <div className="space-y-4">
             {config.holidays.length === 0 ? (
               <span className="text-xs text-neutral-500">No holidays added yet.</span>
             ) : (
-              config.holidays.map((h) => (
-                <span key={h.date} className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-950 border border-neutral-800 rounded-lg text-xs text-white">
-                  <span>{h.date}</span>
-                  <span className="text-neutral-400">({h.name})</span>
-                  <button
-                    onClick={() => {
-                      setConfig((c) => ({ ...c, holidays: c.holidays.filter((item) => item.date !== h.date) }))
-                    }}
-                    className="text-red-400 hover:text-red-300 font-bold ml-1"
-                  >
-                    ×
-                  </button>
-                </span>
+              Object.entries(config.holidays.reduce((acc, h) => {
+                const y = h.date.split("-")[0]
+                if (!acc[y]) acc[y] = []
+                acc[y].push(h)
+                return acc
+              }, {} as Record<string, {date: string, name: string}[]>))
+              .sort(([yearA], [yearB]) => yearB.localeCompare(yearA))
+              .map(([year, hols]) => (
+                <div key={year} className="bg-neutral-950 border border-neutral-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3 border-b border-neutral-800 pb-2">
+                    <h3 className="text-sm font-bold text-white">{year} <span className="text-[10px] text-neutral-500 font-normal ml-2">({hols.length} days)</span></h3>
+                    <button 
+                      onClick={() => {
+                        setConfig(c => ({ ...c, holidays: c.holidays.filter(h => !h.date.startsWith(year)) }))
+                      }}
+                      className="text-[10px] uppercase font-bold tracking-wider text-red-500 hover:text-red-400"
+                    >
+                      Remove Year
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {hols.map(h => (
+                      <span key={h.date} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-neutral-900 border border-neutral-800 rounded text-xs text-neutral-300">
+                        <span className="font-mono text-[10px] text-neutral-500">{h.date.slice(5)}</span>
+                        <span>{h.name}</span>
+                        <button
+                          onClick={() => {
+                            setConfig((c) => ({ ...c, holidays: c.holidays.filter((item) => item.date !== h.date) }))
+                          }}
+                          className="text-red-400/50 hover:text-red-400 font-bold ml-0.5 px-1 rounded hover:bg-red-500/10"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
               ))
             )}
+          </div>
+        </div>
+
+        {/* Visible Sales Reps Card */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg">
+          <div className="flex items-center gap-2 mb-4">
+            <FiUsers size={16} className="text-purple-400" />
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Visible Sales Reps</h2>
+          </div>
+          <p className="text-xs text-neutral-400 mb-4">
+            Select the sales representatives that should be displayed across the portal (Sales Hub, Stats, Commissions).
+            Unselected users will still exist in the database but their historic data won't clutter the UI.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {users.map((u) => {
+              const isVisible = config.visibleReps?.includes(u.id) || false
+              return (
+                <label 
+                  key={u.id} 
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${isVisible ? "bg-purple-900/20 border-purple-500/30" : "bg-neutral-950 border-neutral-800 hover:border-neutral-700"}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isVisible}
+                    onChange={(e) => {
+                      setConfig(c => {
+                        const newSet = new Set(c.visibleReps || [])
+                        if (e.target.checked) newSet.add(u.id)
+                        else newSet.delete(u.id)
+                        return { ...c, visibleReps: Array.from(newSet) }
+                      })
+                    }}
+                    className="mt-0.5 w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-purple-600 focus:ring-purple-500"
+                  />
+                  <div className="min-w-0">
+                    <p className={`text-sm font-bold truncate ${isVisible ? "text-purple-100" : "text-white"}`}>{u.name}</p>
+                    <p className="text-[10px] text-neutral-500 truncate">{u.email}</p>
+                  </div>
+                </label>
+              )
+            })}
           </div>
         </div>
 

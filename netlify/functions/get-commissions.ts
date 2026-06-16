@@ -13,7 +13,8 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
 
   try {
-    const { repId, year } = event.queryStringParameters || {}
+    const { repId, year, includeHidden } = event.queryStringParameters || {}
+    const showHidden = includeHidden === 'true'
 
     // Default to current year
     const targetYear = year || new Date().getFullYear().toString()
@@ -86,10 +87,17 @@ export const handler: Handler = async (event) => {
     })
 
     // Get all reps
-    const users = await prisma.user.findMany({
+    let users = await prisma.user.findMany({
       select: { id: true, name: true, email: true, role: true },
       orderBy: { name: "asc" }
     })
+
+    const visibleRepsSetting = await prisma.systemSetting.findUnique({ where: { key: "visible_reps" } })
+    const visibleReps: string[] = JSON.parse(visibleRepsSetting?.value || "[]")
+
+    if (!showHidden && !repId && visibleReps.length > 0) {
+      users = users.filter(u => visibleReps.includes(u.id))
+    }
 
     // Fetch payouts — scoped to the target year so historical backfill payouts
     // don't zero out the current year's balance

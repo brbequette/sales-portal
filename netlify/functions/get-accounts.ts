@@ -14,8 +14,9 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { zohoId, email, refresh, force, ownerIdFilter, role: passedRole, page: pageParam, search, includeDocs } = event.queryStringParameters || {}
+    const { zohoId, email, refresh, force, ownerIdFilter, role: passedRole, page: pageParam, search, includeDocs, includeHidden } = event.queryStringParameters || {}
     const wantDocs = includeDocs === 'true'
+    const showHidden = includeHidden === 'true'
     const PAGE_SIZE = 400
     const page = parseInt(pageParam || '1', 10)
 
@@ -944,6 +945,12 @@ export const handler: Handler = async (event, context) => {
         },
         orderBy: { name: "asc" }
       });
+      
+      const visibleRepsSetting = await prisma.systemSetting.findUnique({ where: { key: "visible_reps" } });
+      const visibleReps: string[] = JSON.parse(visibleRepsSetting?.value || "[]");
+      if (!showHidden && visibleReps.length > 0) {
+        reps = reps.filter(r => visibleReps.includes(r.id));
+      }
     }
 
     return {
