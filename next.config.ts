@@ -5,14 +5,6 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path((?!auth/).*)',
-        destination: '/.netlify/functions/:path*',
-      },
-    ]
-  }
 };
 
 export default nextConfig;

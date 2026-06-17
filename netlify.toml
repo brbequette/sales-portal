@@ -1,9 +1,7 @@
 [build]
   command = "npx prisma generate && next build"
-  functions = "netlify/functions"
 
 [dev]
-  functions = "netlify/functions"
   port = 8888
 
 # Allow embedding in Zoho CRM web tabs (iframes)
