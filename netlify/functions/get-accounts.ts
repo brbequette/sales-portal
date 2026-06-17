@@ -731,7 +731,7 @@ export const handler: Handler = async (event, context) => {
           const twelveMonthsAgo = new Date();
           twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
-          const accountIds = Array.from(new Set(accountMap.values()));
+          const accountIds = (await prisma.account.findMany({ where: { ownerId: { in: usersToSync.map(u => u.id) } }, select: { id: true } })).map(a => a.id);
           const accountsWithInvoices = await prisma.account.findMany({
             where: {
               id: { in: accountIds },

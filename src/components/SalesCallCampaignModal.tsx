@@ -35,6 +35,14 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const [ffJobTypes, setFfJobTypes] = useState('')
   const [showFactFinding, setShowFactFinding] = useState(false)
 
+  // AI States
+  const [aiPrompt, setAiPrompt] = useState("")
+  const [aiType, setAiType] = useState<"text" | "image">("text")
+  const [aiChannel, setAiChannel] = useState("SMS")
+  const [aiResult, setAiResult] = useState<string | null>(null)
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false)
+  const [showAiMagic, setShowAiMagic] = useState(false)
+
   // Timer States
   const [timerSeconds, setTimerSeconds] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -64,6 +72,11 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     setFfPainPoints(activeAccount.painPoints || '')
     setFfJobTypes(activeAccount.jobTypes || '')
     setShowFactFinding(false)
+
+    // Reset AI states
+    setAiPrompt("")
+    setAiResult(null)
+    setShowAiMagic(false)
 
     // Reset and start timer
     setTimerSeconds(0)
@@ -129,6 +142,33 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
       alert("Campaign completed!")
       onRefresh()
       onClose()
+    }
+  }
+
+  const handleGenerateAi = async () => {
+    if (!aiPrompt) return;
+    setIsGeneratingAi(true);
+    setAiResult(null);
+    try {
+      const res = await fetch("/api/generate-campaign-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: aiPrompt,
+          type: aiType,
+          channel: aiChannel
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAiResult(data.result);
+      } else {
+        alert("Failed to generate AI content: " + data.message);
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsGeneratingAi(false);
     }
   }
 
@@ -286,6 +326,95 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
               <div className="bg-neutral-950/60 border border-neutral-800 p-5 rounded-2xl text-sm text-neutral-300 leading-relaxed font-sans whitespace-pre-line select-text flex-1">
                 {generateScript()}
               </div>
+            </div>
+
+            {/* AI Campaign Magic Collapsible Section */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowAiMagic(!showAiMagic)}
+                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-purple-400 hover:text-purple-300 transition-colors cursor-pointer"
+              >
+                {showAiMagic ? <FiChevronDown size={14} /> : <FiChevronRight size={14} />}
+                <span>✨ AI Campaign Magic</span>
+              </button>
+
+              {showAiMagic && (
+                <div className="bg-neutral-950/60 border border-purple-900/30 p-5 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Type</label>
+                      <select
+                        value={aiType}
+                        onChange={e => setAiType(e.target.value as "text" | "image")}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors cursor-pointer"
+                      >
+                        <option value="text">Copywriting (Text)</option>
+                        <option value="image">Ad Creative (Image)</option>
+                      </select>
+                    </div>
+                    {aiType === "text" && (
+                      <div>
+                        <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Channel</label>
+                        <select
+                          value={aiChannel}
+                          onChange={e => setAiChannel(e.target.value)}
+                          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors cursor-pointer"
+                        >
+                          <option value="SMS">SMS / Text</option>
+                          <option value="Email">Email Blast</option>
+                          <option value="Social Media">Social Media</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Prompt / Instructions</label>
+                    <textarea
+                      rows={2}
+                      value={aiPrompt}
+                      onChange={e => setAiPrompt(e.target.value)}
+                      placeholder={aiType === "text" ? "e.g., Write a promo for 14-inch concrete blades" : "e.g., A diamond blade cutting concrete, cinematic lighting"}
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-purple-500 transition-colors resize-none"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isGeneratingAi || !aiPrompt}
+                    onClick={handleGenerateAi}
+                    className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:hover:bg-purple-600 text-white font-bold py-2 rounded-xl transition-colors text-xs flex justify-center items-center gap-2"
+                  >
+                    {isGeneratingAi ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Generating Magic...
+                      </>
+                    ) : "Generate Magic"}
+                  </button>
+
+                  {aiResult && (
+                    <div className="mt-4 pt-4 border-t border-purple-900/30 animate-in fade-in duration-300">
+                      <label className="block text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-2">Generated Result:</label>
+                      {aiType === "text" ? (
+                        <div className="bg-neutral-900 border border-neutral-800 p-3 rounded-xl text-xs text-neutral-300 whitespace-pre-wrap select-text leading-relaxed">
+                          {aiResult}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl overflow-hidden border border-neutral-800 relative group">
+                          <img src={aiResult} alt="Generated Ad Creative" className="w-full h-auto object-cover" />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-sm">
+                            <a href={aiResult} target="_blank" rel="noreferrer" className="bg-white text-black px-4 py-2 rounded-lg text-xs font-bold hover:scale-105 transition-transform">
+                              Open Full Image
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Fact-Finding Collapsible Section */}

@@ -40,7 +40,7 @@ export const handler: Handler = async (event, context) => {
         size: "1024x1024",
       })
 
-      const imageUrl = response.data[0].url
+      const imageUrl = response.data?.[0]?.url
 
       return {
         statusCode: 200,

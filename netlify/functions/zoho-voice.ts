@@ -126,11 +126,26 @@ export const handler: Handler = async (event, context) => {
       try {
         const accessToken = await getZohoAccessToken()
         if (accessToken) {
+          let fromNumber = process.env.ZOHO_VOICE_FROM_NUMBER || ''
+          if (!fromNumber) {
+            const setting = await prisma.systemSetting.findUnique({ where: { key: "zoho_phone_numbers" } })
+            if (setting && setting.value) {
+              try {
+                const parsed = JSON.parse(setting.value)
+                const defaultNum = parsed.find((n: any) => n.isDefault) || parsed[0]
+                if (defaultNum && defaultNum.number) {
+                  fromNumber = defaultNum.number
+                }
+              } catch(e) {}
+            }
+          }
+          if (!fromNumber) fromNumber = '+14804702577' // Fallback for backwards compatibility
+
           const zohoVoiceUrl = `https://voice.zoho.${process.env.ZOHO_DC || 'com'}/rest/json/v2/sms/send`
           const smsData = {
             customerNumber: phoneNumber,
             message: noteContent,
-            senderId: process.env.ZOHO_VOICE_FROM_NUMBER || '+14804702577',
+            senderId: fromNumber,
             mms: false
           }
           const formData = new FormData()

@@ -147,7 +147,7 @@ export const handler: Handler = async (event) => {
     let token = ""
     if (zohoUpdates.length > 0) {
       try {
-        token = await getZohoAccessToken()
+        token = await getZohoAccessToken() as string
       } catch (err) {
         console.error("Failed to get Zoho token for reassignment", err)
       }

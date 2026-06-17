@@ -1,128 +1,45 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useZoho } from "@/components/ZohoProvider"
+import { signIn, useSession } from "next-auth/react"
 import { Suspense } from "react"
 
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { isInitialized, zohoContext } = useZoho()
+  const { data: session, status } = useSession()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [showPasswordLogin, setShowPasswordLogin] = useState(false)
-  const [processingZoho, setProcessingZoho] = useState(false)
 
-  // Guard: prevent double-processing of zoho_auth param
-  const hasProcessedAuth = useRef(false)
-  // Guard: prevent redirect loop — once we've decided to redirect, don't do it again
-  const isRedirecting = useRef(false)
-
-  // ── Handle Zoho OAuth callback ────────────────────────────────────
   useEffect(() => {
-    if (hasProcessedAuth.current || isRedirecting.current) return
-
-    const zohoAuth = searchParams.get("zoho_auth")
-    const authError = searchParams.get("error")
-
-    if (authError) {
-      const messages: Record<string, string> = {
-        token_failed: "Zoho authentication failed. Please try again.",
-        no_email: "Could not retrieve your email from Zoho.",
-        no_code: "Authorization was cancelled.",
-        server_error: "A server error occurred. Please try again.",
-        access_denied: "Access was denied. Your Zoho app may need additional scopes.",
-      }
-      setError(messages[authError] || `Authentication error: ${authError}`)
-      // Clean URL without triggering re-render loop
-      window.history.replaceState({}, "", "/login")
-      return
+    // If user is authenticated via NextAuth, redirect to dashboard
+    if (status === "authenticated") {
+      router.push("/")
     }
+  }, [status, router])
 
-    if (zohoAuth) {
-      hasProcessedAuth.current = true
-      setProcessingZoho(true)
-      try {
-        const decoded = JSON.parse(atob(decodeURIComponent(zohoAuth)))
-        if (decoded?.email) {
-          // Store session
-          try {
-            localStorage.setItem("sales_portal_user", JSON.stringify(decoded))
-          } catch (e) {
-            console.warn("localStorage write blocked:", e)
-          }
-
-          // Validate with backend before redirecting (ensures DB user exists and role is correct)
-          fetch(`/api/get-user?email=${encodeURIComponent(decoded.email)}`)
-            .then(res => res.json())
-            .then(realUser => {
-              if (realUser?.email) {
-                // Merge backend data (has correct role, zohoId, etc.)
-                const mergedUser = { ...decoded, ...realUser, isZohoUser: true }
-                try {
-                  localStorage.setItem("sales_portal_user", JSON.stringify(mergedUser))
-                } catch {}
-              }
-            })
-            .catch(() => {
-              // Backend validation failed — the decoded data is still good enough
-              console.warn("Backend user validation failed, using OAuth data directly")
-            })
-            .finally(() => {
-              // Redirect to dashboard — use window.location for full reload
-              // so ZohoProvider re-reads the fresh localStorage on mount
-              isRedirecting.current = true
-              window.location.href = "/"
-            })
-
-          return
-        } else {
-          setError("No email found in Zoho sign-in data.")
-        }
-      } catch (e) {
-        console.error("Failed to decode Zoho auth payload:", e)
-        setError("Failed to process Zoho sign-in. Please try again.")
+  useEffect(() => {
+    // Handle NextAuth errors passed in URL
+    const authError = searchParams.get("error")
+    if (authError) {
+      if (authError === "CredentialsSignin") {
+        setError("Invalid email or password.")
+      } else {
+        setError(`Authentication error: ${authError}`)
       }
-      setProcessingZoho(false)
+      // Clean URL without triggering re-render loop
       window.history.replaceState({}, "", "/login")
     }
   }, [searchParams])
 
-  // ── If user already has a session, redirect to dashboard ──────────
-  useEffect(() => {
-    if (isRedirecting.current) return
-
-    // Check if ZohoProvider already found a session
-    if (isInitialized && zohoContext?.email) {
-      isRedirecting.current = true
-      window.location.href = "/"
-      return
-    }
-
-    // Also check localStorage directly (in case ZohoProvider hasn't synced yet)
-    try {
-      const saved = localStorage.getItem("sales_portal_user")
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed?.email) {
-          isRedirecting.current = true
-          window.location.href = "/"
-          return
-        }
-      }
-    } catch {}
-  }, [isInitialized, zohoContext])
-
-  const handleZohoLogin = () => {
+  const handleZohoLogin = async () => {
     setLoading(true)
     setError("")
-    // Redirect to our backend which initiates the Zoho OAuth flow,
-    // explicitly passing the origin to bypass Netlify proxy host rewrites.
-    // Also attach a timestamp to aggressively bust browser 302 redirect caches.
-    window.location.href = `/api/auth/zoho?origin=${encodeURIComponent(window.location.origin)}&t=${Date.now()}`
+    await signIn("zoho", { callbackUrl: "/" })
   }
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -130,38 +47,26 @@ function LoginContent() {
     setLoading(true)
     setError("")
 
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      })
-      const data = await response.json()
+    const res = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    })
 
-      if (response.ok && data.success) {
-        try {
-          localStorage.setItem("sales_portal_user", JSON.stringify(data.user))
-        } catch (e) {
-          console.warn("localStorage write blocked:", e)
-        }
-        isRedirecting.current = true
-        window.location.href = "/"
-      } else {
-        setError(data.message || "Invalid email or password")
-        setLoading(false)
-      }
-    } catch (err) {
-      setError("An error occurred during authentication")
+    if (res?.error) {
+      setError("Invalid email or password")
       setLoading(false)
+    } else {
+      router.push("/")
     }
   }
 
-  if (processingZoho) {
+  if (status === "loading" || status === "authenticated") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white">
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-neutral-400 text-sm animate-pulse">Signing you in with Zoho...</p>
+          <p className="text-neutral-400 text-sm animate-pulse">Authenticating...</p>
         </div>
       </div>
     )

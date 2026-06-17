@@ -18,14 +18,18 @@ export const handler: Handler = async (event) => {
 
     // Default to current year
     const targetYear = year || new Date().getFullYear().toString()
-    const start = new Date(`${targetYear}-01-01`)
-    const end = new Date(`${parseInt(targetYear) + 1}-01-01`)
+    let dateFilter = {}
+    if (targetYear !== "all") {
+      const start = new Date(`${targetYear}-01-01`)
+      const end = new Date(`${parseInt(targetYear) + 1}-01-01`)
+      dateFilter = { gte: start, lt: end }
+    }
 
     // --- Commission source: ALL invoices except Void/Draft ---
     // Upfront half earned on creation, final half earned on payment
     const rawInvoices = await prisma.invoice.findMany({
       where: {
-        issueDate: { gte: start, lt: end },
+        ...(targetYear !== "all" && { issueDate: dateFilter }),
         status: { notIn: Array.from(SKIP_STATUSES) }
       },
       select: {
@@ -71,12 +75,12 @@ export const handler: Handler = async (event) => {
 
     // --- Pipeline source: DEALS only (estimates/SOs for activity metrics) ---
     const deals = await prisma.deal.findMany({
-      where: {
+      where: targetYear !== "all" ? {
         OR: [
-          { closingDate: { gte: start, lt: end } },
-          { AND: [{ closingDate: null }, { createdAt: { gte: start, lt: end } }] }
+          { closingDate: dateFilter },
+          { AND: [{ closingDate: null }, { createdAt: dateFilter }] }
         ]
-      },
+      } : undefined,
       select: {
         id: true, zohoId: true, name: true, stage: true, amount: true,
         closingDate: true, createdAt: true, ownerId: true,

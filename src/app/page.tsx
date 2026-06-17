@@ -2232,7 +2232,7 @@ export default function Dashboard() {
       )}
       {showCallCampaignModal && createPortal(
         <SalesCallCampaignModal
-          accounts={accounts.filter(a => selectedAccountIds.includes(a.id) && a.ownerId === currentUser?.id)}
+          accounts={accounts.filter(a => selectedAccountIds.includes(a.id))}
           onClose={() => setShowCallCampaignModal(false)}
           onRefresh={fetchLocalData}
         />,

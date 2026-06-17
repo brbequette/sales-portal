@@ -54,6 +54,8 @@ type Payout = {
   amount: number
   date: string
   notes?: string
+  method?: string
+  caughtUpTo?: string
 }
 
 type RepSummary = {
@@ -218,16 +220,14 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
             ))}
           </div>
 
-          {isAdmin && (
-            <div className="px-5 py-3 border-b border-neutral-800 bg-neutral-900/50 flex justify-end">
-              <button
-                onClick={(e) => { e.stopPropagation(); onManagePayouts(rep); }}
-                className="text-xs font-bold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 rounded transition-colors"
-              >
-                Manage Payouts
-              </button>
-            </div>
-          )}
+          <div className="px-5 py-3 border-b border-neutral-800 bg-neutral-900/50 flex justify-end">
+            <button
+              onClick={(e) => { e.stopPropagation(); onManagePayouts(rep); }}
+              className="text-xs font-bold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 rounded transition-colors"
+            >
+              Manage Payouts
+            </button>
+          </div>
 
           {/* Tab switcher */}
           <div className="flex border-b border-neutral-800">
@@ -469,6 +469,8 @@ export default function CommissionsPage() {
   const [payoutNotes, setPayoutNotes] = useState("")
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false)
   const [editingPayoutId, setEditingPayoutId] = useState<string | null>(null)
+  const [payoutMethod, setPayoutMethod] = useState("Check")
+  const [payoutCaughtUp, setPayoutCaughtUp] = useState("")
 
   const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
 
@@ -484,7 +486,9 @@ export default function CommissionsPage() {
       
       const payload: any = {
         amount: Number(payoutAmount),
-        notes: payoutNotes
+        method: payoutMethod,
+        notes: payoutNotes,
+        caughtUpTo: payoutCaughtUp
       }
       
       if (isEditing) {
@@ -502,6 +506,8 @@ export default function CommissionsPage() {
       if (json.success) {
         setPayoutAmount("")
         setPayoutNotes("")
+        setPayoutCaughtUp("")
+        setPayoutMethod("Check")
         setEditingPayoutId(null)
         await fetchData() // refresh
         
@@ -571,13 +577,17 @@ export default function CommissionsPage() {
   const handleEditClick = (p: Payout) => {
     setEditingPayoutId(p.id)
     setPayoutAmount(p.amount.toString())
+    setPayoutMethod(p.method || "Check")
     setPayoutNotes(p.notes || "")
+    setPayoutCaughtUp(p.caughtUpTo || "")
   }
 
   const handleCancelEdit = () => {
     setEditingPayoutId(null)
     setPayoutAmount("")
+    setPayoutMethod("Check")
     setPayoutNotes("")
+    setPayoutCaughtUp("")
   }
 
   const fetchData = useCallback(async () => {
@@ -740,6 +750,7 @@ export default function CommissionsPage() {
                       onChange={e => setSelectedYear(e.target.value)}
                       className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 cursor-pointer"
                     >
+                      <option value="all">All Time</option>
                       {data.years.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                   </div>
@@ -904,11 +915,33 @@ export default function CommissionsPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">Notes / Check # (Optional)</label>
+                    <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">Method</label>
+                    <select
+                      value={payoutMethod}
+                      onChange={e => setPayoutMethod(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-xs text-white outline-none focus:border-amber-500/50 transition-colors"
+                    >
+                      <option value="Check">Check</option>
+                      <option value="Zelle">Zelle</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">Caught Up To (Invoice #)</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. INV-12345"
+                      value={payoutCaughtUp}
+                      onChange={e => setPayoutCaughtUp(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-xs text-white outline-none focus:border-amber-500/50 transition-colors placeholder:text-neutral-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">Notes / Description (Optional)</label>
                     <textarea 
+                      rows={3}
                       value={payoutNotes}
                       onChange={e => setPayoutNotes(e.target.value)}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500 h-24 resize-none"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-xs text-white outline-none focus:border-amber-500/50 transition-colors resize-none placeholder:text-neutral-600"
                       placeholder="Check #1042..."
                     />
                   </div>
@@ -932,20 +965,38 @@ export default function CommissionsPage() {
                     <div className="text-center text-neutral-500 italic mt-10 text-sm">No payouts recorded yet.</div>
                   ) : (
                     managingPayoutsFor.payouts.map(p => (
-                      <div key={p.id} className="group bg-neutral-800/60 border border-neutral-800 rounded-lg p-3 hover:border-neutral-700 transition-colors">
-                        <div className="flex justify-between items-start mb-1">
-                          <div className="flex items-center gap-3">
+                      <div key={p.id} className="group bg-neutral-800/60 border border-neutral-800 rounded-lg p-3 hover:border-neutral-700 transition-colors flex flex-col gap-2">
+                        <div className="flex justify-between items-start">
+                          <div className="flex flex-col">
                             <div className="text-sm font-bold text-emerald-400">{fmt(p.amount)}</div>
+                            <div className="text-[10px] text-neutral-500 flex items-center gap-1.5 mt-0.5">
+                              <span className="bg-neutral-900 px-1 py-0.5 rounded border border-neutral-800">{new Date(p.date).toLocaleDateString()}</span>
+                              {p.method && <span className="bg-neutral-900 px-1 py-0.5 rounded border border-neutral-800">{p.method}</span>}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button onClick={() => handleEditClick(p)} className="text-[10px] text-amber-500 hover:text-amber-400 font-bold uppercase">Edit</button>
                               <button onClick={() => handleDeletePayout(p.id, p.amount)} className="text-[10px] text-red-500 hover:text-red-400 font-bold uppercase">Delete</button>
                             </div>
                           </div>
-                          <div className="text-[10px] text-neutral-500 bg-neutral-900 px-1.5 py-0.5 rounded border border-neutral-800">
-                            {new Date(p.date).toLocaleDateString()}
-                          </div>
                         </div>
-                        {p.notes && <div className="text-xs text-neutral-400 mt-2 bg-neutral-900/50 p-2 rounded border border-neutral-800/50">{p.notes}</div>}
+                        
+                        {(p.caughtUpTo || p.notes) && (
+                          <div className="bg-neutral-900/50 rounded p-2 border border-neutral-800/50 flex flex-col gap-1 mt-1">
+                            {p.caughtUpTo && (
+                              <div className="text-[10px] text-neutral-400 flex items-center gap-1.5">
+                                <span className="text-neutral-500 uppercase font-bold tracking-wider text-[9px]">Caught Up To:</span>
+                                <span className="text-blue-400 font-medium">{p.caughtUpTo}</span>
+                              </div>
+                            )}
+                            {p.notes && (
+                              <div className="text-xs text-neutral-300">
+                                {p.notes}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))
                   )}

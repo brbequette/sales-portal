@@ -8,14 +8,16 @@ export const handler: Handler = async (event, context) => {
   // Support POST, PUT, DELETE
   const method = event.httpMethod;
 
+  const corsHeaders: Record<string, string> = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "POST, PUT, DELETE, OPTIONS"
+  };
+
   if (method === "OPTIONS") {
     return {
       statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "POST, PUT, DELETE, OPTIONS"
-      },
+      headers: corsHeaders,
       body: ""
     }
   }
@@ -28,10 +30,7 @@ export const handler: Handler = async (event, context) => {
     if (!userId) {
       return {
         statusCode: 400,
-        headers: { 
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*"
-        },
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } as Record<string, string>,
         body: JSON.stringify({ success: false, message: "Missing userId" })
       }
     }
@@ -40,10 +39,7 @@ export const handler: Handler = async (event, context) => {
     if (!user || !isAdmin(user.role)) {
       return {
         statusCode: 403,
-        headers: { 
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*"
-        },
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } as Record<string, string>,
         body: JSON.stringify({ success: false, message: "Unauthorized. Admin role required." })
       }
     }
@@ -52,7 +48,7 @@ export const handler: Handler = async (event, context) => {
       if (!title || !type || !category || !url) {
         return {
           statusCode: 400,
-          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } as Record<string, string>,
           body: JSON.stringify({ success: false, message: "Missing required fields: title, type, category, url" })
         }
       }
@@ -69,7 +65,7 @@ export const handler: Handler = async (event, context) => {
 
       return {
         statusCode: 200,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } as Record<string, string>,
         body: JSON.stringify({ success: true, asset: newAsset })
       }
     }
@@ -78,7 +74,7 @@ export const handler: Handler = async (event, context) => {
       if (!id) {
         return {
           statusCode: 400,
-          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } as Record<string, string>,
           body: JSON.stringify({ success: false, message: "Missing id for updates" })
         }
       }
@@ -96,7 +92,7 @@ export const handler: Handler = async (event, context) => {
 
       return {
         statusCode: 200,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } as Record<string, string>,
         body: JSON.stringify({ success: true, asset: updatedAsset })
       }
     }
@@ -105,7 +101,7 @@ export const handler: Handler = async (event, context) => {
       if (!id) {
         return {
           statusCode: 400,
-          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } as Record<string, string>,
           body: JSON.stringify({ success: false, message: "Missing id for deletion" })
         }
       }
@@ -116,14 +112,14 @@ export const handler: Handler = async (event, context) => {
 
       return {
         statusCode: 200,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } as Record<string, string>,
         body: JSON.stringify({ success: true, message: "Asset deleted successfully" })
       }
     }
 
     return {
       statusCode: 405,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } as Record<string, string>,
       body: JSON.stringify({ success: false, message: "Method Not Allowed" })
     }
 
@@ -131,10 +127,7 @@ export const handler: Handler = async (event, context) => {
     console.error("Manage Media Asset Error:", error)
     return {
       statusCode: 500,
-      headers: { 
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      },
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } as Record<string, string>,
       body: JSON.stringify({ success: false, error: error.message })
     }
   }

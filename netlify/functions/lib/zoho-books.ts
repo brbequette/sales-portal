@@ -109,7 +109,7 @@ export async function syncRecentBooksInvoices() {
         console.log(`Successfully updated ${updateOps.length} matching invoices from Books.`)
       }
     } else {
-      console.warn("Failed to fetch recently modified invoices from Books:", data)
+      console.warn("No recently modified invoices found in Books.")
     }
   } catch (err) {
     console.error("Failed to sync recent Books invoices:", err)

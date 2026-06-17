@@ -106,7 +106,7 @@ export const handler: Handler = async (event) => {
       }
 
       if (matches && inv.zohoId) {
-        const ok = await updateCustomFieldInZoho("invoices", inv.zohoId, token, "cf_salesperson_vig", newVigRate)
+        const ok = await updateCustomFieldInZoho("invoices", inv.zohoId as string, token as string, "cf_salesperson_vig", newVigRate)
         if (ok) successCount++
         else failCount++
       }

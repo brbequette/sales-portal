@@ -1633,7 +1633,7 @@ export default function CollectionsPage() {
 
       {showCallCampaign && (
         <CallCampaignModal
-          invoices={invoices.filter(inv => inv.account?.ownerId === user?.id)}
+          invoices={filtered}
           onClose={() => setShowCallCampaign(false)}
           onRefresh={fetchInvoices}
         />

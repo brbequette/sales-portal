@@ -86,7 +86,7 @@ export const handler: Handler = async (event) => {
         status = 'Writeoff'
       } else if (zStatus === 'draft') {
         status = 'Draft'
-      } else if (zStatus === 'overdue' || (dbDoc.dueDate && new Date(dbDoc.dueDate) < new Date())) {
+      } else if (zStatus === 'overdue' || (('dueDate' in dbDoc) && (dbDoc as any).dueDate && new Date((dbDoc as any).dueDate) < new Date())) {
         status = 'Overdue'
       } else {
         status = zohoDoc.status.charAt(0).toUpperCase() + zohoDoc.status.slice(1)
@@ -136,7 +136,7 @@ export const handler: Handler = async (event) => {
       } else {
         // Find user by name
         const users = await prisma.user.findMany();
-        const user = users.find(u => salespersonName.toLowerCase().includes(u.name.toLowerCase()) || u.name.toLowerCase().includes(salespersonName.toLowerCase()));
+        const user = users.find(u => u.name && (salespersonName.toLowerCase().includes(u.name.toLowerCase()) || u.name.toLowerCase().includes(salespersonName.toLowerCase())));
         
         if (user) {
           const settings = await prisma.systemSetting.findUnique({ where: { key: 'vig_settings' } });

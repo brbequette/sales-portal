@@ -104,7 +104,7 @@ export const handler: Handler = async (event, context) => {
     // 4. Record to local database
     // We try to find the Account ID using the Zoho Customer ID
     const dbAccount = await prisma.account.findFirst({
-      where: { zohoId: customerId }
+      where: { zohoId: customerId || undefined }
     })
 
     if (dbAccount) {
@@ -115,6 +115,7 @@ export const handler: Handler = async (event, context) => {
             accountId: dbAccount.id,
             amount: data[resultKey].total || 0,
             status: "Pending",
+            orderDate: new Date(),
             items: []
           }
         })
@@ -125,6 +126,7 @@ export const handler: Handler = async (event, context) => {
             accountId: dbAccount.id,
             amount: data[resultKey].total || 0,
             status: "Draft",
+            issueDate: new Date(),
             items: []
           }
         })

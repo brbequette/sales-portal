@@ -128,6 +128,7 @@ export const handler: Handler = async (event) => {
     if (!ownerId) {
       const fallbackUser = await prisma.user.findFirst()
       if (fallbackUser) ownerId = fallbackUser.id
+      else throw new Error("No owner found and no users in database")
     }
 
     const prismaAccount = await prisma.account.create({
@@ -138,7 +139,7 @@ export const handler: Handler = async (event) => {
         tags: tags || null,
         status: 'Open',
         quality: 'NEVER_STATUSED',
-        ownerId: ownerId,
+        ownerId: ownerId as string,
       }
     })
 

@@ -233,6 +233,12 @@ export const handler: Handler = async (event) => {
                           ownerDbId = dbOwner.id
                         }
 
+                        if (!ownerDbId) {
+                          const fallback = await prisma.user.findFirst()
+                          if (fallback) ownerDbId = fallback.id
+                          else throw new Error("No users found")
+                        }
+
                         const tagsStr = Array.isArray(record.Tag)
                           ? record.Tag.map((t: any) => t.name).filter(Boolean).join(", ")
                           : null
@@ -262,7 +268,7 @@ export const handler: Handler = async (event) => {
                             tags: tagsStr,
                             status: status,
                             lastPurchaseAt: lastPurchaseDate,
-                            ownerId: ownerDbId || undefined
+                            ownerId: ownerDbId as string
                           }
                         })
                         accountMap.set(record.id, upsertedAccount.id)

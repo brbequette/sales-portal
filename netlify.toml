@@ -1,10 +1,6 @@
 [build]
   command = "npx prisma generate && next build"
-  publish = "out"
   functions = "netlify/functions"
-
-[build.environment]
-  NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
 [dev]
   functions = "netlify/functions"
@@ -26,40 +22,7 @@
     Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
     Access-Control-Allow-Headers = "Content-Type, Authorization"
 
-[[redirects]]
-  from = "/api/auth/zoho/callback"
-  to = "/.netlify/functions/zoho-oauth"
-  status = 200
 
-[[redirects]]
-  from = "/api/auth/zoho"
-  to = "/.netlify/functions/zoho-oauth"
-  status = 200
-
-[[redirects]]
-  from = "/api/auth/login"
-  to = "/.netlify/functions/auth-login"
-  status = 200
-
-[[redirects]]
-  from = "/api/get-user"
-  to = "/.netlify/functions/get-user"
-  status = 200
-
-[[redirects]]
-  from = "/api/get-products"
-  to = "/.netlify/functions/get-products"
-  status = 200
-
-[[redirects]]
-  from = "/api/ai/script"
-  to = "/.netlify/functions/ai-script"
-  status = 200
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
 
 [[redirects]]
   from = "/account/:id"

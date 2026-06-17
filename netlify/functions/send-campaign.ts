@@ -94,6 +94,28 @@ export const handler: Handler = async (event, context) => {
         }
       }
 
+      let fromNumber = process.env.ZOHO_VOICE_FROM_NUMBER || ''
+      if (!fromNumber) {
+        const setting = await prisma.systemSetting.findUnique({ where: { key: "zoho_phone_numbers" } })
+        if (setting && setting.value) {
+          try {
+            const parsed = JSON.parse(setting.value)
+            const defaultNum = parsed.find((n: any) => n.isDefault) || parsed[0]
+            if (defaultNum && defaultNum.number) {
+              fromNumber = defaultNum.number
+            }
+          } catch(e) {}
+        }
+      }
+
+      if (!fromNumber) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: false, message: "No outbound SMS number configured. Please configure one in Admin > Communications." })
+        }
+      }
+
       for (const account of accounts) {
         const contact = account.contacts.find((c: any) => c.isPrimary) || account.contacts[0]
         const rawPhoneNumber = contact?.mobilePhone || contact?.phone
@@ -121,7 +143,7 @@ export const handler: Handler = async (event, context) => {
           const smsData = {
             customerNumber: phoneNumber,
             message: text || campaignName || 'Titan Diamond Update',
-            senderId: process.env.ZOHO_VOICE_FROM_NUMBER || '',
+            senderId: fromNumber,
             mms: isMms
           }
           

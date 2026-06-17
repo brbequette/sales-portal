@@ -7,14 +7,16 @@ const ZOHO_DC = process.env.ZOHO_DC || 'com';
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID;
 
 export const handler: Handler = async (event, context) => {
+  const corsHeaders: Record<string, string> = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "GET, OPTIONS"
+  };
+
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "GET, OPTIONS"
-      },
+      headers: corsHeaders,
       body: ""
     }
   }
@@ -22,6 +24,7 @@ export const handler: Handler = async (event, context) => {
   if (event.httpMethod !== "GET") {
     return {
       statusCode: 405,
+      headers: corsHeaders,
       body: JSON.stringify({ success: false, message: "Method Not Allowed" })
     }
   }
@@ -45,14 +48,14 @@ export const handler: Handler = async (event, context) => {
           where: { OR: [{ id: id }, { zohoId: id }] }
         })
         if (dbSO) {
-          booksDocId = dbSO.zohoId
+          booksDocId = dbSO.zohoId || undefined
         }
       } else if (type === "Quote") {
         let dbQuote = await prisma.quote.findFirst({
           where: { OR: [{ id: id }, { zohoId: id }] }
         })
         if (dbQuote) {
-          booksDocId = dbQuote.zohoId
+          booksDocId = dbQuote.zohoId || undefined
         }
       }
     }
@@ -63,7 +66,7 @@ export const handler: Handler = async (event, context) => {
         headers: { 
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*"
-        },
+        } as Record<string, string>,
         body: JSON.stringify({ success: false, message: `Missing valid document ID for ${type}` })
       }
     }
@@ -90,7 +93,7 @@ export const handler: Handler = async (event, context) => {
         headers: { 
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*"
-        },
+        } as Record<string, string>,
         body: JSON.stringify({ success: false, message: "Failed to download PDF from Zoho Books", detail: errText })
       }
     }
@@ -120,10 +123,7 @@ export const handler: Handler = async (event, context) => {
     console.error("PDF Handler Error:", error)
     return {
       statusCode: 500,
-      headers: { 
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      },
+      headers: corsHeaders,
       body: JSON.stringify({ success: false, error: error.message })
     }
   }
