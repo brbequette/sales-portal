@@ -162,7 +162,7 @@ export const handler: Handler = async (event) => {
         isAtRisk,
         issueDate: inv.issueDate,
         paymentDate,
-        repId: matchedRep?.id || "unassigned",
+        repId: matchedRep?.id || salespersonName?.toLowerCase().trim() || "unassigned",
         repName: matchedRep?.name || salespersonName || "Unassigned",
         accountName: inv.account?.name || "Unknown",
         accountZohoId: inv.account?.zohoId || null,

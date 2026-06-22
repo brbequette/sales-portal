@@ -68,6 +68,9 @@ export default function PayoutsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [ledger, setLedger] = useState<RepLedger[]>([])
+  const [sortField, setSortField] = useState<keyof RepLedger>("balance")
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
+  const [searchQuery, setSearchQuery] = useState("")
   
   // Modal state
   const [showModal, setShowModal] = useState(false)
@@ -104,6 +107,33 @@ export default function PayoutsPage() {
       setLoading(false)
     }
   }
+
+  const handleSort = (field: keyof RepLedger) => {
+    if (sortField === field) {
+      setSortDir(prev => prev === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortDir("desc")
+    }
+  }
+
+  const processedLedger = useMemo(() => {
+    let filtered = ledger
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      filtered = filtered.filter(r => r.repName.toLowerCase().includes(q))
+    }
+    return filtered.sort((a, b) => {
+      let aVal = a[sortField]
+      let bVal = b[sortField]
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+      }
+      aVal = (aVal as number) || 0
+      bVal = (bVal as number) || 0
+      return sortDir === "asc" ? aVal - bVal : bVal - aVal
+    })
+  }, [ledger, sortField, sortDir, searchQuery])
 
   useEffect(() => {
     if (!isInitialized) return
@@ -308,22 +338,47 @@ export default function PayoutsPage() {
           </div>
         )}
 
+        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between bg-neutral-900 p-4 border border-neutral-800 rounded-2xl">
+          <input
+            type="text"
+            placeholder="Search by rep name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full sm:w-64 bg-neutral-950 border border-neutral-800 text-white rounded-xl px-4 py-2 focus:outline-none focus:border-purple-500 transition-colors"
+          />
+          <div className="text-sm text-neutral-400">
+            Showing {processedLedger.length} of {ledger.length} reps
+          </div>
+        </div>
+
         {/* Ledger Table */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden shadow-lg">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead>
-                <tr className="bg-neutral-950/50 border-b border-neutral-800 text-neutral-400 uppercase tracking-wider text-xs">
-                  <th className="px-6 py-4 font-bold">Rep Name</th>
-                  <th className="px-6 py-4 font-bold text-right text-emerald-400">Total Earned</th>
-                  <th className="px-6 py-4 font-bold text-right text-neutral-500">Total Paid</th>
-                  <th className="px-6 py-4 font-bold text-right text-purple-400 text-base">Balance</th>
-                  <th className="px-6 py-4 font-bold text-right text-amber-500">Futures</th>
-                  <th className="px-6 py-4 font-bold text-right text-red-400">At Risk (90d+)</th>
+                <tr className="bg-neutral-950/50 border-b border-neutral-800 text-neutral-400 uppercase tracking-wider text-xs select-none">
+                  <th className="px-6 py-4 font-bold cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("repName")}>
+                    Rep Name {sortField === "repName" && (sortDir === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th className="px-6 py-4 font-bold text-right text-emerald-400 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("totalEarned")}>
+                    Total Earned {sortField === "totalEarned" && (sortDir === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th className="px-6 py-4 font-bold text-right text-neutral-500 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("totalPaid")}>
+                    Total Paid {sortField === "totalPaid" && (sortDir === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th className="px-6 py-4 font-bold text-right text-purple-400 text-base cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("balance")}>
+                    Balance {sortField === "balance" && (sortDir === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th className="px-6 py-4 font-bold text-right text-amber-500 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("totalFutures")}>
+                    Futures {sortField === "totalFutures" && (sortDir === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th className="px-6 py-4 font-bold text-right text-red-400 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("totalAtRisk")}>
+                    At Risk (90d+) {sortField === "totalAtRisk" && (sortDir === "asc" ? "↑" : "↓")}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-800/50">
-                {ledger.map((rep) => (
+                {processedLedger.map((rep) => (
                   <tr key={rep.repId} className="hover:bg-neutral-800/20 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-bold text-white">{rep.repName}</div>
@@ -346,9 +401,9 @@ export default function PayoutsPage() {
                     </td>
                   </tr>
                 ))}
-                {ledger.length === 0 && (
+                {processedLedger.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-neutral-500 italic">
+                    <td colSpan={6} className="px-6 py-12 text-center text-neutral-500 italic">
                       No reps found with commission data.
                     </td>
                   </tr>
