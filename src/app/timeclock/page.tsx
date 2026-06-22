@@ -8,6 +8,7 @@ interface TimeEntry {
   id: string
   date: string
   clockIn: string
+  clockOut: string | null
   lastActivity: string
   manualClockIn: string | null
   manualClockOut: string | null
@@ -56,13 +57,8 @@ export default function UserTimeclockPage() {
     }
     setNewClockIn(toLocalString(effectiveIn))
     
-    // Calculate expected out: lastActivity + 10 mins
-    let effectiveOut = entry.manualClockOut
-    if (!effectiveOut) {
-      const out = new Date(entry.lastActivity)
-      out.setMinutes(out.getMinutes() + 10)
-      effectiveOut = out.toISOString()
-    }
+    // Expected out is now stored in DB directly or manual override
+    let effectiveOut = entry.manualClockOut || entry.clockOut || entry.lastActivity
     setNewClockOut(toLocalString(effectiveOut))
     
     setChangeReason("Forgot to log in")
@@ -115,14 +111,16 @@ export default function UserTimeclockPage() {
     let end: Date
     if (entry.manualClockOut) {
       end = new Date(entry.manualClockOut)
+    } else if (entry.clockOut) {
+      end = new Date(entry.clockOut)
     } else {
       end = new Date(entry.lastActivity)
       end.setMinutes(end.getMinutes() + 10)
-      
-      // If it's today, and they are currently active (last activity within 15 mins), cap at "now"
-      const now = new Date()
-      if (end > now) end = now
     }
+    
+    // If it's today, cap at "now" if they are currently active
+    const now = new Date()
+    if (end > now) end = now
     
     const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
     return Math.max(0, diffHours).toFixed(2)
@@ -160,12 +158,7 @@ export default function UserTimeclockPage() {
                 ) : (
                   entries.map(entry => {
                     const effectiveIn = entry.manualClockIn || entry.clockIn
-                    let effectiveOut = entry.manualClockOut
-                    if (!effectiveOut) {
-                      const out = new Date(entry.lastActivity)
-                      out.setMinutes(out.getMinutes() + 10)
-                      effectiveOut = out.toISOString()
-                    }
+                    let effectiveOut = entry.manualClockOut || entry.clockOut || entry.lastActivity
 
                     const pendingRequest = entry.changeRequests?.find(r => r.status === "PENDING")
                     const rejectedRequest = entry.changeRequests?.find(r => r.status === "REJECTED")

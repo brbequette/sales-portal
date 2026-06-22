@@ -17,6 +17,7 @@ interface TimeEntry {
   id: string
   date: string
   clockIn: string
+  clockOut: string | null
   lastActivity: string
   manualClockIn: string | null
   manualClockOut: string | null
@@ -74,12 +75,7 @@ export default function AdminTimeclockPage() {
     const effectiveIn = entry.manualClockIn || entry.clockIn
     setEditIn(toLocalString(effectiveIn))
     
-    let effectiveOut = entry.manualClockOut
-    if (!effectiveOut) {
-      const out = new Date(entry.lastActivity)
-      out.setMinutes(out.getMinutes() + 10)
-      effectiveOut = out.toISOString()
-    }
+    let effectiveOut = entry.manualClockOut || entry.clockOut || entry.lastActivity
     setEditOut(toLocalString(effectiveOut))
     setShowEditModal(true)
   }
@@ -139,12 +135,15 @@ export default function AdminTimeclockPage() {
     let end: Date
     if (entry.manualClockOut) {
       end = new Date(entry.manualClockOut)
+    } else if (entry.clockOut) {
+      end = new Date(entry.clockOut)
     } else {
       end = new Date(entry.lastActivity)
       end.setMinutes(end.getMinutes() + 10)
-      const now = new Date()
-      if (end > now) end = now
     }
+    
+    const now = new Date()
+    if (end > now) end = now
     
     const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
     return Math.max(0, diffHours).toFixed(2)
@@ -217,7 +216,7 @@ export default function AdminTimeclockPage() {
                             {entry.manualClockIn && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">●</span>}
                           </td>
                           <td className="px-6 py-3">
-                            {formatTime(entry.manualClockOut || (new Date(new Date(entry.lastActivity).getTime() + 10 * 60000).toISOString()))}
+                            {formatTime(entry.manualClockOut || entry.clockOut || entry.lastActivity)}
                             {entry.manualClockOut && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">●</span>}
                           </td>
                           <td className="px-6 py-3 font-bold text-white">{calculateHours(entry)}</td>

@@ -24,6 +24,8 @@ export async function POST(req: Request) {
     const da = parts.find(p => p.type === 'day')?.value
     const phoenixDate = `${ye}-${mo}-${da}`
 
+    const clockOutTime = new Date(now.getTime() + 10 * 60000)
+
     // Upsert TimeEntry for this user and date
     // If it exists, only update lastActivity. If not, create it.
     const entry = await prisma.timeEntry.upsert({
@@ -34,13 +36,15 @@ export async function POST(req: Request) {
         }
       },
       update: {
-        lastActivity: now
+        lastActivity: now,
+        clockOut: clockOutTime
       },
       create: {
         userId,
         date: phoenixDate,
         clockIn: now,
-        lastActivity: now
+        lastActivity: now,
+        clockOut: clockOutTime
       }
     })
 

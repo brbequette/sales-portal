@@ -251,6 +251,7 @@ model TimeEntry {
   date            String   // Stored as YYYY-MM-DD in Phoenix Time
   clockIn         DateTime
   lastActivity    DateTime
+  clockOut        DateTime?
   manualClockIn   DateTime?
   manualClockOut  DateTime?
   createdAt       DateTime @default(now())
