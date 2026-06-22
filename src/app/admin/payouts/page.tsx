@@ -56,6 +56,7 @@ interface RepLedger {
   totalEarned: number
   totalPaid: number
   balance: number
+  totalFutures: number
   totalAtRisk: number
   invoices: any[]
   payouts: any[]
