@@ -56,8 +56,8 @@ interface RepLedger {
   totalEarned: number
   totalPaid: number
   balance: number
-  totalFutures: number
   totalAtRisk: number
+  invoices: any[]
   payouts: any[]
 }
 
@@ -77,6 +77,7 @@ export default function PayoutsPage() {
   // Modal state
   const [showModal, setShowModal] = useState(false)
   const [showCsvModal, setShowCsvModal] = useState(false)
+  const [selectedRepForLedger, setSelectedRepForLedger] = useState<RepLedger | null>(null)
   const [csvUploadStatus, setCsvUploadStatus] = useState<string | null>(null)
   const [csvErrors, setCsvErrors] = useState<string[]>([])
   
@@ -140,6 +141,54 @@ export default function PayoutsPage() {
       return sortDir === "asc" ? aVal - bVal : bVal - aVal
     })
   }, [ledger, sortField, sortDir, searchQuery])
+
+  const transactionLedger = useMemo(() => {
+    if (!selectedRepForLedger) return []
+    
+    type Transaction = {
+      id: string
+      date: string
+      type: "commission" | "payout"
+      description: string
+      amount: number
+    }
+    
+    const txs: Transaction[] = []
+    
+    // Add all commissions
+    for (const inv of (selectedRepForLedger.invoices || [])) {
+      if (inv.commission && inv.commission.total > 0) {
+        txs.push({
+          id: `inv-${inv.id}`,
+          date: inv.issueDate,
+          type: "commission",
+          description: inv.name || `Invoice ${inv.invoiceNumber}`,
+          amount: inv.commission.total
+        })
+      }
+    }
+    
+    // Add all payouts
+    for (const payout of (selectedRepForLedger.payouts || [])) {
+      txs.push({
+        id: `pay-${payout.id}`,
+        date: payout.date || payout.createdAt,
+        type: "payout",
+        description: `Payout (${payout.method})${payout.notes ? ` - ${payout.notes}` : ''}`,
+        amount: -payout.amount
+      })
+    }
+    
+    // Sort chronologically ascending
+    txs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    
+    // Calculate running balance
+    let runningBalance = 0
+    return txs.map(tx => {
+      runningBalance += tx.amount
+      return { ...tx, runningBalance }
+    })
+  }, [selectedRepForLedger])
 
   useEffect(() => {
     if (!isInitialized) return
@@ -408,7 +457,10 @@ export default function PayoutsPage() {
                     <td className="px-6 py-4 text-right font-mono text-neutral-400">
                       {formatCurrency(rep.totalPaid)}
                     </td>
-                    <td className="px-6 py-4 text-right font-mono text-base font-bold text-purple-300 bg-purple-900/10">
+                    <td 
+                      className="px-6 py-4 text-right font-mono text-base font-bold text-purple-300 bg-purple-900/10 cursor-pointer hover:bg-purple-900/30 transition-colors underline decoration-purple-500/50 underline-offset-4"
+                      onClick={() => setSelectedRepForLedger(rep)}
+                    >
                       {formatCurrency(rep.balance)}
                     </td>
                     <td className="px-6 py-4 text-right font-mono text-amber-300">
@@ -606,6 +658,78 @@ export default function PayoutsPage() {
                 </div>
               )}
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transaction Ledger Modal */}
+      {selectedRepForLedger && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-neutral-800 shrink-0">
+              <div>
+                <h2 className="text-xl font-black text-white">Transaction Ledger</h2>
+                <p className="text-sm text-neutral-400 mt-1">Showing all history for <span className="font-bold text-purple-400">{selectedRepForLedger.repName}</span></p>
+              </div>
+              <button 
+                onClick={() => setSelectedRepForLedger(null)}
+                className="p-2 text-neutral-400 hover:text-white bg-neutral-800/50 hover:bg-neutral-700 rounded-xl transition-colors"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
+            
+            <div className="overflow-y-auto flex-1 p-4 sm:p-6">
+              <div className="bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden">
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead>
+                    <tr className="bg-neutral-900 border-b border-neutral-800 text-neutral-400 uppercase tracking-wider text-xs select-none">
+                      <th className="px-6 py-4 font-bold">Date</th>
+                      <th className="px-6 py-4 font-bold w-full">Description</th>
+                      <th className="px-6 py-4 font-bold text-right">Amount</th>
+                      <th className="px-6 py-4 font-bold text-right text-purple-400">Running Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-800/50">
+                    {transactionLedger.map((tx, i) => (
+                      <tr key={`${tx.id}-${i}`} className="hover:bg-neutral-900/50 transition-colors">
+                        <td className="px-6 py-3 text-neutral-300 font-mono text-xs">
+                          {new Date(tx.date).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tx.type === 'commission' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                              {tx.type}
+                            </span>
+                            <span className="text-white truncate max-w-sm" title={tx.description}>{tx.description}</span>
+                          </div>
+                        </td>
+                        <td className={`px-6 py-3 text-right font-mono ${tx.amount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
+                        </td>
+                        <td className="px-6 py-3 text-right font-mono font-bold text-purple-300 bg-purple-900/5">
+                          {formatCurrency(tx.runningBalance)}
+                        </td>
+                      </tr>
+                    ))}
+                    {transactionLedger.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-8 text-center text-neutral-500 italic">
+                          No transactions found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            <div className="p-4 sm:p-6 border-t border-neutral-800 bg-neutral-900 shrink-0 flex justify-end items-center gap-4">
+              <div className="text-sm text-neutral-400 uppercase tracking-wider font-bold">Current Balance</div>
+              <div className="text-2xl font-black text-purple-400 font-mono">
+                {formatCurrency(selectedRepForLedger.balance)}
+              </div>
             </div>
           </div>
         </div>
