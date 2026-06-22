@@ -84,7 +84,7 @@ export default function PayoutsPage() {
   const [payoutAmount, setPayoutAmount] = useState("")
   const [payoutMethod, setPayoutMethod] = useState("Check")
   const [payoutNotes, setPayoutNotes] = useState("")
-  const [payoutCaughtUp, setPayoutCaughtUp] = useState("")
+  const [payoutDate, setPayoutDate] = useState(new Date().toISOString().split('T')[0])
   const [submitting, setSubmitting] = useState(false)
 
   const normalizedRole = currentUser?.role?.toLowerCase() || ""
@@ -169,7 +169,7 @@ export default function PayoutsPage() {
           amount: payoutAmount,
           method: payoutMethod,
           notes: payoutNotes,
-          caughtUpTo: payoutCaughtUp
+          date: payoutDate
         })
       })
       const data = await res.json()
@@ -177,7 +177,7 @@ export default function PayoutsPage() {
         setShowModal(false)
         setPayoutAmount("")
         setPayoutNotes("")
-        setPayoutCaughtUp("")
+        setPayoutDate(new Date().toISOString().split('T')[0])
         setPayoutMethod("Check")
         // Refresh the ledger
         fetchLedger()
@@ -214,9 +214,10 @@ export default function PayoutsPage() {
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const repName = row["rep name"];
-        const amountStr = row["amount"];
+        const amountStr = row["amount"] || "";
+        const amount = parseFloat(amountStr.replace(/[^0-9.-]+/g, ""));
         const method = row["method"] || "Check";
-        const caughtUpTo = row["caught up to"] || "";
+        const payoutDateStr = row["payout date"] || "";
         const notes = row["notes"] || "";
 
         if (!repName || !amountStr) {
@@ -231,7 +232,6 @@ export default function PayoutsPage() {
           continue;
         }
 
-        const amount = parseFloat(amountStr.replace(/[^0-9.-]+/g,""));
         if (isNaN(amount) || amount <= 0) {
           newErrors.push(`Row ${i + 2}: Invalid amount '${amountStr}'.`);
           continue;
@@ -245,8 +245,8 @@ export default function PayoutsPage() {
               repId: rep.repId,
               amount: amount.toString(),
               method: method,
-              notes: notes,
-              caughtUpTo: caughtUpTo
+              date: payoutDateStr || new Date().toISOString().split('T')[0],
+              notes: notes
             })
           });
           const data = await res.json();
@@ -275,7 +275,7 @@ export default function PayoutsPage() {
   };
 
   const downloadExampleCsv = () => {
-    const csvContent = "data:text/csv;charset=utf-8,Rep Name,Amount,Method,Caught Up To,Notes\nJohn Doe,500.00,Check,Invoice #1234,Bonus payout\nJane Smith,250.50,Zelle,Dec 15th,Regular commission";
+    const csvContent = "data:text/csv;charset=utf-8,Rep Name,Amount,Method,Payout Date,Notes\nJohn Doe,500.00,Check,2023-11-01,Bonus payout\nJane Smith,250.50,Zelle,2023-12-15,Regular commission";
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -482,30 +482,28 @@ export default function PayoutsPage() {
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Method</label>
-                  <select
-                    required
-                    value={payoutMethod}
-                    onChange={(e) => setPayoutMethod(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
-                  >
-                    <option value="Check">Check</option>
-                    <option value="Zelle">Zelle</option>
-                  </select>
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Payout Date</label>
+                  <input
+                    type="date"
+                    value={payoutDate}
+                    onChange={(e) => setPayoutDate(e.target.value)}
+                    className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 transition-colors"
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Caught up to...</label>
-                <input
-                  type="text"
-                  value={payoutCaughtUp}
-                  onChange={(e) => setPayoutCaughtUp(e.target.value)}
-                  placeholder="e.g. Invoice #1234 or Dec 15th"
+                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Method</label>
+                <select
+                  required
+                  value={payoutMethod}
+                  onChange={(e) => setPayoutMethod(e.target.value)}
                   className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
-                />
-                <p className="text-[10px] text-neutral-500 mt-1">Note how far down the invoice line this gets them caught up with.</p>
+                >
+                  <option value="Check">Check</option>
+                  <option value="Zelle">Zelle</option>
+                </select>
               </div>
 
               <div>
@@ -565,16 +563,14 @@ export default function PayoutsPage() {
                 <p className="text-sm text-neutral-400 mb-3">
                   Upload a comma-separated values (.csv) file with the following exact headers (case-insensitive). Rep Name must match exactly as it appears in the ledger.
                 </p>
-                <div className="bg-black border border-neutral-800 rounded p-3 mb-3 overflow-x-auto">
-                  <code className="text-xs text-emerald-400 whitespace-nowrap">
-                    Rep Name,Amount,Method,Caught Up To,Notes<br/>
-                    John Doe,500.00,Check,Invoice #1234,Bonus payout<br/>
-                    Jane Smith,250.50,Zelle,Dec 15th,Regular commission
-                  </code>
-                </div>
+                <p className="mt-2 font-mono bg-neutral-950 p-3 rounded-lg border border-neutral-800 text-neutral-400 text-xs">
+                  Format:<br/>
+                  Rep Name,Amount,Method,Payout Date,Notes<br/>
+                  <span className="text-neutral-500">John Doe,500,Check,2023-11-01,Bonus payout</span>
+                </p>
                 <button 
                   onClick={downloadExampleCsv}
-                  className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1 font-bold"
+                  className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1 font-bold mt-4"
                 >
                   <FiDownload size={14} /> Download Example Template
                 </button>
