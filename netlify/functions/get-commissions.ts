@@ -266,6 +266,14 @@ export const handler: Handler = async (event) => {
       if (byRep[repId]) finalByRep[repId] = byRep[repId]
     }
 
+    // Only include actual system users
+    const validUserIds = new Set(users.map((u: any) => u.id))
+    for (const key in finalByRep) {
+      if (!validUserIds.has(key)) {
+        delete finalByRep[key]
+      }
+    }
+
     const allInvoices = repId
       ? invoiceRecords.filter(i => i.repId === repId)
       : invoiceRecords
