@@ -25,6 +25,8 @@ model User {
   notes              Note[]
   payouts            Payout[]
   tasks              Task[]
+  timeEntries        TimeEntry[]
+  timeChangeRequests TimeChangeRequest[]
 }
 
 model Account {
@@ -242,3 +244,41 @@ model MonthlyVigGoal {
   @@unique([repId, monthKey])
   @@index([repId])
 }
+
+model TimeEntry {
+  id              String   @id @default(cuid())
+  userId          String
+  date            String   // Stored as YYYY-MM-DD in Phoenix Time
+  clockIn         DateTime
+  lastActivity    DateTime
+  manualClockIn   DateTime?
+  manualClockOut  DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  changeRequests  TimeChangeRequest[]
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+model TimeChangeRequest {
+  id                String   @id @default(cuid())
+  timeEntryId       String
+  userId            String
+  requestedClockIn  DateTime?
+  requestedClockOut DateTime?
+  reason            String
+  notes             String?
+  status            String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  timeEntry         TimeEntry @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([timeEntryId])
+  @@index([userId])
+}
+ 

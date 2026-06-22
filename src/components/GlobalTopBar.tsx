@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox } from "react-icons/fi"
+import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox, FiClock } from "react-icons/fi"
 import { useRouter } from "next/navigation"
 import { useProductModal } from "@/components/ProductModalProvider"
 import { NewCustomerModal } from "@/components/NewCustomerModal"
@@ -202,6 +202,12 @@ export function GlobalTopBar() {
 
       {/* Right side: Quick Add Actions */}
       <div className="flex items-center gap-2 lg:gap-3 ml-4 shrink-0">
+        <button
+          onClick={() => router.push("/timeclock")}
+          className="bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center gap-2 border border-white/10"
+        >
+          <FiClock size={14} /> <span className="hidden sm:inline">Timeclock</span>
+        </button>
         <button
           onClick={() => router.push("/catalog")}
           className="bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center gap-2 border border-white/10"

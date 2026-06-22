@@ -6,7 +6,7 @@ import { useEffect, useState, useCallback } from "react"
 import { usePagination, Pagination } from "@/components/Pagination"
 import {
   FiSettings, FiUsers, FiRefreshCw, FiSave, FiAlertTriangle,
-  FiShield, FiCheckCircle, FiX, FiChevronDown, FiActivity, FiTarget, FiDollarSign
+  FiShield, FiCheckCircle, FiX, FiChevronDown, FiActivity, FiTarget, FiDollarSign, FiClock
 } from "react-icons/fi"
 
 interface User {
@@ -273,12 +273,20 @@ export default function AdminSettingsPage() {
               <p className="text-xs text-neutral-500">Manage update account configuration &amp; assignments</p>
             </div>
           </div>
-          <button
-            onClick={() => router.push('/admin/vig')}
-            className="px-4 py-2 bg-emerald-900/30 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-900/50 rounded-lg text-sm font-bold flex items-center gap-2 transition"
-          >
-            VIG Management &rarr;
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push('/admin/timeclock')}
+              className="px-4 py-2 bg-emerald-900/30 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-900/50 rounded-lg text-sm font-bold flex items-center gap-2 transition"
+            >
+              <FiClock size={16} /> Team Timeclock
+            </button>
+            <button
+              onClick={() => router.push('/admin/vig')}
+              className="px-4 py-2 bg-emerald-900/30 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-900/50 rounded-lg text-sm font-bold flex items-center gap-2 transition"
+            >
+              VIG Management &rarr;
+            </button>
+          </div>
         </div>
 
         {/* Feedback Messages */}
