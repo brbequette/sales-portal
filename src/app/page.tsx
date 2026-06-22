@@ -340,11 +340,6 @@ export default function Dashboard() {
 
   const handleEffortChange = (val: "sales" | "call_list" | "cold_call") => {
     setEffort(val)
-    setStatusFilter("All")
-    setSearchQuery("")
-    setOwnerFilter("All")
-    setTimezoneFilter("All")
-    setOnlyWithSales(false)
   }
 
   const [syncing, setSyncing] = useState(false)
