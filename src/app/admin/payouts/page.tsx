@@ -71,6 +71,8 @@ export default function PayoutsPage() {
   const [sortField, setSortField] = useState<keyof RepLedger>("balance")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [searchQuery, setSearchQuery] = useState("")
+  const [selectedYear, setSelectedYear] = useState<string>("all")
+  const [availableYears, setAvailableYears] = useState<number[]>([])
   
   // Modal state
   const [showModal, setShowModal] = useState(false)
@@ -91,13 +93,17 @@ export default function PayoutsPage() {
   const fetchLedger = async () => {
     try {
       setError(null)
-      const res = await fetch("/api/get-commissions?includeHidden=true&year=all")
+      setLoading(true)
+      const res = await fetch(`/api/get-commissions?includeHidden=true&year=${selectedYear}`)
       const data = await res.json()
       if (data.success) {
         const repsArray = Object.values(data.byRep) as RepLedger[]
         // Sort by balance descending
         repsArray.sort((a, b) => b.balance - a.balance)
         setLedger(repsArray)
+        if (data.years && data.years.length > 0) {
+          setAvailableYears(data.years)
+        }
       } else {
         setError(data.error || "Failed to load ledger")
       }
@@ -146,7 +152,7 @@ export default function PayoutsPage() {
       return
     }
     fetchLedger()
-  }, [isInitialized, currentUser, router, isAdmin])
+  }, [isInitialized, currentUser, isAdmin, router, selectedYear])
 
   const handleAddPayout = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -339,13 +345,25 @@ export default function PayoutsPage() {
         )}
 
         <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between bg-neutral-900 p-4 border border-neutral-800 rounded-2xl">
-          <input
-            type="text"
-            placeholder="Search by rep name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full sm:w-64 bg-neutral-950 border border-neutral-800 text-white rounded-xl px-4 py-2 focus:outline-none focus:border-purple-500 transition-colors"
-          />
+          <div className="flex gap-4 w-full sm:w-auto">
+            <input
+              type="text"
+              placeholder="Search by rep name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full sm:w-64 bg-neutral-950 border border-neutral-800 text-white rounded-xl px-4 py-2 focus:outline-none focus:border-purple-500 transition-colors"
+            />
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="bg-neutral-950 border border-neutral-800 text-white rounded-xl px-4 py-2 focus:outline-none focus:border-purple-500 transition-colors"
+            >
+              <option value="all">All Time</option>
+              {availableYears.map(y => (
+                <option key={y} value={y.toString()}>{y}</option>
+              ))}
+            </select>
+          </div>
           <div className="text-sm text-neutral-400">
             Showing {processedLedger.length} of {ledger.length} reps
           </div>
