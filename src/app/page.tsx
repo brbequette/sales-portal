@@ -12,7 +12,7 @@ import { QualityPicker } from "@/components/QualityPicker"
 import { TimezonePicker } from "@/components/TimezonePicker"
 import { Pagination, usePagination } from "@/components/Pagination"
 import { usePreferences } from "@/components/PreferencesProvider"
-import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand } from "react-icons/fi"
+import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand, FiTarget } from "react-icons/fi"
 
 function formatLastCalled(dateStr: string | null) {
   if (!dateStr) return "Never called"
@@ -40,7 +40,7 @@ export default function Dashboard() {
   const [drillTitle, setDrillTitle] = useState("")
   const [drillItems, setDrillItems] = useState<any[] | null>(null)
   const [drillType, setDrillType] = useState<"invoices" | "deals" | "accounts" | null>(null)
-  const [effort, setEffort] = useState<"sales" | "call_list">("sales")
+  const [effort, setEffort] = useState<"sales" | "call_list" | "cold_call">("sales")
   const [ownerFilter, setOwnerFilter] = useState("All")
   const [timezoneFilter, setTimezoneFilter] = useState("All")
   const [sortBy, setSortBy] = useState<"default" | "timezone" | "recentOrders">("default")
@@ -338,7 +338,7 @@ export default function Dashboard() {
     }
   }, [viewingInvoice])
 
-  const handleEffortChange = (val: "sales" | "call_list") => {
+  const handleEffortChange = (val: "sales" | "call_list" | "cold_call") => {
     setEffort(val)
     setStatusFilter("All")
     setSearchQuery("")
@@ -613,14 +613,35 @@ export default function Dashboard() {
     ON_HOLD: 1,
   }
 
-  const callListAccounts = accounts
-    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter))
+  const coldCallAccounts = accounts
+    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter) && (!a.totalSales || a.totalSales === 0))
     .sort((a, b) => {
       const scoreA = qualityScores[a.quality] || 0
       const scoreB = qualityScores[b.quality] || 0
       if (scoreA !== scoreB) return scoreB - scoreA
       
-      // If quality is same, prioritize never called, then oldest called
+      if (!a.lastCalledAt && !b.lastCalledAt) return 0
+      if (!a.lastCalledAt) return -1
+      if (!b.lastCalledAt) return 1
+      return new Date(a.lastCalledAt).getTime() - new Date(b.lastCalledAt).getTime()
+    })
+    .slice(0, 50)
+
+  const callListAccounts = accounts
+    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter) && (a.totalSales && a.totalSales > 0))
+    .sort((a, b) => {
+      const scoreA = qualityScores[a.quality] || 0
+      const scoreB = qualityScores[b.quality] || 0
+      if (scoreA !== scoreB) return scoreB - scoreA
+      
+      // Tier by sales volume to bubble up higher value customers within the same quality
+      const salesA = a.totalSales || 0
+      const salesB = b.totalSales || 0
+      const tierA = Math.floor(salesA / 5000)
+      const tierB = Math.floor(salesB / 5000)
+      if (tierA !== tierB) return tierB - tierA
+
+      // If quality and sales tier are same, prioritize never called, then oldest called
       if (!a.lastCalledAt && !b.lastCalledAt) return 0
       if (!a.lastCalledAt) return -1
       if (!b.lastCalledAt) return 1
@@ -630,7 +651,9 @@ export default function Dashboard() {
 
   let effortAccounts = effort === "sales"
     ? filteredByOwnerActive
-    : callListAccounts
+    : effort === "cold_call"
+      ? coldCallAccounts
+      : callListAccounts
 
   if (sortBy === "timezone") {
     effortAccounts = [...effortAccounts].sort((a, b) => (a.timeZone || "ZZZ").localeCompare(b.timeZone || "ZZZ"))
@@ -716,13 +739,16 @@ export default function Dashboard() {
     { id: "profit", label: "Pipeline Profit", value: activeProfit >= 1000000 ? `$${(activeProfit / 1000000).toFixed(1)}M` : `$${(activeProfit / 1000).toFixed(1)}k`, sub: "All accounts profit", icon: <FiTrendingUp />, color: "text-sky-400" },
     { id: "overdue", label: "Overdue Balance", value: totalOverdueBalance >= 1000000 ? `$${(totalOverdueBalance / 1000000).toFixed(1)}M` : `$${(totalOverdueBalance / 1000).toFixed(1)}k`, sub: "Unpaid collections", icon: <FiDollarSign />, color: "text-rose-400" },
     { id: "accounts", label: "Pipeline Accounts", value: filteredByOwnerActive.length, sub: "Total accounts", icon: <FiUsers />, color: "text-teal-400" },
+  ] : effort === "cold_call" ? [
+    { id: "cold_queue", label: "Cold Queue", value: coldCallAccounts.length, sub: "Never purchased", icon: <FiTarget />, color: "text-indigo-400" },
+    { id: "never_statused", label: "NEVER STATUSED", value: coldCallAccounts.filter(a => a.quality === "NEVER_STATUSED").length, sub: "Needs triage", icon: <FiUsers />, color: "text-amber-400" },
   ] : [
     { id: "queue", label: "Call Queue", value: callListAccounts.length, sub: "Top priority list", icon: <FiPhoneCall />, color: "text-sky-400" },
     { id: "hot", label: "HOT Customers", value: hotCount, sub: "Needs immediate touch", icon: <FiTrendingUp />, color: "text-red-400" },
     { id: "never_statused", label: "NEVER STATUSED", value: neverStatusedCount, sub: "Needs triage", icon: <FiUsers />, color: "text-amber-400" },
   ]
 
-  const accentColor = effort === "sales" ? "emerald" : "sky"
+  const accentColor = effort === "sales" ? "emerald" : effort === "cold_call" ? "indigo" : "sky"
   const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (timezoneFilter !== "All" ? 1 : 0) + (qualityFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0)
 
   if (!isInitialized || loading) {
@@ -750,7 +776,7 @@ export default function Dashboard() {
 
 
         {/* ── Workspace / Effort Selector Switcher ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <button
             onClick={() => handleEffortChange("sales")}
             className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
@@ -781,6 +807,35 @@ export default function Dashboard() {
           </button>
 
           <button
+            onClick={() => handleEffortChange("cold_call")}
+            className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
+              effort === "cold_call"
+                ? "bg-[#17191a] border-indigo-400/45 text-white"
+                : "bg-white/[0.035] border-white/10 hover:border-white/15 text-neutral-400"
+            }`}
+          >
+            {effort === "cold_call" && (
+              <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-indigo-400 "></div>
+            )}
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl border transition-colors ${
+                effort === "cold_call"
+                  ? "bg-indigo-950 border-indigo-500/30 text-indigo-400"
+                  : "bg-white/[0.045] border-white/15 text-neutral-500"
+              }`}>
+                <FiTarget size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold tracking-tight">Cold Call List</h3>
+                <p className="text-xs text-neutral-500 mt-0.5">Never purchased</p>
+              </div>
+              <div className="ml-auto shrink-0 flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md text-xs font-black bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                {coldCallAccounts.length}
+              </div>
+            </div>
+          </button>
+
+          <button
             onClick={() => handleEffortChange("call_list")}
             className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
               effort === "call_list"
@@ -801,7 +856,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <h3 className="text-sm font-bold tracking-tight">Smart Call List</h3>
-                <p className="text-xs text-neutral-500 mt-0.5">Prioritized customer outreach</p>
+                <p className="text-xs text-neutral-500 mt-0.5">Follow-ups prioritized</p>
               </div>
               <div className="ml-auto shrink-0 flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md text-xs font-black bg-sky-500/10 text-sky-300 border border-sky-500/20">
                 {callListAccounts.length}
