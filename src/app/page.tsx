@@ -43,6 +43,7 @@ export default function Dashboard() {
   const [effort, setEffort] = useState<"sales" | "call_list" | "cold_call">("sales")
   const [ownerFilter, setOwnerFilter] = useState("All")
   const [timezoneFilter, setTimezoneFilter] = useState("All")
+  const [yearFilter, setYearFilter] = useState("All")
   const [sortBy, setSortBy] = useState<"default" | "timezone" | "recentOrders">("default")
   const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [showDoNotCall, setShowDoNotCall] = useState(false)
@@ -683,9 +684,11 @@ export default function Dashboard() {
   // Compute Overdue Balance for all Accounts (filtered by owner)
   const totalOverdueBalance = filteredByOwnerActive.reduce((sum, a) => sum + (a.overdueBalance || 0), 0)
 
-  const allStatuses = Array.from(new Set(effortAccounts.map(a => a.status).filter(Boolean))) as string[]
-  const allIndustries = Array.from(new Set(effortAccounts.map(a => a.industry).filter(Boolean))) as string[]
-  const allTimezones = Array.from(new Set(effortAccounts.map(a => a.timeZone).filter(Boolean))) as string[]
+  const allStatuses = Array.from(new Set(filteredByOwnerActive.map(a => a.status).filter(Boolean))) as string[]
+  const allIndustries = Array.from(new Set(filteredByOwnerActive.map(a => a.industry).filter(Boolean))) as string[]
+  const allTimezones = Array.from(new Set(filteredByOwnerActive.map(a => a.timeZone).filter(Boolean))) as string[]
+  const allYears = Array.from(new Set(filteredByOwnerActive.map(a => a.lastPurchaseAt ? new Date(a.lastPurchaseAt).getFullYear().toString() : null).filter(Boolean))) as string[]
+  allYears.sort((a, b) => parseInt(b) - parseInt(a))
 
   const filteredAccounts = effortAccounts.filter(a => {
     const matchesSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -694,11 +697,13 @@ export default function Dashboard() {
     const matchesIndustry = industryFilter === "All" || a.industry === industryFilter
     const matchesTimezone = timezoneFilter === "All" || a.timeZone === timezoneFilter
     const matchesQuality = qualityFilter === "All" || a.quality === qualityFilter
+    const year = a.lastPurchaseAt ? new Date(a.lastPurchaseAt).getFullYear().toString() : "Unknown"
+    const matchesYear = yearFilter === "All" || year === yearFilter
     
     const ltv = a.totalSales || 0
     const matchesSalesFilter = !onlyWithSales || ltv > 0
 
-    return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesQuality && matchesSalesFilter
+    return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesQuality && matchesYear && matchesSalesFilter
   })
 
   const filteredTasksList = tasks.filter(task => {
@@ -1732,20 +1737,34 @@ export default function Dashboard() {
                 </label>
 
                 {/* Customer Quality filter */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Customer Quality</label>
-                  <select 
-                    value={qualityFilter} 
+                {/* Quality Filter */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Quality</label>
+                  <select
+                    className="w-full bg-neutral-800 border border-neutral-700 text-white rounded p-2 text-sm focus:ring-1 focus:ring-emerald-500"
+                    value={qualityFilter}
                     onChange={e => setQualityFilter(e.target.value)}
-                    className="w-full bg-neutral-800 border border-white/15 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                   >
                     <option value="All">All Qualities</option>
-                    <option value="HOT">🔥 HOT</option>
-                    <option value="WARM">☀️ WARM</option>
-                    <option value="COLD">❄️ COLD</option>
-                    <option value="NEVER_STATUSED">❓ NEVER STATUSED</option>
-                    <option value="ON_HOLD">⏸️ ON HOLD</option>
-                    <option value="DO_NOT_CALL">🚫 DO NOT CALL</option>
+                    <option value="HOT">Hot</option>
+                    <option value="WARM">Warm</option>
+                    <option value="COLD">Cold</option>
+                    <option value="ON_HOLD">On Hold</option>
+                    <option value="NEVER_STATUSED">Never Statused</option>
+                  </select>
+                </div>
+
+                {/* Year Filter */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Purchase Year</label>
+                  <select
+                    className="w-full bg-neutral-800 border border-neutral-700 text-white rounded p-2 text-sm focus:ring-1 focus:ring-emerald-500"
+                    value={yearFilter}
+                    onChange={e => setYearFilter(e.target.value)}
+                  >
+                    <option value="All">All Years</option>
+                    {allYears.map(yr => <option key={yr} value={yr}>{yr}</option>)}
+                    <option value="Unknown">Unknown</option>
                   </select>
                 </div>
 
@@ -1815,6 +1834,7 @@ export default function Dashboard() {
                     setIndustryFilter("All")
                     setTimezoneFilter("All")
                     setQualityFilter("All")
+                    setYearFilter("All")
                     setOnlyWithSales(false)
                     setShowFiltersDrawer(false)
                   }}

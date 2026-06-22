@@ -21,6 +21,63 @@ export function GlobalTopBar() {
 
   const searchRef = useRef<HTMLDivElement>(null)
 
+  const [timeEntry, setTimeEntry] = useState<any>(null)
+  
+  useEffect(() => {
+    if (!currentUser?.id) return
+    const fetchTime = async () => {
+      try {
+        const res = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id}`, { cache: 'no-store' })
+        const data = await res.json()
+        if (data.success && data.entries && data.entries.length > 0) {
+          // Check if the top entry is today
+          const now = new Date()
+          const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Phoenix', year: 'numeric', month: '2-digit', day: '2-digit' })
+          const parts = formatter.formatToParts(now)
+          const phoenixDate = `${parts.find(p => p.type === 'year')?.value}-${parts.find(p => p.type === 'month')?.value}-${parts.find(p => p.type === 'day')?.value}`
+          
+          if (data.entries[0].date === phoenixDate) {
+            setTimeEntry(data.entries[0])
+          }
+        }
+      } catch (e) {}
+    }
+    fetchTime()
+    const interval = setInterval(fetchTime, 60000)
+    return () => clearInterval(interval)
+  }, [currentUser])
+
+  const calculateHours = (entry: any) => {
+    if (!entry) return "0.0"
+    const start = new Date(entry.manualClockIn || entry.clockIn)
+    let end: Date
+    if (entry.manualClockOut) {
+      end = new Date(entry.manualClockOut)
+    } else if (entry.clockOut) {
+      end = new Date(entry.clockOut)
+    } else {
+      end = new Date(entry.lastActivity)
+    }
+    const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+    return Math.max(0, diffHours).toFixed(1)
+  }
+
+  const handleToggleClock = async () => {
+    if (!currentUser?.id) return
+    const action = timeEntry?.manualClockOut ? "clockIn" : "clockOut"
+    try {
+      const res = await fetch("/api/timeclock/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: currentUser.id, action })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTimeEntry(data.entry)
+      }
+    } catch (e) {}
+  }
+
   useEffect(() => {
     // Close dropdown on click outside
     const handleClickOutside = (e: MouseEvent) => {
@@ -202,12 +259,39 @@ export function GlobalTopBar() {
 
       {/* Right side: Quick Add Actions */}
       <div className="flex items-center gap-2 lg:gap-3 ml-4 shrink-0">
-        <button
-          onClick={() => router.push("/timeclock")}
-          className="bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center gap-2 border border-white/10"
-        >
-          <FiClock size={14} /> <span className="hidden sm:inline">Timeclock</span>
-        </button>
+        
+        {/* Timeclock Toggle Widget */}
+        <div className="flex items-center rounded-lg border border-white/10 bg-white/[0.045] overflow-hidden text-xs lg:text-sm h-8 lg:h-9">
+          <button
+            onClick={handleToggleClock}
+            className={`px-3 lg:px-4 h-full font-bold transition-all flex items-center gap-2 border-r border-white/10 ${
+              timeEntry?.manualClockOut 
+                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" 
+                : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+            }`}
+          >
+            <FiClock size={14} /> 
+            <span className="hidden sm:inline">{timeEntry?.manualClockOut ? "Clock In" : "Clock Out"}</span>
+          </button>
+          
+          {timeEntry && (
+            <div className="hidden sm:flex items-center gap-1.5 px-3 h-full border-r border-white/10 bg-black/20" title={timeEntry.active ? "Currently Active" : "Inactive for > 10m"}>
+              <span className="text-[10px] uppercase font-bold text-neutral-400">
+                {timeEntry.active ? "Active" : "Away"}
+              </span>
+              <div className={`w-2 h-2 rounded-full ${timeEntry.active ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"}`} />
+            </div>
+          )}
+
+          <button 
+            onClick={() => router.push("/timeclock")}
+            className="px-3 lg:px-4 h-full hover:bg-white/[0.075] text-neutral-300 hover:text-white transition-all font-mono"
+            title="View Timeclock"
+          >
+            {calculateHours(timeEntry)}h
+          </button>
+        </div>
+
         <button
           onClick={() => router.push("/catalog")}
           className="bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center gap-2 border border-white/10"

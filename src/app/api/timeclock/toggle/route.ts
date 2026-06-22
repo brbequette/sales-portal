@@ -4,13 +4,12 @@ import { prisma } from "@/lib/prisma"
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { userId } = body
+    const { userId, action } = body // action is 'clockIn' or 'clockOut'
 
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "Missing userId" }, { status: 400 })
+    if (!userId || !action) {
+      return NextResponse.json({ success: false, error: "Missing userId or action" }, { status: 400 })
     }
 
-    // Get current Phoenix time date string (YYYY-MM-DD)
     const now = new Date()
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Phoenix',
@@ -24,41 +23,39 @@ export async function POST(req: Request) {
     const da = parts.find(p => p.type === 'day')?.value
     const phoenixDate = `${ye}-${mo}-${da}`
 
-    const clockOutTime = new Date(now.getTime() + 10 * 60000)
-
-    // Upsert TimeEntry for this user and date
-    // If it exists, only update lastActivity. If not, create it.
     const existing = await prisma.timeEntry.findUnique({
       where: {
         userId_date: { userId, date: phoenixDate }
       }
     })
 
-    let entry;
-    if (existing) {
-      entry = await prisma.timeEntry.update({
-        where: { id: existing.id },
-        data: {
-          lastActivity: now,
-          // Only clear clockOut if they haven't explicitly manually clocked out
-          ...(existing.manualClockOut ? {} : { clockOut: null })
-        }
-      })
-    } else {
-      entry = await prisma.timeEntry.create({
+    if (!existing) {
+      // If no entry exists yet, ping must run first, or we create one
+      const clockOutTime = new Date(now.getTime() + 10 * 60000)
+      const entry = await prisma.timeEntry.create({
         data: {
           userId,
           date: phoenixDate,
           clockIn: now,
           lastActivity: now,
-          clockOut: null
+          clockOut: clockOutTime,
+          manualClockOut: action === 'clockOut' ? now : null
         }
       })
+      return NextResponse.json({ success: true, entry })
     }
+
+    // Toggle
+    const entry = await prisma.timeEntry.update({
+      where: { id: existing.id },
+      data: {
+        manualClockOut: action === 'clockOut' ? now : null
+      }
+    })
 
     return NextResponse.json({ success: true, entry })
   } catch (error: any) {
-    console.error("Error in timeclock ping:", error)
+    console.error("Error toggling timeclock:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }

@@ -30,26 +30,58 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
   const [users, setUsers] = useState<any[]>([])
   const [assigneeId, setAssigneeId] = useState("")
   const [processingNotes, setProcessingNotes] = useState("")
+  const [syncing, setSyncing] = useState(false)
+
+  const fetchProducts = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/get-products")
+      const data = await res.json()
+      if (data.success) setProducts(data.products)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSyncWithZoho = async () => {
+    setSyncing(true)
+    try {
+      let page = 1
+      let hasMore = true
+      while (hasMore) {
+        const res = await fetch(`/api/get-products?reseed=true&page=${page}`)
+        const data = await res.json()
+        if (data.success) {
+          hasMore = data.hasMore
+          page = data.nextPage || (page + 1)
+        } else {
+          throw new Error(data.message || "Failed during reseed")
+        }
+      }
+      await fetchProducts()
+    } catch (e: any) {
+      console.error(e)
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const res = await fetch("/api/get-products")
-        const data = await res.json()
-        if (data.success) setProducts(data.products)
-      } catch (e) {
-        console.error(e)
-      } finally {
-        setLoading(false)
-      }
-    }
     const fetchUsers = async () => {
       try {
         const res = await fetch("/api/get-update-config")
         const data = await res.json()
         if (data.success && data.users) {
-          setUsers(data.users)
-          const currentRep = data.users.find((u: any) => u.id === currentUser?.id || u.zohoId === currentUser?.id)
+          const visibleReps = data.config?.visibleReps || []
+          const filteredUsers = data.users.filter((u: any) => 
+            visibleReps.includes(u.id) || 
+            u.role?.toLowerCase().includes("admin") || 
+            u.role === "Administrator"
+          )
+          setUsers(filteredUsers)
+          const currentRep = filteredUsers.find((u: any) => u.id === currentUser?.id || u.zohoId === currentUser?.id)
           if (currentRep) {
             setAssigneeId(currentRep.id)
           }
@@ -69,7 +101,16 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (p.sku || "").toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = activeCategory === "All" || p.category === activeCategory
-    return matchesSearch && matchesCategory
+    
+    let isActive = true
+    if (p.description) {
+      try {
+        const parsed = JSON.parse(p.description)
+        if (parsed.status === "inactive") isActive = false
+      } catch(e) {}
+    }
+    
+    return matchesSearch && matchesCategory && isActive
   })
 
   const addToCart = (product: any) => {
@@ -151,20 +192,21 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
           items: itemsFormatted,
           lineItems: cart.map((i) => {
             let itemId = null
+            let itemDesc = ""
             if (i.product.description) {
               try {
                 const parsed = JSON.parse(i.product.description)
                 itemId = parsed.itemId || null
+                itemDesc = parsed.text || ""
               } catch (e) {}
             }
             return {
               name: i.product.name,
-              sku: i.product.sku,
               itemId: itemId,
               rate: i.customMsrp,
               discount: i.customMsrp > i.customPrice ? (i.customMsrp - i.customPrice) * i.quantity : 0,
               quantity: i.quantity,
-              description: `SKU: ${i.product.sku}`
+              description: itemDesc || `SKU: ${i.product.sku}`
             }
           }),
           discountTotal: undefined,
@@ -203,7 +245,17 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
         <div className="flex items-center gap-3">
           <FiShoppingCart className="text-blue-400 text-lg sm:text-xl" />
           <h2 className="text-sm sm:text-lg font-bold">Point of Sale</h2>
-          <span className="text-xs text-neutral-500 hidden sm:inline">— {filteredProducts.length} items in catalog</span>
+          <span className="text-xs text-neutral-500 hidden sm:inline">• {filteredProducts.length} items in catalog</span>
+          <button
+            onClick={handleSyncWithZoho}
+            disabled={syncing}
+            className="hidden sm:flex ml-2 items-center gap-1.5 px-2 py-1 text-[10px] font-bold rounded border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors disabled:opacity-50"
+          >
+            <svg className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-5v12" />
+            </svg>
+            <span>{syncing ? "Syncing..." : "Sync"}</span>
+          </button>
         </div>
         <div className="flex items-center gap-3">
           <select

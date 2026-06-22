@@ -55,7 +55,6 @@ type Payout = {
   date: string
   notes?: string
   method?: string
-  caughtUpTo?: string
 }
 
 type RepSummary = {
@@ -111,11 +110,12 @@ function stageColor(stage: string) {
 }
 
 // ── Rep Card ───────────────────────────────────────────────────────────
-function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
+function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger }: {
   rep: RepSummary,
   isAdmin: boolean,
   onViewInvoice?: (id: string) => void,
-  onManagePayouts: (rep: RepSummary) => void
+  onManagePayouts: (rep: RepSummary) => void,
+  onViewLedger: (rep: RepSummary) => void
 }) {
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<"invoices" | "pipeline">("invoices")
@@ -194,8 +194,10 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
             <div className="text-sm font-bold text-emerald-400">{fmt(rep.totalEarned)}</div>
           </div>
           <div className="text-right">
-            <div className="text-[10px] text-neutral-500 uppercase font-semibold">Balance</div>
-            <div className={`text-sm font-bold ${balance > 0 ? "text-amber-400" : "text-neutral-400"}`}>{fmt(balance)}</div>
+            <button onClick={(e) => { e.stopPropagation(); onViewLedger(rep); }} className="hover:opacity-80 transition-opacity flex flex-col items-end">
+              <div className="text-[10px] text-neutral-500 uppercase font-semibold">Balance</div>
+              <div className={`text-sm font-bold ${balance > 0 ? "text-amber-400" : "text-neutral-400"} underline decoration-amber-500/30 underline-offset-2`}>{fmt(balance)}</div>
+            </button>
           </div>
           <div className="text-neutral-500">
             {open ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
@@ -210,14 +212,17 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts }: {
             {[
               { label: "Total Sales", value: fmt(rep.totalSales || 0), color: "text-white" },
               { label: "Total Profit", value: fmt(rep.totalProfit || 0), color: "text-sky-400" },
-              { label: "Commission Earned", value: fmt(rep.totalEarned), color: "text-emerald-400" },
-              { label: "Balance Owed", value: fmt(balance), color: balance > 0 ? "text-amber-400" : "text-neutral-400" },
+              { label: "Commission Earned", value: fmt(rep.totalEarned), color: "text-emerald-400" }
             ].map(s => (
               <div key={s.label} className="px-4 py-3 text-center">
                 <div className="text-[10px] text-neutral-500 uppercase font-semibold">{s.label}</div>
                 <div className={`text-base font-bold ${s.color}`}>{s.value}</div>
               </div>
             ))}
+            <div className="px-4 py-3 text-center">
+              <div className="text-[10px] text-neutral-500 uppercase font-semibold">Balance Owed</div>
+              <button onClick={() => onViewLedger(rep)} className={`text-base font-bold ${balance > 0 ? "text-amber-400" : "text-neutral-400"} hover:opacity-80 underline decoration-amber-500/30 underline-offset-2`}>{fmt(balance)}</button>
+            </div>
           </div>
 
           <div className="px-5 py-3 border-b border-neutral-800 bg-neutral-900/50 flex justify-end">
@@ -470,7 +475,7 @@ export default function CommissionsPage() {
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false)
   const [editingPayoutId, setEditingPayoutId] = useState<string | null>(null)
   const [payoutMethod, setPayoutMethod] = useState("Check")
-  const [payoutCaughtUp, setPayoutCaughtUp] = useState("")
+  const [viewingLedgerFor, setViewingLedgerFor] = useState<RepSummary | null>(null)
 
   const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
 
@@ -487,8 +492,7 @@ export default function CommissionsPage() {
       const payload: any = {
         amount: Number(payoutAmount),
         method: payoutMethod,
-        notes: payoutNotes,
-        caughtUpTo: payoutCaughtUp
+        notes: payoutNotes
       }
       
       if (isEditing) {
@@ -506,7 +510,6 @@ export default function CommissionsPage() {
       if (json.success) {
         setPayoutAmount("")
         setPayoutNotes("")
-        setPayoutCaughtUp("")
         setPayoutMethod("Check")
         setEditingPayoutId(null)
         await fetchData() // refresh
@@ -579,7 +582,6 @@ export default function CommissionsPage() {
     setPayoutAmount(p.amount.toString())
     setPayoutMethod(p.method || "Check")
     setPayoutNotes(p.notes || "")
-    setPayoutCaughtUp(p.caughtUpTo || "")
   }
 
   const handleCancelEdit = () => {
@@ -587,7 +589,6 @@ export default function CommissionsPage() {
     setPayoutAmount("")
     setPayoutMethod("Check")
     setPayoutNotes("")
-    setPayoutCaughtUp("")
   }
 
   const fetchData = useCallback(async () => {
@@ -835,6 +836,7 @@ export default function CommissionsPage() {
                     isAdmin={isAdmin} 
                     onViewInvoice={setViewingInvoiceZohoId} 
                     onManagePayouts={setManagingPayoutsFor}
+                    onViewLedger={setViewingLedgerFor}
                   />
                 ))
             )}
@@ -926,16 +928,6 @@ export default function CommissionsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">Caught Up To (Invoice #)</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. INV-12345"
-                      value={payoutCaughtUp}
-                      onChange={e => setPayoutCaughtUp(e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-xs text-white outline-none focus:border-amber-500/50 transition-colors placeholder:text-neutral-600"
-                    />
-                  </div>
-                  <div>
                     <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">Notes / Description (Optional)</label>
                     <textarea 
                       rows={3}
@@ -982,19 +974,12 @@ export default function CommissionsPage() {
                           </div>
                         </div>
                         
-                        {(p.caughtUpTo || p.notes) && (
+                        {p.notes && (
                           <div className="bg-neutral-900/50 rounded p-2 border border-neutral-800/50 flex flex-col gap-1 mt-1">
-                            {p.caughtUpTo && (
-                              <div className="text-[10px] text-neutral-400 flex items-center gap-1.5">
-                                <span className="text-neutral-500 uppercase font-bold tracking-wider text-[9px]">Caught Up To:</span>
-                                <span className="text-blue-400 font-medium">{p.caughtUpTo}</span>
-                              </div>
-                            )}
-                            {p.notes && (
-                              <div className="text-xs text-neutral-300">
-                                {p.notes}
-                              </div>
-                            )}
+                            <div className="text-xs text-neutral-300">
+                              <span className="text-neutral-500 uppercase font-bold tracking-wider text-[9px]">Notes: </span>
+                              {p.notes}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1007,6 +992,106 @@ export default function CommissionsPage() {
         </div>,
         document.body
       )}
+
+      {/* LEDGER MODAL */}
+      {viewingLedgerFor && createPortal(
+        <div className="fixed inset-0 z-[10000] flex flex-col items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setViewingLedgerFor(null)} />
+          <div className="relative bg-neutral-900 border border-neutral-800 w-full max-w-3xl max-h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10001]">
+            <div className="px-6 py-4 border-b border-neutral-800 flex justify-between items-center bg-neutral-800/30">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold">
+                  {viewingLedgerFor.repName.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-lg">Transaction Ledger</h3>
+                  <p className="text-xs text-neutral-400">{viewingLedgerFor.repName}</p>
+                </div>
+              </div>
+              <button onClick={() => setViewingLedgerFor(null)} className="p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors">
+                <FiX size={20} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-auto p-0">
+              <table className="w-full text-left text-xs whitespace-nowrap">
+                <thead className="bg-neutral-800/50 text-neutral-400 sticky top-0 backdrop-blur-md z-10">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px]">Date</th>
+                    <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px]">Description</th>
+                    <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-right">Amount</th>
+                    <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-right">Running Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-800">
+                  {(() => {
+                    const txs: { date: string, desc: string, amount: number, isPayout: boolean }[] = []
+                    
+                    for (const inv of viewingLedgerFor.invoices) {
+                      if (inv.commission && inv.commission.total > 0) {
+                        txs.push({
+                          date: inv.issueDate || new Date().toISOString(),
+                          desc: inv.name || `Invoice ${inv.invoiceNumber}`,
+                          amount: inv.commission.total,
+                          isPayout: false
+                        })
+                      }
+                    }
+                    
+                    for (const payout of viewingLedgerFor.payouts) {
+                      txs.push({
+                        date: payout.date,
+                        desc: `Payout (${payout.method})${payout.notes ? ` - ${payout.notes}` : ''}`,
+                        amount: -payout.amount,
+                        isPayout: true
+                      })
+                    }
+                    
+                    txs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                    
+                    let runningBalance = 0
+                    if (txs.length === 0) {
+                      return (
+                        <tr><td colSpan={4} className="px-4 py-8 text-center text-neutral-500">No transactions found</td></tr>
+                      )
+                    }
+                    
+                    return txs.map((tx, idx) => {
+                      runningBalance += tx.amount
+                      return (
+                        <tr key={idx} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="px-4 py-3 text-neutral-300">{new Date(tx.date).toLocaleDateString()}</td>
+                          <td className="px-4 py-3 text-neutral-300">
+                            {tx.isPayout ? <span className="text-amber-500 font-medium">{tx.desc}</span> : tx.desc}
+                          </td>
+                          <td className={`px-4 py-3 text-right font-medium ${tx.amount > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {fmt(tx.amount)}
+                          </td>
+                          <td className={`px-4 py-3 text-right font-bold ${runningBalance > 0 ? "text-amber-400" : "text-neutral-500"}`}>
+                            {fmt(runningBalance)}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  })()}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="px-6 py-4 border-t border-neutral-800 bg-neutral-900 flex justify-between items-center">
+              <span className="text-sm text-neutral-400">Total Balance</span>
+              <span className="text-xl font-bold text-amber-400">
+                {fmt(
+                  viewingLedgerFor.totalEarned - 
+                  viewingLedgerFor.payouts.reduce((sum, p) => sum + p.amount, 0)
+                )}
+              </span>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
     </div>
   )
 }

@@ -45,14 +45,22 @@ export default function NewTaskPage() {
           : `email=${currentUser?.email}`
         const [accRes, repRes] = await Promise.all([
           fetch(`/api/get-accounts?${query}`),
-          fetch("/api/get-user?all=true")
+          fetch("/api/get-update-config")
         ])
         
         const accData = await accRes.json()
         if (accData.success) setAccounts(accData.accounts || [])
           
         const repData = await repRes.json()
-        if (repData.success) setRepsList(repData.users || [])
+        if (repData.success) {
+          const visibleReps = repData.config?.visibleReps || []
+          const filteredUsers = repData.users?.filter((u: any) => 
+            visibleReps.includes(u.id) || 
+            u.role?.toLowerCase().includes("admin") || 
+            u.role === "Administrator"
+          ) || []
+          setRepsList(filteredUsers)
+        }
       } catch (e) {
         console.error("Error fetching dropdown data", e)
       }

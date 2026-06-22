@@ -43,7 +43,7 @@ export default function AdminTimeclockPage() {
   const fetchEntries = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/timeclock/admin?month=${monthFilter}`)
+      const res = await fetch(`/api/timeclock/admin?month=${monthFilter}`, { cache: 'no-store' })
       const data = await res.json()
       if (data.success) {
         setEntries(data.entries)

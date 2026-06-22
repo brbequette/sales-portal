@@ -221,7 +221,6 @@ model Payout {
   date       DateTime @default(now())
   method     String   @default("Check")
   notes      String?
-  caughtUpTo String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   rep        User     @relation(fields: [repId], references: [id], onDelete: Cascade)

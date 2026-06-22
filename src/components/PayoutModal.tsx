@@ -25,7 +25,6 @@ export default function PayoutModal({ isOpen, onClose, repId, repName, onSuccess
   const [method, setMethod] = useState('Check');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState('');
-  const [caughtUpTo, setCaughtUpTo] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +50,6 @@ export default function PayoutModal({ isOpen, onClose, repId, repName, onSuccess
           date,
           method,
           notes,
-          caughtUpTo,
         }),
       });
 
@@ -66,7 +64,6 @@ export default function PayoutModal({ isOpen, onClose, repId, repName, onSuccess
 
       setAmount('');
       setNotes('');
-      setCaughtUpTo('');
       setMethod('Check');
       setDate(format(new Date(), 'yyyy-MM-dd'));
       onSuccess();
@@ -128,17 +125,6 @@ export default function PayoutModal({ isOpen, onClose, repId, repName, onSuccess
               value={date}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
               required
-              className="bg-slate-800 border-slate-700"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="caughtUpTo">Caught Up To (Invoice / Date)</Label>
-            <Input
-              id="caughtUpTo"
-              placeholder="e.g. Paid through Inv #12345 or May 15th"
-              value={caughtUpTo}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCaughtUpTo(e.target.value)}
               className="bg-slate-800 border-slate-700"
             />
           </div>

@@ -32,7 +32,7 @@ export default function UserTimeclockPage() {
     if (!currentUser?.id) return
     const fetchEntries = async () => {
       try {
-        const res = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id}`)
+        const res = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id}`, { cache: 'no-store' })
         const data = await res.json()
         if (data.success) {
           setEntries(data.entries)
@@ -87,7 +87,7 @@ export default function UserTimeclockPage() {
       const data = await res.json()
       if (data.success) {
         // Refresh entries
-        const r = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id}`)
+        const r = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id}`, { cache: 'no-store' })
         const d = await r.json()
         if (d.success) setEntries(d.entries)
         setShowChangeModal(false)
