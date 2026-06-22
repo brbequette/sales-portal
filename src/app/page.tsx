@@ -1837,7 +1837,7 @@ export default function Dashboard() {
         document.body
       )}
 
-      {showEditTaskModal && createPortal(
+      {showEditTaskModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowEditTaskModal(false)} />
           <div className="relative w-full max-w-md bg-[#151618] border border-white/10 rounded-xl flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)] text-white z-[9999] p-6 max-h-[90vh] overflow-y-auto">
@@ -2017,8 +2017,7 @@ export default function Dashboard() {
               </div>
             </form>
           </div>
-        </div>,
-        document.body
+        </div>
       )}
 
       {/* Campaign Composer Modal */}

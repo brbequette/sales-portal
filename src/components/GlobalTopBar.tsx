@@ -5,7 +5,6 @@ import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, 
 import { useRouter } from "next/navigation"
 import { useProductModal } from "@/components/ProductModalProvider"
 import { NewCustomerModal } from "@/components/NewCustomerModal"
-import { TaskModal } from "@/components/TaskModal"
 import { useZoho } from "@/components/ZohoProvider"
 
 export function GlobalTopBar() {
@@ -19,7 +18,6 @@ export function GlobalTopBar() {
   const [showResults, setShowResults] = useState(false)
   
   const [showAddAccount, setShowAddAccount] = useState(false)
-  const [showAddTask, setShowAddTask] = useState(false)
 
   const searchRef = useRef<HTMLDivElement>(null)
 
@@ -211,7 +209,7 @@ export function GlobalTopBar() {
           <FiBox size={14} /> <span className="hidden sm:inline">Catalog Lookup</span>
         </button>
         <button
-          onClick={() => setShowAddTask(true)}
+          onClick={() => router.push("/tasks/new")}
           className="bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center gap-2 border border-white/10"
         >
           <FiCheckSquare size={14} /> <span className="hidden sm:inline">Add Task</span>
@@ -227,10 +225,6 @@ export function GlobalTopBar() {
       {/* Modals */}
       {showAddAccount && (
         <NewCustomerModal isOpen={showAddAccount} onClose={() => setShowAddAccount(false)} currentUserId={currentUser?.id} />
-      )}
-      
-      {showAddTask && (
-        <TaskModal onClose={() => setShowAddTask(false)} />
       )}
     </div>
   )
