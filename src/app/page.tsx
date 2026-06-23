@@ -91,6 +91,8 @@ export default function Dashboard() {
   const [campaignSending, setCampaignSending] = useState(false)
   const [campaignError, setCampaignError] = useState("")
   const [campaignSuccess, setCampaignSuccess] = useState("")
+  const [zohoNumbers, setZohoNumbers] = useState<any[]>([])
+  const [selectedZohoNumber, setSelectedZohoNumber] = useState("")
   const [mediaAssets, setMediaAssets] = useState<any[]>([])
   const [loadingMedia, setLoadingMedia] = useState(false)
   const [showAssetSelector, setShowAssetSelector] = useState(false)
@@ -196,6 +198,7 @@ export default function Dashboard() {
           text: campaignText,
           imageUrl: campaignImageUrl,
           campaignName: campaignName,
+          fromNumber: selectedZohoNumber,
           userId: currentUser?.id,
           userEmail: currentUser?.email
         })
@@ -222,10 +225,20 @@ export default function Dashboard() {
     }
   }
 
-  // Auto-fetch media assets when campaign modal opens
+  // Auto-fetch media assets and zoho numbers when campaign modal opens
   useEffect(() => {
     if (showCampaignModal) {
       fetchMediaAssets()
+      fetch('/api/manage-zoho-numbers')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.numbers) {
+            setZohoNumbers(data.numbers)
+            const defaultNum = data.numbers.find((n: any) => n.isDefault) || data.numbers[0]
+            if (defaultNum) setSelectedZohoNumber(defaultNum.number)
+          }
+        })
+        .catch(console.error)
     }
   }, [showCampaignModal])
 

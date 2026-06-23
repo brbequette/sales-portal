@@ -1,5 +1,7 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient } from "@prisma/client"
+import fetch from "node-fetch"
+import FormData from "form-data"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
@@ -18,7 +20,7 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { accountIds, channel, text, imageUrl, campaignName, userId, userEmail } = body
+    const { accountIds, channel, text, imageUrl, campaignName, userId, userEmail, fromNumber: bodyFromNumber } = body
 
     if (!accountIds || !Array.isArray(accountIds) || accountIds.length === 0) {
       return {
@@ -94,7 +96,7 @@ export const handler: Handler = async (event, context) => {
         }
       }
 
-      let fromNumber = process.env.ZOHO_VOICE_FROM_NUMBER || ''
+      let fromNumber = bodyFromNumber || process.env.ZOHO_VOICE_FROM_NUMBER || ''
       if (!fromNumber) {
         const setting = await prisma.systemSetting.findUnique({ where: { key: "zoho_phone_numbers" } })
         if (setting && setting.value) {
@@ -152,23 +154,31 @@ export const handler: Handler = async (event, context) => {
 
           if (isMms) {
             try {
+              let fileBuffer: Buffer | null = null
+              let contentType = 'image/jpeg'
+              let ext = 'jpg'
+              
               if (imageUrl.startsWith('data:')) {
                 const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/)
                 if (match) {
-                  const contentType = match[1]
-                  const base64Data = match[2]
-                  const buffer = Buffer.from(base64Data, 'base64')
-                  const blob = new Blob([buffer], { type: contentType })
-                  formData.append('file', blob, `attachment.${contentType.split('/')[1] || 'jpg'}`)
+                  contentType = match[1]
+                  fileBuffer = Buffer.from(match[2], 'base64')
+                  ext = contentType.split('/')[1] || 'jpg'
                 }
               } else {
                 const imgRes = await fetch(imageUrl)
                 if (imgRes.ok) {
-                  const arrayBuffer = await imgRes.arrayBuffer()
-                  const contentType = imgRes.headers.get('content-type') || 'image/jpeg'
-                  const blob = new Blob([arrayBuffer], { type: contentType })
-                  formData.append('file', blob, `attachment.${contentType.split('/')[1] || 'jpg'}`)
+                  fileBuffer = Buffer.from(await imgRes.arrayBuffer())
+                  contentType = imgRes.headers.get('content-type') || 'image/jpeg'
+                  ext = contentType.split('/')[1] || 'jpg'
                 }
+              }
+              
+              if (fileBuffer) {
+                formData.append('file', fileBuffer, {
+                  filename: `attachment.${ext}`,
+                  contentType: contentType
+                })
               }
             } catch (err) {
               console.error("Error attaching MMS media:", err)
@@ -178,7 +188,8 @@ export const handler: Handler = async (event, context) => {
           const smsRes = await fetch(zohoVoiceUrl, {
             method: 'POST',
             headers: {
-              'Authorization': `Zoho-oauthtoken ${accessToken}`
+              'Authorization': `Zoho-oauthtoken ${accessToken}`,
+              ...formData.getHeaders()
             },
             body: formData
           })
@@ -227,15 +238,21 @@ export const handler: Handler = async (event, context) => {
     }
 
     console.log(`Campaign "${campaignName || 'Unnamed'}" processed. Success: ${successfulCount}, Failed: ${failedCount}`)
+    
+    let resultMessage = channel === 'SMS' 
+      ? `Campaign sent successfully to ${successfulCount} customers. Failed: ${failedCount}`
+      : `Campaign mock sent successfully to ${successfulCount} customers.`
+
+    if (channel === 'SMS' && failedCount > 0 && successfulCount === 0) {
+      resultMessage += ` (Hint: Check if your Zoho number is SMS/MMS approved, and verify image size is under 1MB)`
+    }
 
     return {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify({ 
         success: successfulCount > 0, 
-        message: channel === 'SMS' 
-          ? `Campaign sent successfully to ${successfulCount} customers. Failed: ${failedCount}`
-          : `Campaign mock sent successfully to ${successfulCount} customers.`,
+        message: resultMessage,
         count: successfulCount,
         failedCount
       })
