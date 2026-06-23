@@ -790,9 +790,6 @@ export const handler: Handler = async (event, context) => {
                     await prisma.$transaction(chunk);
                     syncedContactsCount += chunk.length;
                   }
-
-                  hasMoreContacts = (contactData as any).info?.more_records || false;
-                  contactPage++;
                 }
                 console.log(`Synced ${syncedContactsCount} contacts for owner ${syncUser.zohoId}.`);
 
