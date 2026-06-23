@@ -559,6 +559,7 @@ export const handler: Handler = async (event, context) => {
                           create: {
                             zohoId: dealRecord.id,
                             accountId: dbAccountId,
+                            ownerId: syncUser.id,
                             name: dealRecord.Deal_Name,
                             amount: parseFloat(dealRecord.Amount || 0),
                             stage: dealRecord.Stage,
