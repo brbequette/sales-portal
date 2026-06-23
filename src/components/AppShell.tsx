@@ -5,7 +5,7 @@ import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import {
   FiHome, FiPhoneCall, FiDollarSign, FiTool, FiUser,
-  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings
+  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 
@@ -27,6 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/commissions", icon: FiDollarSign,label: "Commissions",  color: "text-[var(--primary)]" },
     { href: "/stats",       icon: FiBarChart2, label: "Rep Stats",    color: "text-neutral-100" },
     { href: "/tools",       icon: FiTool,      label: "Tools & Media",color: "text-neutral-100" },
+    { href: "/training",    icon: FiBookOpen,  label: "Training Hub", color: "text-blue-400" },
   ]
 
   if (isAdmin) {
