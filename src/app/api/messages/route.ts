@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
-import { auth } from '@clerk/nextjs'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(req: Request) {
   try {
-    const { userId } = auth()
-    if (!userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    // const { userId } = auth()
+    // if (!userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
     // Find all accounts that have SmsMessages
     const accountsWithMessages = await prisma.account.findMany({

@@ -2376,6 +2376,7 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
+              </div>
 
               {/* Buttons */}
               <div className="pt-4 flex justify-end gap-2 border-t border-white/10">

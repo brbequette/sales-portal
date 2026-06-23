@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import prisma from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || 'dummy'
@@ -27,8 +27,8 @@ export async function POST(req: Request) {
 
     // Format messages for OpenAI
     const formattedMessages = messages.map((m: any) => ({
-      role: m.direction === 'INBOUND' ? 'user' : 'assistant',
-      content: m.body
+      role: (m.direction === 'INBOUND' ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: m.body || ''
     }))
 
     const completion = await openai.chat.completions.create({

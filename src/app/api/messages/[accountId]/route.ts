@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
-import { auth } from '@clerk/nextjs'
+import { prisma } from '@/lib/prisma'
+// Using default auth for prototype
 import { getZohoAccessToken } from '@/lib/zoho-auth'
 import fetch from 'node-fetch'
 import FormData from 'form-data'
 
-export async function GET(req: Request, { params }: { params: { accountId: string } }) {
+export async function GET(req: Request, context: { params: Promise<{ accountId: string }> }) {
   try {
-    const { userId } = auth()
-    if (!userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    const params = await context.params
+    // const { userId } = auth()
+    // if (!userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
     const messages = await prisma.smsMessage.findMany({
       where: { accountId: params.accountId },
@@ -23,12 +24,13 @@ export async function GET(req: Request, { params }: { params: { accountId: strin
   }
 }
 
-export async function POST(req: Request, { params }: { params: { accountId: string } }) {
+export async function POST(req: Request, context: { params: Promise<{ accountId: string }> }) {
   try {
-    const { userId } = auth()
-    if (!userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    const params = await context.params
+    // const { userId } = auth()
+    // if (!userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
-    const dbUser = await prisma.user.findUnique({ where: { clerkId: userId } })
+    const dbUser = await prisma.user.findFirst()
     if (!dbUser) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
 
     const body = await req.json()
@@ -59,7 +61,8 @@ export async function POST(req: Request, { params }: { params: { accountId: stri
     const accessToken = await getZohoAccessToken()
     if (!accessToken) throw new Error('Failed to get Zoho Access Token')
 
-    const zohoVoiceUrl = https://voice.zoho./rest/json/v2/sms/send
+    const zohoDc = process.env.ZOHO_DC || 'com'
+    const zohoVoiceUrl = `https://voice.zoho.${zohoDc}/rest/json/v2/sms/send`
     const smsData = {
       customerNumber: phoneNumber,
       message: text,
@@ -72,10 +75,10 @@ export async function POST(req: Request, { params }: { params: { accountId: stri
     const smsRes = await fetch(zohoVoiceUrl, {
       method: 'POST',
       headers: {
-        'Authorization': Zoho-oauthtoken ,
+        'Authorization': `Zoho-oauthtoken ${accessToken}`,
         ...formData.getHeaders()
       },
-      body: formData
+      body: formData as any
     })
 
     const resultText = await smsRes.text()

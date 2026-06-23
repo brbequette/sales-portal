@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(req: Request) {
   try {
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       })
     }
 
-    console.log(Incoming Zoho SMS Webhook:, body)
+    console.log('Incoming Zoho SMS Webhook:', body)
 
     // Expected fields from Zoho (adjust if Zoho sends different keys)
     const fromNumberRaw = body.from || body.From || body.source || ''
