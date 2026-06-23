@@ -1159,8 +1159,8 @@ export default function Dashboard() {
               ) : (
                 <div className="flex flex-col">
                   {/* Selection & Campaign Toolbar */}
-                  <div className="bg-[#151618]/70 border-b border-white/10 px-4 py-3 flex items-center justify-between gap-3 text-xs sm:text-sm">
-                    <div className="flex items-center gap-3">
+                  <div className="bg-[#151618]/70 border-b border-white/10 px-4 py-3 flex items-center justify-between gap-3 text-xs sm:text-sm flex-wrap">
+                    <div className="flex items-center gap-3 flex-1 min-w-[250px]">
                       <input 
                         type="checkbox"
                         checked={filteredAccounts.length > 0 && selectedAccountIds.length === filteredAccounts.length}
@@ -1178,7 +1178,7 @@ export default function Dashboard() {
                         }}
                         className="w-4 h-4 rounded border-white/15 text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer shrink-0"
                       />
-                      <span className="text-neutral-400 font-medium select-none">
+                      <span className="text-neutral-400 font-medium select-none shrink-0 hidden sm:inline">
                         {selectedAccountIds.length > 0 ? (
                           <>
                             Selected <span className="text-white font-bold">{selectedAccountIds.length}</span> of <span className="text-white font-bold">{filteredAccounts.length}</span> accounts
@@ -1187,6 +1187,26 @@ export default function Dashboard() {
                           "Select accounts for campaign"
                         )}
                       </span>
+                      
+                      {/* Search box next to selection */}
+                      <div className="relative flex-1 max-w-xs ml-0 sm:ml-2">
+                        <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
+                        <input 
+                          type="text"
+                          placeholder="Search accounts..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full bg-neutral-800/80 border border-white/10 rounded-md pl-8 pr-8 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors"
+                        />
+                        {searchQuery && (
+                          <button 
+                            onClick={() => setSearchQuery("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                          >
+                            <FiX size={12} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {selectedAccountIds.length > 0 && (
                       <div className="flex items-center gap-2">
@@ -1696,9 +1716,9 @@ export default function Dashboard() {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFiltersDrawer(false)} />
           <div className="relative w-full max-w-md max-h-[85vh] bg-[#151618] border border-white/10 rounded-xl flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)] text-white z-[9999] overflow-hidden">
-            <div className="p-6 flex flex-col h-full">
+            <div className="p-6 flex flex-col h-full overflow-hidden">
               {/* Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <div className="flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
                 <h2 className="text-sm font-bold flex items-center gap-2 uppercase tracking-wider text-neutral-300">
                   <FiFilter className={effort === "sales" ? "text-emerald-400" : "text-sky-400"} /> Filters
                 </h2>
@@ -1708,7 +1728,7 @@ export default function Dashboard() {
               </div>
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto py-4 space-y-6 scrollbar-thin">
+              <div className="flex-1 overflow-y-auto py-4 space-y-6 scrollbar-thin min-h-0">
 
 
                 {/* Sales rep selector (Admin user only) */}
@@ -1838,7 +1858,7 @@ export default function Dashboard() {
               </div>
 
               {/* Footer */}
-              <div className="pt-4 border-t border-white/10 flex gap-3">
+              <div className="pt-4 border-t border-white/10 flex gap-3 shrink-0">
                 <button 
                   onClick={() => {
                     setSearchQuery("")
