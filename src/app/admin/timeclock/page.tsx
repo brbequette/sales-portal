@@ -21,6 +21,7 @@ interface TimeEntry {
   lastActivity: string
   manualClockIn: string | null
   manualClockOut: string | null
+  ipAddress: string | null
   user: { id: string; name: string; email: string }
   changeRequests: TimeChangeRequest[]
 }
@@ -199,6 +200,7 @@ export default function AdminTimeclockPage() {
                       <th className="px-6 py-3 font-semibold w-32">Date</th>
                       <th className="px-6 py-3 font-semibold">Clock In</th>
                       <th className="px-6 py-3 font-semibold">Clock Out</th>
+                      <th className="px-6 py-3 font-semibold">IP Address</th>
                       <th className="px-6 py-3 font-semibold">Hours</th>
                       <th className="px-6 py-3 font-semibold">Requests</th>
                       <th className="px-6 py-3 font-semibold w-24">Actions</th>
@@ -218,6 +220,11 @@ export default function AdminTimeclockPage() {
                           <td className="px-6 py-3">
                             {formatTime(entry.manualClockOut || entry.clockOut || entry.lastActivity)}
                             {entry.manualClockOut && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">●</span>}
+                          </td>
+                          <td className="px-6 py-3">
+                            <span className="font-mono text-xs bg-white/5 px-2 py-1 rounded text-neutral-400">
+                              {entry.ipAddress || "Unknown"}
+                            </span>
                           </td>
                           <td className="px-6 py-3 font-bold text-white">{calculateHours(entry)}</td>
                           <td className="px-6 py-3">

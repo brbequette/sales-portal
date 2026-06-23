@@ -29,7 +29,7 @@ export function TimeclockTracker() {
         lastPingTime.current = now
         hasActivity.current = false // Reset activity flag
         
-        await fetch("/api/timeclock/ping", {
+        await fetch("/api/timeclock/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: currentUser.id })

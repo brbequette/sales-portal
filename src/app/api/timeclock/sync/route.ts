@@ -10,6 +10,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Missing userId" }, { status: 400 })
     }
 
+    const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || req.headers.get("cf-connecting-ip") || "Unknown"
+
     // Get current Phoenix time date string (YYYY-MM-DD)
     const now = new Date()
     const formatter = new Intl.DateTimeFormat('en-US', {
@@ -41,7 +43,8 @@ export async function POST(req: Request) {
         data: {
           lastActivity: now,
           // Only clear clockOut if they haven't explicitly manually clocked out
-          ...(existing.manualClockOut ? {} : { clockOut: null })
+          ...(existing.manualClockOut ? {} : { clockOut: null }),
+          ipAddress: ipAddress !== "Unknown" ? ipAddress : existing.ipAddress
         }
       })
     } else {
@@ -51,7 +54,8 @@ export async function POST(req: Request) {
           date: phoenixDate,
           clockIn: now,
           lastActivity: now,
-          clockOut: null
+          clockOut: null,
+          ipAddress
         }
       })
     }
