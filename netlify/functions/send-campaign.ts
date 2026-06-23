@@ -111,12 +111,20 @@ export const handler: Handler = async (event, context) => {
         name: campaignName || 'Unnamed Campaign',
         content: baseContent,
         authorId: author.id,
+        channel: channel || 'SMS',
         sentCount: 0,
         failedCount: 0
       }
     })
     
     const logsToCreate: any[] = []
+    const smsMessagesToCreate: any[] = []
+
+    let accountDailyLimit = 1
+    const limitSetting = await prisma.systemSetting.findUnique({ where: { key: "sms_daily_account_limit" } })
+    if (limitSetting && limitSetting.value) {
+      accountDailyLimit = parseInt(limitSetting.value, 10) || 1
+    }
 
     if (channel === 'SMS') {
       const accessToken = await getZohoAccessToken()
@@ -151,6 +159,28 @@ export const handler: Handler = async (event, context) => {
       }
 
       for (const account of accounts) {
+        // Check daily limit for this account
+        const recentLogs = await prisma.campaignLog.count({
+          where: {
+            accountId: account.id,
+            status: 'SUCCESS',
+            sentAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+          }
+        })
+
+        if (recentLogs >= accountDailyLimit) {
+          console.log(`Account ${account.name} has reached the daily limit of ${accountDailyLimit}. Skipping.`)
+          logsToCreate.push({
+            blastId: blast.id,
+            accountId: account.id,
+            status: 'FAILED',
+            errorMessage: 'Daily blast limit reached for this account',
+            zohoNumberUsed: fromNumber
+          })
+          failedCount++
+          continue
+        }
+
         const contact = account.contacts.find((c: any) => c.isPrimary) || account.contacts[0]
         const rawPhoneNumber = contact?.mobilePhone || contact?.phone
 
@@ -246,6 +276,15 @@ export const handler: Handler = async (event, context) => {
                status: 'SUCCESS',
                zohoNumberUsed: fromNumber
              })
+             smsMessagesToCreate.push({
+               accountId: account.id,
+               authorId: author.id,
+               fromNumber: fromNumber,
+               toNumber: phoneNumber,
+               body: text || campaignName || 'Titan Diamond Update',
+               direction: 'OUTBOUND',
+               campaignBlastId: blast.id
+             })
           } else {
              console.error(`Zoho Voice API failed for ${phoneNumber}:`, resultText)
              failedCount++
@@ -298,6 +337,12 @@ export const handler: Handler = async (event, context) => {
     if (logsToCreate.length > 0) {
       await prisma.campaignLog.createMany({
         data: logsToCreate
+      })
+    }
+    
+    if (smsMessagesToCreate.length > 0) {
+      await prisma.smsMessage.createMany({
+        data: smsMessagesToCreate
       })
     }
 

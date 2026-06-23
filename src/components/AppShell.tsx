@@ -5,7 +5,7 @@ import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import {
   FiHome, FiPhoneCall, FiDollarSign, FiTool, FiUser,
-  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen
+  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 
@@ -23,6 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/",            icon: FiHome,      label: "Sales Hub",    color: "text-[var(--primary)]" },
     { href: "/sales",       icon: FiFileText,  label: "Sales Docs",   color: "text-[var(--primary)]" },
+    { href: "/messages",    icon: FiMessageSquare, label: "Messages", color: "text-emerald-400" },
     { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-red-300" },
     { href: "/commissions", icon: FiDollarSign,label: "Commissions",  color: "text-[var(--primary)]" },
     { href: "/stats",       icon: FiBarChart2, label: "Rep Stats",    color: "text-neutral-100" },
@@ -38,8 +39,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const bottomItems = [
     { href: "/",            icon: FiHome,      label: "Hub",          color: "text-[var(--primary)]" },
     { href: "/sales",       icon: FiFileText,  label: "Docs",         color: "text-[var(--primary)]" },
+    { href: "/messages",    icon: FiMessageSquare, label: "Msgs",     color: "text-emerald-400" },
     { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-red-400" },
-    { href: "/stats",       icon: FiBarChart2, label: "Stats",        color: "text-neutral-100" },
   ]
 
   // Don't show nav on login page

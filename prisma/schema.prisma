@@ -29,6 +29,7 @@ model User {
   tasks              Task[]
   timeEntries        TimeEntry[]
   timeChangeRequests TimeChangeRequest[]
+  smsMessages        SmsMessage[]
 }
 
 model Account {
@@ -59,6 +60,7 @@ model Account {
   salesOrders      SalesOrder[]
   tasks            Task[]
   campaignLogs     CampaignLog[]
+  smsMessages      SmsMessage[]
 
   @@index([ownerId])
   @@index([status])
@@ -309,6 +311,7 @@ model CampaignBlast {
   
   author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   logs        CampaignLog[]
+  smsMessages SmsMessage[]
 
   @@index([authorId])
 }
@@ -328,4 +331,24 @@ model CampaignLog {
 
   @@index([campaignBlastId])
   @@index([accountId])
+}
+
+model SmsMessage {
+  id              String   @id @default(cuid())
+  accountId       String
+  authorId        String?  // null if incoming
+  fromNumber      String
+  toNumber        String
+  body            String
+  direction       String   // "INBOUND" | "OUTBOUND"
+  campaignBlastId String?
+  isAiGenerated   Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  author          User?    @relation(fields: [authorId], references: [id])
+  campaignBlast   CampaignBlast? @relation(fields: [campaignBlastId], references: [id])
+
+  @@index([accountId])
+  @@index([campaignBlastId])
 }
