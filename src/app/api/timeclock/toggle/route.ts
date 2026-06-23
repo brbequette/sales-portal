@@ -31,14 +31,13 @@ export async function POST(req: Request) {
 
     if (!existing) {
       // If no entry exists yet, ping must run first, or we create one
-      const clockOutTime = new Date(now.getTime() + 10 * 60000)
       const entry = await prisma.timeEntry.create({
         data: {
           userId,
           date: phoenixDate,
           clockIn: now,
           lastActivity: now,
-          clockOut: clockOutTime,
+          clockOut: null,
           manualClockOut: action === 'clockOut' ? now : null
         }
       })

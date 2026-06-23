@@ -64,7 +64,7 @@ export function GlobalTopBar() {
 
   const handleToggleClock = async () => {
     if (!currentUser?.id) return
-    const action = timeEntry?.manualClockOut ? "clockIn" : "clockOut"
+    const action = (!timeEntry || timeEntry.manualClockOut) ? "clockIn" : "clockOut"
     try {
       const res = await fetch("/api/timeclock/toggle", {
         method: "POST",
@@ -265,13 +265,13 @@ export function GlobalTopBar() {
           <button
             onClick={handleToggleClock}
             className={`px-3 lg:px-4 h-full font-bold transition-all flex items-center gap-2 border-r border-white/10 ${
-              timeEntry?.manualClockOut 
+              (!timeEntry || timeEntry.manualClockOut)
                 ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" 
                 : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
             }`}
           >
             <FiClock size={14} /> 
-            <span className="hidden sm:inline">{timeEntry?.manualClockOut ? "Clock In" : "Clock Out"}</span>
+            <span className="hidden sm:inline">{(!timeEntry || timeEntry.manualClockOut) ? "Clock In" : "Clock Out"}</span>
           </button>
           
           {timeEntry && (
