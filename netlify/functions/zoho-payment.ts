@@ -68,6 +68,22 @@ export const handler: Handler = async (event) => {
     const token = await getAccessToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
+    // Fetch the actual invoice from Zoho Books to get the true Books customer ID
+    // since the local dbAccount.zohoId is the CRM ID, not the Books ID!
+    try {
+      const invFetchRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` }
+      })
+      if (invFetchRes.ok) {
+        const invData: any = await invFetchRes.json()
+        if (invData.code === 0 && invData.invoice && invData.invoice.customer_id) {
+          booksCustomerId = invData.invoice.customer_id
+        }
+      }
+    } catch (e) {
+      console.warn("Could not fetch pre-payment invoice details from Zoho Books", e)
+    }
+
     const payload = {
       customer_id: booksCustomerId,
       payment_mode: 'Credit Card',
