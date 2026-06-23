@@ -30,6 +30,7 @@ model User {
   timeEntries        TimeEntry[]
   timeChangeRequests TimeChangeRequest[]
   smsMessages        SmsMessage[]
+  callLogs           CallLog[]
 }
 
 model Account {
@@ -61,6 +62,7 @@ model Account {
   tasks            Task[]
   campaignLogs     CampaignLog[]
   smsMessages      SmsMessage[]
+  callLogs         CallLog[]
 
   @@index([ownerId])
   @@index([status])
@@ -361,4 +363,26 @@ model CallScript {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model CallLog {
+  id          String   @id @default(cuid())
+  accountId   String
+  authorId    String
+  fromNumber  String
+  toNumber    String
+  direction   String   // "INBOUND" | "OUTBOUND"
+  duration    Int      @default(0) // Duration in seconds
+  status      String   // "completed", "missed", "voicemail", etc.
+  notes       String?
+  zohoCallId  String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  editedAt    DateTime?
+
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([authorId])
 }

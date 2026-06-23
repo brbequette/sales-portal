@@ -5,6 +5,7 @@ import { AuthWrapper } from "@/components/AuthWrapper";
 import { AppShell } from "@/components/AppShell";
 import { ProductModalProvider } from "@/components/ProductModalProvider";
 import { TimeclockTracker } from "@/components/TimeclockTracker";
+import Softphone from "@/components/Softphone";
 import "./globals.css";
 
 import { PreferencesProvider } from "@/components/PreferencesProvider";
@@ -46,6 +47,7 @@ export default function RootLayout({
                 <AppShell>
                   <TimeclockTracker />
                   {children}
+                  <Softphone />
                 </AppShell>
               </ProductModalProvider>
             </AuthWrapper>

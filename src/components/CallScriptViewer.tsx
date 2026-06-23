@@ -78,7 +78,7 @@ export function CallScriptViewer({ accountId, accountProp, contact }: { accountI
           </select>
 
           {selectedScript && (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 shadow-inner">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 shadow-inner max-h-48 overflow-y-auto scrollbar-thin">
               <p className="text-sm text-neutral-200 whitespace-pre-wrap leading-relaxed">
                 {applyMergeFields(selectedScript.content)}
               </p>

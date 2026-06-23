@@ -1,220 +1,145 @@
-"use client"
+import React from "react"
+import { PrismaClient } from "@prisma/client"
+import { getServerSession } from "next-auth/next"
+import { redirect } from "next/navigation"
 
-import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
-import { FiTrash2, FiPlus, FiSave, FiStar, FiUpload } from "react-icons/fi"
+const prisma = new PrismaClient()
 
-export default function AdminCommunicationsPage() {
-  const router = useRouter()
-  const [numbers, setNumbers] = useState<any[]>([])
-  const [users, setUsers] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+export default async function CommunicationsDashboard() {
+  const session = await getServerSession()
+  if (!session?.user?.email) {
+    redirect("/")
+  }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const text = event.target?.result as string
-      if (!text) return
-      
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0)
-      const newNumbers: any[] = []
-      
-      lines.forEach((line, i) => {
-        // Skip header row if it contains 'number' or 'phone'
-        const lowerLine = line.toLowerCase()
-        if (i === 0 && (lowerLine.includes('number') || lowerLine.includes('phone'))) return
-        
-        const parts = line.split(',')
-        if (parts.length > 0) {
-          const num = parts[0].replace(/"/g, '').trim()
-          const label = parts.length > 1 ? parts[1].replace(/"/g, '').trim() : 'Imported Line'
-          if (num) {
-             newNumbers.push({ number: num, label: label, isDefault: false })
-          }
-        }
-      })
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email }
+  })
 
-      if (newNumbers.length > 0) {
-        setNumbers(prev => {
-          const merged = [...prev, ...newNumbers]
-          if (merged.length > 0 && !merged.find(n => n.isDefault)) {
-            merged[0].isDefault = true
-          }
-          return merged
-        })
-        alert(`Imported ${newNumbers.length} numbers! Don't forget to save.`)
-      }
+  // Ensure only admins can see this
+  if (user?.role !== "ADMIN") {
+    redirect("/")
+  }
+
+  // Fetch recent call logs
+  const callLogs = await prisma.callLog.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+    include: {
+      account: { select: { name: true } },
+      author: { select: { name: true, email: true } }
     }
-    reader.readAsText(file)
-    e.target.value = ''
-  }
+  })
 
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/manage-zoho-numbers').then(r => r.json()),
-      fetch('/api/admin/users').then(r => r.json())
-    ]).then(([numsRes, usersRes]) => {
-      if (numsRes.success) setNumbers(numsRes.numbers || [])
-      if (usersRes.success) setUsers(usersRes.users || [])
-    }).finally(() => setLoading(false))
-  }, [])
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      const res = await fetch('/api/manage-zoho-numbers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ numbers })
-      })
-      if (res.ok) alert("Saved successfully!")
-      else alert("Failed to save.")
-    } catch (e: any) {
-      alert("Error: " + e.message)
-    } finally {
-      setSaving(false)
+  // Fetch recent SMS messages
+  const smsLogs = await prisma.smsMessage.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+    include: {
+      account: { select: { name: true } },
+      author: { select: { name: true, email: true } }
     }
-  }
-
-  const addNumber = () => {
-    setNumbers([...numbers, { number: '', label: '', isDefault: numbers.length === 0 }])
-  }
-
-  const updateNumber = (index: number, field: string, value: any) => {
-    const newNums = [...numbers]
-    newNums[index][field] = value
-    setNumbers(newNums)
-  }
-
-  const setAsDefault = (index: number) => {
-    const newNums = numbers.map((n, i) => ({ ...n, isDefault: i === index }))
-    setNumbers(newNums)
-  }
-
-  const deleteNumber = (index: number) => {
-    const newNums = numbers.filter((_, i) => i !== index)
-    if (newNums.length > 0 && !newNums.find(n => n.isDefault)) {
-      newNums[0].isDefault = true
-    }
-    setNumbers(newNums)
-  }
-
-  if (loading) return <div className="p-8 text-neutral-400">Loading...</div>
+  })
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-neutral-200 pb-20">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <header className="flex items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-black text-white uppercase tracking-tight">Communication Numbers</h1>
-            <p className="text-neutral-500 text-sm mt-1">Manage outbound phone numbers for SMS and Voice calls.</p>
+    <div className="p-8">
+      <h1 className="text-3xl font-bold mb-8">Communications Dashboard</h1>
+      
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        
+        {/* Call Logs */}
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+          <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+            <h2 className="text-lg font-semibold text-slate-800">Recent Call Logs</h2>
+            <p className="text-sm text-slate-500">Tracked via Zoho Voice Softphone</p>
           </div>
-          <button 
-            onClick={() => router.push('/admin')}
-            className="px-4 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-sm hover:bg-neutral-800 transition"
-          >
-            &larr; Back to Admin
-          </button>
-        </header>
-
-        <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 backdrop-blur-md">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-white">Outbound Numbers</h2>
-            <div className="flex gap-2">
-              <input 
-                type="file" 
-                accept=".csv" 
-                className="hidden" 
-                ref={fileInputRef} 
-                onChange={handleFileUpload} 
-              />
-              <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-3 py-1.5 bg-sky-600/20 text-sky-400 border border-sky-500/30 rounded-lg text-sm font-bold hover:bg-sky-600/30 transition">
-                <FiUpload /> Import CSV
-              </button>
-              <button onClick={addNumber} className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-bold hover:bg-emerald-600/30 transition">
-                <FiPlus /> Add Number
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {numbers.length === 0 && (
-              <div className="text-center py-8 text-neutral-500 bg-black/50 rounded-lg border border-neutral-800 border-dashed">
-                No outbound numbers configured.
-              </div>
-            )}
-            
-            {numbers.map((num, i) => (
-              <div key={i} className={`flex flex-col sm:flex-row gap-4 items-start sm:items-center p-4 rounded-lg border ${num.isDefault ? 'bg-emerald-900/10 border-emerald-500/30' : 'bg-black/50 border-neutral-800'}`}>
-                <div className="flex-1">
-                  <label className="text-xs text-neutral-500 block mb-1">Phone Number (e.g., +1234567890)</label>
-                  <input 
-                    value={num.number}
-                    onChange={e => updateNumber(i, 'number', e.target.value)}
-                    placeholder="+1..."
-                    className="w-full bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-neutral-500 block mb-1">Label / Description</label>
-                  <input 
-                    value={num.label}
-                    onChange={e => updateNumber(i, 'label', e.target.value)}
-                    placeholder="Main Sales Line"
-                    className="w-full bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-neutral-500 block mb-1">Assigned Users (Optional)</label>
-                  <select 
-                    multiple
-                    value={num.assignedUserIds || []}
-                    onChange={e => {
-                      const selected = Array.from(e.target.selectedOptions).map(o => o.value)
-                      updateNumber(i, 'assignedUserIds', selected)
-                    }}
-                    className="w-full bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none min-h-[80px]"
-                  >
-                    {users.map(u => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center gap-3 pt-4 sm:pt-6">
-                  <button 
-                    onClick={() => setAsDefault(i)}
-                    className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-bold transition ${num.isDefault ? 'bg-emerald-500/20 text-emerald-400' : 'text-neutral-400 hover:bg-neutral-800'}`}
-                    title="Set as Default"
-                  >
-                    <FiStar className={num.isDefault ? 'fill-emerald-400' : ''} /> {num.isDefault ? 'Default' : 'Make Default'}
-                  </button>
-                  <button 
-                    onClick={() => deleteNumber(i)}
-                    className="p-2 text-red-400 hover:bg-red-500/20 rounded transition"
-                    title="Delete"
-                  >
-                    <FiTrash2 />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8 flex justify-end border-t border-neutral-800 pt-6">
-            <button 
-              onClick={handleSave} 
-              disabled={saving}
-              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold transition disabled:opacity-50"
-            >
-              <FiSave /> {saving ? 'Saving...' : 'Save Configuration'}
-            </button>
+          <div className="flex-1 overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-slate-100/50 text-slate-500">
+                <tr>
+                  <th className="px-6 py-3 font-medium">Date</th>
+                  <th className="px-6 py-3 font-medium">Agent</th>
+                  <th className="px-6 py-3 font-medium">Account</th>
+                  <th className="px-6 py-3 font-medium">Direction</th>
+                  <th className="px-6 py-3 font-medium">Duration</th>
+                  <th className="px-6 py-3 font-medium">Status</th>
+                  <th className="px-6 py-3 font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {callLogs.map(log => (
+                  <tr key={log.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-4 text-slate-600">{new Date(log.createdAt).toLocaleString()}</td>
+                    <td className="px-6 py-4 font-medium text-slate-800">{log.author?.name || log.author?.email}</td>
+                    <td className="px-6 py-4 text-blue-600 font-medium">{log.account?.name}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${log.direction === 'INBOUND' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {log.direction}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-600">{Math.floor(log.duration / 60)}m {log.duration % 60}s</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${log.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {log.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-500 truncate max-w-xs" title={log.notes || ''}>
+                      {log.notes || '-'}
+                    </td>
+                  </tr>
+                ))}
+                {callLogs.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">No call logs found</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
+
+        {/* SMS Logs */}
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+          <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+            <h2 className="text-lg font-semibold text-slate-800">Recent SMS Logs</h2>
+            <p className="text-sm text-slate-500">Tracked via Zoho Voice SMS</p>
+          </div>
+          <div className="flex-1 overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-slate-100/50 text-slate-500">
+                <tr>
+                  <th className="px-6 py-3 font-medium">Date</th>
+                  <th className="px-6 py-3 font-medium">Agent</th>
+                  <th className="px-6 py-3 font-medium">Account</th>
+                  <th className="px-6 py-3 font-medium">Direction</th>
+                  <th className="px-6 py-3 font-medium">Message</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {smsLogs.map(log => (
+                  <tr key={log.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-4 text-slate-600">{new Date(log.createdAt).toLocaleString()}</td>
+                    <td className="px-6 py-4 font-medium text-slate-800">{log.author?.name || log.author?.email || 'System'}</td>
+                    <td className="px-6 py-4 text-blue-600 font-medium">{log.account?.name}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${log.direction === 'INBOUND' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {log.direction}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-500 truncate max-w-xs" title={log.body}>
+                      {log.body}
+                    </td>
+                  </tr>
+                ))}
+                {smsLogs.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">No SMS logs found</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
   )

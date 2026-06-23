@@ -499,14 +499,14 @@ function AccountHubContent() {
               </div>
 
               {aiViewMode === "assistant" ? (
-                <div className="flex-1 flex flex-col">
+                <div className="flex-1 flex flex-col min-h-0">
                   <SalesAssistant
                     accountId={id}
                     accountData={{ ...account, invoices, daysSinceLastPurchase, totalRevenue }}
                   />
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col min-h-[450px]">
+                <div className="flex-1 flex flex-col min-h-[450px] min-h-0">
                   <CommunicationCenter accountId={id} contacts={account.contacts} />
                 </div>
               )}

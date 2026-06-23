@@ -256,7 +256,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
       {/* ── CALL TAB ── */}
       {activeTab === "CALL" && (
         <div className="flex-1 flex flex-col min-h-0">
-          <div className="space-y-4 flex-1 flex flex-col">
+          <div className="space-y-4 flex-1 flex flex-col min-h-0">
             {/* Click to Dial */}
             {cleanPhone ? (
               <div className="text-center py-4">
@@ -290,7 +290,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
 
             <CallScriptViewer accountId={accountId} contact={primaryContact} />
 
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-h-[100px]">
               <label className="text-xs font-semibold text-neutral-400 mb-1">Call Summary & Notes</label>
               <textarea 
                 value={callNote}

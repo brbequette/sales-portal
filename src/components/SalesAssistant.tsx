@@ -71,7 +71,7 @@ export function SalesAssistant({ accountId, accountData }: { accountId: string, 
         </div>
       </div>
 
-      <div className="flex-1 space-y-4">
+      <div className="flex-1 flex flex-col min-h-0 space-y-4">
         {/* Insights Card */}
         <div className="p-4 bg-purple-900/10 border border-purple-500/20 rounded-lg">
           <h3 className="text-sm font-bold text-purple-300 mb-2">Company Insights</h3>
@@ -87,8 +87,9 @@ export function SalesAssistant({ accountId, accountData }: { accountId: string, 
         </div>
 
         {/* Script Card */}
-        <div className="p-4 bg-black/40 border border-(--border) rounded-lg flex-1">
+        <div className="p-4 bg-black/40 border border-neutral-700 rounded-lg flex-1 flex flex-col min-h-0">
           <h3 className="text-sm font-bold text-gray-200 mb-2">Suggested Sales Script</h3>
+          <div className="flex-1 overflow-y-auto scrollbar-thin">
           {isGenerating ? (
             <div className="animate-pulse space-y-2">
               <div className="h-4 bg-(--border) rounded w-3/4"></div>
@@ -100,6 +101,7 @@ export function SalesAssistant({ accountId, accountData }: { accountId: string, 
               {script || "Click 'Generate Script' to create a customized pitch for this account."}
             </p>
           )}
+          </div>
         </div>
       </div>
     </div>
