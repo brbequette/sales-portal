@@ -85,7 +85,7 @@ export default function Softphone() {
     setCallState("calling")
     
     // Trigger Zoho Voice app / ZDialer
-    window.location.href = `zdialer://${dialNumber}`
+    window.location.href = `zdialer:${dialNumber}`
 
     // Automatically transition to connected to start the call timer
     setTimeout(() => {
