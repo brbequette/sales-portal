@@ -150,14 +150,35 @@ export default function AdminTimeclockPage() {
     return Math.max(0, diffHours).toFixed(2)
   }
 
-  // Group entries by user
+  function getWeekRange(dateStr: string) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const day = d.getDay() || 7;
+    const diff = d.getDate() - day + 1;
+    const monday = new Date(d);
+    monday.setDate(diff);
+    const sunday = new Date(monday);
+    sunday.setDate(sunday.getDate() + 6);
+    const formatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+    return `${formatter.format(monday)} - ${formatter.format(sunday)}`;
+  }
+
+  // Group entries by user, then by week
   const userGroups = entries.reduce((acc, entry) => {
     const key = entry.user.id
-    if (!acc[key]) acc[key] = { user: entry.user, entries: [], totalHours: 0 }
-    acc[key].entries.push(entry)
-    acc[key].totalHours += parseFloat(calculateHours(entry))
+    if (!acc[key]) acc[key] = { user: entry.user, weeks: {} as Record<string, { entries: TimeEntry[], totalHours: number }>, totalMonthHours: 0 }
+    
+    const weekKey = getWeekRange(entry.date)
+    if (!acc[key].weeks[weekKey]) {
+      acc[key].weeks[weekKey] = { entries: [], totalHours: 0 }
+    }
+
+    const hours = parseFloat(calculateHours(entry))
+    acc[key].weeks[weekKey].entries.push(entry)
+    acc[key].weeks[weekKey].totalHours += hours
+    acc[key].totalMonthHours += hours
+
     return acc
-  }, {} as Record<string, { user: any, entries: TimeEntry[], totalHours: number }>)
+  }, {} as Record<string, { user: any, weeks: Record<string, { entries: TimeEntry[], totalHours: number }>, totalMonthHours: number }>)
 
   return (
     <div className="p-4 lg:p-8 space-y-8">
@@ -190,75 +211,84 @@ export default function AdminTimeclockPage() {
               <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
                 <h3 className="font-bold text-lg text-white">{group.user.name || group.user.email}</h3>
                 <div className="text-sm font-semibold text-emerald-400">
-                  Total Month: {group.totalHours.toFixed(2)} hrs
+                  Total Month: {group.totalMonthHours.toFixed(2)} hrs
                 </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-neutral-900/50 text-neutral-400 border-b border-white/5">
-                    <tr>
-                      <th className="px-6 py-3 font-semibold w-32">Date</th>
-                      <th className="px-6 py-3 font-semibold">Clock In</th>
-                      <th className="px-6 py-3 font-semibold">Clock Out</th>
-                      <th className="px-6 py-3 font-semibold">IP Address</th>
-                      <th className="px-6 py-3 font-semibold">Hours</th>
-                      <th className="px-6 py-3 font-semibold">Requests</th>
-                      <th className="px-6 py-3 font-semibold w-24">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {group.entries.map(entry => {
-                      const pendingRequests = entry.changeRequests.filter(r => r.status === "PENDING")
-                      
-                      return (
-                        <tr key={entry.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="px-6 py-3 font-medium">{entry.date}</td>
-                          <td className="px-6 py-3">
-                            {formatTime(entry.manualClockIn || entry.clockIn)}
-                            {entry.manualClockIn && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">●</span>}
-                          </td>
-                          <td className="px-6 py-3">
-                            {formatTime(entry.manualClockOut || entry.clockOut || entry.lastActivity)}
-                            {entry.manualClockOut && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">●</span>}
-                          </td>
-                          <td className="px-6 py-3">
-                            <span className="font-mono text-xs bg-white/5 px-2 py-1 rounded text-neutral-400">
-                              {entry.ipAddress || "Unknown"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-3 font-bold text-white">{calculateHours(entry)}</td>
-                          <td className="px-6 py-3">
-                            {pendingRequests.map(req => (
-                              <div key={req.id} className="bg-amber-500/10 border border-amber-500/20 rounded-md p-2 mb-2 last:mb-0">
-                                <div className="text-xs text-amber-400 font-semibold mb-1">{req.reason}</div>
-                                <div className="text-[10px] text-neutral-400 mb-2">
-                                  Requested: {formatTime(req.requestedClockIn)} - {formatTime(req.requestedClockOut)}
-                                  {req.notes && <div>Note: {req.notes}</div>}
-                                </div>
-                                <div className="flex gap-2">
-                                  <button onClick={() => handleRequest(entry, req, "APPROVED")} className="flex-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 text-[10px] py-1 rounded transition-colors flex items-center justify-center gap-1">
-                                    <FiCheckCircle /> Approve
+              <div className="p-4 space-y-4">
+                {Object.entries(group.weeks).sort(([a],[b]) => b.localeCompare(a)).map(([weekName, weekData]) => (
+                  <div key={weekName} className="border border-white/5 rounded-lg overflow-hidden">
+                    <div className="px-4 py-2 bg-neutral-900/50 border-b border-white/5 flex justify-between items-center">
+                      <h4 className="font-semibold text-sm text-neutral-300">Week of {weekName}</h4>
+                      <span className="text-xs font-bold text-emerald-500">{weekData.totalHours.toFixed(2)} hrs</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-black/20 text-neutral-500 border-b border-white/5 text-xs uppercase tracking-wider">
+                          <tr>
+                            <th className="px-4 py-2 font-semibold w-32">Date</th>
+                            <th className="px-4 py-2 font-semibold">Clock In</th>
+                            <th className="px-4 py-2 font-semibold">Clock Out</th>
+                            <th className="px-4 py-2 font-semibold">IP Address</th>
+                            <th className="px-4 py-2 font-semibold">Hours</th>
+                            <th className="px-4 py-2 font-semibold">Requests</th>
+                            <th className="px-4 py-2 font-semibold w-24">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {weekData.entries.map(entry => {
+                            const pendingRequests = entry.changeRequests.filter(r => r.status === "PENDING")
+                            
+                            return (
+                              <tr key={entry.id} className="hover:bg-white/[0.02] transition-colors">
+                                <td className="px-4 py-2 font-medium">{entry.date}</td>
+                                <td className="px-4 py-2">
+                                  {formatTime(entry.manualClockIn || entry.clockIn)}
+                                  {entry.manualClockIn && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">●</span>}
+                                </td>
+                                <td className="px-4 py-2">
+                                  {formatTime(entry.manualClockOut || entry.clockOut || entry.lastActivity)}
+                                  {entry.manualClockOut && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">●</span>}
+                                </td>
+                                <td className="px-4 py-2">
+                                  <span className="font-mono text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-neutral-400">
+                                    {entry.ipAddress || "Unknown"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 font-bold text-white">{calculateHours(entry)}</td>
+                                <td className="px-4 py-2">
+                                  {pendingRequests.map(req => (
+                                    <div key={req.id} className="bg-amber-500/10 border border-amber-500/20 rounded p-1.5 mb-1.5 last:mb-0">
+                                      <div className="text-[10px] text-amber-400 font-semibold mb-0.5">{req.reason}</div>
+                                      <div className="text-[9px] text-neutral-400 mb-1">
+                                        Req: {formatTime(req.requestedClockIn)} - {formatTime(req.requestedClockOut)}
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <button onClick={() => handleRequest(entry, req, "APPROVED")} className="flex-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 text-[9px] py-0.5 rounded transition-colors">
+                                          Approve
+                                        </button>
+                                        <button onClick={() => handleRequest(entry, req, "REJECTED")} className="flex-1 bg-red-500/20 hover:bg-red-500/40 text-red-400 text-[9px] py-0.5 rounded transition-colors">
+                                          Reject
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {pendingRequests.length === 0 && entry.changeRequests.some(r => r.status === "APPROVED") && (
+                                    <span className="text-[10px] text-emerald-500 flex items-center gap-1"><FiCheckCircle size={10} /> Approved</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2">
+                                  <button onClick={() => handleOpenEdit(entry)} className="text-neutral-400 hover:text-white p-1.5 rounded bg-white/5 hover:bg-white/10 transition-colors">
+                                    <FiEdit2 size={12} />
                                   </button>
-                                  <button onClick={() => handleRequest(entry, req, "REJECTED")} className="flex-1 bg-red-500/20 hover:bg-red-500/40 text-red-400 text-[10px] py-1 rounded transition-colors flex items-center justify-center gap-1">
-                                    <FiXCircle /> Reject
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                            {pendingRequests.length === 0 && entry.changeRequests.some(r => r.status === "APPROVED") && (
-                              <span className="text-xs text-emerald-500 flex items-center gap-1"><FiCheckCircle /> Change Approved</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-3">
-                            <button onClick={() => handleOpenEdit(entry)} className="text-neutral-400 hover:text-white p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-                              <FiEdit2 size={14} />
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
