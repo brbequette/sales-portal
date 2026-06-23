@@ -78,8 +78,9 @@ export default function UserTimeclockPage() {
         body: JSON.stringify({
           timeEntryId: selectedEntry.id,
           userId: currentUser.id,
-          requestedClockIn: new Date(newClockIn).toISOString(),
-          requestedClockOut: new Date(newClockOut).toISOString(),
+          userEmail: currentUser.email,
+          requestedClockIn: newClockIn ? new Date(newClockIn).toISOString() : null,
+          requestedClockOut: newClockOut ? new Date(newClockOut).toISOString() : null,
           reason: changeReason,
           notes: changeNotes
         })
