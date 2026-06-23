@@ -263,8 +263,7 @@ export default function NewTaskPage() {
               <select 
                 value={taskOwnerId} 
                 onChange={e => setTaskOwnerId(e.target.value)}
-                disabled={!isAdminUser}
-                className="w-full bg-[#111214] border border-white/15 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 cursor-pointer disabled:opacity-50"
+                className="w-full bg-[#111214] border border-white/15 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
                 <option value={currentUser?.id || ""}>Me ({currentUser?.name || "Loading..."})</option>
                 {repsList.map(r => (

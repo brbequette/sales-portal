@@ -34,7 +34,7 @@ export const handler: Handler = async (event, context) => {
 
       const ops = activeItems.map((item: any) => {
         const sku = item.sku || item.item_id
-        const img = item.image_name ? `/api/zoho-image?sku=${encodeURIComponent(sku)}` : "/images/placeholder.png"
+        const img = item.image_name ? `/api/zoho-image?id=${item.item_id}` : "/images/placeholder.png"
 
         const info = JSON.stringify({
           image: img,

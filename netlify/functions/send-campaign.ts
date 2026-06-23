@@ -158,6 +158,34 @@ export const handler: Handler = async (event, context) => {
         }
       }
 
+      // Pre-fetch MMS image if applicable so we don't fetch it repeatedly in the loop
+      const isMms = !!imageUrl
+      let preFetchedImageBuffer: Buffer | null = null
+      let preFetchedImageContentType = 'image/jpeg'
+      let preFetchedImageExt = 'jpg'
+
+      if (isMms) {
+        try {
+          if (imageUrl.startsWith('data:')) {
+            const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/)
+            if (match) {
+              preFetchedImageContentType = match[1]
+              preFetchedImageBuffer = Buffer.from(match[2], 'base64')
+              preFetchedImageExt = preFetchedImageContentType.split('/')[1] || 'jpg'
+            }
+          } else {
+            const imgRes = await fetch(imageUrl)
+            if (imgRes.ok) {
+              preFetchedImageBuffer = Buffer.from(await imgRes.arrayBuffer())
+              preFetchedImageContentType = imgRes.headers.get('content-type') || 'image/jpeg'
+              preFetchedImageExt = preFetchedImageContentType.split('/')[1] || 'jpg'
+            }
+          }
+        } catch (err) {
+          console.error("Error pre-fetching MMS media:", err)
+        }
+      }
+
       for (const account of accounts) {
         // Check daily limit for this account
         const recentLogs = await prisma.campaignLog.count({
@@ -203,7 +231,6 @@ export const handler: Handler = async (event, context) => {
         try {
           const zohoVoiceUrl = `https://voice.zoho.${process.env.ZOHO_DC || 'com'}/rest/json/v2/sms/send`
           
-          const isMms = !!imageUrl
           const smsData = {
             customerNumber: phoneNumber,
             message: text || campaignName || 'Titan Diamond Update',
@@ -214,37 +241,11 @@ export const handler: Handler = async (event, context) => {
           const formData = new FormData()
           formData.append('sms_data', JSON.stringify(smsData))
 
-          if (isMms) {
-            try {
-              let fileBuffer: Buffer | null = null
-              let contentType = 'image/jpeg'
-              let ext = 'jpg'
-              
-              if (imageUrl.startsWith('data:')) {
-                const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/)
-                if (match) {
-                  contentType = match[1]
-                  fileBuffer = Buffer.from(match[2], 'base64')
-                  ext = contentType.split('/')[1] || 'jpg'
-                }
-              } else {
-                const imgRes = await fetch(imageUrl)
-                if (imgRes.ok) {
-                  fileBuffer = Buffer.from(await imgRes.arrayBuffer())
-                  contentType = imgRes.headers.get('content-type') || 'image/jpeg'
-                  ext = contentType.split('/')[1] || 'jpg'
-                }
-              }
-              
-              if (fileBuffer) {
-                formData.append('mms_media', fileBuffer, {
-                  filename: `attachment.${ext}`,
-                  contentType: contentType
-                })
-              }
-            } catch (err) {
-              console.error("Error attaching MMS media:", err)
-            }
+          if (isMms && preFetchedImageBuffer) {
+            formData.append('mms_media', preFetchedImageBuffer, {
+              filename: `attachment.${preFetchedImageExt}`,
+              contentType: preFetchedImageContentType
+            })
           }
 
           const smsRes = await fetch(zohoVoiceUrl, {
@@ -296,6 +297,9 @@ export const handler: Handler = async (event, context) => {
                zohoNumberUsed: fromNumber
              })
           }
+          // Add a small delay to avoid hitting rate limits
+          await new Promise(resolve => setTimeout(resolve, 200))
+
         } catch (e: any) {
           console.error(`Error sending SMS to ${phoneNumber}:`, e)
           failedCount++

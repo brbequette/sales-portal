@@ -6,8 +6,9 @@ import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { usePagination, Pagination } from "@/components/Pagination"
-import { FiDollarSign, FiRefreshCw, FiChevronDown, FiChevronUp, FiTrendingUp, FiUsers, FiBarChart2, FiAward, FiFilter, FiX, FiSearch, FiFileText } from "react-icons/fi"
+import { FiDollarSign, FiRefreshCw, FiChevronDown, FiChevronUp, FiTrendingUp, FiUsers, FiBarChart2, FiAward, FiFilter, FiX, FiSearch, FiFileText, FiPhoneCall } from "react-icons/fi"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
+import { SalesCallCampaignModal } from "@/components/SalesCallCampaignModal"
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0)
@@ -110,12 +111,13 @@ function stageColor(stage: string) {
 }
 
 // ── Rep Card ───────────────────────────────────────────────────────────
-function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger }: {
+function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, onStartCampaign }: {
   rep: RepSummary,
   isAdmin: boolean,
   onViewInvoice?: (id: string) => void,
   onManagePayouts: (rep: RepSummary) => void,
-  onViewLedger: (rep: RepSummary) => void
+  onViewLedger: (rep: RepSummary) => void,
+  onStartCampaign?: (rep: RepSummary) => void
 }) {
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<"invoices" | "pipeline">("invoices")
@@ -225,7 +227,15 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger }:
             </div>
           </div>
 
-          <div className="px-5 py-3 border-b border-neutral-800 bg-neutral-900/50 flex justify-end">
+          <div className="px-5 py-3 border-b border-neutral-800 bg-neutral-900/50 flex justify-end gap-2">
+            {onStartCampaign && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onStartCampaign(rep); }}
+                className="flex items-center gap-1.5 text-xs font-bold text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500/30 px-3 py-1.5 rounded transition-colors"
+              >
+                <FiPhoneCall /> Call Campaign
+              </button>
+            )}
             <button
               onClick={(e) => { e.stopPropagation(); onManagePayouts(rep); }}
               className="text-xs font-bold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 rounded transition-colors"
@@ -476,6 +486,8 @@ export default function CommissionsPage() {
   const [editingPayoutId, setEditingPayoutId] = useState<string | null>(null)
   const [payoutMethod, setPayoutMethod] = useState("Check")
   const [viewingLedgerFor, setViewingLedgerFor] = useState<RepSummary | null>(null)
+  const [campaignAccounts, setCampaignAccounts] = useState<any[]>([])
+  const [isCampaignLoading, setIsCampaignLoading] = useState(false)
 
   const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
 
@@ -589,6 +601,37 @@ export default function CommissionsPage() {
     setPayoutAmount("")
     setPayoutMethod("Check")
     setPayoutNotes("")
+  }
+
+  const handleStartCampaign = async (rep: RepSummary) => {
+    setIsCampaignLoading(true)
+    try {
+      const unpaidInvoices = rep.invoices.filter(i => !i.isPaid && i.accountZohoId)
+      const accountIds = Array.from(new Set(unpaidInvoices.map(i => i.accountZohoId)))
+
+      if (accountIds.length === 0) {
+        alert("No unpaid invoices with valid accounts found for this rep.")
+        return
+      }
+
+      const res = await fetch("/api/get-accounts")
+      const json = await res.json()
+      if (json.success && json.accounts) {
+        const campaignAccs = json.accounts.filter((a: any) => accountIds.includes(a.zohoId || a.id))
+        if (campaignAccs.length > 0) {
+          setCampaignAccounts(campaignAccs)
+        } else {
+          alert("No matching accounts found in the database.")
+        }
+      } else {
+        alert("Failed to load accounts for the campaign.")
+      }
+    } catch (e) {
+      console.error(e)
+      alert("Error starting campaign.")
+    } finally {
+      setIsCampaignLoading(false)
+    }
   }
 
   const fetchData = useCallback(async () => {
@@ -837,6 +880,7 @@ export default function CommissionsPage() {
                     onViewInvoice={setViewingInvoiceZohoId} 
                     onManagePayouts={setManagingPayoutsFor}
                     onViewLedger={setViewingLedgerFor}
+                    onStartCampaign={handleStartCampaign}
                   />
                 ))
             )}
@@ -1091,6 +1135,14 @@ export default function CommissionsPage() {
         </div>,
         document.body
       )}
+
+    {campaignAccounts.length > 0 && (
+      <SalesCallCampaignModal
+        accounts={campaignAccounts}
+        onClose={() => setCampaignAccounts([])}
+        onRefresh={() => fetchData()}
+      />
+    )}
 
     </div>
   )

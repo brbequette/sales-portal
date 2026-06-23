@@ -20,6 +20,9 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
   // Modals state
   const [showPackageModal, setShowPackageModal] = useState(false)
   const [showDropshipmentModal, setShowDropshipmentModal] = useState(false)
+  
+  // Discount state
+  const [discountPercentage, setDiscountPercentage] = useState<number>(5)
 
   // Determine the base zoho ID and any existing data
   const isString = typeof invoice === "string"
@@ -82,7 +85,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
   }
 
   const handleApplyDiscount = async () => {
-    if (!confirm("Are you sure you want to apply a 5% early payment discount?")) return
+    if (!confirm(`Are you sure you want to apply a ${discountPercentage}% early payment discount?`)) return
     setIsConverting(true)
     try {
       const res = await fetch("/api/zoho-apply-discount", {
@@ -90,7 +93,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           invoiceId: zohoId,
-          remove: false
+          remove: false,
+          discountPercentage
         })
       })
       const data = await res.json()
@@ -182,15 +186,26 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
               </div>
             )}
 
-            {type === "Invoice" && (
-              <button
-                onClick={handleApplyDiscount}
-                disabled={isConverting}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow shadow-blue-900/20 disabled:opacity-50 flex items-center gap-1.5 mr-2"
-              >
-                {isConverting ? <FiRefreshCw className="animate-spin" /> : <FiDatabase />}
-                5% Payoff Discount
-              </button>
+            {type === "Invoice" && displayData?.status?.toLowerCase() !== 'overdue' && (
+              <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-lg p-1 mr-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={discountPercentage}
+                  onChange={(e) => setDiscountPercentage(Number(e.target.value))}
+                  className="w-12 bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded px-1.5 py-1 text-center focus:outline-none focus:border-blue-500"
+                />
+                <span className="text-xs text-neutral-400 font-bold mr-1">%</span>
+                <button
+                  onClick={handleApplyDiscount}
+                  disabled={isConverting}
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-2 py-1 rounded text-xs transition-colors shadow shadow-blue-900/20 disabled:opacity-50 flex items-center gap-1"
+                >
+                  {isConverting ? <FiRefreshCw className="animate-spin" /> : <FiDatabase />}
+                  Payoff Discount
+                </button>
+              </div>
             )}
             <a
               href={`/api/get-invoice-pdf?id=${zohoId}&type=${type}&download=true`}

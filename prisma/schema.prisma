@@ -352,3 +352,13 @@ model SmsMessage {
   @@index([accountId])
   @@index([campaignBlastId])
 }
+
+model CallScript {
+  id        String   @id @default(cuid())
+  name      String
+  callType  String   // e.g., "Intro", "Follow-up", "Collections", "General"
+  content   String   // The text with merge fields
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

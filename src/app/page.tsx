@@ -1982,8 +1982,7 @@ export default function Dashboard() {
                   <select 
                     value={taskOwnerId} 
                     onChange={e => setTaskOwnerId(e.target.value)}
-                    disabled={!isAdminUser}
-                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer disabled:opacity-50"
+                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                   >
                     <option value={currentUser?.id}>Me ({currentUser?.name})</option>
                     {repsList.map(r => (

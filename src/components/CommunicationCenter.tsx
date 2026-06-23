@@ -6,6 +6,7 @@ import {
   FiPhoneCall, FiMail, FiMessageSquare, FiCheckCircle, 
   FiAlertCircle, FiSend, FiMessageCircle 
 } from "react-icons/fi"
+import { CallScriptViewer } from "./CallScriptViewer"
 
 type Message = {
   id: string
@@ -286,6 +287,8 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
                 <input type="date" value={reminderDate} onChange={e => setReminderDate(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm focus:outline-none focus:border-blue-500 text-neutral-300" />
               </div>
             </div>
+
+            <CallScriptViewer accountId={accountId} contact={primaryContact} />
 
             <div className="flex-1 flex flex-col">
               <label className="text-xs font-semibold text-neutral-400 mb-1">Call Summary & Notes</label>

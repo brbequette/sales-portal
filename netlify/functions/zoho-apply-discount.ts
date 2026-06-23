@@ -24,7 +24,7 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Invalid JSON" }) }
   }
 
-  const { invoiceId, remove } = body
+  const { invoiceId, remove, discountPercentage = 5 } = body
   if (!invoiceId) {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing invoiceId" }) }
   }
@@ -94,14 +94,14 @@ export const handler: Handler = async (event) => {
         rate: item.rate,
         quantity: item.quantity,
         tax_id: item.tax_id,
-        discount: remove ? 0 : "5%"
+        discount: remove ? 0 : `${discountPercentage}%`
       })),
       shipping_charge: invoice.shipping_charge || 0,
       discount_type: "item_level",
       is_discount_before_tax: !remove,
       adjustment: adjustment,
       adjustment_description: adjustmentDescription,
-      reason: remove ? "Removing 5% early payment discount." : "Applying 5% early payment discount as agreed with customer."
+      reason: remove ? `Removing early payment discount.` : `Applying ${discountPercentage}% early payment discount as agreed with customer.`
     }
 
     const updateRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {

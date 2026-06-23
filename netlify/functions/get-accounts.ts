@@ -155,17 +155,63 @@ export const handler: Handler = async (event, context) => {
           usersToSync = dbUsers.filter(u => u.zohoId && !u.zohoId.startsWith('mock-zoho') && !u.zohoId.startsWith('auto'))
         }
 
-        console.log(`Syncing accounts from Zoho CRM for ${usersToSync.length} representatives...`)
+        const fullPull = event.queryStringParameters?.full === 'true' || event.queryStringParameters?.refresh === 'true';
+        const baseUrlAccounts = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`;
+        const baseUrlContacts = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts`;
+        const baseUrlDeals = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Deals`;
+        const baseUrlInvoices = `https://www.zohoapis.${ZOHO_DC}/crm/v3/CustomModule5001`;
+        const baseUrlNotes = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Notes`;
+
+        let globalAccounts: any[] = [];
+        let globalContacts: any[] = [];
+        let globalDeals: any[] = [];
+        let globalInvoices: any[] = [];
+        let globalNotes: any[] = [];
+
+        if (!fullPull) {
+          console.log(`Performing fast global incremental pull for updated records...`)
+          const headers = { Authorization: `Zoho-oauthtoken ${token}` };
+          const fetchRecent = async (url: string) => {
+            let results: any[] = [];
+            try {
+              for (let p = 1; p <= 3; p++) {
+                const res = await fetch(`${url}?sort_by=Modified_Time&sort_order=desc&per_page=200&page=${p}`, { headers });
+                if (!res.ok) break;
+                const data = await res.json();
+                if (data.data) results = [...results, ...data.data];
+                if (!data.info || !data.info.more_records) break;
+              }
+            } catch (e) {
+              console.error(`Failed to fetch recent from ${url}`, e);
+            }
+            return results;
+          };
+
+          [globalAccounts, globalContacts, globalDeals, globalInvoices, globalNotes] = await Promise.all([
+            fetchRecent(baseUrlAccounts),
+            fetchRecent(baseUrlContacts),
+            fetchRecent(baseUrlDeals),
+            fetchRecent(baseUrlInvoices),
+            fetchRecent(baseUrlNotes)
+          ]);
+        }
+
+        console.log(`Syncing Zoho CRM for ${usersToSync.length} representatives (Full Pull: ${fullPull})...`)
 
         for (const syncUser of usersToSync) {
           if (!syncUser.zohoId) continue;
           
-          const baseUrl = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`;
+          const baseUrl = baseUrlAccounts;
           
           // Search Zoho CRM for Accounts assigned to this user, paginating to get all of them
           let page = 1;
           let zohoAccounts: any[] = [];
           let hasMore = true;
+
+          if (!fullPull) {
+            zohoAccounts = globalAccounts.filter(a => a.Owner?.id === syncUser.zohoId);
+            hasMore = false;
+          }
 
           while (hasMore) {
             const searchRes = await fetch(`${baseUrl}/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${page}&per_page=200`, {
@@ -377,10 +423,16 @@ export const handler: Handler = async (event, context) => {
                 let hasMoreInvoices = true;
                 let syncedInvoicesCount = 0;
                 const MAX_INVOICE_PAGES = 5;
+                let zohoInvoices: any[] = [];
 
-                while (hasMoreInvoices && invoicePage <= MAX_INVOICE_PAGES) {
+                if (!fullPull) {
+                  zohoInvoices = globalInvoices.filter(i => i.Owner?.id === syncUser.zohoId);
+                  hasMoreInvoices = false;
+                }
+
+                while (hasMoreInvoices) {
                   const invoiceRes = await fetch(
-                    `https://www.zohoapis.${ZOHO_DC}/crm/v3/CustomModule5001/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${invoicePage}`,
+                    `https://www.zohoapis.${ZOHO_DC}/crm/v3/Invoices/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${invoicePage}&per_page=200`,
                     { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
                   );
 
@@ -389,10 +441,14 @@ export const handler: Handler = async (event, context) => {
                   }
 
                   const invoiceData = await invoiceRes.json();
-                  const zohoInvoices = (invoiceData as any).data || [];
+                  const pageInvoices = (invoiceData as any).data || [];
+                  zohoInvoices = [...zohoInvoices, ...pageInvoices];
                   
-                  if (zohoInvoices.length === 0) break;
+                  if (invoiceData.info && invoiceData.info.more_records) invoicePage++;
+                  else hasMoreInvoices = false;
+                }
 
+                if (zohoInvoices.length > 0) {
                   const invoiceOps = [];
                   for (const invRecord of zohoInvoices) {
                     const accountZohoId = invRecord.Account_Name?.id;
@@ -453,13 +509,71 @@ export const handler: Handler = async (event, context) => {
                     await prisma.$transaction(chunk);
                     syncedInvoicesCount += chunk.length;
                   }
-
-                  hasMoreInvoices = (invoiceData as any).info?.more_records || false;
-                  invoicePage++;
                 }
                 console.log(`Synced ${syncedInvoicesCount} invoices for owner ${syncUser.zohoId}.`);
               } catch (invError) {
                 console.error("Failed to sync invoices:", invError);
+              }
+
+              // Sync Deals
+              try {
+                let dealPage = 1;
+                let hasMoreDeals = true;
+                let zohoDeals: any[] = [];
+
+                if (!fullPull) {
+                  zohoDeals = globalDeals.filter(d => d.Owner?.id === syncUser.zohoId);
+                  hasMoreDeals = false;
+                }
+
+                while (hasMoreDeals) {
+                  const dealsRes = await fetch(
+                    `https://www.zohoapis.${ZOHO_DC}/crm/v3/Deals/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${dealPage}&per_page=200`,
+                    { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                  );
+                  if (!dealsRes.ok) break;
+
+                  const dealsData = await dealsRes.json();
+                  const pageDeals = (dealsData as any).data || [];
+                  zohoDeals = [...zohoDeals, ...pageDeals];
+
+                  if (dealsData.info && dealsData.info.more_records) dealPage++;
+                  else hasMoreDeals = false;
+                }
+
+                if (zohoDeals.length > 0) {
+                  const dealOps = [];
+                  for (const dealRecord of zohoDeals) {
+                    const accountZohoId = dealRecord.Account_Name?.id;
+                    const dbAccountId = accountZohoId ? accountMap.get(accountZohoId) : null;
+                    if (dbAccountId) {
+                      dealOps.push(
+                        prisma.deal.upsert({
+                          where: { zohoId: dealRecord.id },
+                          update: {
+                            name: dealRecord.Deal_Name,
+                            amount: parseFloat(dealRecord.Amount || 0),
+                            stage: dealRecord.Stage,
+                            closingDate: dealRecord.Closing_Date ? new Date(dealRecord.Closing_Date) : null,
+                          },
+                          create: {
+                            zohoId: dealRecord.id,
+                            accountId: dbAccountId,
+                            name: dealRecord.Deal_Name,
+                            amount: parseFloat(dealRecord.Amount || 0),
+                            stage: dealRecord.Stage,
+                            closingDate: dealRecord.Closing_Date ? new Date(dealRecord.Closing_Date) : null,
+                          }
+                        })
+                      );
+                    }
+                  }
+                  for (let i = 0; i < dealOps.length; i += 50) {
+                    await prisma.$transaction(dealOps.slice(i, i + 50));
+                  }
+                }
+              } catch (dealErr) {
+                console.error("Failed to sync deals:", dealErr);
               }
 
               // Sync Sales Orders from Zoho Books — once per full sync
@@ -592,7 +706,12 @@ export const handler: Handler = async (event, context) => {
                 let contactPage = 1;
                 let hasMoreContacts = true;
                 let syncedContactsCount = 0;
-                const MAX_CONTACT_PAGES = 3;
+                let zohoContacts: any[] = [];
+
+                if (!fullPull) {
+                  zohoContacts = globalContacts.filter(c => c.Owner?.id === syncUser.zohoId);
+                  hasMoreContacts = false;
+                }
 
                 const localContactsBefore = await prisma.contact.findMany({
                   where: { accountId: { in: Array.from(accountMap.values()) } },
@@ -605,9 +724,9 @@ export const handler: Handler = async (event, context) => {
                   if (c.phone) seenContactPhones.add(`${c.accountId}-${c.phone.trim()}`);
                 });
 
-                while (hasMoreContacts && contactPage <= MAX_CONTACT_PAGES) {
+                while (hasMoreContacts) {
                   const contactRes = await fetch(
-                    `https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${contactPage}`,
+                    `https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${contactPage}&per_page=200`,
                     { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
                   );
 
@@ -616,10 +735,14 @@ export const handler: Handler = async (event, context) => {
                   }
 
                   const contactData = await contactRes.json();
-                  const zohoContacts = (contactData as any).data || [];
-                  
-                  if (zohoContacts.length === 0) break;
+                  const pageContacts = (contactData as any).data || [];
+                  zohoContacts = [...zohoContacts, ...pageContacts];
 
+                  if (contactData.info && contactData.info.more_records) contactPage++;
+                  else hasMoreContacts = false;
+                }
+
+                if (zohoContacts.length > 0) {
                   const contactOps = [];
                   for (const contactRecord of zohoContacts) {
                     const accountZohoId = contactRecord.Account_Name?.id;

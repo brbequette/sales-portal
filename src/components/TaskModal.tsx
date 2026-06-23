@@ -267,8 +267,7 @@ export function TaskModal({
             <select 
               value={taskOwnerId} 
               onChange={e => setTaskOwnerId(e.target.value)}
-              disabled={!isAdminUser}
-              className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer disabled:opacity-50"
+              className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
               <option value={currentUser?.id || ""}>Me ({currentUser?.name || "Loading..."})</option>
               {repsList.map(r => (

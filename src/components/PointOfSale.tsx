@@ -94,13 +94,15 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
     fetchUsers()
   }, [currentUser])
 
-  const categories = ["All", ...Array.from(new Set(products.map((p) => p.category))).sort()]
+  const categories = ["All", ...Array.from(new Set(products.map((p) => p.category || "Uncategorized"))).sort()]
 
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.sku || "").toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = activeCategory === "All" || p.category === activeCategory
+      (p.sku || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.description || "").toLowerCase().includes(searchQuery.toLowerCase())
+    
+    const matchesCategory = activeCategory === "All" || (p.category || "Uncategorized") === activeCategory
     
     let isActive = true
     if (p.description) {
