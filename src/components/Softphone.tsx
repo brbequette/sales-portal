@@ -84,28 +84,14 @@ export default function Softphone() {
     if (!dialNumber) return
     setCallState("calling")
     
-    try {
-      const res = await fetch("/api/calls/make", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          toNumber: dialNumber,
-          accountId: contextAccountId
-        })
-      })
-      
-      const data = await res.json()
-      if (data.success) {
-        setCallState("connected")
-        setCurrentCallId(data.zohoCallId)
-      } else {
-        alert("Call failed: " + data.error)
-        setCallState("idle")
-      }
-    } catch (err) {
-      alert("Error initiating call")
-      setCallState("idle")
-    }
+    // Trigger Zoho Voice app / ZDialer
+    window.location.href = `zdialer://${dialNumber}`
+
+    // Automatically transition to connected to start the call timer
+    setTimeout(() => {
+      setCallState("connected")
+      setCurrentCallId(`z_ext_${Date.now()}`)
+    }, 1000)
   }
 
   const handleEndCall = () => {
