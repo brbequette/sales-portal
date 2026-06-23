@@ -252,13 +252,13 @@ function AccountHubContent() {
                       <span>Account Profile &amp; Addresses</span>
                     </h3>
                     {account.crmDetails.Phone && (
-                      <a
-                        href={`zdialer:${account.crmDetails.Phone.replace(/[^0-9+]/g, '')}`}
+                      <button
+                        onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: account.crmDetails.Phone.replace(/[^0-9+]/g, ''), tab: 'dialer' } }))}
                         className="text-xs text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1.5"
                         title="Click to dial account main line"
                       >
                         📞 Dial Main: {account.crmDetails.Phone}
-                      </a>
+                      </button>
                     )}
                   </div>
 
@@ -302,12 +302,12 @@ function AccountHubContent() {
                         <div>
                           <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Phone</span>
                           {account.crmDetails.Phone ? (
-                            <a
-                              href={`zdialer:${account.crmDetails.Phone.replace(/[^0-9+]/g, '')}`}
-                              className="text-blue-450 hover:underline font-bold font-mono truncate block"
+                            <button
+                              onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: account.crmDetails.Phone.replace(/[^0-9+]/g, ''), tab: 'dialer' } }))}
+                              className="text-blue-450 hover:underline font-bold font-mono truncate block text-left"
                             >
                               {account.crmDetails.Phone}
-                            </a>
+                            </button>
                           ) : (
                             <span className="text-neutral-200 font-bold block">—</span>
                           )}

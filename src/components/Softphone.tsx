@@ -50,6 +50,22 @@ export default function Softphone() {
     }
   }, [callState])
 
+  // Global Event Listener
+  useEffect(() => {
+    const handleOpenSoftphone = (e: any) => {
+      setIsOpen(true)
+      if (e.detail?.number) {
+        setDialNumber(e.detail.number)
+      }
+      if (e.detail?.tab) {
+        setActiveTab(e.detail.tab)
+      }
+    }
+    
+    window.addEventListener("open-softphone", handleOpenSoftphone)
+    return () => window.removeEventListener("open-softphone", handleOpenSoftphone)
+  }, [])
+
   const formatDuration = (sec: number) => {
     const m = Math.floor(sec / 60)
     const s = sec % 60
@@ -142,7 +158,7 @@ export default function Softphone() {
   }
 
   return (
-    <div className="fixed bottom-0 right-6 w-80 bg-slate-900 border border-slate-700 rounded-t-xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-300" style={{ height: "550px" }}>
+    <div className="fixed bottom-0 right-6 w-80 bg-slate-900 border border-slate-700 rounded-t-xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-300" style={{ height: "650px", maxHeight: "85vh" }}>
       {/* Header */}
       <div className="bg-slate-800 p-3 flex justify-between items-center border-b border-slate-700 cursor-pointer" onClick={() => setIsOpen(false)}>
         <div className="flex items-center gap-2">
@@ -177,10 +193,10 @@ export default function Softphone() {
       </div>
 
       {/* Body */}
-      <div className="flex-1 bg-slate-950 p-4 flex flex-col relative">
+      <div className="flex-1 bg-slate-950 p-4 flex flex-col relative overflow-y-auto overflow-x-hidden scrollbar-thin">
         
         {activeTab === "dialer" && (
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full min-h-[500px]">
             {callState === "wrapup" ? (
               <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-bottom-4">
                 <h3 className="text-white font-medium mb-4">Call Wrap-up</h3>
@@ -253,7 +269,7 @@ export default function Softphone() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex justify-center gap-6 mt-auto">
+                <div className="flex justify-center gap-6 mt-auto pb-6">
                   {callState === "idle" && (
                     <button 
                       onClick={handleInitiateCall}

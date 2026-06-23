@@ -1384,9 +1384,9 @@ export default function Dashboard() {
                             </div>
                             <div className="flex items-center gap-1.5">
                               {cleanPhone ? (
-                                <a href={`zdialer:${cleanPhone}`} className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
+                                <button onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, tab: 'dialer' } })) }} className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
                                   <FiPhoneCall size={12} />
-                                </a>
+                                </button>
                               ) : (
                                 <button className="p-1.5 bg-neutral-800 rounded-full text-neutral-400 opacity-40 cursor-not-allowed" disabled>
                                   <FiPhoneCall size={12} />

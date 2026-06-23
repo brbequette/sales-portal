@@ -192,7 +192,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
-                          window.dispatchEvent(new CustomEvent("inAppDial", { detail: { phone: c.phone || c.mobilePhone, contact: c } }))
+                          window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: c.phone || c.mobilePhone, tab: 'dialer' } }))
                         }}
                         className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-blue-455 cursor-pointer"
                       >
@@ -204,7 +204,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
-                          window.dispatchEvent(new CustomEvent("inAppSms", { detail: { phone: c.phone || c.mobilePhone, contact: c } }))
+                          window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: c.phone || c.mobilePhone, tab: 'sms' } }))
                         }}
                         className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-emerald-455 cursor-pointer"
                       >
@@ -212,9 +212,9 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                         Text
                       </button>
                       <span className="text-neutral-500 font-mono text-[9px] ml-1">
-                        (<a href={`zdialer:${(c.phone || c.mobilePhone || '').replace(/[^0-9+]/g, '')}`} className="text-blue-400 hover:underline">
+                        (<button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: c.phone || c.mobilePhone, tab: 'dialer' } })) }} className="text-blue-400 hover:underline">
                           {c.phone || c.mobilePhone}
-                        </a>)
+                        </button>)
                       </span>
                     </div>
                   )}
@@ -347,20 +347,20 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Office Phone</span>
                     {selectedContact.phone ? (
                       <div className="flex items-center gap-3">
-                        <a
-                          href={`zdialer:${selectedContact.phone.replace(/[^0-9+]/g, '')}`}
+                        <button
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: selectedContact.phone, tab: 'dialer' } }))}
                           className="text-xs text-blue-400 hover:underline font-mono"
                         >
                           {selectedContact.phone}
-                        </a>
+                        </button>
                         <button
-                          onClick={() => window.dispatchEvent(new CustomEvent("inAppDial", { detail: { phone: selectedContact.phone, contact: selectedContact } }))}
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: selectedContact.phone, tab: 'dialer' } }))}
                           className="text-[10px] text-blue-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                         >
                           Call
                         </button>
                         <button
-                          onClick={() => window.dispatchEvent(new CustomEvent("inAppSms", { detail: { phone: selectedContact.phone, contact: selectedContact } }))}
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: selectedContact.phone, tab: 'sms' } }))}
                           className="text-[10px] text-emerald-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                         >
                           Text
@@ -374,20 +374,20 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Mobile Phone</span>
                     {selectedContact.mobilePhone ? (
                       <div className="flex items-center gap-3">
-                        <a
-                          href={`zdialer:${selectedContact.mobilePhone.replace(/[^0-9+]/g, '')}`}
+                        <button
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: selectedContact.mobilePhone, tab: 'dialer' } }))}
                           className="text-xs text-blue-400 hover:underline font-mono"
                         >
                           {selectedContact.mobilePhone}
-                        </a>
+                        </button>
                         <button
-                          onClick={() => window.dispatchEvent(new CustomEvent("inAppDial", { detail: { phone: selectedContact.mobilePhone, contact: selectedContact } }))}
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: selectedContact.mobilePhone, tab: 'dialer' } }))}
                           className="text-[10px] text-blue-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                         >
                           Call
                         </button>
                         <button
-                          onClick={() => window.dispatchEvent(new CustomEvent("inAppSms", { detail: { phone: selectedContact.mobilePhone, contact: selectedContact } }))}
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: selectedContact.mobilePhone, tab: 'sms' } }))}
                           className="text-[10px] text-emerald-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                         >
                           Text
