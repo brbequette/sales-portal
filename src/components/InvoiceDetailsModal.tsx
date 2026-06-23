@@ -81,6 +81,32 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
     }
   }
 
+  const handleApplyDiscount = async () => {
+    if (!confirm("Are you sure you want to apply a 5% early payment discount?")) return
+    setIsConverting(true)
+    try {
+      const res = await fetch("/api/zoho-apply-discount", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoiceId: zohoId,
+          remove: false
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert("Discount applied successfully!")
+        onClose()
+      } else {
+        alert(`Failed to apply discount: ${data.message || data.error}`)
+      }
+    } catch (e: any) {
+      alert(`Error applying discount: ${e.message}`)
+    } finally {
+      setIsConverting(false)
+    }
+  }
+
   return createPortal(
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose} />
@@ -156,6 +182,16 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
               </div>
             )}
 
+            {type === "Invoice" && (
+              <button
+                onClick={handleApplyDiscount}
+                disabled={isConverting}
+                className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow shadow-blue-900/20 disabled:opacity-50 flex items-center gap-1.5 mr-2"
+              >
+                {isConverting ? <FiRefreshCw className="animate-spin" /> : <FiDatabase />}
+                5% Payoff Discount
+              </button>
+            )}
             <a
               href={`/api/get-invoice-pdf?id=${zohoId}&type=${type}&download=true`}
               target="_blank"

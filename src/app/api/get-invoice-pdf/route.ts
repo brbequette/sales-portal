@@ -22,7 +22,13 @@ async function executeNetlifyFunction(req: NextRequest) {
       const location = result.headers?.Location || result.headers?.location;
       if (location) return NextResponse.redirect(location);
     }
-    return new NextResponse(result.body || '', {
+    
+    let bodyData: any = result.body || '';
+    if (result.isBase64Encoded && typeof result.body === 'string') {
+      bodyData = Buffer.from(result.body, 'base64');
+    }
+
+    return new NextResponse(bodyData, {
       status: result.statusCode || 200,
       headers: result.headers || { 'Content-Type': 'application/json' },
     });
