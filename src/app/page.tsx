@@ -2147,6 +2147,25 @@ export default function Dashboard() {
                 ))}
               </div>
 
+              {/* Sender Number Selection (SMS Only) */}
+              {campaignChannel === "SMS" && zohoNumbers.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Sender Number *</label>
+                  <select
+                    value={selectedZohoNumber}
+                    onChange={e => setSelectedZohoNumber(e.target.value)}
+                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    required
+                  >
+                    {zohoNumbers.map(n => (
+                      <option key={n.number} value={n.number}>
+                        {n.name} ({n.number})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* AI Magic */}
               <div className="bg-purple-900/20 border border-purple-500/30 p-4 rounded-xl space-y-3">
                 <div className="flex items-center gap-2 text-purple-400 font-bold text-sm">
