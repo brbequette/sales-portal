@@ -32,7 +32,7 @@ export default function UserTimeclockPage() {
     if (!currentUser?.id) return
     const fetchEntries = async () => {
       try {
-        const res = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id}`, { cache: 'no-store' })
+        const res = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id}&email=${encodeURIComponent(currentUser.email || '')}`, { cache: 'no-store' })
         const data = await res.json()
         if (data.success) {
           setEntries(data.entries)

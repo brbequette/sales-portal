@@ -4,10 +4,21 @@ import { prisma } from "@/lib/prisma"
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { userId, action } = body // action is 'clockIn' or 'clockOut'
+    const { userId, action, email, name } = body // action is 'clockIn' or 'clockOut'
 
-    if (!userId || !action) {
-      return NextResponse.json({ success: false, error: "Missing userId or action" }, { status: 400 })
+    if ((!userId && !email) || !action) {
+      return NextResponse.json({ success: false, error: "Missing userId, email, or action" }, { status: 400 })
+    }
+
+    let finalUserId = userId
+    if (email) {
+      let dbUser = await prisma.user.findUnique({ where: { email } })
+      if (!dbUser) {
+        dbUser = await prisma.user.create({
+          data: { email, name: name || "Zoho User", role: "AGENT", password: "" }
+        })
+      }
+      finalUserId = dbUser.id
     }
 
     const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || req.headers.get("cf-connecting-ip") || "Unknown"
@@ -27,7 +38,7 @@ export async function POST(req: Request) {
 
     const existing = await prisma.timeEntry.findUnique({
       where: {
-        userId_date: { userId, date: phoenixDate }
+        userId_date: { userId: finalUserId, date: phoenixDate }
       }
     })
 
@@ -35,7 +46,7 @@ export async function POST(req: Request) {
       // If no entry exists yet, ping must run first, or we create one
       const entry = await prisma.timeEntry.create({
         data: {
-          userId,
+          userId: finalUserId,
           date: phoenixDate,
           clockIn: now,
           lastActivity: now,

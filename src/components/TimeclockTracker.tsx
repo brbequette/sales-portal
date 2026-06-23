@@ -32,7 +32,11 @@ export function TimeclockTracker() {
         await fetch("/api/timeclock/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: currentUser.id })
+          body: JSON.stringify({ 
+            userId: currentUser.id,
+            email: currentUser.email,
+            name: currentUser.name || currentUser.fullName || "Zoho User"
+          })
         })
       } catch (err) {
         console.error("Timeclock ping failed", err)

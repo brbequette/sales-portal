@@ -4,10 +4,21 @@ import { prisma } from "@/lib/prisma"
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { userId } = body
+    const { userId, email, name } = body
 
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "Missing userId" }, { status: 400 })
+    if (!userId && !email) {
+      return NextResponse.json({ success: false, error: "Missing userId or email" }, { status: 400 })
+    }
+
+    let finalUserId = userId
+    if (email) {
+      let dbUser = await prisma.user.findUnique({ where: { email } })
+      if (!dbUser) {
+        dbUser = await prisma.user.create({
+          data: { email, name: name || "Zoho User", role: "AGENT", password: "" }
+        })
+      }
+      finalUserId = dbUser.id
     }
 
     const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || req.headers.get("cf-connecting-ip") || "Unknown"
@@ -32,7 +43,7 @@ export async function POST(req: Request) {
     // If it exists, only update lastActivity. If not, create it.
     const existing = await prisma.timeEntry.findUnique({
       where: {
-        userId_date: { userId, date: phoenixDate }
+        userId_date: { userId: finalUserId, date: phoenixDate }
       }
     })
 
@@ -50,7 +61,7 @@ export async function POST(req: Request) {
     } else {
       entry = await prisma.timeEntry.create({
         data: {
-          userId,
+          userId: finalUserId,
           date: phoenixDate,
           clockIn: now,
           lastActivity: now,

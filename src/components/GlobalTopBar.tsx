@@ -27,7 +27,7 @@ export function GlobalTopBar() {
     if (!currentUser?.id) return
     const fetchTime = async () => {
       try {
-        const res = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id}`, { cache: 'no-store' })
+        const res = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id}&email=${encodeURIComponent(currentUser.email || '')}`, { cache: 'no-store' })
         const data = await res.json()
         if (data.success && data.entries && data.entries.length > 0) {
           // Check if the top entry is today
@@ -69,7 +69,12 @@ export function GlobalTopBar() {
       const res = await fetch("/api/timeclock/toggle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUser.id, action })
+        body: JSON.stringify({ 
+          userId: currentUser.id, 
+          action,
+          email: currentUser.email,
+          name: currentUser.name || currentUser.fullName || "Zoho User"
+        })
       })
       const data = await res.json()
       if (data.success) {

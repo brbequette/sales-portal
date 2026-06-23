@@ -1,0 +1,1 @@
+fetch('http://localhost:3000/api/timeclock/sync', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({userId: '4393278000000305011'})}).then(r=>r.text()).then(console.log)  

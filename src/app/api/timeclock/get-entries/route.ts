@@ -7,13 +7,22 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url)
     const userId = url.searchParams.get("userId")
+    const email = url.searchParams.get("email")
     const month = url.searchParams.get("month") // Optional: YYYY-MM
 
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "Missing userId" }, { status: 400 })
+    if (!userId && !email) {
+      return NextResponse.json({ success: false, error: "Missing userId or email" }, { status: 400 })
     }
 
-    const where: any = { userId }
+    let finalUserId = userId
+    if (email) {
+      const dbUser = await prisma.user.findUnique({ where: { email } })
+      if (dbUser) {
+        finalUserId = dbUser.id
+      }
+    }
+
+    const where: any = { userId: finalUserId }
     if (month) {
       where.date = { startsWith: month }
     }
