@@ -26,6 +26,7 @@ interface Config {
   salesTargets: Record<string, number>
   subtotalTargets: Record<string, number>
   visibleReps: string[]
+  collectionsManagerId: string
 }
 
 interface ReassignmentResult {
@@ -59,6 +60,7 @@ export default function AdminSettingsPage() {
     salesTargets: {},
     subtotalTargets: {},
     visibleReps: [],
+    collectionsManagerId: "",
   })
 
   const [users, setUsers] = useState<User[]>([])
@@ -550,6 +552,29 @@ export default function AdminSettingsPage() {
                 </label>
               )
             })}
+          </div>
+        </div>
+
+        {/* Collections Manager Card */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg">
+          <div className="flex items-center gap-2 mb-4">
+            <FiDollarSign size={16} className="text-purple-400" />
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Collections Manager Role</h2>
+          </div>
+          <p className="text-xs text-neutral-400 mb-4">
+            Assign the Collections Manager. This user receives a commission bonus on total incoming company payments for each week starting after June 8, 2026.
+          </p>
+          <div className="space-y-3">
+            <select
+              value={config.collectionsManagerId || ""}
+              onChange={(e) => setConfig(c => ({ ...c, collectionsManagerId: e.target.value }))}
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
+            >
+              <option value="">-- None --</option>
+              {users.map(u => (
+                <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+              ))}
+            </select>
           </div>
         </div>
 

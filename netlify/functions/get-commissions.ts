@@ -98,6 +98,9 @@ export const handler: Handler = async (event) => {
 
     const visibleRepsSetting = await prisma.systemSetting.findUnique({ where: { key: "visible_reps" } })
     const visibleReps: string[] = JSON.parse(visibleRepsSetting?.value || "[]")
+    
+    const collectionsManagerSetting = await prisma.systemSetting.findUnique({ where: { key: "collections_manager_id" } })
+    const collectionsManagerId = collectionsManagerSetting?.value || null
 
     if (!showHidden && !repId && visibleReps.length > 0) {
       users = users.filter(u => visibleReps.includes(u.id))
@@ -242,6 +245,69 @@ export const handler: Handler = async (event) => {
         byRep[payout.repId].totalPaid += payout.amount
       }
     }
+
+    // ── Collections Manager Bonus ────────────────────────────────────────
+    if (collectionsManagerId && byRep[collectionsManagerId]) {
+      // Group all paid invoices by week to calculate the bonus
+      const weeklyTotals: Record<string, number> = {}
+      for (const inv of invoiceRecords) {
+        if (inv.isPaid) {
+          const date = inv.paymentDate || inv.issueDate
+          if (date) {
+            const d = new Date(date)
+            const day = d.getDay()
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+            const weekStart = new Date(d)
+            weekStart.setDate(diff)
+            weekStart.setHours(0, 0, 0, 0)
+            const startStr = weekStart.toISOString().split('T')[0]
+            
+            // Only apply to weeks starting after June 8th 2026
+            if (startStr >= '2026-06-08') {
+              weeklyTotals[startStr] = (weeklyTotals[startStr] || 0) + inv.amount
+            }
+          }
+        }
+      }
+
+      for (const [weekStartStr, totalAmount] of Object.entries(weeklyTotals)) {
+        let bonusRate = 0
+        if (totalAmount >= 50000) bonusRate = 0.01
+        else if (totalAmount >= 37500) bonusRate = 0.0075
+        else if (totalAmount >= 25000) bonusRate = 0.005
+
+        if (bonusRate > 0) {
+          const bonusAmount = totalAmount * bonusRate
+          const managerName = byRep[collectionsManagerId].repName
+          
+          const bonusRecord = {
+            id: `bonus-${weekStartStr}`,
+            zohoId: null,
+            invoiceNumber: "Bonus",
+            name: `Collections Bonus: ${weekStartStr}`,
+            amount: totalAmount,
+            profit: bonusAmount, // To show it clearly on UI if profit is shown
+            deadCost: 0,
+            status: "Paid",
+            isPaid: true,
+            daysOld: 0,
+            isAtRisk: false,
+            issueDate: new Date(weekStartStr),
+            paymentDate: new Date(weekStartStr),
+            repId: collectionsManagerId,
+            repName: managerName,
+            accountName: "Weekly Collections Bonus",
+            accountZohoId: null,
+            commission: { total: bonusAmount, upfront: 0, final: bonusAmount, future: 0, atRiskAmount: 0 },
+            type: "invoice" as const
+          }
+          
+          byRep[collectionsManagerId].invoices.push(bonusRecord)
+          byRep[collectionsManagerId].totalEarned += bonusAmount
+        }
+      }
+    }
+
     Object.values(byRep).forEach((rep: any) => {
       rep.balance = rep.totalEarned - rep.totalPaid
     })

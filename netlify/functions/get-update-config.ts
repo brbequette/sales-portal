@@ -62,6 +62,7 @@ export const handler: Handler = async (event) => {
       salesTargets: JSON.parse(settingsMap.get("sales_targets") || "{}"),
       subtotalTargets: JSON.parse(settingsMap.get("subtotal_targets") || "{}"),
       visibleReps: JSON.parse(settingsMap.get("visible_reps") || "[]"),
+      collectionsManagerId: settingsMap.get("collections_manager_id") || "",
     }
 
     // 2. Fetch all sales reps and admins (to assign)

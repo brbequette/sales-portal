@@ -24,7 +24,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { timeframeMonths, group1RepId, group2RepId, group3RepId, group4RepId, holidays, salesTargets, subtotalTargets, visibleReps } = body
+    const { timeframeMonths, group1RepId, group2RepId, group3RepId, group4RepId, holidays, salesTargets, subtotalTargets, visibleReps, collectionsManagerId } = body
 
     const settingsToSave = [
       { key: "update_timeframe_months", value: String(timeframeMonths || 12) },
@@ -36,6 +36,7 @@ export const handler: Handler = async (event) => {
       { key: "sales_targets", value: JSON.stringify(salesTargets || {}) },
       { key: "subtotal_targets", value: JSON.stringify(subtotalTargets || {}) },
       { key: "visible_reps", value: JSON.stringify(visibleReps || []) },
+      { key: "collections_manager_id", value: collectionsManagerId || "" },
     ]
 
     for (const item of settingsToSave) {
