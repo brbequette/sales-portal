@@ -7,6 +7,7 @@ import { FiTrash2, FiPlus, FiSave, FiStar, FiUpload } from "react-icons/fi"
 export default function AdminCommunicationsPage() {
   const router = useRouter()
   const [numbers, setNumbers] = useState<any[]>([])
+  const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -54,12 +55,13 @@ export default function AdminCommunicationsPage() {
   }
 
   useEffect(() => {
-    fetch('/api/manage-zoho-numbers')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setNumbers(data.numbers || [])
-      })
-      .finally(() => setLoading(false))
+    Promise.all([
+      fetch('/api/manage-zoho-numbers').then(r => r.json()),
+      fetch('/api/admin/users').then(r => r.json())
+    ]).then(([numsRes, usersRes]) => {
+      if (numsRes.success) setNumbers(numsRes.numbers || [])
+      if (usersRes.success) setUsers(usersRes.users || [])
+    }).finally(() => setLoading(false))
   }, [])
 
   const handleSave = async () => {
@@ -166,6 +168,22 @@ export default function AdminCommunicationsPage() {
                     placeholder="Main Sales Line"
                     className="w-full bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none"
                   />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-neutral-500 block mb-1">Assigned Users (Optional)</label>
+                  <select 
+                    multiple
+                    value={num.assignedUserIds || []}
+                    onChange={e => {
+                      const selected = Array.from(e.target.selectedOptions).map(o => o.value)
+                      updateNumber(i, 'assignedUserIds', selected)
+                    }}
+                    className="w-full bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none min-h-[80px]"
+                  >
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex items-center gap-3 pt-4 sm:pt-6">
                   <button 

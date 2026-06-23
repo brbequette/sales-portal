@@ -93,6 +93,8 @@ export default function Dashboard() {
   const [campaignSuccess, setCampaignSuccess] = useState("")
   const [zohoNumbers, setZohoNumbers] = useState<any[]>([])
   const [selectedZohoNumber, setSelectedZohoNumber] = useState("")
+  const [campaignTemplates, setCampaignTemplates] = useState<any[]>([])
+  const [dbUser, setDbUser] = useState<any>(null)
   const [mediaAssets, setMediaAssets] = useState<any[]>([])
   const [loadingMedia, setLoadingMedia] = useState(false)
   const [showAssetSelector, setShowAssetSelector] = useState(false)
@@ -229,18 +231,35 @@ export default function Dashboard() {
   useEffect(() => {
     if (showCampaignModal) {
       fetchMediaAssets()
-      fetch('/api/manage-zoho-numbers')
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.numbers) {
-            setZohoNumbers(data.numbers)
-            const defaultNum = data.numbers.find((n: any) => n.isDefault) || data.numbers[0]
-            if (defaultNum) setSelectedZohoNumber(defaultNum.number)
+      Promise.all([
+        fetch('/api/manage-zoho-numbers').then(r => r.json()),
+        fetch('/api/admin/campaigns').then(r => r.json()),
+        currentUser?.id ? fetch('/api/admin/users').then(r => r.json()) : Promise.resolve(null)
+      ]).then(([numsData, campsData, usersData]) => {
+        if (usersData?.success) {
+          const user = usersData.users.find((u: any) => u.email === currentUser?.email || u.id === currentUser?.id)
+          setDbUser(user)
+        }
+        
+        if (campsData.success) {
+          setCampaignTemplates(campsData.templates || [])
+        }
+
+        if (numsData.success && numsData.numbers) {
+          // Filter numbers by assignment
+          let availableNums = numsData.numbers
+          if (currentUser?.role !== 'ADMIN') {
+             availableNums = numsData.numbers.filter((n: any) => 
+               n.isDefault || (n.assignedUserIds && n.assignedUserIds.includes(currentUser?.id))
+             )
           }
-        })
-        .catch(console.error)
+          setZohoNumbers(availableNums)
+          const defaultNum = availableNums.find((n: any) => n.isDefault) || availableNums[0]
+          if (defaultNum) setSelectedZohoNumber(defaultNum.number)
+        }
+      }).catch(console.error)
     }
-  }, [showCampaignModal])
+  }, [showCampaignModal, currentUser])
 
   const fetchLocalData = async (pageNum = 1, append = false) => {
     if (!currentUser) return
@@ -2113,6 +2132,18 @@ export default function Dashboard() {
             )}
 
             <form onSubmit={handleSendCampaign} className="space-y-4">
+              
+              {/* Permission Check */}
+              {dbUser?.canSendCampaigns === false && currentUser?.role !== 'ADMIN' && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-start gap-2">
+                  <FiAlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Permission Denied</strong>
+                    <p className="mt-1">You do not have permission to send campaigns. Please contact your administrator to enable this feature.</p>
+                  </div>
+                </div>
+              )}
+
               {/* Campaign Name */}
               <div>
                 <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Campaign Name *</label>
@@ -2125,6 +2156,30 @@ export default function Dashboard() {
                   className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
+
+              {/* Predefined Templates */}
+              {campaignTemplates.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Load Template (Optional)</label>
+                  <select
+                    onChange={e => {
+                      const t = campaignTemplates.find(ct => ct.id === e.target.value)
+                      if (t) {
+                        setCampaignName(t.name)
+                        setCampaignText(t.content)
+                        if (t.imageUrl) setCampaignImageUrl(t.imageUrl)
+                        if (t.channel) setCampaignChannel(t.channel)
+                      }
+                    }}
+                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                  >
+                    <option value="">-- Select a template --</option>
+                    {campaignTemplates.map(t => (
+                      <option key={t.id} value={t.id}>{t.name} ({t.channel})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Channel & Options */}
               <div className="grid grid-cols-3 gap-2">
@@ -2321,7 +2376,6 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-              </div>
 
               {/* Buttons */}
               <div className="pt-4 flex justify-end gap-2 border-t border-white/10">
@@ -2335,7 +2389,12 @@ export default function Dashboard() {
                 </button>
                 <button 
                   type="submit" 
-                  disabled={campaignSending || (!campaignText && !campaignImageUrl)}
+                  disabled={campaignSending || (!campaignText && !campaignImageUrl) || (dbUser?.canSendCampaigns === false && currentUser?.role !== 'ADMIN')}
+                  onClick={() => {
+                    if (dbUser?.canSendCampaigns === false && currentUser?.role !== 'ADMIN') {
+                      alert("You do not have permission to send campaigns. Please contact an administrator.");
+                    }
+                  }}
                   className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-bold text-white  shadow-emerald-950/20 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {campaignSending ? (

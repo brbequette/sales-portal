@@ -19,7 +19,9 @@ model User {
   updatedAt          DateTime         @updatedAt
   constantVigEnabled Boolean          @default(false)
   constantVigValue   Float?           @default(1.5)
+  canSendCampaigns   Boolean          @default(false)
   accounts           Account[]
+  campaignBlasts     CampaignBlast[]
   deals              Deal[]
   monthlyVigGoals    MonthlyVigGoal[]
   notes              Note[]
@@ -56,6 +58,7 @@ model Account {
   quotes           Quote[]
   salesOrders      SalesOrder[]
   tasks            Task[]
+  campaignLogs     CampaignLog[]
 
   @@index([ownerId])
   @@index([status])
@@ -282,4 +285,47 @@ model TimeChangeRequest {
   @@index([timeEntryId])
   @@index([userId])
 }
- 
+
+model CampaignTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  content     String
+  imageUrl    String?
+  channel     String   @default("SMS")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CampaignBlast {
+  id          String   @id @default(cuid())
+  name        String
+  content     String
+  imageUrl    String?
+  channel     String
+  authorId    String
+  sentCount   Int      @default(0)
+  failedCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  logs        CampaignLog[]
+
+  @@index([authorId])
+}
+
+model CampaignLog {
+  id               String   @id @default(cuid())
+  campaignBlastId  String
+  accountId        String
+  contactId        String?
+  zohoNumberUsed   String?
+  status           String   // "SUCCESS", "FAILED"
+  errorMessage     String?
+  sentAt           DateTime @default(now())
+  
+  campaignBlast    CampaignBlast @relation(fields: [campaignBlastId], references: [id], onDelete: Cascade)
+  account          Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([campaignBlastId])
+  @@index([accountId])
+}

@@ -405,7 +405,37 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* Navigation Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          <div 
+            onClick={() => router.push('/admin/users')}
+            className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2.5 rounded-xl bg-purple-950/40 text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                <FiUsers size={18} />
+              </div>
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">Users</h2>
+            </div>
+            <p className="text-xs text-neutral-400">
+              Manage user permissions and campaign access.
+            </p>
+          </div>
+
+          <div 
+            onClick={() => router.push('/admin/campaigns')}
+            className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2.5 rounded-xl bg-purple-950/40 text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                <FiTarget size={18} />
+              </div>
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">Campaigns</h2>
+            </div>
+            <p className="text-xs text-neutral-400">
+              Manage blast templates and view historical logs.
+            </p>
+          </div>
+
           <div 
             onClick={() => router.push('/admin/communications')}
             className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"

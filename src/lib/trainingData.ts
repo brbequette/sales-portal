@@ -98,5 +98,31 @@ You can manually override any employee's clock-in or clock-out time by clicking 
 ### Approving Requests
 If an employee requests a time change, it will appear as a "Pending Request" highlighted in orange. You can click "Approve" or "Reject". If approved, their timesheet will be permanently updated to reflect the requested times.
     `
+  },
+  {
+    id: "campaign-management",
+    title: "Campaign Management",
+    category: "Sales & Orders",
+    content: `
+The **Campaign Management** feature allows you to send bulk SMS, Email, or WhatsApp messages to your customers directly from the Sales Hub.
+
+### Permissions & Limitations
+To send campaigns, you must be explicitly granted the **Send Campaigns** permission by an Administrator. 
+To prevent spam, non-admin users can only send 1 campaign blast every 5 minutes.
+
+### Using Templates
+When initiating a campaign, you can load a **Predefined Template** to automatically fill in the message content and any attached images. Administrators manage these templates to ensure standardized outreach.
+
+### Outbound Numbers
+When sending SMS campaigns, you must select a **Sender Number**. You will only see numbers that your Administrator has explicitly assigned to you.
+
+### Sending a Campaign
+1. Open the **Sales Hub**.
+2. Select the checkbox next to the accounts you wish to target (or use the "Select All" checkbox).
+3. Click **Create Campaign**.
+4. (Optional) Select a predefined template.
+5. Choose your channel (e.g., SMS) and Sender Number.
+6. Write your message, add an optional image URL, and click **Send Blast Campaign**.
+    `
   }
 ]
