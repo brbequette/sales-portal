@@ -175,7 +175,7 @@ export const handler: Handler = async (event, context) => {
               }
               
               if (fileBuffer) {
-                formData.append('file', fileBuffer, {
+                formData.append('mms_media', fileBuffer, {
                   filename: `attachment.${ext}`,
                   contentType: contentType
                 })
