@@ -6,7 +6,7 @@ import { useEffect, useState, useCallback } from "react"
 import { usePagination, Pagination } from "@/components/Pagination"
 import {
   FiSettings, FiUsers, FiRefreshCw, FiSave, FiAlertTriangle,
-  FiShield, FiCheckCircle, FiX, FiChevronDown, FiActivity, FiTarget, FiDollarSign, FiClock
+  FiShield, FiCheckCircle, FiX, FiChevronDown, FiActivity, FiTarget, FiDollarSign, FiClock, FiMessageSquare
 } from "react-icons/fi"
 
 interface User {
@@ -406,6 +406,21 @@ export default function AdminSettingsPage() {
 
         {/* Navigation Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div 
+            onClick={() => router.push('/admin/communications')}
+            className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2.5 rounded-xl bg-purple-950/40 text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                <FiMessageSquare size={18} />
+              </div>
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">Communications</h2>
+            </div>
+            <p className="text-xs text-neutral-400">
+              Manage authorized Zoho Voice phone numbers.
+            </p>
+          </div>
+
           <div 
             onClick={() => router.push('/admin/holidays')}
             className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
