@@ -2150,7 +2150,12 @@ export default function Dashboard() {
               {/* Sender Number Selection (SMS Only) */}
               {campaignChannel === "SMS" && zohoNumbers.length > 0 && (
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Sender Number *</label>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider">Sender Number *</label>
+                    <a href="/admin/communications" target="_blank" className="text-xs font-semibold text-sky-400 hover:text-sky-300">
+                      Manage Numbers &rarr;
+                    </a>
+                  </div>
                   <select
                     value={selectedZohoNumber}
                     onChange={e => setSelectedZohoNumber(e.target.value)}
