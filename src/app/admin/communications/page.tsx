@@ -1,14 +1,57 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { FiTrash2, FiPlus, FiSave, FiStar } from "react-icons/fi"
+import { FiTrash2, FiPlus, FiSave, FiStar, FiUpload } from "react-icons/fi"
 
 export default function AdminCommunicationsPage() {
   const router = useRouter()
   const [numbers, setNumbers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const text = event.target?.result as string
+      if (!text) return
+      
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+      const newNumbers: any[] = []
+      
+      lines.forEach((line, i) => {
+        // Skip header row if it contains 'number' or 'phone'
+        const lowerLine = line.toLowerCase()
+        if (i === 0 && (lowerLine.includes('number') || lowerLine.includes('phone'))) return
+        
+        const parts = line.split(',')
+        if (parts.length > 0) {
+          const num = parts[0].replace(/"/g, '').trim()
+          const label = parts.length > 1 ? parts[1].replace(/"/g, '').trim() : 'Imported Line'
+          if (num) {
+             newNumbers.push({ number: num, label: label, isDefault: false })
+          }
+        }
+      })
+
+      if (newNumbers.length > 0) {
+        setNumbers(prev => {
+          const merged = [...prev, ...newNumbers]
+          if (merged.length > 0 && !merged.find(n => n.isDefault)) {
+            merged[0].isDefault = true
+          }
+          return merged
+        })
+        alert(`Imported ${newNumbers.length} numbers! Don't forget to save.`)
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
 
   useEffect(() => {
     fetch('/api/manage-zoho-numbers')
@@ -80,9 +123,21 @@ export default function AdminCommunicationsPage() {
         <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 backdrop-blur-md">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-white">Outbound Numbers</h2>
-            <button onClick={addNumber} className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-bold hover:bg-emerald-600/30 transition">
-              <FiPlus /> Add Number
-            </button>
+            <div className="flex gap-2">
+              <input 
+                type="file" 
+                accept=".csv" 
+                className="hidden" 
+                ref={fileInputRef} 
+                onChange={handleFileUpload} 
+              />
+              <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-3 py-1.5 bg-sky-600/20 text-sky-400 border border-sky-500/30 rounded-lg text-sm font-bold hover:bg-sky-600/30 transition">
+                <FiUpload /> Import CSV
+              </button>
+              <button onClick={addNumber} className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-bold hover:bg-emerald-600/30 transition">
+                <FiPlus /> Add Number
+              </button>
+            </div>
           </div>
 
           <div className="space-y-4">
