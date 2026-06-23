@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
-import { FiPhone, FiMessageSquare, FiClock, FiX, FiMinus, FiPhoneCall, FiPhoneOff, FiSave } from "react-icons/fi"
+import { FiPhone, FiMessageSquare, FiClock, FiX, FiMinus, FiPhoneCall, FiPhoneOff, FiSave, FiSearch, FiSend } from "react-icons/fi"
 
 export default function Softphone() {
   const [isOpen, setIsOpen] = useState(false)
@@ -16,6 +16,19 @@ export default function Softphone() {
   const [callStatus, setCallStatus] = useState("completed")
   const [currentCallId, setCurrentCallId] = useState<string | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Search State
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [contextAccountName, setContextAccountName] = useState<string | null>(null)
+  const searchRef = useRef<HTMLDivElement>(null)
+
+  // SMS State
+  const [smsMessages, setSmsMessages] = useState<any[]>([])
+  const [smsInput, setSmsInput] = useState("")
+  const [isSendingSms, setIsSendingSms] = useState(false)
+  const smsEndRef = useRef<HTMLDivElement>(null)
 
   // Context State (If we are on an account page, we want to know the account ID)
   const pathname = usePathname()
@@ -49,6 +62,107 @@ export default function Softphone() {
       if (timerRef.current) clearInterval(timerRef.current)
     }
   }, [callState])
+
+  useEffect(() => {
+    if (contextAccountId) {
+      fetchSmsHistory(contextAccountId)
+    }
+  }, [contextAccountId])
+
+  useEffect(() => {
+    smsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [smsMessages])
+
+  // Search Debounce
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 2) {
+      setSearchResults([])
+      return
+    }
+    const delay = setTimeout(async () => {
+      setIsSearching(true)
+      try {
+        const res = await fetch(`/api/global-search?q=${encodeURIComponent(searchQuery)}`)
+        const data = await res.json()
+        if (data.success && data.results?.accounts) {
+          setSearchResults(data.results.accounts)
+        }
+      } catch (e) { }
+      setIsSearching(false)
+    }, 300)
+    return () => clearTimeout(delay)
+  }, [searchQuery])
+
+  // Click outside search
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchResults([])
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const handleSelectAccount = async (acc: any) => {
+    setContextAccountId(acc.id)
+    setContextAccountName(acc.name)
+    setSearchQuery("")
+    setSearchResults([])
+
+    // Fetch account details to get phone number
+    try {
+      const res = await fetch(`/api/get-account-details?id=${acc.id}`)
+      const data = await res.json()
+      if (data.success && data.account.contacts?.length > 0) {
+        const contact = data.account.contacts.find((c:any) => c.isPrimary) || data.account.contacts[0]
+        const num = contact.mobilePhone || contact.phone
+        if (num) {
+          setDialNumber(num.replace(/[^\d+]/g, ''))
+        }
+      }
+    } catch (e) {}
+  }
+
+  const fetchSmsHistory = async (accountId: string) => {
+    try {
+      const res = await fetch(`/api/messages/${accountId}`)
+      const data = await res.json()
+      if (data.success) {
+        setSmsMessages(data.messages)
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const handleSendSms = async () => {
+    if (!smsInput.trim() || !contextAccountId) return
+
+    // Guess fromNumber or default
+    const lastOurMsg = [...smsMessages].reverse().find(m => m.direction === 'OUTBOUND')
+    const fromNumber = lastOurMsg?.fromNumber || '+14804702577' // Default fallback
+
+    try {
+      setIsSendingSms(true)
+      const res = await fetch(`/api/messages/${contextAccountId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: smsInput, fromNumber })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSmsInput('')
+        fetchSmsHistory(contextAccountId)
+      } else {
+        alert('Error sending message: ' + data.error)
+      }
+    } catch (e) {
+      alert('Error sending message.')
+    } finally {
+      setIsSendingSms(false)
+    }
+  }
 
   // Global Event Listener
   useEffect(() => {
@@ -146,13 +260,48 @@ export default function Softphone() {
   return (
     <div className="fixed bottom-0 right-6 w-80 bg-slate-900 border border-slate-700 rounded-t-xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-300" style={{ height: "650px", maxHeight: "85vh" }}>
       {/* Header */}
-      <div className="bg-slate-800 p-3 flex justify-between items-center border-b border-slate-700 cursor-pointer" onClick={() => setIsOpen(false)}>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-          <span className="text-white font-medium text-sm">Zoho Voice</span>
+      <div className="bg-slate-800 p-3 flex flex-col border-b border-slate-700">
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+            <span className="text-white font-medium text-sm">Communications Hub</span>
+          </div>
+          <div className="flex items-center text-slate-400 gap-3">
+            <button onClick={() => setIsOpen(false)} className="hover:text-white transition-colors">
+              <FiMinus />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center text-slate-400 gap-3">
-          <FiMinus className="hover:text-white transition-colors" />
+        
+        {/* Search Bar */}
+        <div className="relative" ref={searchRef}>
+          <div className="flex items-center bg-slate-900 border border-slate-700 rounded-md px-3 py-1.5 focus-within:border-blue-500 transition-colors">
+            <FiSearch className="text-slate-500 mr-2" />
+            <input 
+              type="text" 
+              placeholder="Search Accounts..." 
+              className="bg-transparent text-sm text-white w-full outline-none placeholder:text-slate-500"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => { if (searchQuery.length >= 2 && searchResults.length === 0) setSearchQuery(searchQuery + ' ') }}
+            />
+          </div>
+          
+          {/* Search Dropdown */}
+          {searchResults.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-md shadow-xl z-50 max-h-48 overflow-y-auto">
+              {searchResults.map((acc: any) => (
+                <div 
+                  key={acc.id} 
+                  className="p-2 border-b border-slate-700 last:border-0 hover:bg-slate-700 cursor-pointer"
+                  onClick={() => handleSelectAccount(acc)}
+                >
+                  <div className="text-white text-sm">{acc.name}</div>
+                  {acc.industry && <div className="text-xs text-slate-400">{acc.industry}</div>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -223,11 +372,15 @@ export default function Softphone() {
                   <div className="text-3xl text-white font-light tracking-wider overflow-hidden text-ellipsis whitespace-nowrap w-full text-center">
                     {dialNumber || "..."}
                   </div>
-                  {contextAccountId && (
+                  {contextAccountName ? (
+                    <div className="text-xs text-blue-400 mt-2 flex items-center gap-1 font-medium">
+                      <span>{contextAccountName}</span>
+                    </div>
+                  ) : contextAccountId ? (
                     <div className="text-xs text-blue-400 mt-2 flex items-center gap-1">
                       <span>Linked Context Detected</span>
                     </div>
-                  )}
+                  ) : null}
                   {callState === "connected" && (
                     <div className="text-emerald-400 font-mono mt-2 flex items-center gap-2 animate-pulse">
                       <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
@@ -289,10 +442,60 @@ export default function Softphone() {
         )}
 
         {activeTab === "sms" && (
-          <div className="flex flex-col h-full items-center justify-center text-slate-500 text-sm text-center">
-            <FiMessageSquare size={32} className="mb-4 text-slate-700" />
-            <p>SMS interface goes here.</p>
-            <p className="mt-2 text-xs">For full SMS capabilities, visit the main Messages page.</p>
+          <div className="flex flex-col h-full relative">
+            {!contextAccountId ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-500 text-sm text-center">
+                <FiSearch size={32} className="mb-4 text-slate-700" />
+                <p>Search and select an account above to text them.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex-1 overflow-y-auto mb-14 scrollbar-thin pr-2 flex flex-col gap-3">
+                  {smsMessages.length === 0 ? (
+                    <div className="text-center text-slate-500 text-xs py-4">No message history found.</div>
+                  ) : (
+                    smsMessages.map((msg, i) => {
+                      const isMe = msg.direction === 'OUTBOUND'
+                      return (
+                        <div key={msg.id || i} className={`flex flex-col max-w-[85%] ${isMe ? 'self-end' : 'self-start'}`}>
+                          <div className={`p-3 text-sm rounded-lg ${isMe ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'}`}>
+                            {msg.body}
+                          </div>
+                          <div className={`text-[10px] text-slate-500 mt-1 ${isMe ? 'text-right' : 'text-left'}`}>
+                            {new Date(msg.createdAt).toLocaleDateString()} {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                  <div ref={smsEndRef} />
+                </div>
+                
+                {/* SMS Input */}
+                <div className="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 pt-2 flex items-end gap-2">
+                  <textarea 
+                    value={smsInput}
+                    onChange={(e) => setSmsInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSendSms()
+                      }
+                    }}
+                    placeholder="Type message..."
+                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg p-2 text-sm text-white resize-none max-h-24 scrollbar-thin"
+                    rows={1}
+                  />
+                  <button 
+                    onClick={handleSendSms}
+                    disabled={isSendingSms || !smsInput.trim()}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white p-2.5 rounded-lg flex-shrink-0 transition-colors"
+                  >
+                    <FiSend />
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
