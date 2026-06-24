@@ -241,7 +241,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
             <div className="text-xs text-neutral-500 truncate max-w-[260px] font-mono">
               {activeTab === 'EMAIL' ? primaryContact.email : (
                 cleanPhone ? (
-                  <button onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, tab: 'dialer' } }))} className="hover:text-[var(--primary)] transition-colors underline">{displayPhone}</button>
+                  <button onClick={() => window.location.href = `tel:${cleanPhone}`} className="hover:text-[var(--primary)] transition-colors underline">{displayPhone}</button>
                 ) : displayPhone || "No contact on file"
               )}
             </div>
@@ -261,7 +261,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
             {cleanPhone ? (
               <div className="text-center py-4">
                 <button
-                  onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, tab: 'dialer' } }))}
+                  onClick={() => window.location.href = `tel:${cleanPhone}`}
                   className="inline-flex items-center gap-2 px-8 py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] font-bold rounded-lg transition-colors shadow-lg shadow-black/40 text-base"
                 >
                   <FiPhoneCall /> Click to Dial

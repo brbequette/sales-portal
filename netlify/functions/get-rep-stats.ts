@@ -254,7 +254,8 @@ export const handler: Handler = async (event) => {
       const invoices = acc.invoices || []
       invoices.forEach(inv => {
         const amount = parseFloat(inv.amount as any) || 0
-        const profit = parseFloat((inv.items as any)?.profit as any) || 0
+        const deadCost = parseFloat((inv.items as any)?.deadCostTotal as any) || 0;
+        const profit = deadCost > 0 ? (amount - deadCost) : (parseFloat((inv.items as any)?.profit as any) || 0)
         const issueDate = inv.issueDate ? new Date(inv.issueDate) : null
 
         // Find salesperson on invoice
@@ -471,8 +472,9 @@ export const handler: Handler = async (event) => {
       })
 
       monthInvoices.forEach(inv => {
-        const profit = parseFloat((inv.items as any)?.profit as any) || 0
         const subtotal = parseFloat(inv.amount as any) || 0
+        const deadCost = parseFloat((inv.items as any)?.deadCostTotal as any) || 0;
+        const profit = deadCost > 0 ? (subtotal - deadCost) : (parseFloat((inv.items as any)?.profit as any) || 0)
         const salespersonName = (inv.items as any)?.salesperson
         let repId = unassignedId
         if (salespersonName) {

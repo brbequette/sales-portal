@@ -7,7 +7,6 @@ import { AppShell } from "@/components/AppShell";
 import Script from "next/script";
 import { ProductModalProvider } from "@/components/ProductModalProvider";
 import { TimeclockTracker } from "@/components/TimeclockTracker";
-import Softphone from "@/components/Softphone";
 import "./globals.css";
 
 import { PreferencesProvider } from "@/components/PreferencesProvider";
@@ -47,7 +46,6 @@ export default function RootLayout({
       <head>
         <script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js"></script>
         <script src="https://js.authorize.net/v1/Accept.js" charSet="utf-8"></script>
-        <Script src="https://js.zohostatic.com/zvoice_plugin/latest/js/zohovoice.min.js" strategy="lazyOnload" />
       </head>
       <body className="antialiased">
         <NextAuthProvider>
@@ -58,7 +56,6 @@ export default function RootLayout({
                   <AppShell>
                     <TimeclockTracker />
                     {children}
-                    <Softphone />
                   </AppShell>
                 </ProductModalProvider>
               </AuthWrapper>

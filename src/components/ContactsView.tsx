@@ -192,7 +192,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
-                          window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: c.phone || c.mobilePhone, tab: 'dialer' } }))
+                          window.location.href = `tel:${c.phone || c.mobilePhone}`
                         }}
                         className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-blue-455 cursor-pointer"
                       >
@@ -204,7 +204,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
-                          window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: c.phone || c.mobilePhone, tab: 'sms' } }))
+                          window.location.href = `tel:${c.phone || c.mobilePhone}`
                         }}
                         className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-emerald-455 cursor-pointer"
                       >
@@ -212,7 +212,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                         Text
                       </button>
                       <span className="text-neutral-500 font-mono text-[9px] ml-1">
-                        (<button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: c.phone || c.mobilePhone, tab: 'dialer' } })) }} className="text-blue-400 hover:underline">
+                        (<button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `tel:${c.phone || c.mobilePhone}` }} className="text-blue-400 hover:underline">
                           {c.phone || c.mobilePhone}
                         </button>)
                       </span>
@@ -348,19 +348,19 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     {selectedContact.phone ? (
                       <div className="flex items-center gap-3">
                         <button
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: selectedContact.phone, tab: 'dialer' } }))}
+                          onClick={() => window.location.href = `tel:${selectedContact.phone}`}
                           className="text-xs text-blue-400 hover:underline font-mono"
                         >
                           {selectedContact.phone}
                         </button>
                         <button
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: selectedContact.phone, tab: 'dialer' } }))}
+                          onClick={() => window.location.href = `tel:${selectedContact.phone}`}
                           className="text-[10px] text-blue-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                         >
                           Call
                         </button>
                         <button
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: selectedContact.phone, tab: 'sms' } }))}
+                          onClick={() => window.location.href = `tel:${selectedContact.phone}`}
                           className="text-[10px] text-emerald-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                         >
                           Text
@@ -375,19 +375,19 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     {selectedContact.mobilePhone ? (
                       <div className="flex items-center gap-3">
                         <button
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: selectedContact.mobilePhone, tab: 'dialer' } }))}
+                          onClick={() => window.location.href = `tel:${selectedContact.mobilePhone}`}
                           className="text-xs text-blue-400 hover:underline font-mono"
                         >
                           {selectedContact.mobilePhone}
                         </button>
                         <button
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: selectedContact.mobilePhone, tab: 'dialer' } }))}
+                          onClick={() => window.location.href = `tel:${selectedContact.mobilePhone}`}
                           className="text-[10px] text-blue-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                         >
                           Call
                         </button>
                         <button
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: selectedContact.mobilePhone, tab: 'sms' } }))}
+                          onClick={() => window.location.href = `tel:${selectedContact.mobilePhone}`}
                           className="text-[10px] text-emerald-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                         >
                           Text
