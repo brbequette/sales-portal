@@ -195,7 +195,7 @@ export default function Dashboard() {
     setCampaignProgress(0)
 
     try {
-      const CHUNK_SIZE = 25
+      const CHUNK_SIZE = 10
       const chunks: string[][] = []
       for (let i = 0; i < selectedAccountIds.length; i += CHUNK_SIZE) {
         chunks.push(selectedAccountIds.slice(i, i + CHUNK_SIZE))
