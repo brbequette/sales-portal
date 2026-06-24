@@ -39,6 +39,7 @@ const REQUIRED_SCOPES = [
   "ZohoVoice.powerdialer.UPDATE",
   "ZohoVoice.powerdialer.DELETE",
   "ZohoVoice.call.READ",
+  "ZohoVoice.call.CREATE",
   "ZohoVoice.contacts.READ",
   "ZohoVoice.contacts.CREATE",
 ].join(",")
