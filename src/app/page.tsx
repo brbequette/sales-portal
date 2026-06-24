@@ -91,6 +91,8 @@ export default function Dashboard() {
   const [campaignSending, setCampaignSending] = useState(false)
   const [campaignError, setCampaignError] = useState("")
   const [campaignSuccess, setCampaignSuccess] = useState("")
+  const [campaignProgress, setCampaignProgress] = useState(0)
+  const [campaignTotal, setCampaignTotal] = useState(0)
   const [zohoNumbers, setZohoNumbers] = useState<any[]>([])
   const [selectedZohoNumber, setSelectedZohoNumber] = useState("")
   const [campaignTemplates, setCampaignTemplates] = useState<any[]>([])
@@ -189,37 +191,66 @@ export default function Dashboard() {
     setCampaignSending(true)
     setCampaignError("")
     setCampaignSuccess("")
+    setCampaignTotal(selectedAccountIds.length)
+    setCampaignProgress(0)
 
     try {
-      const response = await fetch("/api/send-campaign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountIds: selectedAccountIds,
-          channel: campaignChannel,
-          text: campaignText,
-          imageUrl: campaignImageUrl,
-          campaignName: campaignName,
-          fromNumber: selectedZohoNumber,
-          userId: currentUser?.id,
-          userEmail: currentUser?.email
-        })
-      })
-
-      const data = await response.json()
-      if (response.ok && data.success) {
-        setCampaignSuccess(data.message || `Campaign sent successfully to ${selectedAccountIds.length} accounts!`)
-        setTimeout(() => {
-          setSelectedAccountIds([])
-          setShowCampaignModal(false)
-          setCampaignName("")
-          setCampaignText("")
-          setCampaignImageUrl("")
-          setCampaignSuccess("")
-        }, 2200)
-      } else {
-        setCampaignError(data.message || "Failed to send campaign. Please try again.")
+      const CHUNK_SIZE = 25
+      const chunks = []
+      for (let i = 0; i < selectedAccountIds.length; i += CHUNK_SIZE) {
+        chunks.push(selectedAccountIds.slice(i, i + CHUNK_SIZE))
       }
+
+      let blastId = null
+      let totalSuccess = 0
+      let totalFailed = 0
+      let i = 0
+
+      for (const chunk of chunks) {
+        const response = await fetch("/api/send-campaign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            blastId,
+            accountIds: chunk,
+            channel: campaignChannel,
+            text: campaignText,
+            imageUrl: campaignImageUrl,
+            campaignName: campaignName,
+            fromNumber: selectedZohoNumber,
+            userId: currentUser?.id,
+            userEmail: currentUser?.email
+          })
+        })
+
+        const data = await response.json()
+        
+        if (!response.ok || !data.success) {
+          if (i === 0) throw new Error(data.message || "Failed to start campaign.")
+          console.error("Chunk failed:", data.message)
+        } else {
+          if (!blastId && data.blastId) {
+            blastId = data.blastId
+          }
+          totalSuccess += data.count || 0
+          totalFailed += data.failedCount || 0
+        }
+        
+        i++
+        setCampaignProgress(Math.min(selectedAccountIds.length, i * CHUNK_SIZE))
+      }
+
+      setCampaignSuccess(`Campaign finished! Sent: ${totalSuccess}, Failed: ${totalFailed}`)
+      setTimeout(() => {
+        setSelectedAccountIds([])
+        setShowCampaignModal(false)
+        setCampaignName("")
+        setCampaignText("")
+        setCampaignImageUrl("")
+        setCampaignSuccess("")
+        setCampaignProgress(0)
+        setCampaignTotal(0)
+      }, 3000)
     } catch (err: any) {
       setCampaignError(err.message || "An error occurred while sending campaign.")
     } finally {
@@ -2127,6 +2158,18 @@ export default function Dashboard() {
               <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-center gap-2">
                 <FiAlertCircle size={16} className="shrink-0" />
                 <span>{campaignError}</span>
+              </div>
+            )}
+            
+            {campaignSending && campaignTotal > 0 && (
+              <div className="mb-4">
+                 <div className="flex justify-between text-xs text-neutral-400 mb-1">
+                   <span>Sending...</span>
+                   <span>{campaignProgress} / {campaignTotal}</span>
+                 </div>
+                 <div className="w-full bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                   <div className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${(campaignProgress / campaignTotal) * 100}%` }}></div>
+                 </div>
               </div>
             )}
 

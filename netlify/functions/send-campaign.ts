@@ -20,7 +20,7 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { accountIds, channel, text, imageUrl, campaignName, userId, userEmail, fromNumber: bodyFromNumber } = body
+    const { blastId, accountIds, channel, text, imageUrl, campaignName, userId, userEmail, fromNumber: bodyFromNumber } = body
 
     if (!accountIds || !Array.isArray(accountIds) || accountIds.length === 0) {
       return {
@@ -106,16 +106,22 @@ export const handler: Handler = async (event, context) => {
     let successfulCount = 0
     let failedCount = 0
 
-    const blast = await prisma.campaignBlast.create({
-      data: {
-        name: campaignName || 'Unnamed Campaign',
-        content: baseContent,
-        authorId: author.id,
-        channel: channel || 'SMS',
-        sentCount: 0,
-        failedCount: 0
-      }
-    })
+    let blast = null
+    if (blastId) {
+      blast = await prisma.campaignBlast.findUnique({ where: { id: blastId } })
+    }
+    if (!blast) {
+      blast = await prisma.campaignBlast.create({
+        data: {
+          name: campaignName || 'Unnamed Campaign',
+          content: baseContent,
+          authorId: author.id,
+          channel: channel || 'SMS',
+          sentCount: 0,
+          failedCount: 0
+        }
+      })
+    }
     
     const logsToCreate: any[] = []
     const smsMessagesToCreate: any[] = []
@@ -353,16 +359,16 @@ export const handler: Handler = async (event, context) => {
     await prisma.campaignBlast.update({
       where: { id: blast.id },
       data: {
-        sentCount: successfulCount,
-        failedCount: failedCount
+        sentCount: { increment: successfulCount },
+        failedCount: { increment: failedCount }
       }
     })
 
-    console.log(`Campaign "${campaignName || 'Unnamed'}" processed. Success: ${successfulCount}, Failed: ${failedCount}`)
+    console.log(`Campaign "${campaignName || 'Unnamed'}" processed chunk. Success: ${successfulCount}, Failed: ${failedCount}`)
     
     let resultMessage = channel === 'SMS' 
-      ? `Campaign sent successfully to ${successfulCount} customers. Failed: ${failedCount}`
-      : `Campaign mock sent successfully to ${successfulCount} customers.`
+      ? `Campaign chunk sent successfully to ${successfulCount} customers. Failed: ${failedCount}`
+      : `Campaign mock chunk sent successfully to ${successfulCount} customers.`
 
     if (channel === 'SMS' && failedCount > 0 && successfulCount === 0) {
       resultMessage += ` (Hint: Check if your Zoho number is SMS/MMS approved, and verify image size is under 1MB)`
@@ -372,7 +378,8 @@ export const handler: Handler = async (event, context) => {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify({ 
-        success: successfulCount > 0, 
+        success: true, // Always return success for a chunk to keep going, unless fatal error
+        blastId: blast.id,
         message: resultMessage,
         count: successfulCount,
         failedCount
