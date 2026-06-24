@@ -1420,9 +1420,9 @@ export default function Dashboard() {
                             </div>
                             <div className="flex items-center gap-1.5">
                               {cleanPhone ? (
-                                <button onClick={(e) => { e.preventDefault(); window.location.href = "tel:" + cleanPhone }} className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
+                                <a href={"tel:" + cleanPhone } className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
                                   <FiPhoneCall size={12} />
-                                </button>
+                                </a>
                               ) : (
                                 <button className="p-1.5 bg-neutral-800 rounded-full text-neutral-400 opacity-40 cursor-not-allowed" disabled>
                                   <FiPhoneCall size={12} />

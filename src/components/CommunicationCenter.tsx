@@ -241,7 +241,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
             <div className="text-xs text-neutral-500 truncate max-w-[260px] font-mono">
               {activeTab === 'EMAIL' ? primaryContact.email : (
                 cleanPhone ? (
-                  <button onClick={() => window.location.href = `tel:${cleanPhone}`} className="hover:text-[var(--primary)] transition-colors underline">{displayPhone}</button>
+                  <a href={`tel:${cleanPhone}`} className="hover:text-[var(--primary)] transition-colors underline">{displayPhone}</a>
                 ) : displayPhone || "No contact on file"
               )}
             </div>
@@ -260,12 +260,11 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
             {/* Click to Dial */}
             {cleanPhone ? (
               <div className="text-center py-4">
-                <button
-                  onClick={() => window.location.href = `tel:${cleanPhone}`}
+                <a href={`tel:${cleanPhone}`}
                   className="inline-flex items-center gap-2 px-8 py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] font-bold rounded-lg transition-colors shadow-lg shadow-black/40 text-base"
                 >
                   <FiPhoneCall /> Click to Dial
-                </button>
+                </a>
                 <p className="text-xs text-neutral-500 mt-2 font-mono">{primaryContact?.phone}</p>
               </div>
             ) : (

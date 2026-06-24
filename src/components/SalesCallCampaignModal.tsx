@@ -308,7 +308,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 <div className="space-y-1">
                   <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Phone Details</span>
                   {displayPhone ? (
-                    <button onClick={(e) => { e.preventDefault(); window.location.href = "tel:" + cleanPhone }} className="text-xs text-blue-400 hover:text-blue-300 hover:underline font-bold font-mono">{displayPhone}</button>
+                    <a href={"tel:" + cleanPhone } className="text-xs text-blue-400 hover:text-blue-300 hover:underline font-bold font-mono">{displayPhone}</a>
                   ) : (
                     <p className="text-xs text-neutral-500 font-mono">—</p>
                   )}

@@ -212,9 +212,9 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                         Text
                       </button>
                       <span className="text-neutral-500 font-mono text-[9px] ml-1">
-                        (<button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `tel:${c.phone || c.mobilePhone}` }} className="text-blue-400 hover:underline">
+                        (<a href={`tel:${c.phone || c.mobilePhone}`} className="text-blue-400 hover:underline">
                           {c.phone || c.mobilePhone}
-                        </button>)
+                        </a>)
                       </span>
                     </div>
                   )}
@@ -347,24 +347,21 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Office Phone</span>
                     {selectedContact.phone ? (
                       <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => window.location.href = `tel:${selectedContact.phone}`}
+                        <a href={`tel:${selectedContact.phone}`}
                           className="text-xs text-blue-400 hover:underline font-mono"
                         >
                           {selectedContact.phone}
-                        </button>
-                        <button
-                          onClick={() => window.location.href = `tel:${selectedContact.phone}`}
+                        </a>
+                        <a href={`tel:${selectedContact.phone}`}
                           className="text-[10px] text-blue-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                         >
                           Call
-                        </button>
-                        <button
-                          onClick={() => window.location.href = `tel:${selectedContact.phone}`}
+                        </a>
+                        <a href={`tel:${selectedContact.phone}`}
                           className="text-[10px] text-emerald-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                         >
                           Text
-                        </button>
+                        </a>
                       </div>
                     ) : (
                       <span className="text-xs text-neutral-600 block">Not specified</span>
@@ -374,24 +371,21 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Mobile Phone</span>
                     {selectedContact.mobilePhone ? (
                       <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => window.location.href = `tel:${selectedContact.mobilePhone}`}
+                        <a href={`tel:${selectedContact.mobilePhone}`}
                           className="text-xs text-blue-400 hover:underline font-mono"
                         >
                           {selectedContact.mobilePhone}
-                        </button>
-                        <button
-                          onClick={() => window.location.href = `tel:${selectedContact.mobilePhone}`}
+                        </a>
+                        <a href={`tel:${selectedContact.mobilePhone}`}
                           className="text-[10px] text-blue-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                         >
                           Call
-                        </button>
-                        <button
-                          onClick={() => window.location.href = `tel:${selectedContact.mobilePhone}`}
+                        </a>
+                        <a href={`tel:${selectedContact.mobilePhone}`}
                           className="text-[10px] text-emerald-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                         >
                           Text
-                        </button>
+                        </a>
                       </div>
                     ) : (
                       <span className="text-xs text-neutral-600 block">Not specified</span>
