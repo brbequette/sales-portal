@@ -6,7 +6,7 @@ import { useEffect, useState, useCallback } from "react"
 import { usePagination, Pagination } from "@/components/Pagination"
 import {
   FiSettings, FiUsers, FiRefreshCw, FiSave, FiAlertTriangle,
-  FiShield, FiCheckCircle, FiX, FiChevronDown, FiActivity, FiTarget, FiDollarSign, FiClock, FiMessageSquare
+  FiShield, FiCheckCircle, FiX, FiChevronDown, FiActivity, FiTarget, FiDollarSign, FiClock, FiMessageSquare, FiPieChart
 } from "react-icons/fi"
 
 interface User {
@@ -510,6 +510,21 @@ export default function AdminSettingsPage() {
             </div>
             <p className="text-xs text-neutral-400">
               Manage sales rep payouts, running balances, and commissions.
+            </p>
+          </div>
+
+          <div 
+            onClick={() => window.open('https://titan-diamond-sales-monitor.netlify.app', '_blank')}
+            className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-emerald-500/50 cursor-pointer transition-all group"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2.5 rounded-xl bg-emerald-950/40 text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                <FiPieChart size={18} />
+              </div>
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">Sales Dashboard</h2>
+            </div>
+            <p className="text-xs text-neutral-400">
+              View the live Titan Diamond Sales Monitor application in a new tab.
             </p>
           </div>
         </div>
