@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { NextAuthProvider } from "@/components/NextAuthProvider";
 import { ZohoProvider } from "@/components/ZohoProvider";
 import { AuthWrapper } from "@/components/AuthWrapper";
 import { AppShell } from "@/components/AppShell";
@@ -40,19 +41,21 @@ export default function RootLayout({
         <script src="https://js.authorize.net/v1/Accept.js" charSet="utf-8"></script>
       </head>
       <body className="antialiased">
-        <ZohoProvider>
-          <PreferencesProvider>
-            <AuthWrapper>
-              <ProductModalProvider>
-                <AppShell>
-                  <TimeclockTracker />
-                  {children}
-                  <Softphone />
-                </AppShell>
-              </ProductModalProvider>
-            </AuthWrapper>
-          </PreferencesProvider>
-        </ZohoProvider>
+        <NextAuthProvider>
+          <ZohoProvider>
+            <PreferencesProvider>
+              <AuthWrapper>
+                <ProductModalProvider>
+                  <AppShell>
+                    <TimeclockTracker />
+                    {children}
+                    <Softphone />
+                  </AppShell>
+                </ProductModalProvider>
+              </AuthWrapper>
+            </PreferencesProvider>
+          </ZohoProvider>
+        </NextAuthProvider>
       </body>
     </html>
   );

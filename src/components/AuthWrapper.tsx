@@ -3,9 +3,11 @@
 import { useZoho } from "./ZohoProvider"
 import { useEffect, useState, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
+import { useSession } from "next-auth/react"
 
 export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const { isInitialized, zohoContext } = useZoho()
+  const { status } = useSession()
   const router = useRouter()
   const pathname = usePathname()
   const [isAuthorized, setIsAuthorized] = useState(false)
@@ -29,6 +31,18 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Login page always renders — no auth gating needed
     if (isLoginPage) {
+      setIsAuthorized(true)
+      setChecking(false)
+      return
+    }
+
+    // Wait for NextAuth to finish checking
+    if (status === "loading") {
+      return
+    }
+
+    // If NextAuth has authenticated the user
+    if (status === "authenticated") {
       setIsAuthorized(true)
       setChecking(false)
       return
@@ -90,7 +104,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
 
     return () => clearTimeout(timer)
 
-  }, [isInitialized, zohoContext, isLoginPage])
+  }, [isInitialized, zohoContext, isLoginPage, status])
 
   // Login page always renders immediately
   if (isLoginPage) return <>{children}</>

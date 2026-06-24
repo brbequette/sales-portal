@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
 
 interface ZohoContextProps {
   isInitialized: boolean
@@ -17,6 +18,7 @@ export const useZoho = () => useContext(ZohoContext)
 export function ZohoProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false)
   const [zohoContext, setZohoContext] = useState<any | null>(null)
+  const { data: session, status } = useSession()
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -40,7 +42,19 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
       return // No SDK init needed on login page
     }
 
-    // ── STEP 1: URL params (Zoho Web Tab with Append Params or merge fields) ──
+    // ── STEP 1: NextAuth Session ──
+    if (status === "loading") return
+    if (status === "authenticated" && session?.user) {
+      console.log("Restored session from NextAuth:", session.user.email)
+      setZohoContext(session.user)
+      setIsInitialized(true)
+      try {
+        localStorage.setItem("sales_portal_user", JSON.stringify(session.user))
+      } catch {}
+      return
+    }
+
+    // ── STEP 2: URL params (Zoho Web Tab with Append Params or merge fields) ──
     const params = new URLSearchParams(window.location.search)
     const email = params.get("email") || params.get("userEmail") || params.get("user_email") || params.get("Email")
     const name = params.get("name") || params.get("userName") || params.get("user_name") || params.get("fullName") || params.get("Name")
@@ -182,7 +196,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
       clearInterval(checkZoho)
       clearTimeout(timeout)
     }
-  }, [])
+  }, [status, session])
 
   return (
     <ZohoContext.Provider value={{ isInitialized, zohoContext }}>
