@@ -514,7 +514,7 @@ export default function AdminSettingsPage() {
           </div>
 
           <div 
-            onClick={() => window.open('https://titan-diamond-sales-monitor.netlify.app', '_blank')}
+            onClick={() => router.push('/admin/dashboard')}
             className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-emerald-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center gap-3 mb-2">
@@ -524,7 +524,7 @@ export default function AdminSettingsPage() {
               <h2 className="text-sm font-bold text-white uppercase tracking-wider">Sales Dashboard</h2>
             </div>
             <p className="text-xs text-neutral-400">
-              View the live Titan Diamond Sales Monitor application in a new tab.
+              View the live Titan Diamond Sales Monitor application.
             </p>
           </div>
         </div>
