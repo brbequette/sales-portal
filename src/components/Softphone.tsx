@@ -15,6 +15,7 @@ export default function Softphone() {
   const [callNotes, setCallNotes] = useState("")
   const [callStatus, setCallStatus] = useState("completed")
   const [currentCallId, setCurrentCallId] = useState<string | null>(null)
+  const [webrtcInitialized, setWebrtcInitialized] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Search State
@@ -62,6 +63,35 @@ export default function Softphone() {
       if (timerRef.current) clearInterval(timerRef.current)
     }
   }, [callState])
+
+  // WebRTC SDK Initialization
+  useEffect(() => {
+    const initWebRTC = async () => {
+      const sdkToken = process.env.NEXT_PUBLIC_ZOHO_VOICE_SDK_TOKEN
+      if (typeof window !== "undefined" && (window as any).ZVoice && sdkToken && !webrtcInitialized) {
+        try {
+          await (window as any).ZVoice.init({
+            token: sdkToken,
+            debug: true
+          })
+          setWebrtcInitialized(true)
+          console.log("[ZOHO SDK] WebRTC Initialized successfully.")
+        } catch (e) {
+          console.error("[ZOHO SDK] WebRTC Initialization failed:", e)
+        }
+      }
+    }
+    
+    // Poll for the script to finish lazy loading
+    const checkInterval = setInterval(() => {
+      if (typeof window !== "undefined" && (window as any).ZVoice) {
+        initWebRTC()
+        clearInterval(checkInterval)
+      }
+    }, 1000)
+    
+    return () => clearInterval(checkInterval)
+  }, [webrtcInitialized])
 
   useEffect(() => {
     if (contextAccountId) {
@@ -214,8 +244,18 @@ export default function Softphone() {
         setCallState("connected")
         setCurrentCallId(data.zohoCallId || `z_ext_${Date.now()}`)
         
-        // Trigger softphone application via tel: link
-        window.location.href = `tel:${dialNumber}`
+        if (webrtcInitialized && (window as any).ZVoice) {
+          try {
+            console.log("[ZOHO SDK] Initiating WebRTC call to:", dialNumber)
+            ;(window as any).ZVoice.makeCall(dialNumber)
+          } catch (e) {
+            console.error("[ZOHO SDK] WebRTC makeCall failed, falling back to tel:", e)
+            window.location.href = `tel:${dialNumber}`
+          }
+        } else {
+          // Trigger softphone application via tel: link fallback
+          window.location.href = `tel:${dialNumber}`
+        }
       } else {
         alert("Failed to initiate call: " + data.error)
         setCallState("idle")
