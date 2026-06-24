@@ -213,6 +213,9 @@ export default function Softphone() {
       if (data.success) {
         setCallState("connected")
         setCurrentCallId(data.zohoCallId || `z_ext_${Date.now()}`)
+        
+        // Trigger softphone application via tel: link
+        window.location.href = `tel:${dialNumber}`
       } else {
         alert("Failed to initiate call: " + data.error)
         setCallState("idle")

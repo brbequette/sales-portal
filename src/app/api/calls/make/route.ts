@@ -42,50 +42,12 @@ export async function POST(req: NextRequest) {
     }
 
     const from = normalize(await resolveFromNumber(fromNumber))
-    const dc = process.env.ZOHO_DC || "com"
-    // Override via ZOHO_VOICE_DIAL_URL if your org uses a different endpoint.
-    const dialUrl = process.env.ZOHO_VOICE_DIAL_URL || `https://voice.zoho.${dc}/rest/json/v2/calls/dial`
-
-    let token: string | null = null
-    try {
-      token = await getZohoAccessToken()
-    } catch (e: any) {
-      console.warn("[ZOHO VOICE] No access token, falling back to manual dial:", e?.message)
-    }
-
-    if (token) {
-      try {
-        const callData = { customerNumber: to, agentNumber: from, callerId: from }
-        const formData = new FormData()
-        formData.append("call_data", JSON.stringify(callData))
-
-        const res = await fetch(dialUrl, {
-          method: "POST",
-          headers: { Authorization: `Zoho-oauthtoken ${token}` },
-          body: formData,
-        })
-        const resultText = await res.text()
-        let resultJson: any = {}
-        try { resultJson = JSON.parse(resultText) } catch {}
-
-        if (res.ok && resultJson.status !== "error" && resultJson.code !== "error") {
-          const zohoCallId = resultJson.callId || resultJson.id || resultJson?.data?.callId || `zv_call_${Date.now()}`
-          return NextResponse.json({ success: true, zohoCallId, mode: "zoho", message: "Call initiated via Zoho Voice" })
-        }
-        console.warn("[ZOHO VOICE] Dial API returned non-success:", resultText)
-        return NextResponse.json({ success: false, error: `Zoho Voice API Error: ${resultJson.message || resultText}` })
-      } catch (err: any) {
-        console.warn("[ZOHO VOICE] Dial request failed:", err?.message)
-        return NextResponse.json({ success: false, error: `Dial request failed: ${err?.message}` })
-      }
-    }
-
     // Graceful fallback: let the rep proceed and log the call manually.
     return NextResponse.json({
       success: true,
       zohoCallId: `manual_${Date.now()}`,
-      mode: "manual",
-      message: "Dial your handset to connect. Call will be logged on wrap-up.",
+      mode: "tel",
+      message: "Dialing via softphone...",
     })
   } catch (err: any) {
     console.error("Make Call Error:", err)
