@@ -73,8 +73,10 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: true, zohoCallId, mode: "zoho", message: "Call initiated via Zoho Voice" })
         }
         console.warn("[ZOHO VOICE] Dial API returned non-success:", resultText)
+        return NextResponse.json({ success: false, error: `Zoho Voice API Error: ${resultJson.message || resultText}` })
       } catch (err: any) {
-        console.warn("[ZOHO VOICE] Dial request failed, falling back to manual:", err?.message)
+        console.warn("[ZOHO VOICE] Dial request failed:", err?.message)
+        return NextResponse.json({ success: false, error: `Dial request failed: ${err?.message}` })
       }
     }
 
