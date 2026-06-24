@@ -15,12 +15,28 @@ function MarkdownContent({ content }: { content: string }) {
       const parts = line.replace("- ", "").split(/(\*\*.*?\*\*)/)
       return (
         <li key={i} className="ml-4 list-disc text-neutral-300 mb-1">
-          {parts.map((part, j) => 
-            part.startsWith("**") && part.endsWith("**") 
+          {parts.map((part, j) =>
+            part.startsWith("**") && part.endsWith("**")
               ? <strong key={j} className="text-white font-semibold">{part.replace(/\*\*/g, "")}</strong>
               : part
           )}
         </li>
+      )
+    }
+    const orderedMatch = line.match(/^(\d+)\.\s(.*)$/)
+    if (orderedMatch) {
+      const parts = orderedMatch[2].split(/(\*\*.*?\*\*)/)
+      return (
+        <div key={i} className="flex gap-3 mb-1.5 ml-1">
+          <span className="text-[var(--primary)] font-bold shrink-0 tabular-nums">{orderedMatch[1]}.</span>
+          <span className="text-neutral-300 leading-relaxed">
+            {parts.map((part, j) =>
+              part.startsWith("**") && part.endsWith("**")
+                ? <strong key={j} className="text-white font-semibold">{part.replace(/\*\*/g, "")}</strong>
+                : part
+            )}
+          </span>
+        </div>
       )
     }
     if (line.trim() === "") {
@@ -63,18 +79,18 @@ export default function TrainingPage() {
   })).filter(c => c.modules.length > 0)
 
   return (
-    <div className="p-4 lg:p-8 flex flex-col h-[calc(100vh-64px)] lg:h-screen max-w-7xl mx-auto">
+    <div className="p-4 lg:p-8 flex flex-col h-[calc(100dvh-7rem)] lg:h-screen max-w-7xl mx-auto">
       <div className="mb-6 shrink-0">
         <h1 className="text-2xl font-black text-white flex items-center gap-2">
-          <FiBookOpen className="text-blue-400" /> Training Hub
+          <FiBookOpen className="text-[var(--primary)]" /> Training Hub
         </h1>
-        <p className="text-neutral-400 mt-1">Learn how to use the Sales Portal and its features.</p>
+        <p className="text-neutral-400 mt-1">Learn how to use every part of the Titan Hub — sales, communication, collections, payroll, and admin.</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6 min-h-0 flex-1">
         
         {/* Sidebar Menu */}
-        <div className="lg:w-80 flex flex-col gap-4 shrink-0 bg-[#151618] border border-white/10 rounded-2xl p-4 overflow-y-auto hidden-scrollbar shadow-xl">
+        <div className="lg:w-80 flex flex-col gap-4 shrink-0 bg-[var(--surface)] border border-white/10 rounded-2xl p-4 overflow-y-auto hidden-scrollbar shadow-xl">
           <div className="relative shrink-0">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
             <input 
@@ -82,7 +98,7 @@ export default function TrainingPage() {
               placeholder="Search training..." 
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full bg-[#111214] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full bg-[var(--surface-2)] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--primary)] transition-colors"
             />
           </div>
 
@@ -100,7 +116,7 @@ export default function TrainingPage() {
                         onClick={() => setSelectedModule(mod)}
                         className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${
                           selectedModule?.id === mod.id 
-                            ? "bg-blue-500/20 text-blue-400 font-semibold" 
+                            ? "bg-[var(--primary)]/15 text-[var(--primary)] font-semibold border border-[var(--primary)]/25" 
                             : "hover:bg-white/5 text-neutral-300 hover:text-white"
                         }`}
                       >
@@ -116,10 +132,10 @@ export default function TrainingPage() {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 bg-[#151618] border border-white/10 rounded-2xl shadow-xl overflow-hidden flex flex-col relative">
+        <div className="flex-1 bg-[var(--surface)] border border-white/10 rounded-2xl shadow-xl overflow-hidden flex flex-col relative">
           {selectedModule ? (
             <div className="absolute inset-0 overflow-y-auto p-6 lg:p-10 hidden-scrollbar">
-              <div className="mb-2 text-sm font-semibold text-blue-400">{selectedModule.category}</div>
+              <div className="mb-2 text-sm font-semibold text-[var(--primary)]">{selectedModule.category}</div>
               <h2 className="text-3xl font-black text-white mb-6 pb-6 border-b border-white/10">{selectedModule.title}</h2>
               <MarkdownContent content={selectedModule.content} />
             </div>

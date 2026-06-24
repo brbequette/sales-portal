@@ -217,7 +217,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
         </div>
       )}
       
-      <h2 className="text-xl font-semibold mb-2 text-blue-400 flex items-center gap-2">
+      <h2 className="text-xl font-semibold mb-2 text-[var(--primary)] flex items-center gap-2">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
         </svg>
@@ -226,7 +226,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
 
       {/* Tabs */}
       <div className="flex space-x-2 border-b border-neutral-800 pb-2 overflow-x-auto flex-nowrap scrollbar-none">
-        <button onClick={() => setActiveTab("CALL")} className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors whitespace-nowrap ${activeTab === 'CALL' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}><FiPhoneCall /> Call</button>
+        <button onClick={() => setActiveTab("CALL")} className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors whitespace-nowrap ${activeTab === 'CALL' ? 'bg-[var(--primary)] text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}><FiPhoneCall /> Call</button>
         <button onClick={() => setActiveTab("SMS")} className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors whitespace-nowrap ${activeTab === 'SMS' ? 'bg-emerald-600 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}><FiMessageCircle /> SMS</button>
         <button onClick={() => setActiveTab("EMAIL")} className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors whitespace-nowrap ${activeTab === 'EMAIL' ? 'bg-purple-600 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}><FiMail /> Email</button>
         <button onClick={() => setActiveTab("WHATSAPP")} className={`flex items-center gap-2 px-4 py-2 rounded-t-lg transition-colors whitespace-nowrap ${activeTab === 'WHATSAPP' ? 'bg-green-500 text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'}`}><FiMessageSquare /> WhatsApp</button>
@@ -241,7 +241,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
             <div className="text-xs text-neutral-500 truncate max-w-[260px] font-mono">
               {activeTab === 'EMAIL' ? primaryContact.email : (
                 cleanPhone ? (
-                  <button onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, tab: 'dialer' } }))} className="hover:text-blue-400 transition-colors underline">{displayPhone}</button>
+                  <button onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, tab: 'dialer' } }))} className="hover:text-[var(--primary)] transition-colors underline">{displayPhone}</button>
                 ) : displayPhone || "No contact on file"
               )}
             </div>
@@ -262,7 +262,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
               <div className="text-center py-4">
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, tab: 'dialer' } }))}
-                  className="inline-flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-colors shadow-lg shadow-blue-900/50 text-base"
+                  className="inline-flex items-center gap-2 px-8 py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] font-bold rounded-lg transition-colors shadow-lg shadow-black/40 text-base"
                 >
                   <FiPhoneCall /> Click to Dial
                 </button>
@@ -275,7 +275,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
             <div className="flex gap-4">
               <div className="flex-1">
                 <label className="text-xs font-semibold mb-1 block text-neutral-400">Call Outcome</label>
-                <select value={callOutcome} onChange={e => setCallOutcome(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm focus:outline-none focus:border-blue-500 text-white">
+                <select value={callOutcome} onChange={e => setCallOutcome(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm focus:outline-none focus:border-[var(--primary)] text-white">
                   <option value="Connected">Connected & Spoke with Customer</option>
                   <option value="Left Voicemail">Left Voicemail</option>
                   <option value="No Answer">No Answer / Busy</option>
@@ -284,7 +284,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
               </div>
               <div className="flex-1">
                 <label className="text-xs font-semibold mb-1 block text-neutral-400">Set Follow-up Reminder</label>
-                <input type="date" value={reminderDate} onChange={e => setReminderDate(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm focus:outline-none focus:border-blue-500 text-neutral-300" />
+                <input type="date" value={reminderDate} onChange={e => setReminderDate(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm focus:outline-none focus:border-[var(--primary)] text-neutral-300" />
               </div>
             </div>
 
@@ -295,7 +295,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
               <textarea 
                 value={callNote}
                 onChange={e => setCallNote(e.target.value)}
-                className="w-full flex-1 bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 text-white font-sans"
+                className="w-full flex-1 bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:outline-none focus:border-[var(--primary)] text-white font-sans"
                 placeholder="Notes from the call..."
               />
             </div>
@@ -304,7 +304,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
               <button 
                 onClick={saveCallLog}
                 disabled={isSaving || !callNote}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-sm rounded transition-colors shadow-lg"
+                className="px-6 py-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-50 text-white font-bold text-sm rounded transition-colors shadow-lg"
               >
                 {isSaving ? "Saving Note..." : "Save Note & Log Call"}
               </button>

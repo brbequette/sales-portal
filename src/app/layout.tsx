@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { NextAuthProvider } from "@/components/NextAuthProvider";
 import { ZohoProvider } from "@/components/ZohoProvider";
@@ -24,6 +24,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Titan Diamond - Unified Hub",
   description: "Sales, Collections, and Commissions — all in one place",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0d0e10",
 };
 
 export default function RootLayout({

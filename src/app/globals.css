@@ -1,55 +1,94 @@
 @import "tailwindcss";
 
+/*
+  ──────────────────────────────────────────────────────────────
+  TITAN UNIFIED HUB — DESIGN SYSTEM
+  Dark "job-site" theme: contrasting shades of grey for surfaces,
+  construction safety-orange + hi-vis amber as accents.
+  Token names are kept stable so every page that reads
+  var(--primary) / var(--card) / var(--border) updates at once.
+  ──────────────────────────────────────────────────────────────
+*/
+
 :root {
-  /* Core layout backgrounds */
-  --background: #0c0d0f;
-  --foreground: #f4f2ee;
-  
-  /* Primary accents */
-  --primary: #d7b46a;
-  --primary-foreground: #111111;
-  
-  /* Secondary / Card backgrounds */
-  --card: #151618;
-  --card-foreground: #f4f2ee;
-  
-  /* Borders and lines */
-  --border: #2a2c30;
-  
-  /* Status Colors */
-  --success: #46b48c;
-  --warning: #d7b46a;
-  --danger: #d76666;
-  
-  /* Primary RGB (for glow effects) */
-  --primary-rgb: 215, 180, 106;
-  
+  /* ── Greyscale ladder (deepest → lightest surface) ── */
+  --background: #0d0e10;   /* app canvas */
+  --surface: #16181b;      /* cards / panels (alias: --card) */
+  --surface-2: #1d2024;    /* raised panels, inputs, hovers */
+  --surface-3: #262a2f;    /* tooltips, active rows */
+  --card: #16181b;
+  --card-foreground: #ececec;
+
+  /* ── Text ── */
+  --foreground: #ededed;
+  --muted: #a3a7ad;        /* secondary text */
+  --muted-2: #6c7077;      /* tertiary / placeholder text */
+
+  /* ── Borders / hairlines ── */
+  --border: #2c3036;
+  --border-strong: #3a3f46;
+
+  /* ── Construction accents ── */
+  --primary: #f5751f;          /* safety orange — primary action */
+  --primary-hover: #ff8636;
+  --primary-foreground: #1a1206;
+  --accent: #fbbf24;           /* hi-vis amber — highlights */
+  --accent-foreground: #1a1206;
+
+  /* ── Status ── */
+  --success: #3fbf86;
+  --warning: #fbbf24;
+  --danger: #ef5a5a;
+  --info: #5aa9ef;
+
+  /* RGB helpers (glow / ring effects) */
+  --primary-rgb: 245, 117, 31;
+  --accent-rgb: 251, 191, 36;
+
   /* Fonts */
   --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-muted: var(--muted);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-border: var(--border);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-info: var(--info);
   --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;   /* don't let mobile rescale text */
+  text-size-adjust: 100%;
 }
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(215, 180, 106, 0.08), transparent 28rem),
-    linear-gradient(180deg, #101113 0%, var(--background) 42%);
+    radial-gradient(circle at 12% -8%, rgba(var(--primary-rgb), 0.10), transparent 30rem),
+    radial-gradient(circle at 95% 0%, rgba(var(--accent-rgb), 0.05), transparent 26rem),
+    linear-gradient(180deg, #121316 0%, var(--background) 46%);
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Honour iOS safe areas everywhere */
+  min-height: 100dvh;
 }
 
 button,
@@ -60,6 +99,15 @@ textarea {
   letter-spacing: 0;
 }
 
+/* Comfortable, accessible tap targets on touch devices */
+@media (pointer: coarse) {
+  button,
+  a[role="button"],
+  [role="tab"] {
+    min-height: 40px;
+  }
+}
+
 input,
 select,
 textarea {
@@ -67,11 +115,17 @@ textarea {
 }
 
 ::selection {
-  background: rgba(215, 180, 106, 0.28);
-  color: #fffaf0;
+  background: rgba(var(--primary-rgb), 0.30);
+  color: #fff6ec;
 }
 
-/* Custom scrollbar for modern feel */
+/* ── Focus ring (keyboard accessibility) ── */
+:focus-visible {
+  outline: 2px solid rgba(var(--primary-rgb), 0.65);
+  outline-offset: 1px;
+}
+
+/* ── Scrollbars ── */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -80,15 +134,87 @@ textarea {
   background: var(--background);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--border-strong);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
 }
+.hidden-scrollbar::-webkit-scrollbar { display: none; }
+.hidden-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
 
-/* Style option elements in select dropdowns to prevent black-on-black text in dark mode */
+/* Style dropdown options so they aren't black-on-black in dark mode */
 select option {
-  background-color: #151618;
-  color: #f4f2ee;
+  background-color: var(--surface);
+  color: var(--foreground);
+}
+
+/*
+  ──────────────────────────────────────────────────────────────
+  Reusable component utilities — let pages share one consistent
+  look instead of re-inventing card / button / input styles.
+  ──────────────────────────────────────────────────────────────
+*/
+@layer components {
+  .card {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    box-shadow: 0 14px 44px rgba(0, 0, 0, 0.34);
+  }
+
+  .surface-inset {
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+  }
+
+  .btn-primary {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    font-weight: 700;
+    border-radius: 0.625rem;
+    transition: filter 0.15s ease, background-color 0.15s ease;
+  }
+  .btn-primary:hover { background-color: var(--primary-hover); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-ghost {
+    background-color: rgba(255, 255, 255, 0.045);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    font-weight: 600;
+    border-radius: 0.625rem;
+    transition: all 0.15s ease;
+  }
+  .btn-ghost:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: var(--foreground);
+  }
+
+  .input-field {
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+    color: var(--foreground);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+  .input-field::placeholder { color: var(--muted-2); }
+  .input-field:focus {
+    outline: none;
+    border-color: var(--primary);
+    background-color: var(--surface-3);
+  }
+
+  /* Hazard stripe — a subtle nod to the construction theme */
+  .hazard-stripe {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(var(--accent-rgb), 0.85) 0,
+      rgba(var(--accent-rgb), 0.85) 10px,
+      #1a1206 10px,
+      #1a1206 20px
+    );
+  }
 }

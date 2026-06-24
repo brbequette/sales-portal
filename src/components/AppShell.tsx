@@ -22,13 +22,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: "/",            icon: FiHome,      label: "Sales Hub",    color: "text-[var(--primary)]" },
-    { href: "/sales",       icon: FiFileText,  label: "Sales Docs",   color: "text-[var(--primary)]" },
-    { href: "/messages",    icon: FiMessageSquare, label: "Messages", color: "text-emerald-400" },
-    { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-red-300" },
-    { href: "/commissions", icon: FiDollarSign,label: "Commissions",  color: "text-[var(--primary)]" },
+    { href: "/sales",       icon: FiFileText,  label: "Sales Docs",   color: "text-[var(--accent)]" },
+    { href: "/messages",    icon: FiMessageSquare, label: "Messages", color: "text-[var(--info)]" },
+    { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-[var(--danger)]" },
+    { href: "/commissions", icon: FiDollarSign,label: "Commissions",  color: "text-[var(--success)]" },
     { href: "/stats",       icon: FiBarChart2, label: "Rep Stats",    color: "text-neutral-100" },
-    { href: "/tools",       icon: FiTool,      label: "Tools & Media",color: "text-neutral-100" },
-    { href: "/training",    icon: FiBookOpen,  label: "Training Hub", color: "text-blue-400" },
+    { href: "/tools",       icon: FiTool,      label: "Tools & Media",color: "text-[var(--accent)]" },
+    { href: "/training",    icon: FiBookOpen,  label: "Training Hub", color: "text-[var(--primary)]" },
   ]
 
   if (isAdmin) {
@@ -38,9 +38,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Choose primary items for the bottom navigation bar on mobile
   const bottomItems = [
     { href: "/",            icon: FiHome,      label: "Hub",          color: "text-[var(--primary)]" },
-    { href: "/sales",       icon: FiFileText,  label: "Docs",         color: "text-[var(--primary)]" },
-    { href: "/messages",    icon: FiMessageSquare, label: "Msgs",     color: "text-emerald-400" },
-    { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-red-400" },
+    { href: "/sales",       icon: FiFileText,  label: "Docs",         color: "text-[var(--accent)]" },
+    { href: "/messages",    icon: FiMessageSquare, label: "Msgs",     color: "text-[var(--info)]" },
+    { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-[var(--danger)]" },
   ]
 
   // Don't show nav on login page
@@ -149,7 +149,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 return (
                   <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                      active ? "bg-neutral-700 text-white" : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
+                      active ? "bg-[var(--primary)]/15 text-white border border-[var(--primary)]/30" : "text-neutral-400 hover:bg-white/5 hover:text-white"
                     }`}
                   >
                     <Icon size={16} className={active ? item.color : ""} />
