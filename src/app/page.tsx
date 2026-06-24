@@ -1420,7 +1420,7 @@ export default function Dashboard() {
                             </div>
                             <div className="flex items-center gap-1.5">
                               {cleanPhone ? (
-                                <button onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, tab: 'dialer' } })) }} className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
+                                <button onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, accountId: account.id || account.zohoId, accountName: account.name, tab: 'dialer' } })) }} className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
                                   <FiPhoneCall size={12} />
                                 </button>
                               ) : (

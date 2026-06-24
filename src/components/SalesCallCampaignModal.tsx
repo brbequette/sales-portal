@@ -264,19 +264,6 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 {cleanPhone && (
                   <button 
                     onClick={() => {
-                      // Trigger Zoho Voice Call Initiation log in backend
-                      fetch('/api/zoho-voice', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          action: 'INITIATE_CALL',
-                          accountId: activeAccount.id,
-                          userId: currentUser?.id,
-                          userEmail: currentUser?.email
-                        })
-                      }).catch(err => console.error("Error logging call initiation:", err));
-
-                      // Dispatch the custom event to notify any softphone component in-app
                       const event = new CustomEvent("open-softphone", {
                         detail: { 
                           number: cleanPhone,
@@ -308,7 +295,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 <div className="space-y-1">
                   <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Phone Details</span>
                   {displayPhone ? (
-                    <button onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, tab: 'dialer' } })) }} className="text-xs text-blue-400 hover:text-blue-300 hover:underline font-bold font-mono">{displayPhone}</button>
+                    <button onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, accountId: activeAccount.id, accountName: activeAccount.name, tab: 'dialer' } })) }} className="text-xs text-blue-400 hover:text-blue-300 hover:underline font-bold font-mono">{displayPhone}</button>
                   ) : (
                     <p className="text-xs text-neutral-500 font-mono">—</p>
                   )}

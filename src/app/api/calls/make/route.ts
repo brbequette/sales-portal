@@ -1,31 +1,57 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getZohoAccessToken } from "@/lib/zoho-auth"
+import { initiateZohoVoiceCall, resolveAccount } from "@/lib/communications"
+import { prisma } from "@/lib/prisma"
 
-// Placeholder for Zoho Voice Click-to-Call API
-// In production, this would use ZOHO_VOICE_API_KEY to trigger a call
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { fromNumber, toNumber, accountId } = body
+    const { fromNumber, toNumber, accountId, mode } = body
 
-    if (!toNumber) {
-      return NextResponse.json({ error: "Missing destination number" }, { status: 400 })
+    if (mode === "mark-connected") {
+      const account = await resolveAccount(accountId)
+      if (account) {
+        await prisma.account.update({
+          where: { id: account.id },
+          data: { lastCalledAt: new Date() },
+        })
+      }
+
+      return NextResponse.json({ success: true })
     }
 
-    console.log(`[ZOHO VOICE] Initiating call from ${fromNumber || 'Default Caller ID'} to ${toNumber} for account ${accountId}...`)
+    const accessToken = await getZohoAccessToken()
+    if (!accessToken) {
+      return NextResponse.json({ success: false, error: "Could not retrieve Zoho access token" }, { status: 502 })
+    }
 
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    const callResult = await initiateZohoVoiceCall({ accessToken, fromNumber, toNumber })
 
-    // Mock successful call initiation
-    const mockZohoCallId = `zv_call_${Date.now()}`
+    if (!callResult.success) {
+      return NextResponse.json(
+        { success: false, error: callResult.error || "Zoho Voice rejected the call request" },
+        { status: callResult.status || 502 }
+      )
+    }
+
+    const account = await resolveAccount(accountId)
+    if (account) {
+      await prisma.account.update({
+        where: { id: account.id },
+        data: { lastCalledAt: new Date() },
+      })
+    }
 
     return NextResponse.json({
       success: true,
-      zohoCallId: mockZohoCallId,
+      zohoCallId: callResult.zohoCallId,
+      fromNumber: callResult.fromNumber,
+      toNumber: callResult.toNumber,
       message: "Call initiated successfully"
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Make Call Error:", err)
-    return NextResponse.json({ error: "Failed to initiate call" }, { status: 500 })
+    const message = err instanceof Error ? err.message : "Failed to initiate call"
+    return NextResponse.json({ success: false, error: message }, { status: 500 })
   }
 }

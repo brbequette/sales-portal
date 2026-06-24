@@ -5,6 +5,114 @@ import { getZohoAccessToken } from "./lib/zoho-auth"
 
 const prisma = new PrismaClient()
 
+function normalizePhoneNumber(rawPhoneNumber: string | null | undefined) {
+  if (!rawPhoneNumber) return ""
+
+  let phoneNumber = rawPhoneNumber.replace(/[^\d+]/g, "")
+  if (phoneNumber.length === 10 && !phoneNumber.startsWith("+")) {
+    phoneNumber = `+1${phoneNumber}`
+  } else if (!phoneNumber.startsWith("+") && phoneNumber.length > 10) {
+    phoneNumber = `+${phoneNumber}`
+  }
+
+  return phoneNumber
+}
+
+function parseZohoCallId(result: Record<string, any>) {
+  const firstDataItem = Array.isArray(result.data) ? result.data[0] : result.data
+  if (firstDataItem && typeof firstDataItem === "object") {
+    return String(firstDataItem.call_id || firstDataItem.callId || firstDataItem.id || firstDataItem.call_uuid || "")
+  }
+  return String(result.call_id || result.callId || result.id || result.call_uuid || "")
+}
+
+function isZohoVoiceCallSuccess(result: Record<string, any>) {
+  const status = String(result.status || result.code || "").toLowerCase()
+  const message = String(result.message || "").toLowerCase()
+  const firstDataItem = Array.isArray(result.data) ? result.data[0] : result.data
+  const itemCode = firstDataItem && typeof firstDataItem === "object"
+    ? String(firstDataItem.code || "").toLowerCase()
+    : ""
+
+  if (status === "error" || status === "failure" || result.error) return false
+  if (itemCode === "error" || itemCode === "failure") return false
+  if (status === "success" || status === "ok" || itemCode === "success") return true
+  if (parseZohoCallId(result)) return true
+  if (message.includes("initiated") || message.includes("success")) return true
+  return false
+}
+
+async function resolveOutboundVoiceNumber(requestedNumber?: string | null) {
+  if (requestedNumber && requestedNumber !== "System") return normalizePhoneNumber(requestedNumber)
+  if (process.env.ZOHO_VOICE_FROM_NUMBER) return normalizePhoneNumber(process.env.ZOHO_VOICE_FROM_NUMBER)
+
+  const setting = await prisma.systemSetting.findUnique({ where: { key: "zoho_phone_numbers" } })
+  if (!setting?.value) return ""
+
+  try {
+    const numbers = JSON.parse(setting.value)
+    if (!Array.isArray(numbers)) return ""
+    const defaultNumber = numbers.find((n: any) => n?.isDefault) || numbers[0]
+    return normalizePhoneNumber(defaultNumber?.number)
+  } catch {
+    return ""
+  }
+}
+
+async function initiateZohoVoiceCall(params: {
+  accessToken: string
+  fromNumber?: string | null
+  toNumber?: string | null
+}) {
+  const callerId = await resolveOutboundVoiceNumber(params.fromNumber)
+  const destinationNumber = normalizePhoneNumber(params.toNumber)
+
+  if (!destinationNumber) {
+    return { success: false, status: 400, message: "Missing destination number" }
+  }
+  if (!callerId) {
+    return {
+      success: false,
+      status: 400,
+      message: "No outbound Zoho Voice number is configured. Configure one in Admin > Communications."
+    }
+  }
+
+  const zohoDc = process.env.ZOHO_DC || "com"
+  const callUrl = process.env.ZOHO_VOICE_CALL_URL || `https://voice.zoho.${zohoDc}/api/v1/call`
+  const callRes = await fetch(callUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Zoho-oauthtoken ${params.accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from_number: callerId,
+      to_number: destinationNumber,
+    }),
+  })
+
+  const resultText = await callRes.text()
+  let resultJson: Record<string, any> = {}
+  try { resultJson = JSON.parse(resultText) } catch {}
+
+  if (!callRes.ok || !isZohoVoiceCallSuccess(resultJson)) {
+    return {
+      success: false,
+      status: callRes.ok ? 502 : callRes.status,
+      message: resultJson.message || resultJson.error || resultText || "Zoho Voice rejected the call request"
+    }
+  }
+
+  return {
+    success: true,
+    status: callRes.status,
+    zohoCallId: parseZohoCallId(resultJson) || `zv_call_${Date.now()}`,
+    fromNumber: callerId,
+    toNumber: destinationNumber,
+  }
+}
+
 export const handler: Handler = async (event, context) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
 
@@ -18,7 +126,7 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { action, accountId, noteContent, sentiment, reminderDate, userId, userEmail } = body
+    const { action, accountId, noteContent, sentiment, reminderDate, userId, userEmail, fromNumber, toNumber } = body
 
     // Resolve author dynamically
     let author = null
@@ -112,13 +220,7 @@ export const handler: Handler = async (event, context) => {
         }
       }
 
-      // Sanitize phone number
-      let phoneNumber = rawPhoneNumber.replace(/[^\d+]/g, '')
-      if (phoneNumber.length === 10 && !phoneNumber.startsWith('+')) {
-        phoneNumber = '+1' + phoneNumber
-      } else if (!phoneNumber.startsWith('+') && phoneNumber.length > 10) {
-        phoneNumber = '+' + phoneNumber
-      }
+      const phoneNumber = normalizePhoneNumber(rawPhoneNumber)
 
       let apiSuccess = false
       let apiMessage = ""
@@ -126,48 +228,38 @@ export const handler: Handler = async (event, context) => {
       try {
         const accessToken = await getZohoAccessToken()
         if (accessToken) {
-          let fromNumber = process.env.ZOHO_VOICE_FROM_NUMBER || ''
-          if (!fromNumber) {
-            const setting = await prisma.systemSetting.findUnique({ where: { key: "zoho_phone_numbers" } })
-            if (setting && setting.value) {
-              try {
-                const parsed = JSON.parse(setting.value)
-                const defaultNum = parsed.find((n: any) => n.isDefault) || parsed[0]
-                if (defaultNum && defaultNum.number) {
-                  fromNumber = defaultNum.number
-                }
-              } catch(e) {}
-            }
-          }
-          if (!fromNumber) fromNumber = '+14804702577' // Fallback for backwards compatibility
-
-          const zohoVoiceUrl = `https://voice.zoho.${process.env.ZOHO_DC || 'com'}/rest/json/v2/sms/send`
-          const smsData = {
-            customerNumber: phoneNumber,
-            message: noteContent,
-            senderId: fromNumber,
-            mms: false
-          }
-          const formData = new FormData()
-          formData.append('sms_data', JSON.stringify(smsData))
-
-          const smsRes = await fetch(zohoVoiceUrl, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Zoho-oauthtoken ${accessToken}`
-            },
-            body: formData
-          })
-
-          const resultText = await smsRes.text()
-          let resultJson: any = {}
-          try { resultJson = JSON.parse(resultText) } catch (e) {}
-
-          if (smsRes.ok && resultJson.status !== 'error' && resultJson.code !== 'error') {
-            apiSuccess = true
+          const senderNumber = await resolveOutboundVoiceNumber(fromNumber)
+          if (!senderNumber) {
+            apiMessage = "No outbound Zoho Voice number is configured."
           } else {
-            console.error(`Zoho Voice SMS send failed:`, resultText)
-            apiMessage = `Zoho Voice API error: ${resultJson.message || resultText}`
+            const zohoVoiceUrl = `https://voice.zoho.${process.env.ZOHO_DC || 'com'}/rest/json/v2/sms/send`
+            const smsData = {
+              customerNumber: phoneNumber,
+              message: noteContent,
+              senderId: senderNumber,
+              mms: false
+            }
+            const formData = new FormData()
+            formData.append('sms_data', JSON.stringify(smsData))
+
+            const smsRes = await fetch(zohoVoiceUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Zoho-oauthtoken ${accessToken}`
+              },
+              body: formData
+            })
+
+            const resultText = await smsRes.text()
+            let resultJson: any = {}
+            try { resultJson = JSON.parse(resultText) } catch (e) {}
+
+            if (smsRes.ok && resultJson.status !== 'error' && resultJson.code !== 'error') {
+              apiSuccess = true
+            } else {
+              console.error(`Zoho Voice SMS send failed:`, resultText)
+              apiMessage = `Zoho Voice API error: ${resultJson.message || resultText}`
+            }
           }
         } else {
           apiMessage = "Could not retrieve Zoho access token"
@@ -228,8 +320,45 @@ export const handler: Handler = async (event, context) => {
 
     if (action === 'INITIATE_CALL') {
       const account = await resolveAccount(accountId)
+      let destinationNumber = normalizePhoneNumber(toNumber)
+
+      if (!destinationNumber && account) {
+        const dbAccount = await prisma.account.findUnique({
+          where: { id: account.id },
+          include: { contacts: true }
+        })
+        const contact = dbAccount?.contacts.find((c: any) => c.isPrimary) || dbAccount?.contacts[0]
+        destinationNumber = normalizePhoneNumber(contact?.mobilePhone || contact?.phone)
+      }
+
+      if (!destinationNumber) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: false, message: "No destination phone number found" })
+        }
+      }
+
+      const accessToken = await getZohoAccessToken()
+      if (!accessToken) {
+        return {
+          statusCode: 502,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: false, message: "Could not retrieve Zoho access token" })
+        }
+      }
+
+      const callResult = await initiateZohoVoiceCall({ accessToken, fromNumber, toNumber: destinationNumber })
+
+      if (!callResult.success) {
+        return {
+          statusCode: callResult.status || 502,
+          headers: corsHeaders,
+          body: JSON.stringify({ success: false, message: callResult.message || "Zoho Voice rejected the call request" })
+        }
+      }
+
       if (account) {
-        // Record call initiation event in account lastCalledAt timestamp
         await prisma.account.update({
           where: { id: account.id },
           data: { lastCalledAt: new Date() }
@@ -238,7 +367,13 @@ export const handler: Handler = async (event, context) => {
       return {
         statusCode: 200,
         headers: corsHeaders,
-        body: JSON.stringify({ success: true, message: 'Call initiated' })
+        body: JSON.stringify({
+          success: true,
+          message: 'Call initiated',
+          zohoCallId: callResult.zohoCallId,
+          fromNumber: callResult.fromNumber,
+          toNumber: callResult.toNumber
+        })
       }
     }
 
@@ -257,4 +392,3 @@ export const handler: Handler = async (event, context) => {
     }
   }
 }
-

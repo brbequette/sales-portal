@@ -2,11 +2,58 @@
 
 import React, { useState, useEffect, useRef } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
-import { FiPhone, FiMessageSquare, FiClock, FiX, FiMinus, FiPhoneCall, FiPhoneOff, FiSave, FiSearch, FiSend } from "react-icons/fi"
+import { FiPhone, FiMessageSquare, FiClock, FiMinus, FiPhoneCall, FiPhoneOff, FiSave, FiSearch, FiSend, FiMic, FiVolume2, FiSettings } from "react-icons/fi"
+import { useZoho } from "./ZohoProvider"
+
+type SoftphoneTab = "dialer" | "sms" | "recent"
+
+type MediaDeviceOption = {
+  deviceId: string
+  label: string
+}
+
+type ZohoVoiceCallState = {
+  callId?: string
+  callStatus?: string
+  number?: string
+  isOutgoing?: boolean
+}
+
+type ZohoVoiceSdkConfig = {
+  success: boolean
+  accessToken?: string
+  outboundNumber?: string
+  defaultCountry?: string
+  error?: string
+}
+
+type ZohoVoiceSdk = {
+  ajaxOpts?: {
+    isOAuth?: boolean
+    oAuthCallBack?: (callback: (token: string) => void) => void
+  }
+  initialize?: () => void
+  makeCall?: (numberOrOptions: string | { number: string; name?: string }) => void
+  hangUp?: (options?: { callId?: string }) => void
+  endCall?: (options?: { callId?: string }) => void
+  setOutgoingNumber?: (number: { number: string; numberId?: string; isDefault?: boolean }) => void
+  setDefaultCountry?: (country: string) => void
+  on?: (eventName: string, callback: (payload?: any) => void) => void
+}
+
+declare global {
+  interface Window {
+    ZohoVoice?: new (options: Record<string, unknown>) => ZohoVoiceSdk
+    zohovoice?: ZohoVoiceSdk
+  }
+}
+
+const ZOHO_VOICE_SDK_SRC = "https://js.zohostatic.com/zvoice_plugin/latest/js/zohovoice.min.js"
+let zohoVoiceSdkScriptPromise: Promise<void> | null = null
 
 export default function Softphone() {
   const [isOpen, setIsOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<"dialer" | "sms" | "recent">("dialer")
+  const [activeTab, setActiveTab] = useState<SoftphoneTab>("dialer")
   
   // Dialer State
   const [dialNumber, setDialNumber] = useState("")
@@ -16,6 +63,15 @@ export default function Softphone() {
   const [callStatus, setCallStatus] = useState("completed")
   const [currentCallId, setCurrentCallId] = useState<string | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const [communicationError, setCommunicationError] = useState("")
+  const [voiceSdkStatus, setVoiceSdkStatus] = useState("Zoho Voice SDK not connected")
+  const [zohoVoice, setZohoVoice] = useState<ZohoVoiceSdk | null>(null)
+  const [zohoVoiceReady, setZohoVoiceReady] = useState(false)
+  const zohoVoiceRef = useRef<ZohoVoiceSdk | null>(null)
+  const zohoVoiceReadyRef = useRef(false)
+  const pendingSdkCallRef = useRef(false)
+  const registrationWaitersRef = useRef<Array<{ resolve: () => void; reject: (error: Error) => void }>>([])
+  const callStartTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Search State
   const [searchQuery, setSearchQuery] = useState("")
@@ -30,10 +86,198 @@ export default function Softphone() {
   const [isSendingSms, setIsSendingSms] = useState(false)
   const smsEndRef = useRef<HTMLDivElement>(null)
 
+  // Browser media device state
+  const [microphones, setMicrophones] = useState<MediaDeviceOption[]>([])
+  const [speakers, setSpeakers] = useState<MediaDeviceOption[]>([])
+  const [selectedMicrophoneId, setSelectedMicrophoneId] = useState("")
+  const [selectedSpeakerId, setSelectedSpeakerId] = useState("")
+  const [mediaStatus, setMediaStatus] = useState("Microphone not connected")
+  const [devicePanelOpen, setDevicePanelOpen] = useState(false)
+  const audioPreviewRef = useRef<HTMLAudioElement | null>(null)
+  const localStreamRef = useRef<MediaStream | null>(null)
+
   // Context State (If we are on an account page, we want to know the account ID)
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { zohoContext: currentUser } = useZoho()
   const [contextAccountId, setContextAccountId] = useState<string | null>(null)
+
+  const loadZohoVoiceScript = async () => {
+    if (window.ZohoVoice) return
+    if (!zohoVoiceSdkScriptPromise) {
+      zohoVoiceSdkScriptPromise = new Promise((resolve, reject) => {
+        const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${ZOHO_VOICE_SDK_SRC}"]`)
+        if (existingScript) {
+          existingScript.addEventListener("load", () => resolve(), { once: true })
+          existingScript.addEventListener("error", () => reject(new Error("Zoho Voice SDK failed to load")), { once: true })
+          return
+        }
+
+        const script = document.createElement("script")
+        script.src = ZOHO_VOICE_SDK_SRC
+        script.async = true
+        script.onload = () => resolve()
+        script.onerror = () => reject(new Error("Zoho Voice SDK failed to load"))
+        document.head.appendChild(script)
+      })
+    }
+
+    await zohoVoiceSdkScriptPromise
+  }
+
+  const updateAccountLastCalled = async () => {
+    if (!contextAccountId) return
+    await fetch("/api/calls/make", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "mark-connected",
+        accountId: contextAccountId,
+      })
+    }).catch(() => undefined)
+  }
+
+  const clearCallStartTimeout = () => {
+    if (callStartTimeoutRef.current) {
+      clearTimeout(callStartTimeoutRef.current)
+      callStartTimeoutRef.current = null
+    }
+  }
+
+  const failPendingRegistration = (message: string) => {
+    registrationWaitersRef.current.splice(0).forEach((waiter) => waiter.reject(new Error(message)))
+  }
+
+  const completePendingRegistration = () => {
+    registrationWaitersRef.current.splice(0).forEach((waiter) => waiter.resolve())
+  }
+
+  const waitForZohoVoiceRegistration = () => {
+    if (zohoVoiceReadyRef.current) return Promise.resolve()
+
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        registrationWaitersRef.current = registrationWaitersRef.current.filter((waiter) => waiter.resolve !== resolve)
+        reject(new Error("Zoho Voice did not register the browser phone. Open audio settings and confirm the SDK status before dialing."))
+      }, 15000)
+
+      registrationWaitersRef.current.push({
+        resolve: () => {
+          clearTimeout(timeout)
+          resolve()
+        },
+        reject: (error) => {
+          clearTimeout(timeout)
+          reject(error)
+        },
+      })
+    })
+  }
+
+  const initializeZohoVoiceSdk = async () => {
+    if (zohoVoiceRef.current) return zohoVoiceRef.current
+
+    setVoiceSdkStatus("Connecting Zoho Voice SDK...")
+    await loadZohoVoiceScript()
+    const res = await fetch("/api/zoho-voice/sdk-config", { cache: "no-store" })
+    const config: ZohoVoiceSdkConfig = await res.json()
+
+    if (!res.ok || !config.success || !config.accessToken) {
+      throw new Error(config.error || "Zoho Voice SDK config is unavailable")
+    }
+    if (!config.outboundNumber) {
+      throw new Error("No outbound Zoho Voice number is configured. Configure one in Admin > Communications.")
+    }
+    if (!window.ZohoVoice) {
+      throw new Error("Zoho Voice SDK is unavailable in this browser")
+    }
+    const accessToken = config.accessToken
+
+    const sdk = new window.ZohoVoice({
+      development: false,
+      debug: false,
+      autoRegister: true,
+      defaultCountry: config.defaultCountry || "us",
+      outgoingNumber: {
+        number: config.outboundNumber,
+        numberId: config.outboundNumber,
+        isDefault: true,
+      },
+      outgoingNumberList: [{
+        number: config.outboundNumber,
+        numberId: config.outboundNumber,
+        isDefault: true,
+      }],
+    })
+
+    sdk.ajaxOpts = sdk.ajaxOpts || {}
+    sdk.ajaxOpts.isOAuth = true
+    sdk.ajaxOpts.oAuthCallBack = (callback) => callback(accessToken)
+
+    sdk.on?.("regState", (regObject: any) => {
+      const rawStatus = String(regObject?.status || "")
+      const status = rawStatus.toLowerCase()
+      const isRegistered = status === "registered"
+      zohoVoiceReadyRef.current = isRegistered
+      setZohoVoiceReady(isRegistered)
+      setVoiceSdkStatus(rawStatus ? `Zoho Voice ${rawStatus}` : "Zoho Voice registration changed")
+      if (isRegistered) {
+        completePendingRegistration()
+      } else if (status === "failed" || status === "error" || status === "disconnected" || status === "websocket closed" || status === "unregistered") {
+        failPendingRegistration(`Zoho Voice registration ${status}`)
+      }
+    })
+
+    sdk.on?.("callState", (callerObject?: ZohoVoiceCallState) => {
+      const status = String(callerObject?.callStatus || "").toLowerCase()
+      if (callerObject?.callId) setCurrentCallId(callerObject.callId)
+      if (callerObject?.number) setDialNumber(callerObject.number)
+
+      if (status === "connecting" || status === "ringing" || status === "incoming") {
+        clearCallStartTimeout()
+        pendingSdkCallRef.current = false
+        setCallState("calling")
+      } else if (status === "connected") {
+        clearCallStartTimeout()
+        pendingSdkCallRef.current = false
+        setCallState("connected")
+        updateAccountLastCalled()
+      } else if (status === "callend" || status === "ended" || status === "disconnected") {
+        clearCallStartTimeout()
+        pendingSdkCallRef.current = false
+        setCallState((state) => state === "idle" ? "idle" : "wrapup")
+      }
+    })
+
+    sdk.on?.("error", (errorObject: any) => {
+      clearCallStartTimeout()
+      pendingSdkCallRef.current = false
+      setCallState("idle")
+      setCommunicationError(errorObject?.desc || errorObject?.message || "Zoho Voice could not place the call")
+    })
+
+    sdk.on?.("login", () => {
+      zohoVoiceReadyRef.current = true
+      setZohoVoiceReady(true)
+      setVoiceSdkStatus("Zoho Voice ready")
+      completePendingRegistration()
+    })
+
+    sdk.initialize?.()
+    if (config.outboundNumber) {
+      sdk.setOutgoingNumber?.({
+        number: config.outboundNumber,
+        numberId: config.outboundNumber,
+        isDefault: true,
+      })
+    }
+    sdk.setDefaultCountry?.("us")
+
+    window.zohovoice = sdk
+    zohoVoiceRef.current = sdk
+    setZohoVoice(sdk)
+    return sdk
+  }
 
   // Try to infer the Account ID from the URL context
   useEffect(() => {
@@ -68,6 +312,30 @@ export default function Softphone() {
       fetchSmsHistory(contextAccountId)
     }
   }, [contextAccountId])
+
+  useEffect(() => {
+    const storedMic = window.localStorage.getItem("softphone.microphoneId") || ""
+    const storedSpeaker = window.localStorage.getItem("softphone.speakerId") || ""
+    setSelectedMicrophoneId(storedMic)
+    setSelectedSpeakerId(storedSpeaker)
+    refreshMediaDevices()
+    initializeZohoVoiceSdk().catch((err) => {
+      setVoiceSdkStatus(err instanceof Error ? err.message : "Zoho Voice SDK is unavailable")
+    })
+
+    if (!navigator.mediaDevices?.addEventListener) return
+    navigator.mediaDevices.addEventListener("devicechange", refreshMediaDevices)
+    return () => navigator.mediaDevices.removeEventListener("devicechange", refreshMediaDevices)
+  }, [])
+
+  useEffect(() => {
+    if (!selectedSpeakerId || !audioPreviewRef.current) return
+    const audioEl = audioPreviewRef.current as HTMLAudioElement & { setSinkId?: (sinkId: string) => Promise<void> }
+    if (!audioEl.setSinkId) return
+    audioEl.setSinkId(selectedSpeakerId).catch(() => {
+      setMediaStatus("This browser blocked speaker selection")
+    })
+  }, [selectedSpeakerId])
 
   useEffect(() => {
     smsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -139,9 +407,8 @@ export default function Softphone() {
   const handleSendSms = async () => {
     if (!smsInput.trim() || !contextAccountId) return
 
-    // Guess fromNumber or default
     const lastOurMsg = [...smsMessages].reverse().find(m => m.direction === 'OUTBOUND')
-    const fromNumber = lastOurMsg?.fromNumber || '+14804702577' // Default fallback
+    const fromNumber = lastOurMsg?.fromNumber
 
     try {
       setIsSendingSms(true)
@@ -164,16 +431,92 @@ export default function Softphone() {
     }
   }
 
+  const refreshMediaDevices = async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      setMediaStatus("Browser media devices are unavailable")
+      return
+    }
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const audioInputs = devices
+        .filter((device) => device.kind === "audioinput")
+        .map((device, index) => ({
+          deviceId: device.deviceId,
+          label: device.label || `Microphone ${index + 1}`,
+        }))
+      const audioOutputs = devices
+        .filter((device) => device.kind === "audiooutput")
+        .map((device, index) => ({
+          deviceId: device.deviceId,
+          label: device.label || `Speaker ${index + 1}`,
+        }))
+
+      setMicrophones(audioInputs)
+      setSpeakers(audioOutputs)
+      setSelectedMicrophoneId((current) => current || audioInputs[0]?.deviceId || "")
+      setSelectedSpeakerId((current) => current || audioOutputs[0]?.deviceId || "")
+    } catch {
+      setMediaStatus("Unable to list audio devices")
+    }
+  }
+
+  const prepareMedia = async (microphoneId = selectedMicrophoneId) => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMediaStatus("Browser microphone access is unavailable")
+      return false
+    }
+
+    try {
+      localStreamRef.current?.getTracks().forEach((track) => track.stop())
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: microphoneId ? { deviceId: { exact: microphoneId } } : true,
+      })
+      localStreamRef.current = stream
+      setMediaStatus("Microphone ready")
+      await refreshMediaDevices()
+      return true
+    } catch {
+      setMediaStatus("Microphone permission is required before dialing")
+      return false
+    }
+  }
+
+  const handleMicrophoneChange = async (deviceId: string) => {
+    setSelectedMicrophoneId(deviceId)
+    window.localStorage.setItem("softphone.microphoneId", deviceId)
+    await prepareMedia(deviceId)
+  }
+
+  const handleSpeakerChange = async (deviceId: string) => {
+    setSelectedSpeakerId(deviceId)
+    window.localStorage.setItem("softphone.speakerId", deviceId)
+    setMediaStatus(deviceId ? "Speaker ready" : mediaStatus)
+  }
+
   // Global Event Listener
   useEffect(() => {
     const handleOpenSoftphone = (e: any) => {
       setIsOpen(true)
+      setCommunicationError("")
+      setCallState((state) => state === "wrapup" ? state : "idle")
       if (e.detail?.number) {
         setDialNumber(e.detail.number)
+      }
+      if (e.detail?.accountId) {
+        setContextAccountId(e.detail.accountId)
+      }
+      if (e.detail?.accountName) {
+        setContextAccountName(e.detail.accountName)
       }
       if (e.detail?.tab) {
         setActiveTab(e.detail.tab)
       }
+      if (e.detail?.message || e.detail?.text) {
+        setSmsInput(e.detail.message || e.detail.text)
+        setActiveTab("sms")
+      }
+      prepareMedia()
     }
     
     window.addEventListener("open-softphone", handleOpenSoftphone)
@@ -196,34 +539,48 @@ export default function Softphone() {
 
   const handleInitiateCall = async () => {
     if (!dialNumber) return
-    setCallState("calling")
-    
+    const mediaReady = await prepareMedia()
+    if (!mediaReady) return
+    setCommunicationError("")
+    pendingSdkCallRef.current = true
+
     try {
-      const res = await fetch("/api/calls/make", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fromNumber: "System",
-          toNumber: dialNumber,
-          accountId: contextAccountId
-        })
-      })
-      
-      const data = await res.json()
-      if (data.success) {
-        setCallState("connected")
-        setCurrentCallId(data.zohoCallId || `z_ext_${Date.now()}`)
-      } else {
-        alert("Failed to initiate call: " + data.error)
-        setCallState("idle")
+      const sdk = zohoVoice || await initializeZohoVoiceSdk()
+      await waitForZohoVoiceRegistration()
+      if (!sdk.makeCall) {
+        throw new Error("Zoho Voice SDK does not expose outbound dialing in this browser session")
       }
+
+      setCallState("calling")
+      clearCallStartTimeout()
+      callStartTimeoutRef.current = setTimeout(() => {
+        if (!pendingSdkCallRef.current) return
+        pendingSdkCallRef.current = false
+        setCallState("idle")
+        setCommunicationError("Zoho Voice did not start the outbound call. Confirm the agent is available in Zoho Voice and the selected outbound number is assigned to this user.")
+      }, 12000)
+
+      sdk.makeCall({
+        number: dialNumber.replace(/[^\d+]/g, ""),
+        name: contextAccountName || "Titan customer",
+      })
+      return
     } catch (err) {
-      alert("Error initiating call")
+      clearCallStartTimeout()
+      pendingSdkCallRef.current = false
+      setCommunicationError(err instanceof Error ? err.message : "Zoho Voice SDK call failed")
       setCallState("idle")
+      return
     }
+    
   }
 
   const handleEndCall = () => {
+    const callId = currentCallId || undefined
+    zohoVoiceRef.current?.hangUp?.({ callId })
+    zohoVoiceRef.current?.endCall?.({ callId })
+    clearCallStartTimeout()
+    pendingSdkCallRef.current = false
     setCallState("wrapup")
   }
 
@@ -233,12 +590,12 @@ export default function Softphone() {
     }
 
     try {
-      await fetch("/api/calls/log", {
+      const res = await fetch("/api/calls/log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accountId: contextAccountId || "unknown", // Normally require a real ID
-          fromNumber: "System",
+          fromNumber: currentUser?.email || "Softphone",
           toNumber: dialNumber,
           direction: "OUTBOUND",
           duration: callDuration,
@@ -247,6 +604,12 @@ export default function Softphone() {
           zohoCallId: currentCallId
         })
       })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data.error) {
+        setCommunicationError(data.error || "Failed to save call log.")
+        return
+      }
       
       // Reset state
       setCallState("idle")
@@ -254,9 +617,10 @@ export default function Softphone() {
       setCallDuration(0)
       setCallNotes("")
       setCurrentCallId(null)
+      setCommunicationError("")
       
     } catch (err) {
-      alert("Failed to save call log.")
+      setCommunicationError("Failed to save call log.")
     }
   }
 
@@ -282,11 +646,50 @@ export default function Softphone() {
             <span className="text-white font-medium text-sm">Communications Hub</span>
           </div>
           <div className="flex items-center text-slate-400 gap-3">
+            <button onClick={() => setDevicePanelOpen((open) => !open)} className="hover:text-white transition-colors" title="Audio devices">
+              <FiSettings />
+            </button>
             <button onClick={() => setIsOpen(false)} className="hover:text-white transition-colors">
               <FiMinus />
             </button>
           </div>
         </div>
+
+        {devicePanelOpen && (
+          <div className="mb-3 grid gap-2 text-xs">
+            <audio ref={audioPreviewRef} className="hidden" aria-hidden="true" />
+            <label className="flex items-center gap-2 text-slate-300">
+              <FiMic className="text-slate-500 flex-shrink-0" />
+              <select
+                value={selectedMicrophoneId}
+                onChange={(e) => handleMicrophoneChange(e.target.value)}
+                className="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white"
+              >
+                {microphones.length === 0 ? (
+                  <option value="">No microphone found</option>
+                ) : microphones.map((device) => (
+                  <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-slate-300">
+              <FiVolume2 className="text-slate-500 flex-shrink-0" />
+              <select
+                value={selectedSpeakerId}
+                onChange={(e) => handleSpeakerChange(e.target.value)}
+                className="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white"
+              >
+                {speakers.length === 0 ? (
+                  <option value="">System default speaker</option>
+                ) : speakers.map((device) => (
+                  <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
+                ))}
+              </select>
+            </label>
+            <div className="text-[11px] text-slate-500">{mediaStatus}</div>
+            <div className={`text-[11px] ${zohoVoiceReady ? "text-emerald-400" : "text-amber-300"}`}>{voiceSdkStatus}</div>
+          </div>
+        )}
         
         {/* Search Bar */}
         <div className="relative" ref={searchRef}>
@@ -404,7 +807,12 @@ export default function Softphone() {
                   )}
                   {callState === "calling" && (
                     <div className="text-blue-400 font-mono mt-2 animate-pulse">
-                      Calling...
+                      {pendingSdkCallRef.current ? "Dialing through Zoho Voice..." : "Calling..."}
+                    </div>
+                  )}
+                  {communicationError && (
+                    <div className="text-red-300 text-xs mt-2 text-center">
+                      {communicationError}
                     </div>
                   )}
                 </div>

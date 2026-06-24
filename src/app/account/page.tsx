@@ -253,7 +253,7 @@ function AccountHubContent() {
                     </h3>
                     {account.crmDetails.Phone && (
                       <button
-                        onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: account.crmDetails.Phone.replace(/[^0-9+]/g, ''), tab: 'dialer' } }))}
+                        onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: account.crmDetails.Phone.replace(/[^0-9+]/g, ''), accountId: account.id || account.zohoId, accountName: account.name, tab: 'dialer' } }))}
                         className="text-xs text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1.5"
                         title="Click to dial account main line"
                       >
@@ -303,7 +303,7 @@ function AccountHubContent() {
                           <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Phone</span>
                           {account.crmDetails.Phone ? (
                             <button
-                              onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: account.crmDetails.Phone.replace(/[^0-9+]/g, ''), tab: 'dialer' } }))}
+                              onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: account.crmDetails.Phone.replace(/[^0-9+]/g, ''), accountId: account.id || account.zohoId, accountName: account.name, tab: 'dialer' } }))}
                               className="text-blue-450 hover:underline font-bold font-mono truncate block text-left"
                             >
                               {account.crmDetails.Phone}

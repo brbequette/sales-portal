@@ -67,15 +67,21 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
 
   // Handle tab switching events from other views
   useEffect(() => {
-    const handleDial = () => setActiveTab("CALL")
-    const handleSms = () => setActiveTab("SMS")
+    const handleDial = () => {
+      setActiveTab("CALL")
+      window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, accountId, tab: 'dialer' } }))
+    }
+    const handleSms = () => {
+      setActiveTab("SMS")
+      window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, accountId, tab: 'sms' } }))
+    }
     window.addEventListener("inAppDial", handleDial)
     window.addEventListener("inAppSms", handleSms)
     return () => {
       window.removeEventListener("inAppDial", handleDial)
       window.removeEventListener("inAppSms", handleSms)
     }
-  }, [])
+  }, [accountId, cleanPhone])
 
   const saveCallLog = async () => {
     setIsSaving(true)
@@ -111,8 +117,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
     }
   }
 
-  // Send In-App SMS Simulation
-  const sendInAppSMS = async () => {
+  const openSoftphoneSms = () => {
     if (!smsText.trim()) return
 
     const newMsg: Message = {
@@ -124,26 +129,14 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
 
     setChatMessages(prev => [...prev, newMsg])
     setSmsText("")
-
-    // Save to DB via API
-    try {
-      await fetch('/api/zoho-voice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'SEND_SMS',
-          accountId,
-          userId: currentUser?.id,
-          userEmail: currentUser?.email,
-          noteContent: newMsg.text,
-          sentiment: 'Neutral',
-          fromNumber: selectedOutboundNumber,
-          reminderDate
-        })
-      })
-    } catch (err) {
-      console.error("Failed to sync SMS to CRM DB log:", err)
-    }
+    window.dispatchEvent(new CustomEvent('open-softphone', {
+      detail: {
+        number: cleanPhone,
+        accountId,
+        tab: 'sms',
+        message: newMsg.text,
+      }
+    }))
   }
 
   const sendEmailLog = async () => {
@@ -241,7 +234,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
             <div className="text-xs text-neutral-500 truncate max-w-[260px] font-mono">
               {activeTab === 'EMAIL' ? primaryContact.email : (
                 cleanPhone ? (
-                  <button onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, tab: 'dialer' } }))} className="hover:text-blue-400 transition-colors underline">{displayPhone}</button>
+                  <button onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, accountId, tab: 'dialer' } }))} className="hover:text-blue-400 transition-colors underline">{displayPhone}</button>
                 ) : displayPhone || "No contact on file"
               )}
             </div>
@@ -261,7 +254,7 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
             {cleanPhone ? (
               <div className="text-center py-4">
                 <button
-                  onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, tab: 'dialer' } }))}
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-softphone', { detail: { number: cleanPhone, accountId, tab: 'dialer' } }))}
                   className="inline-flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-colors shadow-lg shadow-blue-900/50 text-base"
                 >
                   <FiPhoneCall /> Click to Dial
@@ -354,12 +347,12 @@ export function CommunicationCenter({ accountId, contacts }: { accountId: string
               type="text" 
               value={smsText}
               onChange={e => setSmsText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') sendInAppSMS(); }}
+              onKeyDown={e => { if (e.key === 'Enter') openSoftphoneSms(); }}
               placeholder="Send text message..."
               className="flex-1 bg-neutral-900 border border-neutral-700 rounded-full px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
             />
             <button 
-              onClick={sendInAppSMS}
+              onClick={openSoftphoneSms}
               disabled={!smsText.trim()}
               className="w-9 h-9 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white flex items-center justify-center shadow-lg transition-colors"
             >

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { PrismaClient } from "@prisma/client"
 import { getServerSession } from "next-auth/next"
+import { normalizePhoneNumber, resolveAccount } from "@/lib/communications"
 
 const prisma = new PrismaClient()
 
@@ -50,12 +51,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Missing required fields for new log" }, { status: 400 })
       }
 
+      const account = await resolveAccount(accountId)
+      if (!account) {
+        return NextResponse.json({ error: "Account not found" }, { status: 404 })
+      }
+
       const newLog = await prisma.callLog.create({
         data: {
-          accountId,
+          accountId: account.id,
           authorId: user.id,
-          fromNumber,
-          toNumber,
+          fromNumber: normalizePhoneNumber(fromNumber) || fromNumber,
+          toNumber: normalizePhoneNumber(toNumber) || toNumber,
           direction,
           duration: duration || 0,
           status,
@@ -67,7 +73,7 @@ export async function POST(req: NextRequest) {
       // Also update the Account's lastCalledAt timestamp if it's an outbound completed call
       if (direction === "OUTBOUND") {
         await prisma.account.update({
-          where: { id: accountId },
+          where: { id: account.id },
           data: { lastCalledAt: new Date() }
         })
       }
@@ -75,7 +81,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, callLog: newLog })
     }
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Log Call Error:", err)
     return NextResponse.json({ error: "Failed to log call" }, { status: 500 })
   }
