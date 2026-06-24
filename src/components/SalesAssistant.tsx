@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { FiPhoneCall, FiMail, FiMessageSquare, FiFileText, FiCheckSquare } from "react-icons/fi"
 
 export function SalesAssistant({ accountId, accountData }: { accountId: string, accountData?: any }) {
   const [isGenerating, setIsGenerating] = useState(false)
@@ -103,6 +104,43 @@ export function SalesAssistant({ accountId, accountData }: { accountId: string, 
             </p>
           )}
           </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="flex items-center gap-2 pt-2 border-t border-neutral-800">
+          <span className="text-xs text-neutral-500 font-semibold mr-2">QUICK ACTIONS:</span>
+          {accountData?.crmDetails?.Phone && (
+            <a 
+              href={"tel:" + accountData.crmDetails.Phone.replace(/[^0-9+]/g, '')}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded transition-colors text-xs font-bold"
+              title="Click to Call (ZDialer)"
+            >
+              <FiPhoneCall size={14} /> Call
+            </a>
+          )}
+          {accountData?.crmDetails?.Email && (
+            <a 
+              href={"mailto:" + accountData.crmDetails.Email}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded transition-colors text-xs font-bold"
+              title="Send Email"
+            >
+              <FiMail size={14} /> Email
+            </a>
+          )}
+          <a 
+            href={`/account?id=${accountData?.zohoId || ''}#comms`}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded transition-colors text-xs font-bold"
+            title="Log a Note"
+          >
+            <FiFileText size={14} /> Note
+          </a>
+          <a 
+            href={`/account?id=${accountData?.zohoId || ''}#comms`}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded transition-colors text-xs font-bold"
+            title="Add Task"
+          >
+            <FiCheckSquare size={14} /> Task
+          </a>
         </div>
       </div>
     </div>

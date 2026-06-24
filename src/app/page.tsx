@@ -1445,9 +1445,9 @@ export default function Dashboard() {
                                   <FiPhoneCall size={12} />
                                 </button>
                               )}
-                              <button onClick={() => { window.location.href = `/account?id=${account.zohoId}#comms` }} className="p-1.5 bg-neutral-800 hover:bg-emerald-600 rounded-full text-neutral-400 hover:text-white transition-colors hidden sm:flex" title="Message">
+                              <a href={"sms:" + cleanPhone} className="p-1.5 bg-neutral-800 hover:bg-emerald-600 rounded-full text-neutral-400 hover:text-white transition-colors hidden sm:flex" title="Text Message (SMS)">
                                 <FiMessageSquare size={12} />
-                              </button>
+                              </a>
                               <Link href={`/account?id=${account.zohoId}`} className="p-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-full text-neutral-500 hover:text-white transition-colors">
                                 <FiChevronRight size={14} />
                               </Link>

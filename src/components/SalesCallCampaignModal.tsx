@@ -262,10 +262,10 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 </div>
 
                 {cleanPhone && (
-                  <button 
+                  <a 
+                    href={`tel:${cleanPhone}`}
                     onClick={() => {
-                      // Trigger Zoho Voice Call Initiation log in backend
-                      fetch('/api/zoho-voice', {
+                      fetch('/api/calls/log', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -275,23 +275,12 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                           userEmail: currentUser?.email
                         })
                       }).catch(err => console.error("Error logging call initiation:", err));
-
-                      // Dispatch the custom event to notify any softphone component in-app
-                      const event = new CustomEvent("open-softphone", {
-                        detail: { 
-                          number: cleanPhone,
-                          tab: 'dialer',
-                          accountId: activeAccount.id,
-                          accountName: activeAccount.name
-                        }
-                      });
-                      window.dispatchEvent(event);
                     }}
                     className="p-3 bg-sky-500 hover:bg-sky-400 text-black rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shadow-sky-500/10 cursor-pointer"
                     title={`Dial ${cleanPhone}`}
                   >
                     <FiPhoneCall size={18} />
-                  </button>
+                  </a>
                 )}
               </div>
 
