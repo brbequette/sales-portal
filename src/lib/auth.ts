@@ -48,8 +48,8 @@ const ZOHO_DC = process.env.ZOHO_DC || "com"
 export const authOptions: NextAuthOptions = {
   providers: [
     ZohoProvider({
-      clientId: process.env.ZOHO_CLIENT_ID || "",
-      clientSecret: process.env.ZOHO_CLIENT_SECRET || "",
+      clientId: process.env.NEXTAUTH_ZOHO_CLIENT_ID || process.env.ZOHO_CLIENT_ID || "",
+      clientSecret: process.env.NEXTAUTH_ZOHO_CLIENT_SECRET || process.env.ZOHO_CLIENT_SECRET || "",
       authorization: {
         url: `https://accounts.zoho.${ZOHO_DC}/oauth/v2/auth`,
         params: {
