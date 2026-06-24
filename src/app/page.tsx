@@ -1218,17 +1218,20 @@ export default function Dashboard() {
                     <div className="flex items-center gap-3 flex-1 min-w-[250px]">
                       <input 
                         type="checkbox"
-                        checked={filteredAccounts.length > 0 && selectedAccountIds.length === filteredAccounts.length}
+                        checked={accountsPagination.paginatedItems.length > 0 && accountsPagination.paginatedItems.every(a => selectedAccountIds.includes(a.id))}
                         ref={el => {
                           if (el) {
-                            el.indeterminate = selectedAccountIds.length > 0 && selectedAccountIds.length < filteredAccounts.length
+                            const pageSelected = accountsPagination.paginatedItems.filter(a => selectedAccountIds.includes(a.id)).length
+                            el.indeterminate = pageSelected > 0 && pageSelected < accountsPagination.paginatedItems.length
                           }
                         }}
                         onChange={() => {
-                          if (selectedAccountIds.length === filteredAccounts.length) {
-                            setSelectedAccountIds([])
+                          const pageIds = accountsPagination.paginatedItems.map(a => a.id)
+                          const allPageSelected = pageIds.length > 0 && pageIds.every(id => selectedAccountIds.includes(id))
+                          if (allPageSelected) {
+                            setSelectedAccountIds(prev => prev.filter(id => !pageIds.includes(id)))
                           } else {
-                            setSelectedAccountIds(filteredAccounts.map(a => a.id))
+                            setSelectedAccountIds(prev => [...new Set([...prev, ...pageIds])])
                           }
                         }}
                         className="w-4 h-4 rounded border-white/15 text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer shrink-0"
@@ -1282,6 +1285,20 @@ export default function Dashboard() {
                       </div>
                     )}
                   </div>
+
+                  {accountsPagination.paginatedItems.length > 0 && 
+                   accountsPagination.paginatedItems.every(a => selectedAccountIds.includes(a.id)) && 
+                   selectedAccountIds.length < filteredAccounts.length && (
+                    <div className="bg-emerald-950/40 text-emerald-300 text-xs py-2 px-4 text-center border-b border-emerald-900/30">
+                      All {accountsPagination.paginatedItems.length} accounts on this page are selected.
+                      <button 
+                        onClick={() => setSelectedAccountIds(filteredAccounts.map(a => a.id))}
+                        className="ml-2 font-bold underline hover:text-emerald-100 transition-colors"
+                      >
+                        Select all {filteredAccounts.length} accounts in this view
+                      </button>
+                    </div>
+                  )}
 
                   <ul className="divide-y divide-neutral-800">
                     {accountsPagination.paginatedItems.map(account => {
