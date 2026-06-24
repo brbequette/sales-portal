@@ -265,14 +265,20 @@ The **Messages** section is your dedicated texting workspace.
   },
   {
     id: "comms-scripts",
-    title: "Call Scripts & AI Assist",
+    title: "Call Scripts & Advanced AI Assist",
     category: "Communication",
     content: `
-### Call scripts
-Approved talking points live in the **Scripts** library so every rep stays on message. Open the script viewer while on a call for guidance through the conversation.
+### AI-Powered Call Scripts
+The AI Sales Assistant is equipped with all approved talking points from the **Scripts** library. It uses advanced sales methodologies (Consultative, SPIN, Challenger, Value-Based) to generate a customized pitch for each account based on their order history, previous call notes, and objections.
 
-### AI suggestions
-The Hub can suggest a reply or draft talking points to help you respond quickly and consistently. Treat AI output as a starting point — review and personalize before sending.
+### Fact-Finding First
+For cold calls, the AI will prioritize **Fact-Finding** to identify decision-makers, pain points, and current suppliers. It will not recommend pitching products until enough information is collected.
+
+### Targeted Recommendations
+When calling an active customer, the AI automatically analyzes their past orders and suggests the next logical product to pitch (including recommended pricing and quantities). It pre-fills the context using previous call logs so you never have to ask the customer the same question twice.
+
+### Next-Best Actions
+At the end of every AI-generated script, you will find a "Next-Best Actions / Insights" section that gives you clear talking points and suggests the strongest closing strategy for that specific customer.
     `,
   },
 

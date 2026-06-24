@@ -10,10 +10,11 @@ export function SalesAssistant({ accountId, accountData }: { accountId: string, 
   const handleGenerateScript = async () => {
     setIsGenerating(true)
     try {
-      const response = await fetch('/api/ai/script', {
+      const response = await fetch('/api/ai-script', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          accountId,
           accountName: accountData?.name || "Acme Corporation",
           industry: accountData?.industry || "Manufacturing",
           status: accountData?.status || "Update Status",
