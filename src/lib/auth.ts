@@ -4,6 +4,10 @@ import ZohoProvider from "next-auth/providers/zoho"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 
+if (!process.env.NEXTAUTH_URL) {
+  process.env.NEXTAUTH_URL = process.env.URL || process.env.DEPLOY_PRIME_URL || "https://titan-sales-portal.netlify.app"
+}
+
 const REQUIRED_SCOPES = [
   "AaaServer.profile.READ",
   "ZohoCRM.modules.accounts.READ",
