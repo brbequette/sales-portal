@@ -127,6 +127,29 @@ export default function UserTimeclockPage() {
     return Math.max(0, diffHours).toFixed(2)
   }
 
+  const getWeeklyHours = () => {
+    const today = new Date()
+    const day = today.getDay()
+    // adjust when day is sunday (0) to get Monday as start of week
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1)
+    const monday = new Date(today.getFullYear(), today.getMonth(), diff)
+    monday.setHours(0, 0, 0, 0)
+    
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    sunday.setHours(23, 59, 59, 999)
+
+    let total = 0
+    entries.forEach(entry => {
+      const [y, m, d] = entry.date.split("-").map(Number)
+      const entryDate = new Date(y, m - 1, d)
+      if (entryDate >= monday && entryDate <= sunday) {
+        total += parseFloat(calculateHours(entry))
+      }
+    })
+    return total.toFixed(2)
+  }
+
   return (
     <div className="min-h-[calc(100vh-64px)] bg-black text-white p-4 lg:p-8">
       <div className="max-w-4xl mx-auto">
@@ -136,6 +159,10 @@ export default function UserTimeclockPage() {
               <FiClock className="text-emerald-500" /> My Timeclock
             </h1>
             <p className="text-neutral-400 mt-1">Review your automatically logged hours and request corrections.</p>
+          </div>
+          <div className="bg-[#151618] border border-white/10 rounded-xl px-5 py-3 shadow-lg flex flex-col items-end">
+            <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">This Week</span>
+            <span className="text-2xl font-black text-emerald-400">{getWeeklyHours()}h</span>
           </div>
         </div>
 
