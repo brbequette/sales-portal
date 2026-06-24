@@ -187,30 +187,22 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     </span>
                   )}
                   {(c.phone || c.mobilePhone) && (
-                    <div className="flex items-center gap-2 mt-1" onClick={e => e.stopPropagation()}>
-                      <button 
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          window.location.href = `tel:${c.phone || c.mobilePhone}`
-                        }}
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap" onClick={e => e.stopPropagation()}>
+                      <a 
+                        href={`tel:${c.phone || c.mobilePhone}`}
                         className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-blue-455 cursor-pointer"
                       >
                         <FiPhone className="shrink-0" size={10} />
                         Call
-                      </button>
+                      </a>
                       <span className="text-neutral-700 text-[10px]">&bull;</span>
-                      <button 
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          window.location.href = `tel:${c.phone || c.mobilePhone}`
-                        }}
+                      <a 
+                        href={`tel:${c.phone || c.mobilePhone}`}
                         className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-emerald-455 cursor-pointer"
                       >
                         <FiMessageSquare className="shrink-0" size={10} />
                         Text
-                      </button>
+                      </a>
                       <span className="text-neutral-500 font-mono text-[9px] ml-1">
                         (<a href={`tel:${c.phone || c.mobilePhone}`} className="text-blue-400 hover:underline">
                           {c.phone || c.mobilePhone}
