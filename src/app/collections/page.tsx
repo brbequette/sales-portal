@@ -1161,6 +1161,7 @@ export default function CollectionsPage() {
     if (sortBy === "balance_desc") return b.balance - a.balance
     if (sortBy === "balance_asc")  return a.balance - b.balance
     if (sortBy === "name_asc")     return a.customer_name.localeCompare(b.customer_name)
+    if (sortBy === "name_desc")    return b.customer_name.localeCompare(a.customer_name)
     return 0
   })
 
@@ -1450,6 +1451,7 @@ export default function CollectionsPage() {
                     <option value="balance_desc">Highest Balance</option>
                     <option value="balance_asc">Lowest Balance</option>
                     <option value="name_asc">Customer A–Z</option>
+                    <option value="name_desc">Customer Z–A</option>
                   </select>
                 </div>
               </div>

@@ -44,7 +44,7 @@ export default function Dashboard() {
   const [ownerFilter, setOwnerFilter] = useState("All")
   const [timezoneFilter, setTimezoneFilter] = useState("All")
   const [yearFilter, setYearFilter] = useState("All")
-  const [sortBy, setSortBy] = useState<"default" | "timezone" | "recentOrders">("default")
+  const [sortBy, setSortBy] = useState<"default" | "timezone_asc" | "timezone_desc" | "recentOrders_desc" | "recentOrders_asc">("default")
   const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [showDoNotCall, setShowDoNotCall] = useState(false)
   const [qualityFilter, setQualityFilter] = useState("All")
@@ -714,9 +714,11 @@ export default function Dashboard() {
       ? coldCallAccounts
       : callListAccounts
 
-  if (sortBy === "timezone") {
+  if (sortBy === "timezone_asc") {
     effortAccounts = [...effortAccounts].sort((a, b) => (a.timeZone || "ZZZ").localeCompare(b.timeZone || "ZZZ"))
-  } else if (sortBy === "recentOrders") {
+  } else if (sortBy === "timezone_desc") {
+    effortAccounts = [...effortAccounts].sort((a, b) => (b.timeZone || "ZZZ").localeCompare(a.timeZone || "ZZZ"))
+  } else if (sortBy === "recentOrders_desc" || sortBy === "recentOrders_asc") {
     effortAccounts = [...effortAccounts].sort((a, b) => {
       const getLatestDate = (acc: any) => {
         let maxDate = acc.lastPurchaseAt ? new Date(acc.lastPurchaseAt).getTime() : 0
@@ -731,7 +733,8 @@ export default function Dashboard() {
         }
         return maxDate
       }
-      return getLatestDate(b) - getLatestDate(a)
+      const diff = getLatestDate(b) - getLatestDate(a)
+      return sortBy === "recentOrders_desc" ? diff : -diff
     })
   }
 
@@ -1111,8 +1114,10 @@ export default function Dashboard() {
                     className="w-full bg-[#151618] border border-white/15 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
                   >
                     <option value="default">Default Sort</option>
-                    <option value="timezone">Sort by Time Zone</option>
-                    <option value="recentOrders">Most Recent Orders</option>
+                    <option value="timezone_asc">Time Zone (A-Z)</option>
+                    <option value="timezone_desc">Time Zone (Z-A)</option>
+                    <option value="recentOrders_desc">Orders (Newest)</option>
+                    <option value="recentOrders_asc">Orders (Oldest)</option>
                   </select>
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                     <svg className="w-3 h-3 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

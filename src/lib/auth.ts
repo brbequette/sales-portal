@@ -164,7 +164,7 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || "titan_diamond_sales_portal_fallback_secret_2026",
 }
 
 export default NextAuth(authOptions)
