@@ -196,18 +196,18 @@ export default function Dashboard() {
 
     try {
       const CHUNK_SIZE = 25
-      const chunks = []
+      const chunks: string[][] = []
       for (let i = 0; i < selectedAccountIds.length; i += CHUNK_SIZE) {
         chunks.push(selectedAccountIds.slice(i, i + CHUNK_SIZE))
       }
 
-      let blastId = null
+      let blastId: string | null = null
       let totalSuccess = 0
       let totalFailed = 0
       let i = 0
 
       for (const chunk of chunks) {
-        const response = await fetch("/api/send-campaign", {
+        const fetchRes = await fetch("/api/send-campaign", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -223,9 +223,9 @@ export default function Dashboard() {
           })
         })
 
-        const data = await response.json()
+        const data: any = await fetchRes.json()
         
-        if (!response.ok || !data.success) {
+        if (!fetchRes.ok || !data.success) {
           if (i === 0) throw new Error(data.message || "Failed to start campaign.")
           console.error("Chunk failed:", data.message)
         } else {
