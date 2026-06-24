@@ -25,7 +25,7 @@ export default function SalesDashboardPage() {
       {/* Embedded App */}
       <main className="flex-1 w-full bg-neutral-950 relative">
         <iframe 
-          src="https://titan-diamond-sales-monitor.netlify.app"
+          src="/dashboard/index.html"
           className="absolute inset-0 w-full h-full border-0"
           title="Sales Dashboard"
           allow="fullscreen"
