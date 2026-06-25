@@ -140,6 +140,17 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
     )
   }
 
+  const setQuantityExact = (productId: string, qty: number) => {
+    setCart(
+      cart.map((i) => {
+        if (i.product.id === productId) {
+          return qty > 0 ? { ...i, quantity: qty } : i
+        }
+        return i
+      })
+    )
+  }
+
   const startEditPrice = (productId: string, currentPrice: number) => {
     setEditingPrice(productId)
     setTempPrice(currentPrice.toFixed(2))
@@ -474,7 +485,13 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
                             onClick={() => adjustQuantity(item.product.id, -1)}
                             className="px-2 py-0.5 text-neutral-300 hover:bg-neutral-700 text-sm transition-colors"
                           >−</button>
-                          <span className="px-3 py-0.5 text-sm text-white border-x border-neutral-700">{item.quantity}</span>
+                          <input 
+                            type="number"
+                            min="1"
+                            value={item.quantity || ''}
+                            onChange={(e) => setQuantityExact(item.product.id, parseInt(e.target.value) || 0)}
+                            className="w-12 text-center px-1 py-0.5 text-sm text-white bg-transparent border-x border-neutral-700 focus:outline-none focus:bg-neutral-800 transition-colors [&::-webkit-inner-spin-button]:appearance-none"
+                          />
                           <button
                             onClick={() => adjustQuantity(item.product.id, 1)}
                             className="px-2 py-0.5 text-neutral-300 hover:bg-neutral-700 text-sm transition-colors"
