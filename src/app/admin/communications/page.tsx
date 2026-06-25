@@ -1,44 +1,45 @@
-import React from "react"
-import { PrismaClient } from "@prisma/client"
-import { getServerSession } from "next-auth/next"
-import { redirect } from "next/navigation"
+"use client"
+import React, { useEffect, useState } from "react"
+import { useZoho } from "@/components/ZohoProvider"
+import { useRouter } from "next/navigation"
 
-const prisma = new PrismaClient()
+export default function CommunicationsDashboard() {
+  const { isInitialized, zohoContext: currentUser } = useZoho()
+  const router = useRouter()
+  
+  const [callLogs, setCallLogs] = useState<any[]>([])
+  const [smsLogs, setSmsLogs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-export default async function CommunicationsDashboard() {
-  const session = await getServerSession()
-  if (!session?.user?.email) {
-    redirect("/")
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email }
-  })
-
-  // Ensure only admins can see this
-  if (user?.role !== "ADMIN") {
-    redirect("/")
-  }
-
-  // Fetch recent call logs
-  const callLogs = await prisma.callLog.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 100,
-    include: {
-      account: { select: { name: true } },
-      author: { select: { name: true, email: true } }
+  useEffect(() => {
+    if (!isInitialized) return
+    
+    const role = currentUser?.role?.toUpperCase() || ""
+    if (!role.includes("ADMIN") && !role.includes("MANAGER")) {
+      router.push("/")
+      return
     }
-  })
 
-  // Fetch recent SMS messages
-  const smsLogs = await prisma.smsMessage.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 100,
-    include: {
-      account: { select: { name: true } },
-      author: { select: { name: true, email: true } }
+    const fetchData = async () => {
+      try {
+        const res = await fetch(`/api/admin/communications?role=${encodeURIComponent(role)}`)
+        const data = await res.json()
+        if (data.success) {
+          setCallLogs(data.callLogs || [])
+          setSmsLogs(data.smsLogs || [])
+        }
+      } catch (err) {
+        console.error("Failed to load communications", err)
+      } finally {
+        setLoading(false)
+      }
     }
-  })
+    fetchData()
+  }, [isInitialized, currentUser, router])
+
+  if (!isInitialized || loading) {
+    return <div className="p-8 text-slate-500">Loading communications...</div>
+  }
 
   return (
     <div className="p-8">
