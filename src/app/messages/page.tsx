@@ -1,6 +1,7 @@
 "use client"
 import { useState, useEffect, useRef } from "react"
 import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap, FiExternalLink } from "react-icons/fi"
+import { AccountSlideout } from "@/components/AccountSlideout"
 
 export default function MessagesPage() {
   const [accounts, setAccounts] = useState<any[]>([])
@@ -14,6 +15,7 @@ export default function MessagesPage() {
   const [suggestions, setSuggestions] = useState<string[]>([])
   
   const [showIncomingOnly, setShowIncomingOnly] = useState(true)
+  const [slideoutAccountId, setSlideoutAccountId] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -219,9 +221,9 @@ export default function MessagesPage() {
                   <p className="text-neutral-500 text-xs">{activeAccount?.zohoId}</p>
                 </div>
                 {activeAccount?.zohoId && (
-                  <a href={`/account?id=${activeAccount.zohoId}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-emerald-400 text-xs rounded border border-white/10 transition-colors">
+                  <button onClick={() => setSlideoutAccountId(activeAccount.zohoId)} className="flex items-center gap-1 px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-emerald-400 text-xs rounded border border-white/10 transition-colors">
                     <FiExternalLink /> Open Account
-                  </a>
+                  </button>
                 )}
               </div>
             </div>
@@ -303,6 +305,13 @@ export default function MessagesPage() {
           </>
         )}
       </div>
+
+      {slideoutAccountId && (
+        <AccountSlideout 
+          accountId={slideoutAccountId} 
+          onClose={() => setSlideoutAccountId(null)} 
+        />
+      )}
     </div>
   )
 }
