@@ -77,14 +77,15 @@ export async function POST(req: Request) {
         })
 
         if (!unknownAccount) {
-          const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } })
-          if (admin) {
+          let userOwner = await prisma.user.findFirst({ where: { role: 'ADMIN' } })
+          if (!userOwner) userOwner = await prisma.user.findFirst() // fallback to ANY user
+          if (userOwner) {
             unknownAccount = await prisma.account.create({
               data: {
                 name: 'Unknown SMS Sender',
                 zohoId: 'unknown-sms-' + Date.now(),
                 status: 'Lead',
-                ownerId: admin.id
+                ownerId: userOwner.id
               }
             })
           }
