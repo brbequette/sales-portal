@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect, useRef } from "react"
-import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap } from "react-icons/fi"
+import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap, FiExternalLink } from "react-icons/fi"
 
 export default function MessagesPage() {
   const [accounts, setAccounts] = useState<any[]>([])
@@ -13,6 +13,8 @@ export default function MessagesPage() {
   const [suggesting, setSuggesting] = useState(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
   
+  const [showIncomingOnly, setShowIncomingOnly] = useState(true)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -121,6 +123,14 @@ export default function MessagesPage() {
 
   const activeAccount = accounts.find(a => a.id === selectedAccountId)
 
+  const filteredAccounts = accounts.filter(account => {
+    if (showIncomingOnly) {
+      const lastMsg = account.smsMessages?.[0]
+      return lastMsg && lastMsg.direction === 'INBOUND'
+    }
+    return true
+  })
+
   return (
     <div className="flex h-full bg-[#0a0a0a] overflow-hidden">
       
@@ -128,7 +138,7 @@ export default function MessagesPage() {
       <div className={`w-full md:w-80 flex-shrink-0 flex flex-col border-r border-white/10 ${selectedAccountId ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-white/10">
           <h1 className="text-xl font-bold text-white mb-4">Messages</h1>
-          <div className="relative">
+          <div className="relative mb-3">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
             <input 
               type="text"
@@ -136,15 +146,27 @@ export default function MessagesPage() {
               className="w-full pl-9 pr-4 py-2 bg-neutral-900 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
+          <div className="flex items-center gap-2">
+            <input 
+              type="checkbox" 
+              id="incomingFilter"
+              checked={showIncomingOnly}
+              onChange={(e) => setShowIncomingOnly(e.target.checked)}
+              className="rounded border-white/10 bg-neutral-900 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-neutral-900"
+            />
+            <label htmlFor="incomingFilter" className="text-sm text-neutral-400 cursor-pointer">
+              Only show incoming messages
+            </label>
+          </div>
         </div>
         
         <div className="flex-1 overflow-y-auto">
           {loadingAccounts ? (
             <div className="p-8 text-center text-neutral-500 text-sm">Loading conversations...</div>
-          ) : accounts.length === 0 ? (
+          ) : filteredAccounts.length === 0 ? (
             <div className="p-8 text-center text-neutral-500 text-sm">No messages yet.</div>
           ) : (
-            accounts.map(account => {
+            filteredAccounts.map(account => {
               const lastMsg = account.smsMessages?.[0]
               return (
                 <div 
@@ -191,9 +213,16 @@ export default function MessagesPage() {
               <div className="w-8 h-8 rounded-full bg-emerald-900/30 text-emerald-500 flex items-center justify-center mr-3">
                 <FiUser size={16} />
               </div>
-              <div>
-                <h2 className="text-white font-bold text-sm">{activeAccount?.name}</h2>
-                <p className="text-neutral-500 text-xs">{activeAccount?.zohoId}</p>
+              <div className="flex items-center gap-3">
+                <div>
+                  <h2 className="text-white font-bold text-sm">{activeAccount?.name}</h2>
+                  <p className="text-neutral-500 text-xs">{activeAccount?.zohoId}</p>
+                </div>
+                {activeAccount?.zohoId && (
+                  <a href={`/account?id=${activeAccount.zohoId}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-emerald-400 text-xs rounded border border-white/10 transition-colors">
+                    <FiExternalLink /> Open Account
+                  </a>
+                )}
               </div>
             </div>
 
