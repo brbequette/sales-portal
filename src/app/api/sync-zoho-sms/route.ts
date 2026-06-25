@@ -31,15 +31,12 @@ export async function POST(req: Request) {
     }
 
     const data = await res.json()
-    // ALWAYS return the raw data temporarily for debugging
-    return NextResponse.json({ success: true, zohoRawData: data, _debug: true })
-
     const logs = data.data || [] // Assuming data is an array under 'data', let's just default to array
 
     let syncedCount = 0
 
     for (const log of logs) {
-      const zohoLogId = log.logId?.toString() || log.id?.toString()
+      const zohoLogId = log.logid?.toString() || log.logId?.toString() || log.id?.toString()
       if (!zohoLogId) continue
 
       // Check if this log was already synced
@@ -124,14 +121,14 @@ export async function POST(req: Request) {
         data: {
           accountId,
           fromNumber: cleanFromNumber,
-          toNumber: log.longCode || log.to || '',
+          toNumber: log.senderId || log.longCode || log.to || '',
           body: messageContent,
           direction: 'INBOUND',
           zohoLogId,
           mediaUrl,
           campaignBlastId,
-          // If the log has a valid timestamp, use it. Otherwise use now.
-          createdAt: log.createdTime ? new Date(log.createdTime) : new Date()
+          // Use submittedTime (ms) or sentTime string
+          createdAt: log.submittedTime ? new Date(log.submittedTime) : (log.sentTime ? new Date(log.sentTime) : new Date())
         }
       })
 
