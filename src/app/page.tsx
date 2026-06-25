@@ -94,6 +94,7 @@ export default function Dashboard() {
   const [campaignSuccess, setCampaignSuccess] = useState("")
   const [campaignProgress, setCampaignProgress] = useState(0)
   const [campaignTotal, setCampaignTotal] = useState(0)
+  const cancelCampaignRef = useRef(false)
   const [zohoNumbers, setZohoNumbers] = useState<any[]>([])
   const [selectedZohoNumber, setSelectedZohoNumber] = useState("")
   const [campaignTemplates, setCampaignTemplates] = useState<any[]>([])
@@ -237,6 +238,7 @@ export default function Dashboard() {
     setCampaignSuccess("")
     setCampaignTotal(selectedAccountIds.length)
     setCampaignProgress(0)
+    cancelCampaignRef.current = false
 
     try {
       const CHUNK_SIZE = 2
@@ -251,6 +253,11 @@ export default function Dashboard() {
       let i = 0
 
       for (const chunk of chunks) {
+        if (cancelCampaignRef.current) {
+          setCampaignError("Campaign sending was cancelled. Sent so far: " + totalSuccess)
+          break
+        }
+
         const fetchRes = await fetch("/api/send-campaign", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2276,9 +2283,16 @@ export default function Dashboard() {
                    <span>Sending...</span>
                    <span>{campaignProgress} / {campaignTotal}</span>
                  </div>
-                 <div className="w-full bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                 <div className="w-full bg-neutral-800 rounded-full h-1.5 overflow-hidden mb-2">
                    <div className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${(campaignProgress / campaignTotal) * 100}%` }}></div>
                  </div>
+                 <button
+                   type="button"
+                   onClick={() => { cancelCampaignRef.current = true }}
+                   className="text-[10px] uppercase font-bold tracking-wider text-red-500 hover:text-red-400 py-1 transition-colors"
+                 >
+                   Cancel Remaining
+                 </button>
               </div>
             )}
 
