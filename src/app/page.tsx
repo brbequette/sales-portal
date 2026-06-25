@@ -123,18 +123,61 @@ export default function Dashboard() {
     }
   }
 
-  // Handle Image upload dynamically via FileReader
+  // Handle Image upload dynamically via FileReader with compression
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      if (typeof reader.result === "string") {
-        setCampaignImageUrl(reader.result)
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        if (typeof reader.result === "string") {
+          const img = new Image()
+          img.onload = () => {
+            const canvas = document.createElement("canvas")
+            let width = img.width
+            let height = img.height
+            const maxDim = 800
+
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width)
+                width = maxDim
+              } else {
+                width = Math.round((width * maxDim) / height)
+                height = maxDim
+              }
+            }
+
+            canvas.width = width
+            canvas.height = height
+            const ctx = canvas.getContext("2d")
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height)
+              const compressedBase64 = canvas.toDataURL("image/jpeg", 0.7)
+              setCampaignImageUrl(compressedBase64)
+            } else {
+              setCampaignImageUrl(reader.result as string)
+            }
+          }
+          img.src = reader.result
+        }
       }
+      reader.readAsDataURL(file)
+    } else {
+      // For PDFs or other files, just check size (max 3MB to avoid 413 limits)
+      if (file.size > 3 * 1024 * 1024) {
+        alert("File is too large. Please select a file under 3MB.")
+        return
+      }
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        if (typeof reader.result === "string") {
+          setCampaignImageUrl(reader.result)
+        }
+      }
+      reader.readAsDataURL(file)
     }
-    reader.readAsDataURL(file)
   }
 
   const handleClearImage = () => {
@@ -224,10 +267,17 @@ export default function Dashboard() {
           })
         })
 
-        const data: any = await fetchRes.json()
+        const textRes = await fetchRes.text()
+        let data: any = {}
+        try {
+          data = JSON.parse(textRes)
+        } catch (e) {
+          console.error("Non-JSON response from server:", textRes)
+          throw new Error(`Server Error (${fetchRes.status} ${fetchRes.statusText}). If you attached a large image, it might be too big (limit is typically 1MB-4MB).`)
+        }
         
         if (!fetchRes.ok || !data.success) {
-          if (i === 0) throw new Error(data.message || "Failed to start campaign.")
+          if (i === 0) throw new Error(data.message || `Failed to start campaign. (${fetchRes.status})`)
           console.error("Chunk failed:", data.message)
         } else {
           if (!blastId && data.blastId) {
