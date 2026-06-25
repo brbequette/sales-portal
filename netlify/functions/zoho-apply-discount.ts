@@ -124,13 +124,19 @@ export const handler: Handler = async (event) => {
 
     // Update local database invoice amount as well to match Zoho Books balance
     if (dbInvoice) {
+      const dbItems = (dbInvoice.items as any) || {}
+      const newTotal = parseFloat(updatedInvoice.sub_total || updatedInvoice.total || newBalance)
+      const deadCost = parseFloat(dbItems.deadCostTotal || 0)
+      const newProfit = Math.max(0, newTotal - deadCost)
+
       await prisma.invoice.update({
         where: { id: dbInvoice.id },
         data: {
-          amount: newBalance,
+          amount: newTotal,
           items: {
-            ...(dbInvoice.items as any),
-            balance: newBalance
+            ...dbItems,
+            balance: newBalance,
+            profit: newProfit
           }
         }
       })

@@ -90,12 +90,16 @@ export async function syncRecentBooksInvoices() {
             currentItems.paymentDate = booksInv.last_payment_date
           }
           
+          const newTotal = parseFloat(booksInv.sub_total || booksInv.total || localInvoice.amount)
+          const deadCost = parseFloat(currentItems.deadCostTotal || 0)
+          currentItems.profit = Math.max(0, newTotal - deadCost)
+          
           updateOps.push(
             prisma.invoice.update({
               where: { id: localInvoice.id },
               data: {
                 status: status,
-                amount: parseFloat(booksInv.sub_total || booksInv.total || localInvoice.amount),
+                amount: newTotal,
                 items: currentItems
               }
             })
