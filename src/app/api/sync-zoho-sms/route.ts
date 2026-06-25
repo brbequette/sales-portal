@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       }
 
       const data = await res.json()
-      const logs = data.data || []
+      const logs = data.smsLogQuery || []
       
       debugLog.push({ step: 'fetched_page', fromIdx, data })
 
