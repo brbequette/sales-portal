@@ -4,6 +4,14 @@ import { getZohoAccessToken } from '@/lib/zoho-auth'
 
 export async function POST(req: Request) {
   try {
+    let body = {}
+    try {
+      body = await req.json()
+    } catch (e) {
+      // ignore
+    }
+    const fromIdx = (body as any).from || 0
+
     const accessToken = await getZohoAccessToken()
     if (!accessToken) {
       return NextResponse.json({ success: false, error: 'Zoho not connected' }, { status: 401 })
@@ -11,7 +19,7 @@ export async function POST(req: Request) {
 
     // Set fetch timeframe: last 3 days to avoid overwhelming API, or we can use fromDate/toDate
     // But since it's a sync, we can just grab the last 100 logs.
-    const res = await fetch(`https://voice.zoho.com/rest/json/v1/sms/logs?size=100&messageType=Incoming`, {
+    const res = await fetch(`https://voice.zoho.com/rest/json/v1/sms/logs?from=${fromIdx}&size=100&messageType=Incoming`, {
       headers: {
         'Authorization': `Zoho-oauthtoken ${accessToken}`,
         'Accept': 'application/json'

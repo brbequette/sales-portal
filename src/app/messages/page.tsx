@@ -20,22 +20,33 @@ export default function MessagesPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const [syncing, setSyncing] = useState(false)
+  const [syncOffset, setSyncOffset] = useState(0)
 
   useEffect(() => {
-    handleSync()
+    handleSync(0)
   }, [])
 
-  const handleSync = async () => {
+  const handleSync = async (offset = 0) => {
     try {
       setSyncing(true)
       // Attempt to sync new incoming messages from Zoho Voice
-      await fetch('/api/sync-zoho-sms', { method: 'POST' })
+      await fetch('/api/sync-zoho-sms', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: offset })
+      })
     } catch (e) {
       console.error('Failed to sync Zoho SMS', e)
     } finally {
       setSyncing(false)
       fetchAccounts() // Always fetch what we have in DB afterwards
     }
+  }
+
+  const handleLoadOlder = () => {
+    const newOffset = syncOffset + 100
+    setSyncOffset(newOffset)
+    handleSync(newOffset)
   }
 
   useEffect(() => {
@@ -225,6 +236,19 @@ export default function MessagesPage() {
                 })}
               </div>
             ))
+          )}
+          
+          {/* Load Back Data Button */}
+          {!loadingAccounts && (
+            <div className="p-4 border-t border-white/5 flex justify-center">
+              <button 
+                onClick={handleLoadOlder}
+                disabled={syncing}
+                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold rounded-lg transition-colors border border-white/10 disabled:opacity-50"
+              >
+                {syncing ? 'Loading...' : 'Load Older Messages (Zoho)'}
+              </button>
+            </div>
           )}
         </div>
       </div>
