@@ -239,11 +239,11 @@ export default function Dashboard() {
     setCampaignProgress(0)
 
     try {
-        const CHUNK_SIZE = 5
-        const chunks: string[][] = []
-        for (let i = 0; i < selectedAccountIds.length; i += CHUNK_SIZE) {
-          chunks.push(selectedAccountIds.slice(i, i + CHUNK_SIZE))
-        }
+      const CHUNK_SIZE = 2
+      const chunks: string[][] = []
+      for (let i = 0; i < selectedAccountIds.length; i += CHUNK_SIZE) {
+        chunks.push(selectedAccountIds.slice(i, i + CHUNK_SIZE))
+      }
 
       let blastId: string | null = null
       let totalSuccess = 0
