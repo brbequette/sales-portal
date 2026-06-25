@@ -30,11 +30,16 @@ export default function MessagesPage() {
     try {
       setSyncing(true)
       // Attempt to sync new incoming messages from Zoho Voice
-      await fetch('/api/sync-zoho-sms', { 
+      const res = await fetch('/api/sync-zoho-sms', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ from: offset })
       })
+      const data = await res.json()
+      if (!data.success) {
+        console.error('Zoho Sync API Error:', data.error)
+        alert('Could not sync Zoho SMS: ' + data.error)
+      }
     } catch (e) {
       console.error('Failed to sync Zoho SMS', e)
     } finally {

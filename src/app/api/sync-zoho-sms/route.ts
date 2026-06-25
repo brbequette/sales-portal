@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
     // Set fetch timeframe: last 3 days to avoid overwhelming API, or we can use fromDate/toDate
     // But since it's a sync, we can just grab the last 100 logs.
-    const res = await fetch(`https://voice.zoho.com/rest/json/v1/sms/logs?from=${fromIdx}&size=100&messageType=Incoming`, {
+    const res = await fetch(`https://voice.zoho.com/rest/json/v1/sms/logs?from=${fromIdx}&size=100&messageType=incoming`, {
       headers: {
         'Authorization': `Zoho-oauthtoken ${accessToken}`,
         'Accept': 'application/json'
