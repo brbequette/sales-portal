@@ -194,15 +194,21 @@ export const handler: Handler = async (event, context) => {
         }
       }
 
+      const accountIdsForLogs = accounts.map(a => a.id)
+      const recentLogsCounts = await prisma.campaignLog.groupBy({
+        by: ['accountId'],
+        where: {
+          accountId: { in: accountIdsForLogs },
+          status: 'SUCCESS',
+          sentAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+        },
+        _count: true
+      })
+      const recentLogsMap = new Map(recentLogsCounts.map(x => [x.accountId, x._count]))
+
       for (const account of accounts) {
         // Check daily limit for this account
-        const recentLogs = await prisma.campaignLog.count({
-          where: {
-            accountId: account.id,
-            status: 'SUCCESS',
-            sentAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
-          }
-        })
+        const recentLogs = recentLogsMap.get(account.id) || 0
 
         if (recentLogs >= accountDailyLimit) {
           console.log(`Account ${account.name} has reached the daily limit of ${accountDailyLimit}. Skipping.`)
