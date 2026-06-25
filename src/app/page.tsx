@@ -280,7 +280,10 @@ export default function Dashboard() {
         if (numsData.success && numsData.numbers) {
           // Filter numbers by assignment
           let availableNums = numsData.numbers
-          if (currentUser?.role !== 'ADMIN') {
+          const normalizedRole = currentUser?.role?.toLowerCase() || ""
+          const isAdminUser = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("manager") || normalizedRole.includes("collections")
+
+          if (!isAdminUser) {
              availableNums = numsData.numbers.filter((n: any) => 
                n.isDefault || (n.assignedUserIds && n.assignedUserIds.includes(currentUser?.id))
              )
