@@ -38,6 +38,8 @@ export async function POST(req: Request) {
       const data = await res.json()
       const logs = data.data || []
       
+      debugLog.push({ step: 'fetched_page', fromIdx, data })
+
       if (logs.length < 100) {
         hasMore = false
       }
