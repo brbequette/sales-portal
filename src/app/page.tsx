@@ -12,6 +12,7 @@ import { QualityPicker } from "@/components/QualityPicker"
 import { TimezonePicker } from "@/components/TimezonePicker"
 import { Pagination, usePagination } from "@/components/Pagination"
 import { usePreferences } from "@/components/PreferencesProvider"
+import { SalesBoard } from "@/components/SalesBoard"
 import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand, FiTarget } from "react-icons/fi"
 
 function formatLastCalled(dateStr: string | null) {
@@ -929,9 +930,40 @@ export default function Dashboard() {
               </div>
             </div>
           </button>
+          <button
+            onClick={() => handleEffortChange("dashboard")}
+            className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
+              effort === "dashboard"
+                ? "bg-[#17191a] border-purple-400/45 text-white"
+                : "bg-white/[0.035] border-white/10 hover:border-white/15 text-neutral-400"
+            }`}
+          >
+            {effort === "dashboard" && (
+              <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-purple-400 "></div>
+            )}
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl border transition-colors ${
+                effort === "dashboard"
+                  ? "bg-purple-950 border-purple-500/30 text-purple-400"
+                  : "bg-white/[0.045] border-white/15 text-neutral-500"
+              }`}>
+                <FiTarget size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold tracking-tight">Sales Board</h3>
+                <p className="text-xs text-neutral-500 mt-0.5">Live metrics</p>
+              </div>
+            </div>
+          </button>
         </div>
 
-        {/* Quick Invoice Lookups */}
+        {effort === "dashboard" ? (
+          <div className="mt-4">
+            <SalesBoard />
+          </div>
+        ) : (
+          <>
+            {/* Quick Invoice Lookups */}
         <div className="flex flex-wrap gap-2.5 bg-[#151618]/60 p-3 rounded-xl border border-white/10 ">
           <span className="text-xs text-neutral-400 font-semibold flex items-center gap-1.5 mr-2 self-center">
             Quick Invoice View:
@@ -1476,7 +1508,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Tasks — stacks below on mobile, column on desktop */}
+        {/* Tasks — stacks below on mobile, column on desktop */}
           <div className={`space-y-3 ${mobileTab === "accounts" ? "hidden sm:block" : ""}`}>
             {/* Header */}
             <div className="flex items-center justify-between">
@@ -1694,6 +1726,8 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        </>
+      )}
       </main>
 
       {drillItems && drillType && (

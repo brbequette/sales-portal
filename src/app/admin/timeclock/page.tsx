@@ -41,6 +41,13 @@ export default function AdminTimeclockPage() {
   const [editOut, setEditOut] = useState("")
   const [saving, setSaving] = useState(false)
 
+  // Add Modal State
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [users, setUsers] = useState<{id: string, name: string}[]>([])
+  const [addUserId, setAddUserId] = useState("")
+  const [addIn, setAddIn] = useState("")
+  const [addOut, setAddOut] = useState("")
+
   const fetchEntries = async () => {
     setLoading(true)
     try {
@@ -56,8 +63,24 @@ export default function AdminTimeclockPage() {
     }
   }
 
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch("/api/get-users")
+      const data = await res.json()
+      if (data.success) {
+        setUsers(data.users)
+        if (data.users.length > 0) {
+          setAddUserId(data.users[0].id)
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch users", err)
+    }
+  }
+
   useEffect(() => {
     fetchEntries()
+    fetchUsers()
   }, [monthFilter])
 
   const formatTime = (dateStr: string | null) => {
@@ -103,6 +126,36 @@ export default function AdminTimeclockPage() {
     } catch (err) {
       console.error(err)
       alert("Error saving override")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSaveAdd = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!addUserId || !addIn || !addOut) return
+    setSaving(true)
+    try {
+      const res = await fetch("/api/timeclock/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: addUserId,
+          manualClockIn: new Date(addIn).toISOString(),
+          manualClockOut: new Date(addOut).toISOString()
+        })
+      })
+      if ((await res.json()).success) {
+        fetchEntries()
+        setShowAddModal(false)
+        setAddIn("")
+        setAddOut("")
+      } else {
+        alert("Failed to add entry")
+      }
+    } catch (err) {
+      console.error(err)
+      alert("Error saving manual time entry")
     } finally {
       setSaving(false)
     }
@@ -189,7 +242,7 @@ export default function AdminTimeclockPage() {
           </h1>
           <p className="text-neutral-400 mt-1">Manage employee hours and time change requests.</p>
         </div>
-        <div>
+        <div className="flex items-center gap-3">
           <input 
             type="month" 
             value={monthFilter}
@@ -197,6 +250,12 @@ export default function AdminTimeclockPage() {
             className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 invert-[1] hue-rotate-180"
             style={{ colorScheme: "dark" }}
           />
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-emerald-900/20 transition-colors"
+          >
+            + Add Time Entry
+          </button>
         </div>
       </div>
 
@@ -339,6 +398,72 @@ export default function AdminTimeclockPage() {
                   className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-bold shadow-lg shadow-emerald-500/20 transition-colors disabled:opacity-50"
                 >
                   {saving ? "Saving..." : "Save Overrides"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {showAddModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddModal(false)} />
+          <div className="relative w-full max-w-md bg-[#151618] border border-white/10 rounded-2xl flex flex-col shadow-2xl text-white z-[9999] p-6">
+            <h3 className="text-xl font-bold mb-1">Add Manual Time Entry</h3>
+            <p className="text-sm text-neutral-400 mb-6">Create a new time entry for an employee</p>
+            
+            <form onSubmit={handleSaveAdd} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Employee</label>
+                <select
+                  value={addUserId}
+                  onChange={e => setAddUserId(e.target.value)}
+                  className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="" disabled>Select an employee</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Clock In Time</label>
+                <input 
+                  type="datetime-local" 
+                  value={addIn}
+                  onChange={e => setAddIn(e.target.value)}
+                  required
+                  className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 invert-[1] hue-rotate-180"
+                  style={{ colorScheme: "dark" }}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Clock Out Time</label>
+                <input 
+                  type="datetime-local" 
+                  value={addOut}
+                  onChange={e => setAddOut(e.target.value)}
+                  required
+                  className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 invert-[1] hue-rotate-180"
+                  style={{ colorScheme: "dark" }}
+                />
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3 border-t border-white/10">
+                <button 
+                  type="button" 
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-sm font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={saving || !addUserId || !addIn || !addOut}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-bold shadow-lg shadow-emerald-500/20 transition-colors disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Create Entry"}
                 </button>
               </div>
             </form>

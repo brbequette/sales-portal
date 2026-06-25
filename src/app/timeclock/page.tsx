@@ -66,9 +66,22 @@ export default function UserTimeclockPage() {
     setShowChangeModal(true)
   }
 
+  const handleOpenMissingShiftModal = () => {
+    setSelectedEntry(null)
+    setNewClockIn("")
+    setNewClockOut("")
+    setChangeReason("Forgot to log in")
+    setChangeNotes("")
+    setShowChangeModal(true)
+  }
+
   const handleSubmitChange = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedEntry || !currentUser?.id) return
+    if (!currentUser?.id) return
+    if (!selectedEntry && (!newClockIn || !newClockOut)) {
+      alert("Clock In and Clock Out are required to report a missing shift")
+      return
+    }
     
     setSubmitting(true)
     try {
@@ -76,7 +89,7 @@ export default function UserTimeclockPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          timeEntryId: selectedEntry.id,
+          timeEntryId: selectedEntry ? selectedEntry.id : null,
           userId: currentUser.id,
           userEmail: currentUser.email,
           requestedClockIn: newClockIn ? new Date(newClockIn).toISOString() : null,
@@ -160,9 +173,17 @@ export default function UserTimeclockPage() {
             </h1>
             <p className="text-neutral-400 mt-1">Review your automatically logged hours and request corrections.</p>
           </div>
-          <div className="bg-[#151618] border border-white/10 rounded-xl px-5 py-3 shadow-lg flex flex-col items-end">
-            <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">This Week</span>
-            <span className="text-2xl font-black text-emerald-400">{getWeeklyHours()}h</span>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleOpenMissingShiftModal}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-emerald-900/20 transition-colors flex items-center gap-2"
+            >
+              + Report Missing Shift
+            </button>
+            <div className="bg-[#151618] border border-white/10 rounded-xl px-5 py-3 shadow-lg flex flex-col items-end">
+              <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">This Week</span>
+              <span className="text-2xl font-black text-emerald-400">{getWeeklyHours()}h</span>
+            </div>
           </div>
         </div>
 
@@ -234,16 +255,20 @@ export default function UserTimeclockPage() {
         </div>
       </div>
 
-      {showChangeModal && selectedEntry && (
+      {showChangeModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowChangeModal(false)} />
           <div className="relative w-full max-w-md bg-[#151618] border border-white/10 rounded-2xl flex flex-col shadow-2xl text-white z-[9999] p-6 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold mb-1">Request Time Change</h3>
-            <p className="text-sm text-neutral-400 mb-6">For date: {selectedEntry.date}</p>
+            <h3 className="text-xl font-bold mb-1">
+              {selectedEntry ? "Request Time Change" : "Report Missing Shift"}
+            </h3>
+            <p className="text-sm text-neutral-400 mb-6">
+              {selectedEntry ? `For date: ${selectedEntry.date}` : "Enter the actual times you worked."}
+            </p>
             
             <form onSubmit={handleSubmitChange} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">New Clock In Time</label>
+                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Clock In Time</label>
                 <input 
                   type="datetime-local" 
                   value={newClockIn}
@@ -254,7 +279,7 @@ export default function UserTimeclockPage() {
               </div>
               
               <div>
-                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">New Clock Out Time</label>
+                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Clock Out Time</label>
                 <input 
                   type="datetime-local" 
                   value={newClockOut}

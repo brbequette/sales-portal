@@ -6,7 +6,7 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { timeEntryId, userId, userEmail, requestedClockIn, requestedClockOut, reason, notes } = body
 
-    if (!timeEntryId || (!userId && !userEmail) || !reason) {
+    if ((!timeEntryId && !requestedClockIn) || (!userId && !userEmail) || !reason) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
     }
 
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
 
     const request = await prisma.timeChangeRequest.create({
       data: {
-        timeEntryId,
+        timeEntryId: timeEntryId || null,
         userId: dbUserId,
         requestedClockIn: requestedClockIn ? new Date(requestedClockIn) : null,
         requestedClockOut: requestedClockOut ? new Date(requestedClockOut) : null,

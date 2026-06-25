@@ -5,6 +5,7 @@ import { FiSave, FiSettings } from "react-icons/fi"
 export default function AdminSettingsPage() {
   const [limit, setLimit] = useState("1")
   const [prompt, setPrompt] = useState("")
+  const [zohoNumbers, setZohoNumbers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -20,6 +21,12 @@ export default function AdminSettingsPage() {
       if (data.success) {
         setLimit(data.settings.sms_daily_account_limit)
         setPrompt(data.settings.ai_reply_prompt)
+      }
+
+      const numRes = await fetch('/api/manage-zoho-numbers?action=list')
+      const numData = await numRes.json()
+      if (numData.success) {
+        setZohoNumbers(numData.numbers || [])
       }
     } catch (e) {
       console.error(e)
@@ -40,7 +47,15 @@ export default function AdminSettingsPage() {
         })
       })
       const data = await res.json()
-      if (data.success) {
+
+      const numRes = await fetch('/api/manage-zoho-numbers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numbers: zohoNumbers })
+      })
+      const numData = await numRes.json()
+
+      if (data.success && numData.success) {
         alert('Settings saved successfully!')
       } else {
         alert('Error saving settings: ' + data.error)
@@ -103,6 +118,80 @@ export default function AdminSettingsPage() {
                   className="w-full bg-[#0f1013] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-y"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Zoho Phone Numbers */}
+          <div className="bg-neutral-900 rounded-xl border border-white/10 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white">Zoho Phone Numbers</h2>
+              <button 
+                onClick={() => setZohoNumbers([...zohoNumbers, { number: "", name: "", isDefault: false, assignedUserIds: [] }])}
+                className="text-xs font-bold bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 text-white"
+              >
+                + Add Number
+              </button>
+            </div>
+            <p className="text-xs text-neutral-500 mb-6">
+              Manage the phone numbers used for SMS Campaigns. You can assign specific numbers to specific users, or set a default.
+            </p>
+            <div className="space-y-3">
+              {zohoNumbers.map((num, i) => (
+                <div key={i} className="flex flex-col sm:flex-row gap-3 items-start sm:items-center bg-[#0f1013] p-3 rounded-lg border border-white/5">
+                  <div className="flex-1">
+                    <input 
+                      type="text"
+                      placeholder="Phone Number (e.g. +18005550199)"
+                      value={num.number}
+                      onChange={(e) => {
+                        const newNums = [...zohoNumbers]
+                        newNums[i].number = e.target.value
+                        setZohoNumbers(newNums)
+                      }}
+                      className="w-full bg-transparent border-b border-white/10 px-2 py-1 text-sm text-white focus:outline-none focus:border-emerald-500 mb-2"
+                    />
+                    <input 
+                      type="text"
+                      placeholder="Friendly Name (e.g. Main Line)"
+                      value={num.name}
+                      onChange={(e) => {
+                        const newNums = [...zohoNumbers]
+                        newNums[i].name = e.target.value
+                        setZohoNumbers(newNums)
+                      }}
+                      className="w-full bg-transparent border-b border-white/10 px-2 py-1 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center gap-4 shrink-0">
+                    <label className="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer">
+                      <input 
+                        type="radio"
+                        name="default_zoho_number"
+                        checked={num.isDefault}
+                        onChange={() => {
+                          const newNums = zohoNumbers.map((n, idx) => ({ ...n, isDefault: idx === i }))
+                          setZohoNumbers(newNums)
+                        }}
+                        className="w-3 h-3 bg-neutral-800 border-white/10 text-emerald-500 focus:ring-emerald-500"
+                      />
+                      Default
+                    </label>
+                    <button
+                      onClick={() => setZohoNumbers(zohoNumbers.filter((_, idx) => idx !== i))}
+                      className="text-red-400 hover:text-red-300 p-1 rounded transition-colors"
+                      title="Remove Number"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {zohoNumbers.length === 0 && (
+                <div className="text-center py-6 border border-dashed border-white/10 rounded-lg text-neutral-500 text-sm">
+                  No Zoho numbers added yet.
+                </div>
+              )}
             </div>
           </div>
 

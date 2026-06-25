@@ -63,21 +63,50 @@ export async function PATCH(req: Request) {
       
       await prisma.$transaction(async (tx) => {
         // Update request status
-        await tx.timeChangeRequest.update({
+        const updatedReq = await tx.timeChangeRequest.update({
           where: { id: requestId },
           data: { status }
         })
 
-        // If approved, update the time entry overrides
+        // If approved, update or create the time entry
         if (status === "APPROVED") {
-          const updateData: any = {}
-          if (manualClockIn) updateData.manualClockIn = new Date(manualClockIn)
-          if (manualClockOut) updateData.manualClockOut = new Date(manualClockOut)
-          
-          if (Object.keys(updateData).length > 0) {
-            await tx.timeEntry.update({
-              where: { id: timeEntryId },
-              data: updateData
+          if (timeEntryId) {
+            const updateData: any = {}
+            if (manualClockIn) updateData.manualClockIn = new Date(manualClockIn)
+            if (manualClockOut) updateData.manualClockOut = new Date(manualClockOut)
+            
+            if (Object.keys(updateData).length > 0) {
+              await tx.timeEntry.update({
+                where: { id: timeEntryId },
+                data: updateData
+              })
+            }
+          } else {
+            // Missing shift! Create a new TimeEntry entirely
+            if (!manualClockIn || !manualClockOut) {
+              throw new Error("Both clock in and clock out are required for a missing shift")
+            }
+            
+            // Format YYYY-MM-DD
+            const d = new Date(manualClockIn)
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+            const newEntry = await tx.timeEntry.create({
+              data: {
+                userId: updatedReq.userId,
+                date: dateStr,
+                clockIn: new Date(manualClockIn),
+                lastActivity: new Date(manualClockOut),
+                clockOut: new Date(manualClockOut),
+                manualClockIn: new Date(manualClockIn),
+                manualClockOut: new Date(manualClockOut)
+              }
+            })
+
+            // Link the request to the new entry
+            await tx.timeChangeRequest.update({
+              where: { id: requestId },
+              data: { timeEntryId: newEntry.id }
             })
           }
         }
@@ -104,6 +133,37 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ success: false, error: "Invalid type" }, { status: 400 })
   } catch (error: any) {
     console.error("Error handling admin timeclock action:", error)
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json()
+    const { userId, manualClockIn, manualClockOut } = body
+
+    if (!userId || !manualClockIn || !manualClockOut) {
+      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
+    }
+
+    const d = new Date(manualClockIn)
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+    const newEntry = await prisma.timeEntry.create({
+      data: {
+        userId,
+        date: dateStr,
+        clockIn: new Date(manualClockIn),
+        lastActivity: new Date(manualClockOut),
+        clockOut: new Date(manualClockOut),
+        manualClockIn: new Date(manualClockIn),
+        manualClockOut: new Date(manualClockOut)
+      }
+    })
+
+    return NextResponse.json({ success: true, entry: newEntry })
+  } catch (error: any) {
+    console.error("Error adding manual time entry:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }

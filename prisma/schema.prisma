@@ -273,7 +273,7 @@ model TimeEntry {
 
 model TimeChangeRequest {
   id                String   @id @default(cuid())
-  timeEntryId       String
+  timeEntryId       String?
   userId            String
   requestedClockIn  DateTime?
   requestedClockOut DateTime?
@@ -283,7 +283,7 @@ model TimeChangeRequest {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  timeEntry         TimeEntry @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+  timeEntry         TimeEntry? @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([timeEntryId])
