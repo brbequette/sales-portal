@@ -31,6 +31,10 @@ export async function POST(req: Request) {
     }
 
     const data = await res.json()
+    if ((body as any).debug) {
+      return NextResponse.json({ success: true, zohoRawData: data })
+    }
+
     const logs = data.data || [] // Assuming data is an array under 'data', let's just default to array
 
     let syncedCount = 0
