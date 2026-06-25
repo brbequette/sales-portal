@@ -205,7 +205,7 @@ export default function MessagesPage() {
           ) : Object.keys(groupedByCampaign).length === 0 ? (
             <div className="p-8 text-center text-neutral-500 text-sm">No messages yet.</div>
           ) : (
-            Object.entries(groupedByCampaign).map(([campaignName, campaignAccounts]: [string, any[]]) => (
+            (Object.entries(groupedByCampaign) as [string, any[]][]).map(([campaignName, campaignAccounts]) => (
               <div key={campaignName} className="mb-4">
                 <div className="px-4 py-1.5 bg-neutral-900/80 text-[10px] font-bold text-neutral-500 uppercase tracking-wider sticky top-0 backdrop-blur z-10 border-y border-white/5">
                   {campaignName} ({campaignAccounts.length})
