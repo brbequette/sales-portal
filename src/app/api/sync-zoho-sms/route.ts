@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     } catch (e) {
       // ignore
     }
-    const fromIdx = (body as any).from || 0
+    let fromIdx = (body as any).from || 0
 
     const accessToken = await getZohoAccessToken()
     if (!accessToken) {
@@ -19,25 +19,32 @@ export async function POST(req: Request) {
 
     // Set fetch timeframe: last 3 days to avoid overwhelming API, or we can use fromDate/toDate
     // But since it's a sync, we can just grab the last 100 logs.
-    const res = await fetch(`https://voice.zoho.com/rest/json/v1/sms/logs?from=${fromIdx}&size=100&messageType=incoming`, {
-      headers: {
-        'Authorization': `Zoho-oauthtoken ${accessToken}`,
-        'Accept': 'application/json'
-      }
-    })
-
-    if (!res.ok) {
-      throw new Error(`Zoho API Error: ${res.statusText}`)
-    }
-
-    const data = await res.json()
-    const logs = data.data || [] // Assuming data is an array under 'data', let's just default to array
-
     let syncedCount = 0
+    let hasMore = true
 
-    for (const log of logs) {
-      const zohoLogId = log.logid?.toString() || log.logId?.toString() || log.id?.toString()
-      if (!zohoLogId) continue
+    while (hasMore) {
+      const res = await fetch(`https://voice.zoho.com/rest/json/v1/sms/logs?from=${fromIdx}&size=100&messageType=incoming`, {
+        headers: {
+          'Authorization': `Zoho-oauthtoken ${accessToken}`,
+          'Accept': 'application/json'
+        }
+      })
+
+      if (!res.ok) {
+        throw new Error(`Zoho API Error: ${res.statusText}`)
+      }
+
+      const data = await res.json()
+      const logs = data.data || []
+      
+      if (logs.length < 100) {
+        hasMore = false
+      }
+      fromIdx += 100
+
+      for (const log of logs) {
+        const zohoLogId = log.logid?.toString() || log.logId?.toString() || log.id?.toString()
+        if (!zohoLogId) continue
 
       // Check if this log was already synced
       const existing = await prisma.smsMessage.findFirst({
@@ -110,12 +117,8 @@ export async function POST(req: Request) {
 
       let campaignBlastId = null
       if (recentOutbound && recentOutbound.campaignBlastId) {
-        // Only associate if the outbound was within the last 7 days
-        const sevenDaysAgo = new Date()
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-        if (recentOutbound.createdAt > sevenDaysAgo) {
-          campaignBlastId = recentOutbound.campaignBlastId
-        }
+        // Associate with the most recent outbound campaign without time restriction
+        campaignBlastId = recentOutbound.campaignBlastId
       }
 
       await prisma.smsMessage.create({
@@ -134,6 +137,7 @@ export async function POST(req: Request) {
       })
 
       syncedCount++
+      }
     }
 
     return NextResponse.json({ success: true, syncedCount })
