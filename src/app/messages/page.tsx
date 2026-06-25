@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect, useRef } from "react"
-import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap, FiExternalLink } from "react-icons/fi"
+import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap, FiExternalLink, FiChevronDown, FiChevronRight } from "react-icons/fi"
 import { AccountSlideout } from "@/components/AccountSlideout"
 
 export default function MessagesPage() {
@@ -16,6 +16,7 @@ export default function MessagesPage() {
   
   const [showIncomingOnly, setShowIncomingOnly] = useState(true)
   const [slideoutAccountId, setSlideoutAccountId] = useState<string | null>(null)
+  const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({})
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -212,10 +213,14 @@ export default function MessagesPage() {
           ) : (
             (Object.entries(groupedByCampaign) as [string, any[]][]).map(([campaignName, campaignAccounts]) => (
               <div key={campaignName} className="mb-4">
-                <div className="px-4 py-1.5 bg-neutral-900/80 text-[10px] font-bold text-neutral-500 uppercase tracking-wider sticky top-0 backdrop-blur z-10 border-y border-white/5">
-                  {campaignName} ({campaignAccounts.length})
+                <div 
+                  className="px-4 py-2 bg-neutral-900/80 text-[10px] font-bold text-neutral-500 uppercase tracking-wider sticky top-0 backdrop-blur z-10 border-y border-white/5 flex justify-between items-center cursor-pointer hover:text-neutral-300 transition-colors"
+                  onClick={() => setExpandedCampaigns(prev => ({ ...prev, [campaignName]: prev[campaignName] === false ? true : false }))}
+                >
+                  <span>{campaignName} ({campaignAccounts.length})</span>
+                  {expandedCampaigns[campaignName] === false ? <FiChevronRight size={14} /> : <FiChevronDown size={14} />}
                 </div>
-                {campaignAccounts.map(account => {
+                {expandedCampaigns[campaignName] !== false && campaignAccounts.map(account => {
                   const lastMsg = account.smsMessages?.[0]
                   return (
                     <div 
