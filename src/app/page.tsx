@@ -40,7 +40,7 @@ export default function Dashboard() {
   const [drillTitle, setDrillTitle] = useState("")
   const [drillItems, setDrillItems] = useState<any[] | null>(null)
   const [drillType, setDrillType] = useState<"invoices" | "deals" | "accounts" | null>(null)
-  const [effort, setEffort] = useState<"sales" | "call_list" | "cold_call">("sales")
+  const [effort, setEffort] = useState<"sales" | "call_list" | "cold_call" | "dashboard">("sales")
   const [ownerFilter, setOwnerFilter] = useState("All")
   const [timezoneFilter, setTimezoneFilter] = useState("All")
   const [yearFilter, setYearFilter] = useState("All")
@@ -402,7 +402,7 @@ export default function Dashboard() {
     }
   }, [viewingInvoice])
 
-  const handleEffortChange = (val: "sales" | "call_list" | "cold_call") => {
+  const handleEffortChange = (val: "sales" | "call_list" | "cold_call" | "dashboard") => {
     setEffort(val)
   }
 
@@ -842,7 +842,7 @@ export default function Dashboard() {
 
 
         {/* ── Workspace / Effort Selector Switcher ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <button
             onClick={() => handleEffortChange("sales")}
             className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
