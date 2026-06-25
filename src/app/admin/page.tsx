@@ -514,7 +514,7 @@ export default function AdminSettingsPage() {
           </div>
 
           <div 
-            onClick={() => router.push('/admin/dashboard')}
+            onClick={() => router.push('/?tab=dashboard')}
             className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-emerald-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center gap-3 mb-2">

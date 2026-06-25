@@ -429,6 +429,15 @@ export default function Dashboard() {
       setLoading(false)
     }
     fetchData()
+
+    // Check query params for tab
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const tab = urlParams.get('tab')
+      if (tab === 'dashboard') {
+        setEffort('dashboard')
+      }
+    }
   }, [isInitialized, currentUser, router])
 
   useEffect(() => {
