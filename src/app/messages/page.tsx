@@ -19,9 +19,24 @@ export default function MessagesPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  const [syncing, setSyncing] = useState(false)
+
   useEffect(() => {
-    fetchAccounts()
+    handleSync()
   }, [])
+
+  const handleSync = async () => {
+    try {
+      setSyncing(true)
+      // Attempt to sync new incoming messages from Zoho Voice
+      await fetch('/api/sync-zoho-sms', { method: 'POST' })
+    } catch (e) {
+      console.error('Failed to sync Zoho SMS', e)
+    } finally {
+      setSyncing(false)
+      fetchAccounts() // Always fetch what we have in DB afterwards
+    }
+  }
 
   useEffect(() => {
     if (selectedAccountId) {
@@ -133,13 +148,24 @@ export default function MessagesPage() {
     return true
   })
 
+  const groupedByCampaign = filteredAccounts.reduce((acc, account) => {
+    const lastMsg = account.smsMessages?.[0]
+    const campaignName = lastMsg?.campaignBlast?.name || "Direct / Organic"
+    if (!acc[campaignName]) acc[campaignName] = []
+    acc[campaignName].push(account)
+    return acc
+  }, {} as Record<string, any[]>)
+
   return (
     <div className="flex h-full bg-[#0a0a0a] overflow-hidden">
       
       {/* LEFT PANE - Account List */}
       <div className={`w-full md:w-80 flex-shrink-0 flex flex-col border-r border-white/10 ${selectedAccountId ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-white/10">
-          <h1 className="text-xl font-bold text-white mb-4">Messages</h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-bold text-white">Messages</h1>
+            {syncing && <div className="text-xs text-emerald-500 animate-pulse flex items-center gap-1"><FiZap /> Syncing...</div>}
+          </div>
           <div className="relative mb-3">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
             <input 
@@ -165,33 +191,40 @@ export default function MessagesPage() {
         <div className="flex-1 overflow-y-auto">
           {loadingAccounts ? (
             <div className="p-8 text-center text-neutral-500 text-sm">Loading conversations...</div>
-          ) : filteredAccounts.length === 0 ? (
+          ) : Object.keys(groupedByCampaign).length === 0 ? (
             <div className="p-8 text-center text-neutral-500 text-sm">No messages yet.</div>
           ) : (
-            filteredAccounts.map(account => {
-              const lastMsg = account.smsMessages?.[0]
-              return (
-                <div 
-                  key={account.id}
-                  onClick={() => setSelectedAccountId(account.id)}
-                  className={`p-4 border-b border-white/5 cursor-pointer hover:bg-neutral-800/50 transition-colors ${selectedAccountId === account.id ? 'bg-neutral-800' : ''}`}
-                >
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className="font-bold text-white text-sm truncate">{account.name}</h3>
-                    {lastMsg && (
-                      <span className="text-xs text-neutral-500 flex-shrink-0 ml-2">
-                        {new Date(lastMsg.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </span>
-                    )}
-                  </div>
-                  {lastMsg && (
-                    <p className="text-xs text-neutral-400 truncate">
-                      {lastMsg.direction === 'OUTBOUND' ? 'You: ' : ''}{lastMsg.body}
-                    </p>
-                  )}
+            Object.entries(groupedByCampaign).map(([campaignName, campaignAccounts]) => (
+              <div key={campaignName} className="mb-4">
+                <div className="px-4 py-1.5 bg-neutral-900/80 text-[10px] font-bold text-neutral-500 uppercase tracking-wider sticky top-0 backdrop-blur z-10 border-y border-white/5">
+                  {campaignName} ({campaignAccounts.length})
                 </div>
-              )
-            })
+                {campaignAccounts.map(account => {
+                  const lastMsg = account.smsMessages?.[0]
+                  return (
+                    <div 
+                      key={account.id}
+                      onClick={() => setSelectedAccountId(account.id)}
+                      className={`p-4 border-b border-white/5 cursor-pointer hover:bg-neutral-800/50 transition-colors ${selectedAccountId === account.id ? 'bg-neutral-800' : ''}`}
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="font-bold text-white text-sm truncate">{account.name}</h3>
+                        {lastMsg && (
+                          <span className="text-xs text-neutral-500 flex-shrink-0 ml-2">
+                            {new Date(lastMsg.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </span>
+                        )}
+                      </div>
+                      {lastMsg && (
+                        <p className="text-xs text-neutral-400 truncate">
+                          {lastMsg.direction === 'OUTBOUND' ? 'You: ' : ''}{lastMsg.body}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ))
           )}
         </div>
       </div>
@@ -239,6 +272,9 @@ export default function MessagesPage() {
                   return (
                     <div key={msg.id || idx} className={`flex flex-col max-w-[80%] ${isMine ? 'self-end items-end' : 'self-start items-start'}`}>
                       <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMine ? 'bg-emerald-600 text-white rounded-br-sm' : 'bg-neutral-800 text-neutral-200 rounded-bl-sm border border-white/5'}`}>
+                        {msg.mediaUrl && (
+                          <img src={msg.mediaUrl} alt="Attachment" className="max-w-full rounded-lg mb-2 max-h-48 object-cover" />
+                        )}
                         {msg.body}
                       </div>
                       <span className="text-[10px] text-neutral-500 mt-1 px-1">

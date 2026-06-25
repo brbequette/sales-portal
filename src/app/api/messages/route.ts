@@ -16,7 +16,10 @@ export async function GET(req: Request) {
       include: {
         smsMessages: {
           orderBy: { createdAt: 'desc' },
-          take: 1
+          take: 1,
+          include: {
+            campaignBlast: true
+          }
         }
       }
     })

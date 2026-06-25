@@ -343,6 +343,8 @@ model SmsMessage {
   toNumber        String
   body            String
   direction       String   // "INBOUND" | "OUTBOUND"
+  mediaUrl        String?
+  zohoLogId       String?  @unique
   campaignBlastId String?
   isAiGenerated   Boolean  @default(false)
   createdAt       DateTime @default(now())
