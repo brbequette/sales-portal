@@ -21,6 +21,7 @@ export async function POST(req: Request) {
     // But since it's a sync, we can just grab the last 100 logs.
     let syncedCount = 0
     let hasMore = true
+    const debugLog: any[] = []
 
     while (hasMore) {
       const res = await fetch(`https://voice.zoho.com/rest/json/v1/sms/logs?from=${fromIdx}&size=100&messageType=incoming`, {
@@ -43,22 +44,32 @@ export async function POST(req: Request) {
       fromIdx += 100
 
       for (const log of logs) {
+        debugLog.push({ step: 'evaluating_log', id: log.logid || log.logId || log.id })
         const zohoLogId = log.logid?.toString() || log.logId?.toString() || log.id?.toString()
-        if (!zohoLogId) continue
+        if (!zohoLogId) {
+          debugLog.push({ step: 'skip_no_zohoLogId', raw: log })
+          continue
+        }
 
       // Check if this log was already synced
       const existing = await prisma.smsMessage.findFirst({
         where: { zohoLogId }
       })
 
-      if (existing) continue
+      if (existing) {
+        debugLog.push({ step: 'skip_existing', zohoLogId })
+        continue
+      }
 
       const fromNumber = log.customerNumber || log.from
       const messageContent = log.message || log.text
       const mediaUrl = log.mediaUrl || null
       // the timestamp might be in log.time or log.createdTime
 
-      if (!fromNumber || !messageContent) continue
+      if (!fromNumber || !messageContent) {
+        debugLog.push({ step: 'skip_no_from_or_msg', zohoLogId, fromNumber, messageContent })
+        continue
+      }
 
       const cleanFromNumber = fromNumber.toString().replace(/[^\d+]/g, '')
 
@@ -136,11 +147,12 @@ export async function POST(req: Request) {
         }
       })
 
+      debugLog.push({ step: 'created', zohoLogId })
       syncedCount++
       }
     }
 
-    return NextResponse.json({ success: true, syncedCount })
+    return NextResponse.json({ success: true, syncedCount, debugLog })
   } catch (error: any) {
     console.error('SMS Sync Error:', error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
