@@ -3,6 +3,7 @@
 import { useZoho } from "@/components/ZohoProvider"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { SalesCallCampaignModal } from "@/components/SalesCallCampaignModal"
+import { RecentActivityFeed } from "@/components/RecentActivityFeed"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -889,7 +890,7 @@ export default function Dashboard() {
 
   if (!isInitialized || loading) {
     return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-[#151618] text-white">
+      <div className="flex items-center justify-center min-h-[100dvh] glass-panel text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-neutral-400 font-medium text-sm">Loading Sales Hub...</p>
@@ -918,7 +919,7 @@ export default function Dashboard() {
             className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
               effort === "sales"
                 ? "bg-[#17191a] border-[var(--primary)]/50 text-white"
-                : "bg-white/[0.035] border-white/10 hover:border-white/15 text-neutral-400"
+                : "bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] text-neutral-400"
             }`}
           >
             {effort === "sales" && (
@@ -928,7 +929,7 @@ export default function Dashboard() {
               <div className={`p-2.5 rounded-xl border transition-colors ${
                 effort === "sales"
                   ? "bg-[var(--primary)]/12 border-[var(--primary)]/30 text-[var(--primary)]"
-                  : "bg-white/[0.045] border-white/15 text-neutral-500"
+                  : "bg-white/[0.045] border-[var(--border)] text-neutral-500"
               }`}>
                 <FiTrendingUp size={20} />
               </div>
@@ -947,7 +948,7 @@ export default function Dashboard() {
             className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
               effort === "cold_call"
                 ? "bg-[#17191a] border-indigo-400/45 text-white"
-                : "bg-white/[0.035] border-white/10 hover:border-white/15 text-neutral-400"
+                : "bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] text-neutral-400"
             }`}
           >
             {effort === "cold_call" && (
@@ -957,7 +958,7 @@ export default function Dashboard() {
               <div className={`p-2.5 rounded-xl border transition-colors ${
                 effort === "cold_call"
                   ? "bg-indigo-950 border-indigo-500/30 text-indigo-400"
-                  : "bg-white/[0.045] border-white/15 text-neutral-500"
+                  : "bg-white/[0.045] border-[var(--border)] text-neutral-500"
               }`}>
                 <FiTarget size={20} />
               </div>
@@ -976,7 +977,7 @@ export default function Dashboard() {
             className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
               effort === "call_list"
                 ? "bg-[#17191a] border-sky-400/45 text-white"
-                : "bg-white/[0.035] border-white/10 hover:border-white/15 text-neutral-400"
+                : "bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] text-neutral-400"
             }`}
           >
             {effort === "call_list" && (
@@ -986,7 +987,7 @@ export default function Dashboard() {
               <div className={`p-2.5 rounded-xl border transition-colors ${
                 effort === "call_list"
                   ? "bg-sky-950 border-sky-500/30 text-sky-400"
-                  : "bg-white/[0.045] border-white/15 text-neutral-500"
+                  : "bg-white/[0.045] border-[var(--border)] text-neutral-500"
               }`}>
                 <FiPhoneCall size={20} />
               </div>
@@ -1004,7 +1005,7 @@ export default function Dashboard() {
             className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
               effort === "dashboard"
                 ? "bg-[#17191a] border-purple-400/45 text-white"
-                : "bg-white/[0.035] border-white/10 hover:border-white/15 text-neutral-400"
+                : "bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] text-neutral-400"
             }`}
           >
             {effort === "dashboard" && (
@@ -1014,7 +1015,7 @@ export default function Dashboard() {
               <div className={`p-2.5 rounded-xl border transition-colors ${
                 effort === "dashboard"
                   ? "bg-purple-950 border-purple-500/30 text-purple-400"
-                  : "bg-white/[0.045] border-white/15 text-neutral-500"
+                  : "bg-white/[0.045] border-[var(--border)] text-neutral-500"
               }`}>
                 <FiTarget size={20} />
               </div>
@@ -1033,7 +1034,7 @@ export default function Dashboard() {
         ) : (
           <>
             {/* Quick Invoice Lookups */}
-        <div className="flex flex-wrap gap-2.5 bg-[#151618]/60 p-3 rounded-xl border border-white/10 ">
+        <div className="flex flex-wrap gap-2.5 glass-panel p-3 rounded-xl border border-[var(--border)] ">
           <span className="text-xs text-neutral-400 font-semibold flex items-center gap-1.5 mr-2 self-center">
             Quick Invoice View:
           </span>
@@ -1110,7 +1111,7 @@ export default function Dashboard() {
         {/* Metrics row */}
         <div className={`grid gap-2 sm:gap-3 ${effort === "sales" ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3"}`}>
           {metrics.map(m => (
-            <div key={m.label} className="bg-[#151618]/70 rounded-xl p-3 border border-white/10 cursor-pointer hover:bg-white/[0.055] transition-all duration-200" onClick={() => {
+            <div key={m.label} className="glass-panel rounded-xl p-3 border border-[var(--border)] cursor-pointer hover:bg-white/[0.055] transition-all duration-200" onClick={() => {
               if (effort === "sales") {
                 if (m.id === "revenue") {
                   setDrillType("accounts")
@@ -1192,7 +1193,7 @@ export default function Dashboard() {
                     <select
                       value={ownerFilter}
                       onChange={e => setOwnerFilter(e.target.value)}
-                      className="w-full bg-[#151618] border border-white/15 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
+                      className="w-full glass-panel border border-[var(--border)] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
                     >
                       <option value="All">All Representatives</option>
                       {owners.map(o => (
@@ -1212,7 +1213,7 @@ export default function Dashboard() {
                   <select
                     value={sortBy}
                     onChange={e => setSortBy(e.target.value as any)}
-                    className="w-full bg-[#151618] border border-white/15 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
+                    className="w-full glass-panel border border-[var(--border)] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
                   >
                     <option value="default">Default Sort</option>
                     <option value="timezone_asc">Time Zone (A-Z)</option>
@@ -1229,7 +1230,7 @@ export default function Dashboard() {
 
                 <button
                   onClick={() => setShowFiltersDrawer(true)}
-                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-white/10 bg-[#151618] hover:bg-neutral-800 text-neutral-300 hover:text-white transition-colors cursor-pointer relative"
+                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-[var(--border)] glass-panel hover:bg-neutral-800 text-neutral-300 hover:text-white transition-colors cursor-pointer relative"
                 >
                   <FiFilter size={12} className={activeFilterCount > 0 ? (effort === "sales" ? "text-emerald-400" : "text-sky-400") : ""} />
                   <span>Filters</span>
@@ -1260,31 +1261,31 @@ export default function Dashboard() {
               <div className="flex flex-wrap gap-2 items-center">
                 <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Active Filters:</span>
                 {ownerFilter !== "All" && (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-neutral-800 border border-white/15 text-xs text-neutral-300">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-neutral-800 border border-[var(--border)] text-xs text-neutral-300">
                     Rep: {owners.find(o => o.id === ownerFilter)?.name || ownerFilter}
                     <button onClick={() => setOwnerFilter("All")} className="text-neutral-500 hover:text-white"><FiX size={12} /></button>
                   </span>
                 )}
                 {statusFilter !== "All" && (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-neutral-800 border border-white/15 text-xs text-neutral-300">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-neutral-800 border border-[var(--border)] text-xs text-neutral-300">
                     Status: {statusFilter}
                     <button onClick={() => setStatusFilter("All")} className="text-neutral-500 hover:text-white"><FiX size={12} /></button>
                   </span>
                 )}
                 {industryFilter !== "All" && (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-neutral-800 border border-white/15 text-xs text-neutral-300">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-neutral-800 border border-[var(--border)] text-xs text-neutral-300">
                     Industry: {industryFilter}
                     <button onClick={() => setIndustryFilter("All")} className="text-neutral-500 hover:text-white"><FiX size={12} /></button>
                   </span>
                 )}
                 {timezoneFilter !== "All" && (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-neutral-800 border border-white/15 text-xs text-neutral-300">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-neutral-800 border border-[var(--border)] text-xs text-neutral-300">
                     Zone: {timezoneFilter}
                     <button onClick={() => setTimezoneFilter("All")} className="text-neutral-500 hover:text-white"><FiX size={12} /></button>
                   </span>
                 )}
                 {onlyWithSales && (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-neutral-800 border border-white/15 text-xs text-neutral-300">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-neutral-800 border border-[var(--border)] text-xs text-neutral-300">
                     Has Purchases
                     <button onClick={() => setOnlyWithSales(false)} className="text-neutral-500 hover:text-white"><FiX size={12} /></button>
                   </span>
@@ -1305,7 +1306,7 @@ export default function Dashboard() {
             )}
 
             <div className={`bg-neutral-800/30 rounded-xl border overflow-hidden transition-all duration-300 ${
-              effort === "sales" ? "border-white/10" : "border-sky-900/20"
+              effort === "sales" ? "border-[var(--border)]" : "border-sky-900/20"
             }`}>
               {filteredAccounts.length === 0 ? (
                 <div className="p-8 text-center">
@@ -1315,7 +1316,7 @@ export default function Dashboard() {
               ) : (
                 <div className="flex flex-col">
                   {/* Selection & Campaign Toolbar */}
-                  <div className="bg-[#151618]/70 border-b border-white/10 px-4 py-3 flex items-center justify-between gap-3 text-xs sm:text-sm flex-wrap">
+                  <div className="glass-panel border-b border-[var(--border)] px-4 py-3 flex items-center justify-between gap-3 text-xs sm:text-sm flex-wrap">
                     <div className="flex items-center gap-3 flex-1 min-w-[250px]">
                       <input 
                         type="checkbox"
@@ -1335,7 +1336,7 @@ export default function Dashboard() {
                             setSelectedAccountIds(prev => [...new Set([...prev, ...pageIds])])
                           }
                         }}
-                        className="w-4 h-4 rounded border-white/15 text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer shrink-0"
+                        className="w-4 h-4 rounded border-[var(--border)] text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer shrink-0"
                       />
                       <span className="text-neutral-400 font-medium select-none shrink-0 hidden sm:inline">
                         {selectedAccountIds.length > 0 ? (
@@ -1355,7 +1356,7 @@ export default function Dashboard() {
                           placeholder="Search accounts..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full bg-neutral-800/80 border border-white/10 rounded-md pl-8 pr-8 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors"
+                          className="w-full bg-neutral-800/80 border border-[var(--border)] rounded-md pl-8 pr-8 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors"
                         />
                         {searchQuery && (
                           <button 
@@ -1443,18 +1444,18 @@ export default function Dashboard() {
                                     : [...prev, account.id]
                                 )
                               }}
-                              className="w-4 h-4 rounded border-white/15 text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer"
+                              className="w-4 h-4 rounded border-[var(--border)] text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer"
                             />
                           </div>
                           {/* Left Side: Avatar & Basic Info */}
                           <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <Link href={`/account?id=${account.zohoId}`} className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-300 font-bold text-sm border border-white/15 shrink-0 hover:border-emerald-500 transition-colors">
+                            <Link href={`/account?id=${account.zohoId}`} className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-300 font-bold text-sm border border-[var(--border)] shrink-0 hover:border-emerald-500 transition-colors">
                               {account.name.charAt(0)}
                             </Link>
                             <div className="min-w-0">
                               <Link href={`/account?id=${account.zohoId}`} className="text-sm font-bold text-white truncate block hover:text-emerald-400 transition-colors">{account.name}</Link>
                               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                <span className="text-[10px] text-neutral-400 bg-neutral-800 px-1.5 py-0.5 rounded border border-white/15">{account.tags || "General"}</span>
+                                <span className="text-[10px] text-neutral-400 bg-neutral-800 px-1.5 py-0.5 rounded border border-[var(--border)]">{account.tags || "General"}</span>
                                 <QualityPicker
                                   zohoId={account.zohoId}
                                   accountId={account.id}
@@ -1577,8 +1578,10 @@ export default function Dashboard() {
             </div>
           </div>
 
-        {/* Tasks — stacks below on mobile, column on desktop */}
-          <div className={`space-y-3 ${mobileTab === "accounts" ? "hidden sm:block" : ""}`}>
+          {/* Tasks — stacks below on mobile, column on desktop */}
+          <div className={`lg:col-span-1 border-l border-[var(--border)] lg:pl-4 space-y-4 ${mobileTab === "accounts" ? "hidden sm:block" : ""}`}>
+            <RecentActivityFeed />
+
             {/* Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1593,12 +1596,12 @@ export default function Dashboard() {
             </div>
 
             {/* Quick Filters Tab Row */}
-            <div className="flex border-b border-white/10 pb-2 gap-1.5 flex-wrap">
+            <div className="flex border-b border-[var(--border)] pb-2 gap-1.5 flex-wrap">
               <button 
                 onClick={() => setTaskFilterTab("due")}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                   taskFilterTab === "due"
-                    ? "bg-neutral-800 text-emerald-400 border border-white/15 "
+                    ? "bg-neutral-800 text-emerald-400 border border-[var(--border)] "
                     : "text-neutral-400 hover:text-neutral-200 border border-transparent"
                 }`}
               >
@@ -1608,7 +1611,7 @@ export default function Dashboard() {
                 onClick={() => setTaskFilterTab("pending")}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                   taskFilterTab === "pending"
-                    ? "bg-neutral-800 text-emerald-400 border border-white/15 "
+                    ? "bg-neutral-800 text-emerald-400 border border-[var(--border)] "
                     : "text-neutral-400 hover:text-neutral-200 border border-transparent"
                 }`}
               >
@@ -1618,7 +1621,7 @@ export default function Dashboard() {
                 onClick={() => setTaskFilterTab("completed")}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                   taskFilterTab === "completed"
-                    ? "bg-neutral-800 text-emerald-400 border border-white/15 "
+                    ? "bg-neutral-800 text-emerald-400 border border-[var(--border)] "
                     : "text-neutral-400 hover:text-neutral-200 border border-transparent"
                 }`}
               >
@@ -1628,7 +1631,7 @@ export default function Dashboard() {
                 onClick={() => setTaskFilterTab("all")}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                   taskFilterTab === "all"
-                    ? "bg-neutral-800 text-emerald-400 border border-white/15 "
+                    ? "bg-neutral-800 text-emerald-400 border border-[var(--border)] "
                     : "text-neutral-400 hover:text-neutral-200 border border-transparent"
                 }`}
               >
@@ -1641,7 +1644,7 @@ export default function Dashboard() {
               <select 
                 value={taskTypeFilter} 
                 onChange={e => setTaskTypeFilter(e.target.value)}
-                className="bg-neutral-800 border border-white/15 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                className="bg-neutral-800 border border-[var(--border)] rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
                 <option value="All">All Types</option>
                 <option value="Task">Task</option>
@@ -1653,7 +1656,7 @@ export default function Dashboard() {
             </div>
 
             {/* Tasks List Container */}
-            <div className="bg-neutral-800/30 rounded-xl border border-white/10 p-3">
+            <div className="bg-neutral-800/30 rounded-xl border border-[var(--border)] p-3">
               {filteredTasksList.length === 0 ? (
                 <div className="text-center py-8">
                   <FiCheckCircle className="mx-auto text-3xl text-neutral-600 mb-2" />
@@ -1669,7 +1672,7 @@ export default function Dashboard() {
                       const assigneeName = repsList.find(r => r.id === task.ownerId)?.name || repsList.find(r => r.id === task.ownerId)?.email || "Unassigned"
 
                       return (
-                        <div key={task.id} className="bg-[#151618]/70 border border-white/10 rounded-xl p-3.5 hover:border-white/15 transition-all shadow-sm flex flex-col gap-2">
+                        <div key={task.id} className="glass-panel border border-[var(--border)] rounded-xl p-3.5 hover:border-[var(--border)] transition-all shadow-sm flex flex-col gap-2">
                           <div className="flex items-center justify-between gap-2">
                             {/* Badges */}
                             <div className="flex items-center gap-1.5 flex-wrap">
@@ -1678,7 +1681,7 @@ export default function Dashboard() {
                                   ? "bg-red-950/40 text-red-400 border border-red-500/20" 
                                   : task.priority === "LOW"
                                   ? "bg-blue-950/40 text-blue-400 border border-blue-500/20"
-                                  : "bg-black/25/40 text-neutral-400 border border-white/15"
+                                  : "bg-black/25/40 text-neutral-400 border border-[var(--border)]"
                               }`}>
                                 {task.priority} Priority
                               </span>
@@ -1687,7 +1690,7 @@ export default function Dashboard() {
                                   ? "bg-emerald-950/40 text-emerald-400 border border-emerald-500/20"
                                   : task.status === "In Progress"
                                   ? "bg-sky-950/40 text-sky-400 border border-sky-500/20"
-                                  : "bg-black/25/40 text-neutral-400 border border-white/10"
+                                  : "bg-black/25/40 text-neutral-400 border border-[var(--border)]"
                               }`}>
                                 {task.status}
                               </span>
@@ -1697,7 +1700,7 @@ export default function Dashboard() {
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button 
                                 onClick={() => handleOpenEditTask(task)}
-                                className="p-1 rounded bg-[#111214] hover:bg-neutral-800 text-neutral-400 hover:text-white border border-white/10 transition-colors"
+                                className="p-1 rounded glass-panel hover:bg-neutral-800 text-neutral-400 hover:text-white border border-[var(--border)] transition-colors"
                                 title="Edit Task"
                               >
                                 <FiEdit size={11} />
@@ -1719,7 +1722,7 @@ export default function Dashboard() {
                             <p className="text-xs text-neutral-400 leading-relaxed line-clamp-2 mt-0.5">{task.description}</p>
                           )}
 
-                          <div className="border-t border-white/10 pt-2 flex flex-col gap-1.5 text-[11px] text-neutral-400 mt-1">
+                          <div className="border-t border-[var(--border)] pt-2 flex flex-col gap-1.5 text-[11px] text-neutral-400 mt-1">
                             {/* Linked Account / Deal */}
                             <div className="flex items-center gap-1">
                               <span className="text-neutral-500 font-medium">Link:</span>
@@ -1741,22 +1744,22 @@ export default function Dashboard() {
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-neutral-500 font-medium">Docs:</span>
                                 {task.invoiceId && (
-                                  <span className="bg-neutral-800 border border-white/15 px-1.5 py-0.5 rounded text-[10px] text-blue-400 font-mono font-bold">
+                                  <span className="bg-neutral-800 border border-[var(--border)] px-1.5 py-0.5 rounded text-[10px] text-blue-400 font-mono font-bold">
                                     INV: {task.invoiceId}
                                   </span>
                                 )}
                                 {task.salesOrderId && (
-                                  <span className="bg-neutral-800 border border-white/15 px-1.5 py-0.5 rounded text-[10px] text-purple-400 font-mono font-bold">
+                                  <span className="bg-neutral-800 border border-[var(--border)] px-1.5 py-0.5 rounded text-[10px] text-purple-400 font-mono font-bold">
                                     SO: {task.salesOrderId}
                                   </span>
                                 )}
                                 {task.quoteId && (
-                                  <span className="bg-neutral-800 border border-white/15 px-1.5 py-0.5 rounded text-[10px] text-amber-400 font-mono font-bold">
+                                  <span className="bg-neutral-800 border border-[var(--border)] px-1.5 py-0.5 rounded text-[10px] text-amber-400 font-mono font-bold">
                                     Quote: {task.quoteId}
                                   </span>
                                 )}
                                 {task.estimateId && (
-                                  <span className="bg-neutral-800 border border-white/15 px-1.5 py-0.5 rounded text-[10px] text-emerald-400 font-mono font-bold">
+                                  <span className="bg-neutral-800 border border-[var(--border)] px-1.5 py-0.5 rounded text-[10px] text-emerald-400 font-mono font-bold">
                                     EST: {task.estimateId}
                                   </span>
                                 )}
@@ -1801,8 +1804,8 @@ export default function Dashboard() {
 
       {drillItems && drillType && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setDrillItems(null)}>
-          <div className="bg-[#151618] border border-white/10 rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)]" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center p-4 sm:p-5 border-b border-white/10">
+          <div className="glass-panel border border-[var(--border)] rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)]" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 sm:p-5 border-b border-[var(--border)]">
               <h3 className="text-white font-bold text-lg">{drillTitle}</h3>
               <button onClick={() => setDrillItems(null)} className="text-neutral-500 hover:text-white transition-colors bg-neutral-800 p-1.5 rounded-full">
                 <FiX size={18} />
@@ -1815,11 +1818,11 @@ export default function Dashboard() {
                 <div className="flex flex-col h-full">
                   <div className="space-y-3 flex-1">
                     {drillPagination.paginatedItems.map((item, idx) => (
-                <div key={idx} className="bg-neutral-800/50 rounded-xl p-3 border border-white/10">
+                <div key={idx} className="bg-neutral-800/50 rounded-xl p-3 border border-[var(--border)]">
                   {drillType === "invoices" && (
                     <div 
                       onClick={() => setViewingInvoice(item)}
-                      className="flex justify-between items-center cursor-pointer hover:bg-[#111214] p-2 rounded-xl transition-all group"
+                      className="flex justify-between items-center cursor-pointer hover:glass-panel p-2 rounded-xl transition-all group"
                       title="Click to view Invoice PDF"
                     >
                       <div>
@@ -1840,7 +1843,7 @@ export default function Dashboard() {
                         <p className="text-neutral-400 text-xs mt-1 flex items-center gap-1.5">
                           <FiFileText className="text-amber-500 shrink-0" size={11} />
                           <span className="text-emerald-400 group-hover:underline font-mono">#{((item.items as any)?.invoiceNumber) || item.zohoId?.slice(-6) || item.id?.slice(-6) || "—"}</span>
-                          <span className="text-neutral-500 font-sans ml-1 flex flex-col gap-0.5 border-l border-white/15 pl-2">
+                          <span className="text-neutral-500 font-sans ml-1 flex flex-col gap-0.5 border-l border-[var(--border)] pl-2">
                             <span>Ordered: {new Date(item.issueDate || item.orderDate || item.createdAt || Date.now()).toLocaleDateString()}</span>
                             {item.status === 'Paid' && (
                               <span className="text-blue-400">Paid: {new Date((item.items as any)?.paymentDate || item.updatedAt || item.issueDate).toLocaleDateString()}</span>
@@ -1890,10 +1893,10 @@ export default function Dashboard() {
       {showFiltersDrawer && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFiltersDrawer(false)} />
-          <div className="relative w-full max-w-md max-h-[85vh] bg-[#151618] border border-white/10 rounded-xl flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)] text-white z-[9999] overflow-hidden">
+          <div className="relative w-full max-w-md max-h-[85vh] glass-panel border border-[var(--border)] rounded-xl flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)] text-white z-[9999] overflow-hidden">
             <div className="p-6 flex flex-col h-full overflow-hidden">
               {/* Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
+              <div className="flex items-center justify-between pb-4 border-b border-[var(--border)] shrink-0">
                 <h2 className="text-sm font-bold flex items-center gap-2 uppercase tracking-wider text-neutral-300">
                   <FiFilter className={effort === "sales" ? "text-emerald-400" : "text-sky-400"} /> Filters
                 </h2>
@@ -1913,7 +1916,7 @@ export default function Dashboard() {
                     <select 
                       value={ownerFilter} 
                       onChange={e => setOwnerFilter(e.target.value)}
-                      className="w-full bg-neutral-800 border border-white/15 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                      className="w-full bg-neutral-800 border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                     >
                       <option value="All">All Representatives</option>
                       {owners.map(o => <option key={o.id} value={o.id}>{o.name || o.email}</option>)}
@@ -1926,7 +1929,7 @@ export default function Dashboard() {
                   <select 
                     value={timezoneFilter} 
                     onChange={e => setTimezoneFilter(e.target.value)}
-                    className="w-full bg-neutral-800 border border-white/15 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    className="w-full bg-neutral-800 border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                   >
                     <option value="All">All Time Zones</option>
                     {allTimezones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
@@ -1934,12 +1937,12 @@ export default function Dashboard() {
                 </div>
                 
                 {/* Do Not Call toggle */}
-                <label className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity bg-neutral-800/50 p-2.5 rounded-lg border border-white/15">
+                <label className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity bg-neutral-800/50 p-2.5 rounded-lg border border-[var(--border)]">
                   <input 
                     type="checkbox" 
                     checked={showDoNotCall}
                     onChange={(e) => setShowDoNotCall(e.target.checked)}
-                    className="w-4 h-4 rounded border-white/15 text-emerald-600 focus:ring-emerald-500 bg-[#151618] cursor-pointer"
+                    className="w-4 h-4 rounded border-[var(--border)] text-emerald-600 focus:ring-emerald-500 glass-panel cursor-pointer"
                   />
                   <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">Show "Do Not Call" Accounts</span>
                 </label>
@@ -1983,7 +1986,7 @@ export default function Dashboard() {
                     <select 
                       value={statusFilter} 
                       onChange={e => setStatusFilter(e.target.value)}
-                      className="w-full bg-neutral-800 border border-white/15 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                      className="w-full bg-neutral-800 border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                     >
                       <option value="All">All Statuses</option>
                       {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1997,7 +2000,7 @@ export default function Dashboard() {
                   <select 
                     value={industryFilter} 
                     onChange={e => setIndustryFilter(e.target.value)}
-                    className="w-full bg-neutral-800 border border-white/15 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    className="w-full bg-neutral-800 border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                   >
                     <option value="All">All Industries</option>
                     {allIndustries.map(i => <option key={i} value={i}>{i}</option>)}
@@ -2006,17 +2009,17 @@ export default function Dashboard() {
 
                 {/* Checkbox filters */}
                 <div className="space-y-3 pt-2">
-                  <label className="flex items-center gap-3 text-xs font-semibold text-neutral-300 cursor-pointer select-none bg-neutral-800 border border-white/15 rounded-lg px-3 py-2.5 hover:border-neutral-600 transition-colors">
+                  <label className="flex items-center gap-3 text-xs font-semibold text-neutral-300 cursor-pointer select-none bg-neutral-800 border border-[var(--border)] rounded-lg px-3 py-2.5 hover:border-neutral-600 transition-colors">
                     <input
                       type="checkbox"
                       checked={onlyWithSales}
                       onChange={e => setOnlyWithSales(e.target.checked)}
-                      className={`rounded bg-[#151618] border-white/15 ${effort === "sales" ? "text-emerald-500" : "text-amber-500"} focus:ring-0 focus:ring-offset-0 w-4 h-4`}
+                      className={`rounded glass-panel border-[var(--border)] ${effort === "sales" ? "text-emerald-500" : "text-amber-500"} focus:ring-0 focus:ring-offset-0 w-4 h-4`}
                     />
                     <span>Only show accounts with purchase history</span>
                   </label>
                   {isAdminUser && (
-                    <label className="flex items-center gap-3 text-xs font-semibold text-neutral-300 cursor-pointer select-none bg-neutral-800 border border-white/15 rounded-lg px-3 py-2.5 hover:border-neutral-600 transition-colors">
+                    <label className="flex items-center gap-3 text-xs font-semibold text-neutral-300 cursor-pointer select-none bg-neutral-800 border border-[var(--border)] rounded-lg px-3 py-2.5 hover:border-neutral-600 transition-colors">
                       <input
                         type="checkbox"
                         checked={preferences.showHiddenReps || false}
@@ -2024,7 +2027,7 @@ export default function Dashboard() {
                           updatePreferences({ showHiddenReps: e.target.checked })
                           setTimeout(() => fetchLocalData(1, false), 100)
                         }}
-                        className={`rounded bg-[#151618] border-white/15 ${effort === "sales" ? "text-emerald-500" : "text-amber-500"} focus:ring-0 focus:ring-offset-0 w-4 h-4`}
+                        className={`rounded glass-panel border-[var(--border)] ${effort === "sales" ? "text-emerald-500" : "text-amber-500"} focus:ring-0 focus:ring-offset-0 w-4 h-4`}
                       />
                       <span>Include hidden reps in dropdowns</span>
                     </label>
@@ -2033,7 +2036,7 @@ export default function Dashboard() {
               </div>
 
               {/* Footer */}
-              <div className="pt-4 border-t border-white/10 flex gap-3 shrink-0">
+              <div className="pt-4 border-t border-[var(--border)] flex gap-3 shrink-0">
                 <button 
                   onClick={() => {
                     setSearchQuery("")
@@ -2046,7 +2049,7 @@ export default function Dashboard() {
                     setOnlyWithSales(false)
                     setShowFiltersDrawer(false)
                   }}
-                  className="flex-1 bg-neutral-800 hover:bg-neutral-700 border border-white/15 text-white font-bold py-2 px-4 rounded-lg text-xs transition-colors"
+                  className="flex-1 bg-neutral-800 hover:bg-neutral-700 border border-[var(--border)] text-white font-bold py-2 px-4 rounded-lg text-xs transition-colors"
                 >
                   Clear All
                 </button>
@@ -2068,10 +2071,10 @@ export default function Dashboard() {
       {showEditTaskModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowEditTaskModal(false)} />
-          <div className="relative w-full max-w-md bg-[#151618] border border-white/10 rounded-xl flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)] text-white z-[9999] p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center pb-4 border-b border-white/10 mb-4">
+          <div className="relative w-full max-w-md glass-panel border border-[var(--border)] rounded-xl flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)] text-white z-[9999] p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-4 border-b border-[var(--border)] mb-4">
               <h3 className="font-bold text-lg text-white">Edit Task</h3>
-              <button onClick={() => setShowEditTaskModal(false)} className="text-neutral-400 hover:text-white bg-[#111214] p-1 rounded-full">
+              <button onClick={() => setShowEditTaskModal(false)} className="text-neutral-400 hover:text-white glass-panel p-1 rounded-full">
                 <FiX size={16} />
               </button>
             </div>
@@ -2084,7 +2087,7 @@ export default function Dashboard() {
                   onChange={e => setTaskSubject(e.target.value)} 
                   required
                   placeholder="Task subject..."
-                  className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div>
@@ -2094,7 +2097,7 @@ export default function Dashboard() {
                   onChange={e => setTaskDescription(e.target.value)} 
                   placeholder="Task details..."
                   rows={3}
-                  className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -2103,7 +2106,7 @@ export default function Dashboard() {
                   <select 
                     value={taskPriority} 
                     onChange={e => setTaskPriority(e.target.value)}
-                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                   >
                     <option value="Normal">Normal</option>
                     <option value="High">High</option>
@@ -2116,7 +2119,7 @@ export default function Dashboard() {
                     type="date" 
                     value={taskDueDate} 
                     onChange={e => setTaskDueDate(e.target.value)} 
-                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
@@ -2126,7 +2129,7 @@ export default function Dashboard() {
                   <select 
                     value={taskStatus} 
                     onChange={e => setTaskStatus(e.target.value)}
-                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                   >
                     <option value="Not Started">Not Started</option>
                     <option value="In Progress">In Progress</option>
@@ -2138,7 +2141,7 @@ export default function Dashboard() {
                   <select 
                     value={taskOwnerId} 
                     onChange={e => setTaskOwnerId(e.target.value)}
-                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                   >
                     <option value={currentUser?.id}>Me ({currentUser?.name})</option>
                     {repsList.map(r => (
@@ -2152,7 +2155,7 @@ export default function Dashboard() {
                 <select 
                   value={taskWhatId} 
                   onChange={e => setTaskWhatId(e.target.value)}
-                  className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                 >
                   <option value="">-- No Linked Account (Company Task) --</option>
                   {accounts.map(a => (
@@ -2169,7 +2172,7 @@ export default function Dashboard() {
                     <select
                       value={selectedTransaction}
                       onChange={e => handleTransactionChange(e.target.value)}
-                      className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                      className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                     >
                       <option value="">-- No Linked Document --</option>
                       {transactions.map(t => (
@@ -2181,7 +2184,7 @@ export default function Dashboard() {
                   )}
                 </div>
               )}
-              <div className="border-t border-white/10 pt-3 mt-2">
+              <div className="border-t border-[var(--border)] pt-3 mt-2">
                 <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Linked Documents (Optional)</h4>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -2191,7 +2194,7 @@ export default function Dashboard() {
                       value={taskEstimateId} 
                       onChange={e => setTaskEstimateId(e.target.value)} 
                       placeholder="e.g. EST-12345"
-                      className="w-full bg-[#111214] border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      className="w-full glass-panel border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                   <div>
@@ -2201,7 +2204,7 @@ export default function Dashboard() {
                       value={taskSalesOrderId} 
                       onChange={e => setTaskSalesOrderId(e.target.value)} 
                       placeholder="e.g. SO-12345"
-                      className="w-full bg-[#111214] border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      className="w-full glass-panel border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                   <div>
@@ -2211,7 +2214,7 @@ export default function Dashboard() {
                       value={taskQuoteId} 
                       onChange={e => setTaskQuoteId(e.target.value)} 
                       placeholder="e.g. Q-12345"
-                      className="w-full bg-[#111214] border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      className="w-full glass-panel border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                   <div>
@@ -2221,12 +2224,12 @@ export default function Dashboard() {
                       value={taskInvoiceId} 
                       onChange={e => setTaskInvoiceId(e.target.value)} 
                       placeholder="e.g. INV-12345"
-                      className="w-full bg-[#111214] border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      className="w-full glass-panel border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                 </div>
               </div>
-              <div className="pt-4 flex justify-end gap-2 border-t border-white/10">
+              <div className="pt-4 flex justify-end gap-2 border-t border-[var(--border)]">
                 <button 
                   type="button" 
                   onClick={() => setShowEditTaskModal(false)}
@@ -2251,10 +2254,10 @@ export default function Dashboard() {
       {showCampaignModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCampaignModal(false)} />
-          <div className="relative w-full max-w-lg bg-[#151618] border border-white/10 rounded-xl flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)] text-white z-[9999] p-6 max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-lg glass-panel border border-[var(--border)] rounded-xl flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)] text-white z-[9999] p-6 max-h-[90vh] overflow-y-auto">
             
             {/* Header */}
-            <div className="flex justify-between items-center pb-4 border-b border-white/10 mb-4">
+            <div className="flex justify-between items-center pb-4 border-b border-[var(--border)] mb-4">
               <div>
                 <h3 className="font-bold text-lg text-white flex items-center gap-2">
                   <FiMail className="text-emerald-500 " />
@@ -2266,7 +2269,7 @@ export default function Dashboard() {
               </div>
               <button 
                 onClick={() => setShowCampaignModal(false)} 
-                className="text-neutral-400 hover:text-white bg-[#111214] p-1.5 rounded-full transition-colors"
+                className="text-neutral-400 hover:text-white glass-panel p-1.5 rounded-full transition-colors"
               >
                 <FiX size={16} />
               </button>
@@ -2327,7 +2330,7 @@ export default function Dashboard() {
                   onChange={e => setCampaignName(e.target.value)} 
                   required
                   placeholder="e.g., Summer Blade Promotion 2026"
-                  className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
 
@@ -2345,7 +2348,7 @@ export default function Dashboard() {
                         if (t.channel) setCampaignChannel(t.channel)
                       }
                     }}
-                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
                   >
                     <option value="">-- Select a template --</option>
                     {campaignTemplates.map(t => (
@@ -2365,7 +2368,7 @@ export default function Dashboard() {
                     className={`py-2 px-3 rounded-lg border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                       campaignChannel === channel 
                         ? "bg-emerald-600 border-emerald-500 text-white  shadow-emerald-950/20" 
-                        : "bg-[#111214] border-white/15 text-neutral-400 hover:text-white hover:border-neutral-600"
+                        : "glass-panel border-[var(--border)] text-neutral-400 hover:text-white hover:border-neutral-600"
                     }`}
                   >
                     {channel === "SMS" && <FiMessageSquare size={13} />}
@@ -2388,7 +2391,7 @@ export default function Dashboard() {
                   <select
                     value={selectedZohoNumber}
                     onChange={e => setSelectedZohoNumber(e.target.value)}
-                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
                     required
                   >
                     {zohoNumbers.map(n => (
@@ -2412,7 +2415,7 @@ export default function Dashboard() {
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
                     placeholder="Describe what you want to say or the image you want..."
-                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
+                    className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
                   />
                 </div>
                 <div className="flex gap-2">
@@ -2447,7 +2450,7 @@ export default function Dashboard() {
                       : "Write your text message (SMS/WhatsApp)..."
                   }
                   rows={4}
-                  className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
 
@@ -2457,7 +2460,7 @@ export default function Dashboard() {
                 <div className="space-y-3">
                   {campaignImageUrl ? (
                     /* Image preview */
-                    <div className="relative rounded-xl border border-white/10 overflow-hidden bg-black/25 max-h-[160px] flex items-center justify-center p-2 group">
+                    <div className="relative rounded-xl border border-[var(--border)] overflow-hidden bg-black/25 max-h-[160px] flex items-center justify-center p-2 group">
                       {campaignImageUrl.startsWith("data:") ? (
                         <img 
                           src={campaignImageUrl} 
@@ -2485,7 +2488,7 @@ export default function Dashboard() {
                   ) : (
                     /* Selector triggers */
                     <div className="grid grid-cols-2 gap-2">
-                      <label className="flex flex-col items-center justify-center py-4 px-3 bg-[#111214] hover:bg-neutral-800 border border-dashed border-white/15 hover:border-neutral-600 rounded-xl cursor-pointer transition-colors group">
+                      <label className="flex flex-col items-center justify-center py-4 px-3 glass-panel hover:bg-neutral-800 border border-dashed border-[var(--border)] hover:border-neutral-600 rounded-xl cursor-pointer transition-colors group">
                         <FiUploadCloud className="text-neutral-500 group-hover:text-emerald-400 transition-colors mb-1" size={18} />
                         <span className="text-[10px] font-semibold text-neutral-400">Upload custom file</span>
                         <input 
@@ -2501,7 +2504,7 @@ export default function Dashboard() {
                           setShowAssetSelector(true)
                           fetchMediaAssets()
                         }}
-                        className="flex flex-col items-center justify-center py-4 px-3 bg-[#111214] hover:bg-neutral-800 border border-dashed border-white/15 hover:border-neutral-600 rounded-xl transition-colors group"
+                        className="flex flex-col items-center justify-center py-4 px-3 glass-panel hover:bg-neutral-800 border border-dashed border-[var(--border)] hover:border-neutral-600 rounded-xl transition-colors group"
                       >
                         <FiPaperclip className="text-neutral-500 group-hover:text-emerald-400 transition-colors mb-1" size={18} />
                         <span className="text-[10px] font-semibold text-neutral-400">Select library asset</span>
@@ -2511,8 +2514,8 @@ export default function Dashboard() {
 
                   {/* Preloaded Asset Selector dropdown list */}
                   {showAssetSelector && (
-                    <div className="bg-black/25/60 border border-white/10 rounded-xl p-3 max-h-[180px] overflow-y-auto space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                      <div className="flex justify-between items-center pb-1.5 border-b border-white/10 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                    <div className="bg-black/25/60 border border-[var(--border)] rounded-xl p-3 max-h-[180px] overflow-y-auto space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="flex justify-between items-center pb-1.5 border-b border-[var(--border)] text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                         <span>Select Media Asset</span>
                         <button 
                           type="button" 
@@ -2536,7 +2539,7 @@ export default function Dashboard() {
                                 setCampaignImageUrl(asset.url)
                                 setShowAssetSelector(false)
                               }}
-                              className="w-full text-left py-2 hover:bg-[#151618] px-1 rounded flex items-center justify-between gap-3 text-xs"
+                              className="w-full text-left py-2 hover:glass-panel px-1 rounded flex items-center justify-between gap-3 text-xs"
                             >
                               <div className="flex items-center gap-2 min-w-0">
                                 {asset.type === 'Image' ? <FiImage className="text-emerald-400 shrink-0" size={12} /> : <FiFileText className="text-sky-400 shrink-0" size={12} />}
@@ -2553,7 +2556,7 @@ export default function Dashboard() {
               </div>
 
               {/* Buttons */}
-              <div className="pt-4 flex justify-end gap-2 border-t border-white/10">
+              <div className="pt-4 flex justify-end gap-2 border-t border-[var(--border)]">
                 <button 
                   type="button" 
                   disabled={campaignSending}

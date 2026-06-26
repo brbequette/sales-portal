@@ -8,8 +8,8 @@ import {
   FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
-
 import { UserSettingsModal } from "@/components/UserSettingsModal"
+import { CommandPalette } from "@/components/CommandPalette"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -55,19 +55,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex bg-[var(--background)] text-[var(--foreground)]" style={{ height: "100dvh" }}>
 
       {/* ── Desktop Floating Vertical Menu ── */}
-      <aside className="hidden lg:flex flex-col items-center w-16 bg-[#111214]/95 backdrop-blur border border-white/10 rounded-xl shadow-[0_18px_60px_rgba(0,0,0,0.32)] fixed top-4 left-4 bottom-4 py-4 z-40">
+      <aside className="hidden lg:flex flex-col items-center w-16 glass-panel border-white/5 rounded-2xl shadow-[0_18px_60px_rgba(0,0,0,0.4)] fixed top-4 left-4 bottom-4 py-5 z-40">
         {/* Brand */}
-        <div className="mb-6 flex justify-center w-full">
-          <div className="w-9 h-9 bg-[var(--primary)] rounded-lg flex items-center justify-center relative group cursor-default">
-            <span className="font-black text-black text-sm">T</span>
-            <div className="absolute left-14 bg-[#151618] text-white text-xs font-bold px-2 py-1 rounded-md opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity border border-white/10 shadow-xl whitespace-nowrap z-50">
+        <div className="mb-8 flex justify-center w-full">
+          <div className="w-10 h-10 bg-[var(--primary)] rounded-xl flex items-center justify-center relative group cursor-pointer shadow-[0_0_15px_rgba(249,115,22,0.4)] hover:shadow-[0_0_25px_rgba(249,115,22,0.6)] transition-all">
+            <span className="font-black text-white text-base">T</span>
+            <div className="absolute left-14 bg-black/80 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity border border-white/10 shadow-xl whitespace-nowrap z-50">
               Titan Unified Hub
             </div>
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 flex flex-col items-center gap-2 w-full px-2">
+        <nav className="flex-1 flex flex-col items-center gap-3 w-full px-2">
           {navItems.map(item => {
             const Icon = item.icon
             const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
@@ -75,16 +75,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center justify-center w-11 h-11 rounded-xl transition-all relative group ${
+                className={`flex flex-col items-center justify-center w-11 h-11 rounded-xl transition-all duration-300 relative group overflow-hidden ${
                   active
-                    ? "bg-white/8 text-white border border-white/10"
+                    ? "bg-white/10 text-white shadow-inner"
                     : "text-neutral-500 hover:bg-white/5 hover:text-white"
                 }`}
               >
-                <Icon size={16} className={active ? item.color : ""} />
+                {active && <div className={`absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50`}></div>}
+                {active && <div className={`absolute left-0 top-1/4 bottom-1/4 w-1 rounded-r-full bg-[var(--primary)] shadow-[0_0_10px_var(--primary)]`}></div>}
+                
+                <Icon size={18} className={`relative z-10 ${active ? item.color : "opacity-70 group-hover:opacity-100 transition-opacity"}`} />
                 
                 {/* Tooltip on hover */}
-                <div className="absolute left-14 bg-[#151618] text-white text-xs font-bold px-2 py-1 rounded-md opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity border border-white/10 shadow-xl whitespace-nowrap z-50">
+                <div className="absolute left-14 bg-black/80 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity border border-white/10 shadow-xl whitespace-nowrap z-50">
                   {item.label}
                 </div>
               </Link>
@@ -93,28 +96,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* User / Signout at bottom */}
-        <div className="mt-auto flex flex-col gap-3 items-center border-t border-white/10 pt-4 w-full px-2">
+        <div className="mt-auto flex flex-col gap-4 items-center border-t border-white/10 pt-5 w-full px-2">
           {user && (
             <div className="relative group cursor-pointer" onClick={() => setShowSettings(true)}>
-              <div className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors flex items-center justify-center shrink-0">
-                <FiUser size={13} className="text-neutral-300" />
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-neutral-700 to-neutral-900 border border-white/20 hover:border-[var(--primary)] transition-all flex items-center justify-center shrink-0 shadow-lg">
+                <span className="text-xs font-bold text-white">{user.name.charAt(0)}</span>
               </div>
               
               {/* User details card on hover */}
-              <div className="absolute left-14 bottom-0 bg-[#151618] border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 w-44">
-                <div className="text-xs font-bold text-white truncate">{user.name}</div>
-                <div className="text-[10px] text-neutral-500 truncate mt-0.5">{user.role}</div>
-                <div className="text-[9px] text-[var(--primary)] mt-1 font-bold">Click to edit settings</div>
+              <div className="absolute left-14 bottom-0 bg-black/80 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 w-48">
+                <div className="text-sm font-bold text-white truncate">{user.name}</div>
+                <div className="text-xs text-neutral-400 truncate mt-0.5">{user.role}</div>
+                <div className="text-[10px] text-[var(--primary)] mt-1.5 font-bold uppercase tracking-wider">Click to edit settings</div>
               </div>
             </div>
           )}
           <button
             onClick={handleLogout}
-            className="w-10 h-10 rounded-lg flex items-center justify-center text-neutral-500 hover:text-red-300 hover:bg-white/5 transition-all relative group"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-all relative group"
             title="Sign Out"
           >
-            <FiLogOut size={14} />
-            <div className="absolute left-14 bg-[#151618] text-white text-xs font-bold px-2 py-1 rounded-md opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity border border-white/10 shadow-xl whitespace-nowrap z-50">
+            <FiLogOut size={16} />
+            <div className="absolute left-14 bg-black/80 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity border border-white/10 shadow-xl whitespace-nowrap z-50">
               Sign Out
             </div>
           </button>
@@ -122,45 +125,48 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── Mobile Top Bar ── */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-[#111214]/95 backdrop-blur border-b border-white/10 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-[var(--primary)] rounded-md flex items-center justify-center">
-            <span className="font-black text-black text-xs">T</span>
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 glass-panel border-x-0 border-t-0 px-4 py-3 flex items-center justify-between rounded-none shadow-md">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gradient-to-br from-[var(--primary)] to-orange-600 rounded-lg flex items-center justify-center shadow-[0_0_10px_rgba(249,115,22,0.5)]">
+            <span className="font-black text-white text-sm">T</span>
           </div>
-          <span className="text-sm font-bold text-white">Titan Hub</span>
+          <span className="text-base font-bold text-white">Titan Hub</span>
         </div>
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-neutral-400 hover:text-white">
-          {sidebarOpen ? <FiX size={20} /> : <FiMenu size={20} />}
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-neutral-400 hover:text-white transition-colors">
+          {sidebarOpen ? <FiX size={22} /> : <FiMenu size={22} />}
         </button>
       </div>
 
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-40 flex">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setSidebarOpen(false)} />
-          <aside className="relative w-56 bg-[#111214] border-r border-white/10 flex flex-col h-full z-50">
-            <div className="px-5 py-4 border-b border-neutral-800">
-              <div className="text-sm font-bold text-white">Titan Diamond Hub</div>
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+          <aside className="relative w-64 glass-panel border-y-0 border-l-0 flex flex-col h-full z-50 rounded-none animate-fade-in">
+            <div className="px-5 py-5 border-b border-white/10">
+              <div className="text-base font-black text-white flex items-center gap-2">
+                 <div className="w-6 h-6 bg-[var(--primary)] rounded flex items-center justify-center text-xs text-white">T</div>
+                 Titan Diamond Hub
+              </div>
             </div>
-            <nav className="flex-1 px-3 py-4 space-y-0.5">
+            <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
               {navItems.map(item => {
                 const Icon = item.icon
                 const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
                 return (
                   <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                      active ? "bg-[var(--primary)]/15 text-white border border-[var(--primary)]/30" : "text-neutral-400 hover:bg-white/5 hover:text-white"
+                    className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all ${
+                      active ? "bg-white/10 text-white border border-white/10 shadow-inner" : "text-neutral-400 hover:bg-white/5 hover:text-white"
                     }`}
                   >
-                    <Icon size={16} className={active ? item.color : ""} />
+                    <Icon size={18} className={active ? item.color : "opacity-70"} />
                     {item.label}
                   </Link>
                 )
               })}
             </nav>
-            <div className="px-4 py-3 border-t border-neutral-800">
-              <button onClick={handleLogout} className="flex items-center gap-2 text-xs text-neutral-500 hover:text-red-400">
-                <FiLogOut size={12} /> Sign Out
+            <div className="px-5 py-4 border-t border-white/10">
+              <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-neutral-400 hover:text-red-400 transition-colors font-bold">
+                <FiLogOut size={16} /> Sign Out
               </button>
             </div>
           </aside>
@@ -193,7 +199,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      {/* User Settings Modal */}
+      <CommandPalette />
       <UserSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   )

@@ -148,7 +148,7 @@ export function GlobalTopBar() {
   }
 
   return (
-    <div className="bg-[#101113]/90 backdrop-blur border-b border-white/10 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+    <div className="glass-panel border-x-0 border-t-0 px-4 py-3 flex items-center justify-between sticky top-0 z-40 rounded-none shadow-lg">
       
       {/* Left side: Search */}
       <div className="flex-1 max-w-2xl relative" ref={searchRef}>
