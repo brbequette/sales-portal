@@ -115,11 +115,15 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-3 mb-8">
-        <FiSettings className="text-3xl text-neutral-400" />
-        <h1 className="text-2xl font-bold text-white">System Settings</h1>
-      </div>
+    <div className="flex flex-col text-neutral-100 font-sans h-full">
+      <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto safe-bottom">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+          <div>
+            <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+              <FiSettings className="text-neutral-400" /> System Settings
+            </h1>
+          </div>
+        </header>
 
       {loading ? (
         <div className="text-neutral-400">Loading settings...</div>
@@ -232,8 +236,9 @@ export default function AdminSettingsPage() {
               Save Settings
             </button>
           </div>
-        </div>
-      )}
+          </div>
+        )}
+      </main>
     </div>
   )
 }

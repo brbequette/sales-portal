@@ -192,17 +192,8 @@ export default function PayoutsPage() {
   }, [selectedRepForLedger])
 
   useEffect(() => {
-    if (!isInitialized) return
-    if (!currentUser) {
-      router.push("/login")
-      return
-    }
-    if (!isAdmin) {
-      router.push("/")
-      return
-    }
     fetchLedger()
-  }, [isInitialized, currentUser, isAdmin, router, selectedYear])
+  }, [selectedYear])
 
   const handleAddPayout = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -335,55 +326,38 @@ export default function PayoutsPage() {
     document.body.removeChild(link);
   }
 
-  if (loading) {
+  if (loading && ledger.length === 0) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
+      <div className="flex h-full items-center justify-center bg-[#0f1013]">
         <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-4 sm:p-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="flex flex-col text-neutral-100 font-sans h-full">
+      <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto safe-bottom">
         
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push("/admin")}
-              className="p-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl transition-colors"
-            >
-              <FiChevronLeft size={20} className="text-neutral-400" />
-            </button>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-purple-400 to-emerald-400 bg-clip-text text-transparent">
-                Payouts & Ledger
-              </h1>
-              <p className="text-sm text-neutral-400 font-medium mt-1">
-                Manage sales rep balances, payouts, and commissions.
-              </p>
-            </div>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+          <div>
+            <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+              <FiDollarSign className="text-emerald-500" /> Commission Ledger
+            </h1>
+            <p className="text-xs text-neutral-400 mt-1">Track balances, view invoices, and manage payouts</p>
           </div>
-
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <button
-              onClick={() => {
-                setShowCsvModal(true)
-                setCsvUploadStatus(null)
-                setCsvErrors([])
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-xl transition-all"
+              onClick={() => setShowCsvModal(true)}
+              className="px-4 py-2 bg-neutral-900 border border-neutral-700 hover:bg-neutral-800 text-white rounded-lg text-sm font-bold flex items-center gap-2 transition-colors"
             >
-              <FiUpload size={16} />
-              <span>Upload CSV</span>
+              <FiUpload /> Import CSV
             </button>
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-900/20"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold flex items-center gap-2 transition-colors shadow-lg shadow-emerald-900/20"
             >
-              <FiPlus size={16} />
-              <span>Add Payout</span>
+              <FiPlus /> New Payout
             </button>
           </div>
         </div>
@@ -483,8 +457,6 @@ export default function PayoutsPage() {
             </table>
           </div>
         </div>
-
-      </div>
 
       {/* Add Payout Modal */}
       {showModal && (
@@ -735,7 +707,7 @@ export default function PayoutsPage() {
           </div>
         </div>
       )}
-
+      </main>
     </div>
   )
 }

@@ -14,13 +14,7 @@ export default function CommunicationsDashboard() {
   const [savingNumbers, setSavingNumbers] = useState(false)
 
   useEffect(() => {
-    if (!isInitialized) return
-    
     const role = currentUser?.role?.toUpperCase() || ""
-    if (!role.includes("ADMIN") && !role.includes("MANAGER")) {
-      router.push("/")
-      return
-    }
 
     const fetchData = async () => {
       try {
@@ -43,7 +37,7 @@ export default function CommunicationsDashboard() {
       }
     }
     fetchData()
-  }, [isInitialized, currentUser, router])
+  }, [currentUser])
 
   const handleSaveNumbers = async () => {
     try {
@@ -68,15 +62,23 @@ export default function CommunicationsDashboard() {
     }
   }
 
-  if (!isInitialized || loading) {
-    return <div className="p-8 text-slate-500">Loading communications...</div>
+  if (loading) {
+    return <div className="p-8 text-neutral-400">Loading communications...</div>
   }
 
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold mb-8">Communications Dashboard</h1>
+    <div className="flex flex-col text-neutral-100 font-sans h-full">
+      <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto safe-bottom">
+        
+        {/* Page Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+          <div>
+            <h1 className="text-xl font-bold text-white tracking-tight">Communications Dashboard</h1>
+            <p className="text-xs text-neutral-500 mt-1">Review global call and SMS history</p>
+          </div>
+        </div>
 
-      {/* Zoho Phone Numbers */}
+        {/* Zoho Phone Numbers */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col mb-8">
         <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between">
           <div>
@@ -257,6 +259,7 @@ export default function CommunicationsDashboard() {
         </div>
 
       </div>
+      </main>
     </div>
   )
 }

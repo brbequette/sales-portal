@@ -69,19 +69,13 @@ export default function AdminCampaignsPage() {
   if (loading) return <div className="p-8 text-neutral-400">Loading...</div>
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-neutral-200 pb-20">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <header className="flex items-center justify-between gap-4 mb-8">
+    <div className="flex flex-col text-neutral-100 font-sans h-full">
+      <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto safe-bottom">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
           <div>
-            <h1 className="text-3xl font-black text-white uppercase tracking-tight">Campaign Management</h1>
-            <p className="text-neutral-500 text-sm mt-1">Manage blast templates and view historical logs.</p>
+            <h1 className="text-xl font-bold text-white tracking-tight">Campaign Management</h1>
+            <p className="text-xs text-neutral-500 mt-1">Manage blast templates and view historical logs.</p>
           </div>
-          <button 
-            onClick={() => router.push('/admin')}
-            className="px-4 py-2 bg-neutral-900 border border-neutral-800 rounded-lg text-sm hover:bg-neutral-800 transition"
-          >
-            &larr; Back to Admin
-          </button>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -184,7 +178,7 @@ export default function AdminCampaignsPage() {
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

@@ -233,35 +233,35 @@ export default function AdminTimeclockPage() {
     return acc
   }, {} as Record<string, { user: any, weeks: Record<string, { entries: TimeEntry[], totalHours: number }>, totalMonthHours: number }>)
 
-  return (
-    <div className="p-4 lg:p-8 space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-white flex items-center gap-2">
-            <FiClock className="text-emerald-500" /> Team Timeclock
-          </h1>
-          <p className="text-neutral-400 mt-1">Manage employee hours and time change requests.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <input 
-            type="month" 
-            value={monthFilter}
-            onChange={e => setMonthFilter(e.target.value)}
-            className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 invert-[1] hue-rotate-180"
-            style={{ colorScheme: "dark" }}
-          />
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-emerald-900/20 transition-colors"
-          >
-            + Add Time Entry
-          </button>
-        </div>
-      </div>
+  if (loading) return <div className="p-8 text-neutral-400">Loading Timeclock...</div>
 
-      {loading ? (
-        <div className="text-neutral-500 animate-pulse">Loading timesheets...</div>
-      ) : Object.values(userGroups).length === 0 ? (
+  return (
+    <div className="flex flex-col text-neutral-100 font-sans h-full">
+      <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto safe-bottom">
+        
+        {/* Page Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+          <div>
+            <h1 className="text-xl font-bold text-white tracking-tight">Timeclock Admin</h1>
+            <p className="text-xs text-neutral-500 mt-1">Review clock entries, adjust times, and manage requests.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <input 
+              type="month" 
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+              className="px-3 py-1.5 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+            />
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold transition-colors"
+            >
+              + Add Entry
+            </button>
+          </div>
+        </div>
+
+      {Object.values(userGroups).length === 0 ? (
         <div className="text-neutral-500">No time entries found for this month.</div>
       ) : (
         <div className="space-y-6">
@@ -470,6 +470,7 @@ export default function AdminTimeclockPage() {
           </div>
         </div>
       )}
+      </main>
     </div>
   )
 }

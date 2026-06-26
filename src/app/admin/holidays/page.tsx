@@ -141,17 +141,8 @@ export default function AdminHolidaysPage() {
   }, [])
 
   useEffect(() => {
-    if (!isInitialized) return
-    if (!currentUser) {
-      router.push("/login")
-      return
-    }
-    if (isAdmin) {
-      fetchConfig()
-    } else {
-      setLoading(false)
-    }
-  }, [isInitialized, currentUser, router, isAdmin, fetchConfig])
+    fetchConfig()
+  }, [fetchConfig])
 
   useEffect(() => {
     if (successMsg) {
@@ -184,52 +175,15 @@ export default function AdminHolidaysPage() {
     }
   }
 
-  if (!isInitialized || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-neutral-900 text-white">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-neutral-400 font-medium text-sm">Loading Holidays...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="flex items-center justify-center text-white font-sans" style={{ height: "100%" }}>
-        <div className="text-center max-w-sm mx-auto px-4">
-          <div className="w-16 h-16 rounded-2xl bg-red-950/40 border border-red-500/30 flex items-center justify-center mx-auto mb-4">
-            <FiShield size={28} className="text-red-400" />
-          </div>
-          <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
-          <p className="text-neutral-400 text-sm mb-6">
-            You need administrator privileges to access this page.
-          </p>
-          <button
-            onClick={() => router.push("/")}
-            className="px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-sm font-bold text-white transition-all"
-          >
-            Back to Dashboard
-          </button>
-        </div>
-      </div>
-    )
-  }
+  if (loading) return <div className="p-8 text-neutral-400">Loading Holidays...</div>
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans overflow-y-auto" style={{ height: "100%" }}>
-      <main className="flex-1 px-4 sm:px-6 py-4 space-y-5 overflow-y-auto safe-bottom">
+    <div className="flex flex-col text-neutral-100 font-sans h-full">
+      <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto safe-bottom">
         
         {/* Page Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2">
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => router.push('/admin')}
-              className="p-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 transition"
-            >
-              <FiArrowLeft size={20} className="text-neutral-400" />
-            </button>
             <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/30">
               <FiActivity size={20} className="text-purple-400" />
             </div>

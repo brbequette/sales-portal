@@ -41,17 +41,9 @@ export default function ScriptManagerPage() {
 
   const [saving, setSaving] = useState(false)
 
-  const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
-
   useEffect(() => {
-    if (isInitialized && !isAdmin && user) {
-      router.push("/")
-      return
-    }
-    if (isAdmin) {
-      fetchScripts()
-    }
-  }, [isInitialized, isAdmin, user])
+    fetchScripts()
+  }, [])
 
   const fetchScripts = async () => {
     try {
@@ -134,33 +126,23 @@ export default function ScriptManagerPage() {
     setFormData(prev => ({ ...prev, content: prev.content + field }))
   }
 
-  if (!isInitialized || loading) return <div className="p-8 text-white">Loading...</div>
-  if (!isAdmin) return null
+  if (loading) return <div className="p-8 text-neutral-400">Loading Scripts...</div>
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans p-4 sm:p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.push("/admin")} className="p-2 hover:bg-neutral-800 rounded-lg transition-colors">
-            <FiArrowLeft size={20} />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/30">
-              <FiMessageSquare size={20} className="text-purple-400" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">Call Scripts Manager</h1>
-              <p className="text-xs text-neutral-500">Manage templates and merge fields for reps</p>
-            </div>
+    <div className="flex flex-col text-neutral-100 font-sans h-full">
+      <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto safe-bottom">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+          <div>
+            <h1 className="text-xl font-bold text-white tracking-tight">Call Scripts Manager</h1>
+            <p className="text-xs text-neutral-500 mt-1">Manage global call scripts used across the CRM.</p>
           </div>
-        </div>
-        <button
-          onClick={() => openModal()}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-purple-900/20"
-        >
-          <FiPlus /> New Script
-        </button>
-      </div>
+          <button 
+            onClick={() => openModal()}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold transition-colors shadow-lg shadow-emerald-900/20"
+          >
+            <FiPlus /> New Script
+          </button>
+        </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {scripts.map(script => (
@@ -294,7 +276,8 @@ export default function ScriptManagerPage() {
             </form>
           </div>
         </div>
-      )}
+        )}
+      </main>
     </div>
   )
 }
