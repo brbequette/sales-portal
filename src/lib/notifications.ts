@@ -1,13 +1,25 @@
 import webpush from 'web-push'
 import { prisma } from './prisma'
 
-webpush.setVapidDetails(
-  'mailto:support@titandiamond.com',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '',
-  process.env.VAPID_PRIVATE_KEY || ''
-)
+let vapidDetailsSet = false
+
+function ensureVapidDetails() {
+  if (vapidDetailsSet) return
+  if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+    console.warn("VAPID keys not set. Push notifications will not work.")
+    return
+  }
+  webpush.setVapidDetails(
+    'mailto:support@titandiamond.com',
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  )
+  vapidDetailsSet = true
+}
 
 export async function sendPushNotification(userId: string, payload: { title: string, body: string, url?: string }) {
+  ensureVapidDetails()
+  
   // Save notification to DB
   const notification = await prisma.notification.create({
     data: {
