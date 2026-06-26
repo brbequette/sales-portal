@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox, FiClock } from "react-icons/fi"
+import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox, FiClock, FiBell } from "react-icons/fi"
 import { useRouter } from "next/navigation"
 import { useProductModal } from "@/components/ProductModalProvider"
 import { NewCustomerModal } from "@/components/NewCustomerModal"
 import { useZoho } from "@/components/ZohoProvider"
+import { useNotifications } from "@/components/NotificationProvider"
 
 export function GlobalTopBar() {
   const router = useRouter()
@@ -18,6 +19,9 @@ export function GlobalTopBar() {
   const [showResults, setShowResults] = useState(false)
   
   const [showAddAccount, setShowAddAccount] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+
+  const { notifications, unreadCount, markAsRead, markAllAsRead, requestPermission, permission } = useNotifications()
 
   const searchRef = useRef<HTMLDivElement>(null)
 
@@ -295,6 +299,70 @@ export function GlobalTopBar() {
           >
             {calculateHours(timeEntry)}h
           </button>
+        </div>
+        
+        {/* Notifications Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => {
+              if (permission === 'default') {
+                requestPermission()
+              }
+              setShowNotifications(!showNotifications)
+            }}
+            className="relative bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold p-2 lg:px-3 lg:py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center justify-center border border-white/10"
+          >
+            <FiBell size={16} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] flex items-center justify-center rounded-full font-bold shadow-sm">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute top-full right-0 mt-2 w-80 bg-[#151618] border border-white/10 rounded-xl shadow-[0_22px_70px_rgba(0,0,0,0.45)] overflow-hidden z-50 flex flex-col max-h-[70vh]">
+              <div className="flex items-center justify-between p-3 border-b border-white/10 bg-white/[0.02]">
+                <h3 className="text-sm font-bold text-white">Notifications</h3>
+                {unreadCount > 0 && (
+                  <button onClick={markAllAsRead} className="text-xs text-[var(--primary)] hover:underline font-bold">
+                    Mark all read
+                  </button>
+                )}
+              </div>
+              <div className="overflow-y-auto flex-1">
+                {notifications.length === 0 ? (
+                  <div className="p-6 text-center text-sm text-neutral-500">
+                    No notifications yet.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-white/5">
+                    {notifications.map((n) => (
+                      <div 
+                        key={n.id} 
+                        className={`p-3 text-sm cursor-pointer transition-colors ${n.read ? 'bg-transparent hover:bg-white/[0.02]' : 'bg-blue-500/10 hover:bg-blue-500/20'}`}
+                        onClick={() => {
+                          if (!n.read) markAsRead(n.id)
+                          if (n.url) router.push(n.url)
+                          setShowNotifications(false)
+                        }}
+                      >
+                        <div className="flex justify-between items-start mb-1 gap-2">
+                          <span className={`font-bold truncate ${n.read ? 'text-neutral-300' : 'text-white'}`}>{n.title}</span>
+                          <span className="text-[10px] text-neutral-500 shrink-0 mt-0.5">
+                            {new Date(n.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className={`text-xs line-clamp-2 ${n.read ? 'text-neutral-500' : 'text-neutral-300'}`}>
+                          {n.body}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <button

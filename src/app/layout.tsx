@@ -7,6 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import Script from "next/script";
 import { ProductModalProvider } from "@/components/ProductModalProvider";
 import { TimeclockTracker } from "@/components/TimeclockTracker";
+import { NotificationProvider } from "@/components/NotificationProvider";
 import "./globals.css";
 
 import { PreferencesProvider } from "@/components/PreferencesProvider";
@@ -24,6 +25,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Titan Diamond - Unified Hub",
   description: "Sales, Collections, and Commissions — all in one place",
+  manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {
@@ -53,10 +55,12 @@ export default function RootLayout({
             <PreferencesProvider>
               <AuthWrapper>
                 <ProductModalProvider>
-                  <AppShell>
-                    <TimeclockTracker />
-                    {children}
-                  </AppShell>
+                  <NotificationProvider>
+                    <AppShell>
+                      <TimeclockTracker />
+                      {children}
+                    </AppShell>
+                  </NotificationProvider>
                 </ProductModalProvider>
               </AuthWrapper>
             </PreferencesProvider>
