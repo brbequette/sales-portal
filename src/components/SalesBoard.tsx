@@ -1,6 +1,6 @@
 "use client"
-import React, { useEffect, useState, useMemo } from "react"
-import { FiTrendingUp, FiDollarSign, FiTarget, FiActivity, FiAward, FiClock, FiStar } from "react-icons/fi"
+import React, { useEffect, useState, useMemo, useRef } from "react"
+import { FiTrendingUp, FiDollarSign, FiTarget, FiActivity, FiAward, FiClock, FiStar, FiMaximize, FiMinimize, FiPlay, FiPause, FiChevronLeft, FiChevronRight, FiAlertCircle } from "react-icons/fi"
 
 const REPS_INIT = [
   { id: "rep_1", name: "Ross Haisler", role: "Enterprise Sales Director", expectedVig: 1.5, gradient: "from-purple-500 to-indigo-500" },
@@ -26,19 +26,53 @@ const formatCurrency = (val: number) => {
   }).format(val)
 }
 
+const formatPercent = (val: number) => {
+  return `${val.toFixed(1)}%`
+}
+
+const SCREENS = ["WEEKLY_GRID", "REPS_KPI", "MTD_STATS", "YTD_STATS", "OVERDUE_INVOICES"] as const
+type ScreenType = typeof SCREENS[number]
+
 export function SalesBoard() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [currentScreen, setCurrentScreen] = useState<"TEAM" | "REPS" | "DEALS">("TEAM")
+  const [currentScreen, setCurrentScreen] = useState<ScreenType>("WEEKLY_GRID")
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
+  const [progress, setProgress] = useState(0)
 
+  const boardRef = useRef<HTMLDivElement>(null)
+  const ROTATION_TIME = 15000
+  const TICK_INTERVAL = 100
+
+  // Fullscreen listener
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange)
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange)
+  }, [])
+
+  const toggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      if (boardRef.current) await boardRef.current.requestFullscreen()
+    } else {
+      await document.exitFullscreen()
+    }
+  }
+
+  // Data fetching and processing
   useEffect(() => {
     const fetchData = async () => {
       try {
         const res = await fetch("/api/zoho-invoices")
         const payload = await res.json()
         
-        // --- Aggregation Logic Ported from Legacy Dashboard ---
         const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth()
+
         const day = today.getDay()
         const diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1)
         const monday = new Date(today.getFullYear(), today.getMonth(), diffToMonday)
@@ -55,15 +89,18 @@ export function SalesBoard() {
 
         const repsMap: Record<string, any> = {}
         REPS_INIT.forEach(r => {
-          repsMap[r.id] = { ...r, metrics: { sales: 0, profit: 0, commission: 0, dealsClosed: 0 } }
+          repsMap[r.id] = { 
+            ...r, 
+            weekly: { sales: [0,0,0,0,0], profit: [0,0,0,0,0], totalSales: 0, totalProfit: 0, dealsClosed: 0, commission: 0 },
+            mtd: { sales: 0, profit: 0, commission: 0, dealsClosed: 0 },
+            ytd: { sales: 0, profit: 0, commission: 0, dealsClosed: 0 }
+          }
         })
 
-        let teamSales = 0
-        let teamProfit = 0
-        let teamCommission = 0
-        let teamTarget = Object.values(REP_WEEKLY_TARGETS).reduce((a, b) => a + b, 0)
+        let teamWeekly = { sales: 0, profit: 0, commission: 0, target: Object.values(REP_WEEKLY_TARGETS).reduce((a, b) => a + b, 0) }
+        const overdueInvoices: any[] = []
         
-        const recentDeals: any[] = []
+        let totalOverdueBalance = 0
 
         const invoices = payload.invoices || []
         invoices.forEach((inv: any) => {
@@ -71,40 +108,74 @@ export function SalesBoard() {
           if (spName.includes("PAUL") && (spName.includes("GENCUSKI") || spName.includes("GENKUSKI"))) return
 
           const saleDate = inv.salesorder_date || inv.date
+          if (!saleDate) return
+
+          const invDateObj = new Date(saleDate)
+          const amount = Number(inv.sub_total !== undefined ? inv.sub_total : (inv.total || 0))
+          const profit = Number(inv.cf_profit_unformatted || inv.custom_field_hash?.cf_profit_unformatted || 0)
+          const commission = Number(inv.cf_commision_amount_unformatted || inv.custom_field_hash?.cf_commision_amount_unformatted || 0)
+          const balance = Number(inv.balance !== undefined ? inv.balance : 0)
+
+          // Check overdue
+          const dueDate = inv.due_date ? new Date(inv.due_date) : null
+          if (dueDate && inv.status === 'overdue' && balance > 0) {
+             const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24))
+             if (daysOverdue > 0) {
+                totalOverdueBalance += balance
+                overdueInvoices.push({
+                   customer: inv.customer_name,
+                   invoiceNumber: inv.invoice_number,
+                   balance: balance,
+                   saleDate: saleDate,
+                   daysOverdue: daysOverdue,
+                   repName: spName
+                })
+             }
+          }
+
           const inCurrentWeek = weekDays.includes(saleDate)
+          const isMTD = invDateObj.getFullYear() === currentYear && invDateObj.getMonth() === currentMonth
+          const isYTD = invDateObj.getFullYear() === currentYear
 
+          const matchedRep = Object.values(repsMap).find(r => r.name.toUpperCase().includes(spName) || spName.includes(r.name.toUpperCase()))
+          
           if (inCurrentWeek) {
-            const amount = Number(inv.sub_total !== undefined ? inv.sub_total : (inv.total || 0))
-            const profit = Number(inv.cf_profit_unformatted || inv.custom_field_hash?.cf_profit_unformatted || 0)
-            const commission = Number(inv.cf_commision_amount_unformatted || inv.custom_field_hash?.cf_commision_amount_unformatted || 0)
-
-            teamSales += amount
-            teamProfit += profit
-            teamCommission += commission
-
-            recentDeals.push({
-              id: inv.invoice_id,
-              customer: inv.customer_name,
-              amount,
-              profit,
-              repName: spName,
-              date: saleDate
-            })
-
-            const matchedRep = Object.values(repsMap).find(r => r.name.toUpperCase().includes(spName) || spName.includes(r.name.toUpperCase()))
+            teamWeekly.sales += amount
+            teamWeekly.profit += profit
+            teamWeekly.commission += commission
             if (matchedRep) {
-              matchedRep.metrics.sales += amount
-              matchedRep.metrics.profit += profit
-              matchedRep.metrics.commission += commission
-              matchedRep.metrics.dealsClosed += 1
+               const dayIdx = weekDays.indexOf(saleDate)
+               matchedRep.weekly.sales[dayIdx] += amount
+               matchedRep.weekly.profit[dayIdx] += profit
+               matchedRep.weekly.totalSales += amount
+               matchedRep.weekly.totalProfit += profit
+               matchedRep.weekly.commission += commission
+               matchedRep.weekly.dealsClosed += 1
+            }
+          }
+
+          if (matchedRep) {
+            if (isMTD) {
+               matchedRep.mtd.sales += amount
+               matchedRep.mtd.profit += profit
+               matchedRep.mtd.commission += commission
+               matchedRep.mtd.dealsClosed += 1
+            }
+            if (isYTD) {
+               matchedRep.ytd.sales += amount
+               matchedRep.ytd.profit += profit
+               matchedRep.ytd.commission += commission
+               matchedRep.ytd.dealsClosed += 1
             }
           }
         })
 
         setData({
-          team: { sales: teamSales, profit: teamProfit, commission: teamCommission, target: teamTarget },
-          reps: Object.values(repsMap).sort((a, b) => b.metrics.sales - a.metrics.sales),
-          deals: recentDeals.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 20)
+          teamWeekly,
+          reps: Object.values(repsMap),
+          overdueInvoices: overdueInvoices.sort((a,b) => b.daysOverdue - a.daysOverdue),
+          totalOverdueBalance,
+          weekDays
         })
 
       } catch (err) {
@@ -121,134 +192,205 @@ export function SalesBoard() {
 
   // Auto-rotate screens
   useEffect(() => {
-    const screens: ("TEAM" | "REPS" | "DEALS")[] = ["TEAM", "REPS", "DEALS"]
+    if (isPaused) return
+    let tickCount = progress
     const interval = setInterval(() => {
-      setCurrentScreen(prev => {
-        const idx = screens.indexOf(prev)
-        return screens[(idx + 1) % screens.length]
-      })
-    }, 15000)
+      tickCount += (TICK_INTERVAL / ROTATION_TIME) * 100
+      if (tickCount >= 100) {
+         tickCount = 0
+         setCurrentScreen(prev => {
+            const idx = SCREENS.indexOf(prev)
+            return SCREENS[(idx + 1) % SCREENS.length]
+         })
+      }
+      setProgress(tickCount)
+    }, TICK_INTERVAL)
     return () => clearInterval(interval)
-  }, [])
+  }, [isPaused, progress])
+
+  const nextScreen = () => {
+     const idx = SCREENS.indexOf(currentScreen)
+     setCurrentScreen(SCREENS[(idx + 1) % SCREENS.length])
+     setProgress(0)
+  }
+  const prevScreen = () => {
+     const idx = SCREENS.indexOf(currentScreen)
+     setCurrentScreen(SCREENS[(idx - 1 + SCREENS.length) % SCREENS.length])
+     setProgress(0)
+  }
+  const goToScreen = (screen: ScreenType) => {
+     setCurrentScreen(screen)
+     setProgress(0)
+  }
 
   if (loading || !data) {
     return (
       <div className="w-full h-full min-h-[600px] flex flex-col items-center justify-center bg-[#0d0e12] rounded-2xl border border-white/10 text-white shadow-2xl relative overflow-hidden">
-        <div className="w-16 h-16 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
         <p className="mt-4 text-neutral-400 font-medium tracking-widest uppercase text-sm animate-pulse">Loading Live Metrics</p>
       </div>
     )
   }
 
-  const teamQuotaPct = Math.min(100, Math.round((data.team.sales / data.team.target) * 100))
+  const teamQuotaPct = Math.min(100, Math.round((data.teamWeekly.sales / data.teamWeekly.target) * 100))
 
   return (
-    <div className="w-full h-full min-h-[700px] bg-[#0d0e12] rounded-2xl border border-white/5 text-white shadow-2xl relative overflow-hidden flex flex-col font-sans">
+    <div ref={boardRef} className="w-full h-full min-h-[700px] bg-[#09090b] rounded-2xl border border-white/5 text-white shadow-2xl relative flex flex-col font-sans overflow-hidden">
       
       {/* Top Header */}
-      <div className="flex items-center justify-between px-8 py-5 border-b border-white/10 bg-white/[0.02]">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--primary)] to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-            <FiActivity size={20} className="text-white" />
+      <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-black/40 backdrop-blur-md z-20">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+            <FiActivity size={16} className="text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-black tracking-tight">TITAN LIVE BOARD</h2>
-            <p className="text-xs text-emerald-400 font-bold tracking-widest uppercase mt-0.5 flex items-center gap-1.5">
+            <h2 className="text-lg font-black tracking-tight text-white uppercase">Titan Sales Monitor</h2>
+            <p className="text-[10px] text-emerald-400 font-bold tracking-widest uppercase mt-0.5 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Live Sync Active
+              Live Sync
             </p>
           </div>
         </div>
         
-        {/* Screen Indicators */}
-        <div className="flex items-center gap-3">
-          {(["TEAM", "REPS", "DEALS"] as const).map(screen => (
-            <button 
-              key={screen} 
-              onClick={() => setCurrentScreen(screen)}
-              className={`w-3 h-3 rounded-full transition-all duration-500 ${currentScreen === screen ? "bg-[var(--primary)] w-8 shadow-[0_0_10px_var(--primary)]" : "bg-white/20 hover:bg-white/40"}`}
-            />
-          ))}
+        {/* Controls */}
+        <div className="flex items-center gap-4 bg-white/5 p-1.5 rounded-xl border border-white/10">
+          <div className="flex items-center gap-1.5 px-2">
+            {SCREENS.map(screen => (
+              <button 
+                key={screen} 
+                onClick={() => goToScreen(screen)}
+                title={screen}
+                className={`h-2 rounded-full transition-all duration-500 ${currentScreen === screen ? "bg-emerald-400 w-6 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-white/20 hover:bg-white/40 w-2"}`}
+              />
+            ))}
+          </div>
+          <div className="w-[1px] h-4 bg-white/10"></div>
+          <button onClick={prevScreen} className="text-neutral-400 hover:text-white transition-colors"><FiChevronLeft size={18} /></button>
+          <button onClick={() => setIsPaused(!isPaused)} className="text-neutral-400 hover:text-white transition-colors">
+            {isPaused ? <FiPlay size={16} /> : <FiPause size={16} />}
+          </button>
+          <button onClick={nextScreen} className="text-neutral-400 hover:text-white transition-colors"><FiChevronRight size={18} /></button>
+          <div className="w-[1px] h-4 bg-white/10"></div>
+          <button onClick={toggleFullscreen} className="text-neutral-400 hover:text-white transition-colors pr-2">
+            {isFullscreen ? <FiMinimize size={16} /> : <FiMaximize size={16} />}
+          </button>
         </div>
       </div>
 
+      {/* Progress Bar */}
+      <div className="w-full h-1 bg-white/5 relative z-20">
+         <div className="h-full bg-emerald-500 transition-all duration-100 ease-linear" style={{ width: `${progress}%` }}></div>
+      </div>
+
       {/* Main Content Area */}
-      <div className="flex-1 relative p-8 overflow-hidden">
+      <div className="flex-1 relative overflow-hidden bg-gradient-to-b from-black/20 to-transparent">
         
-        {/* TEAM SCREEN */}
-        <div className={`absolute inset-0 p-8 flex flex-col justify-center transition-all duration-700 transform ${currentScreen === "TEAM" ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0 pointer-events-none"}`}>
-          <div className="text-center mb-12">
-            <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase mb-4">Current Week Subtotal</h3>
-            <div className="text-8xl font-black tracking-tighter bg-gradient-to-r from-white to-neutral-400 bg-clip-text text-transparent drop-shadow-2xl">
-              {formatCurrency(data.team.sales)}
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-6 max-w-4xl mx-auto w-full">
-            <div className="bg-white/[0.03] border border-white/10 rounded-3xl p-8 flex flex-col items-center justify-center relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              <FiTrendingUp size={32} className="text-emerald-400 mb-4" />
-              <div className="text-4xl font-black">{formatCurrency(data.team.profit)}</div>
-              <div className="text-neutral-400 text-xs font-bold tracking-widest uppercase mt-2">Team Profit</div>
-            </div>
-            <div className="bg-white/[0.03] border border-white/10 rounded-3xl p-8 flex flex-col items-center justify-center relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              <FiDollarSign size={32} className="text-purple-400 mb-4" />
-              <div className="text-4xl font-black">{formatCurrency(data.team.commission)}</div>
-              <div className="text-neutral-400 text-xs font-bold tracking-widest uppercase mt-2">Commission Pool</div>
-            </div>
+        {/* SCREEN 1: WEEKLY GRID */}
+        <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "WEEKLY_GRID" ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0 pointer-events-none"}`}>
+          <div className="flex items-center justify-between mb-8">
+             <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase flex items-center gap-2">
+                <FiActivity className="text-emerald-400" /> Weekly Board
+             </h3>
+             <div className="text-right">
+                <div className="text-2xl font-black text-white">{formatCurrency(data.teamWeekly.sales)}</div>
+                <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Team Subtotal</div>
+             </div>
           </div>
 
-          <div className="max-w-4xl mx-auto w-full mt-12">
-            <div className="flex justify-between text-sm font-bold mb-3">
-              <span className="text-neutral-400 uppercase tracking-wider">Weekly Quota</span>
-              <span className="text-[var(--primary)]">{teamQuotaPct}% Attained</span>
-            </div>
-            <div className="w-full h-4 bg-white/5 rounded-full overflow-hidden border border-white/10">
-              <div 
-                className="h-full bg-gradient-to-r from-emerald-500 to-[var(--primary)] transition-all duration-1000 ease-out relative"
-                style={{ width: `${teamQuotaPct}%` }}
-              >
-                <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]"></div>
-              </div>
-            </div>
+          <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/5 rounded-2xl p-1">
+            <table className="w-full text-left border-collapse">
+               <thead>
+                  <tr className="bg-white/[0.03]">
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5">Sales Rep</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5">Metric</th>
+                     {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, idx) => {
+                        const dateParts = data.weekDays[idx].split('-')
+                        return (
+                           <th key={idx} className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">
+                              {day} {dateParts[1]}/{dateParts[2]}
+                           </th>
+                        )
+                     })}
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-emerald-400 border-b border-white/5 text-right bg-emerald-500/5 rounded-tr-xl">Week Total</th>
+                  </tr>
+               </thead>
+               <tbody>
+                  {data.reps.sort((a:any, b:any) => b.weekly.totalSales - a.weekly.totalSales).map((rep: any, idx: number) => (
+                     <React.Fragment key={rep.id}>
+                        {/* Sales Row */}
+                        <tr className="group">
+                           <td className="p-4 text-sm font-bold border-b border-white/5 text-white align-middle" rowSpan={2}>
+                              <div className="flex items-center gap-3">
+                                 <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-xs shadow-lg`}>{rep.name.charAt(0)}</div>
+                                 {rep.name}
+                              </div>
+                           </td>
+                           <td className="p-4 text-xs font-medium text-neutral-400 border-b border-white/5">Gross Sales</td>
+                           {rep.weekly.sales.map((val: number, i: number) => (
+                              <td key={i} className="p-4 text-sm font-medium text-white text-right border-b border-white/5">{val > 0 ? formatCurrency(val) : '-'}</td>
+                           ))}
+                           <td className="p-4 text-sm font-black text-emerald-400 text-right border-b border-white/5 bg-emerald-500/5">{formatCurrency(rep.weekly.totalSales)}</td>
+                        </tr>
+                        {/* Profit Row */}
+                        <tr className="group">
+                           <td className="p-4 text-xs font-medium text-neutral-500 border-b border-white/5">Dead Profit</td>
+                           {rep.weekly.profit.map((val: number, i: number) => (
+                              <td key={i} className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{val > 0 ? formatCurrency(val) : '-'}</td>
+                           ))}
+                           <td className="p-4 text-sm font-bold text-emerald-400/70 text-right border-b border-white/5 bg-emerald-500/5">{formatCurrency(rep.weekly.totalProfit)}</td>
+                        </tr>
+                     </React.Fragment>
+                  ))}
+               </tbody>
+            </table>
           </div>
         </div>
 
-        {/* REPS SCREEN */}
-        <div className={`absolute inset-0 p-8 transition-all duration-700 transform ${currentScreen === "REPS" ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"}`}>
+        {/* SCREEN 2: REPS KPIs */}
+        <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "REPS_KPI" ? "translate-x-0 opacity-100" : (SCREENS.indexOf(currentScreen) > 1 ? "-translate-x-full opacity-0 pointer-events-none" : "translate-x-full opacity-0 pointer-events-none")}`}>
           <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase mb-8 flex items-center gap-3">
-            <FiStar className="text-amber-400" /> Top Performers This Week
+            <FiStar className="text-amber-400" /> Weekly Top Performers
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {data.reps.map((rep: any, idx: number) => {
-              const quota = Math.min(100, Math.round((rep.metrics.sales / (REP_WEEKLY_TARGETS[rep.id] || 10000)) * 100))
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 auto-rows-max">
+            {data.reps.sort((a:any, b:any) => b.weekly.totalSales - a.weekly.totalSales).map((rep: any, idx: number) => {
+              const quota = Math.min(100, Math.round((rep.weekly.totalSales / (REP_WEEKLY_TARGETS[rep.id] || 10000)) * 100))
+              const profitMargin = rep.weekly.totalSales > 0 ? (rep.weekly.totalProfit / rep.weekly.totalSales) * 100 : 0
               return (
-                <div key={rep.id} className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:border-white/20 transition-all">
+                <div key={rep.id} className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 relative overflow-hidden group">
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${rep.gradient} flex items-center justify-center text-white font-black text-xl shadow-lg`}>
                         {rep.name.charAt(0)}
                       </div>
                       <div>
-                        <h4 className="font-bold text-lg">{rep.name}</h4>
-                        <p className="text-xs text-neutral-500 uppercase tracking-wider">{rep.role}</p>
+                        <h4 className="font-bold text-lg text-white">{rep.name}</h4>
+                        <p className="text-[10px] text-neutral-500 uppercase tracking-wider">{rep.role}</p>
                       </div>
                     </div>
                     {idx === 0 && <FiAward size={28} className="text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]" />}
                   </div>
                   
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     <div>
-                      <div className="text-3xl font-black tracking-tight">{formatCurrency(rep.metrics.sales)}</div>
-                      <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mt-1">Subtotal</div>
+                      <div className="text-3xl font-black tracking-tight text-white">{formatCurrency(rep.weekly.totalSales)}</div>
+                      <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mt-1">Weekly Subtotal</div>
                     </div>
-                    <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                    <div className="w-full bg-white/5 h-2.5 rounded-full overflow-hidden border border-white/5">
                       <div className={`h-full bg-gradient-to-r ${rep.gradient} transition-all duration-1000`} style={{ width: `${quota}%` }}></div>
                     </div>
-                    <div className="flex justify-between text-xs font-bold text-neutral-400">
-                      <span>{rep.metrics.dealsClosed} Deals</span>
-                      <span>{formatCurrency(rep.metrics.commission)} Comm</span>
+                    <div className="grid grid-cols-3 gap-4 pt-2 border-t border-white/5">
+                      <div>
+                         <div className="text-lg font-bold text-white">{rep.weekly.dealsClosed}</div>
+                         <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Deals</div>
+                      </div>
+                      <div>
+                         <div className="text-lg font-bold text-emerald-400">{formatCurrency(rep.weekly.commission)}</div>
+                         <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Comm</div>
+                      </div>
+                      <div>
+                         <div className="text-lg font-bold text-white">{formatPercent(profitMargin)}</div>
+                         <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Margin</div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -257,60 +399,159 @@ export function SalesBoard() {
           </div>
         </div>
 
-        {/* DEALS SCREEN */}
-        <div className={`absolute inset-0 p-8 transition-all duration-700 transform ${currentScreen === "DEALS" ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"}`}>
-          <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase mb-8 flex items-center gap-3">
-            <FiTarget className="text-sky-400" /> Recent Live Deals
+        {/* SCREEN 3: MTD */}
+        <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "MTD_STATS" ? "translate-x-0 opacity-100" : (SCREENS.indexOf(currentScreen) > 2 ? "-translate-x-full opacity-0 pointer-events-none" : "translate-x-full opacity-0 pointer-events-none")}`}>
+           <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase mb-8 flex items-center gap-3">
+            <FiTarget className="text-blue-400" /> Month-To-Date Performance
           </h3>
-          <div className="bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden h-full max-h-[500px]">
+          <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/5 rounded-2xl p-1">
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-white/[0.02] border-b border-white/10">
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest">Customer</th>
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest">Rep</th>
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest text-right">Amount</th>
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest text-right">Profit</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {data.deals.map((deal: any, idx: number) => (
-                  <tr key={idx} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4 font-medium text-white">{deal.customer}</td>
-                    <td className="px-6 py-4 text-neutral-300">
-                      <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-xs font-bold uppercase">
-                        {deal.repName}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right font-black text-emerald-400">{formatCurrency(deal.amount)}</td>
-                    <td className="px-6 py-4 text-right font-bold text-neutral-400">{formatCurrency(deal.profit)}</td>
+               <thead>
+                  <tr className="bg-white/[0.03]">
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5">Sales Rep</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Gross Sales</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Dead Profit</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Commission</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Deals</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Avg Deal</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Dead Profit %</th>
                   </tr>
-                ))}
-                {data.deals.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-neutral-500 font-medium">No deals found for the current week.</td>
+               </thead>
+               <tbody>
+                  {data.reps.sort((a:any, b:any) => b.mtd.sales - a.mtd.sales).map((rep: any) => {
+                     const avgDeal = rep.mtd.dealsClosed > 0 ? rep.mtd.sales / rep.mtd.dealsClosed : 0
+                     const profitMargin = rep.mtd.sales > 0 ? (rep.mtd.profit / rep.mtd.sales) * 100 : 0
+                     return (
+                     <tr key={rep.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="p-4 text-sm font-bold border-b border-white/5 text-white">
+                           <div className="flex items-center gap-3">
+                              <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-[10px] shadow-lg`}>{rep.name.charAt(0)}</div>
+                              {rep.name}
+                           </div>
+                        </td>
+                        <td className="p-4 text-sm font-black text-white text-right border-b border-white/5">{formatCurrency(rep.mtd.sales)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-300 text-right border-b border-white/5">{formatCurrency(rep.mtd.profit)}</td>
+                        <td className="p-4 text-sm font-bold text-emerald-400 text-right border-b border-white/5">{formatCurrency(rep.mtd.commission)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{rep.mtd.dealsClosed}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{formatCurrency(avgDeal)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{formatPercent(profitMargin)}</td>
+                     </tr>
+                  )})}
+               </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* SCREEN 4: YTD */}
+        <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "YTD_STATS" ? "translate-x-0 opacity-100" : (SCREENS.indexOf(currentScreen) > 3 ? "-translate-x-full opacity-0 pointer-events-none" : "translate-x-full opacity-0 pointer-events-none")}`}>
+           <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase mb-8 flex items-center gap-3">
+            <FiTrendingUp className="text-purple-400" /> Year-To-Date Performance
+          </h3>
+          <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/5 rounded-2xl p-1">
+            <table className="w-full text-left border-collapse">
+               <thead>
+                  <tr className="bg-white/[0.03]">
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5">Sales Rep</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Gross Sales</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Dead Profit</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Commission</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Deals</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Avg Deal</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Dead Profit %</th>
                   </tr>
-                )}
-              </tbody>
+               </thead>
+               <tbody>
+                  {data.reps.sort((a:any, b:any) => b.ytd.sales - a.ytd.sales).map((rep: any) => {
+                     const avgDeal = rep.ytd.dealsClosed > 0 ? rep.ytd.sales / rep.ytd.dealsClosed : 0
+                     const profitMargin = rep.ytd.sales > 0 ? (rep.ytd.profit / rep.ytd.sales) * 100 : 0
+                     return (
+                     <tr key={rep.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="p-4 text-sm font-bold border-b border-white/5 text-white">
+                           <div className="flex items-center gap-3">
+                              <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-[10px] shadow-lg`}>{rep.name.charAt(0)}</div>
+                              {rep.name}
+                           </div>
+                        </td>
+                        <td className="p-4 text-sm font-black text-white text-right border-b border-white/5">{formatCurrency(rep.ytd.sales)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-300 text-right border-b border-white/5">{formatCurrency(rep.ytd.profit)}</td>
+                        <td className="p-4 text-sm font-bold text-emerald-400 text-right border-b border-white/5">{formatCurrency(rep.ytd.commission)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{rep.ytd.dealsClosed}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{formatCurrency(avgDeal)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{formatPercent(profitMargin)}</td>
+                     </tr>
+                  )})}
+               </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* SCREEN 5: OVERDUE INVOICES */}
+        <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "OVERDUE_INVOICES" ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"}`}>
+          
+          <div className="grid grid-cols-3 gap-6 mb-8">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5 relative overflow-hidden group">
+               <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent"></div>
+               <div className="text-[10px] font-bold text-red-400 tracking-widest uppercase mb-2">Total Overdue Balance</div>
+               <div className="text-3xl font-black text-red-500">{formatCurrency(data.totalOverdueBalance)}</div>
+            </div>
+            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 relative overflow-hidden">
+               <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-2">Overdue Invoices</div>
+               <div className="text-3xl font-black text-white">{data.overdueInvoices.length} <span className="text-sm font-medium text-neutral-500">Invoices</span></div>
+            </div>
+            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 relative overflow-hidden">
+               <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-2">Oldest Aging Invoice</div>
+               <div className="text-3xl font-black text-white">
+                  {data.overdueInvoices.length > 0 ? `${data.overdueInvoices[0].daysOverdue} ` : '0 '}
+                  <span className="text-sm font-medium text-neutral-500">Days</span>
+               </div>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/5 rounded-2xl p-1">
+            <table className="w-full text-left border-collapse">
+               <thead>
+                  <tr className="bg-white/[0.03]">
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5">Sales Rep</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5">Customer | Invoice</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Overdue Balance</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Sale Date</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-red-400 border-b border-white/5 text-right bg-red-500/5 rounded-tr-xl">Days Overdue</th>
+                  </tr>
+               </thead>
+               <tbody>
+                  {data.overdueInvoices.map((inv: any, idx: number) => {
+                     const rep = data.reps.find((r:any) => r.name.toUpperCase() === inv.repName) || { name: inv.repName, gradient: 'from-neutral-600 to-neutral-800' }
+                     return (
+                     <tr key={idx} className="hover:bg-white/[0.02] transition-colors group">
+                        <td className="p-4 text-sm font-bold border-b border-white/5 text-white">
+                           <div className="flex items-center gap-3">
+                              <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-[10px] shadow-lg`}>{rep.name.charAt(0) || '?'}</div>
+                              {rep.name}
+                           </div>
+                        </td>
+                        <td className="p-4 border-b border-white/5">
+                           <div className="text-sm font-bold text-white">{inv.customer}</div>
+                           <div className="text-xs font-medium text-neutral-500">{inv.invoiceNumber}</div>
+                        </td>
+                        <td className="p-4 text-sm font-black text-white text-right border-b border-white/5">{formatCurrency(inv.balance)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{inv.saleDate}</td>
+                        <td className="p-4 text-sm font-bold text-red-400 text-right border-b border-white/5 bg-red-500/5">{inv.daysOverdue} Days</td>
+                     </tr>
+                  )})}
+                  {data.overdueInvoices.length === 0 && (
+                     <tr>
+                        <td colSpan={5} className="p-8 text-center text-sm font-medium text-neutral-500">
+                           <FiAlertCircle size={24} className="mx-auto mb-2 opacity-50" />
+                           No overdue invoices found.
+                        </td>
+                     </tr>
+                  )}
+               </tbody>
             </table>
           </div>
         </div>
 
       </div>
-
-      {/* Progress Bar Timer */}
-      <div className="h-1 bg-white/5 w-full">
-        <div className="h-full bg-[var(--primary)] animate-[progress_15s_linear_infinite]" style={{ width: '100%' }}></div>
-      </div>
-      
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes shimmer {
-          100% { transform: translateX(100%); }
-        }
-        @keyframes progress {
-          0% { width: 0%; }
-          100% { width: 100%; }
-        }
-      `}} />
     </div>
   )
 }

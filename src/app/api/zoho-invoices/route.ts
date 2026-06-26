@@ -49,7 +49,10 @@ export async function GET() {
 
     const urls = [
       `${invoiceBaseUrl}?organization_id=${ORG_ID}&status=paid&per_page=200&page=1&sort_column=date&sort_order=D`,
+      `${invoiceBaseUrl}?organization_id=${ORG_ID}&status=paid&per_page=200&page=2&sort_column=date&sort_order=D`,
+      `${invoiceBaseUrl}?organization_id=${ORG_ID}&status=paid&per_page=200&page=3&sort_column=date&sort_order=D`,
       `${invoiceBaseUrl}?organization_id=${ORG_ID}&status=unpaid&per_page=200&page=1&sort_column=date&sort_order=D`,
+      `${invoiceBaseUrl}?organization_id=${ORG_ID}&status=unpaid&per_page=200&page=2&sort_column=date&sort_order=D`,
       `${invoiceBaseUrl}?organization_id=${ORG_ID}&status=draft&per_page=200&page=1&sort_column=date&sort_order=D`,
       `${soBaseUrl}?organization_id=${ORG_ID}&per_page=200&page=1&sort_column=date&sort_order=D`,
       `${soBaseUrl}?organization_id=${ORG_ID}&per_page=200&page=2&sort_column=date&sort_order=D`
@@ -59,10 +62,10 @@ export async function GET() {
       fetch(url, { headers: { Authorization: authHeader } }).then(res => res.json())
     );
 
-    const [paidData, unpaidData, draftData, soDataPage1, soDataPage2] = await Promise.all(fetchPromises);
+    const [paid1, paid2, paid3, unpaid1, unpaid2, draftData, soDataPage1, soDataPage2] = await Promise.all(fetchPromises);
 
-    const paidInvoices = paidData.invoices || [];
-    const unpaidInvoices = unpaidData.invoices || [];
+    const paidInvoices = [...(paid1.invoices || []), ...(paid2.invoices || []), ...(paid3.invoices || [])];
+    const unpaidInvoices = [...(unpaid1.invoices || []), ...(unpaid2.invoices || [])];
     const draftInvoices = draftData.invoices || [];
     const sos1 = soDataPage1.salesorders || [];
     const sos2 = soDataPage2.salesorders || [];
