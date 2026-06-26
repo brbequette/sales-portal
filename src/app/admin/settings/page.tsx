@@ -9,6 +9,13 @@ export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  // Test Notification state
+  const [users, setUsers] = useState<any[]>([])
+  const [testUserId, setTestUserId] = useState("")
+  const [testTitle, setTestTitle] = useState("Test Notification")
+  const [testBody, setTestBody] = useState("This is a cross-device test notification from the admin panel.")
+  const [sendingPush, setSendingPush] = useState(false)
+
   useEffect(() => {
     fetchSettings()
   }, [])
@@ -27,6 +34,15 @@ export default function AdminSettingsPage() {
       const numData = await numRes.json()
       if (numData.success) {
         setZohoNumbers(numData.numbers || [])
+      }
+
+      const usersRes = await fetch('/api/get-users')
+      const usersData = await usersRes.json()
+      if (usersData.users) {
+        setUsers(usersData.users)
+        if (usersData.users.length > 0) {
+          setTestUserId(usersData.users[0].id)
+        }
       }
     } catch (e) {
       console.error(e)
@@ -65,6 +81,36 @@ export default function AdminSettingsPage() {
       alert('Error saving settings.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSendTestNotification = async () => {
+    if (!testUserId) return alert("Please select a user")
+    if (!testTitle || !testBody) return alert("Please enter title and body")
+
+    try {
+      setSendingPush(true)
+      const res = await fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: testUserId,
+          title: testTitle,
+          body: testBody,
+          url: "/?tab=dashboard"
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert("Test notification sent successfully!")
+      } else {
+        alert("Error sending notification: " + data.error)
+      }
+    } catch (e) {
+      console.error(e)
+      alert("Error sending notification.")
+    } finally {
+      setSendingPush(false)
     }
   }
 
@@ -121,6 +167,60 @@ export default function AdminSettingsPage() {
             </div>
           </div>
 
+          {/* Test Push Notifications */}
+          <div className="bg-neutral-900 rounded-xl border border-white/10 p-6">
+            <h2 className="text-lg font-bold text-white mb-4">Test Push Notifications</h2>
+            <div className="space-y-4 max-w-md">
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-2">
+                  Select User
+                </label>
+                <select
+                  value={testUserId}
+                  onChange={e => setTestUserId(e.target.value)}
+                  className="w-full bg-[#0f1013] border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                >
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-2">
+                  Notification Title
+                </label>
+                <input
+                  type="text"
+                  value={testTitle}
+                  onChange={e => setTestTitle(e.target.value)}
+                  className="w-full bg-[#0f1013] border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-2">
+                  Notification Body
+                </label>
+                <textarea
+                  value={testBody}
+                  onChange={e => setTestBody(e.target.value)}
+                  rows={2}
+                  className="w-full bg-[#0f1013] border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button 
+                  onClick={handleSendTestNotification}
+                  disabled={sendingPush}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-colors disabled:opacity-50 text-sm"
+                >
+                  {sendingPush ? "Sending..." : "Send Test Push Alert"}
+                </button>
+              </div>
+            </div>
+          </div>
 
           <div className="flex justify-end">
             <button 
