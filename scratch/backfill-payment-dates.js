@@ -109,6 +109,9 @@ async function main() {
       
       hasMore = data.page_context?.has_more_page || false;
       page++;
+      
+      // Delay to avoid hitting Zoho API rate limits when paginating
+      await new Promise(res => setTimeout(res, 500));
     }
     
     console.log(`Backfill completed! Total invoices updated with correct payment dates: ${totalUpdated}`);

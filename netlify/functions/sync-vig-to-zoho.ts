@@ -6,23 +6,34 @@ const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
 
+// Cache customfield_ids per module to prevent redundant GET requests
+const customFieldIdCache: Record<string, string> = {}
+
 async function updateCustomFieldInZoho(module: string, docId: string, token: string, apiName: string, newValue: any) {
   const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/${module}`
   
-  // 1. Fetch document to get the correct customfield_id
-  const getRes = await fetch(`${baseUrl}/${docId}?organization_id=${ORG_ID}`, {
-    headers: { Authorization: `Zoho-oauthtoken ${token}` }
-  })
-  if (!getRes.ok) return false
-  const data = await getRes.json()
-  const docType = module === "invoices" ? "invoice" : module === "salesorders" ? "salesorder" : "estimate"
-  const doc = data[docType]
-  if (!doc || !doc.custom_fields) return false
+  const cacheKey = `${module}_${apiName}`
+  let customfield_id = customFieldIdCache[cacheKey]
 
-  const field = doc.custom_fields.find((f: any) => f.api_name === apiName)
-  if (!field) return false
+  if (!customfield_id) {
+    // 1. Fetch document to get the correct customfield_id (Only once per module)
+    const getRes = await fetch(`${baseUrl}/${docId}?organization_id=${ORG_ID}`, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    })
+    if (!getRes.ok) return false
+    const data = await getRes.json()
+    const docType = module === "invoices" ? "invoice" : module === "salesorders" ? "salesorder" : "estimate"
+    const doc = data[docType]
+    if (!doc || !doc.custom_fields) return false
 
-  // 2. PUT update
+    const field = doc.custom_fields.find((f: any) => f.api_name === apiName)
+    if (!field) return false
+
+    customfield_id = field.customfield_id
+    customFieldIdCache[cacheKey] = customfield_id
+  }
+
+  // 2. PUT update directly since we have the customfield_id
   const putRes = await fetch(`${baseUrl}/${docId}?organization_id=${ORG_ID}`, {
     method: "PUT",
     headers: {
@@ -32,7 +43,7 @@ async function updateCustomFieldInZoho(module: string, docId: string, token: str
     body: JSON.stringify({
       custom_fields: [
         {
-          customfield_id: field.customfield_id,
+          customfield_id: customfield_id,
           value: newValue
         }
       ]
@@ -89,6 +100,9 @@ export const handler: Handler = async (event) => {
     let successCount = 0
     let failCount = 0
 
+    // Helper for throttling
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms))
+
     // Filter to only those invoices belonging to this rep
     for (const inv of localInvoices) {
       const items = inv.items as any
@@ -109,6 +123,9 @@ export const handler: Handler = async (event) => {
         const ok = await updateCustomFieldInZoho("invoices", inv.zohoId as string, token as string, "cf_salesperson_vig", newVigRate)
         if (ok) successCount++
         else failCount++
+        
+        // Add a small delay to prevent tripping Zoho Books rate limits
+        await delay(300)
       }
     }
 

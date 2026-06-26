@@ -24,6 +24,9 @@ async function run() {
       targetId = inv.zohoId;
     }
     
+    // Helper for throttling
+    const delay = (ms) => new Promise(res => setTimeout(res, ms))
+    
     // Test the targetId
     console.log(`Inv ${inv.id}: targetId=${targetId}`)
     try {
@@ -53,6 +56,8 @@ async function run() {
         }
       }
     } catch(e) { }
+    
+    await delay(300);
   }
   
   console.log(`Fixed ${fixedCount} invoices in the DB!`)

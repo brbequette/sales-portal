@@ -90,6 +90,9 @@ async function main() {
       return;
     }
 
+    // Helper for throttling
+    const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
     // Process each draft invoice
     for (const inv of allDraftInvoices) {
       console.log(`Processing invoice #${inv.invoice_number} (ID: ${inv.invoice_id}, Customer: ${inv.customer_name}, Total: $${inv.total})...`);
@@ -106,6 +109,8 @@ async function main() {
         const errText = await updateRes.text();
         console.error(`Failed to update status for Invoice #${inv.invoice_number}: ${updateRes.status} - ${errText}`);
       }
+      
+      await delay(300);
     }
 
     console.log("\nAll draft invoices processed.");
