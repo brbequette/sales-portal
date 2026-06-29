@@ -441,7 +441,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       title={`Dial ${cleanPhone}`}
                     >
                       <FiPhoneCall size={18} />
-                    </a>
+                    </button>
                   )}
                 </div>
               </div>
@@ -861,4 +861,3 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     </div>
   )
 }
-
