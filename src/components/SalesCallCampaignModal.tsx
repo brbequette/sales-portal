@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { 
   FiX, FiPhoneCall, FiUser, FiClock, FiCheckSquare, 
   FiArrowRight, FiBookOpen, FiActivity, FiTag, FiAlertCircle,
-  FiChevronDown, FiChevronRight, FiShoppingCart
+  FiChevronDown, FiChevronRight, FiShoppingCart, FiZap
 } from "react-icons/fi"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
@@ -48,12 +48,45 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const [isGeneratingAi, setIsGeneratingAi] = useState(false)
   const [showAiMagic, setShowAiMagic] = useState(false)
 
+  // Power Dialer States
+  const [isPowerDialerActive, setIsPowerDialerActive] = useState(false)
+
   // Timer States
   const [timerSeconds, setTimerSeconds] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   const activeAccount = accounts[currentIndex]
   const repName = currentUser?.name || "your sales rep"
+
+  const initiateCall = (phone: string) => {
+    if (!phone) return
+    fetch('/api/calls/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'INITIATE_CALL', accountId: activeAccount?.id, userId: currentUser?.id,
+        userEmail: currentUser?.email
+      })
+    }).catch(err => console.error("Error logging call initiation:", err))
+    
+    window.location.href = `tel:${phone}`
+  }
+
+  // Power Dialer Auto-Dial Effect
+  useEffect(() => {
+    if (isPowerDialerActive && activeAccount) {
+      const primaryContact = activeAccount.contacts?.find((c: any) => c.isPrimary) || activeAccount.contacts?.[0]
+      const displayPhone = primaryContact?.phone || primaryContact?.mobilePhone || ''
+      const cleanPhone = displayPhone ? displayPhone.replace(/[^0-9+]/g, '') : ''
+      if (cleanPhone) {
+        const t = setTimeout(() => initiateCall(cleanPhone), 1000)
+        return () => clearTimeout(t)
+      } else {
+        setIsPowerDialerActive(false)
+        alert(`Power Dialer paused: No valid phone number for ${activeAccount.name}`)
+      }
+    }
+  }, [currentIndex, isPowerDialerActive, activeAccount])
 
   // Reset timer and form for new active account
   useEffect(() => {
@@ -341,6 +374,19 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Power Dialer Toggle */}
+            <button
+              onClick={() => setIsPowerDialerActive(!isPowerDialerActive)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                isPowerDialerActive 
+                  ? 'bg-sky-500 border-sky-400 text-black shadow-lg shadow-sky-500/20 animate-pulse' 
+                  : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white'
+              }`}
+            >
+              <FiZap className={isPowerDialerActive ? "text-black" : "text-sky-400"} />
+              {isPowerDialerActive ? "Power Dialer ON" : "Start Power Dialer"}
+            </button>
+
             {/* Call Timer */}
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900 border border-neutral-800 font-mono text-xs font-bold text-sky-400">
               <FiClock className="animate-spin text-neutral-500" style={{ animationDuration: '4s' }} />
@@ -385,25 +431,13 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                   </Link>
 
                   {cleanPhone && (
-                    <a 
-                      href={`tel:${cleanPhone}`}
-                      onClick={() => {
-                        fetch('/api/calls/log', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            action: 'INITIATE_CALL',
-                            accountId: activeAccount.id,
-                            userId: currentUser?.id,
-                            userEmail: currentUser?.email
-                          })
-                        }).catch(err => console.error("Error logging call initiation:", err));
-                      }}
+                    <button 
+                      onClick={() => initiateCall(cleanPhone)}
                       className="p-3 bg-sky-500 hover:bg-sky-400 text-black rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shadow-sky-500/10 cursor-pointer"
                       title={`Dial ${cleanPhone}`}
                     >
                       <FiPhoneCall size={18} />
-                    </a>
+                    </button>
                   )}
                 </div>
               </div>
