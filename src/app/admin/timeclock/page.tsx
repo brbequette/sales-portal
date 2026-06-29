@@ -367,7 +367,7 @@ export default function AdminTimeclockPage() {
                                              <button 
                                                 onClick={async () => {
                                                   if (!confirm("Remove this idle period? The hours will be added back to the shift.")) return;
-                                                  const updatedLapses = entry.inactivityPeriods.filter((l: any) => l.id !== lapse.id)
+                                                  const updatedLapses = (entry.inactivityPeriods || []).filter((l: any) => l.id !== lapse.id)
                                                   try {
                                                     await fetch("/api/timeclock/admin", {
                                                       method: "PATCH",
