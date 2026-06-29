@@ -57,6 +57,10 @@ model Account {
   crewCount           String?
   bladesPerOrder      String?
   improvementPriority String?
+  billingStreet       String?
+  billingCity         String?
+  billingState        String?
+  billingZip          String?
   owner               User         @relation(fields: [ownerId], references: [id])
   contacts         Contact[]
   deals            Deal[]
@@ -86,6 +90,10 @@ model Contact {
   mobilePhone String?
   isPrimary   Boolean  @default(false)
   designation String?
+  mailingStreet String?
+  mailingCity   String?
+  mailingState  String?
+  mailingZip    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   zohoModifiedTime DateTime?

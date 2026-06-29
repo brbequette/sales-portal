@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from "react"
 import { 
   FiX, FiPhoneCall, FiUser, FiClock, FiCheckSquare, 
   FiArrowRight, FiBookOpen, FiActivity, FiTag, FiAlertCircle,
-  FiChevronDown, FiChevronRight, FiShoppingCart, FiZap
+  FiChevronDown, FiChevronRight, FiMapPin, FiShoppingCart, FiZap
 } from "react-icons/fi"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
@@ -420,6 +420,14 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-lg font-black text-white leading-tight">{activeAccount.name}</h3>
+                    {(activeAccount.billingStreet || activeAccount.billingCity) && (
+                      <div className="text-xs text-neutral-400 mt-1 flex items-center gap-1 font-semibold">
+                        <FiMapPin size={12} className="text-neutral-500" />
+                        {activeAccount.billingStreet && `${activeAccount.billingStreet}, `}
+                        {activeAccount.billingCity && `${activeAccount.billingCity}, `}
+                        {activeAccount.billingState} {activeAccount.billingZip}
+                      </div>
+                    )}
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
                       <FiTag size={10} /> {activeAccount.tags || "General"}

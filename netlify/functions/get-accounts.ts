@@ -309,7 +309,7 @@ export const handler: Handler = async (event, context) => {
                   industry: record.Industry || 'Unknown',
                   tags: tagsStr,
                   ownerId: syncUser.id,
-                  timeZone: timeZone,
+                  timeZone: timeZone, billingStreet: record.Billing_Street || null, billingCity: record.Billing_City || null, billingState: record.Billing_State || null, billingZip: record.Billing_Code || null,
                   zohoModifiedTime: incomingModifiedTimeStr ? new Date(incomingModifiedTimeStr) : null,
                   rawData: record,
                 }
@@ -329,7 +329,7 @@ export const handler: Handler = async (event, context) => {
                     status: status,
                     lastPurchaseAt: lastPurchaseDate,
                     ownerId: syncUser.id,
-                    timeZone: timeZone,
+                    timeZone: timeZone, billingStreet: record.Billing_Street || null, billingCity: record.Billing_City || null, billingState: record.Billing_State || null, billingZip: record.Billing_Code || null,
                     zohoModifiedTime: incomingModifiedTimeStr ? new Date(incomingModifiedTimeStr) : null,
                     rawData: record,
                   }
@@ -796,7 +796,7 @@ export const handler: Handler = async (event, context) => {
                             lastName: contactRecord.Last_Name || null,
                             email: contactRecord.Email || null,
                             phone: contactRecord.Phone || null,
-                            mobilePhone: contactRecord.Mobile || null,
+                            mobilePhone: contactRecord.Mobile || null, mailingStreet: contactRecord.Mailing_Street || null, mailingCity: contactRecord.Mailing_City || null, mailingState: contactRecord.Mailing_State || null, mailingZip: contactRecord.Mailing_Zip || null,
                           },
                           create: {
                               rawData: contactRecord,
@@ -807,7 +807,7 @@ export const handler: Handler = async (event, context) => {
                             lastName: contactRecord.Last_Name || null,
                             email: contactRecord.Email || null,
                             phone: contactRecord.Phone || null,
-                            mobilePhone: contactRecord.Mobile || null,
+                            mobilePhone: contactRecord.Mobile || null, mailingStreet: contactRecord.Mailing_Street || null, mailingCity: contactRecord.Mailing_City || null, mailingState: contactRecord.Mailing_State || null, mailingZip: contactRecord.Mailing_Zip || null,
                           }
                         })
                       );
@@ -967,7 +967,7 @@ export const handler: Handler = async (event, context) => {
           lastPurchaseAt: true,
           ownerId: true,
           industry: true,
-          timeZone: true,
+          timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true,
           invoices: {
             select: {
               id: true, zohoId: true, amount: true, status: true, items: true,
@@ -980,7 +980,7 @@ export const handler: Handler = async (event, context) => {
           } : {}),
           contacts: {
             select: {
-              phone: true, mobilePhone: true, isPrimary: true, firstName: true, lastName: true
+              phone: true, mobilePhone: true, isPrimary: true, firstName: true, lastName: true, mailingStreet: true, mailingCity: true, mailingState: true, mailingZip: true
             }
           },
           owner: {
@@ -1016,7 +1016,7 @@ export const handler: Handler = async (event, context) => {
           lastPurchaseAt: true,
           ownerId: true,
           industry: true,
-          timeZone: true,
+          timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true,
           invoices: {
             select: {
               id: true, zohoId: true, amount: true, status: true, items: true,
@@ -1029,7 +1029,7 @@ export const handler: Handler = async (event, context) => {
           } : {}),
           contacts: {
             select: {
-              phone: true, mobilePhone: true, isPrimary: true, firstName: true, lastName: true
+              phone: true, mobilePhone: true, isPrimary: true, firstName: true, lastName: true, mailingStreet: true, mailingCity: true, mailingState: true, mailingZip: true
             }
           },
           owner: {
@@ -1069,7 +1069,7 @@ export const handler: Handler = async (event, context) => {
         lastPurchaseAt: acc.lastPurchaseAt,
         ownerId: acc.ownerId,
         industry: acc.industry,
-        timeZone: acc.timeZone,
+        timeZone: acc.timeZone, billingStreet: acc.billingStreet, billingCity: acc.billingCity, billingState: acc.billingState, billingZip: acc.billingZip,
         owner: acc.owner,
         totalSales,
         totalProfit,
