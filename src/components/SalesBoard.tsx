@@ -40,6 +40,21 @@ export function SalesBoard() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+
+  // Collapse all rows when screen changes
+  useEffect(() => {
+    setExpandedRows(new Set())
+  }, [currentScreen])
+
+  const toggleRow = (id: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const boardRef = useRef<HTMLDivElement>(null)
   const ROTATION_TIME = 15000
@@ -91,9 +106,9 @@ export function SalesBoard() {
         REPS_INIT.forEach(r => {
           repsMap[r.id] = { 
             ...r, 
-            weekly: { sales: [0,0,0,0,0], profit: [0,0,0,0,0], totalSales: 0, totalProfit: 0, dealsClosed: 0, commission: 0 },
-            mtd: { sales: 0, profit: 0, commission: 0, dealsClosed: 0 },
-            ytd: { sales: 0, profit: 0, commission: 0, dealsClosed: 0 }
+            weekly: { sales: [0,0,0,0,0], profit: [0,0,0,0,0], totalSales: 0, totalProfit: 0, dealsClosed: 0, commission: 0, invoices: [] },
+            mtd: { sales: 0, profit: 0, commission: 0, dealsClosed: 0, invoices: [] },
+            ytd: { sales: 0, profit: 0, commission: 0, dealsClosed: 0, invoices: [] }
           }
         })
 
@@ -151,6 +166,7 @@ export function SalesBoard() {
                matchedRep.weekly.totalProfit += profit
                matchedRep.weekly.commission += commission
                matchedRep.weekly.dealsClosed += 1
+               matchedRep.weekly.invoices.push({ id: inv.invoice_id || inv.id, date: saleDate, customer: inv.customer_name, amount, profit, commission, invoiceNumber: inv.invoice_number })
             }
           }
 
@@ -160,12 +176,14 @@ export function SalesBoard() {
                matchedRep.mtd.profit += profit
                matchedRep.mtd.commission += commission
                matchedRep.mtd.dealsClosed += 1
+               matchedRep.mtd.invoices.push({ id: inv.invoice_id || inv.id, date: saleDate, customer: inv.customer_name, amount, profit, commission, invoiceNumber: inv.invoice_number })
             }
             if (isYTD) {
                matchedRep.ytd.sales += amount
                matchedRep.ytd.profit += profit
                matchedRep.ytd.commission += commission
                matchedRep.ytd.dealsClosed += 1
+               matchedRep.ytd.invoices.push({ id: inv.invoice_id || inv.id, date: saleDate, customer: inv.customer_name, amount, profit, commission, invoiceNumber: inv.invoice_number })
             }
           }
         })
@@ -315,10 +333,12 @@ export function SalesBoard() {
                   </tr>
                </thead>
                <tbody>
-                  {data.reps.sort((a:any, b:any) => b.weekly.totalSales - a.weekly.totalSales).map((rep: any, idx: number) => (
+                  {data.reps.sort((a:any, b:any) => b.weekly.totalSales - a.weekly.totalSales).map((rep: any, idx: number) => {
+                     const isExpanded = expandedRows.has(`weekly-${rep.id}`)
+                     return (
                      <React.Fragment key={rep.id}>
                         {/* Sales Row */}
-                        <tr className="group">
+                        <tr className="group hover:bg-white/[0.02] cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
                            <td className="p-4 text-sm font-bold border-b border-white/5 text-white align-middle" rowSpan={2}>
                               <div className="flex items-center gap-3">
                                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-xs shadow-lg`}>{rep.name.charAt(0)}</div>
@@ -332,15 +352,48 @@ export function SalesBoard() {
                            <td className="p-4 text-sm font-black text-emerald-400 text-right border-b border-white/5 bg-emerald-500/5">{formatCurrency(rep.weekly.totalSales)}</td>
                         </tr>
                         {/* Profit Row */}
-                        <tr className="group">
+                        <tr className="group hover:bg-white/[0.02] cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
                            <td className="p-4 text-xs font-medium text-neutral-500 border-b border-white/5">Dead Profit</td>
                            {rep.weekly.profit.map((val: number, i: number) => (
                               <td key={i} className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{val > 0 ? formatCurrency(val) : '-'}</td>
                            ))}
                            <td className="p-4 text-sm font-bold text-emerald-400/70 text-right border-b border-white/5 bg-emerald-500/5">{formatCurrency(rep.weekly.totalProfit)}</td>
                         </tr>
+                        {isExpanded && rep.weekly.invoices?.length > 0 && (
+                           <tr className="bg-black/40">
+                              <td colSpan={8} className="p-4 border-b border-white/5">
+                                 <div className="pl-12">
+                                   <table className="w-full text-left border-collapse bg-[#0d0e12] rounded-lg overflow-hidden border border-white/5">
+                                     <thead>
+                                       <tr className="bg-white/[0.02]">
+                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
+                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
+                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Gross Sales</th>
+                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
+                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Commission</th>
+                                       </tr>
+                                     </thead>
+                                     <tbody>
+                                       {rep.weekly.invoices.map((inv:any) => (
+                                         <tr key={inv.id} className="border-t border-white/5 hover:bg-white/[0.02] transition-colors">
+                                           <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
+                                           <td className="p-2">
+                                              <div className="text-xs font-bold text-white">{inv.customer}</div>
+                                              <div className="text-[10px] text-neutral-500 font-medium">{inv.invoiceNumber}</div>
+                                           </td>
+                                           <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
+                                           <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
+                                           <td className="p-2 text-xs font-bold text-emerald-400 text-right">{formatCurrency(inv.commission)}</td>
+                                         </tr>
+                                       ))}
+                                     </tbody>
+                                   </table>
+                                 </div>
+                              </td>
+                           </tr>
+                        )}
                      </React.Fragment>
-                  ))}
+                  )})}
                </tbody>
             </table>
           </div>
@@ -421,8 +474,10 @@ export function SalesBoard() {
                   {data.reps.sort((a:any, b:any) => b.mtd.sales - a.mtd.sales).map((rep: any) => {
                      const avgDeal = rep.mtd.dealsClosed > 0 ? rep.mtd.sales / rep.mtd.dealsClosed : 0
                      const profitMargin = rep.mtd.sales > 0 ? (rep.mtd.profit / rep.mtd.sales) * 100 : 0
+                     const isExpanded = expandedRows.has(`mtd-${rep.id}`)
                      return (
-                     <tr key={rep.id} className="hover:bg-white/[0.02] transition-colors">
+                     <React.Fragment key={rep.id}>
+                     <tr onClick={() => toggleRow(`mtd-${rep.id}`)} className="hover:bg-white/[0.05] transition-colors cursor-pointer group">
                         <td className="p-4 text-sm font-bold border-b border-white/5 text-white">
                            <div className="flex items-center gap-3">
                               <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-[10px] shadow-lg`}>{rep.name.charAt(0)}</div>
@@ -436,6 +491,40 @@ export function SalesBoard() {
                         <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{formatCurrency(avgDeal)}</td>
                         <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{formatPercent(profitMargin)}</td>
                      </tr>
+                     {isExpanded && rep.mtd.invoices?.length > 0 && (
+                        <tr className="bg-black/40">
+                           <td colSpan={7} className="p-4 border-b border-white/5">
+                              <div className="pl-12">
+                                <table className="w-full text-left border-collapse bg-[#0d0e12] rounded-lg overflow-hidden border border-white/5">
+                                  <thead>
+                                    <tr className="bg-white/[0.02]">
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Gross Sales</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Commission</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {rep.mtd.invoices.map((inv:any) => (
+                                      <tr key={inv.id} className="border-t border-white/5 hover:bg-white/[0.02] transition-colors">
+                                        <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
+                                        <td className="p-2">
+                                           <div className="text-xs font-bold text-white">{inv.customer}</div>
+                                           <div className="text-[10px] text-neutral-500 font-medium">{inv.invoiceNumber}</div>
+                                        </td>
+                                        <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
+                                        <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
+                                        <td className="p-2 text-xs font-bold text-emerald-400 text-right">{formatCurrency(inv.commission)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                           </td>
+                        </tr>
+                     )}
+                     </React.Fragment>
                   )})}
                </tbody>
             </table>
@@ -464,8 +553,10 @@ export function SalesBoard() {
                   {data.reps.sort((a:any, b:any) => b.ytd.sales - a.ytd.sales).map((rep: any) => {
                      const avgDeal = rep.ytd.dealsClosed > 0 ? rep.ytd.sales / rep.ytd.dealsClosed : 0
                      const profitMargin = rep.ytd.sales > 0 ? (rep.ytd.profit / rep.ytd.sales) * 100 : 0
+                     const isExpanded = expandedRows.has(`ytd-${rep.id}`)
                      return (
-                     <tr key={rep.id} className="hover:bg-white/[0.02] transition-colors">
+                     <React.Fragment key={rep.id}>
+                     <tr onClick={() => toggleRow(`ytd-${rep.id}`)} className="hover:bg-white/[0.05] transition-colors cursor-pointer group">
                         <td className="p-4 text-sm font-bold border-b border-white/5 text-white">
                            <div className="flex items-center gap-3">
                               <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-[10px] shadow-lg`}>{rep.name.charAt(0)}</div>
@@ -479,6 +570,40 @@ export function SalesBoard() {
                         <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{formatCurrency(avgDeal)}</td>
                         <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{formatPercent(profitMargin)}</td>
                      </tr>
+                     {isExpanded && rep.ytd.invoices?.length > 0 && (
+                        <tr className="bg-black/40">
+                           <td colSpan={7} className="p-4 border-b border-white/5">
+                              <div className="pl-12">
+                                <table className="w-full text-left border-collapse bg-[#0d0e12] rounded-lg overflow-hidden border border-white/5">
+                                  <thead>
+                                    <tr className="bg-white/[0.02]">
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Gross Sales</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Commission</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {rep.ytd.invoices.map((inv:any) => (
+                                      <tr key={inv.id} className="border-t border-white/5 hover:bg-white/[0.02] transition-colors">
+                                        <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
+                                        <td className="p-2">
+                                           <div className="text-xs font-bold text-white">{inv.customer}</div>
+                                           <div className="text-[10px] text-neutral-500 font-medium">{inv.invoiceNumber}</div>
+                                        </td>
+                                        <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
+                                        <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
+                                        <td className="p-2 text-xs font-bold text-emerald-400 text-right">{formatCurrency(inv.commission)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                           </td>
+                        </tr>
+                     )}
+                     </React.Fragment>
                   )})}
                </tbody>
             </table>

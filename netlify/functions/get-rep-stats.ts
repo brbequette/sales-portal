@@ -198,6 +198,8 @@ export const handler: Handler = async (event) => {
         dealRevenue: 0,
         commissions: 0,
         overdueCollections: 0,
+        invoices: [],
+        deals: [],
         
         // Target settings
         salesTargets: {
@@ -234,6 +236,8 @@ export const handler: Handler = async (event) => {
       dealRevenue: 0,
       commissions: 0,
       overdueCollections: 0,
+      invoices: [],
+      deals: [],
       salesTargets: { daily: 0, weekly: 0, monthly: 0, dailySubtotal: 0, weeklySubtotal: 0, monthlySubtotal: 0 },
       daily: { revenue: 0, profit: 0, dealsWon: 0, target: 0 },
       weekly: { revenue: 0, profit: 0, dealsWon: 0, target: 0 },
@@ -289,6 +293,15 @@ export const handler: Handler = async (event) => {
             repStatsMap[repId].revenue += amount
             repStatsMap[repId].profit += profit
             repStatsMap[repId].commissions += zohoCommission
+            repStatsMap[repId].invoices.push({
+              id: inv.id,
+              date: issueDate,
+              amount: amount,
+              profit: profit,
+              commission: zohoCommission,
+              status: inv.status,
+              invoiceNumber: items.invoiceNumber || items.invoice_number || inv.zohoId
+            })
           } else if (isVoided) {
             repStatsMap[repId].commissions -= zohoCommission
           }
@@ -358,6 +371,15 @@ export const handler: Handler = async (event) => {
           const commission = amount * 0.10 // 10% rate
           repStatsMap[repId].dealRevenue += amount
           repStatsMap[repId].commissions += commission
+          
+          repStatsMap[repId].deals.push({
+            id: deal.id,
+            name: deal.name,
+            amount: amount,
+            commission: commission,
+            stage: deal.stage,
+            closingDate: deal.closingDate
+          })
 
           // Aggregates for periods
           const closeDate = deal.closingDate ? new Date(deal.closingDate) : null
