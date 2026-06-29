@@ -132,6 +132,7 @@ export const handler: Handler = async (event) => {
       const salespersonName = items.salesperson as string | null
       const profit = parseFloat(items.profit || 0)
       const deadCost = parseFloat(items.deadCostTotal || 0)
+      const commissionAmount = parseFloat(items.commission || items.cf_commission_amount_unformatted || items.cf_commision_amount_unformatted || items.Commission_Amount || items.profit || 0)
       const invoiceNumber = items.invoiceNumber || items.invoice_number || null
       const paymentDate = items.paymentDate || null
 
@@ -139,12 +140,10 @@ export const handler: Handler = async (event) => {
 
       const isPaid = FINAL_PAID_STATUSES.has(inv.status)
 
-      // Two-stage commission split (each = 25% of profit = 50% of the 50% split):
-      //   Upfront: earned at invoice creation  → this week's pay
-      //   Final:   earned at invoice payment   → following week's pay
-      const upfront = profit * 0.25          // half of rep's share, earned now
-      const final   = isPaid ? profit * 0.25 : 0  // second half, only after payment
-      const future  = !isPaid ? profit * 0.25 : 0 // what they will earn when paid
+      // The total commission is exact, we split it in half for Upfront and Final (as 50% of the rep's commission is paid now, and 50% when paid)
+      const upfront = commissionAmount * 0.50
+      const final   = isPaid ? commissionAmount * 0.50 : 0
+      const future  = !isPaid ? commissionAmount * 0.50 : 0
       const total   = upfront + final
 
       const daysOld = inv.issueDate ? (Date.now() - inv.issueDate.getTime()) / (1000 * 60 * 60 * 24) : 0

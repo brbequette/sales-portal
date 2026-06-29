@@ -260,10 +260,14 @@ export const handler: Handler = async (event) => {
         // "Dead Profit" is pure amount minus pure dead cost. Displayed on the dashboard.
         const deadProfit = amount - deadCost;
         
-        // Actual profit comes from Zoho which factors in Vig correctly on applicable items
-        const zohoProfit = parseFloat((inv.items as any)?.profit as any) || 0;
+        // Actual commission comes from Zoho directly
+        const zohoCommission = parseFloat((inv.items as any)?.commission) 
+          || parseFloat((inv.items as any)?.cf_commission_amount_unformatted) 
+          || parseFloat((inv.items as any)?.cf_commision_amount_unformatted) 
+          || parseFloat((inv.items as any)?.Commission_Amount)
+          || parseFloat((inv.items as any)?.profit as any) || 0;
         
-        const profit = deadCost > 0 ? deadProfit : zohoProfit;
+        const profit = deadProfit; // We display deadProfit as the profit metric on the board
         const issueDate = inv.issueDate ? new Date(inv.issueDate) : null
 
         // Find salesperson on invoice
@@ -284,9 +288,9 @@ export const handler: Handler = async (event) => {
           if (isValidInvoice) {
             repStatsMap[repId].revenue += amount
             repStatsMap[repId].profit += profit
-            repStatsMap[repId].commissions += zohoProfit * 0.50
+            repStatsMap[repId].commissions += zohoCommission
           } else if (isVoided) {
-            repStatsMap[repId].commissions -= zohoProfit * 0.50
+            repStatsMap[repId].commissions -= zohoCommission
           }
 
           if (inv.status === "Overdue") {

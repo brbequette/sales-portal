@@ -305,6 +305,7 @@ export const handler: Handler = async (event) => {
                             balance: invRecord.Balance || 0,
                             profit: parseFloat(invRecord.Profit || 0),
                             deadCostTotal: parseFloat(invRecord.Dead_Cost_Total || 0),
+                            commission: parseFloat(invRecord.cf_commission_amount_unformatted || invRecord.Commission_Amount || invRecord.Commission || 0),
                             paymentDate: invRecord.Paid_In_Full_Date,
                             salesperson: invRecord.Sales_Person || null
                           }
@@ -322,6 +323,7 @@ export const handler: Handler = async (event) => {
                             balance: invRecord.Balance || 0,
                             profit: parseFloat(invRecord.Profit || 0),
                             deadCostTotal: parseFloat(invRecord.Dead_Cost_Total || 0),
+                            commission: parseFloat(invRecord.cf_commission_amount_unformatted || invRecord.Commission_Amount || invRecord.Commission || 0),
                             paymentDate: invRecord.Paid_In_Full_Date,
                             salesperson: invRecord.Sales_Person || null
                           }
