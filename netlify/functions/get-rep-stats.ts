@@ -109,6 +109,8 @@ export const handler: Handler = async (event) => {
         status: true,
         invoices: {
           select: {
+            id: true,
+            zohoId: true,
             amount: true,
             status: true,
             items: true,
