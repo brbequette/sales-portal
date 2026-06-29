@@ -435,8 +435,18 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                   </Link>
 
                   {cleanPhone && (
-                    <button 
-                      onClick={() => initiateCall(cleanPhone)}
+                    <a 
+                      href={`tel:${cleanPhone}`}
+                      onClick={() => {
+                        fetch('/api/calls/log', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            action: 'INITIATE_CALL', accountId: activeAccount?.id, userId: currentUser?.id,
+                            userEmail: currentUser?.email
+                          })
+                        }).catch(err => console.error("Error logging call initiation:", err))
+                      }}
                       className="p-3 bg-sky-500 hover:bg-sky-400 text-black rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shadow-sky-500/10 cursor-pointer"
                       title={`Dial ${cleanPhone}`}
                     >
