@@ -284,7 +284,7 @@ export function GlobalTopBar() {
           </button>
           
           {timeEntry && (
-            <div className="hidden sm:flex items-center gap-1.5 px-3 h-full border-r border-white/10 bg-black/20" title={timeEntry.active ? "Currently Active" : "Inactive for > 10m"}>
+            <div className="hidden sm:flex items-center gap-1.5 px-3 h-full border-r border-white/10 bg-black/20" title={timeEntry.active ? "Currently Active" : "Inactive for > 20m"}>
               <span className="text-[10px] uppercase font-bold text-neutral-400">
                 {timeEntry.active ? "Active" : "Away"}
               </span>

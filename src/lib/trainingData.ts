@@ -332,7 +332,7 @@ Every customer has a single profile that ties everything together.
 The Hub uses an **automated timeclock** so you rarely have to think about it.
 
 ### Automatic tracking
-You're clocked in the moment you open the Hub. Activity is tracked as you work. After **10 minutes idle** you're marked **Away** and clocked out for that gap; when you return you're clocked back in automatically.
+You're clocked in the moment you open the Hub. Activity is tracked as you work. After **20 minutes idle** you're marked **Away** and clocked out for that gap; when you return you're clocked back in automatically.
 
 ### Manual control
 The top-bar widget shows your status and today's hours. Use the **Clock In / Clock Out** button there if you ever need to toggle manually, and click the hours to open your full **Timesheet**.

@@ -26,12 +26,12 @@ export async function GET(req: Request) {
 
     const now = new Date()
     const processedEntries = entries.map((entry: any) => {
-      const isInactive = now.getTime() - new Date(entry.lastActivity).getTime() > 10 * 60000;
+      const isInactive = now.getTime() - new Date(entry.lastActivity).getTime() > 20 * 60000;
       const active = !isInactive && !entry.manualClockOut;
 
       let effectiveClockOut = entry.clockOut;
       if (isInactive && !entry.manualClockOut && !effectiveClockOut) {
-        effectiveClockOut = new Date(new Date(entry.lastActivity).getTime() + 10 * 60000);
+        effectiveClockOut = new Date(new Date(entry.lastActivity).getTime() + 20 * 60000);
         // Fire and forget update
         prisma.timeEntry.update({
           where: { id: entry.id },

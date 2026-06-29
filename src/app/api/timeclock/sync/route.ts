@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     const da = parts.find(p => p.type === 'day')?.value
     const phoenixDate = `${ye}-${mo}-${da}`
 
-    const clockOutTime = new Date(now.getTime() + 10 * 60000)
+    const clockOutTime = new Date(now.getTime() + 20 * 60000)
 
     // Upsert TimeEntry for this user and date
     // If it exists, only update lastActivity. If not, create it.
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       if (!Array.isArray(newInactivityPeriods)) newInactivityPeriods = []
 
       const timeSinceLastActivity = now.getTime() - new Date(existing.lastActivity).getTime()
-      if (timeSinceLastActivity >= 30 * 60000) {
+      if (timeSinceLastActivity >= 20 * 60000) {
         newInactivityPeriods.push({
           id: Math.random().toString(36).substring(2, 9),
           start: existing.lastActivity.toISOString(),
