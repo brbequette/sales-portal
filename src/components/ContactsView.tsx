@@ -1,5 +1,8 @@
 "use client"
 
+import { formatPhoneNumber } from "@/lib/formatters"
+
+
 import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { FiUser, FiMail, FiPhone, FiSmartphone, FiPlus, FiMessageSquare, FiCheck, FiFileText, FiEdit2 } from "react-icons/fi"

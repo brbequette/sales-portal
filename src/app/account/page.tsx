@@ -1,5 +1,8 @@
 "use client"
 
+import { formatPhoneNumber } from "@/lib/formatters"
+
+
 import { useSearchParams, useRouter } from "next/navigation"
 import { Suspense, useState, useEffect } from "react"
 import { createPortal } from "react-dom"
@@ -271,7 +274,7 @@ function AccountHubContent() {
                         className="text-xs text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1.5"
                         title="Click to dial account main line"
                       >
-                        📞 Dial Main: {account.crmDetails.Phone}
+                        📞 Dial Main: {formatPhoneNumber(account.crmDetails.Phone)}
                       </a>
                     )}
                   </div>
@@ -319,7 +322,7 @@ function AccountHubContent() {
                             <a href={"tel:" + account.crmDetails.Phone.replace(/[^0-9+]/g, '')}
                               className="text-blue-450 hover:underline font-bold font-mono truncate block text-left"
                             >
-                              {account.crmDetails.Phone}
+                              {formatPhoneNumber(account.crmDetails.Phone)}
                             </a>
                           ) : (
                             <span className="text-neutral-200 font-bold block">—</span>

@@ -1,5 +1,7 @@
 "use client"
 
+import { formatPhoneNumber } from "@/lib/formatters"
+
 import { useState } from "react"
 import { FiPhoneCall, FiMail, FiMessageSquare, FiFileText, FiCheckSquare } from "react-icons/fi"
 

@@ -1,5 +1,7 @@
 "use client"
 
+import { formatPhoneNumber } from "@/lib/formatters"
+
 import { useState, useEffect } from "react"
 import { FiX, FiUser, FiPhone, FiMail, FiDollarSign, FiClock, FiShoppingBag, FiInfo } from "react-icons/fi"
 import { PointOfSale } from "@/components/PointOfSale"
