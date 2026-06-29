@@ -49,10 +49,24 @@ export async function POST(req: Request) {
 
     let entry;
     if (existing) {
+      let newInactivityPeriods = existing.inactivityPeriods ? JSON.parse(existing.inactivityPeriods as string || "[]") : []
+      if (!Array.isArray(newInactivityPeriods)) newInactivityPeriods = []
+
+      const timeSinceLastActivity = now.getTime() - new Date(existing.lastActivity).getTime()
+      if (timeSinceLastActivity >= 30 * 60000) {
+        newInactivityPeriods.push({
+          id: Math.random().toString(36).substring(2, 9),
+          start: existing.lastActivity.toISOString(),
+          end: now.toISOString(),
+          durationMinutes: Math.round(timeSinceLastActivity / 60000)
+        })
+      }
+
       entry = await prisma.timeEntry.update({
         where: { id: existing.id },
         data: {
           lastActivity: now,
+          inactivityPeriods: JSON.stringify(newInactivityPeriods),
           // Only clear clockOut if they haven't explicitly manually clocked out
           ...(existing.manualClockOut ? {} : { clockOut: null }),
           ipAddress: ipAddress !== "Unknown" ? ipAddress : existing.ipAddress

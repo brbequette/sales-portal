@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { FiClock, FiCheckCircle, FiXCircle, FiEdit2 } from "react-icons/fi"
 
 interface TimeChangeRequest {
@@ -24,6 +24,7 @@ interface TimeEntry {
   ipAddress: string | null
   user: { id: string; name: string; email: string }
   changeRequests: TimeChangeRequest[]
+  inactivityPeriods?: any[]
 }
 
 export default function AdminTimeclockPage() {
@@ -195,11 +196,24 @@ export default function AdminTimeclockPage() {
       end = new Date(entry.lastActivity)
       end.setMinutes(end.getMinutes() + 10)
     }
-    
     const now = new Date()
     if (end > now) end = now
     
-    const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+    let inactivityMinutes = 0
+    if (entry.inactivityPeriods && Array.isArray(entry.inactivityPeriods)) {
+      entry.inactivityPeriods.forEach((p: any) => {
+        const pStart = new Date(p.start)
+        const pEnd = new Date(p.end)
+        const overlapStart = new Date(Math.max(start.getTime(), pStart.getTime()))
+        const overlapEnd = new Date(Math.min(end.getTime(), pEnd.getTime()))
+        
+        if (overlapEnd > overlapStart) {
+          inactivityMinutes += (overlapEnd.getTime() - overlapStart.getTime()) / 60000
+        }
+      })
+    }
+    
+    const diffHours = ((end.getTime() - start.getTime()) / (1000 * 60 * 60)) - (inactivityMinutes / 60)
     return Math.max(0, diffHours).toFixed(2)
   }
 
@@ -298,7 +312,8 @@ export default function AdminTimeclockPage() {
                             const pendingRequests = entry.changeRequests.filter(r => r.status === "PENDING")
                             
                             return (
-                              <tr key={entry.id} className="hover:bg-white/[0.02] transition-colors">
+                              <React.Fragment key={entry.id}>
+                              <tr className="hover:bg-white/[0.02] transition-colors">
                                 <td className="px-4 py-2 font-medium">{entry.date}</td>
                                 <td className="px-4 py-2">
                                   {formatTime(entry.manualClockIn || entry.clockIn)}
@@ -336,11 +351,47 @@ export default function AdminTimeclockPage() {
                                   )}
                                 </td>
                                 <td className="px-4 py-2">
-                                  <button onClick={() => handleOpenEdit(entry)} className="text-neutral-400 hover:text-white p-1.5 rounded bg-white/5 hover:bg-white/10 transition-colors">
-                                    <FiEdit2 size={12} />
+                                  <button onClick={() => handleOpenEdit(entry)} className="text-neutral-400 hover:text-white p-1 transition-colors">
+                                    <FiEdit2 size={14} />
                                   </button>
                                 </td>
                               </tr>
+                              {entry.inactivityPeriods && Array.isArray(entry.inactivityPeriods) && entry.inactivityPeriods.length > 0 && (
+                                <tr className="bg-red-500/5">
+                                   <td colSpan={7} className="px-4 py-1">
+                                      <div className="flex flex-col gap-1 pl-4">
+                                        {entry.inactivityPeriods.map((lapse: any, idx: number) => (
+                                          <div key={lapse.id || idx} className="flex items-center gap-3 text-[11px] text-red-400">
+                                             <FiAlertCircle size={12} /> 
+                                             <span>Idle: {formatTime(new Date(lapse.start))} - {formatTime(new Date(lapse.end))} ({lapse.durationMinutes} min)</span>
+                                             <button 
+                                                onClick={async () => {
+                                                  if (!confirm("Remove this idle period? The hours will be added back to the shift.")) return;
+                                                  const updatedLapses = entry.inactivityPeriods.filter((l: any) => l.id !== lapse.id)
+                                                  try {
+                                                    await fetch("/api/timeclock/admin", {
+                                                      method: "PATCH",
+                                                      headers: { "Content-Type": "application/json" },
+                                                      body: JSON.stringify({
+                                                        type: "UPDATE_INACTIVITY",
+                                                        timeEntryId: entry.id,
+                                                        inactivityPeriods: updatedLapses
+                                                      })
+                                                    })
+                                                    fetchData()
+                                                  } catch(e) {}
+                                                }}
+                                                className="text-red-500 hover:text-white ml-2 px-2 py-0.5 bg-red-500/10 hover:bg-red-500/30 rounded transition-colors"
+                                             >
+                                               Remove
+                                             </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                   </td>
+                                </tr>
+                              )}
+                              </React.Fragment>
                             )
                           })}
                         </tbody>

@@ -39,10 +39,18 @@ export async function GET(req: Request) {
         }).catch(console.error)
       }
 
+      let inactivityPeriods = []
+      try {
+        if (entry.inactivityPeriods) {
+           inactivityPeriods = typeof entry.inactivityPeriods === "string" ? JSON.parse(entry.inactivityPeriods) : entry.inactivityPeriods
+        }
+      } catch (e) {}
+
       return {
         ...entry,
         active,
-        clockOut: effectiveClockOut
+        clockOut: effectiveClockOut,
+        inactivityPeriods
       }
     })
 
@@ -127,6 +135,15 @@ export async function PATCH(req: Request) {
         data: updateData
       })
       
+      return NextResponse.json({ success: true, entry })
+    }
+    
+    if (type === "UPDATE_INACTIVITY") {
+      const { timeEntryId, inactivityPeriods } = body
+      const entry = await prisma.timeEntry.update({
+        where: { id: timeEntryId },
+        data: { inactivityPeriods: JSON.stringify(inactivityPeriods) }
+      })
       return NextResponse.json({ success: true, entry })
     }
 

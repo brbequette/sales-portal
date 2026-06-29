@@ -13,6 +13,7 @@ interface TimeEntry {
   manualClockIn: string | null
   manualClockOut: string | null
   changeRequests: any[]
+  inactivityPeriods?: any[]
 }
 
 export default function UserTimeclockPage() {
@@ -135,8 +136,22 @@ export default function UserTimeclockPage() {
     // If it's today, cap at "now" if they are currently active
     const now = new Date()
     if (end > now) end = now
+
+    let inactivityMinutes = 0
+    if (entry.inactivityPeriods && Array.isArray(entry.inactivityPeriods)) {
+      entry.inactivityPeriods.forEach((p: any) => {
+        const pStart = new Date(p.start)
+        const pEnd = new Date(p.end)
+        const overlapStart = new Date(Math.max(start.getTime(), pStart.getTime()))
+        const overlapEnd = new Date(Math.min(end.getTime(), pEnd.getTime()))
+        
+        if (overlapEnd > overlapStart) {
+          inactivityMinutes += (overlapEnd.getTime() - overlapStart.getTime()) / 60000
+        }
+      })
+    }
     
-    const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+    const diffHours = ((end.getTime() - start.getTime()) / (1000 * 60 * 60)) - (inactivityMinutes / 60)
     return Math.max(0, diffHours).toFixed(2)
   }
 
@@ -264,7 +279,8 @@ export default function UserTimeclockPage() {
                         const rejectedRequest = entry.changeRequests?.find(r => r.status === "REJECTED")
 
                         return (
-                          <tr key={entry.id} className="hover:bg-white/[0.02] transition-colors">
+                          <React.Fragment key={entry.id}>
+                          <tr className="hover:bg-white/[0.02] transition-colors">
                             <td className="px-6 py-4 font-medium">{entry.date}</td>
                             <td className="px-6 py-4">
                               {formatTime(effectiveIn)}
@@ -297,6 +313,21 @@ export default function UserTimeclockPage() {
                               )}
                             </td>
                           </tr>
+                          {entry.inactivityPeriods && Array.isArray(entry.inactivityPeriods) && entry.inactivityPeriods.length > 0 && (
+                            <tr className="bg-red-500/5">
+                               <td colSpan={5} className="px-6 py-2">
+                                  <div className="flex flex-col gap-1">
+                                    {entry.inactivityPeriods.map((lapse: any, idx: number) => (
+                                      <div key={lapse.id || idx} className="flex items-center gap-2 text-xs text-red-400">
+                                         <FiAlertCircle /> 
+                                         <span>Idle: {formatTime(new Date(lapse.start))} - {formatTime(new Date(lapse.end))} ({lapse.durationMinutes} min)</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                               </td>
+                            </tr>
+                          )}
+                          </React.Fragment>
                         )
                       })}
                     </React.Fragment>

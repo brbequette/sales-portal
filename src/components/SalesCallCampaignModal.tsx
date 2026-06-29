@@ -4,8 +4,9 @@ import { useState, useEffect, useRef } from "react"
 import { 
   FiX, FiPhoneCall, FiUser, FiClock, FiCheckSquare, 
   FiArrowRight, FiBookOpen, FiActivity, FiTag, FiAlertCircle,
-  FiChevronDown, FiChevronRight 
+  FiChevronDown, FiChevronRight, FiShoppingCart
 } from "react-icons/fi"
+import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
 
 interface SalesCallCampaignModalProps {
@@ -365,27 +366,37 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                   </div>
                 </div>
 
-                {cleanPhone && (
-                  <a 
-                    href={`tel:${cleanPhone}`}
-                    onClick={() => {
-                      fetch('/api/calls/log', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          action: 'INITIATE_CALL',
-                          accountId: activeAccount.id,
-                          userId: currentUser?.id,
-                          userEmail: currentUser?.email
-                        })
-                      }).catch(err => console.error("Error logging call initiation:", err));
-                    }}
-                    className="p-3 bg-sky-500 hover:bg-sky-400 text-black rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shadow-sky-500/10 cursor-pointer"
-                    title={`Dial ${cleanPhone}`}
+                <div className="flex items-center gap-2">
+                  <Link 
+                    href={`/pos?account=${activeAccount.zohoId}`}
+                    className="p-3 bg-emerald-500 hover:bg-emerald-400 text-black rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shadow-emerald-500/10 cursor-pointer"
+                    title={`Start Quote / Order for ${activeAccount.name}`}
                   >
-                    <FiPhoneCall size={18} />
-                  </a>
-                )}
+                    <FiShoppingCart size={18} />
+                  </Link>
+
+                  {cleanPhone && (
+                    <a 
+                      href={`tel:${cleanPhone}`}
+                      onClick={() => {
+                        fetch('/api/calls/log', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            action: 'INITIATE_CALL',
+                            accountId: activeAccount.id,
+                            userId: currentUser?.id,
+                            userEmail: currentUser?.email
+                          })
+                        }).catch(err => console.error("Error logging call initiation:", err));
+                      }}
+                      className="p-3 bg-sky-500 hover:bg-sky-400 text-black rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shadow-sky-500/10 cursor-pointer"
+                      title={`Dial ${cleanPhone}`}
+                    >
+                      <FiPhoneCall size={18} />
+                    </a>
+                  )}
+                </div>
               </div>
 
               {/* Contacts */}

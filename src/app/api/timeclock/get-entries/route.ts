@@ -52,10 +52,18 @@ export async function GET(req: Request) {
         }).catch(console.error)
       }
 
+      let inactivityPeriods = []
+      try {
+        if (entry.inactivityPeriods) {
+           inactivityPeriods = typeof entry.inactivityPeriods === "string" ? JSON.parse(entry.inactivityPeriods) : entry.inactivityPeriods
+        }
+      } catch (e) {}
+
       return {
         ...entry,
         active,
-        clockOut: effectiveClockOut
+        clockOut: effectiveClockOut,
+        inactivityPeriods
       }
     })
 
