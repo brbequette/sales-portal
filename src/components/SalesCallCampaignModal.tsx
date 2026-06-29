@@ -206,35 +206,44 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     const mat = ffMaterialsCut.toLowerCase()
     const prio = ffImprovementPriority.toLowerCase()
     
-    let bladeName = '14" Titan Concrete Turbo Pro'
-    let specificPitch = ''
-    
-    if (mat.includes('asphalt') || mat.includes('green concrete')) {
-      bladeName = '14" Asphalt Pro / Green Concrete Blade'
-    } else if (mat.includes('granite') || mat.includes('hard stone')) {
-      bladeName = '14" Premium Turbo Granite Blade'
-    } else if (mat.includes('marble') || mat.includes('tile') || prio.includes('clean')) {
-      bladeName = '10" / 14" Continuous Rim Glass/Marble Blade'
-    }
-    
-    if (prio.includes('life')) {
-      specificPitch = "We laser-weld our segments and use a 30% higher diamond concentration, so our blades easily outlast the standard stuff you get at retail."
-    } else if (prio.includes('fast')) {
-      specificPitch = "Our turbo segment design reduces drag and clears debris instantly, so it won't bind up when you're cutting deep."
-    } else if (prio.includes('clean')) {
-      specificPitch = "Our continuous rim technology ensures a true zero-chip finish every single time."
-    } else if (prio.includes('price') || prio.includes('lower')) {
-      specificPitch = "Because we manufacture and distribute directly, we cut out the middleman, saving you 20-30% compared to local suppliers."
+    const recommendations = [];
+
+    const pitches = {
+      medusa: "Let me tell you about one of my best selling blades for the kind of work you are doing. It's called 'The Medusa'. What my customers all love about this blade is that it has a 12mm jumbo segment compared to most blades on the market that are just 10mm giving you longer blade life. This new blade is perfect for Cured Concrete, Brick, Block, Stone & Pavers. The segments are made under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed. Each one of the segments are laser welded for reliability and safety and the core is speed tensioned to eliminate warping and wobbling.",
+      kingTurbo: "Let me tell you about one of my best blades for what you are doing... it's called 'THE KING TURBO BLADE'. What my customers all love about this blade is that it has 24 serrated turbo segments which makes the blade cut super fast and super smooth through Hard Re-enforced Concrete and other hard materials. This premium soft bond blade will actually pull itself through the cut, so you don't have to put a lot of pressure on the saw you just let the blade do the work for you. They form the diamond segments differently, making them under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed.",
+      titan: "I want to tell you about one of my best blades for what you're doing. It's called 'THE TITAN'. This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from Re-enforced Concrete, Asphalt, Ductile Iron, Re-enforced Concrete Pipe and even Rebar! The major improvement over other blades on the market is when they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed. On top of all that, it has a speed tensioned Cobalt Core which prevents warping and wobbling, and the segments are laser welded!",
+      darkKnight: "I want to tell you about one of my best blades for what you're doing. It's called my 'Dark Knight Blade'. This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from re-enforced concrete to asphalt, to brick, block & stone. The major improvement over other blades is that they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed. On top of all that, it has a speed tensioned Cobalt Core which prevents warping and wobbling, and the segments are laser welded!",
+      razor: "This blade is ideal for cutting Ceramic Tile, Marble, Granite & even Porcelain and it cuts through it like a hot knife through butter! The new 'Razor Blade' has a reinforced core to prevent warping, wobbling and walking and runs super quiet. This blade cuts really clean & fast & the manufacturer claims 100% chip free cutting.",
+      generic: "With direct-from-manufacturer pricing and higher quality products, we only offer the best of the best based upon your application."
+    };
+
+    if (mat.includes('marble') || mat.includes('tile') || mat.includes('glass') || mat.includes('granite')) {
+      recommendations.push({ tier: 'Good', blade: '10" / 14" Continuous Rim Blade', pitch: pitches.generic });
+      recommendations.push({ tier: 'Best', blade: 'Titan Razor Blade', pitch: pitches.razor });
+    } else if (mat.includes('asphalt') || mat.includes('green concrete')) {
+      recommendations.push({ tier: 'Good', blade: 'Asphalt Pro / Green Concrete Blade', pitch: pitches.generic });
+      recommendations.push({ tier: 'Best', blade: 'The Titan', pitch: pitches.titan });
     } else {
-      specificPitch = "With direct-from-manufacturer pricing and higher quality products, we only offer the best of the best based upon your application."
+      recommendations.push({ tier: 'Good', blade: 'The Medusa Blade', pitch: pitches.medusa });
+      recommendations.push({ tier: 'Better', blade: 'The King Turbo', pitch: pitches.kingTurbo });
+      recommendations.push({ tier: 'Best', blade: 'The Dark Knight Blade', pitch: pitches.darkKnight });
     }
     
-    const trustPitch = "After 30 years at the top of our industry, you can trust that the longevity speaks for itself."
-    
-    return {
-      blade: bladeName,
-      pitch: `${specificPitch} ${trustPitch}`
+    let priorityAddon = '';
+    if (prio.includes('life')) {
+      priorityAddon = " We laser-weld our segments and use a 30% higher diamond concentration, so our blades easily outlast the standard stuff you get at retail.";
+    } else if (prio.includes('fast')) {
+      priorityAddon = " Our turbo segment design reduces drag and clears debris instantly, so it won't bind up when you're cutting deep.";
+    } else if (prio.includes('clean')) {
+      priorityAddon = " Our continuous rim technology ensures a true zero-chip finish every single time.";
+    } else if (prio.includes('price') || prio.includes('lower')) {
+      priorityAddon = " Because we manufacture and distribute directly, we cut out the middleman, saving you 20-30% compared to local suppliers.";
     }
+    
+    return recommendations.map(rec => ({
+      ...rec,
+      pitch: rec.pitch + priorityAddon
+    }));
   }
 
   const handleNext = () => {
@@ -667,12 +676,19 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             </div>
 
             {/* Recommendation Box */}
-            <div className="bg-emerald-950/20 border border-emerald-900/50 p-5 rounded-2xl space-y-2 mt-4 animate-in fade-in duration-300">
+            <div className="bg-emerald-950/20 border border-emerald-900/50 p-5 rounded-2xl space-y-4 mt-4 animate-in fade-in duration-300">
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5 mb-1">
-                <FiCheckSquare /> Pitch Recommendation
+                <FiCheckSquare /> Pitch Recommendations
               </span>
-              <h4 className="text-white font-bold text-sm">{getBladeRecommendation().blade}</h4>
-              <p className="text-xs text-emerald-100/70 leading-relaxed">{getBladeRecommendation().pitch}</p>
+              {getBladeRecommendation().map((rec, i) => (
+                <div key={i} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-900 text-emerald-300">{rec.tier}</span>
+                    <h4 className="text-white font-bold text-sm">{rec.blade}</h4>
+                  </div>
+                  <p className="text-xs text-emerald-100/70 leading-relaxed">{rec.pitch}</p>
+                </div>
+              ))}
             </div>
 
           </div>
