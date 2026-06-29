@@ -552,6 +552,48 @@ export function SalesBoard() {
         </div>
 
       </div>
+
+      {/* Weekly Sales Banner */}
+      <div className="bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border-t border-emerald-500/20 px-6 py-4 flex items-center justify-between z-20 backdrop-blur-xl">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30 shadow-lg shadow-emerald-500/20">
+            <FiDollarSign className="text-emerald-400 text-xl" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black tracking-widest text-white uppercase">Weekly Sales Totals</h3>
+            <p className="text-[10px] text-emerald-400 font-bold tracking-widest uppercase mt-0.5 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Live Tracking
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-10">
+          <div className="flex flex-col items-end">
+            <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-0.5">Total Sales</div>
+            <div className="text-2xl font-black text-emerald-400 drop-shadow-md">{formatCurrency(data.teamWeekly.sales)}</div>
+          </div>
+          <div className="w-[1px] h-8 bg-white/10"></div>
+          <div className="flex flex-col items-end">
+            <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-0.5">Total Profit</div>
+            <div className="text-2xl font-black text-white">{formatCurrency(data.teamWeekly.profit)}</div>
+          </div>
+          <div className="w-[1px] h-8 bg-white/10"></div>
+          <div className="flex flex-col items-end">
+            <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-0.5">Total Commission</div>
+            <div className="text-2xl font-black text-white">{formatCurrency(data.teamWeekly.commission)}</div>
+          </div>
+          <div className="w-[1px] h-8 bg-white/10"></div>
+          <div className="flex flex-col items-end">
+            <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-0.5">Weekly Quota</div>
+            <div className="flex items-center gap-2">
+               <div className="text-2xl font-black text-white">{teamQuotaPct}%</div>
+               <div className="w-16 h-2 bg-black rounded-full overflow-hidden border border-white/10">
+                 <div className="h-full bg-emerald-500" style={{ width: `${teamQuotaPct}%` }}></div>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

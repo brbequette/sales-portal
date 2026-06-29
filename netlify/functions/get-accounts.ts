@@ -239,10 +239,14 @@ export const handler: Handler = async (event, context) => {
               // Deduplicate incoming Zoho accounts by name
               const localAccountsBefore = await prisma.account.findMany({
                 where: { ownerId: syncUser.id },
-                select: { id: true, zohoId: true, name: true }
+                select: { id: true, zohoId: true, name: true, zohoModifiedTime: true }
               });
               const nameMap = new Map();
-              localAccountsBefore.forEach(a => nameMap.set(a.name.toLowerCase().trim(), a.id));
+              const dbModifiedTimeMap = new Map();
+              localAccountsBefore.forEach(a => {
+                nameMap.set(a.name.toLowerCase().trim(), a.id);
+                if (a.zohoId) dbModifiedTimeMap.set(a.zohoId, a.zohoModifiedTime ? new Date(a.zohoModifiedTime).getTime() : 0);
+              });
 
               const uniqueZohoAccounts = [];
               const seenNames = new Set(nameMap.keys());
@@ -256,7 +260,16 @@ export const handler: Handler = async (event, context) => {
               }
 
               // Upsert each unique account
-              const accountOps = uniqueZohoAccounts.map((record: any) => {
+              const accountOps = [];
+              for (const record of uniqueZohoAccounts) {
+                const incomingModifiedTimeStr = record.Modified_Time || record.Updated_Time;
+                const incomingModifiedTime = incomingModifiedTimeStr ? new Date(incomingModifiedTimeStr).getTime() : 0;
+                const dbModifiedTime = dbModifiedTimeMap.get(record.id) || 0;
+
+                if (dbModifiedTime > 0 && incomingModifiedTime > 0 && dbModifiedTime >= incomingModifiedTime) {
+                  continue;
+                }
+                
                 let status = 'Open'
                 const lastPurchaseDate = record.Last_Purchase_Date ? new Date(record.Last_Purchase_Date) : null
                 if (lastPurchaseDate) {
@@ -297,13 +310,15 @@ export const handler: Handler = async (event, context) => {
                   tags: tagsStr,
                   ownerId: syncUser.id,
                   timeZone: timeZone,
+                  zohoModifiedTime: incomingModifiedTimeStr ? new Date(incomingModifiedTimeStr) : null,
+                  rawData: record,
                 }
                 if (lastPurchaseDate) {
                   updateData.lastPurchaseAt = lastPurchaseDate
                   updateData.status = status
                 }
                 
-                return prisma.account.upsert({
+                accountOps.push(prisma.account.upsert({
                   where: { zohoId: record.id },
                   update: updateData,
                   create: {
@@ -315,9 +330,11 @@ export const handler: Handler = async (event, context) => {
                     lastPurchaseAt: lastPurchaseDate,
                     ownerId: syncUser.id,
                     timeZone: timeZone,
+                    zohoModifiedTime: incomingModifiedTimeStr ? new Date(incomingModifiedTimeStr) : null,
+                    rawData: record,
                   }
-                })
-              });
+                }));
+              }
 
               for (let i = 0; i < accountOps.length; i += 50) {
                 const chunk = accountOps.slice(i, i + 50)
@@ -466,8 +483,10 @@ export const handler: Handler = async (event, context) => {
                     if (dbAccountId) {
                       invoiceOps.push(
                         prisma.invoice.upsert({
-                          where: { zohoId: invRecord.id },
-                          update: {
+                            where: { zohoId: invRecord.id },
+                            update: {
+                              rawData: invRecord,
+                              zohoModifiedTime: (invRecord.Modified_Time || invRecord.Updated_Time) ? new Date(invRecord.Modified_Time || invRecord.Updated_Time) : null,
                             amount: parseFloat(invRecord.Sub_Total || 0),
                             status: status,
                             issueDate: new Date(invRecord.Invoice_Date || invRecord.Created_Time),
@@ -483,7 +502,9 @@ export const handler: Handler = async (event, context) => {
                             }
                           },
                           create: {
-                            zohoId: invRecord.id,
+                              rawData: invRecord,
+                              zohoModifiedTime: (invRecord.Modified_Time || invRecord.Updated_Time) ? new Date(invRecord.Modified_Time || invRecord.Updated_Time) : null,
+                              zohoId: invRecord.id,
                             accountId: dbAccountId,
                             amount: parseFloat(invRecord.Sub_Total || 0),
                             status: status,
@@ -549,15 +570,19 @@ export const handler: Handler = async (event, context) => {
                     if (dbAccountId) {
                       dealOps.push(
                         prisma.deal.upsert({
-                          where: { zohoId: dealRecord.id },
-                          update: {
+                            where: { zohoId: dealRecord.id },
+                            update: {
+                              rawData: dealRecord,
+                              zohoModifiedTime: (dealRecord.Modified_Time || dealRecord.Updated_Time) ? new Date(dealRecord.Modified_Time || dealRecord.Updated_Time) : null,
                             name: dealRecord.Deal_Name,
                             amount: parseFloat(dealRecord.Amount || 0),
                             stage: dealRecord.Stage,
                             closingDate: dealRecord.Closing_Date ? new Date(dealRecord.Closing_Date) : null,
                           },
                           create: {
-                            zohoId: dealRecord.id,
+                              rawData: dealRecord,
+                              zohoModifiedTime: (dealRecord.Modified_Time || dealRecord.Updated_Time) ? new Date(dealRecord.Modified_Time || dealRecord.Updated_Time) : null,
+                              zohoId: dealRecord.id,
                             accountId: dbAccountId,
                             ownerId: syncUser.id,
                             name: dealRecord.Deal_Name,
@@ -763,8 +788,10 @@ export const handler: Handler = async (event, context) => {
 
                       contactOps.push(
                         prisma.contact.upsert({
-                          where: { zohoId: contactRecord.id },
-                          update: {
+                            where: { zohoId: contactRecord.id },
+                            update: {
+                              rawData: contactRecord,
+                              zohoModifiedTime: (contactRecord.Modified_Time || contactRecord.Updated_Time) ? new Date(contactRecord.Modified_Time || contactRecord.Updated_Time) : null,
                             firstName: contactRecord.First_Name || null,
                             lastName: contactRecord.Last_Name || null,
                             email: contactRecord.Email || null,
@@ -772,7 +799,9 @@ export const handler: Handler = async (event, context) => {
                             mobilePhone: contactRecord.Mobile || null,
                           },
                           create: {
-                            zohoId: contactRecord.id,
+                              rawData: contactRecord,
+                              zohoModifiedTime: (contactRecord.Modified_Time || contactRecord.Updated_Time) ? new Date(contactRecord.Modified_Time || contactRecord.Updated_Time) : null,
+                              zohoId: contactRecord.id,
                             accountId: dbAccountId,
                             firstName: contactRecord.First_Name || null,
                             lastName: contactRecord.Last_Name || null,
