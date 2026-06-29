@@ -19,6 +19,7 @@ import { QualityPicker } from "@/components/QualityPicker"
 import { ContactsView } from "@/components/ContactsView"
 import { AccountProductsPurchased } from "@/components/AccountProductsPurchased"
 import { TaskEditor } from "@/components/TaskEditor"
+import { AccountEditModal } from "@/components/AccountEditModal"
 
 type ActiveTab = "overview" | "history" | "purchased" | "tasks" | "ai"
 
@@ -40,6 +41,7 @@ function AccountHubContent() {
   const [viewingSalesDoc, setViewingSalesDoc] = useState<{ type: 'SalesOrder' | 'Quote', doc: any } | null>(null)
   const [historyViewMode, setHistoryViewMode] = useState<"data" | "pdf">("data")
   const [aiViewMode, setAiViewMode] = useState<"assistant" | "comms">("comms")
+  const [isEditingAccount, setIsEditingAccount] = useState(false)
 
   const fetchAccountData = async (showLoading = true) => {
     if (showLoading) setLoading(true)
@@ -145,6 +147,16 @@ function AccountHubContent() {
 
   return (
     <div className="flex flex-col bg-neutral-950 text-white font-sans" style={{ height: "100%" }}>
+      {isEditingAccount && (
+        <AccountEditModal 
+          account={account} 
+          onClose={() => setIsEditingAccount(false)} 
+          onSaved={() => {
+            setIsEditingAccount(false)
+            fetchAccountData(false)
+          }} 
+        />
+      )}
 
       {/* ── Header ── */}
       <header className="flex-none bg-neutral-900 border-b border-neutral-800 px-4 py-3">
@@ -153,7 +165,10 @@ function AccountHubContent() {
             <Link href="/" className="text-neutral-400 hover:text-white text-sm shrink-0">← Back</Link>
             <div className="h-5 w-px bg-neutral-700 shrink-0"></div>
             <div className="min-w-0">
-              <h1 className="text-base font-bold truncate">{account.name}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-bold truncate">{account.name}</h1>
+                <button onClick={() => setIsEditingAccount(true)} className="text-[9px] bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 px-1.5 py-0.5 rounded transition-colors uppercase tracking-wider font-bold">Edit</button>
+              </div>
               <div className="flex items-center gap-2 mt-0.5">
                 <QualityPicker
                   zohoId={account.zohoId}

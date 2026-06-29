@@ -85,6 +85,7 @@ model Contact {
   phone       String?
   mobilePhone String?
   isPrimary   Boolean  @default(false)
+  designation String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   zohoModifiedTime DateTime?

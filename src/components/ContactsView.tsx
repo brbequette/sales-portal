@@ -2,9 +2,10 @@
 
 import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
-import { FiUser, FiMail, FiPhone, FiSmartphone, FiPlus, FiMessageSquare, FiCheck, FiFileText } from "react-icons/fi"
+import { FiUser, FiMail, FiPhone, FiSmartphone, FiPlus, FiMessageSquare, FiCheck, FiFileText, FiEdit2 } from "react-icons/fi"
+import { ContactEditModal } from "@/components/ContactEditModal"
 
-interface Contact {
+export interface Contact {
   id: string
   zohoId: string
   firstName: string | null
@@ -13,6 +14,7 @@ interface Contact {
   phone: string | null
   mobilePhone: string | null
   isPrimary: boolean
+  designation?: string | null
 }
 
 interface Note {
@@ -37,6 +39,14 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
   const [newNoteText, setNewNoteText] = useState("")
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null)
   const [showNoteFormId, setShowNoteFormId] = useState<string | null>(null)
+  const [editingContact, setEditingContact] = useState<Contact | null | undefined>(undefined)
+
+  const handleContactSaved = () => {
+    setEditingContact(undefined)
+    // The parent component should ideally refetch the account data to get the updated contacts,
+    // but in a real-world scenario we could also pass a callback to ContactsView.
+    // Assuming a page refresh or refetch on the parent happens, we just close the modal.
+  }
 
   const getContactNotes = (contact: Contact) => {
     const firstName = contact.firstName || ""
@@ -113,10 +123,21 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
   }
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-bold text-white flex items-center mb-4">
-        <FiUser className="mr-2 text-emerald-500" /> Contacts & Notes
-      </h3>
+    <div className="space-y-4 relative">
+      {editingContact !== undefined && (
+        <ContactEditModal 
+          accountId={accountId} 
+          contact={editingContact} 
+          onClose={() => setEditingContact(undefined)} 
+          onSaved={handleContactSaved} 
+        />
+      )}
+      
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-white flex items-center">
+          <FiUser className="mr-2 text-emerald-500" /> Contacts & Notes
+        </h3>
+      </div>
 
       {/* Grid Layout: Left list of contacts, Right contact details and notes */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -146,8 +167,14 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
           </button>
 
           {/* Section Divider */}
-          <div className="pt-2 pb-1 px-1 border-t border-neutral-800">
+          <div className="pt-2 pb-1 px-1 border-t border-neutral-800 flex items-center justify-between">
             <span className="text-[9px] uppercase font-bold tracking-wider text-neutral-500">Contacts</span>
+            <button
+              onClick={() => setEditingContact(null)}
+              className="text-[9px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 uppercase tracking-wider"
+            >
+              <FiPlus /> Add
+            </button>
           </div>
 
           {contacts.length === 0 ? (
@@ -157,48 +184,53 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
               const isSelected = c.id === selectedContactId
               const isPrimary = c.isPrimary
               return (
-                <button
-                  key={c.id}
-                  onClick={() => {
-                    setSelectedContactId(c.id)
-                    setShowNoteFormId(null)
-                    setNewNoteText("")
-                  }}
-                  className={`w-full text-left p-3.5 rounded-xl border transition-all flex flex-col gap-1.5 cursor-pointer ${
-                    isSelected
-                      ? "bg-neutral-800 border-emerald-500/40 shadow-lg"
-                      : "bg-neutral-900/40 border-neutral-800 hover:border-neutral-700"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2 w-full">
-                    <span className="text-xs font-bold text-white truncate">
-                      {c.firstName || ""} {c.lastName || "Contact"}
-                    </span>
-                    {isPrimary && (
-                      <span className="text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
-                        Primary
+                <div key={c.id} className="relative group">
+                  <button
+                    onClick={() => {
+                      setSelectedContactId(c.id)
+                      setShowNoteFormId(null)
+                      setNewNoteText("")
+                    }}
+                    className={`w-full text-left p-3.5 rounded-xl border transition-all flex flex-col gap-1.5 cursor-pointer pr-8 ${
+                      isSelected
+                        ? "bg-neutral-800 border-emerald-500/40 shadow-lg"
+                        : "bg-neutral-900/40 border-neutral-800 hover:border-neutral-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 w-full">
+                      <span className="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                        {c.firstName || ""} {c.lastName || "Contact"}
+                        {c.designation && (
+                          <span className="text-[8px] font-bold text-neutral-400 bg-neutral-800 px-1.5 py-0.5 rounded-md border border-neutral-700">
+                            {c.designation}
+                          </span>
+                        )}
+                      </span>
+                      {isPrimary && (
+                        <span className="text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
+                          Primary
+                        </span>
+                      )}
+                    </div>
+                    {c.email && (
+                      <span className="text-[10px] text-neutral-400 truncate w-full flex items-center gap-1">
+                        <FiMail className="shrink-0 text-neutral-500" size={10} />
+                        {c.email}
                       </span>
                     )}
-                  </div>
-                  {c.email && (
-                    <span className="text-[10px] text-neutral-400 truncate w-full flex items-center gap-1">
-                      <FiMail className="shrink-0 text-neutral-500" size={10} />
-                      {c.email}
-                    </span>
-                  )}
-                  {(c.phone || c.mobilePhone) && (
-                    <div className="flex items-center gap-2 mt-1.5 flex-wrap" onClick={e => e.stopPropagation()}>
-                      <a 
-                        href={`tel:${c.phone || c.mobilePhone}`}
-                        className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-blue-455 cursor-pointer"
-                      >
-                        <FiPhone className="shrink-0" size={10} />
-                        Call
-                      </a>
-                      <span className="text-neutral-700 text-[10px]">&bull;</span>
-                      <a 
-                        href={`tel:${c.phone || c.mobilePhone}`}
-                        className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-emerald-455 cursor-pointer"
+                    {(c.phone || c.mobilePhone) && (
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap" onClick={e => e.stopPropagation()}>
+                        <a 
+                          href={`tel:${c.phone || c.mobilePhone}`}
+                          className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-blue-455 cursor-pointer"
+                        >
+                          <FiPhone className="shrink-0" size={10} />
+                          Call
+                        </a>
+                        <span className="text-neutral-700 text-[10px]">&bull;</span>
+                        <a 
+                          href={`tel:${c.phone || c.mobilePhone}`}
+                          className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-emerald-455 cursor-pointer"
                       >
                         <FiMessageSquare className="shrink-0" size={10} />
                         Text
@@ -211,6 +243,14 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     </div>
                   )}
                 </button>
+                <button 
+                  onClick={() => setEditingContact(c)}
+                  className="absolute top-2 right-2 p-1.5 text-neutral-500 hover:text-white bg-neutral-900 hover:bg-neutral-800 rounded-lg opacity-0 group-hover:opacity-100 transition-all border border-neutral-800"
+                  title="Edit Contact"
+                >
+                  <FiEdit2 size={12} />
+                </button>
+              </div>
               )
             })
           )}
