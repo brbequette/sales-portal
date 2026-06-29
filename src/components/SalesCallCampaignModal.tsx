@@ -69,7 +69,11 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
       })
     }).catch(err => console.error("Error logging call initiation:", err))
     
-    window.location.href = `tel:${phone}`
+    const link = document.createElement('a')
+    link.href = `tel:${phone}`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   // Power Dialer Auto-Dial Effect
@@ -437,7 +441,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       title={`Dial ${cleanPhone}`}
                     >
                       <FiPhoneCall size={18} />
-                    </button>
+                    </a>
                   )}
                 </div>
               </div>
