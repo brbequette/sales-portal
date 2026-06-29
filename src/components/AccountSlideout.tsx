@@ -88,7 +88,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
                         </div>
                         <div className="flex items-center gap-3 text-neutral-400 text-sm mb-1">
                           <FiPhone className="text-neutral-500" />
-                          <a href={`callto:${primaryContact?.phone || primaryContact?.mobilePhone}`} className="hover:text-emerald-400 hover:underline">
+                          <a href={`tel:${primaryContact?.phone || primaryContact?.mobilePhone}`} className="hover:text-emerald-400 hover:underline">
                             {primaryContact?.phone || primaryContact?.mobilePhone || 'No Phone'}
                           </a>
                         </div>
