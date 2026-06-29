@@ -14,16 +14,28 @@ type ActivityEvent = {
 
 export function RecentActivityFeed() {
   const [activities, setActivities] = useState<ActivityEvent[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // In a real app this would be a WebSocket or Server-Sent Events (SSE)
-    // For now, we simulate an activity stream.
-    setActivities([
-      { id: "1", title: "New Lead Created", description: "John Doe from Acme Corp", timestamp: new Date(Date.now() - 1000 * 60 * 5), type: "account", link: "/accounts" },
-      { id: "2", title: "Invoice Paid", description: "INV-10492 ($450.00) paid by XYZ Inc", timestamp: new Date(Date.now() - 1000 * 60 * 22), type: "invoice", link: "/invoices" },
-      { id: "3", title: "Task Completed", description: "Follow up with Sarah", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), type: "task", link: "/tasks" },
-      { id: "4", title: "Zoho Sync Complete", description: "48 accounts synchronized", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4), type: "system", link: "/admin" },
-    ])
+    const fetchActivities = async () => {
+      try {
+        const res = await fetch('/api/activities')
+        const data = await res.json()
+        if (data.success && data.activities) {
+          setActivities(data.activities)
+        }
+      } catch (err) {
+        console.error("Failed to fetch activities:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchActivities()
+    
+    // Poll every 15 seconds for live updates
+    const interval = setInterval(fetchActivities, 15000)
+    return () => clearInterval(interval)
   }, [])
 
   return (
@@ -34,7 +46,9 @@ export function RecentActivityFeed() {
       </div>
       
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {activities.map(activity => {
+        {loading && activities.length === 0 ? (
+          <div className="text-center text-xs text-neutral-500 py-4">Loading live feed...</div>
+        ) : activities.map(activity => {
           const content = (
             <>
               <div className={`mt-0.5 shrink-0 w-7 h-7 rounded-lg flex items-center justify-center shadow-lg
