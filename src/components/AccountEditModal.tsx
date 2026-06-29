@@ -20,7 +20,7 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
   const handleSave = async () => {
     setLoading(true)
     try {
-      const formattedTags = formData.tags.split(",").map((t) => t.trim()).filter(Boolean)
+      const formattedTags = formData.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
       const res = await fetch("/api/update-account-details", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
