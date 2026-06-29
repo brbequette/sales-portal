@@ -30,7 +30,7 @@ function AccountHubContent() {
   const [account, setAccount] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showPos, setShowPos] = useState(false)
+  const [showPos, setShowPos] = useState(searchParams.get("pos") === "true")
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview")
   const [drillTitle, setDrillTitle] = useState("")
   const [drillInvoices, setDrillInvoices] = useState<any[] | null>(null)

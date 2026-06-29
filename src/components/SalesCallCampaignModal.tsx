@@ -368,7 +368,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
 
                 <div className="flex items-center gap-2">
                   <Link 
-                    href={`/pos?account=${activeAccount.zohoId}`}
+                    href={`/account?id=${activeAccount.zohoId}&pos=true`}
                     className="p-3 bg-emerald-500 hover:bg-emerald-400 text-black rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shadow-emerald-500/10 cursor-pointer"
                     title={`Start Quote / Order for ${activeAccount.name}`}
                   >
