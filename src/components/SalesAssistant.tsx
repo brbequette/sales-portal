@@ -111,7 +111,7 @@ export function SalesAssistant({ accountId, accountData }: { accountId: string, 
           <span className="text-xs text-neutral-500 font-semibold mr-2">QUICK ACTIONS:</span>
           {accountData?.crmDetails?.Phone && (
             <a 
-              href={"tel:" + accountData.crmDetails.Phone.replace(/[^0-9+]/g, '')}
+              href={"callto:" + accountData.crmDetails.Phone.replace(/[^0-9+]/g, '')}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded transition-colors text-xs font-bold"
               title="Click to Call (ZDialer)"
             >
