@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { FiClock, FiAlertCircle, FiCheckCircle, FiXCircle } from "react-icons/fi"
 
@@ -163,6 +163,47 @@ export default function UserTimeclockPage() {
     return total.toFixed(2)
   }
 
+  const groupedEntries = useMemo(() => {
+    const groups: Record<string, { weekStart: Date, weekEnd: Date, totalHours: number, entries: TimeEntry[] }> = {}
+    
+    entries.forEach(entry => {
+      const [y, m, d] = entry.date.split("-").map(Number)
+      const entryDate = new Date(y, m - 1, d)
+      
+      const day = entryDate.getDay()
+      const diff = entryDate.getDate() - day + (day === 0 ? -6 : 1)
+      const monday = new Date(entryDate.getFullYear(), entryDate.getMonth(), diff)
+      monday.setHours(0, 0, 0, 0)
+      
+      const sunday = new Date(monday)
+      sunday.setDate(monday.getDate() + 6)
+      
+      const weekKey = monday.toISOString()
+      
+      if (!groups[weekKey]) {
+        groups[weekKey] = {
+          weekStart: monday,
+          weekEnd: sunday,
+          totalHours: 0,
+          entries: []
+        }
+      }
+      
+      groups[weekKey].entries.push(entry)
+      groups[weekKey].totalHours += parseFloat(calculateHours(entry))
+    })
+    
+    // Sort groups by week (descending)
+    const sortedGroups = Object.values(groups).sort((a, b) => b.weekStart.getTime() - a.weekStart.getTime())
+    
+    // Within each group, sort entries by date (descending)
+    sortedGroups.forEach(group => {
+       group.entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    })
+
+    return sortedGroups
+  }, [entries])
+
   return (
     <div className="min-h-[calc(100vh-64px)] bg-black text-white p-4 lg:p-8">
       <div className="max-w-4xl mx-auto">
@@ -205,49 +246,61 @@ export default function UserTimeclockPage() {
                 ) : entries.length === 0 ? (
                   <tr><td colSpan={5} className="px-6 py-8 text-center text-neutral-500">No timeclock data found.</td></tr>
                 ) : (
-                  entries.map(entry => {
-                    const effectiveIn = entry.manualClockIn || entry.clockIn
-                    let effectiveOut = entry.manualClockOut || entry.clockOut || entry.lastActivity
-
-                    const pendingRequest = entry.changeRequests?.find(r => r.status === "PENDING")
-                    const rejectedRequest = entry.changeRequests?.find(r => r.status === "REJECTED")
-
-                    return (
-                      <tr key={entry.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="px-6 py-4 font-medium">{entry.date}</td>
-                        <td className="px-6 py-4">
-                          {formatTime(effectiveIn)}
-                          {entry.manualClockIn && <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">Edited</span>}
-                        </td>
-                        <td className="px-6 py-4">
-                          {formatTime(effectiveOut)}
-                          {entry.manualClockOut && <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">Edited</span>}
-                        </td>
-                        <td className="px-6 py-4 font-bold text-emerald-400">{calculateHours(entry)}h</td>
-                        <td className="px-6 py-4">
-                          {pendingRequest ? (
-                            <span className="flex items-center gap-1.5 text-amber-500 text-xs font-semibold">
-                              <FiAlertCircle /> Change Pending
-                            </span>
-                          ) : (
-                            <div className="flex items-center gap-3">
-                              {rejectedRequest && (
-                                <span className="flex items-center gap-1 text-red-400 text-xs" title="A previous change request was rejected">
-                                  <FiXCircle />
-                                </span>
-                              )}
-                              <button 
-                                onClick={() => handleOpenChangeModal(entry)}
-                                className="text-xs bg-white/5 hover:bg-white/10 text-neutral-300 px-3 py-1.5 rounded-lg transition-colors border border-white/10"
-                              >
-                                Request Change
-                              </button>
-                            </div>
-                          )}
+                  groupedEntries.map((group) => (
+                    <React.Fragment key={group.weekStart.toISOString()}>
+                      <tr className="bg-[#1a1b1e] border-y border-white/10">
+                        <td colSpan={5} className="px-6 py-3">
+                           <div className="flex items-center justify-between w-full font-semibold text-emerald-400">
+                             <span>Week of {group.weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {group.weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                             <span className="text-white bg-white/10 px-2.5 py-1 rounded text-xs tracking-widest font-bold">TOTAL: {group.totalHours.toFixed(2)}H</span>
+                           </div>
                         </td>
                       </tr>
-                    )
-                  })
+                      {group.entries.map(entry => {
+                        const effectiveIn = entry.manualClockIn || entry.clockIn
+                        let effectiveOut = entry.manualClockOut || entry.clockOut || entry.lastActivity
+
+                        const pendingRequest = entry.changeRequests?.find(r => r.status === "PENDING")
+                        const rejectedRequest = entry.changeRequests?.find(r => r.status === "REJECTED")
+
+                        return (
+                          <tr key={entry.id} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="px-6 py-4 font-medium">{entry.date}</td>
+                            <td className="px-6 py-4">
+                              {formatTime(effectiveIn)}
+                              {entry.manualClockIn && <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">Edited</span>}
+                            </td>
+                            <td className="px-6 py-4">
+                              {formatTime(effectiveOut)}
+                              {entry.manualClockOut && <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">Edited</span>}
+                            </td>
+                            <td className="px-6 py-4 font-bold text-emerald-400">{calculateHours(entry)}h</td>
+                            <td className="px-6 py-4">
+                              {pendingRequest ? (
+                                <span className="flex items-center gap-1.5 text-amber-500 text-xs font-semibold">
+                                  <FiAlertCircle /> Change Pending
+                                </span>
+                              ) : (
+                                <div className="flex items-center gap-3">
+                                  {rejectedRequest && (
+                                    <span className="flex items-center gap-1 text-red-400 text-xs" title="A previous change request was rejected">
+                                      <FiXCircle />
+                                    </span>
+                                  )}
+                                  <button 
+                                    onClick={() => handleOpenChangeModal(entry)}
+                                    className="text-xs bg-white/5 hover:bg-white/10 text-neutral-300 px-3 py-1.5 rounded-lg transition-colors border border-white/10"
+                                  >
+                                    Request Change
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </React.Fragment>
+                  ))
                 )}
               </tbody>
             </table>
