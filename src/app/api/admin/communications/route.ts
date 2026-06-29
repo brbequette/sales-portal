@@ -3,11 +3,10 @@ import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: Request) {
   try {
-    // Basic auth check: we will trust the client to pass the Zoho user context or role query param
-    // since the Zoho Embedded App handles actual verification.
-    // In a real strict setup, we'd verify a signed JWT from Zoho, but here we mirror other endpoints.
     const url = new URL(req.url)
     const role = url.searchParams.get("role") || ""
 
@@ -18,23 +17,52 @@ export async function GET(req: Request) {
     const [callLogs, smsLogs] = await Promise.all([
       prisma.callLog.findMany({
         orderBy: { createdAt: 'desc' },
-        take: 100,
+        take: 300,
         include: {
-          account: { select: { name: true } },
-          author: { select: { name: true, email: true } }
+          account: { select: { id: true, name: true, zohoId: true } },
+          author: { select: { id: true, name: true, email: true } }
         }
       }),
       prisma.smsMessage.findMany({
         orderBy: { createdAt: 'desc' },
-        take: 100,
+        take: 300,
         include: {
-          account: { select: { name: true } },
-          author: { select: { name: true, email: true } }
+          account: { select: { id: true, name: true, zohoId: true } },
+          author: { select: { id: true, name: true, email: true } }
         }
       })
     ])
 
-    return NextResponse.json({ success: true, callLogs, smsLogs })
+    const unifiedLogs = [
+      ...callLogs.map(call => ({
+        id: call.id,
+        type: 'CALL',
+        timestamp: call.createdAt,
+        direction: call.direction,
+        fromNumber: call.fromNumber,
+        toNumber: call.toNumber,
+        duration: call.duration,
+        status: call.status,
+        content: call.notes || null,
+        account: call.account,
+        author: call.author,
+      })),
+      ...smsLogs.map(sms => ({
+        id: sms.id,
+        type: 'SMS',
+        timestamp: sms.createdAt,
+        direction: sms.direction,
+        fromNumber: sms.fromNumber,
+        toNumber: sms.toNumber,
+        duration: null,
+        status: 'completed', // SMS doesn't have status usually
+        content: sms.body || null,
+        account: sms.account,
+        author: sms.author,
+      }))
+    ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+    return NextResponse.json({ success: true, unifiedLogs })
   } catch (err: any) {
     console.error("Communications API Error:", err)
     return NextResponse.json({ success: false, error: err.message }, { status: 500 })
