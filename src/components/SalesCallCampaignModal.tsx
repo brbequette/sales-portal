@@ -172,7 +172,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     }
 
     if (callType === "cold") {
-      return `Hey, ${contactName} this is ${repName} over at Titan Diamond USA. I’m giving you a call today because we have an early release on our brand new 2026 line-up of blades that we featured at the The World of Concrete and ConExpo shows in Las Vegas this year. Depending on price point, we offer buy 3, 4, or 5 and get 1 free. The first one is to try, the rest you only purchase after you are satisfied with the quality. No money out of pocket and we will bill you in 30 days giving plenty of time to evaluate the complimentary blade.\n\nI just have a quick couple questions to see which blade will work best for you and what you’re cutting...\n
+      return `Hey, ${contactName} this is ${repName} over at Titan Diamond USA. I’m giving you a call today because we have an early release on our brand new 2026 line-up of blades that we featured at the The World of Concrete and ConExpo shows in Las Vegas this year and what’s great is with this new release, our manufacturer wants us to give away free blades to our new customers to build new relationships… I just have a quick couple questions to see which blade will work best for you and what you’re cutting...\n
 1) First off… what size blades do you run? 14”?
 2) What are you guys cutting out there?
 3) Where do you pick up your blades now, do you buy them retail or over the phone from a wholesaler like me?
