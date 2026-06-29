@@ -50,11 +50,14 @@ model Account {
   quality          String       @default("NEVER_STATUSED")
   lastCalledAt     DateTime?
   timeZone         String?
-  bladeSizes       String?
-  materialsCut     String?
-  currentSupplier  String?
-  averageBladeCost String?
-  owner            User         @relation(fields: [ownerId], references: [id])
+  bladeSizes          String?
+  materialsCut        String?
+  currentSupplier     String?
+  averageBladeCost    String?
+  crewCount           String?
+  bladesPerOrder      String?
+  improvementPriority String?
+  owner               User         @relation(fields: [ownerId], references: [id])
   contacts         Contact[]
   deals            Deal[]
   invoices         Invoice[]

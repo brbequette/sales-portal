@@ -33,7 +33,11 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const [ffReadyToBuy, setFfReadyToBuy] = useState('')
   const [ffPainPoints, setFfPainPoints] = useState('')
   const [ffJobTypes, setFfJobTypes] = useState('')
+  const [ffCrewCount, setFfCrewCount] = useState('')
+  const [ffBladesPerOrder, setFfBladesPerOrder] = useState('')
+  const [ffImprovementPriority, setFfImprovementPriority] = useState('')
   const [showFactFinding, setShowFactFinding] = useState(false)
+  const [callType, setCallType] = useState<"cold" | "update">("cold")
 
   // AI States
   const [aiPrompt, setAiPrompt] = useState("")
@@ -71,7 +75,17 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     setFfReadyToBuy(activeAccount.readyToBuy || '')
     setFfPainPoints(activeAccount.painPoints || '')
     setFfJobTypes(activeAccount.jobTypes || '')
+    setFfCrewCount(activeAccount.crewCount || '')
+    setFfBladesPerOrder(activeAccount.bladesPerOrder || '')
+    setFfImprovementPriority(activeAccount.improvementPriority || '')
     setShowFactFinding(false)
+
+    // Auto-detect call type
+    if (activeAccount.lastCalledAt) {
+      setCallType("update")
+    } else {
+      setCallType("cold")
+    }
 
     // Reset AI states
     setAiPrompt("")
@@ -115,6 +129,36 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const cleanPhone = displayPhone ? displayPhone.replace(/[^0-9+]/g, '') : ''
   const contactName = spokeTo || (primaryContact ? `${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim() : "there")
 
+  const renderPills = (options: string[], valueStr: string, setValueStr: (val: string) => void) => {
+    const selected = valueStr ? valueStr.split(',').map(s => s.trim()).filter(Boolean) : []
+    return (
+      <div className="flex flex-wrap gap-2">
+        {options.map(opt => {
+          const isChecked = selected.includes(opt)
+          return (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => {
+                const newSelected = isChecked 
+                  ? selected.filter(s => s !== opt) 
+                  : [...selected, opt]
+                setValueStr(newSelected.join(', '))
+              }}
+              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                isChecked
+                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
+                  : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400'
+              }`}
+            >
+              {isChecked ? '✓ ' : ''}{opt}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
   // Script Generator
   const generateScript = () => {
     const timeOfDay = new Date().getHours() < 12 ? "morning" : "afternoon"
@@ -123,16 +167,73 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     const overdueInvoices = (activeAccount.invoices || []).filter((i: any) => i.status === "Overdue" || i.status?.toLowerCase() === "overdue")
     const overdueTotal = overdueInvoices.reduce((sum: number, i: any) => sum + (parseFloat(i.amount) || 0), 0)
 
-    let scriptText = `Hi ${contactName}, this is ${repName} with Titan Diamond USA! Hope you're having a great ${timeOfDay}.\n\n`
-    
     if (overdueTotal > 0) {
-      scriptText += `I wanted to check in on your account. We noticed there is a pending balance of $${overdueTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} on your oldest overdue statement, and I wanted to see if we could get that taken care of today, or if you needed any invoice copies emailed over to you.\n\n`
-    } else {
-      scriptText += `I'm reaching out to check in on how your recent operations are going, and see if there are any specific diamond blades, cup wheels, or core drill bits you need stocked up for your upcoming projects. We have some great bulk markups available this month.\n\n`
+      return `Hi ${contactName}, this is ${repName} with Titan Diamond USA! Hope you're having a great ${timeOfDay}.\n\nI wanted to check in on your account. We noticed there is a pending balance of $${overdueTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} on your oldest overdue statement, and I wanted to see if we could get that taken care of today, or if you needed any invoice copies emailed over to you.\n\nIs there anything else we can quote or ship out for you today?`
+    }
+
+    if (callType === "cold") {
+      return `Hey, ${contactName} this is ${repName} over at Titan Diamond USA. I’m giving you a call today because we have an early release on our brand new 2026 line-up of blades that we featured at the The World of Concrete and ConExpo shows in Las Vegas this year. Depending on price point, we offer buy 3, 4, or 5 and get 1 free. The first one is to try, the rest you only purchase after you are satisfied with the quality. No money out of pocket and we will bill you in 30 days giving plenty of time to evaluate the complimentary blade.\n\nI just have a quick couple questions to see which blade will work best for you and what you’re cutting...\n
+1) First off… what size blades do you run? 14”?
+2) What are you guys cutting out there?
+3) Where do you pick up your blades now, do you buy them retail or over the phone from a wholesaler like me?
+4) How much are they charging you for a good 14” blade? $250? $300 Bucks?
+5) How many crews do you have?
+6) And how many blades do you normally pick up at a time.. 6.. 12.. 25?
+7) Let me ask you one last question… if you could improve one thing about the blades you are using right now… what would it be… longer life… faster cutting… or cleaner cutting?`
+    }
+
+    // Update Account / Follow Up
+    let scriptText = `Hi ${contactName}, this is ${repName} with Titan Diamond USA! Hope you're having a great ${timeOfDay}.\n\nI'm reaching out to check in on how your recent operations are going, and see if there are any specific diamond blades, cup wheels, or core drill bits you need stocked up for your upcoming projects. We have some great bulk markups available this month.\n\n`
+    
+    // Check for missing fact finding
+    const missing = []
+    if (!ffBladeSizes) missing.push("what size blades you primarily run")
+    if (!ffMaterialsCut) missing.push("what materials you guys are cutting most right now")
+    if (!ffCrewCount) missing.push("how many crews you have out in the field")
+    if (!ffBladesPerOrder) missing.push("how many blades you normally pick up at a time")
+    if (!ffImprovementPriority) missing.push("what's the one thing you'd improve about your current blades (longer life, faster, or cleaner cutting)")
+    
+    if (missing.length > 0) {
+      scriptText += `By the way, I was just updating your account profile and realized I didn't have it on file—could you remind me ${missing[0]}?\n\n`
     }
 
     scriptText += `Is there anything we can quote or ship out for you today?`
     return scriptText
+  }
+
+  const getBladeRecommendation = () => {
+    const mat = ffMaterialsCut.toLowerCase()
+    const prio = ffImprovementPriority.toLowerCase()
+    
+    let bladeName = '14" Titan Concrete Turbo Pro'
+    let specificPitch = ''
+    
+    if (mat.includes('asphalt') || mat.includes('green concrete')) {
+      bladeName = '14" Asphalt Pro / Green Concrete Blade'
+    } else if (mat.includes('granite') || mat.includes('hard stone')) {
+      bladeName = '14" Premium Turbo Granite Blade'
+    } else if (mat.includes('marble') || mat.includes('tile') || prio.includes('clean')) {
+      bladeName = '10" / 14" Continuous Rim Glass/Marble Blade'
+    }
+    
+    if (prio.includes('life')) {
+      specificPitch = "We laser-weld our segments and use a 30% higher diamond concentration, so our blades easily outlast the standard stuff you get at retail."
+    } else if (prio.includes('fast')) {
+      specificPitch = "Our turbo segment design reduces drag and clears debris instantly, so it won't bind up when you're cutting deep."
+    } else if (prio.includes('clean')) {
+      specificPitch = "Our continuous rim technology ensures a true zero-chip finish every single time."
+    } else if (prio.includes('price') || prio.includes('lower')) {
+      specificPitch = "Because we manufacture and distribute directly, we cut out the middleman, saving you 20-30% compared to local suppliers."
+    } else {
+      specificPitch = "With direct-from-manufacturer pricing and higher quality products, we only offer the best of the best based upon your application."
+    }
+    
+    const trustPitch = "After 30 years at the top of our industry, you can trust that the longevity speaks for itself."
+    
+    return {
+      blade: bladeName,
+      pitch: `${specificPitch} ${trustPitch}`
+    }
   }
 
   const handleNext = () => {
@@ -196,6 +297,9 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             readyToBuy: ffReadyToBuy || undefined,
             painPoints: ffPainPoints || undefined,
             jobTypes: ffJobTypes || undefined,
+            crewCount: ffCrewCount || undefined,
+            bladesPerOrder: ffBladesPerOrder || undefined,
+            improvementPriority: ffImprovementPriority || undefined,
           }
         })
       })
@@ -307,9 +411,15 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
 
             {/* Script Box */}
             <div className="space-y-2 flex-1 flex flex-col">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
-                <FiBookOpen /> Outreach Script Guidance
-              </span>
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
+                  <FiBookOpen /> Outreach Script Guidance
+                </span>
+                <div className="flex bg-neutral-900 border border-neutral-800 rounded text-[10px] font-bold p-0.5">
+                  <button onClick={() => setCallType("cold")} className={`px-2 py-1 rounded transition-colors ${callType === "cold" ? "bg-sky-600 text-black" : "text-neutral-500"}`}>Cold Call</button>
+                  <button onClick={() => setCallType("update")} className={`px-2 py-1 rounded transition-colors ${callType === "update" ? "bg-sky-600 text-black" : "text-neutral-500"}`}>Follow-Up</button>
+                </div>
+              </div>
               <div className="bg-neutral-950/60 border border-neutral-800 p-5 rounded-2xl text-sm text-neutral-300 leading-relaxed font-sans whitespace-pre-line select-text flex-1">
                 {generateScript()}
               </div>
@@ -421,24 +531,12 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                     {/* Blade Sizes */}
                     <div>
                       <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Blade Sizes</label>
-                      <input
-                        type="text"
-                        value={ffBladeSizes}
-                        onChange={e => setFfBladeSizes(e.target.value)}
-                        placeholder='4", 7", 14"'
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 transition-colors"
-                      />
+                      {renderPills(['4"', '4.5"', '7"', '9"', '10"', '12"', '14"', '16"', '18"', '20"'], ffBladeSizes, setFfBladeSizes)}
                     </div>
                     {/* Materials Cut */}
                     <div>
                       <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Materials Cut</label>
-                      <input
-                        type="text"
-                        value={ffMaterialsCut}
-                        onChange={e => setFfMaterialsCut(e.target.value)}
-                        placeholder="Concrete, Granite, Marble"
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 transition-colors"
-                      />
+                      {renderPills(['Concrete', 'Green Concrete', 'Asphalt', 'Granite', 'Marble', 'Tile', 'Block', 'Brick', 'Glass', 'Metal'], ffMaterialsCut, setFfMaterialsCut)}
                     </div>
                     {/* Current Supplier */}
                     <div>
@@ -523,16 +621,47 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                   {/* Job Types */}
                   <div>
                     <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Job Types</label>
-                    <input
-                      type="text"
-                      value={ffJobTypes}
-                      onChange={e => setFfJobTypes(e.target.value)}
-                      placeholder="Residential, Commercial"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 transition-colors"
-                    />
+                    {renderPills(['Residential', 'Commercial', 'Industrial', 'Highway/Road', 'Government'], ffJobTypes, setFfJobTypes)}
+                  </div>
+
+                  {/* Crew Count */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Crew Count</label>
+                    {renderPills(['1', '2-3', '4-5', '6-10', '11+'], ffCrewCount, setFfCrewCount)}
+                  </div>
+
+                  {/* Blades Per Order */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Blades Per Order</label>
+                    {renderPills(['1-5', '6-10', '11-20', '21-50', '50+'], ffBladesPerOrder, setFfBladesPerOrder)}
+                  </div>
+
+                  {/* Improvement Priority */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Improvement Priority</label>
+                    <select
+                      value={ffImprovementPriority}
+                      onChange={e => setFfImprovementPriority(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors cursor-pointer"
+                    >
+                      <option value="">-- Select --</option>
+                      <option value="Longer life">Longer Life</option>
+                      <option value="Faster cutting">Faster Cutting</option>
+                      <option value="Cleaner cutting">Cleaner Cutting</option>
+                      <option value="Lower price">Lower Price</option>
+                    </select>
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Recommendation Box */}
+            <div className="bg-emerald-950/20 border border-emerald-900/50 p-5 rounded-2xl space-y-2 mt-4 animate-in fade-in duration-300">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5 mb-1">
+                <FiCheckSquare /> Pitch Recommendation
+              </span>
+              <h4 className="text-white font-bold text-sm">{getBladeRecommendation().blade}</h4>
+              <p className="text-xs text-emerald-100/70 leading-relaxed">{getBladeRecommendation().pitch}</p>
             </div>
 
           </div>

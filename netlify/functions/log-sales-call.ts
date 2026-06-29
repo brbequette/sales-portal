@@ -114,6 +114,9 @@ export const handler: Handler = async (event) => {
     if (ff.materialsCut)      ffLines.push(`Materials Cut: ${ff.materialsCut}`)
     if (ff.currentSupplier)   ffLines.push(`Current Supplier: ${ff.currentSupplier}`)
     if (ff.averageBladeCost)  ffLines.push(`Avg Blade Cost: ${ff.averageBladeCost}`)
+    if (ff.crewCount)         ffLines.push(`Crew Count: ${ff.crewCount}`)
+    if (ff.bladesPerOrder)    ffLines.push(`Blades Per Order: ${ff.bladesPerOrder}`)
+    if (ff.improvementPriority) ffLines.push(`Improvement Priority: ${ff.improvementPriority}`)
     if (ff.competitorPrice)   ffLines.push(`Competitor Pricing: ${ff.competitorPrice}`)
     if (ff.monthlyVolume)     ffLines.push(`Est. Monthly Volume: ${ff.monthlyVolume}`)
     if (ff.jobTypes)          ffLines.push(`Job Types: ${ff.jobTypes}`)
@@ -148,6 +151,9 @@ export const handler: Handler = async (event) => {
     if (ff.materialsCut?.trim())     accountUpdate.materialsCut     = ff.materialsCut.trim()
     if (ff.currentSupplier?.trim())  accountUpdate.currentSupplier  = ff.currentSupplier.trim()
     if (ff.averageBladeCost?.trim()) accountUpdate.averageBladeCost = ff.averageBladeCost.trim()
+    if (ff.crewCount?.trim())        accountUpdate.crewCount        = ff.crewCount.trim()
+    if (ff.bladesPerOrder?.trim())   accountUpdate.bladesPerOrder   = ff.bladesPerOrder.trim()
+    if (ff.improvementPriority?.trim()) accountUpdate.improvementPriority = ff.improvementPriority.trim()
     if (ff.tags?.trim())             accountUpdate.tags             = ff.tags.trim()
 
     // Map quality preference to account quality field
