@@ -155,3 +155,9 @@ input[type="text"]:focus, input[type="search"]:focus, input[type="email"]:focus,
   background-size: 1000px 100%;
   animation: shimmer 2s infinite linear;
 }
+
+/* Fix for native select option background in dark mode */
+select option {
+  background-color: var(--background);
+  color: var(--foreground);
+}
