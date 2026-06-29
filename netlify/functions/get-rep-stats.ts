@@ -253,7 +253,8 @@ export const handler: Handler = async (event) => {
 
       const invoices = acc.invoices || []
       invoices.forEach(inv => {
-        const amount = parseFloat(inv.amount as any) || 0
+        const items = inv.items as any || {}
+        const amount = parseFloat(items.sub_total) || parseFloat(inv.amount as any) || 0
         const deadCost = parseFloat((inv.items as any)?.deadCostTotal as any) || 0;
         
         // "Dead Profit" is pure amount minus pure dead cost. Displayed on the dashboard.

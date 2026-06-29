@@ -156,7 +156,7 @@ export const handler: Handler = async (event) => {
         zohoId: inv.zohoId,
         invoiceNumber,
         name: invoiceNumber ? `${inv.account?.name || 'Unknown'} | INV-${invoiceNumber}` : (inv.account?.name || 'Unknown'),
-        amount: inv.amount || 0,
+        amount: parseFloat(items.sub_total) || inv.amount || 0,
         profit,
         deadCost,
         status: inv.status,
