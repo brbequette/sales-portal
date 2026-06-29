@@ -13,14 +13,14 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
     name: account?.name || "",
     industry: account?.industry || "",
     timeZone: account?.timeZone || "",
-    tags: account?.tags ? account.tags.join(", ") : "",
+    tags: Array.isArray(account?.tags) ? account.tags.join(", ") : (account?.tags || ""),
     status: account?.status || "Open",
   })
 
   const handleSave = async () => {
     setLoading(true)
     try {
-      const formattedTags = formData.tags.split(",").map((t: string) => t.trim()).filter(Boolean)
+      const formattedTags = formData.tags.split(",").map((t: string) => t.trim()).filter(Boolean).join(", ")
       const res = await fetch("/api/update-account-details", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
