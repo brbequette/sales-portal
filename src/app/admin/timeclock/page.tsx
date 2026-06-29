@@ -378,7 +378,7 @@ export default function AdminTimeclockPage() {
                                                         inactivityPeriods: updatedLapses
                                                       })
                                                     })
-                                                    fetchData()
+                                                    fetchEntries()
                                                   } catch(e) {}
                                                 }}
                                                 className="text-red-500 hover:text-white ml-2 px-2 py-0.5 bg-red-500/10 hover:bg-red-500/30 rounded transition-colors"
