@@ -28,6 +28,7 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
   const [tempMsrp, setTempMsrp] = useState("")
   const [mobileTab, setMobileTab] = useState<"catalog" | "cart">("catalog")
   const [users, setUsers] = useState<any[]>([])
+  const [accountName, setAccountName] = useState<string | null>(null)
   const [assigneeId, setAssigneeId] = useState("")
   const [processingNotes, setProcessingNotes] = useState("")
   const [syncing, setSyncing] = useState(false)
@@ -90,9 +91,24 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
         console.error("Failed to fetch users:", e)
       }
     }
+
+    const fetchAccountName = async () => {
+      if (!accountId) return;
+      try {
+        const res = await fetch(`/api/get-account-details?id=${accountId}`)
+        const data = await res.json()
+        if (data.success && data.account) {
+          setAccountName(data.account.name || data.account.Account_Name)
+        }
+      } catch (e) {
+        console.error("Failed to fetch account name", e)
+      }
+    }
+
     fetchProducts()
     fetchUsers()
-  }, [currentUser])
+    fetchAccountName()
+  }, [currentUser, accountId])
 
   const categories = ["All", ...Array.from(new Set(products.map((p) => p.category || "Uncategorized"))).sort()]
 
@@ -257,7 +273,9 @@ export function PointOfSale({ accountId, onCancel, onSuccess }: { accountId: str
       <header className="flex-none bg-neutral-900 border-b border-neutral-800 px-4 sm:px-6 py-3 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <FiShoppingCart className="text-blue-400 text-lg sm:text-xl" />
-          <h2 className="text-sm sm:text-lg font-bold">Point of Sale</h2>
+          <h2 className="text-sm sm:text-lg font-bold">
+            Point of Sale {accountName ? <span className="text-neutral-400 font-normal hidden sm:inline">— {accountName}</span> : ""}
+          </h2>
           <span className="text-xs text-neutral-500 hidden sm:inline">• {filteredProducts.length} items in catalog</span>
           <button
             onClick={handleSyncWithZoho}
