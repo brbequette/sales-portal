@@ -47,10 +47,36 @@ export const handler: Handler = async (event, context) => {
 
       if (dbDoc) {
         const items = dbDoc.items as any
-        if (items?.booksInvoiceId) booksDocId = items.booksInvoiceId
-        else if (items?.booksSalesOrderId) booksDocId = items.booksSalesOrderId
-        else if (items?.booksEstimateId) booksDocId = items.booksEstimateId
-        else if (dbDoc.zohoId) booksDocId = dbDoc.zohoId
+        if (items?.booksInvoiceId) {
+          booksDocId = items.booksInvoiceId
+        } else if (items?.booksSalesOrderId) {
+          booksDocId = items.booksSalesOrderId
+        } else if (items?.booksEstimateId) {
+          booksDocId = items.booksEstimateId
+        } else if (items?.invoiceNumber && type === "Invoice") {
+          console.log(`Missing Books ID. Searching Zoho Books for invoice_number: ${items.invoiceNumber}...`)
+          try {
+            const token = await getZohoAccessToken()
+            const searchUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ORG_ID}&invoice_number=${items.invoiceNumber}`
+            const searchRes = await fetch(searchUrl, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
+            if (searchRes.ok) {
+              const searchData: any = await searchRes.json()
+              if (searchData.invoices && searchData.invoices.length > 0) {
+                booksDocId = searchData.invoices[0].invoice_id
+                console.log(`Found Books ID ${booksDocId} via search. Saving to DB.`)
+                // Save it back to prevent future searches
+                items.booksInvoiceId = booksDocId
+                await prisma.invoice.update({ where: { id: dbDoc.id }, data: { items } })
+              }
+            }
+          } catch (e) {
+            console.error("Failed to search Books API by invoice_number", e)
+          }
+        }
+        
+        if (!booksDocId && dbDoc.zohoId) {
+          booksDocId = dbDoc.zohoId
+        }
       }
     }
 
