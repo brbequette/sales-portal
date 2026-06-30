@@ -32,31 +32,25 @@ export const handler: Handler = async (event, context) => {
   try {
     const { id, type = "Invoice", booksInvoiceId: queryBooksId, download } = event.queryStringParameters || {}
 
-    let booksDocId = queryBooksId
+    let booksDocId = queryBooksId || id
 
     // If direct books ID not provided, look up by DB id / zohoId
-    if (!booksDocId && id) {
+    let dbDoc = null
+    if (!queryBooksId && id) {
       if (type === "Invoice") {
-        let dbInvoice = await prisma.invoice.findUnique({ where: { zohoId: id } })
-        if (!dbInvoice) dbInvoice = await prisma.invoice.findUnique({ where: { id: id } })
-        if (dbInvoice) {
-          const metadata = dbInvoice.items as any
-          booksDocId = metadata?.booksInvoiceId
-        }
+        dbDoc = await prisma.invoice.findFirst({ where: { OR: [{ id: id }, { zohoId: id }] } })
       } else if (type === "SalesOrder") {
-        let dbSO = await prisma.salesOrder.findFirst({
-          where: { OR: [{ id: id }, { zohoId: id }] }
-        })
-        if (dbSO) {
-          booksDocId = dbSO.zohoId || undefined
-        }
+        dbDoc = await prisma.salesOrder.findFirst({ where: { OR: [{ id: id }, { zohoId: id }] } })
       } else if (type === "Quote") {
-        let dbQuote = await prisma.quote.findFirst({
-          where: { OR: [{ id: id }, { zohoId: id }] }
-        })
-        if (dbQuote) {
-          booksDocId = dbQuote.zohoId || undefined
-        }
+        dbDoc = await prisma.quote.findFirst({ where: { OR: [{ id: id }, { zohoId: id }] } })
+      }
+
+      if (dbDoc) {
+        const items = dbDoc.items as any
+        if (items?.booksInvoiceId) booksDocId = items.booksInvoiceId
+        else if (items?.booksSalesOrderId) booksDocId = items.booksSalesOrderId
+        else if (items?.booksEstimateId) booksDocId = items.booksEstimateId
+        else if (dbDoc.zohoId) booksDocId = dbDoc.zohoId
       }
     }
 
