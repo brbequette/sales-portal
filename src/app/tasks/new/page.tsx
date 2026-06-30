@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useZoho } from "@/components/ZohoProvider"
 
 export default function NewTaskPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { zohoContext: currentUser } = useZoho()
   
   const [taskSubject, setTaskSubject] = useState("")
@@ -13,6 +14,7 @@ export default function NewTaskPage() {
   const [taskPriority, setTaskPriority] = useState("Normal")
   const [taskType, setTaskType] = useState("Task")
   const [taskDueDate, setTaskDueDate] = useState("")
+  const [taskDueTime, setTaskDueTime] = useState("")
   const [taskOwnerId, setTaskOwnerId] = useState("")
   const [taskWhatId, setTaskWhatId] = useState("")
   const [taskSaving, setTaskSaving] = useState(false)
@@ -20,6 +22,7 @@ export default function NewTaskPage() {
   const [taskSalesOrderId, setTaskSalesOrderId] = useState("")
   const [taskQuoteId, setTaskQuoteId] = useState("")
   const [taskEstimateId, setTaskEstimateId] = useState("")
+  const [preselectedAccountName, setPreselectedAccountName] = useState("")
   
   const [transactions, setTransactions] = useState<any[]>([])
   const [selectedTransaction, setSelectedTransaction] = useState("")
@@ -35,6 +38,18 @@ export default function NewTaskPage() {
       setTaskOwnerId(currentUser.id)
     }
   }, [currentUser])
+
+  // Pre-populate account from URL params (when coming from account page)
+  useEffect(() => {
+    const accountId = searchParams.get('accountId')
+    const accountName = searchParams.get('accountName')
+    if (accountId) {
+      setTaskWhatId(accountId)
+    }
+    if (accountName) {
+      setPreselectedAccountName(decodeURIComponent(accountName))
+    }
+  }, [searchParams])
 
   useEffect(() => {
     // Fetch basic data for dropdowns
@@ -158,7 +173,7 @@ export default function NewTaskPage() {
         description: taskDescription,
         priority: taskPriority,
         type: taskType,
-        dueDate: taskDueDate || null,
+        dueDate: taskDueDate ? (taskDueTime ? `${taskDueDate}T${taskDueTime}` : taskDueDate) : null,
         status: "Not Started",
         ownerId: taskOwnerId || currentUser?.id,
         whatId: taskWhatId || null,
@@ -219,7 +234,7 @@ export default function NewTaskPage() {
               />
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-2">Type</label>
                 <select 
@@ -252,7 +267,17 @@ export default function NewTaskPage() {
                   type="date" 
                   value={taskDueDate} 
                   onChange={e => setTaskDueDate(e.target.value)} 
-                  className="w-full bg-[#111214] border border-white/15 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 invert-[1] hue-rotate-180"
+                  className="w-full bg-[#111214] border border-white/15 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                  style={{ colorScheme: "dark" }}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-2">Time</label>
+                <input 
+                  type="time" 
+                  value={taskDueTime} 
+                  onChange={e => setTaskDueTime(e.target.value)} 
+                  className="w-full bg-[#111214] border border-white/15 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
                   style={{ colorScheme: "dark" }}
                 />
               </div>
@@ -273,13 +298,16 @@ export default function NewTaskPage() {
             </div>
             
             <div>
-              <label className="block text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-2">Link to Account (Optional)</label>
+              <label className="block text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-2">Link to Account {preselectedAccountName ? '' : '(Optional)'}</label>
               <select 
                 value={taskWhatId} 
                 onChange={e => setTaskWhatId(e.target.value)}
                 className="w-full bg-[#111214] border border-white/15 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
                 <option value="">-- No Linked Account (Company Task) --</option>
+                {preselectedAccountName && !accounts.some(a => a.zohoId === taskWhatId) && (
+                  <option value={taskWhatId}>{preselectedAccountName} ✓</option>
+                )}
                 {accounts.map(a => (
                   <option key={a.id} value={a.zohoId}>{a.name}</option>
                 ))}

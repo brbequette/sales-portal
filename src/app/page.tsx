@@ -65,6 +65,7 @@ export default function Dashboard() {
   const [taskDescription, setTaskDescription] = useState("")
   const [taskPriority, setTaskPriority] = useState("Normal")
   const [taskDueDate, setTaskDueDate] = useState("")
+  const [taskDueTime, setTaskDueTime] = useState("")
   const [taskOwnerId, setTaskOwnerId] = useState("")
   const [taskStatus, setTaskStatus] = useState("Not Started")
   const [taskWhatId, setTaskWhatId] = useState("")
@@ -554,6 +555,7 @@ export default function Dashboard() {
     setTaskDescription("")
     setTaskPriority("Normal")
     setTaskDueDate("")
+    setTaskDueTime("")
     setTaskOwnerId(currentUser?.id || "")
     setTaskStatus("Not Started")
     setTaskWhatId("")
@@ -653,6 +655,8 @@ export default function Dashboard() {
     setTaskDescription(task.description || "")
     setTaskPriority(task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1).toLowerCase() : "Normal")
     setTaskDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : "")
+    const dueDt = task.dueDate ? new Date(task.dueDate) : null
+    setTaskDueTime(dueDt && (dueDt.getUTCHours() !== 0 || dueDt.getUTCMinutes() !== 0) ? `${String(dueDt.getHours()).padStart(2,'0')}:${String(dueDt.getMinutes()).padStart(2,'0')}` : "")
     setTaskOwnerId(task.ownerId || currentUser?.id || "")
     setTaskStatus(task.status || "Not Started")
     
@@ -692,7 +696,7 @@ export default function Dashboard() {
           subject: taskSubject,
           description: taskDescription,
           priority: taskPriority,
-          dueDate: taskDueDate || null,
+          dueDate: taskDueDate ? (taskDueTime ? `${taskDueDate}T${taskDueTime}` : taskDueDate) : null,
           ownerId: taskOwnerId,
           status: taskStatus,
           whatId: taskWhatId || null,
@@ -1671,7 +1675,9 @@ export default function Dashboard() {
                   <div className="space-y-3 p-1">
                     {tasksPagination.paginatedItems.map(task => {
                       const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "Completed"
-                      const formattedDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null
+                      const dueDateObj = task.dueDate ? new Date(task.dueDate) : null
+                      const hasTime = dueDateObj && (dueDateObj.getHours() !== 0 || dueDateObj.getMinutes() !== 0)
+                      const formattedDate = dueDateObj ? dueDateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + (hasTime ? ` at ${dueDateObj.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}` : '') : null
                       const assigneeName = repsList.find(r => r.id === task.ownerId)?.name || repsList.find(r => r.id === task.ownerId)?.email || "Unassigned"
 
                       return (
@@ -2103,7 +2109,7 @@ export default function Dashboard() {
                   className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Priority</label>
                   <select 
@@ -2123,6 +2129,17 @@ export default function Dashboard() {
                     value={taskDueDate} 
                     onChange={e => setTaskDueDate(e.target.value)} 
                     className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    style={{ colorScheme: "dark" }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Time</label>
+                  <input 
+                    type="time" 
+                    value={taskDueTime} 
+                    onChange={e => setTaskDueTime(e.target.value)} 
+                    className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    style={{ colorScheme: "dark" }}
                   />
                 </div>
               </div>

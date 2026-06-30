@@ -160,12 +160,12 @@ Use the top-bar **Catalog Lookup** button to check a price mid-call without losi
 Never lose a lead — capture next steps as **Tasks**.
 
 ### Creating a task
-1. Click **Add Task** in the top bar (available everywhere).
+1. Click **Add Task** in the top bar, or use the **+ Task** button on any account page to auto-link it.
 2. Link it to an account so it appears in that account's timeline.
-3. Set a due date; the account's **next action date** updates so it surfaces when it's time.
+3. Set a **due date and time** — the time field lets you schedule tasks down to the minute for calls and follow-ups.
 
 ### Where tasks show up
-Open tasks appear on your dashboard and on the linked account, keeping your follow-up queue front and center.
+Open tasks appear on your dashboard **Task Manager** and on the linked account. When a time is set, the display shows "Due: Jun 30, 2026 at 2:30 PM" so you know exactly when to act.
     `,
   },
   {

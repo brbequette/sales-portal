@@ -211,6 +211,13 @@ function AccountHubContent() {
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => router.push(`/tasks/new?accountId=${account.zohoId}&accountName=${encodeURIComponent(account.name)}`)}
+              className="shrink-0 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-3 py-1.5 text-xs sm:text-sm rounded-full font-bold transition-colors border border-neutral-700 flex items-center gap-1.5"
+              title="Create a task linked to this account"
+            >
+              <span>+ Task</span>
+            </button>
+            <button
               onClick={async () => {
                 try {
                   const res = await fetch('/api/create-books-contact', {
