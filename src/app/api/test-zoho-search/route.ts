@@ -15,14 +15,16 @@ export async function GET() {
     const res2 = await fetch(url2, { headers: { Authorization: `Zoho-oauthtoken ${t}` } });
     const data2 = await res2.json();
 
-    const url3 = `https://www.zohoapis.com/books/v3/invoices?organization_id=${org2}&invoice_number=8189`;
-    const res3 = await fetch(url3, { headers: { Authorization: `Zoho-oauthtoken ${t}` } });
-    const data3 = await res3.json();
+    const pdfUrl = `https://www.zohoapis.com/books/v3/invoices/1254360000018829558?organization_id=${org1}&accept=pdf`;
+    const resPdf = await fetch(pdfUrl, { headers: { Authorization: `Zoho-oauthtoken ${t}` } });
+    const pdfStatus = resPdf.status;
+    const pdfData = await resPdf.text();
 
     return NextResponse.json({ 
       organizationsList: data1, 
       invoicesOrg1: data2, 
-      invoicesOrg2: data3 
+      pdfStatus,
+      pdfData: pdfData.substring(0, 100)
     });
   } catch(e: any) {
     return NextResponse.json({ error: e.message });
