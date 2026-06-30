@@ -26,6 +26,29 @@ import { AccountEditModal } from "@/components/AccountEditModal"
 
 type ActiveTab = "overview" | "history" | "purchased" | "tasks" | "ai"
 
+function useLocalTime(timeZone: string | undefined | null) {
+  const [time, setTime] = useState<string>("...")
+  
+  useEffect(() => {
+    if (!timeZone) {
+      setTime("N/A")
+      return
+    }
+    const updateTime = () => {
+      try {
+        setTime(new Date().toLocaleTimeString('en-US', { timeZone, hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }))
+      } catch (e) {
+        setTime("Invalid TZ")
+      }
+    }
+    updateTime()
+    const interval = setInterval(updateTime, 1000)
+    return () => clearInterval(interval)
+  }, [timeZone])
+  
+  return time
+}
+
 function AccountHubContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -139,7 +162,10 @@ function AccountHubContent() {
     ? Math.floor((Date.now() - new Date(account.lastPurchaseAt).getTime()) / 86400000)
     : null
 
+  const localTime = useLocalTime(account.timeZone)
+
   const kpis = [
+    { label: "Local Time", value: localTime, color: "text-emerald-300" },
     { label: "LTV", value: `$${(totalRevenue / 1000).toFixed(0)}k`, color: "text-emerald-400" },
     { label: "Total Profit", value: `$${(totalProfit / 1000).toFixed(1)}k`, color: "text-sky-400" },
     { label: "Avg Order", value: `$${avgOrderValue.toFixed(0)}`, color: "text-blue-400" },

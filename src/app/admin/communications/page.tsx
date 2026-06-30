@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
-import { FiPhoneCall, FiMessageSquare, FiSettings, FiChevronDown, FiChevronUp, FiSearch, FiFilter, FiUser, FiClock, FiCheck, FiX, FiCornerUpRight, FiCornerDownLeft } from "react-icons/fi"
+import { FiPhoneCall, FiMessageSquare, FiSettings, FiChevronDown, FiChevronUp, FiSearch, FiFilter, FiUser, FiClock, FiCheck, FiX, FiCornerUpRight, FiCornerDownLeft, FiDatabase } from "react-icons/fi"
 
 export default function CommunicationsDashboard() {
   const { isInitialized, zohoContext: currentUser } = useZoho()
@@ -12,6 +12,7 @@ export default function CommunicationsDashboard() {
   const [zohoNumbers, setZohoNumbers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [savingNumbers, setSavingNumbers] = useState(false)
+  const [syncingVoice, setSyncingVoice] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
 
   // Filters
@@ -102,14 +103,39 @@ export default function CommunicationsDashboard() {
             </h1>
             <p className="text-sm text-neutral-400 mt-1">Review unified history of calls and SMS messages</p>
           </div>
-          <button 
-            onClick={() => setShowSettings(!showSettings)}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 rounded-lg transition-colors font-medium text-sm"
-          >
-            <FiSettings size={16} />
-            Phone Numbers
-            {showSettings ? <FiChevronUp /> : <FiChevronDown />}
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={async () => {
+                setSyncingVoice(true)
+                try {
+                  const res = await fetch('/api/admin/communications/sync-voice', { method: 'POST' })
+                  const data = await res.json()
+                  if (data.success) {
+                    alert(`Synced ${data.syncedCount} calls!`)
+                    window.location.reload()
+                  } else {
+                    alert('Sync error: ' + data.error)
+                  }
+                } catch (e: any) {
+                  alert('Sync failed: ' + e.message)
+                }
+                setSyncingVoice(false)
+              }}
+              disabled={syncingVoice}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors font-medium text-sm disabled:opacity-50"
+            >
+              <FiDatabase size={16} className={syncingVoice ? "animate-spin" : ""} />
+              {syncingVoice ? "Syncing..." : "Sync Voice Logs"}
+            </button>
+            <button 
+              onClick={() => setShowSettings(!showSettings)}
+              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 rounded-lg transition-colors font-medium text-sm"
+            >
+              <FiSettings size={16} />
+              Phone Numbers
+              {showSettings ? <FiChevronUp /> : <FiChevronDown />}
+            </button>
+          </div>
         </div>
 
         {/* Settings Panel (Collapsible) */}

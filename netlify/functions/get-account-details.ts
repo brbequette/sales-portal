@@ -30,7 +30,6 @@ export const handler: Handler = async (event, context) => {
         where: { zohoId: id },
         include: {
           invoices: { 
-            where: { status: { notIn: ['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft'] } },
             orderBy: { issueDate: 'desc' } 
           },
           salesOrders: { orderBy: { orderDate: 'desc' } },
@@ -47,7 +46,6 @@ export const handler: Handler = async (event, context) => {
           where: { id: id },
           include: {
             invoices: { 
-              where: { status: { notIn: ['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft'] } },
               orderBy: { issueDate: 'desc' } 
             },
             salesOrders: { orderBy: { orderDate: 'desc' } },

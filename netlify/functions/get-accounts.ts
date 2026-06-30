@@ -1081,6 +1081,7 @@ export const handler: Handler = async (event, context) => {
           quotes: acc.quotes || [],
           salesOrders: acc.salesOrders || [],
         } : {}),
+        _count: acc._count || { invoices: 0, quotes: 0, salesOrders: 0 },
       };
     });
 

@@ -74,9 +74,9 @@ export function GlobalTopBar() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          userId: currentUser.id, 
-          action,
+          userId: currentUser.id,
           email: currentUser.email,
+          action: action,
           name: currentUser.name || currentUser.fullName || "Zoho User"
         })
       })

@@ -55,7 +55,7 @@ export async function GET(req: Request) {
       let inactivityPeriods = []
       try {
         if (entry.inactivityPeriods) {
-           inactivityPeriods = typeof entry.inactivityPeriods === "string" ? JSON.parse(entry.inactivityPeriods) : entry.inactivityPeriods
+           inactivityPeriods = typeof entry.inactivityPeriods === "string" ? JSON.parse(entry.inactivityPeriods) : (Array.isArray(entry.inactivityPeriods) ? entry.inactivityPeriods : [])
         }
       } catch (e) {}
 
