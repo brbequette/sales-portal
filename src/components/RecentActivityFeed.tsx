@@ -88,7 +88,8 @@ export function RecentActivityFeed() {
   )
 }
 
-function formatTimeAgo(date: Date) {
+function formatTimeAgo(dateInput: Date | string) {
+  const date = new Date(dateInput)
   const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
   let interval = seconds / 31536000
   if (interval > 1) return Math.floor(interval) + " years ago"
