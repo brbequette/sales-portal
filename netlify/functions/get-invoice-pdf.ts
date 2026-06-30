@@ -54,10 +54,18 @@ export const handler: Handler = async (event, context) => {
         } else if (items?.booksEstimateId) {
           booksDocId = items.booksEstimateId
         } else if (items?.invoiceNumber && type === "Invoice") {
-          console.log(`Missing Books ID. Searching Zoho Books for invoice_number: ${items.invoiceNumber}...`)
+          let searchInvNumber = items.invoiceNumber;
+          if (typeof searchInvNumber === 'string' && searchInvNumber.includes('|')) {
+            searchInvNumber = searchInvNumber.split('|').pop()?.trim();
+          } else if (typeof searchInvNumber === 'string' && searchInvNumber.includes('-')) {
+            // Sometimes it's INV-1234
+            searchInvNumber = searchInvNumber.split('-').pop()?.trim();
+          }
+
+          console.log(`Missing Books ID. Searching Zoho Books for invoice_number: ${searchInvNumber}...`)
           try {
             const token = await getZohoAccessToken()
-            const searchUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ORG_ID}&invoice_number=${items.invoiceNumber}`
+            const searchUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ORG_ID}&invoice_number=${searchInvNumber}`
             const searchRes = await fetch(searchUrl, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
             if (searchRes.ok) {
               const searchData: any = await searchRes.json()
