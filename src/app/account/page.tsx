@@ -68,6 +68,8 @@ function AccountHubContent() {
   const [historyViewMode, setHistoryViewMode] = useState<"data" | "pdf">("data")
   const [aiViewMode, setAiViewMode] = useState<"assistant" | "comms">("comms")
   const [isEditingAccount, setIsEditingAccount] = useState(false)
+  
+  const localTime = useLocalTime(account?.timeZone)
 
   const fetchAccountData = async (showLoading = true) => {
     if (showLoading) setLoading(true)
@@ -161,8 +163,6 @@ function AccountHubContent() {
   const daysSinceLastPurchase = account.lastPurchaseAt
     ? Math.floor((Date.now() - new Date(account.lastPurchaseAt).getTime()) / 86400000)
     : null
-
-  const localTime = useLocalTime(account.timeZone)
 
   const kpis = [
     { label: "Local Time", value: localTime, color: "text-emerald-300" },
