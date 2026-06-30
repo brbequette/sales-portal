@@ -489,7 +489,7 @@ export const handler: Handler = async (event, context) => {
                               zohoModifiedTime: (invRecord.Modified_Time || invRecord.Updated_Time) ? new Date(invRecord.Modified_Time || invRecord.Updated_Time) : null,
                             amount: parseFloat(invRecord.Sub_Total || 0),
                             status: status,
-                            issueDate: new Date(invRecord.Invoice_Date || invRecord.Created_Time),
+                            issueDate: invRecord.Invoice_Date ? new Date(invRecord.Invoice_Date) : null,
                             dueDate: dueDate,
                             items: {
                               booksInvoiceId: invRecord.Invoice_ID,
@@ -508,7 +508,7 @@ export const handler: Handler = async (event, context) => {
                             accountId: dbAccountId,
                             amount: parseFloat(invRecord.Sub_Total || 0),
                             status: status,
-                            issueDate: new Date(invRecord.Invoice_Date || invRecord.Created_Time),
+                            issueDate: invRecord.Invoice_Date ? new Date(invRecord.Invoice_Date) : null,
                             dueDate: dueDate,
                             items: {
                               booksInvoiceId: invRecord.Invoice_ID,

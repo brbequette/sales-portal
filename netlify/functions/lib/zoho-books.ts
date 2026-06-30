@@ -100,6 +100,8 @@ export async function syncRecentBooksInvoices() {
               data: {
                 status: status,
                 amount: newTotal,
+                ...(booksInv.date ? { issueDate: new Date(booksInv.date) } : {}),
+                ...(booksInv.due_date ? { dueDate: new Date(booksInv.due_date) } : {}),
                 items: currentItems
               }
             })
