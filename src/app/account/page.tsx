@@ -244,7 +244,7 @@ function AccountHubContent() {
       </header>
 
       {/* ── KPI Strip ── */}
-      <div className="flex-none bg-black/40 border-b border-neutral-800 px-4 py-2 overflow-x-auto">
+      <div className="flex-none bg-black/40 border-b border-neutral-800 px-4 py-2 overflow-x-auto scroll-fade-x scrollbar-none">
         <div className="flex gap-5 min-w-max">
           {kpis.map(k => (
             <div key={k.label}>
@@ -287,108 +287,157 @@ function AccountHubContent() {
 
           {activeTab === "overview" && (
             <div className="flex flex-col space-y-8">
-              {/* Account Profile and Addresses Cards */}
-              {account.crmDetails && (
-                <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-5 shadow-xl space-y-5 animate-in fade-in slide-in-from-top-4 duration-300">
-                  <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-wider">
-                      <FiDatabase className="text-blue-500" />
-                      <span>Account Profile &amp; Addresses</span>
-                    </h3>
-                    {account.crmDetails.Phone && (
-                      <a href={"tel:" + account.crmDetails.Phone.replace(/[^0-9+]/g, '')}
-                        className="text-xs text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1.5"
-                        title="Click to dial account main line"
-                      >
-                        📞 Dial Main: {formatPhoneNumber(account.crmDetails.Phone)}
-                      </a>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    {/* Billing Address */}
-                    <div className="bg-neutral-950/40 p-4 border border-neutral-800 rounded-xl space-y-1.5">
-                      <h4 className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Billing Address</h4>
-                      <div className="text-xs text-neutral-300 leading-relaxed font-sans">
-                        {account.crmDetails.Billing_Street ? (
-                          <>
-                            <p className="font-semibold text-white">{account.crmDetails.Billing_Street}</p>
-                            <p>{account.crmDetails.Billing_City || ''}, {account.crmDetails.Billing_State || ''} {account.crmDetails.Billing_Code || ''}</p>
-                            <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.crmDetails.Billing_Country || 'U.S.A'}</p>
-                          </>
-                        ) : (
-                          <p className="text-neutral-500 italic text-[11px]">No billing address configured</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Shipping Address */}
-                    <div className="bg-neutral-950/40 p-4 border border-neutral-800 rounded-xl space-y-1.5">
-                      <h4 className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Shipping Address</h4>
-                      <div className="text-xs text-neutral-300 leading-relaxed font-sans">
-                        {account.crmDetails.Shipping_Street ? (
-                          <>
-                            <p className="font-semibold text-white">{account.crmDetails.Shipping_Street}</p>
-                            <p>{account.crmDetails.Shipping_City || ''}, {account.crmDetails.Shipping_State || ''} {account.crmDetails.Shipping_Code || ''}</p>
-                            <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.crmDetails.Shipping_Country || 'U.S.A'}</p>
-                          </>
-                        ) : (
-                          <p className="text-neutral-500 italic text-[11px]">No shipping address configured</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Company Details */}
-                    <div className="bg-neutral-950/40 p-4 border border-neutral-800 rounded-xl space-y-2.5">
-                      <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Company Profile</h4>
-                      <div className="grid grid-cols-2 gap-3 text-xs">
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Phone</span>
-                          {account.crmDetails.Phone ? (
-                            <a href={"tel:" + account.crmDetails.Phone.replace(/[^0-9+]/g, '')}
-                              className="text-blue-450 hover:underline font-bold font-mono truncate block text-left"
-                            >
-                              {formatPhoneNumber(account.crmDetails.Phone)}
-                            </a>
-                          ) : (
-                            <span className="text-neutral-200 font-bold block">—</span>
-                          )}
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Website</span>
-                          {account.crmDetails.Website ? (
-                            <a 
-                              href={account.crmDetails.Website.startsWith('http') ? account.crmDetails.Website : `https://${account.crmDetails.Website}`} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              className="text-blue-400 hover:underline truncate block font-bold font-mono"
-                            >
-                              {account.crmDetails.Website}
-                            </a>
-                          ) : (
-                            <span className="text-neutral-400 font-bold">—</span>
-                          )}
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Industry</span>
-                          <span className="text-neutral-200 font-bold truncate block">{account.crmDetails.Industry || account.industry || '—'}</span>
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Tags / Segment</span>
-                          <span className="text-neutral-200 font-bold truncate block">{account.crmDetails.Tags || account.tags || 'General'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {account.crmDetails.Description && (
-                    <div className="bg-neutral-950/20 p-4 border border-neutral-800/80 rounded-xl">
-                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold mb-1">CRM Account Description</span>
-                      <p className="text-xs text-neutral-300 leading-relaxed italic whitespace-pre-line">{account.crmDetails.Description}</p>
-                    </div>
+              {/* ── Account Profile & Addresses — Always Visible ── */}
+              <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-5 shadow-xl space-y-5 animate-slide-up">
+                <div className="flex items-center justify-between border-b border-neutral-800 pb-3 gap-3">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-wider shrink-0">
+                    <FiDatabase className="text-blue-500" />
+                    <span>Account Profile & Addresses</span>
+                  </h3>
+                  {(account.crmDetails?.Phone || account.contacts?.[0]?.phone) && (
+                    <a href={"tel:" + (account.crmDetails?.Phone || account.contacts?.[0]?.phone).replace(/[^0-9+]/g, '')}
+                      className="text-xs text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1.5 truncate min-w-0"
+                      title="Click to dial account main line"
+                    >
+                      📞 Dial Main: {formatPhoneNumber(account.crmDetails?.Phone || account.contacts?.[0]?.phone)}
+                    </a>
                   )}
                 </div>
-              )}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Billing Address — DB fields as primary, CRM as fallback */}
+                  <div className="address-card">
+                    <h4 className="text-blue-400">Billing Address</h4>
+                    <div className="text-xs text-neutral-300 leading-relaxed">
+                      {(account.billingStreet || account.crmDetails?.Billing_Street) ? (
+                        <>
+                          <p className="street">{account.crmDetails?.Billing_Street || account.billingStreet}</p>
+                          <p>{account.crmDetails?.Billing_City || account.billingCity || ''}, {account.crmDetails?.Billing_State || account.billingState || ''} {account.crmDetails?.Billing_Code || account.billingZip || ''}</p>
+                          <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.crmDetails?.Billing_Country || 'U.S.A'}</p>
+                        </>
+                      ) : (
+                        <p className="text-neutral-500 italic text-[11px]">No billing address configured</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Shipping Address — DB fields as primary, CRM as fallback */}
+                  <div className="address-card">
+                    <h4 className="text-amber-400">Shipping Address</h4>
+                    <div className="text-xs text-neutral-300 leading-relaxed">
+                      {(account.shippingStreet || account.crmDetails?.Shipping_Street) ? (
+                        <>
+                          <p className="street">{account.crmDetails?.Shipping_Street || account.shippingStreet}</p>
+                          <p>{account.crmDetails?.Shipping_City || account.shippingCity || ''}, {account.crmDetails?.Shipping_State || account.shippingState || ''} {account.crmDetails?.Shipping_Code || account.shippingZip || ''}</p>
+                          <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.crmDetails?.Shipping_Country || 'U.S.A'}</p>
+                        </>
+                      ) : (
+                        <p className="text-neutral-500 italic text-[11px]">No shipping address configured</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Company Details */}
+                  <div className="address-card">
+                    <h4 className="text-emerald-400">Company Profile</h4>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Phone</span>
+                        {(account.crmDetails?.Phone || account.contacts?.[0]?.phone) ? (
+                          <a href={"tel:" + (account.crmDetails?.Phone || account.contacts[0].phone).replace(/[^0-9+]/g, '')}
+                            className="text-blue-400 hover:underline font-bold font-mono truncate block text-left"
+                          >
+                            {formatPhoneNumber(account.crmDetails?.Phone || account.contacts[0].phone)}
+                          </a>
+                        ) : (
+                          <span className="text-neutral-200 font-bold block">—</span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Website</span>
+                        {account.crmDetails?.Website ? (
+                          <a 
+                            href={account.crmDetails.Website.startsWith('http') ? account.crmDetails.Website : `https://${account.crmDetails.Website}`} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="text-blue-400 hover:underline truncate block font-bold font-mono"
+                          >
+                            {account.crmDetails.Website}
+                          </a>
+                        ) : (
+                          <span className="text-neutral-400 font-bold">—</span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Industry</span>
+                        <span className="text-neutral-200 font-bold truncate block">{account.crmDetails?.Industry || account.industry || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Tags / Segment</span>
+                        <span className="text-neutral-200 font-bold truncate block">{account.crmDetails?.Tags || account.tags || 'General'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Business Profile (Blade/Equipment Details) ── */}
+                {(account.bladeSizes || account.materialsCut || account.currentSupplier || account.crewCount || account.bladesPerOrder || account.averageBladeCost) && (
+                  <div className="bg-neutral-950/30 p-4 border border-neutral-800/80 rounded-xl">
+                    <h4 className="text-[10px] font-bold text-orange-400 uppercase tracking-wider mb-3">Business Profile</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
+                      {account.bladeSizes && (
+                        <div>
+                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Blade Sizes</span>
+                          <span className="text-neutral-200 font-bold">{account.bladeSizes}</span>
+                        </div>
+                      )}
+                      {account.materialsCut && (
+                        <div>
+                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Materials Cut</span>
+                          <span className="text-neutral-200 font-bold">{account.materialsCut}</span>
+                        </div>
+                      )}
+                      {account.currentSupplier && (
+                        <div>
+                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Current Supplier</span>
+                          <span className="text-neutral-200 font-bold">{account.currentSupplier}</span>
+                        </div>
+                      )}
+                      {account.averageBladeCost && (
+                        <div>
+                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Avg Blade Cost</span>
+                          <span className="text-emerald-400 font-bold">{account.averageBladeCost}</span>
+                        </div>
+                      )}
+                      {account.crewCount && (
+                        <div>
+                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Crew Count</span>
+                          <span className="text-neutral-200 font-bold">{account.crewCount}</span>
+                        </div>
+                      )}
+                      {account.bladesPerOrder && (
+                        <div>
+                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Blades/Order</span>
+                          <span className="text-neutral-200 font-bold">{account.bladesPerOrder}</span>
+                        </div>
+                      )}
+                      {account.improvementPriority && (
+                        <div className="col-span-2">
+                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Improvement Priority</span>
+                          <span className="text-neutral-200 font-bold">{account.improvementPriority}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {account.crmDetails?.Description && (
+                  <div className="bg-neutral-950/20 p-4 border border-neutral-800/80 rounded-xl">
+                    <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold mb-1">CRM Account Description</span>
+                    <p className="text-xs text-neutral-300 leading-relaxed italic whitespace-pre-line">{account.crmDetails.Description}</p>
+                  </div>
+                )}
+              </div>
 
               <div className="w-full">
                 <AccountAnalytics
@@ -548,7 +597,7 @@ function AccountHubContent() {
                   />
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col min-h-[450px] min-h-0">
+                <div className="flex-1 flex flex-col min-h-0">
                   <CommunicationCenter accountId={id} contacts={account.contacts} />
                 </div>
               )}

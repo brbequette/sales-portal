@@ -34,6 +34,8 @@ type Invoice = {
   customer_id: string
   profit?: number
   dead_cost?: number
+  customer_city?: string | null
+  customer_state?: string | null
   account?: {
     ownerId?: string | null
   } | null
@@ -1542,7 +1544,10 @@ export default function CollectionsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="font-semibold text-white text-xs">{inv.customer_name}</span>
+                          <span className="font-semibold text-white text-xs truncate max-w-[200px] block">{inv.customer_name}</span>
+                          {(inv.customer_city || inv.customer_state) && (
+                            <span className="text-[10px] text-neutral-500 block truncate">{[inv.customer_city, inv.customer_state].filter(Boolean).join(', ')}</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 hidden md:table-cell">
                           <span className="text-xs text-neutral-400">{inv.salesperson_name}</span>

@@ -61,6 +61,10 @@ model Account {
   billingCity         String?
   billingState        String?
   billingZip          String?
+  shippingStreet      String?
+  shippingCity        String?
+  shippingState       String?
+  shippingZip         String?
   owner               User         @relation(fields: [ownerId], references: [id])
   contacts         Contact[]
   deals            Deal[]

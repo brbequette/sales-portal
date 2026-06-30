@@ -38,18 +38,22 @@ export async function GET(req: Request) {
     })
 
     const now = new Date()
-    const processedEntries = entries.map((entry: any) => {
+    const processedEntries = []
+    for (const entry of entries) {
       const isInactive = now.getTime() - new Date(entry.lastActivity).getTime() > 20 * 60000;
       const active = !isInactive && !entry.manualClockOut;
 
       let effectiveClockOut = entry.clockOut;
       if (isInactive && !entry.manualClockOut && !effectiveClockOut) {
         effectiveClockOut = new Date(new Date(entry.lastActivity).getTime() + 20 * 60000);
-        // Fire and forget update
-        prisma.timeEntry.update({
-          where: { id: entry.id },
-          data: { clockOut: effectiveClockOut }
-        }).catch(console.error)
+        try {
+          await prisma.timeEntry.update({
+            where: { id: entry.id },
+            data: { clockOut: effectiveClockOut }
+          })
+        } catch (e) {
+          console.warn('Failed to auto-clockOut entry:', entry.id, e)
+        }
       }
 
       let inactivityPeriods = []
@@ -57,15 +61,15 @@ export async function GET(req: Request) {
         if (entry.inactivityPeriods) {
            inactivityPeriods = typeof entry.inactivityPeriods === "string" ? JSON.parse(entry.inactivityPeriods) : (Array.isArray(entry.inactivityPeriods) ? entry.inactivityPeriods : [])
         }
-      } catch (e) {}
+      } catch (e) { console.warn('Failed to parse inactivityPeriods:', e) }
 
-      return {
+      processedEntries.push({
         ...entry,
         active,
         clockOut: effectiveClockOut,
         inactivityPeriods
-      }
-    })
+      })
+    }
 
     return NextResponse.json({ success: true, entries: processedEntries })
   } catch (error: any) {

@@ -468,6 +468,8 @@ export const handler: Handler = async (event) => {
         books_invoice_id: items?.booksInvoiceId || null,
         profit: items?.profit || 0,
         dead_cost: items?.deadCostTotal || 0,
+        customer_city: inv.account?.billingCity || null,
+        customer_state: inv.account?.billingState || null,
       }
     })
 

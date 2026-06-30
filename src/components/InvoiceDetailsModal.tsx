@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
-import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck } from "react-icons/fi"
+import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload } from "react-icons/fi"
 import { CreatePackageModal } from "./CreatePackageModal"
 import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
 
@@ -43,8 +43,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
       try {
         const res = await fetch(`/api/get-invoice-details?targetId=${zohoId}&type=${type}`)
         const data = await res.json()
-        if (data.success && data.invoice) {
-          setFullInvoiceDetails(data.invoice)
+        if (data.success && (data.invoice || data.document)) {
+          setFullInvoiceDetails(data.invoice || data.document)
         }
       } catch (e) {
         console.error("Failed to load full document details", e)
@@ -111,10 +111,13 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
     }
   }
 
+  const typeColor = type === 'Quote' ? 'text-purple-400' : type === 'SalesOrder' ? 'text-blue-400' : 'text-amber-500'
+  const typeLabel = type === 'Quote' ? 'Quote/Estimate' : type === 'SalesOrder' ? 'Sales Order' : 'Invoice'
+
   return createPortal(
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in">
       <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-neutral-900 border border-neutral-850 w-full max-w-6xl h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10001]">
+      <div className="relative bg-neutral-900 border border-neutral-800 w-full max-w-6xl h-[85dvh] max-h-[calc(100dvh-2rem)] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[51] animate-scale-in">
         
         {/* Modals */}
         {showPackageModal && displayData?.line_items && (
@@ -140,100 +143,106 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
           />
         )}
 
-        {/* Header */}
-        <div className="bg-neutral-850 px-6 py-4 border-b border-neutral-800 flex justify-between items-center shrink-0">
-          <div>
-            <h2 className={`text-sm font-bold flex items-center gap-2 ${type === 'Quote' ? 'text-purple-400' : type === 'SalesOrder' ? 'text-blue-400' : 'text-amber-500'}`}>
-              <FiFileText /> {type === 'Quote' ? 'Quote/Estimate' : type === 'SalesOrder' ? 'Sales Order' : 'Invoice'} Details
+        {/* ── Header ── */}
+        <div className="bg-neutral-850 px-3 sm:px-6 py-3 sm:py-4 border-b border-neutral-800 flex justify-between items-center shrink-0 gap-2">
+          <div className="min-w-0">
+            <h2 className={`text-sm font-bold flex items-center gap-2 ${typeColor}`}>
+              <FiFileText className="shrink-0" /> <span className="truncate">{typeLabel} Details</span>
             </h2>
-            <p className="text-[10px] text-neutral-400 mt-0.5 font-mono">Zoho ID: {zohoId}</p>
+            <p className="text-[10px] text-neutral-400 mt-0.5 font-mono truncate">Zoho ID: {zohoId}</p>
           </div>
           
-          <div className="flex items-center gap-3">
-            {/* Actions Bar */}
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end shrink-0">
+            {/* Convert to Sales Order (Quote only) */}
             {type === "Quote" && (
               <button 
                 onClick={() => handleConvert("SalesOrder")}
                 disabled={isConverting}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow shadow-blue-900/20 disabled:opacity-50 flex items-center gap-1.5"
+                className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs transition-colors shadow shadow-blue-900/20 disabled:opacity-50 flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
               >
-                <FiRefreshCw className={isConverting ? "animate-spin" : ""} /> Convert to Sales Order
+                <FiRefreshCw className={`shrink-0 ${isConverting ? "animate-spin" : ""}`} size={12} /> <span className="hidden sm:inline">Convert to</span> SO
               </button>
             )}
             
+            {/* Sales Order Actions */}
             {type === "SalesOrder" && (
-              <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-lg p-1 mr-2">
+              <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-lg p-0.5 sm:p-1">
                 <button 
                   onClick={() => setShowPackageModal(true)}
-                  className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1"
+                  className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold px-2 sm:px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1"
                 >
-                  <FiBox /> Package
+                  <FiBox className="shrink-0" size={12} /> <span className="hidden sm:inline">Package</span>
                 </button>
                 <button 
                   onClick={() => setShowDropshipmentModal(true)}
-                  className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1"
+                  className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold px-2 sm:px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1"
                 >
-                  <FiTruck /> Dropship
+                  <FiTruck className="shrink-0" size={12} /> <span className="hidden sm:inline">Dropship</span>
                 </button>
-                <div className="w-px h-4 bg-neutral-800 mx-1"></div>
+                <div className="w-px h-4 bg-neutral-800 mx-0.5"></div>
                 <button 
                   onClick={() => handleConvert("Invoice")}
                   disabled={isConverting}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors shadow shadow-emerald-900/20 disabled:opacity-50 flex items-center gap-1"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2 sm:px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors shadow shadow-emerald-900/20 disabled:opacity-50 flex items-center gap-1"
                 >
-                  <FiRefreshCw className={isConverting ? "animate-spin" : ""} /> Invoice
+                  <FiRefreshCw className={`shrink-0 ${isConverting ? "animate-spin" : ""}`} size={12} /> <span className="hidden sm:inline">Invoice</span>
                 </button>
               </div>
             )}
 
+            {/* Payoff Discount (Invoice, not overdue) */}
             {type === "Invoice" && displayData?.status?.toLowerCase() !== 'overdue' && (
-              <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-lg p-1 mr-2">
+              <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-lg p-0.5 sm:p-1">
                 <input
                   type="number"
                   min="0"
                   max="100"
                   value={discountPercentage}
                   onChange={(e) => setDiscountPercentage(Number(e.target.value))}
-                  className="w-12 bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded px-1.5 py-1 text-center focus:outline-none focus:border-blue-500"
+                  className="w-10 sm:w-12 bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded px-1 sm:px-1.5 py-1 text-center focus:outline-none focus:border-blue-500"
                 />
-                <span className="text-xs text-neutral-400 font-bold mr-1">%</span>
+                <span className="text-xs text-neutral-400 font-bold mr-0.5">%</span>
                 <button
                   onClick={handleApplyDiscount}
                   disabled={isConverting}
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-2 py-1 rounded text-xs transition-colors shadow shadow-blue-900/20 disabled:opacity-50 flex items-center gap-1"
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-2 py-1 rounded text-[10px] sm:text-xs transition-colors shadow shadow-blue-900/20 disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
                 >
-                  {isConverting ? <FiRefreshCw className="animate-spin" /> : <FiDatabase />}
-                  Payoff Discount
+                  {isConverting ? <FiRefreshCw className="animate-spin shrink-0" size={12} /> : <FiDatabase className="shrink-0" size={12} />}
+                  <span className="hidden sm:inline">Payoff</span> Discount
                 </button>
               </div>
             )}
+
+            {/* Download PDF */}
             <a
               href={`/api/get-invoice-pdf?id=${zohoId}&type=${type}&download=true`}
               target="_blank"
               rel="noreferrer"
-              className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-neutral-700 flex items-center gap-1.5 cursor-pointer"
+              className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs transition-colors border border-neutral-700 flex items-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap"
             >
-              Download PDF
+              <FiDownload className="shrink-0" size={12} /> <span className="hidden sm:inline">Download</span> PDF
             </a>
+
+            {/* Close Button */}
             <button 
               onClick={onClose} 
-              className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-755 transition-colors rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer"
+              className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-755 transition-colors rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center font-bold text-base sm:text-lg cursor-pointer shrink-0"
             >
               &times;
             </button>
           </div>
         </div>
 
-        {/* Content Split */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Data View */}
-          <div className="w-1/3 min-w-[300px] bg-neutral-950 border-r border-neutral-800 overflow-y-auto p-5 flex flex-col gap-6">
+        {/* ── Content Split — Stacks vertically on mobile, side-by-side on lg+ ── */}
+        <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+          {/* Data View Panel */}
+          <div className="w-full lg:w-[340px] xl:w-[380px] bg-neutral-950 border-b lg:border-b-0 lg:border-r border-neutral-800 overflow-y-auto p-4 sm:p-5 flex flex-col gap-5 shrink-0 max-h-[40vh] lg:max-h-none">
             <div>
-              <h3 className="text-white font-bold text-sm mb-4 flex items-center gap-2"><FiDatabase className="text-sky-400" /> Data View</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><FiDatabase className="text-sky-400 shrink-0" /> Data View</h3>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Invoice #</label>
-                  <div className="text-sm text-white font-mono">{displayData.items?.invoiceNumber || displayData.invoiceNumber || displayData.invoice_number || displayData.id?.slice(-6) || "—"}</div>
+                  <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">{type === 'Quote' ? 'Quote' : type === 'SalesOrder' ? 'SO' : 'Invoice'} #</label>
+                  <div className="text-sm text-white font-mono truncate">{displayData.items?.invoiceNumber || displayData.invoiceNumber || displayData.invoice_number || displayData.estimate_number || displayData.salesorder_number || displayData.id?.slice(-6) || "—"}</div>
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Amount</label>
@@ -241,7 +250,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Status</label>
-                  <div className={`text-sm font-bold ${displayData.status === 'Paid' ? 'text-blue-400' : 'text-amber-400'}`}>{displayData.status || "—"}</div>
+                  <div className={`text-sm font-bold ${displayData.status === 'Paid' || displayData.status === 'paid' ? 'text-blue-400' : displayData.status === 'Overdue' || displayData.status === 'overdue' ? 'text-red-400' : 'text-amber-400'}`}>{displayData.status || "—"}</div>
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Issue Date</label>
@@ -250,7 +259,13 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
                 {displayData.salesperson_name && (
                   <div>
                     <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Salesperson</label>
-                    <div className="text-sm text-white font-semibold">{displayData.salesperson_name}</div>
+                    <div className="text-sm text-white font-semibold truncate">{displayData.salesperson_name}</div>
+                  </div>
+                )}
+                {displayData.customer_name && (
+                  <div>
+                    <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Customer</label>
+                    <div className="text-sm text-white font-semibold truncate">{displayData.customer_name}</div>
                   </div>
                 )}
                 {displayData.vigRate && (
@@ -261,10 +276,17 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
                     </div>
                   </div>
                 )}
+                {displayData.balance != null && displayData.balance > 0 && (
+                  <div>
+                    <label className="text-[10px] text-red-400 uppercase font-bold tracking-wider">Balance Due</label>
+                    <div className="text-sm font-bold text-red-400">${parseFloat(displayData.balance).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="pt-4 border-t border-neutral-800 flex-1 overflow-y-auto pr-2">
+            {/* Custom Fields & Line Items */}
+            <div className="pt-3 border-t border-neutral-800 flex-1 overflow-y-auto pr-1">
               <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3">Custom Fields & Data</h4>
               
               {isLoading ? (
@@ -276,14 +298,14 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
                 <>
                   {/* Line Items Section */}
                   {displayData?.line_items && displayData.line_items.length > 0 && (
-                    <div className="mb-6">
-                      <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3">Line Items</h4>
+                    <div className="mb-5">
+                      <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2">Line Items</h4>
                       <div className="space-y-2">
                         {displayData.line_items.map((item: any, i: number) => (
-                          <div key={item.line_item_id || i} className="bg-neutral-850 border border-neutral-800 rounded-lg p-3 shadow-sm">
-                            <div className="flex justify-between font-bold text-white text-sm">
-                              <span>{item.name}</span>
-                              <span className="text-emerald-400">${parseFloat(item.item_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          <div key={item.line_item_id || i} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 shadow-sm">
+                            <div className="flex justify-between gap-2 font-bold text-white text-sm">
+                              <span className="truncate min-w-0">{item.name}</span>
+                              <span className="text-emerald-400 shrink-0">${parseFloat(item.item_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                             </div>
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-[10px] text-neutral-400">
                               {item.sku && <span>SKU: <span className="font-mono text-neutral-300">{item.sku}</span></span>}
@@ -296,7 +318,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
                               <span>|</span>
                               <span>Qty: {item.quantity}</span>
                             </div>
-                            {item.description && <div className="text-xs text-neutral-500 mt-1 whitespace-pre-wrap">{item.description}</div>}
+                            {item.description && <div className="text-xs text-neutral-500 mt-1 whitespace-pre-wrap line-clamp-3">{item.description}</div>}
                           </div>
                         ))}
                       </div>
@@ -305,12 +327,12 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
 
                   {/* Custom Fields Section */}
                   {displayData?.custom_fields ? (
-                    <div className="flex flex-col gap-2.5 pb-4">
+                    <div className="flex flex-col gap-2 pb-4">
                   {displayData.custom_fields
                     .filter((f: any) => f.value && f.value !== "" && f.value !== false && f.value !== "false")
                     .map((field: any) => (
-                    <div key={field.customfield_id || field.label} className="bg-neutral-850 border border-neutral-800 rounded-lg p-3 shadow-sm">
-                      <label className="text-[10px] text-emerald-500/80 uppercase font-bold tracking-wider mb-1.5 block">
+                    <div key={field.customfield_id || field.label} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 shadow-sm">
+                      <label className="text-[10px] text-emerald-500/80 uppercase font-bold tracking-wider mb-1 block">
                         {field.label}
                       </label>
                       {field.data_type === "multiline" || String(field.value).includes("\n") ? (
@@ -337,12 +359,12 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
             </div>
           </div>
 
-          {/* PDF Preview */}
-          <div className="flex-1 bg-neutral-900 p-3 relative flex flex-col">
+          {/* PDF Preview Panel */}
+          <div className="flex-1 bg-neutral-900 p-2 sm:p-3 relative flex flex-col min-h-[300px]">
             <iframe
               src={`/api/get-invoice-pdf?id=${zohoId}&type=${type}`}
               className="w-full h-full border-0 rounded-xl bg-neutral-950 flex-1 shadow-inner"
-              title="Invoice PDF Preview"
+              title={`${typeLabel} PDF Preview`}
             />
           </div>
         </div>

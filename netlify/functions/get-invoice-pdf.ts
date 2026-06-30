@@ -57,9 +57,8 @@ export const handler: Handler = async (event, context) => {
           let searchInvNumber = items.invoiceNumber;
           if (typeof searchInvNumber === 'string' && searchInvNumber.includes('|')) {
             searchInvNumber = searchInvNumber.split('|').pop()?.trim();
-          } else if (typeof searchInvNumber === 'string' && searchInvNumber.includes('-')) {
-            // Sometimes it's INV-1234
-            searchInvNumber = searchInvNumber.split('-').pop()?.trim();
+          } else if (typeof searchInvNumber === 'string' && searchInvNumber.startsWith('INV-')) {
+            searchInvNumber = searchInvNumber.substring(4).trim();
           }
 
           console.log(`Missing Books ID. Searching Zoho Books for invoice_number: ${searchInvNumber}...`)
@@ -82,8 +81,49 @@ export const handler: Handler = async (event, context) => {
           }
         }
         
+        // CRM ID fallback: try searching Books API by invoice number before using CRM ID
         if (!booksDocId && dbDoc.zohoId) {
-          booksDocId = dbDoc.zohoId
+          const items = dbDoc.items as any
+          const invoiceNumber = items?.invoiceNumber || items?.salesOrderNumber || items?.quoteNumber
+          if (invoiceNumber) {
+            let searchNumber = typeof invoiceNumber === 'string' && invoiceNumber.includes('|') 
+              ? invoiceNumber.split('|').pop()?.trim() 
+              : (typeof invoiceNumber === 'string' && invoiceNumber.startsWith('INV-') 
+                ? invoiceNumber.substring(4).trim() 
+                : invoiceNumber)
+            try {
+              const token = await getZohoAccessToken()
+              let searchModule = 'invoices'
+              let searchParam = 'invoice_number'
+              if (type === 'SalesOrder') { searchModule = 'salesorders'; searchParam = 'salesorder_number' }
+              if (type === 'Quote') { searchModule = 'estimates'; searchParam = 'estimate_number' }
+              const searchUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/${searchModule}?organization_id=${ORG_ID}&${searchParam}=${searchNumber}`
+              const searchRes = await fetch(searchUrl, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
+              if (searchRes.ok) {
+                const searchData: any = await searchRes.json()
+                const results = searchData[searchModule]
+                if (results && results.length > 0) {
+                  const idField = type === 'SalesOrder' ? 'salesorder_id' : type === 'Quote' ? 'estimate_id' : 'invoice_id'
+                  booksDocId = results[0][idField]
+                  console.log(`Found Books ID ${booksDocId} via CRM fallback search.`)
+                }
+              }
+            } catch (e) {
+              console.error('Failed CRM fallback search by document number', e)
+            }
+          }
+
+          // If we still only have the CRM ID, return a clear error rather than making a doomed Books API call
+          if (!booksDocId) {
+            return {
+              statusCode: 404,
+              headers: { 
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+              } as Record<string, string>,
+              body: JSON.stringify({ success: false, message: `Could not find a Zoho Books document ID for this ${type}. The record only has a CRM ID (${dbDoc.zohoId}) which cannot be used to fetch a PDF from Zoho Books.` })
+            }
+          }
         }
       }
     }

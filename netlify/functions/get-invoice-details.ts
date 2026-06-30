@@ -53,8 +53,8 @@ export const handler: Handler = async (event) => {
         let searchInvNumber = items.invoiceNumber;
         if (typeof searchInvNumber === 'string' && searchInvNumber.includes('|')) {
           searchInvNumber = searchInvNumber.split('|').pop()?.trim();
-        } else if (typeof searchInvNumber === 'string' && searchInvNumber.includes('-')) {
-          searchInvNumber = searchInvNumber.split('-').pop()?.trim();
+        } else if (typeof searchInvNumber === 'string' && searchInvNumber.startsWith('INV-')) {
+          searchInvNumber = searchInvNumber.substring(4).trim();
         }
 
         console.log(`Missing Books ID. Searching Zoho Books for invoice_number: ${searchInvNumber}...`)
@@ -192,7 +192,7 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 200,
       headers: cors,
-      body: JSON.stringify({ success: true, invoice: zohoData.invoice, vigRate })
+      body: JSON.stringify({ success: true, invoice: returnedDoc, salesorder: type === "SalesOrder" ? returnedDoc : undefined, estimate: type === "Quote" ? returnedDoc : undefined, vigRate })
     }
   } catch (err: any) {
     console.error("get-invoice-details error:", err)

@@ -310,6 +310,9 @@ Use the collection call log to record promises to pay and schedule the next touc
 Every customer has a single profile that ties everything together.
 
 ### What's on an account
+- **Billing & Shipping Addresses** — always visible at the top of the Overview tab, stored locally so they load instantly.
+- **Company Profile** — phone, website, industry, and tags.
+- **Business Profile** — blade sizes, materials cut, current supplier, average blade cost, crew count, blades per order, and improvement priority.
 - **Contacts** with phone numbers used for calling and texting.
 - **Purchase history** and products purchased.
 - **Deals/quotes** and invoice history.
@@ -320,6 +323,10 @@ Every customer has a single profile that ties everything together.
 - Mark the **primary contact** so calls and texts use the right number.
 - Set the account **timezone** for considerate call timing.
 - Keep **status** and **quality** current so dashboards and reassignment work correctly.
+- Update the **business profile** fields when you learn about a customer's equipment and needs.
+
+### Customer location in Collections
+The Collections page shows each customer's **city and state** below their name for quick location reference.
     `,
   },
 

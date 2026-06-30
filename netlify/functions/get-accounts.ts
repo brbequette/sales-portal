@@ -309,7 +309,7 @@ export const handler: Handler = async (event, context) => {
                   industry: record.Industry || 'Unknown',
                   tags: tagsStr,
                   ownerId: syncUser.id,
-                  timeZone: timeZone, billingStreet: record.Billing_Street || null, billingCity: record.Billing_City || null, billingState: record.Billing_State || null, billingZip: record.Billing_Code || null,
+                  timeZone: timeZone, billingStreet: record.Billing_Street || null, billingCity: record.Billing_City || null, billingState: record.Billing_State || null, billingZip: record.Billing_Code || null, shippingStreet: record.Shipping_Street || null, shippingCity: record.Shipping_City || null, shippingState: record.Shipping_State || null, shippingZip: record.Shipping_Code || null,
                   zohoModifiedTime: incomingModifiedTimeStr ? new Date(incomingModifiedTimeStr) : null,
                   rawData: record,
                 }
@@ -329,7 +329,7 @@ export const handler: Handler = async (event, context) => {
                     status: status,
                     lastPurchaseAt: lastPurchaseDate,
                     ownerId: syncUser.id,
-                    timeZone: timeZone, billingStreet: record.Billing_Street || null, billingCity: record.Billing_City || null, billingState: record.Billing_State || null, billingZip: record.Billing_Code || null,
+                    timeZone: timeZone, billingStreet: record.Billing_Street || null, billingCity: record.Billing_City || null, billingState: record.Billing_State || null, billingZip: record.Billing_Code || null, shippingStreet: record.Shipping_Street || null, shippingCity: record.Shipping_City || null, shippingState: record.Shipping_State || null, shippingZip: record.Shipping_Code || null,
                     zohoModifiedTime: incomingModifiedTimeStr ? new Date(incomingModifiedTimeStr) : null,
                     rawData: record,
                   }
@@ -967,7 +967,7 @@ export const handler: Handler = async (event, context) => {
           lastPurchaseAt: true,
           ownerId: true,
           industry: true,
-          timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true,
+          timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true, shippingStreet: true, shippingCity: true, shippingState: true, shippingZip: true, bladeSizes: true, materialsCut: true, currentSupplier: true, averageBladeCost: true, crewCount: true, bladesPerOrder: true, improvementPriority: true,
           invoices: {
             select: {
               id: true, zohoId: true, amount: true, status: true, items: true,
@@ -1016,7 +1016,7 @@ export const handler: Handler = async (event, context) => {
           lastPurchaseAt: true,
           ownerId: true,
           industry: true,
-          timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true,
+          timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true, shippingStreet: true, shippingCity: true, shippingState: true, shippingZip: true, bladeSizes: true, materialsCut: true, currentSupplier: true, averageBladeCost: true, crewCount: true, bladesPerOrder: true, improvementPriority: true,
           invoices: {
             select: {
               id: true, zohoId: true, amount: true, status: true, items: true,
@@ -1069,7 +1069,7 @@ export const handler: Handler = async (event, context) => {
         lastPurchaseAt: acc.lastPurchaseAt,
         ownerId: acc.ownerId,
         industry: acc.industry,
-        timeZone: acc.timeZone, billingStreet: acc.billingStreet, billingCity: acc.billingCity, billingState: acc.billingState, billingZip: acc.billingZip,
+        timeZone: acc.timeZone, billingStreet: acc.billingStreet, billingCity: acc.billingCity, billingState: acc.billingState, billingZip: acc.billingZip, shippingStreet: acc.shippingStreet, shippingCity: acc.shippingCity, shippingState: acc.shippingState, shippingZip: acc.shippingZip, bladeSizes: acc.bladeSizes, materialsCut: acc.materialsCut, currentSupplier: acc.currentSupplier, averageBladeCost: acc.averageBladeCost, crewCount: acc.crewCount, bladesPerOrder: acc.bladesPerOrder, improvementPriority: acc.improvementPriority,
         owner: acc.owner,
         totalSales,
         totalProfit,
