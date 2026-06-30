@@ -606,7 +606,7 @@ export const handler: Handler = async (event, context) => {
               if (syncUser.id === usersToSync[0]?.id) {
                 try {
                   const ZOHO_DC = process.env.ZOHO_DC || 'com';
-                  const ORG_ID = process.env.ZOHO_ORGANIZATION_ID;
+                  const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
                   const booksBase = `https://www.zohoapis.${ZOHO_DC}/books/v3`;
 
                   // Build a name-to-accountId map for matching

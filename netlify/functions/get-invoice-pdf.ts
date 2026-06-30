@@ -4,7 +4,7 @@ import { getZohoAccessToken } from "./lib/zoho-auth"
 
 const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID;
+const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
 
 export const handler: Handler = async (event, context) => {
   const corsHeaders: Record<string, string> = {
@@ -139,7 +139,7 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
-    console.log(`Fetching PDF for Zoho Books ${type} ID: ${booksDocId}...`);
+    console.log(`Fetching PDF for Zoho Books ${type} ID: ${booksDocId}, ORG_ID: ${ORG_ID}, source: ${queryBooksId ? 'queryParam' : dbDoc ? 'db-lookup' : 'direct-id'}`);
     const token = await getZohoAccessToken();
     
     // Determine the path based on doc type
@@ -148,6 +148,7 @@ export const handler: Handler = async (event, context) => {
     else if (type === "Quote") modulePath = "estimates"
 
     const pdfUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/${modulePath}/${booksDocId}?organization_id=${ORG_ID}&accept=pdf`;
+    console.log(`PDF URL: ${pdfUrl}`);
     
     const pdfRes = await fetch(pdfUrl, {
       headers: { Authorization: `Zoho-oauthtoken ${token}` }
@@ -156,13 +157,14 @@ export const handler: Handler = async (event, context) => {
     if (!pdfRes.ok) {
       const errText = await pdfRes.text();
       console.error(`Zoho Books PDF API failed with status ${pdfRes.status}: ${errText}`);
+      console.error(`Debug: booksDocId=${booksDocId}, ORG_ID=${ORG_ID}, type=${type}, dbDoc.zohoId=${dbDoc?.zohoId || 'N/A'}`);
       return {
         statusCode: pdfRes.status,
         headers: { 
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*"
         } as Record<string, string>,
-        body: JSON.stringify({ success: false, message: "Failed to download PDF from Zoho Books", detail: errText })
+        body: JSON.stringify({ success: false, message: "Failed to download PDF from Zoho Books", detail: errText, debug: { booksDocId, orgId: ORG_ID, type, modulePath } })
       }
     }
 
