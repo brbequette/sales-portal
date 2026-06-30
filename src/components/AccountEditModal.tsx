@@ -15,6 +15,10 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
     timeZone: account?.timeZone || "",
     tags: Array.isArray(account?.tags) ? account.tags.join(", ") : (account?.tags || ""),
     status: account?.status || "Open",
+    billingStreet: account?.billingStreet || "",
+    billingCity: account?.billingCity || "",
+    billingState: account?.billingState || "",
+    billingZip: account?.billingZip || "",
   })
 
   const handleSave = async () => {
@@ -30,7 +34,11 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
           industry: formData.industry,
           timeZone: formData.timeZone,
           tags: formattedTags,
-          status: formData.status
+          status: formData.status,
+          billingStreet: formData.billingStreet,
+          billingCity: formData.billingCity,
+          billingState: formData.billingState,
+          billingZip: formData.billingZip
         })
       })
 
@@ -111,9 +119,48 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
               ))}
             </select>
           </div>
-        </div>
 
-        {/* Footer */}
+          {/* Billing Address */}
+          <div className="pt-2 border-t border-white/5">
+            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Billing Street</label>
+            <input
+              type="text"
+              value={formData.billingStreet}
+              onChange={e => setFormData({ ...formData, billingStreet: e.target.value })}
+              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+              placeholder="123 Main St"
+            />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1.5">City</label>
+              <input
+                type="text"
+                value={formData.billingCity}
+                onChange={e => setFormData({ ...formData, billingCity: e.target.value })}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1.5">State</label>
+              <input
+                type="text"
+                value={formData.billingState}
+                onChange={e => setFormData({ ...formData, billingState: e.target.value })}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Zip</label>
+              <input
+                type="text"
+                value={formData.billingZip}
+                onChange={e => setFormData({ ...formData, billingZip: e.target.value })}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+        </div>
         <div className="p-4 border-t border-white/10 bg-[#0f1013] flex justify-end gap-3 shrink-0">
           <button 
             onClick={onClose}

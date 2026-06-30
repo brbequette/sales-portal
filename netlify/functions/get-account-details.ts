@@ -129,6 +129,10 @@ export const handler: Handler = async (event, context) => {
                   status: status,
                   lastPurchaseAt: lastPurchaseDate,
                   ownerId: ownerDbId,
+                  billingStreet: record.Billing_Street || null,
+                  billingCity: record.Billing_City || null,
+                  billingState: record.Billing_State || null,
+                  billingZip: record.Billing_Code || null,
                 },
                 include: {
                   invoices: { orderBy: { issueDate: 'desc' } },
@@ -171,6 +175,25 @@ export const handler: Handler = async (event, context) => {
           if (crmRes.ok) {
             const crmData = await crmRes.json()
             crmDetails = crmData.data?.[0] || null
+
+            // Backfill stored billing address when the DB record is missing it,
+            // so the address stays available even without a live CRM call later.
+            if (crmDetails && (!account.billingStreet && !account.billingCity && !account.billingZip)) {
+              const billing = {
+                billingStreet: crmDetails.Billing_Street || null,
+                billingCity: crmDetails.Billing_City || null,
+                billingState: crmDetails.Billing_State || null,
+                billingZip: crmDetails.Billing_Code || null,
+              }
+              if (billing.billingStreet || billing.billingCity || billing.billingZip) {
+                try {
+                  await prisma.account.update({ where: { id: account.id }, data: billing })
+                  Object.assign(account, billing)
+                } catch (updateErr) {
+                  console.error("Failed to backfill billing address:", updateErr)
+                }
+              }
+            }
           }
         }
       } catch (err) {
