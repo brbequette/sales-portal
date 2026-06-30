@@ -970,8 +970,8 @@ export const handler: Handler = async (event, context) => {
           timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true, shippingStreet: true, shippingCity: true, shippingState: true, shippingZip: true, bladeSizes: true, materialsCut: true, currentSupplier: true, averageBladeCost: true, crewCount: true, bladesPerOrder: true, improvementPriority: true,
           invoices: {
             select: {
-              id: true, zohoId: true, amount: true, status: true, items: true,
-              ...(wantDocs ? { issueDate: true, dueDate: true, createdAt: true } : {})
+              id: true, zohoId: true, amount: true, status: true, items: true, issueDate: true, createdAt: true,
+              ...(wantDocs ? { dueDate: true } : {})
             }
           },
           ...(wantDocs ? {
@@ -1019,8 +1019,8 @@ export const handler: Handler = async (event, context) => {
           timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true, shippingStreet: true, shippingCity: true, shippingState: true, shippingZip: true, bladeSizes: true, materialsCut: true, currentSupplier: true, averageBladeCost: true, crewCount: true, bladesPerOrder: true, improvementPriority: true,
           invoices: {
             select: {
-              id: true, zohoId: true, amount: true, status: true, items: true,
-              ...(wantDocs ? { issueDate: true, dueDate: true, createdAt: true } : {})
+              id: true, zohoId: true, amount: true, status: true, items: true, issueDate: true, createdAt: true,
+              ...(wantDocs ? { dueDate: true } : {})
             }
           },
           ...(wantDocs ? {
@@ -1046,6 +1046,7 @@ export const handler: Handler = async (event, context) => {
     const accounts = dbAccounts.map((acc: any) => {
       const invoices: any[] = acc.invoices || [];
       let totalSales = 0, totalProfit = 0, overdueBalance = 0, overdueCount = 0;
+      let latestPaidInvoiceDate: Date | null = null;
       for (const inv of invoices) {
         const s = inv.status || '';
         if (EXCLUDED_STATUSES.has(s)) continue;
@@ -1056,7 +1057,18 @@ export const handler: Handler = async (event, context) => {
           const bal = inv.items?.balance != null ? parseFloat(inv.items.balance) : (inv.amount || 0);
           overdueBalance += isNaN(bal) ? 0 : bal;
         }
+        // Track latest invoice date for lastPurchaseAt fallback (any non-excluded invoice = a purchase)
+        const invDate = inv.issueDate || inv.items?.date || inv.createdAt;
+        if (invDate) {
+          const d = new Date(invDate);
+          if (!latestPaidInvoiceDate || d > latestPaidInvoiceDate) {
+            latestPaidInvoiceDate = d;
+          }
+        }
       }
+      // If CRM didn't provide lastPurchaseAt but we have paid invoices, derive it
+      const effectiveLastPurchaseAt = acc.lastPurchaseAt || latestPaidInvoiceDate;
+
       const primaryContact = acc.contacts?.find((c: any) => c.isPrimary) || acc.contacts?.[0] || null;
       return {
         id: acc.id,
@@ -1066,7 +1078,7 @@ export const handler: Handler = async (event, context) => {
         status: acc.status,
         quality: acc.quality,
         lastCalledAt: acc.lastCalledAt,
-        lastPurchaseAt: acc.lastPurchaseAt,
+        lastPurchaseAt: effectiveLastPurchaseAt,
         ownerId: acc.ownerId,
         industry: acc.industry,
         timeZone: acc.timeZone, billingStreet: acc.billingStreet, billingCity: acc.billingCity, billingState: acc.billingState, billingZip: acc.billingZip, shippingStreet: acc.shippingStreet, shippingCity: acc.shippingCity, shippingState: acc.shippingState, shippingZip: acc.shippingZip, bladeSizes: acc.bladeSizes, materialsCut: acc.materialsCut, currentSupplier: acc.currentSupplier, averageBladeCost: acc.averageBladeCost, crewCount: acc.crewCount, bladesPerOrder: acc.bladesPerOrder, improvementPriority: acc.improvementPriority,
