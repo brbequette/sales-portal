@@ -150,9 +150,47 @@ export const handler: Handler = async (event, context) => {
     const pdfUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/${modulePath}/${booksDocId}?organization_id=${ORG_ID}&accept=pdf`;
     console.log(`PDF URL: ${pdfUrl}`);
     
-    const pdfRes = await fetch(pdfUrl, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    // Try with accept=pdf query param first (works for invoices), then fall back to Accept header
+    let pdfRes = await fetch(pdfUrl, {
+      headers: { 
+        Authorization: `Zoho-oauthtoken ${token}`,
+        Accept: 'application/pdf'
+      }
     });
+
+    // If the accept=pdf approach failed (common for estimates/salesorders), try the /pdf sub-endpoint
+    if (!pdfRes.ok || pdfRes.headers.get('content-type')?.includes('application/json')) {
+      // Check if we got a JSON error back
+      if (pdfRes.headers.get('content-type')?.includes('application/json')) {
+        const errData: any = await pdfRes.json().catch(() => ({}));
+        console.warn(`accept=pdf returned JSON error (code ${errData.code}), trying alternative endpoint...`);
+      }
+      
+      // Try without accept=pdf, just using Accept header
+      const altUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/${modulePath}/${booksDocId}?organization_id=${ORG_ID}`;
+      pdfRes = await fetch(altUrl, {
+        headers: { 
+          Authorization: `Zoho-oauthtoken ${token}`,
+          Accept: 'application/pdf'
+        }
+      });
+    }
+
+    // Final fallback: try the /print endpoint which Zoho also supports
+    if (!pdfRes.ok || pdfRes.headers.get('content-type')?.includes('application/json')) {
+      if (pdfRes.headers.get('content-type')?.includes('application/json')) {
+        const errData: any = await pdfRes.json().catch(() => ({}));
+        console.warn(`Accept header approach failed (code ${errData.code}), trying /print endpoint...`);
+      }
+      
+      const printUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/${modulePath}/${booksDocId}/print?organization_id=${ORG_ID}`;
+      pdfRes = await fetch(printUrl, {
+        headers: { 
+          Authorization: `Zoho-oauthtoken ${token}`,
+          Accept: 'application/pdf'
+        }
+      });
+    }
 
     if (!pdfRes.ok) {
       const errText = await pdfRes.text();
