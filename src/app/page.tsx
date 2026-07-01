@@ -1147,6 +1147,7 @@ export default function Dashboard() {
             <FiCheckCircle size={13} />
             <span>Recent Paid Accounts</span>
             <span className="bg-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{Math.min(50, accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && (a.totalSales || 0) > 0).length)}</span>
+            <span className="bg-emerald-500/30 px-1.5 py-0.5 rounded text-[10px] font-black">${(() => { const t = accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && (a.totalSales || 0) > 0).reduce((s, a) => s + (a.totalSales || 0), 0); return t >= 1000 ? (t/1000).toFixed(1) + 'k' : t.toFixed(0); })()}</span>
           </button>
 
           <button
@@ -1164,6 +1165,7 @@ export default function Dashboard() {
             <FiAlertCircle size={13} />
             <span>Accounts with Unpaid</span>
             <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)).length}</span>
+            <span className="bg-amber-500/30 px-1.5 py-0.5 rounded text-[10px] font-black">${(() => { const t = accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)).reduce((s, a) => s + (a.unpaidBalance || 0), 0); return t >= 1000 ? (t/1000).toFixed(1) + 'k' : t.toFixed(0); })()}</span>
           </button>
 
           <button
@@ -1181,6 +1183,7 @@ export default function Dashboard() {
             <FiAlertCircle size={13} />
             <span>All Overdue Accounts</span>
             <span className="bg-rose-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.overdueCount || 0) > 0)).length}</span>
+            <span className="bg-rose-500/30 px-1.5 py-0.5 rounded text-[10px] font-black">${(() => { const t = accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.overdueCount || 0) > 0)).reduce((s, a) => s + (a.overdueBalance || 0), 0); return t >= 1000 ? (t/1000).toFixed(1) + 'k' : t.toFixed(0); })()}</span>
           </button>
         </div>
 
