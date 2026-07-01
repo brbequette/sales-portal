@@ -18,8 +18,7 @@ type NextStep = {
 }
 
 const STEP_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string; priority: number }> = {
-  "convert_to_so": { label: "Convert to Sales Order", icon: <FiArrowRight size={13} />, color: "text-sky-400", priority: 1 },
-  "confirm_so": { label: "Confirm Sales Order", icon: <FiCheckCircle size={13} />, color: "text-emerald-400", priority: 3 },
+  "confirm_so": { label: "Confirm Sales Order", icon: <FiCheckCircle size={13} />, color: "text-emerald-400", priority: 1 },
   "create_packages": { label: "Create Packages / Dropship", icon: <FiPackage size={13} />, color: "text-amber-400", priority: 4 },
   "ship_packages": { label: "Ship Packages", icon: <FiTruck size={13} />, color: "text-orange-400", priority: 5 },
   "convert_to_inv": { label: "Convert to Invoice", icon: <FiArrowRight size={13} />, color: "text-violet-400", priority: 6 },
@@ -35,10 +34,7 @@ function getNextStep(doc: any, docType: "Quote" | "SalesOrder" | "Invoice"): str
     return null
   }
 
-  if (docType === "Quote") {
-    if (s === "accepted") return "convert_to_so"
-    return null // draft, sent — not shown
-  }
+  if (docType === "Quote") return null
 
   if (docType === "SalesOrder") {
     if (s === "draft") return "confirm_so"
@@ -94,7 +90,7 @@ export function OrderNextSteps({ accounts, onViewDoc }: { accounts: any[]; onVie
         })
       }
 
-      ;(account.quotes || []).forEach((q: any) => processDoc(q, "Quote"))
+      // Quotes excluded from next steps
       ;(account.salesOrders || []).forEach((s: any) => processDoc(s, "SalesOrder"))
       ;(account.invoices || []).forEach((i: any) => processDoc(i, "Invoice"))
     })
