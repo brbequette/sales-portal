@@ -30,22 +30,26 @@ function getNextStep(doc: any, docType: "Quote" | "SalesOrder" | "Invoice"): str
   const s = (doc.status || "").toLowerCase()
   const items = doc.items && !Array.isArray(doc.items) ? doc.items : {}
 
+  // Skip any doc that's already been converted, closed, voided, or completed
+  if (["invoiced", "closed", "void", "voided", "declined", "paid", "partially_refunded", "refunded", "write_off"].includes(s)) {
+    return null
+  }
+
   if (docType === "Quote") {
     if (s === "accepted") return "convert_to_so"
-    return null // draft, sent, declined, voided — not shown
+    return null // draft, sent — not shown
   }
 
   if (docType === "SalesOrder") {
     if (s === "draft") return "confirm_so"
     if (s === "open" || s === "confirmed") {
-      // Check if packages exist
       const hasPackages = items?.packages && items.packages.length > 0
       const hasShipments = items?.shipments && items.shipments.length > 0
       if (!hasPackages) return "create_packages"
       if (!hasShipments) return "ship_packages"
       return "convert_to_inv"
     }
-    return null // closed, invoiced, void
+    return null
   }
 
   if (docType === "Invoice") {
