@@ -6,7 +6,7 @@ import { formatPhoneNumber } from "@/lib/formatters"
 import { useZoho } from "@/components/ZohoProvider"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { SalesCallCampaignModal } from "@/components/SalesCallCampaignModal"
-import { RecentActivityFeed } from "@/components/RecentActivityFeed"
+import { OrderNextSteps } from "@/components/OrderNextSteps"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -80,6 +80,7 @@ export default function Dashboard() {
   const [showEditTaskModal, setShowEditTaskModal] = useState(false)
 
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)
+  const [viewingDocType, setViewingDocType] = useState<'Quote' | 'SalesOrder' | 'Invoice'>('Invoice')
   const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
   const [isLoadingInvoiceDetails, setIsLoadingInvoiceDetails] = useState(false)
 
@@ -1660,7 +1661,7 @@ export default function Dashboard() {
 
           {/* Tasks — stacks below on mobile, column on desktop */}
           <div className={`lg:col-span-1 border-l border-[var(--border)] lg:pl-4 space-y-4 ${mobileTab === "accounts" ? "hidden sm:block" : ""}`}>
-            <RecentActivityFeed />
+            <OrderNextSteps accounts={accounts} onViewDoc={(type, doc) => { setViewingDocType(type as any); setViewingInvoice(doc) }} />
 
             {/* Header */}
             <div className="flex items-center justify-between">
@@ -2785,6 +2786,7 @@ export default function Dashboard() {
       {viewingInvoice && (
         <InvoiceDetailsModal 
           invoice={viewingInvoice} 
+          type={viewingDocType}
           onClose={() => setViewingInvoice(null)} 
         />
       )}
