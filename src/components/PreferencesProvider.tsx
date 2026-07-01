@@ -5,6 +5,20 @@ import { useZoho } from "./ZohoProvider"
 interface UserPreferences {
   defaultPageSize: number | "All"
   showHiddenReps?: boolean
+  // Dashboard filter persistence
+  effort?: "sales" | "call_list" | "cold_call" | "dashboard"
+  ownerFilter?: string
+  sortBy?: "default" | "timezone_asc" | "timezone_desc" | "recentOrders_desc" | "recentOrders_asc"
+  searchQuery?: string
+  timezoneFilter?: string
+  qualityFilter?: string
+  yearFilter?: string
+  statusFilter?: string
+  industryFilter?: string
+  onlyWithSales?: boolean
+  showDoNotCall?: boolean
+  taskFilterTab?: "due" | "pending" | "completed" | "all"
+  taskTypeFilter?: string
 }
 
 interface PreferencesContextProps {

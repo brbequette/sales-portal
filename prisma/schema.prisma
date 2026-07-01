@@ -237,6 +237,9 @@ model Task {
   type         String    @default("Task")
   account      Account?  @relation(fields: [accountId], references: [id])
   deal         Deal?     @relation(fields: [dealId], references: [id])
+  reminderAt       DateTime?
+  reminderMethod   String?
+  reminderFired    Boolean       @default(false)
   owner        User      @relation(fields: [ownerId], references: [id])
 
   @@index([ownerId])

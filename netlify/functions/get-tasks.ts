@@ -247,7 +247,10 @@ export const handler: Handler = async (event, context) => {
         accountId: t.account?.zohoId || t.deal?.zohoId,
         ownerId: t.ownerId,
         status: t.status,
-        dueDate: t.dueDate
+        dueDate: t.dueDate,
+        reminderAt: t.reminderAt,
+        reminderMethod: t.reminderMethod,
+        reminderFired: t.reminderFired
       }
     })
 

@@ -86,6 +86,11 @@ export default function Dashboard() {
   const [taskFilterTab, setTaskFilterTab] = useState<"due" | "pending" | "completed" | "all">("due")
   const [taskTypeFilter, setTaskTypeFilter] = useState<string>("All")
 
+  // Reminder states
+  const [reminderDate, setReminderDate] = useState("")
+  const [reminderTime, setReminderTime] = useState("")
+  const [reminderMethods, setReminderMethods] = useState<string[]>([])
+
   // Campaign States
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([])
   const [showCampaignModal, setShowCampaignModal] = useState(false)
@@ -112,6 +117,57 @@ export default function Dashboard() {
   const [aiPrompt, setAiPrompt] = useState("")
   const [generatingAiText, setGeneratingAiText] = useState(false)
   const [generatingAiImage, setGeneratingAiImage] = useState(false)
+
+  // --- Persistent Filters: Load from preferences on mount ---
+  const [prefsLoaded, setPrefsLoaded] = useState(false)
+  useEffect(() => {
+    if (!preferences || prefsLoaded) return
+    if (preferences.effort) setEffort(preferences.effort)
+    if (preferences.ownerFilter) setOwnerFilter(preferences.ownerFilter)
+    if (preferences.sortBy) setSortBy(preferences.sortBy)
+    if (preferences.searchQuery) setSearchQuery(preferences.searchQuery)
+    if (preferences.timezoneFilter) setTimezoneFilter(preferences.timezoneFilter)
+    if (preferences.qualityFilter) setQualityFilter(preferences.qualityFilter)
+    if (preferences.yearFilter) setYearFilter(preferences.yearFilter)
+    if (preferences.statusFilter) setStatusFilter(preferences.statusFilter)
+    if (preferences.industryFilter) setIndustryFilter(preferences.industryFilter)
+    if (preferences.onlyWithSales !== undefined) setOnlyWithSales(preferences.onlyWithSales)
+    if (preferences.showDoNotCall !== undefined) setShowDoNotCall(preferences.showDoNotCall)
+    if (preferences.taskFilterTab) setTaskFilterTab(preferences.taskFilterTab)
+    if (preferences.taskTypeFilter) setTaskTypeFilter(preferences.taskTypeFilter)
+    setPrefsLoaded(true)
+  }, [preferences])
+
+  // --- Persistent Filters: Save to preferences on change ---
+  useEffect(() => {
+    if (!prefsLoaded) return
+    updatePreferences({
+      effort, ownerFilter, sortBy, searchQuery, timezoneFilter,
+      qualityFilter, yearFilter, statusFilter, industryFilter,
+      onlyWithSales, showDoNotCall, taskFilterTab, taskTypeFilter
+    })
+  }, [effort, ownerFilter, sortBy, searchQuery, timezoneFilter, qualityFilter, yearFilter, statusFilter, industryFilter, onlyWithSales, showDoNotCall, taskFilterTab, taskTypeFilter, prefsLoaded])
+
+  // --- Task Reminder Polling: Check every 60s ---
+  useEffect(() => {
+    const checkReminders = async () => {
+      try {
+        const res = await fetch('/api/check-reminders')
+        const data = await res.json()
+        if (data.success && data.processed > 0) {
+          // Refresh tasks to show updated reminder states
+          const taskRes = await fetch(`/api/get-tasks?ownerId=${currentUser?.id}`)
+          const taskData = await taskRes.json()
+          if (taskData.success) setTasks(taskData.tasks)
+        }
+      } catch (e) {
+        // Silent fail for polling
+      }
+    }
+    checkReminders()
+    const interval = setInterval(checkReminders, 60000)
+    return () => clearInterval(interval)
+  }, [currentUser?.id])
 
   // Fetch Media Assets
   const fetchMediaAssets = async () => {
@@ -673,6 +729,17 @@ export default function Dashboard() {
     setTaskQuoteId(task.quoteId || "")
     setTaskEstimateId(task.estimateId || "")
     
+    // Reminder fields
+    if (task.reminderAt) {
+      const rd = new Date(task.reminderAt)
+      setReminderDate(rd.toISOString().split('T')[0])
+      setReminderTime(`${String(rd.getHours()).padStart(2,'0')}:${String(rd.getMinutes()).padStart(2,'0')}`)
+    } else {
+      setReminderDate("")
+      setReminderTime("")
+    }
+    setReminderMethods(task.reminderMethod ? task.reminderMethod.split(',') : [])
+    
     if (task.invoiceId) setSelectedTransaction(task.invoiceId)
     else if (task.salesOrderId) setSelectedTransaction(task.salesOrderId)
     else if (task.quoteId) setSelectedTransaction(task.quoteId)
@@ -703,7 +770,10 @@ export default function Dashboard() {
           invoiceId: taskInvoiceId || null,
           salesOrderId: taskSalesOrderId || null,
           quoteId: taskQuoteId || null,
-          estimateId: taskEstimateId || null
+          estimateId: taskEstimateId || null,
+          reminderAt: reminderDate ? (reminderTime ? `${reminderDate}T${reminderTime}` : `${reminderDate}T09:00`) : null,
+          reminderMethod: reminderMethods.length > 0 ? reminderMethods.join(',') : null,
+          reminderFired: false
         })
       })
       const data = await res.json()
@@ -1679,6 +1749,8 @@ export default function Dashboard() {
                       const hasTime = dueDateObj && (dueDateObj.getHours() !== 0 || dueDateObj.getMinutes() !== 0)
                       const formattedDate = dueDateObj ? dueDateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + (hasTime ? ` at ${dueDateObj.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}` : '') : null
                       const assigneeName = repsList.find(r => r.id === task.ownerId)?.name || repsList.find(r => r.id === task.ownerId)?.email || "Unassigned"
+                      const hasReminder = !!task.reminderAt
+                      const reminderFiredFlag = task.reminderFired === true
 
                       return (
                         <div key={task.id} className="glass-panel border border-[var(--border)] rounded-xl p-3.5 hover:border-[var(--border)] transition-all shadow-sm flex flex-col gap-2">
@@ -1703,6 +1775,15 @@ export default function Dashboard() {
                               }`}>
                                 {task.status}
                               </span>
+                              {hasReminder && (
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                                  reminderFiredFlag
+                                    ? "bg-amber-950/40 text-amber-400 border border-amber-500/20 animate-pulse"
+                                    : "bg-neutral-800 text-neutral-400 border border-[var(--border)]"
+                                }`}>
+                                  🔔 {reminderFiredFlag ? "REMINDER!" : "Reminder Set"}
+                                </span>
+                              )}
                             </div>
                             
                             {/* Edit / Complete Buttons */}
@@ -2248,6 +2329,52 @@ export default function Dashboard() {
                     />
                   </div>
                 </div>
+              </div>
+              <div className="border-t border-[var(--border)] pt-3 mt-2">
+                <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">🔔 Reminder</h4>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Reminder Date</label>
+                    <input 
+                      type="date" 
+                      value={reminderDate} 
+                      onChange={e => setReminderDate(e.target.value)} 
+                      className="w-full glass-panel border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      style={{ colorScheme: "dark" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Reminder Time</label>
+                    <input 
+                      type="time" 
+                      value={reminderTime} 
+                      onChange={e => setReminderTime(e.target.value)} 
+                      className="w-full glass-panel border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      style={{ colorScheme: "dark" }}
+                    />
+                  </div>
+                </div>
+                {reminderDate && (
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Notify Via</label>
+                    <div className="flex items-center gap-3">
+                      {['push', 'sms', 'email'].map(method => (
+                        <label key={method} className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={reminderMethods.includes(method)}
+                            onChange={e => {
+                              if (e.target.checked) setReminderMethods(prev => [...prev, method])
+                              else setReminderMethods(prev => prev.filter(m => m !== method))
+                            }}
+                            className="w-3.5 h-3.5 rounded border-white/20 bg-[#111214] text-emerald-500 focus:ring-emerald-500"
+                          />
+                          <span className="text-xs text-neutral-300 font-semibold">{method === 'push' ? '🔔 Push' : method === 'sms' ? '💬 SMS' : '📧 Email'}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="pt-4 flex justify-end gap-2 border-t border-[var(--border)]">
                 <button 

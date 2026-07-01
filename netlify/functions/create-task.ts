@@ -14,7 +14,8 @@ export const handler: Handler = async (event, context) => {
     const body = JSON.parse(event.body || "{}")
     const { 
       subject, description, priority, dueDate, ownerId, whatId, status = "Not Started",
-      invoiceId, salesOrderId, quoteId, estimateId, type = "Task"
+      invoiceId, salesOrderId, quoteId, estimateId, type = "Task",
+      reminderAt, reminderMethod
     } = body
 
     if (!subject || !ownerId) {
@@ -124,7 +125,9 @@ export const handler: Handler = async (event, context) => {
         salesOrderId: salesOrderId || null,
         quoteId: quoteId || null,
         estimateId: estimateId || null,
-        type: type
+        type: type,
+        reminderAt: reminderAt ? new Date(reminderAt) : null,
+        reminderMethod: reminderMethod || null,
       }
     })
 

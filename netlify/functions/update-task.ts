@@ -12,7 +12,7 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { taskId, zohoId, subject, description, priority, dueDate, ownerId, status, whatId, invoiceId, salesOrderId, quoteId, estimateId, type } = body
+    const { taskId, zohoId, subject, description, priority, dueDate, ownerId, status, whatId, invoiceId, salesOrderId, quoteId, estimateId, type, reminderAt, reminderMethod, reminderFired } = body
 
     if (!zohoId) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing zohoId parameter" }) }
@@ -114,6 +114,9 @@ export const handler: Handler = async (event, context) => {
     if (salesOrderId !== undefined) localUpdateData.salesOrderId = salesOrderId || null
     if (quoteId !== undefined) localUpdateData.quoteId = quoteId || null
     if (estimateId !== undefined) localUpdateData.estimateId = estimateId || null
+    if (reminderAt !== undefined) localUpdateData.reminderAt = reminderAt ? new Date(reminderAt) : null
+    if (reminderMethod !== undefined) localUpdateData.reminderMethod = reminderMethod || null
+    if (reminderFired !== undefined) localUpdateData.reminderFired = reminderFired
 
     if (whatId !== undefined) {
       if (whatId) {

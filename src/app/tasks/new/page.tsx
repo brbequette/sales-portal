@@ -23,6 +23,9 @@ export default function NewTaskPage() {
   const [taskQuoteId, setTaskQuoteId] = useState("")
   const [taskEstimateId, setTaskEstimateId] = useState("")
   const [preselectedAccountName, setPreselectedAccountName] = useState("")
+  const [reminderDate, setReminderDate] = useState("")
+  const [reminderTime, setReminderTime] = useState("")
+  const [reminderMethods, setReminderMethods] = useState<string[]>([])
   
   const [transactions, setTransactions] = useState<any[]>([])
   const [selectedTransaction, setSelectedTransaction] = useState("")
@@ -180,7 +183,9 @@ export default function NewTaskPage() {
         invoiceId: taskInvoiceId || null,
         salesOrderId: taskSalesOrderId || null,
         quoteId: taskQuoteId || null,
-        estimateId: taskEstimateId || null
+        estimateId: taskEstimateId || null,
+        reminderAt: reminderDate ? (reminderTime ? `${reminderDate}T${reminderTime}` : `${reminderDate}T09:00`) : null,
+        reminderMethod: reminderMethods.length > 0 ? reminderMethods.join(',') : null
       }
       
       const res = await fetch("/api/create-task", {
@@ -380,6 +385,53 @@ export default function NewTaskPage() {
                   />
                 </div>
               </div>
+            </div>
+            
+            <div className="border-t border-white/10 pt-6">
+              <h4 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4">🔔 Reminder (Optional)</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Reminder Date</label>
+                  <input 
+                    type="date" 
+                    value={reminderDate} 
+                    onChange={e => setReminderDate(e.target.value)} 
+                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    style={{ colorScheme: "dark" }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Reminder Time</label>
+                  <input 
+                    type="time" 
+                    value={reminderTime} 
+                    onChange={e => setReminderTime(e.target.value)} 
+                    className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    style={{ colorScheme: "dark" }}
+                  />
+                </div>
+              </div>
+              {reminderDate && (
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Notify Via</label>
+                  <div className="flex items-center gap-4">
+                    {['push', 'sms', 'email'].map(method => (
+                      <label key={method} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={reminderMethods.includes(method)}
+                          onChange={e => {
+                            if (e.target.checked) setReminderMethods(prev => [...prev, method])
+                            else setReminderMethods(prev => prev.filter(m => m !== method))
+                          }}
+                          className="w-4 h-4 rounded border-white/20 bg-[#111214] text-emerald-500 focus:ring-emerald-500"
+                        />
+                        <span className="text-sm text-neutral-300 font-semibold capitalize">{method === 'push' ? '🔔 Push' : method === 'sms' ? '💬 SMS' : '📧 Email'}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             
             <div className="pt-6 flex justify-end gap-3 border-t border-white/10">

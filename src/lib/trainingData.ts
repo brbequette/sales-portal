@@ -494,4 +494,25 @@ Under **Admin → Campaigns**, create reusable message templates and control whi
 Maintain the company holiday calendar under **Admin → Holidays** so payroll reflects paid days correctly.
     `,
   },
+  {
+    id: "tools-task-reminders",
+    title: "Task Reminders",
+    category: "Tools & Resources",
+    content: `
+### Setting a reminder
+When creating or editing a task you can set a **Reminder Date/Time** and a **Reminder Method** (push, sms, or email).
+
+### How reminders work
+The system periodically checks for tasks whose reminder time has passed. When a reminder fires:
+- **Push** — a browser push notification is sent to all your registered devices.
+- **SMS / Email** — (coming soon) a text or email is sent to your contact info on file.
+
+Once a reminder fires it is marked as complete and will not fire again. If you need another reminder, edit the task and set a new date.
+
+### Tips
+- Set reminders **before** a task's due date so you have time to act.
+- Make sure you've allowed push notifications in your browser for instant alerts.
+    `,
+  },
 ]
+
