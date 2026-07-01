@@ -1045,17 +1045,23 @@ export const handler: Handler = async (event, context) => {
     const EXCLUDED_STATUSES = new Set(['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft']);
     const accounts = dbAccounts.map((acc: any) => {
       const invoices: any[] = acc.invoices || [];
-      let totalSales = 0, totalProfit = 0, overdueBalance = 0, overdueCount = 0;
+      let totalSales = 0, totalProfit = 0, overdueBalance = 0, overdueCount = 0, unpaidBalance = 0, unpaidCount = 0;
       let latestPaidInvoiceDate: Date | null = null;
       for (const inv of invoices) {
         const s = inv.status || '';
         if (EXCLUDED_STATUSES.has(s)) continue;
         totalSales += inv.amount || 0;
         totalProfit += parseFloat(inv.items?.profit || 0);
+        // Track all open/unpaid invoices (any with a balance > 0)
+        const bal = inv.items?.balance != null ? parseFloat(inv.items.balance) : 0;
+        if (bal > 0 && s !== 'Paid') {
+          unpaidCount++;
+          unpaidBalance += isNaN(bal) ? 0 : bal;
+        }
         if (s === 'Overdue' || s.toLowerCase() === 'overdue') {
           overdueCount++;
-          const bal = inv.items?.balance != null ? parseFloat(inv.items.balance) : (inv.amount || 0);
-          overdueBalance += isNaN(bal) ? 0 : bal;
+          const oBal = inv.items?.balance != null ? parseFloat(inv.items.balance) : (inv.amount || 0);
+          overdueBalance += isNaN(oBal) ? 0 : oBal;
         }
         // Track latest invoice date for lastPurchaseAt fallback (any non-excluded invoice = a purchase)
         const invDate = inv.issueDate || inv.items?.date || inv.createdAt;
@@ -1087,6 +1093,8 @@ export const handler: Handler = async (event, context) => {
         totalProfit,
         overdueBalance,
         overdueCount,
+        unpaidBalance,
+        unpaidCount,
         contacts: primaryContact ? [primaryContact] : [],
         ...(wantDocs ? {
           invoices: acc.invoices || [],

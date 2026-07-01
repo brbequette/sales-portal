@@ -1153,8 +1153,8 @@ export default function Dashboard() {
             onClick={() => {
               const unpaidAccounts = accounts
                 .filter(a => ownerFilter === "All" || a.ownerId === ownerFilter)
-                .filter(a => (a.overdueCount || 0) > 0 || (a.overdueBalance || 0) > 0)
-                .sort((a: any, b: any) => (b.overdueBalance || 0) - (a.overdueBalance || 0))
+                .filter(a => (a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)
+                .sort((a: any, b: any) => (b.unpaidBalance || 0) - (a.unpaidBalance || 0))
               setDrillType("accounts")
               setDrillTitle("Accounts with Unpaid Invoices")
               setDrillItems(unpaidAccounts)
@@ -1163,7 +1163,7 @@ export default function Dashboard() {
           >
             <FiAlertCircle size={13} />
             <span>Accounts with Unpaid</span>
-            <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.overdueCount || 0) > 0 || (a.overdueBalance || 0) > 0)).length}</span>
+            <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)).length}</span>
           </button>
 
           <button
