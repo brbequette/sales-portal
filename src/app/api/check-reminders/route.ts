@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-import * as webpush from 'web-push'
-
-const prisma = new PrismaClient()
-
-webpush.setVapidDetails(
-  'mailto:admin@titandiamond.net',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+import { prisma } from '@/lib/prisma'
+import { sendPushNotification } from '@/lib/notifications'
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,34 +21,15 @@ export async function GET(req: NextRequest) {
       const method = (task.reminderMethod || '').toLowerCase()
 
       // Handle push notifications
-      if (method.includes('push')) {
+      if (method.includes('push') && task.ownerId) {
         try {
-          const subs = await prisma.pushSubscription.findMany({
-            where: { userId: task.ownerId },
+          await sendPushNotification(task.ownerId, {
+            title: '🔔 Task Reminder',
+            body: task.subject,
+            url: '/'
           })
-          for (const sub of subs) {
-            try {
-              await webpush.sendNotification(
-                {
-                  endpoint: sub.endpoint,
-                  keys: { p256dh: sub.p256dh, auth: sub.auth },
-                },
-                JSON.stringify({
-                  title: 'Task Reminder',
-                  body: task.subject,
-                  url: '/',
-                })
-              )
-            } catch (pushErr: any) {
-              console.error(`Push failed for sub ${sub.id}:`, pushErr.message)
-              // If subscription is expired/invalid (410 or 404), clean it up
-              if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
-                await prisma.pushSubscription.delete({ where: { id: sub.id } })
-              }
-            }
-          }
         } catch (err: any) {
-          console.error(`Error sending push for task ${task.id}:`, err.message)
+          console.error(`Push failed for task ${task.id}:`, err.message)
         }
       }
 

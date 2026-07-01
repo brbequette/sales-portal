@@ -19,6 +19,11 @@ interface UserPreferences {
   showDoNotCall?: boolean
   taskFilterTab?: "due" | "pending" | "completed" | "all"
   taskTypeFilter?: string
+  // Notification & Reminder preferences
+  reminderMethodPush?: boolean
+  reminderMethodSms?: boolean
+  reminderMethodEmail?: boolean
+  defaultReminderMinutes?: number
 }
 
 interface PreferencesContextProps {

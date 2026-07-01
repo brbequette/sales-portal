@@ -499,20 +499,26 @@ Maintain the company holiday calendar under **Admin → Holidays** so payroll re
     title: "Task Reminders",
     category: "Tools & Resources",
     content: `
-### Setting a reminder
-When creating or editing a task you can set a **Reminder Date/Time** and a **Reminder Method** (push, sms, or email).
+### Setting up notifications
+Before reminders will work, you need to enable notifications in **User Settings** (gear icon in the top bar):
+1. **Push Notifications** — click **Enable** to allow browser notifications. A toggle lets you turn them on/off.
+2. **SMS Notifications** — toggle on to receive text reminders.
+3. **Email Notifications** — toggle on to receive email reminders.
+4. **Default Reminder Timing** — choose how far in advance reminders fire (5 min, 30 min, 1 hour, 1 day, etc.).
+
+### Setting a reminder on a task
+When creating or editing a task you can set a **Reminder Date/Time** and choose **Notify Via** (push, SMS, or email).
 
 ### How reminders work
-The system periodically checks for tasks whose reminder time has passed. When a reminder fires:
-- **Push** — a browser push notification is sent to all your registered devices.
-- **SMS / Email** — (coming soon) a text or email is sent to your contact info on file.
-
-Once a reminder fires it is marked as complete and will not fire again. If you need another reminder, edit the task and set a new date.
+The system checks for pending reminders every 60 seconds while the dashboard is open. When a reminder fires:
+- **Push** — a browser notification is sent to all your registered devices.
+- **SMS / Email** — a text or email is sent to your contact info on file.
+- The task card shows a pulsing amber **🔔 REMINDER!** badge so you can spot it at a glance.
 
 ### Tips
 - Set reminders **before** a task's due date so you have time to act.
-- Make sure you've allowed push notifications in your browser for instant alerts.
+- Make sure you've clicked the **🔔 bell icon** in the top bar at least once to grant browser notification permission.
+- Your notification preferences are saved per-user and persist across sessions.
     `,
   },
 ]
-
