@@ -428,15 +428,19 @@ Administrators and managers get an **Admin Settings** hub with controls that gov
     title: "Admin: Users & Permissions",
     category: "Admin & Management",
     content: `
-Manage who can do what from **Admin → Users**.
+Manage granular feature-level permissions from **Admin → Users**.
 
-### Tasks
-1. Create or edit a user and assign their **role** (rep, collections, manager, administrator).
-2. Grant feature permissions such as **Send Campaigns**.
-3. Assign the **Zoho sender numbers** a rep may text from.
+### User Permissions System
+Click any user to expand their **permissions panel**. Each permission can be individually toggled on/off.
 
-### Note on roles
-Role names containing "admin", "manager", or "collections" unlock elevated navigation. Keep roles accurate so people see exactly the tools they need.
+### Permission Groups
+- **Page Access** — Control which pages a user can see (Dashboard, Sales Docs, Collections, Commissions, Messages, Tasks, Timeclock, Catalog, Tools, Training)
+- **Actions** — Control what actions a user can perform (Send Campaigns, Record Payments, Apply Discounts, Convert/Void Documents, Send Emails, Create Packages/Dropships/Accounts, Edit Account Details)
+- **Admin** — Control admin-level access (Admin Panel, Manage Users, Manage Settings, Run Scripts, View All Reps)
+
+### Quick Actions
+- **Enable All** — Grants all permissions (full admin access)
+- **Rep Defaults** — Sets standard sales rep permissions (basic page access, no admin features)
     `,
   },
   {
