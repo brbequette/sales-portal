@@ -18,8 +18,7 @@ type NextStep = {
 }
 
 const STEP_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string; priority: number }> = {
-  "send_quote": { label: "Send Quote to Customer", icon: <FiSend size={13} />, color: "text-blue-400", priority: 1 },
-  "convert_to_so": { label: "Convert to Sales Order", icon: <FiArrowRight size={13} />, color: "text-sky-400", priority: 2 },
+  "convert_to_so": { label: "Convert to Sales Order", icon: <FiArrowRight size={13} />, color: "text-sky-400", priority: 1 },
   "confirm_so": { label: "Confirm Sales Order", icon: <FiCheckCircle size={13} />, color: "text-emerald-400", priority: 3 },
   "create_packages": { label: "Create Packages / Dropship", icon: <FiPackage size={13} />, color: "text-amber-400", priority: 4 },
   "ship_packages": { label: "Ship Packages", icon: <FiTruck size={13} />, color: "text-orange-400", priority: 5 },
@@ -32,10 +31,8 @@ function getNextStep(doc: any, docType: "Quote" | "SalesOrder" | "Invoice"): str
   const items = doc.items && !Array.isArray(doc.items) ? doc.items : {}
 
   if (docType === "Quote") {
-    if (s === "draft") return "send_quote"
-    if (s === "sent" || s === "open") return "convert_to_so"
     if (s === "accepted") return "convert_to_so"
-    return null // declined, voided, invoiced — nothing to do
+    return null // draft, sent, declined, voided — not shown
   }
 
   if (docType === "SalesOrder") {
