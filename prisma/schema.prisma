@@ -20,6 +20,7 @@ model User {
   constantVigEnabled Boolean          @default(false)
   constantVigValue   Float?           @default(1.5)
   canSendCampaigns   Boolean          @default(false)
+  permissions        Json?
   accounts           Account[]
   campaignBlasts     CampaignBlast[]
   deals              Deal[]

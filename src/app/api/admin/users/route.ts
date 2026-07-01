@@ -10,7 +10,8 @@ export async function GET() {
         name: true,
         email: true,
         role: true,
-        canSendCampaigns: true
+        canSendCampaigns: true,
+        permissions: true
       }
     })
     return NextResponse.json({ success: true, users })
@@ -23,15 +24,20 @@ export async function GET() {
 export async function PUT(req: Request) {
   try {
     const body = await req.json()
-    const { id, canSendCampaigns } = body
+    const { id, canSendCampaigns, permissions, role } = body
 
     if (!id) {
       return NextResponse.json({ success: false, error: "Missing user ID" }, { status: 400 })
     }
 
+    const updateData: any = {}
+    if (canSendCampaigns !== undefined) updateData.canSendCampaigns = canSendCampaigns
+    if (permissions !== undefined) updateData.permissions = permissions
+    if (role !== undefined) updateData.role = role
+
     const user = await prisma.user.update({
       where: { id },
-      data: { canSendCampaigns }
+      data: updateData
     })
 
     return NextResponse.json({ success: true, user })
