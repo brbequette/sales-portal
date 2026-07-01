@@ -1046,6 +1046,7 @@ export const handler: Handler = async (event, context) => {
     const accounts = dbAccounts.map((acc: any) => {
       const invoices: any[] = acc.invoices || [];
       let totalSales = 0, totalProfit = 0, overdueBalance = 0, overdueCount = 0, unpaidBalance = 0, unpaidCount = 0;
+      const unpaidInvoiceSummary: { invoiceNumber: string; dueDate: string | null; balance: number; status: string; amount: number }[] = [];
       let latestPaidInvoiceDate: Date | null = null;
       for (const inv of invoices) {
         const s = inv.status || '';
@@ -1057,6 +1058,13 @@ export const handler: Handler = async (event, context) => {
         if (bal > 0 && s !== 'Paid') {
           unpaidCount++;
           unpaidBalance += isNaN(bal) ? 0 : bal;
+          unpaidInvoiceSummary.push({
+            invoiceNumber: inv.items?.invoiceNumber || inv.zohoId || inv.id,
+            dueDate: inv.dueDate || inv.items?.dueDate || null,
+            balance: isNaN(bal) ? 0 : bal,
+            status: s,
+            amount: inv.amount || 0
+          });
         }
         if (s === 'Overdue' || s.toLowerCase() === 'overdue') {
           overdueCount++;
@@ -1095,6 +1103,7 @@ export const handler: Handler = async (event, context) => {
         overdueCount,
         unpaidBalance,
         unpaidCount,
+        unpaidInvoiceSummary,
         contacts: primaryContact ? [primaryContact] : [],
         ...(wantDocs ? {
           invoices: acc.invoices || [],

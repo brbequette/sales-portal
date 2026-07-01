@@ -1952,28 +1952,58 @@ export default function Dashboard() {
                         <p className={`text-[10px] mt-0.5 ${item.status === 'Paid' ? 'text-blue-400' : 'text-amber-400'}`}>{item.status}</p>
                       </div>
                     </div>
-                  )}
-                  {drillType === "deals" && (
-                    <div>
-                      <p className="text-white text-sm font-bold">{item.title}</p>
-                      <p className="text-neutral-400 text-xs mt-0.5">{item.description}</p>
-                    </div>
-                  )}
-                  {drillType === "accounts" && (
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-white text-sm font-bold">{item.name}</p>
-                        {item._latestPaymentTime > 0 && (
-                          <p className="text-neutral-500 text-xs mt-0.5 flex items-center gap-1"><FiCalendar size={10} /> Paid: {new Date(item._latestPaymentTime).toLocaleDateString()}</p>
+                        )}
+                        {drillType === "deals" && (
+                          <div>
+                            <p className="text-white text-sm font-bold">{item.title}</p>
+                            <p className="text-neutral-400 text-xs mt-0.5">{item.description}</p>
+                          </div>
+                        )}
+                        {drillType === "accounts" && (
+                          <div>
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="text-white text-sm font-bold">{item.name}</p>
+                                {item._latestPaymentTime > 0 && (
+                                  <p className="text-neutral-500 text-xs mt-0.5 flex items-center gap-1"><FiCalendar size={10} /> Paid: {new Date(item._latestPaymentTime).toLocaleDateString()}</p>
+                                )}
+                                {(item.unpaidBalance > 0 || item.overdueBalance > 0) && (
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {item.unpaidBalance > 0 && (
+                                      <span className="text-[10px] font-black text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded">Unpaid: ${item.unpaidBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    )}
+                                    {item.overdueBalance > 0 && (
+                                      <span className="text-[10px] font-black text-rose-400 bg-rose-500/15 px-1.5 py-0.5 rounded">Overdue: ${item.overdueBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              <Link href={`/account?id=${item.zohoId}`} onClick={() => setDrillItems(null)} className="text-emerald-400 text-xs hover:underline flex items-center gap-1 shrink-0">
+                                View <FiChevronRight />
+                              </Link>
+                            </div>
+                            {item.unpaidInvoiceSummary && item.unpaidInvoiceSummary.length > 0 && (
+                              <div className="mt-2 space-y-1 border-t border-[var(--border)] pt-2">
+                                {item.unpaidInvoiceSummary.map((inv: any, i: number) => (
+                                  <div key={i} className="flex items-center justify-between text-[11px] px-2 py-1 rounded bg-neutral-900/50">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-emerald-400 font-mono font-bold">#{inv.invoiceNumber}</span>
+                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${inv.status === 'Overdue' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}`}>{inv.status}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-neutral-400">
+                                      {inv.dueDate && (
+                                        <span className="flex items-center gap-1"><FiCalendar size={9} /> Due: {new Date(inv.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                      )}
+                                      <span className="text-amber-400 font-bold">${inv.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
-                      <Link href={`/account?id=${item.zohoId}`} onClick={() => setDrillItems(null)} className="text-emerald-400 text-xs hover:underline flex items-center gap-1">
-                        View <FiChevronRight />
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    ))}
                   </div>
                 </div>
               )}
