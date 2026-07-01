@@ -24,7 +24,7 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Invalid JSON" }) }
   }
 
-  const { customerId, invoiceId, amount, authCode } = body
+  const { customerId, invoiceId, amount, authCode, paymentMethod, paymentDate } = body
 
   if (!customerId || !invoiceId || !amount) {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing required fields" }) }
@@ -86,9 +86,9 @@ export const handler: Handler = async (event) => {
 
     const payload = {
       customer_id: booksCustomerId,
-      payment_mode: 'Credit Card',
+      payment_mode: paymentMethod || 'Credit Card',
       amount: parseFloat(amount).toFixed(2),
-      date: new Date().toISOString().split('T')[0],
+      date: paymentDate || new Date().toISOString().split('T')[0],
       reference_number: authCode || '',
       invoices: [
         {

@@ -1042,7 +1042,7 @@ export const handler: Handler = async (event, context) => {
 
     // Prune: aggregate invoices server-side, keep only primary contact. Stays well under 6MB Lambda limit.
     const totalCount = (dbAccounts as any)._totalCount ?? dbAccounts.length;
-    const EXCLUDED_STATUSES = new Set(['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft']);
+    const EXCLUDED_STATUSES = new Set(['writeoff', 'write_off', 'write off', 'bad debt', 'void', 'voided', 'draft']);
     const accounts = dbAccounts.map((acc: any) => {
       const invoices: any[] = acc.invoices || [];
       let totalSales = 0, totalProfit = 0, overdueBalance = 0, overdueCount = 0, unpaidBalance = 0, unpaidCount = 0;
@@ -1050,7 +1050,8 @@ export const handler: Handler = async (event, context) => {
       let latestPaidInvoiceDate: Date | null = null;
       for (const inv of invoices) {
         const s = inv.status || '';
-        if (EXCLUDED_STATUSES.has(s)) continue;
+        const sLower = s.toLowerCase();
+        if (EXCLUDED_STATUSES.has(sLower)) continue;
         totalSales += inv.amount || 0;
         totalProfit += parseFloat(inv.items?.profit || 0);
         // Track all open/unpaid invoices (any with a balance > 0)

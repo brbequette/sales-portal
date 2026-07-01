@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
-import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload } from "react-icons/fi"
+import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck } from "react-icons/fi"
 import { CreatePackageModal } from "./CreatePackageModal"
 import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
+import { RecordPaymentModal } from "./RecordPaymentModal"
 
 interface InvoiceDetailsModalProps {
   invoice: any | string; // Can be an invoice object or just the zohoId string
@@ -16,10 +17,12 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
   const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isConverting, setIsConverting] = useState(false)
+  const [actionLoading, setActionLoading] = useState("")
   
   // Modals state
   const [showPackageModal, setShowPackageModal] = useState(false)
   const [showDropshipmentModal, setShowDropshipmentModal] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   
   // Discount state
   const [discountPercentage, setDiscountPercentage] = useState<number>(5)
@@ -111,8 +114,94 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
     }
   }
 
+  // ── New Action Handlers ──
+
+  const handleSendEmail = async () => {
+    const docLabel = type === 'Quote' ? 'quote' : type === 'SalesOrder' ? 'sales order' : 'invoice'
+    if (!confirm(`Send this ${docLabel} via email to the customer?`)) return
+    setActionLoading("email")
+    try {
+      const endpoint = type === 'Invoice' ? '/api/zoho-email-invoice' : '/api/zoho-send-document'
+      const bodyPayload = type === 'Invoice'
+        ? { invoiceId: zohoId }
+        : { documentId: zohoId, type }
+      
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyPayload)
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert(`✅ ${type === 'Quote' ? 'Quote' : type === 'SalesOrder' ? 'Sales Order' : 'Invoice'} sent to customer!`)
+      } else {
+        alert(`Failed to send: ${data.error || data.message}`)
+      }
+    } catch (e: any) {
+      alert(`Error: ${e.message}`)
+    } finally {
+      setActionLoading("")
+    }
+  }
+
+  const handleVoid = async () => {
+    const docLabel = type === 'Quote' ? 'quote' : type === 'SalesOrder' ? 'sales order' : 'invoice'
+    if (!confirm(`⚠️ Are you sure you want to VOID this ${docLabel}? This action cannot be easily undone.`)) return
+    setActionLoading("void")
+    try {
+      const res = await fetch("/api/zoho-void", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId: zohoId, type })
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert(`✅ ${type} voided successfully.`)
+        onClose()
+      } else {
+        alert(`Failed to void: ${data.error || data.message}`)
+      }
+    } catch (e: any) {
+      alert(`Error: ${e.message}`)
+    } finally {
+      setActionLoading("")
+    }
+  }
+
+  const handleUpdateStatus = async (action: string) => {
+    const labels: Record<string, string> = {
+      confirm: 'Confirm this sales order?',
+      accepted: 'Mark this quote as accepted?',
+      declined: 'Mark this quote as declined?',
+    }
+    if (!confirm(labels[action] || `Update status to ${action}?`)) return
+    setActionLoading(action)
+    try {
+      const res = await fetch("/api/zoho-update-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId: zohoId, type, action })
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert(`✅ Status updated!`)
+        onClose()
+      } else {
+        alert(`Failed: ${data.error || data.message}`)
+      }
+    } catch (e: any) {
+      alert(`Error: ${e.message}`)
+    } finally {
+      setActionLoading("")
+    }
+  }
+
   const typeColor = type === 'Quote' ? 'text-purple-400' : type === 'SalesOrder' ? 'text-blue-400' : 'text-amber-500'
   const typeLabel = type === 'Quote' ? 'Quote/Estimate' : type === 'SalesOrder' ? 'Sales Order' : 'Invoice'
+  const statusLower = (displayData?.status || '').toLowerCase()
+  const isVoided = statusLower === 'void' || statusLower === 'voided'
+  const isPaid = statusLower === 'paid'
+  const balanceDue = parseFloat(displayData?.balance || 0)
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in">
@@ -142,6 +231,19 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
             }}
           />
         )}
+        {showPaymentModal && (
+          <RecordPaymentModal
+            invoiceId={zohoId}
+            customerId={displayData?.customer_id || displayData?.items?.customerId || ""}
+            balance={balanceDue}
+            onClose={() => setShowPaymentModal(false)}
+            onSuccess={() => {
+              alert("✅ Payment recorded successfully!")
+              setShowPaymentModal(false)
+              onClose()
+            }}
+          />
+        )}
 
         {/* ── Header ── */}
         <div className="bg-neutral-850 px-3 sm:px-6 py-3 sm:py-4 border-b border-neutral-800 flex justify-between items-center shrink-0 gap-2">
@@ -152,21 +254,48 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
             <p className="text-[10px] text-neutral-400 mt-0.5 font-mono truncate">Zoho ID: {zohoId}</p>
           </div>
           
-          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end shrink-0">
-            {/* Convert to Sales Order (Quote only) */}
-            {type === "Quote" && (
-              <button 
-                onClick={() => handleConvert("SalesOrder")}
-                disabled={isConverting}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs transition-colors shadow shadow-blue-900/20 disabled:opacity-50 flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
-              >
-                <FiRefreshCw className={`shrink-0 ${isConverting ? "animate-spin" : ""}`} size={12} /> <span className="hidden sm:inline">Convert to</span> SO
-              </button>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end shrink-0">
+            
+            {/* ── QUOTE ACTIONS ── */}
+            {type === "Quote" && !isVoided && (
+              <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-lg p-0.5 sm:p-1">
+                <button 
+                  onClick={() => handleUpdateStatus("accepted")}
+                  disabled={!!actionLoading}
+                  className="bg-emerald-600/80 hover:bg-emerald-500 text-white font-bold px-2 sm:px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1 disabled:opacity-50"
+                >
+                  <FiCheckCircle className="shrink-0" size={12} /> <span className="hidden sm:inline">Accept</span>
+                </button>
+                <button 
+                  onClick={() => handleUpdateStatus("declined")}
+                  disabled={!!actionLoading}
+                  className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold px-2 sm:px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1 disabled:opacity-50"
+                >
+                  <FiXCircle className="shrink-0" size={12} /> <span className="hidden sm:inline">Decline</span>
+                </button>
+                <div className="w-px h-4 bg-neutral-800 mx-0.5"></div>
+                <button 
+                  onClick={() => handleConvert("SalesOrder")}
+                  disabled={isConverting}
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-2 sm:px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors shadow shadow-blue-900/20 disabled:opacity-50 flex items-center gap-1"
+                >
+                  <FiRefreshCw className={`shrink-0 ${isConverting ? "animate-spin" : ""}`} size={12} /> <span className="hidden sm:inline">Convert to</span> SO
+                </button>
+              </div>
             )}
             
-            {/* Sales Order Actions */}
-            {type === "SalesOrder" && (
+            {/* ── SALES ORDER ACTIONS ── */}
+            {type === "SalesOrder" && !isVoided && (
               <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-lg p-0.5 sm:p-1">
+                {statusLower !== 'confirmed' && statusLower !== 'shipped' && (
+                  <button 
+                    onClick={() => handleUpdateStatus("confirm")}
+                    disabled={!!actionLoading}
+                    className="bg-emerald-600/80 hover:bg-emerald-500 text-white font-bold px-2 sm:px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <FiCheck className="shrink-0" size={12} /> <span className="hidden sm:inline">Confirm</span>
+                  </button>
+                )}
                 <button 
                   onClick={() => setShowPackageModal(true)}
                   className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-bold px-2 sm:px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1"
@@ -190,46 +319,88 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
               </div>
             )}
 
-            {/* Payoff Discount (Invoice, not overdue) */}
-            {type === "Invoice" && displayData?.status?.toLowerCase() !== 'overdue' && (
+            {/* ── INVOICE ACTIONS ── */}
+            {type === "Invoice" && !isVoided && (
               <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-lg p-0.5 sm:p-1">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={discountPercentage}
-                  onChange={(e) => setDiscountPercentage(Number(e.target.value))}
-                  className="w-10 sm:w-12 bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded px-1 sm:px-1.5 py-1 text-center focus:outline-none focus:border-blue-500"
-                />
-                <span className="text-xs text-neutral-400 font-bold mr-0.5">%</span>
-                <button
-                  onClick={handleApplyDiscount}
-                  disabled={isConverting}
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-2 py-1 rounded text-[10px] sm:text-xs transition-colors shadow shadow-blue-900/20 disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
-                >
-                  {isConverting ? <FiRefreshCw className="animate-spin shrink-0" size={12} /> : <FiDatabase className="shrink-0" size={12} />}
-                  <span className="hidden sm:inline">Payoff</span> Discount
-                </button>
+                {/* Record Payment (only if not fully paid) */}
+                {!isPaid && balanceDue > 0 && (
+                  <button
+                    onClick={() => setShowPaymentModal(true)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2 sm:px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors shadow shadow-emerald-900/20 flex items-center gap-1"
+                  >
+                    <FiDollarSign className="shrink-0" size={12} /> <span className="hidden sm:inline">Record</span> Payment
+                  </button>
+                )}
+                
+                {/* Payoff Discount (not overdue, not paid) */}
+                {!isPaid && statusLower !== 'overdue' && (
+                  <>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={discountPercentage}
+                      onChange={(e) => setDiscountPercentage(Number(e.target.value))}
+                      className="w-10 sm:w-12 bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded px-1 sm:px-1.5 py-1 text-center focus:outline-none focus:border-blue-500"
+                    />
+                    <span className="text-xs text-neutral-400 font-bold mr-0.5">%</span>
+                    <button
+                      onClick={handleApplyDiscount}
+                      disabled={isConverting}
+                      className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-2 py-1 rounded text-[10px] sm:text-xs transition-colors shadow shadow-blue-900/20 disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
+                    >
+                      {isConverting ? <FiRefreshCw className="animate-spin shrink-0" size={12} /> : <FiDatabase className="shrink-0" size={12} />}
+                      <span className="hidden sm:inline">Payoff</span> Disc
+                    </button>
+                  </>
+                )}
               </div>
             )}
 
-            {/* Download PDF */}
-            <a
-              href={`/api/get-invoice-pdf?id=${zohoId}&type=${type}&download=true`}
-              target="_blank"
-              rel="noreferrer"
-              className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs transition-colors border border-neutral-700 flex items-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap"
-            >
-              <FiDownload className="shrink-0" size={12} /> <span className="hidden sm:inline">Download</span> PDF
-            </a>
+            {/* ── SHARED ACTIONS (all document types) ── */}
+            <div className="flex items-center gap-1">
+              {/* Send Email */}
+              {!isVoided && (
+                <button
+                  onClick={handleSendEmail}
+                  disabled={!!actionLoading}
+                  className="bg-sky-600/80 hover:bg-sky-500 text-white font-bold px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs transition-colors flex items-center gap-1 whitespace-nowrap disabled:opacity-50"
+                >
+                  {actionLoading === "email" ? <FiRefreshCw className="animate-spin shrink-0" size={12} /> : <FiMail className="shrink-0" size={12} />}
+                  <span className="hidden sm:inline">Send</span> Email
+                </button>
+              )}
 
-            {/* Close Button */}
-            <button 
-              onClick={onClose} 
-              className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-755 transition-colors rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center font-bold text-base sm:text-lg cursor-pointer shrink-0"
-            >
-              &times;
-            </button>
+              {/* Void / Cancel */}
+              {!isVoided && !isPaid && (
+                <button
+                  onClick={handleVoid}
+                  disabled={!!actionLoading}
+                  className="bg-red-600/60 hover:bg-red-500 text-white font-bold px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs transition-colors flex items-center gap-1 whitespace-nowrap disabled:opacity-50"
+                >
+                  {actionLoading === "void" ? <FiRefreshCw className="animate-spin shrink-0" size={12} /> : <FiSlash className="shrink-0" size={12} />}
+                  Void
+                </button>
+              )}
+
+              {/* Download PDF */}
+              <a
+                href={`/api/get-invoice-pdf?id=${zohoId}&type=${type}&download=true`}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs transition-colors border border-neutral-700 flex items-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <FiDownload className="shrink-0" size={12} /> <span className="hidden sm:inline">Download</span> PDF
+              </a>
+
+              {/* Close Button */}
+              <button 
+                onClick={onClose} 
+                className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-755 transition-colors rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center font-bold text-base sm:text-lg cursor-pointer shrink-0"
+              >
+                &times;
+              </button>
+            </div>
           </div>
         </div>
 
@@ -250,12 +421,18 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Status</label>
-                  <div className={`text-sm font-bold ${displayData.status === 'Paid' || displayData.status === 'paid' ? 'text-blue-400' : displayData.status === 'Overdue' || displayData.status === 'overdue' ? 'text-red-400' : 'text-amber-400'}`}>{displayData.status || "—"}</div>
+                  <div className={`text-sm font-bold ${displayData.status === 'Paid' || displayData.status === 'paid' ? 'text-blue-400' : displayData.status === 'Overdue' || displayData.status === 'overdue' ? 'text-red-400' : isVoided ? 'text-neutral-500' : 'text-amber-400'}`}>{displayData.status || "—"}</div>
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Issue Date</label>
                   <div className="text-sm text-white">{displayData.issueDate || displayData.date ? new Date(displayData.issueDate || displayData.date).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "—"}</div>
                 </div>
+                {displayData.due_date && (
+                  <div>
+                    <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Due Date</label>
+                    <div className="text-sm text-white">{new Date(displayData.due_date).toLocaleDateString(undefined, { timeZone: 'UTC' })}</div>
+                  </div>
+                )}
                 {displayData.salesperson_name && (
                   <div>
                     <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Salesperson</label>
