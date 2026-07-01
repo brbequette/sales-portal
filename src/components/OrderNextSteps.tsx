@@ -25,8 +25,6 @@ const STEP_CONFIG: Record<string, { label: string; icon: React.ReactNode; color:
   "ship_packages": { label: "Ship Packages", icon: <FiTruck size={13} />, color: "text-orange-400", priority: 5 },
   "convert_to_inv": { label: "Convert to Invoice", icon: <FiArrowRight size={13} />, color: "text-violet-400", priority: 6 },
   "send_invoice": { label: "Send Invoice to Customer", icon: <FiSend size={13} />, color: "text-blue-400", priority: 7 },
-  "collect_payment": { label: "Collect Payment", icon: <FiDollarSign size={13} />, color: "text-emerald-400", priority: 8 },
-  "overdue_payment": { label: "Payment Overdue — Follow Up", icon: <FiDollarSign size={13} />, color: "text-rose-400", priority: 0 },
 }
 
 function getNextStep(doc: any, docType: "Quote" | "SalesOrder" | "Invoice"): string | null {
@@ -55,15 +53,7 @@ function getNextStep(doc: any, docType: "Quote" | "SalesOrder" | "Invoice"): str
 
   if (docType === "Invoice") {
     if (s === "draft") return "send_invoice"
-    if (s === "sent" || s === "open" || s === "unpaid" || s === "partially_paid") {
-      // Check if overdue
-      if (s === "overdue" || (doc.dueDate && new Date(doc.dueDate) < new Date())) {
-        return "overdue_payment"
-      }
-      return "collect_payment"
-    }
-    if (s === "overdue") return "overdue_payment"
-    return null // paid, void, writeoff
+    return null // sent, paid, overdue, void — not processing tasks
   }
 
   return null
