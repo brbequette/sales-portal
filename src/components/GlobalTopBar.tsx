@@ -49,7 +49,7 @@ export function GlobalTopBar() {
     fetchTime()
     const interval = setInterval(fetchTime, 60000)
     return () => clearInterval(interval)
-  }, [currentUser])
+  }, [currentUser?.id])
 
   const calculateHours = (entry: any) => {
     if (!entry) return "0.0"

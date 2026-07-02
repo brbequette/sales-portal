@@ -532,7 +532,7 @@ export default function Dashboard() {
       setFullInvoiceDetails(null)
       setIsLoadingInvoiceDetails(false)
     }
-  }, [viewingInvoice])
+  }, [viewingInvoice?.id])
 
   const handleEffortChange = (val: "sales" | "call_list" | "cold_call" | "dashboard") => {
     setEffort(val)
@@ -551,7 +551,7 @@ export default function Dashboard() {
       const accountsQuery = `${query}${roleQuery}`
 
       const [resAccounts, resTasks] = await Promise.all([
-        fetch(`/api/get-accounts?${accountsQuery}&refresh=true&force=true&includeDocs=true`),
+        fetch(`/api/get-accounts?${accountsQuery}&refresh=true&includeDocs=true`),
         fetch(`/api/get-tasks?${accountsQuery}&refresh=true`),
       ])
       const dataAccounts = await resAccounts.json()

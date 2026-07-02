@@ -619,7 +619,7 @@ export const handler: Handler = async (event, context) => {
                   let soPage = 1;
                   let soSynced = 0;
                   let hasMoreSO = true;
-                  while (hasMoreSO && soPage <= 3) {
+                  while (hasMoreSO && soPage <= 2) {
                     const soRes = await fetch(
                       `${booksBase}/salesorders?organization_id=${ORG_ID}&page=${soPage}&per_page=200&sort_column=date&sort_order=D`,
                       { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
@@ -674,7 +674,7 @@ export const handler: Handler = async (event, context) => {
                   let estPage = 1;
                   let estSynced = 0;
                   let hasMoreEst = true;
-                  while (hasMoreEst && estPage <= 3) {
+                  while (hasMoreEst && estPage <= 2) {
                     const estRes = await fetch(
                       `${booksBase}/estimates?organization_id=${ORG_ID}&page=${estPage}&per_page=200&sort_column=date&sort_order=D`,
                       { headers: { Authorization: `Zoho-oauthtoken ${token}` } }

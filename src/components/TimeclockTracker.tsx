@@ -10,6 +10,9 @@ export function TimeclockTracker() {
   
   // Track last time we sent a ping to avoid spam
   const lastPingTime = useRef<number>(0)
+  // Keep pathname in a ref so navigation doesn't restart the interval
+  const pathnameRef = useRef(pathname)
+  useEffect(() => { pathnameRef.current = pathname }, [pathname])
 
   useEffect(() => {
     // Only track if logged in
@@ -74,7 +77,7 @@ export function TimeclockTracker() {
       window.removeEventListener("scroll", handleActivity)
       if (throttleTimeout) clearTimeout(throttleTimeout)
     }
-  }, [currentUser?.id, pathname])
+  }, [currentUser?.id])
 
   return null
 }
