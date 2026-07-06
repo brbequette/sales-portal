@@ -143,7 +143,9 @@ export default function BooksScriptsPage() {
                   const data = await res.json()
                   if (data.success) {
                     const s = data.summary
-                    setResults(prev => ({ ...prev, ['tariff-live']: `Done! ${s.processed} invoices updated, ${s.skipped} skipped, ${s.errors} errors.` }))
+                    const errors = (data.invoices || []).filter((inv: any) => inv.status === 'error')
+                    const errorList = errors.length > 0 ? '\n\nErrors:\n' + errors.map((inv: any) => `  ${inv.invoiceNumber} (${inv.customerName}): ${inv.error}`).join('\n') : ''
+                    setResults(prev => ({ ...prev, ['tariff-live']: `Done! ${s.processed} invoices updated, ${s.skipped} skipped, ${s.errors} errors.${errorList}` }))
                   } else {
                     setResults(prev => ({ ...prev, ['tariff-live']: `Error: ${data.error}` }))
                   }

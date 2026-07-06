@@ -140,11 +140,12 @@ export const handler: Handler = async (event) => {
         console.log(`${invoice.invoice_number}: Non-gift dead cost=$${nonGiftDeadCost.toFixed(2)}, Tariff=$${tariffAmount.toFixed(2)}`)
 
         if (!dryRun) {
-          // 5. Apply tariff as adjustment
+          // 5. Apply tariff as adjustment — Zoho requires customer_id on PUT
           const putRes = await fetch(`${baseUrl}/invoices/${invoice.invoice_id}?organization_id=${ORG_ID}`, {
             method: "PUT",
             headers: { ...authHeaders, "Content-Type": "application/json" },
             body: JSON.stringify({
+              customer_id: invoice.customer_id,
               adjustment: tariffAmount,
               adjustment_description: "Tariff Surcharge (12.5%)"
             })
@@ -152,19 +153,20 @@ export const handler: Handler = async (event) => {
 
           const putData: any = await putRes.json()
           if (!putRes.ok || putData.code !== 0) {
-            console.error(`Failed to update ${invoice.invoice_number}:`, putData.message)
+            const errMsg = putData.message || `HTTP ${putRes.status}`
+            console.error(`Failed to update ${invoice.invoice_number}: ${errMsg}`)
             errorCount++
             results.push({
               invoiceNumber: invoice.invoice_number,
+              customerName: invoice.customer_name,
               status: 'error',
-              error: putData.message
+              error: errMsg,
+              tariffAmount
             })
             continue
           }
 
-          // 6. Now process costs (call our own endpoint logic inline)
-          // We'll trigger the process-invoice-costs for this invoice
-          // But to avoid circular deps, we calculate inline here
+          // 6. Tariff applied successfully
           await delay(300)
         }
 
