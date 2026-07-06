@@ -4,7 +4,7 @@ import Link from "next/link"
 import { 
   FiUsers, FiClock, FiDollarSign, 
   FiTarget, FiAward, FiCalendar, FiMessageSquare, 
-  FiFileText, FiActivity, FiSettings
+  FiFileText, FiActivity, FiSettings, FiDatabase
 } from "react-icons/fi"
 
 const sections = [
@@ -36,6 +36,7 @@ const sections = [
   {
     category: "System",
     cards: [
+      { title: "Zoho Books Scripts", desc: "Run batch operations: tariff updates, draft processing, and maintenance.", href: "/admin/books-scripts", icon: FiDatabase, color: "text-amber-400", bg: "bg-amber-500/10" },
       { title: "System Settings", desc: "Configure Push Notifications, API settings, and AI prompts.", href: "/admin/settings", icon: FiSettings, color: "text-neutral-400", bg: "bg-neutral-500/10" },
     ]
   }
