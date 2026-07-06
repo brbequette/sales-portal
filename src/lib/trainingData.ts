@@ -525,4 +525,36 @@ The system checks for pending reminders every 60 seconds while the dashboard is 
 - Your notification preferences are saved per-user and persist across sessions.
     `,
   },
+  {
+    id: "invoice-process-costs",
+    title: "Processing Invoice Costs & Commissions",
+    category: "Sales Docs",
+    content: `
+### Process Costs Button
+
+When viewing any **Invoice** in the details modal, you'll see an amber **Process Costs** button in the action bar.
+
+Clicking it will:
+1. Fetch the full invoice from Zoho Books (including line items).
+2. Calculate **Dead Cost Total** — the sum of each line item's cost × quantity.
+3. Split dead cost into **Subject to VIG** and **No VIG** categories:
+   - Items marked as **gifts** → No VIG.
+   - Items with the "Subject to VIG" checkbox **unchecked** → No VIG.
+   - All other items → Subject to VIG.
+4. Calculate **Dead Cost Plus VIG** = (Subject to VIG × VIG Rate) + No VIG.
+5. Deduct CC Fees, Additional Costs, and Insurance.
+6. Calculate **Profit** = Sub Total − Dead Cost Plus VIG − fees.
+7. Calculate **Sales Commission** = Profit × Commission %.
+8. Write **all** of these values back to the Zoho Books custom fields.
+
+### When to use it
+- After creating a new invoice that hasn't had its costs filled in yet.
+- After line items or costs change on an existing invoice.
+- To verify that the Dead Cost, Profit, and Commission fields are correct.
+
+### Important
+The VIG rate is pulled from the salesperson's settings. If you need to override it, update the rep's VIG in Admin → VIG Settings first.
+    `,
+  },
 ]
+

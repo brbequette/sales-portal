@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
-import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck } from "react-icons/fi"
+import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu } from "react-icons/fi"
 import { CreatePackageModal } from "./CreatePackageModal"
 import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
 import { RecordPaymentModal } from "./RecordPaymentModal"
@@ -196,6 +196,46 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
     }
   }
 
+  const handleProcessCosts = async () => {
+    const invoiceNumber = displayData?.invoice_number || displayData?.items?.invoiceNumber || displayData?.invoiceNumber
+    if (!invoiceNumber && !zohoId) return
+    if (!confirm(`Calculate and write all costs, profit, and commission fields for this invoice?`)) return
+    setActionLoading("process-costs")
+    try {
+      const res = await fetch("/api/process-invoice-costs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoiceNumber: invoiceNumber,
+          invoiceId: !invoiceNumber ? zohoId : undefined
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        const inv = data.invoice
+        alert(
+          `✅ Invoice ${inv.invoiceNumber} processed!\n\n` +
+          `Sub Total: $${inv.subTotal.toFixed(2)}\n` +
+          `Dead Cost (VIG): $${inv.deadCostSubjectToVig.toFixed(2)}\n` +
+          `Dead Cost (No VIG): $${inv.deadCostNoVig.toFixed(2)}\n` +
+          `Dead Cost Total: $${inv.deadCostTotal.toFixed(2)}\n` +
+          `VIG Rate: ${inv.vigRate}x\n` +
+          `Dead Cost + VIG: $${inv.deadCostPlusVig.toFixed(2)}\n` +
+          `Profit: $${inv.profit.toFixed(2)} (${inv.marginPercent}%)\n` +
+          `Commission: $${inv.salesCommission.toFixed(2)} (${inv.commissionPercent}%)\n\n` +
+          `${inv.fieldsUpdated} fields updated in Zoho Books.`
+        )
+        onClose()
+      } else {
+        alert(`Failed: ${data.error}`)
+      }
+    } catch (e: any) {
+      alert(`Error: ${e.message}`)
+    } finally {
+      setActionLoading("")
+    }
+  }
+
   const typeColor = type === 'Quote' ? 'text-purple-400' : type === 'SalesOrder' ? 'text-blue-400' : 'text-amber-500'
   const typeLabel = type === 'Quote' ? 'Quote/Estimate' : type === 'SalesOrder' ? 'Sales Order' : 'Invoice'
   const statusLower = (displayData?.status || '').toLowerCase()
@@ -359,6 +399,17 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
 
             {/* ── SHARED ACTIONS (all document types) ── */}
             <div className="flex items-center gap-1">
+              {/* Process Costs (Invoice only) */}
+              {type === "Invoice" && !isVoided && (
+                <button
+                  onClick={handleProcessCosts}
+                  disabled={!!actionLoading}
+                  className="bg-amber-600/80 hover:bg-amber-500 text-white font-bold px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs transition-colors flex items-center gap-1 whitespace-nowrap disabled:opacity-50"
+                >
+                  {actionLoading === "process-costs" ? <FiRefreshCw className="animate-spin shrink-0" size={12} /> : <FiCpu className="shrink-0" size={12} />}
+                  <span className="hidden sm:inline">Process</span> Costs
+                </button>
+              )}
               {/* Send Email */}
               {!isVoided && (
                 <button
