@@ -592,6 +592,28 @@ To ensure your commission shows correctly:
 If an invoice has no SALES COMMISSION field set in Zoho Books, it will show as $0 commission until processed.
     `,
   },
+  {
+    id: "timeclock-how-it-works",
+    title: "How the Timeclock Works",
+    category: "Timeclock",
+    content: `
+### Automatic Tracking
+
+The timeclock tracks your activity automatically while you're using the Sales Portal. It pings every 5 minutes to record your presence.
+
+### Key Behaviors
+- **Clock In**: Click the Clock In button in the top bar. Activity tracking starts immediately.
+- **Clock Out**: Click Clock Out, or the system auto-clocks you out after **20 minutes of inactivity** at your **last activity time** (no idle time is counted).
+- **Inactivity**: If you're away for 20+ minutes and come back, that gap is recorded as an inactivity period and subtracted from your hours.
+- **Hours Display**: Both the top bar and the timeclock page show hours with inactivity subtracted.
+
+### Time Zones
+All dates are stored in **Phoenix time (MST)** — no daylight saving time changes.
+
+### Requesting Changes
+If you forgot to clock in/out or need a correction, use the **Request Change** button on the Timeclock page.
+    `,
+  },
 ]
 
 

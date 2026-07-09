@@ -45,7 +45,7 @@ export async function GET(req: Request) {
 
       let effectiveClockOut = entry.clockOut;
       if (isInactive && !entry.manualClockOut && !effectiveClockOut) {
-        effectiveClockOut = new Date(new Date(entry.lastActivity).getTime() + 20 * 60000);
+        effectiveClockOut = new Date(entry.lastActivity);
         try {
           await prisma.timeEntry.update({
             where: { id: entry.id },

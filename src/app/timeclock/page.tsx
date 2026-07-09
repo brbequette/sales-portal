@@ -130,7 +130,6 @@ export default function UserTimeclockPage() {
       end = new Date(entry.clockOut)
     } else {
       end = new Date(entry.lastActivity)
-      end.setMinutes(end.getMinutes() + 10)
     }
     
     // If it's today, cap at "now" if they are currently active

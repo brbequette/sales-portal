@@ -62,7 +62,25 @@ export function GlobalTopBar() {
     } else {
       end = new Date(entry.lastActivity)
     }
-    const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+    // Cap at now if active
+    const now = new Date()
+    if (end > now) end = now
+
+    // Subtract inactivity periods
+    let inactivityMs = 0
+    if (entry.inactivityPeriods && Array.isArray(entry.inactivityPeriods)) {
+      entry.inactivityPeriods.forEach((p: any) => {
+        const pStart = new Date(p.start)
+        const pEnd = new Date(p.end)
+        const overlapStart = new Date(Math.max(start.getTime(), pStart.getTime()))
+        const overlapEnd = new Date(Math.min(end.getTime(), pEnd.getTime()))
+        if (overlapEnd > overlapStart) {
+          inactivityMs += overlapEnd.getTime() - overlapStart.getTime()
+        }
+      })
+    }
+
+    const diffHours = ((end.getTime() - start.getTime()) - inactivityMs) / (1000 * 60 * 60)
     return Math.max(0, diffHours).toFixed(1)
   }
 
