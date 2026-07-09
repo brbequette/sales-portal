@@ -252,11 +252,40 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
 7) Let me ask you one last question… if you could improve one thing about the blades you are using right now… what would it be… longer life… faster cutting… or cleaner cutting?`
     }
 
-    // Update Account / Follow Up
-    let scriptText = `Hi ${contactName}, this is ${repName} with Titan Diamond USA! Hope you're having a great ${timeOfDay}.\n\nI'm reaching out to check in on how your recent operations are going, and see if there are any specific diamond blades, cup wheels, or core drill bits you need stocked up for your upcoming projects. We have some great bulk markups available this month.\n\n`
-    
+    // Update Account / Follow Up — personalized with purchase history
+    let scriptText = `Hi ${contactName}, this is ${repName} with Titan Diamond USA! Hope you're having a great ${timeOfDay}.\n\n`
+
+    if (accountPurchases.length > 0) {
+      const topItems = accountPurchases.slice(0, 3)
+      const totalSpent = accountPurchases.reduce((sum: number, p: any) => sum + (p.totalSpend || 0), 0)
+      const totalQty = accountPurchases.reduce((sum: number, p: any) => sum + (p.quantity || 0), 0)
+      const lastItemNames = topItems.map((p: any) => p.name).join(', ')
+
+      scriptText += `I was looking at your account and saw that you've picked up ${totalQty} items from us totaling about $${totalSpent.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} — including ${lastItemNames}. `
+
+      if (totalQty >= 10) {
+        scriptText += `You're one of our valued repeat customers, so I wanted to make sure you're taken care of first on our latest deals.\n\n`
+      } else {
+        scriptText += `I appreciate the business! I wanted to reach out and see how those are working out for you and if there's anything we can do better.\n\n`
+      }
+
+      const hasBlades = accountPurchases.some((p: any) => (p.name || '').toLowerCase().includes('blade'))
+      const hasCoredrills = accountPurchases.some((p: any) => (p.name || '').toLowerCase().includes('core') || (p.name || '').toLowerCase().includes('drill'))
+      const hasCupWheels = accountPurchases.some((p: any) => (p.name || '').toLowerCase().includes('cup') || (p.name || '').toLowerCase().includes('wheel') || (p.name || '').toLowerCase().includes('grind'))
+
+      if (hasBlades && !hasCupWheels) {
+        scriptText += `I also noticed you've been running our diamond blades — have you had a chance to try our cup wheels and grinding products? A lot of our blade customers end up loving them for surface prep and finishing work.\n\n`
+      } else if (hasBlades && !hasCoredrills) {
+        scriptText += `Since you're running our blades, I wanted to let you know we also carry core drill bits if you ever need them on the job. Same quality, same direct pricing.\n\n`
+      } else {
+        scriptText += `Are you getting close to needing a restock on any of those? I can get a quote together for you right now if you'd like.\n\n`
+      }
+    } else {
+      scriptText += `I'm reaching out to check in on how your recent operations are going, and see if there are any specific diamond blades, cup wheels, or core drill bits you need stocked up for your upcoming projects. We have some great bulk markups available this month.\n\n`
+    }
+
     // Check for missing fact finding
-    const missing = []
+    const missing: string[] = []
     if (!ffBladeSizes) missing.push("what size blades you primarily run")
     if (!ffMaterialsCut) missing.push("what materials you guys are cutting most right now")
     if (!ffCrewCount) missing.push("how many crews you have out in the field")
