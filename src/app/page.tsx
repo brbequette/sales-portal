@@ -821,8 +821,11 @@ export default function Dashboard() {
     ON_HOLD: 1,
   }
 
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+
   const coldCallAccounts = accounts
-    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter) && (!a.totalSales || a.totalSales === 0) && (!a._count?.quotes || a._count.quotes === 0) && (!a._count?.salesOrders || a._count.salesOrders === 0))
+    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter) && (!a.totalSales || a.totalSales === 0) && (!a._count?.quotes || a._count.quotes === 0) && (!a._count?.salesOrders || a._count.salesOrders === 0) && (!a.lastCalledAt || new Date(a.lastCalledAt) < todayStart))
     .sort((a, b) => {
       const scoreA = qualityScores[a.quality] || 0
       const scoreB = qualityScores[b.quality] || 0
@@ -836,7 +839,7 @@ export default function Dashboard() {
     .slice(0, 50)
 
   const callListAccounts = accounts
-    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter) && (a.totalSales && a.totalSales > 0))
+    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter) && (a.totalSales && a.totalSales > 0) && (!a.lastCalledAt || new Date(a.lastCalledAt) < todayStart))
     .sort((a, b) => {
       const scoreA = qualityScores[a.quality] || 0
       const scoreB = qualityScores[b.quality] || 0
