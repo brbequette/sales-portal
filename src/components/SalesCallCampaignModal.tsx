@@ -7,7 +7,8 @@ import { useState, useEffect, useRef } from "react"
 import { 
   FiX, FiPhoneCall, FiUser, FiClock, FiCheckSquare, 
   FiArrowRight, FiBookOpen, FiActivity, FiTag, FiAlertCircle,
-  FiChevronDown, FiChevronRight, FiMapPin, FiShoppingCart, FiZap
+  FiChevronDown, FiChevronRight, FiMapPin, FiShoppingCart, FiZap,
+  FiPackage, FiFileText, FiDollarSign, FiLoader
 } from "react-icons/fi"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
@@ -58,6 +59,12 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const [timerSeconds, setTimerSeconds] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Account Intel States (purchase history + notes)
+  const [accountPurchases, setAccountPurchases] = useState<any[]>([])
+  const [accountNotes, setAccountNotes] = useState<any[]>([])
+  const [isLoadingIntel, setIsLoadingIntel] = useState(false)
+  const [intelTab, setIntelTab] = useState<'purchases' | 'notes' | 'invoices'>('purchases')
+
   const activeAccount = accounts[currentIndex]
   const repName = currentUser?.name || "your sales rep"
 
@@ -94,6 +101,28 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
       }
     }
   }, [currentIndex, isPowerDialerActive, activeAccount])
+
+  // Fetch account intel (purchases + notes) on-demand per active account
+  useEffect(() => {
+    if (!activeAccount?.zohoId) return
+    let cancelled = false
+    setIsLoadingIntel(true)
+    setAccountPurchases([])
+    setAccountNotes([])
+
+    Promise.all([
+      fetch(`/api/get-account-purchases?accountId=${activeAccount.zohoId}`).then(r => r.json()).catch(() => ({ products: [] })),
+      fetch(`/api/get-account-details?id=${activeAccount.zohoId}`).then(r => r.json()).catch(() => ({ notes: [] }))
+    ]).then(([purchaseData, detailData]) => {
+      if (cancelled) return
+      setAccountPurchases(purchaseData.products || [])
+      setAccountNotes(detailData.notes || [])
+    }).finally(() => {
+      if (!cancelled) setIsLoadingIntel(false)
+    })
+
+    return () => { cancelled = true }
+  }, [currentIndex, activeAccount?.zohoId])
 
   // Reset timer and form for new active account
   useEffect(() => {
@@ -485,6 +514,120 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                     <p className="text-xs text-neutral-500 font-mono">—</p>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Account Intel Panel — Purchases, Notes, Invoices */}
+            <div className="bg-neutral-950/40 border border-neutral-800/80 rounded-2xl overflow-hidden">
+              {/* Tab Bar */}
+              <div className="flex border-b border-neutral-800/60 text-[10px] font-bold uppercase tracking-wider">
+                <button
+                  onClick={() => setIntelTab('purchases')}
+                  className={`flex-1 px-3 py-2.5 flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${intelTab === 'purchases' ? 'text-amber-400 border-b-2 border-amber-500 bg-amber-500/5' : 'text-neutral-500 hover:text-neutral-300'}`}
+                >
+                  <FiPackage size={12} /> Purchases ({accountPurchases.length})
+                </button>
+                <button
+                  onClick={() => setIntelTab('notes')}
+                  className={`flex-1 px-3 py-2.5 flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${intelTab === 'notes' ? 'text-sky-400 border-b-2 border-sky-500 bg-sky-500/5' : 'text-neutral-500 hover:text-neutral-300'}`}
+                >
+                  <FiFileText size={12} /> Notes ({accountNotes.length})
+                </button>
+                <button
+                  onClick={() => setIntelTab('invoices')}
+                  className={`flex-1 px-3 py-2.5 flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${intelTab === 'invoices' ? 'text-emerald-400 border-b-2 border-emerald-500 bg-emerald-500/5' : 'text-neutral-500 hover:text-neutral-300'}`}
+                >
+                  <FiDollarSign size={12} /> Invoices
+                </button>
+              </div>
+
+              {/* Tab Content */}
+              <div className="max-h-48 overflow-y-auto scrollbar-thin p-3">
+                {isLoadingIntel ? (
+                  <div className="flex items-center justify-center py-6 text-neutral-500">
+                    <FiLoader className="animate-spin mr-2" size={16} />
+                    <span className="text-xs">Loading account intel...</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* Purchases Tab */}
+                    {intelTab === 'purchases' && (
+                      accountPurchases.length === 0 ? (
+                        <p className="text-xs text-neutral-500 text-center py-4">No purchase history found.</p>
+                      ) : (
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-[9px] uppercase tracking-wider text-neutral-500 border-b border-neutral-800/60">
+                              <th className="text-left py-1.5 pr-2">Item</th>
+                              <th className="text-left py-1.5 pr-2">SKU</th>
+                              <th className="text-right py-1.5 pr-2">Qty</th>
+                              <th className="text-right py-1.5 pr-2">Avg Price</th>
+                              <th className="text-right py-1.5">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {accountPurchases.map((p: any, i: number) => (
+                              <tr key={i} className="border-b border-neutral-800/30 hover:bg-white/[0.02]">
+                                <td className="py-1.5 pr-2 text-neutral-300 font-medium max-w-[180px] truncate">{p.name}</td>
+                                <td className="py-1.5 pr-2 text-neutral-500 font-mono">{p.sku || '—'}</td>
+                                <td className="py-1.5 pr-2 text-right text-neutral-300 font-bold">{p.quantity}</td>
+                                <td className="py-1.5 pr-2 text-right text-neutral-400">${(p.totalSpend / (p.quantity || 1)).toFixed(2)}</td>
+                                <td className="py-1.5 text-right text-emerald-400 font-bold">${p.totalSpend?.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )
+                    )}
+
+                    {/* Notes Tab */}
+                    {intelTab === 'notes' && (
+                      accountNotes.length === 0 ? (
+                        <p className="text-xs text-neutral-500 text-center py-4">No notes for this account.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {accountNotes.map((note: any, i: number) => (
+                            <div key={note.id || i} className="bg-neutral-900/50 border border-neutral-800/40 rounded-lg p-2.5">
+                              <div className="flex justify-between items-start mb-1">
+                                <span className="text-[10px] font-bold text-neutral-400">
+                                  {note.author?.name || 'System'}
+                                  {note.sentiment && <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[8px] uppercase ${note.sentiment === 'positive' ? 'bg-emerald-500/10 text-emerald-400' : note.sentiment === 'negative' ? 'bg-red-500/10 text-red-400' : 'bg-neutral-500/10 text-neutral-400'}`}>{note.sentiment}</span>}
+                                </span>
+                                <span className="text-[9px] text-neutral-600">{note.createdAt ? new Date(note.createdAt).toLocaleDateString() : ''}</span>
+                              </div>
+                              <p className="text-xs text-neutral-300 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    )}
+
+                    {/* Invoices Tab */}
+                    {intelTab === 'invoices' && (
+                      !activeAccount.invoices || activeAccount.invoices.length === 0 ? (
+                        <p className="text-xs text-neutral-500 text-center py-4">No invoices found.</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {(activeAccount.invoices || []).slice(0, 15).map((inv: any, i: number) => {
+                            const items = inv.items || {}
+                            return (
+                              <div key={inv.id || i} className="flex items-center justify-between bg-neutral-900/50 border border-neutral-800/40 rounded-lg px-3 py-2">
+                                <div>
+                                  <span className="text-xs text-white font-bold">{items.invoiceNumber || items.invoice_number || `INV-${i + 1}`}</span>
+                                  <span className={`ml-2 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${inv.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400' : inv.status === 'overdue' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>{inv.status}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-xs font-bold text-neutral-300">${(inv.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                  <span className="text-[9px] text-neutral-500 ml-2">{inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : ''}</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    )}
+                  </>
+                )}
               </div>
             </div>
 

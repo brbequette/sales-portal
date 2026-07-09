@@ -556,5 +556,42 @@ Clicking it will:
 The VIG rate is pulled from the salesperson's settings. If you need to override it, update the rep's VIG in Admin → VIG Settings first.
     `,
   },
+  {
+    id: "campaign-intel-panel",
+    title: "Sales Call Campaign — Account Intel Panel",
+    category: "Sales Hub",
+    content: `
+### Account Intel Panel
+
+When running a Sales Call Campaign, a **tabbed info panel** appears between the account card and the script:
+
+- **📦 Purchases** — full purchase history: Item Name, SKU, Qty Bought, Average Price, Total Spent. Auto-loaded from Zoho Books invoice line items.
+- **📝 Notes** — all notes for the account (author, date, sentiment badge, content). Gives you full context on previous interactions.
+- **📊 Invoices** — list of recent invoices with status badges (paid, overdue, sent) and amounts.
+
+Data loads automatically as you cycle through accounts. Use this to quickly understand what the customer has bought before and what previous reps have noted.
+    `,
+  },
+  {
+    id: "commissions-calculation",
+    title: "How Commissions Are Calculated",
+    category: "Commissions",
+    content: `
+### Commission Source
+
+Commissions are pulled directly from the **SALES COMMISSION** custom field in Zoho Books — the system does NOT calculate commission on its own.
+
+To ensure your commission shows correctly:
+1. Run **Process Costs** on the invoice (from the invoice details modal) to calculate and write the SALES COMMISSION field.
+2. Commission = 50% of Profit (by default), where Profit = Sub Total − Dead Cost Plus VIG − CC Fees − Additional Costs − Insurance.
+
+### Split Timing
+- **Upfront (50%)** — credited when the invoice is created.
+- **Final (50%)** — credited when the invoice is marked as paid.
+
+If an invoice has no SALES COMMISSION field set in Zoho Books, it will show as $0 commission until processed.
+    `,
+  },
 ]
+
 

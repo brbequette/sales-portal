@@ -132,7 +132,7 @@ export const handler: Handler = async (event) => {
       const salespersonName = items.salesperson as string | null
       const profit = parseFloat(items.profit || 0)
       const deadCost = parseFloat(items.deadCostTotal || 0)
-      const commissionAmount = parseFloat(items.commission || items.cf_commission_amount_unformatted || items.cf_commision_amount_unformatted || items.Commission_Amount || items.profit || 0)
+      const commissionAmount = parseFloat(items.commission || items.cf_commission_amount_unformatted || items.cf_commision_amount_unformatted || items.Commission_Amount || 0)
       const invoiceNumber = items.invoiceNumber || items.invoice_number || null
       const paymentDate = items.paymentDate || null
 
