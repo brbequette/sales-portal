@@ -124,7 +124,7 @@ export default function Dashboard() {
   const [prefsLoaded, setPrefsLoaded] = useState(false)
   useEffect(() => {
     if (!preferences || prefsLoaded) return
-    if (preferences.effort) setEffort(preferences.effort)
+    // effort tab always defaults to "sales" (Sales Pipeline) — not restored from prefs
     if (preferences.ownerFilter) setOwnerFilter(preferences.ownerFilter)
     if (preferences.sortBy) setSortBy(preferences.sortBy)
     if (preferences.searchQuery) setSearchQuery(preferences.searchQuery)
