@@ -666,6 +666,9 @@ function AccountHubContent() {
                           inv.status === "Overdue" ? "bg-red-900/40 text-red-400" :
                           "bg-neutral-800 text-neutral-300"
                         }`}>{inv.status || "—"}</div>
+                        {inv.status !== 'Paid' && inv.status !== 'Void' && inv.status !== 'Draft' && inv.items?.shippingCharge === 0 && (
+                          <div className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded inline-block mt-1 ml-1 bg-amber-900/40 text-amber-400">⚠ No Ship $</div>
+                        )}
                       </div>
                     </div>
                   )

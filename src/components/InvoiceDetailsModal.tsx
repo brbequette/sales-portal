@@ -513,6 +513,17 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
                   </div>
                 )}
               </div>
+
+              {/* ── Shipping Cost Flag ── */}
+              {type === "Invoice" && !isVoided && displayData?.shipping_charge !== undefined && parseFloat(displayData.shipping_charge || 0) === 0 && statusLower !== 'draft' && (
+                <div className="mt-3 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 animate-pulse">
+                  <span className="text-amber-400 text-lg">⚠</span>
+                  <div>
+                    <div className="text-[10px] uppercase font-black text-amber-400 tracking-wider">Needs Shipping Costs</div>
+                    <div className="text-[10px] text-amber-300/70">Shipping charge is $0.00 — update in Zoho Books</div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Custom Fields & Line Items */}

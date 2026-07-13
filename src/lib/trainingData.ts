@@ -557,6 +557,13 @@ Gift items are always included in **Dead Costs** but placed in the **No VIG** bu
 
 ### Loop Prevention
 The system prevents update loops when Zoho workflows trigger callbacks after field updates. Each invoice has a 60-second cooldown after processing.
+
+### Needs Shipping Costs Flag
+When an invoice has a **$0.00 shipping charge**, the system flags it with a **"Needs Shipping Costs"** warning:
+- **Invoice Detail Modal** — A pulsing amber alert banner appears in the Data View panel
+- **Account Invoice List** — An amber **"⚠ No Ship $"** badge appears next to the status
+- This flag only appears on non-draft, non-void invoices
+- To resolve: update the shipping charge in Zoho Books
     `,
   },
   {

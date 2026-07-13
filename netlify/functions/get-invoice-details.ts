@@ -128,6 +128,8 @@ export const handler: Handler = async (event) => {
       if (zohoDoc.last_payment_date) {
         currentItems.paymentDate = zohoDoc.last_payment_date
       }
+      // Store shipping charge for "Needs Shipping Costs" flag
+      currentItems.shippingCharge = parseFloat(zohoDoc.shipping_charge || 0)
       // Always write the authoritative salesperson from Zoho Books back to the DB
       // This self-corrects stale salesperson data (e.g. wrong name from old CRM sync)
       if (zohoDoc.salesperson_name) {
