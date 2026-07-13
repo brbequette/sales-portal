@@ -45,31 +45,51 @@ const sections = [
 ]
 
 export default function AdminDashboardPage() {
-  const [syncing, setSyncing] = useState(false)
-  const [syncResult, setSyncResult] = useState<any>(null)
+  const [syncing, setSyncing] = useState<string | null>(null)
+  const [syncResults, setSyncResults] = useState<Record<string, any>>({})
   const [syncError, setSyncError] = useState<string | null>(null)
 
-  const handleBulkSync = async (fullSync: boolean) => {
-    setSyncing(true)
-    setSyncResult(null)
+  const handleSyncEntity = async (entity: string) => {
+    setSyncing(entity)
     setSyncError(null)
     try {
       const res = await fetch('/api/admin/bulk-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fullSync })
+        body: JSON.stringify({ entity })
       })
+      const contentType = res.headers.get('content-type') || ''
+      if (!contentType.includes('json')) {
+        if (res.status === 504 || res.status === 502) {
+          setSyncError(`${entity} sync timed out — too many records. Check server logs.`)
+        } else {
+          setSyncError(`Server returned non-JSON response (${res.status}) for ${entity}.`)
+        }
+        return
+      }
       const data = await res.json()
       if (data.success) {
-        setSyncResult(data)
+        setSyncResults(prev => ({ ...prev, [entity]: data }))
       } else {
-        setSyncError(data.error || 'Sync failed')
+        setSyncError(`${entity}: ${data.error || 'Failed'}`)
       }
     } catch (err: any) {
-      setSyncError(err.message || 'Network error')
+      setSyncError(`${entity}: ${err.message || 'Network error'}`)
     } finally {
-      setSyncing(false)
+      setSyncing(null)
     }
+  }
+
+  const handleSyncAll = async () => {
+    for (const entity of ['invoices', 'salesorders', 'estimates']) {
+      await handleSyncEntity(entity)
+    }
+  }
+
+  const entityLabels: Record<string, { label: string, color: string, bg: string }> = {
+    invoices: { label: 'Invoices', color: 'text-blue-400', bg: 'bg-blue-600' },
+    salesorders: { label: 'Sales Orders', color: 'text-sky-400', bg: 'bg-sky-600' },
+    estimates: { label: 'Quotes', color: 'text-amber-400', bg: 'bg-amber-600' },
   }
 
   return (
@@ -124,22 +144,25 @@ export default function AdminDashboardPage() {
               <div className="flex-1">
                 <h3 className="font-bold text-white mb-1">Bulk Sync — Zoho Books</h3>
                 <p className="text-xs text-neutral-400 leading-relaxed mb-3">
-                  Pull all invoices, quotes, and sales orders from Zoho Books. Incremental sync only fetches records modified since last sync.
+                  Pull invoices, quotes, and sales orders from Zoho Books. Sync one at a time or all sequentially.
                 </p>
                 <div className="flex flex-wrap gap-2">
+                  {Object.entries(entityLabels).map(([key, { label, bg }]) => (
+                    <button
+                      key={key}
+                      onClick={() => handleSyncEntity(key)}
+                      disabled={!!syncing}
+                      className={`px-4 py-2 ${bg} hover:opacity-90 text-white text-xs font-bold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed`}
+                    >
+                      {syncing === key ? `Syncing ${label}...` : `Sync ${label}`}
+                    </button>
+                  ))}
                   <button
-                    onClick={() => handleBulkSync(false)}
-                    disabled={syncing}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleSyncAll}
+                    disabled={!!syncing}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {syncing ? "Syncing..." : "Incremental Sync"}
-                  </button>
-                  <button
-                    onClick={() => handleBulkSync(true)}
-                    disabled={syncing}
-                    className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Full Sync (All Records)
+                    {syncing ? "Syncing..." : "⚡ Sync All"}
                   </button>
                 </div>
               </div>
@@ -148,39 +171,30 @@ export default function AdminDashboardPage() {
             {syncing && (
               <div className="flex items-center gap-2 text-indigo-400 text-xs font-medium bg-indigo-950/30 border border-indigo-500/20 rounded-lg p-3">
                 <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
-                Syncing documents from Zoho Books — this may take a minute...
+                Syncing {entityLabels[syncing]?.label || syncing} from Zoho Books...
               </div>
             )}
 
-            {syncResult && (
+            {Object.keys(syncResults).length > 0 && (
               <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-lg p-3 space-y-2">
                 <div className="flex items-center gap-2 text-emerald-400 text-sm font-bold">
                   <FiCheckCircle size={14} />
-                  Sync Complete
+                  Sync Results
                 </div>
-                <p className="text-xs text-emerald-300">{syncResult.message}</p>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="bg-black/20 rounded p-2 text-center">
-                    <div className="text-lg font-black text-white">{syncResult.stats?.invoices?.synced || 0}</div>
-                    <div className="text-neutral-500">Invoices</div>
-                    <div className="text-[10px] text-neutral-600">{syncResult.stats?.invoices?.apiCalls || 0} calls</div>
-                  </div>
-                  <div className="bg-black/20 rounded p-2 text-center">
-                    <div className="text-lg font-black text-white">{syncResult.stats?.salesOrders?.synced || 0}</div>
-                    <div className="text-neutral-500">Sales Orders</div>
-                    <div className="text-[10px] text-neutral-600">{syncResult.stats?.salesOrders?.apiCalls || 0} calls</div>
-                  </div>
-                  <div className="bg-black/20 rounded p-2 text-center">
-                    <div className="text-lg font-black text-white">{syncResult.stats?.quotes?.synced || 0}</div>
-                    <div className="text-neutral-500">Quotes</div>
-                    <div className="text-[10px] text-neutral-600">{syncResult.stats?.quotes?.apiCalls || 0} calls</div>
-                  </div>
+                  {Object.entries(syncResults).map(([entity, result]) => (
+                    <div key={entity} className="bg-black/20 rounded p-2 text-center">
+                      <div className="text-lg font-black text-white">{result.stats?.synced || 0}</div>
+                      <div className="text-neutral-500">{entityLabels[entity]?.label || entity}</div>
+                      <div className="text-[10px] text-neutral-600">
+                        {result.stats?.apiCalls || 0} calls · {result.stats?.skipped || 0} skipped
+                      </div>
+                      {result.stats?.errors?.length > 0 && (
+                        <div className="text-[10px] text-red-400 mt-1">{result.stats.errors[0]}</div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                {syncResult.stats?.errors?.length > 0 && (
-                  <div className="text-xs text-red-400 mt-1">
-                    Errors: {syncResult.stats.errors.join(', ')}
-                  </div>
-                )}
               </div>
             )}
 

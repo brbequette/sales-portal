@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
-import { bulkSync } from "../../../../../netlify/functions/lib/bulk-sync"
+import { bulkSyncEntity } from "../../../../../netlify/functions/lib/bulk-sync"
 
 export const maxDuration = 300 // 5 minutes max
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
-    const fullSync = body.fullSync === true
+    const entity = body.entity || 'invoices' // 'invoices' | 'salesorders' | 'estimates'
 
-    console.log(`Bulk sync started (${fullSync ? 'FULL' : 'INCREMENTAL'})...`)
-    const stats = await bulkSync({ fullSync })
+    console.log(`Bulk sync started for: ${entity}...`)
+    const stats = await bulkSyncEntity(entity)
 
     return NextResponse.json({
       success: true,
       stats,
-      message: `Synced ${stats.invoices.synced} invoices, ${stats.salesOrders.synced} sales orders, ${stats.quotes.synced} quotes in ${stats.totalApiCalls} API calls (${(stats.durationMs / 1000).toFixed(1)}s)`
+      message: `Synced ${stats.synced} ${entity} in ${stats.apiCalls} API calls (${(stats.durationMs / 1000).toFixed(1)}s). ${stats.skipped} skipped.`
     })
   } catch (error: any) {
     console.error("Bulk sync route error:", error)
