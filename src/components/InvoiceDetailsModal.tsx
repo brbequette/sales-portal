@@ -276,6 +276,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
             invoiceId={zohoId}
             customerId={displayData?.customer_id || displayData?.items?.customerId || ""}
             balance={balanceDue}
+            invoiceNumber={displayData?.invoice_number || displayData?.items?.invoiceNumber || ""}
+            customerName={displayData?.customer_name || ""}
             onClose={() => setShowPaymentModal(false)}
             onSuccess={() => {
               alert("✅ Payment recorded successfully!")

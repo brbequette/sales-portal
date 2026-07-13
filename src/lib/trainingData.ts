@@ -295,6 +295,20 @@ The **Collections** tab tracks overdue invoices and customer payments.
 2. Call or text the customer (the dial pad detects the account automatically).
 3. Log the outcome, notes, and any **payment promise** with a follow-up date.
 
+### Processing Payments
+When a customer is ready to pay, click **Record Payment** on any invoice. You have two options:
+
+- **Run Credit Card** — Process a card payment through **Authorize.net** directly in the portal. Enter the card number, expiration, CVV, and billing ZIP. The system will charge the card and automatically record the payment in Zoho Books.
+- **Manual Record** — For payments made by check, ACH, wire, cash, or PayPal, select the payment method, enter the reference/auth code, and the payment will be recorded in Zoho Books.
+
+### Credit Card Processing Steps
+1. Open the invoice and click **Record Payment**.
+2. Select the **Run Credit Card** tab.
+3. Enter the payment amount (defaults to the full balance).
+4. Fill in **cardholder name**, **card number**, **expiration**, **CVV**, and **ZIP**.
+5. Click **Charge** — the system tokenizes the card securely, charges it through Authorize.net, and records the payment in Zoho Books automatically.
+6. If the charge succeeds but Zoho recording fails, you'll see a warning with the auth code so you can record it manually.
+
 ### Constant Vig (late fees)
 For late payments the system automatically calculates a **Constant Vig** based on days overdue. In a customer's collection profile you can see the original invoice amount separated from the accrued late fees.
 
