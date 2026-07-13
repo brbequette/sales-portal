@@ -530,6 +530,35 @@ export default function AdminUsersPage() {
                       </div>
                     </div>
 
+                    {/* Sales Board Toggle */}
+                    <div className="flex items-center justify-between bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-4 py-3">
+                      <div>
+                        <div className="text-xs font-bold text-white flex items-center gap-2">
+                          <FiUsers className="text-amber-400" size={13} /> Show on Sales Board
+                        </div>
+                        <div className="text-[10px] text-neutral-500 mt-0.5">Include this user on the live Sales Board display</div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const newVal = !user.showOnSalesBoard
+                          try {
+                            const res = await fetch('/api/admin/users', {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ id: user.id, showOnSalesBoard: newVal })
+                            })
+                            const data = await res.json()
+                            if (data.success) {
+                              setUsers(prev => prev.map(u => u.id === user.id ? { ...u, showOnSalesBoard: newVal } : u))
+                            }
+                          } catch {}
+                        }}
+                        className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${user.showOnSalesBoard ? 'bg-amber-500' : 'bg-neutral-700'}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${user.showOnSalesBoard ? 'translate-x-5' : ''}`} />
+                      </button>
+                    </div>
+
                     {/* Permission Groups */}
                     <div className="space-y-5">
                       {PERMISSION_GROUPS.map(group => (

@@ -12,6 +12,7 @@ export async function GET() {
         role: true,
         zohoId: true,
         canSendCampaigns: true,
+        showOnSalesBoard: true,
         permissions: true,
         _count: { select: { accounts: true } }
       }
@@ -27,7 +28,7 @@ export async function GET() {
 export async function PUT(req: Request) {
   try {
     const body = await req.json()
-    const { id, canSendCampaigns, permissions, role, name, email, zohoId } = body
+    const { id, canSendCampaigns, showOnSalesBoard, permissions, role, name, email, zohoId } = body
 
     if (!id) {
       return NextResponse.json({ success: false, error: "Missing user ID" }, { status: 400 })
@@ -35,6 +36,7 @@ export async function PUT(req: Request) {
 
     const updateData: any = {}
     if (canSendCampaigns !== undefined) updateData.canSendCampaigns = canSendCampaigns
+    if (showOnSalesBoard !== undefined) updateData.showOnSalesBoard = showOnSalesBoard
     if (permissions !== undefined) updateData.permissions = permissions
     if (role !== undefined) updateData.role = role
     if (name !== undefined) updateData.name = name

@@ -2,21 +2,18 @@
 import React, { useEffect, useState, useMemo, useRef } from "react"
 import { FiTrendingUp, FiDollarSign, FiTarget, FiActivity, FiAward, FiClock, FiStar, FiMaximize, FiMinimize, FiPlay, FiPause, FiChevronLeft, FiChevronRight, FiAlertCircle } from "react-icons/fi"
 
-const REPS_INIT = [
-  { id: "rep_1", name: "Ross Haisler", role: "Enterprise Sales Director", expectedVig: 1.5, gradient: "from-purple-500 to-indigo-500" },
-  { id: "rep_2", name: "Richard Griffin", role: "Senior Account Executive", expectedVig: 1.5, gradient: "from-pink-500 to-rose-500" },
-  { id: "rep_3", name: "Ben Bequette", role: "Regional Sales Lead", expectedVig: 1.3, gradient: "from-blue-500 to-blue-700" },
-  { id: "rep_4", name: "Bobby Salyers", role: "Senior Sales Representative", expectedVig: 1.3, gradient: "from-teal-500 to-emerald-600" },
-  { id: "rep_5", name: "Montgomery Morgan", role: "Key Account Manager", expectedVig: 1.3, gradient: "from-amber-500 to-amber-700" }
+const REP_GRADIENTS = [
+  "from-purple-500 to-indigo-500",
+  "from-pink-500 to-rose-500",
+  "from-blue-500 to-blue-700",
+  "from-teal-500 to-emerald-600",
+  "from-amber-500 to-amber-700",
+  "from-red-500 to-orange-500",
+  "from-cyan-500 to-blue-500",
+  "from-violet-500 to-purple-700",
 ]
 
-const REP_WEEKLY_TARGETS: Record<string, number> = {
-  "rep_1": 20000,
-  "rep_2": 10000,
-  "rep_3": 10000,
-  "rep_4": 4000,
-  "rep_5": 20000
-}
+const DEFAULT_WEEKLY_TARGET = 10000
 
 const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -81,9 +78,24 @@ export function SalesBoard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("/api/zoho-invoices")
+        // Fetch users and invoices in parallel
+        const [usersRes, res] = await Promise.all([
+          fetch("/api/admin/users"),
+          fetch("/api/zoho-invoices")
+        ])
+        const usersPayload = await usersRes.json()
         const payload = await res.json()
         
+        // Build reps from users with showOnSalesBoard
+        const boardUsers = (usersPayload.users || []).filter((u: any) => u.showOnSalesBoard)
+        const dynamicReps = boardUsers.map((u: any, i: number) => ({
+          id: u.id,
+          name: u.name || u.email,
+          role: u.role || "Sales Representative",
+          expectedVig: 1.5,
+          gradient: REP_GRADIENTS[i % REP_GRADIENTS.length]
+        }))
+
         const today = new Date()
         const currentYear = today.getFullYear()
         const currentMonth = today.getMonth()
@@ -103,7 +115,7 @@ export function SalesBoard() {
         }
 
         const repsMap: Record<string, any> = {}
-        REPS_INIT.forEach(r => {
+        dynamicReps.forEach((r: any) => {
           repsMap[r.id] = { 
             ...r, 
             weekly: { sales: [0,0,0,0,0], profit: [0,0,0,0,0], totalSales: 0, totalProfit: 0, dealsClosed: 0, commission: 0, invoices: [] },
@@ -112,7 +124,7 @@ export function SalesBoard() {
           }
         })
 
-        let teamWeekly = { sales: 0, profit: 0, commission: 0, target: Object.values(REP_WEEKLY_TARGETS).reduce((a, b) => a + b, 0) }
+        let teamWeekly = { sales: 0, profit: 0, commission: 0, target: dynamicReps.length * DEFAULT_WEEKLY_TARGET }
         const overdueInvoices: any[] = []
         
         let totalOverdueBalance = 0
@@ -406,7 +418,7 @@ export function SalesBoard() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 auto-rows-max">
             {data.reps.sort((a:any, b:any) => b.weekly.totalSales - a.weekly.totalSales).map((rep: any, idx: number) => {
-              const quota = Math.min(100, Math.round((rep.weekly.totalSales / (REP_WEEKLY_TARGETS[rep.id] || 10000)) * 100))
+              const quota = Math.min(100, Math.round((rep.weekly.totalSales / DEFAULT_WEEKLY_TARGET) * 100))
               const profitMargin = rep.weekly.totalSales > 0 ? (rep.weekly.totalProfit / rep.weekly.totalSales) * 100 : 0
               return (
                 <div key={rep.id} className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 relative overflow-hidden group">

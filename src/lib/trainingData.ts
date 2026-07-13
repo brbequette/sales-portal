@@ -710,6 +710,9 @@ If you forgot to clock in/out or need a correction, use the **Request Change** b
 
 ### Sales Board Permission
 The Sales Board tab on the dashboard is a permission-gated feature. It is **not** available to reps by default. To grant access, go to Admin → User Permissions → expand the user → enable "Sales Board" under Page Access.
+
+### Show on Sales Board
+Each user has a **"Show on Sales Board"** toggle in Admin → User Permissions. When enabled, that user appears as a tracked rep on the live Sales Board display. The Sales Board dynamically loads users with this flag — no hardcoded rep list.
     `,
   },
 ]

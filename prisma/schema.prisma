@@ -21,6 +21,7 @@ model User {
   constantVigValue   Float?           @default(1.5)
   canSendCampaigns   Boolean          @default(false)
   permissions        Json?
+  showOnSalesBoard   Boolean          @default(false)
   accounts           Account[]
   campaignBlasts     CampaignBlast[]
   deals              Deal[]
