@@ -116,9 +116,67 @@ export const handler: Handler = async (event) => {
       console.warn("Product search failed:", e)
     }
 
+    // 5. Search Quotes (Prisma)
+    let quotes: any[] = []
+    try {
+      quotes = await prisma.quote.findMany({
+        where: {
+          OR: [
+            { zohoId: { contains: query } },
+            { status: { contains: query, mode: "insensitive" } },
+          ]
+        },
+        include: { account: { select: { name: true } } },
+        take: 10
+      })
+    } catch (e) {
+      console.warn("Quote search failed:", e)
+    }
+
+    // 6. Search Sales Orders (Prisma)
+    let salesOrders: any[] = []
+    try {
+      salesOrders = await prisma.salesOrder.findMany({
+        where: {
+          OR: [
+            { zohoId: { contains: query } },
+            { status: { contains: query, mode: "insensitive" } },
+          ]
+        },
+        include: { account: { select: { name: true } } },
+        take: 10
+      })
+    } catch (e) {
+      console.warn("SalesOrder search failed:", e)
+    }
+
+    // Enrich invoices with invoiceNumber extracted from items JSON
+    const enrichedInvoices = invoices.map((inv: any) => ({
+      ...inv,
+      invoiceNumber: inv.items?.invoiceNumber || inv.items?.invoice_number || null,
+      docType: 'Invoice'
+    }))
+
+    // Merge quotes and sales orders into the invoices array for the global search results
+    const enrichedQuotes = quotes.map((q: any) => ({
+      ...q,
+      invoiceNumber: q.items?.estimateNumber || q.items?.estimate_number || q.items?.quoteNumber || null,
+      accountName: q.account?.name,
+      docType: 'Quote'
+    }))
+
+    const enrichedSalesOrders = salesOrders.map((so: any) => ({
+      ...so,
+      invoiceNumber: so.items?.salesOrderNumber || so.items?.salesorder_number || null,
+      accountName: so.account?.name,
+      docType: 'SalesOrder'
+    }))
+
+    const allInvoices = [...enrichedInvoices, ...enrichedQuotes, ...enrichedSalesOrders]
+
     const results = {
       accounts,
-      invoices,
+      invoices: allInvoices,
       deals,
       products
     }

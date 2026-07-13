@@ -135,7 +135,7 @@ export default function SalesListPage() {
           date: raw.issueDate || raw.orderDate || raw.createdAt || new Date().toISOString(),
           amount: parseFloat(raw.amount || 0),
           profit,
-          invoiceNumber: raw.items?.invoiceNumber,
+          invoiceNumber: raw.items?.invoiceNumber || raw.items?.invoice_number || raw.items?.estimateNumber || raw.items?.estimate_number || raw.items?.salesOrderNumber || raw.items?.salesorder_number || raw.items?.quoteNumber,
           raw
         }
       }
@@ -410,7 +410,7 @@ export default function SalesListPage() {
                           </td>
                           <td className="py-3 px-4">
                             <div className="font-bold text-sm text-white">{doc.accountName}</div>
-                            <div className="text-[10px] text-neutral-500 font-mono mt-0.5">#{doc.invoiceNumber || doc.zohoId?.slice(-6) || doc.id.slice(-6)}</div>
+                            <div className="text-[10px] text-neutral-500 font-mono mt-0.5">#{doc.invoiceNumber || doc.raw?.items?.invoiceNumber || doc.raw?.items?.invoice_number || doc.raw?.items?.estimate_number || doc.raw?.items?.salesorder_number || doc.zohoId?.slice(-6) || doc.id.slice(-6)}</div>
                           </td>
                           <td className="py-3 px-4 text-right">
                             <div className="text-sm font-bold text-white">${doc.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>

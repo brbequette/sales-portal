@@ -215,7 +215,7 @@ export function GlobalTopBar() {
                 
                 {results.invoices?.length > 0 && (
                   <div className="mb-2">
-                    <div className="px-4 py-1 text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-black/20">Invoices & Sales Orders</div>
+                    <div className="px-4 py-1 text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-black/20">Invoices, Orders & Quotes</div>
                     {results.invoices.map((i: any) => (
                       <div 
                         key={i.id} 
@@ -226,8 +226,8 @@ export function GlobalTopBar() {
                           <FiFileText />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm font-bold text-white truncate">{i.invoiceNumber || i.orderNumber || "Draft"}</div>
-                          <div className="text-xs text-neutral-500 truncate">{i.status}</div>
+                          <div className="text-sm font-bold text-white truncate">{i.invoiceNumber || i.items?.invoiceNumber || i.items?.invoice_number || i.items?.estimate_number || i.items?.salesorder_number || "Draft"}</div>
+                          <div className="text-xs text-neutral-500 truncate">{i.docType ? `${i.docType} · ` : ""}{i.status}{i.accountName ? ` · ${i.accountName}` : ""}</div>
                         </div>
                         <div className="text-sm font-bold text-emerald-400">${parseFloat(i.amount).toFixed(2)}</div>
                       </div>
