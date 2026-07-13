@@ -39,10 +39,12 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
     if (entity === 'invoices') { endpoint = 'invoices'; arrayKey = 'invoices' }
     else if (entity === 'salesorders') { endpoint = 'salesorders'; arrayKey = 'salesorders' }
     else if (entity === 'estimates') { endpoint = 'estimates'; arrayKey = 'estimates' }
+    else if (entity === 'contacts') { endpoint = 'contacts'; arrayKey = 'contacts' }
     else throw new Error(`Unknown entity: ${entity}`)
 
     // Fetch one page
-    const url = `${BOOKS_BASE}/${endpoint}?organization_id=${ORG_ID}&page=${page}&per_page=200&sort_column=date&sort_order=D`
+    const sortParam = entity === 'contacts' ? '' : '&sort_column=date&sort_order=D'
+    const url = `${BOOKS_BASE}/${endpoint}?organization_id=${ORG_ID}&page=${page}&per_page=200${sortParam}`
     const res = await fetch(url, { headers })
     result.apiCalls = 1
 
@@ -95,6 +97,21 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
 
     const ops = []
     for (const item of items) {
+      // For contacts, update existing accounts' zohoId to the Books contact ID
+      if (entity === 'contacts') {
+        const contactId = item.contact_id || ''
+        if (!contactId || !contactId.startsWith(VALID_ORG_PREFIX)) { result.skipped++; continue }
+        const contactName = (item.contact_name || '').toLowerCase().trim()
+        const dbAccountId = nameMap.get(contactName)
+        if (!dbAccountId) { result.skipped++; continue }
+
+        ops.push(prisma.account.update({
+          where: { id: dbAccountId },
+          data: { zohoId: contactId }
+        }))
+        continue
+      }
+
       const custName = (item.customer_name || '').toLowerCase().trim()
       const dbAccountId = nameMap.get(custName)
       if (!dbAccountId) { result.skipped++; continue }

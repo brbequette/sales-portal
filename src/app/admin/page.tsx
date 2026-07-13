@@ -102,7 +102,7 @@ export default function AdminDashboardPage() {
   }
 
   const handleSyncAll = async () => {
-    for (const entity of ['invoices', 'salesorders', 'estimates']) {
+    for (const entity of ['contacts', 'invoices', 'salesorders', 'estimates']) {
       setSyncing(entity)
       setSyncError(null)
       try {
@@ -117,6 +117,7 @@ export default function AdminDashboardPage() {
   }
 
   const entityLabels: Record<string, { label: string, color: string, bg: string }> = {
+    contacts: { label: 'Accounts', color: 'text-emerald-400', bg: 'bg-emerald-600' },
     invoices: { label: 'Invoices', color: 'text-blue-400', bg: 'bg-blue-600' },
     salesorders: { label: 'Sales Orders', color: 'text-sky-400', bg: 'bg-sky-600' },
     estimates: { label: 'Quotes', color: 'text-amber-400', bg: 'bg-amber-600' },
@@ -174,7 +175,7 @@ export default function AdminDashboardPage() {
               <div className="flex-1">
                 <h3 className="font-bold text-white mb-1">Bulk Sync — Zoho Books</h3>
                 <p className="text-xs text-neutral-400 leading-relaxed mb-3">
-                  Pull invoices, quotes, and sales orders from Zoho Books. Sync one at a time or all sequentially.
+                  Pull accounts, invoices, quotes, and sales orders from Zoho Books. Sync one at a time or all sequentially.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(entityLabels).map(([key, { label, bg }]) => (
