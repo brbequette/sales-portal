@@ -46,44 +46,74 @@ const sections = [
 
 export default function AdminDashboardPage() {
   const [syncing, setSyncing] = useState<string | null>(null)
-  const [syncResults, setSyncResults] = useState<Record<string, any>>({})
+  const [syncProgress, setSyncProgress] = useState<string>("")
+  const [syncResults, setSyncResults] = useState<Record<string, { synced: number, skipped: number, apiCalls: number, error?: string }>>({})
   const [syncError, setSyncError] = useState<string | null>(null)
+
+  const syncEntityAllPages = async (entity: string) => {
+    let page = 1
+    let totalSynced = 0
+    let totalSkipped = 0
+    let totalApiCalls = 0
+
+    while (true) {
+      setSyncProgress(`${entity}: page ${page}... (${totalSynced} synced so far)`)
+
+      const res = await fetch('/api/admin/bulk-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity, page })
+      })
+
+      const contentType = res.headers.get('content-type') || ''
+      if (!contentType.includes('json')) {
+        throw new Error(res.status === 504 ? `Timed out on page ${page}` : `Server error ${res.status} on page ${page}`)
+      }
+
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || `Failed on page ${page}`)
+
+      totalSynced += data.synced || 0
+      totalSkipped += data.skipped || 0
+      totalApiCalls += data.apiCalls || 0
+
+      if (!data.hasMore) break
+      page++
+      if (page > 100) break // Safety
+    }
+
+    return { synced: totalSynced, skipped: totalSkipped, apiCalls: totalApiCalls }
+  }
 
   const handleSyncEntity = async (entity: string) => {
     setSyncing(entity)
     setSyncError(null)
+    setSyncProgress("")
     try {
-      const res = await fetch('/api/admin/bulk-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entity })
-      })
-      const contentType = res.headers.get('content-type') || ''
-      if (!contentType.includes('json')) {
-        if (res.status === 504 || res.status === 502) {
-          setSyncError(`${entity} sync timed out — too many records. Check server logs.`)
-        } else {
-          setSyncError(`Server returned non-JSON response (${res.status}) for ${entity}.`)
-        }
-        return
-      }
-      const data = await res.json()
-      if (data.success) {
-        setSyncResults(prev => ({ ...prev, [entity]: data }))
-      } else {
-        setSyncError(`${entity}: ${data.error || 'Failed'}`)
-      }
+      const result = await syncEntityAllPages(entity)
+      setSyncResults(prev => ({ ...prev, [entity]: result }))
     } catch (err: any) {
-      setSyncError(`${entity}: ${err.message || 'Network error'}`)
+      setSyncError(`${entity}: ${err.message || 'Failed'}`)
+      setSyncResults(prev => ({ ...prev, [entity]: { synced: 0, skipped: 0, apiCalls: 0, error: err.message } }))
     } finally {
       setSyncing(null)
+      setSyncProgress("")
     }
   }
 
   const handleSyncAll = async () => {
     for (const entity of ['invoices', 'salesorders', 'estimates']) {
-      await handleSyncEntity(entity)
+      setSyncing(entity)
+      setSyncError(null)
+      try {
+        const result = await syncEntityAllPages(entity)
+        setSyncResults(prev => ({ ...prev, [entity]: result }))
+      } catch (err: any) {
+        setSyncResults(prev => ({ ...prev, [entity]: { synced: 0, skipped: 0, apiCalls: 0, error: err.message } }))
+      }
     }
+    setSyncing(null)
+    setSyncProgress("")
   }
 
   const entityLabels: Record<string, { label: string, color: string, bg: string }> = {
@@ -171,7 +201,7 @@ export default function AdminDashboardPage() {
             {syncing && (
               <div className="flex items-center gap-2 text-indigo-400 text-xs font-medium bg-indigo-950/30 border border-indigo-500/20 rounded-lg p-3">
                 <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
-                Syncing {entityLabels[syncing]?.label || syncing} from Zoho Books...
+                {syncProgress || `Syncing ${entityLabels[syncing]?.label || syncing}...`}
               </div>
             )}
 
@@ -183,14 +213,14 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   {Object.entries(syncResults).map(([entity, result]) => (
-                    <div key={entity} className="bg-black/20 rounded p-2 text-center">
-                      <div className="text-lg font-black text-white">{result.stats?.synced || 0}</div>
+                    <div key={entity} className={`bg-black/20 rounded p-2 text-center ${result.error ? 'border border-red-500/20' : ''}`}>
+                      <div className="text-lg font-black text-white">{result.synced || 0}</div>
                       <div className="text-neutral-500">{entityLabels[entity]?.label || entity}</div>
                       <div className="text-[10px] text-neutral-600">
-                        {result.stats?.apiCalls || 0} calls · {result.stats?.skipped || 0} skipped
+                        {result.apiCalls || 0} calls · {result.skipped || 0} skipped
                       </div>
-                      {result.stats?.errors?.length > 0 && (
-                        <div className="text-[10px] text-red-400 mt-1">{result.stats.errors[0]}</div>
+                      {result.error && (
+                        <div className="text-[10px] text-red-400 mt-1">{result.error}</div>
                       )}
                     </div>
                   ))}
