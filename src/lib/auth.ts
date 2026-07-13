@@ -107,7 +107,8 @@ export const authOptions: NextAuthOptions = {
           [zohoProfile?.First_Name, zohoProfile?.Last_Name].filter(Boolean).join(" ") ||
           email.split("@")[0]
 
-        const zohoUserId = zohoProfile?.ZUID || zohoProfile?.zuid || null
+        const rawZuid = zohoProfile?.ZUID || zohoProfile?.zuid || null
+        const zohoUserId = rawZuid ? String(rawZuid) : null
 
         // Sync to database — check by zohoId first (merges stub users from account sync), then by email
         let dbUser = null
