@@ -3,7 +3,7 @@
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useCallback, useRef, useMemo } from "react"
-import { FiTarget, FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiX, FiSearch, FiArrowUp, FiArrowDown, FiCheckSquare, FiSquare, FiUsers } from "react-icons/fi"
+import { FiTarget, FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiX, FiSearch, FiArrowUp, FiArrowDown, FiCheckSquare, FiSquare, FiUsers, FiDollarSign } from "react-icons/fi"
 
 type SortKey = "name" | "lastPurchaseAt" | "totalRev" | "totalProf" | "owner"
 type SortDir = "asc" | "desc"
@@ -27,6 +27,8 @@ export default function AdminUpdateAccountsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("lastPurchaseAt")
   const [sortDir, setSortDir] = useState<SortDir>("asc")
   const [ownerFilter, setOwnerFilter] = useState("All")
+  const [ltvMin, setLtvMin] = useState("")
+  const [ltvMax, setLtvMax] = useState("")
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -213,8 +215,14 @@ export default function AdminUpdateAccountsPage() {
       const q = localSearch.toLowerCase()
       result = result.filter(a => a.name?.toLowerCase().includes(q))
     }
+    if (ltvMin) {
+      result = result.filter(a => a.totalRev >= parseFloat(ltvMin))
+    }
+    if (ltvMax) {
+      result = result.filter(a => a.totalRev <= parseFloat(ltvMax))
+    }
     return result
-  }, [accountsWithStats, ownerFilter, localSearch])
+  }, [accountsWithStats, ownerFilter, localSearch, ltvMin, ltvMax])
 
   // Sort
   const sorted = useMemo(() => {
@@ -423,6 +431,31 @@ export default function AdminUpdateAccountsPage() {
                   {rep.name?.split(" ")[0]}
                 </button>
               ))}
+            </div>
+            {/* LTV Range Filter */}
+            <div className="flex items-center gap-2">
+              <FiDollarSign size={12} className="text-neutral-500 shrink-0" />
+              <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider shrink-0">LTV</span>
+              <input
+                type="number"
+                value={ltvMin}
+                onChange={e => setLtvMin(e.target.value)}
+                placeholder="Min"
+                className="w-20 bg-neutral-950 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none focus:border-purple-500"
+              />
+              <span className="text-neutral-600 text-xs">–</span>
+              <input
+                type="number"
+                value={ltvMax}
+                onChange={e => setLtvMax(e.target.value)}
+                placeholder="Max"
+                className="w-20 bg-neutral-950 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none focus:border-purple-500"
+              />
+              {(ltvMin || ltvMax) && (
+                <button onClick={() => { setLtvMin(""); setLtvMax("") }} className="text-neutral-500 hover:text-white">
+                  <FiX size={12} />
+                </button>
+              )}
             </div>
           </div>
 

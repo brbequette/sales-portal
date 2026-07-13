@@ -53,6 +53,8 @@ export default function Dashboard() {
   const [sortBy, setSortBy] = useState<"default" | "timezone_asc" | "timezone_desc" | "recentOrders_desc" | "recentOrders_asc">("default")
   const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [showDoNotCall, setShowDoNotCall] = useState(false)
+  const [ltvMin, setLtvMin] = useState("")
+  const [ltvMax, setLtvMax] = useState("")
   const [qualityFilter, setQualityFilter] = useState("All")
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
   const [repsList, setRepsList] = useState<any[]>([])
@@ -144,11 +146,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (!prefsLoaded) return
     updatePreferences({
-      effort, ownerFilter, sortBy, searchQuery, timezoneFilter,
+      ownerFilter, sortBy, searchQuery, timezoneFilter,
       qualityFilter, yearFilter, statusFilter, industryFilter,
       onlyWithSales, showDoNotCall, taskFilterTab, taskTypeFilter
     })
-  }, [effort, ownerFilter, sortBy, searchQuery, timezoneFilter, qualityFilter, yearFilter, statusFilter, industryFilter, onlyWithSales, showDoNotCall, taskFilterTab, taskTypeFilter, prefsLoaded])
+  }, [ownerFilter, sortBy, searchQuery, timezoneFilter, qualityFilter, yearFilter, statusFilter, industryFilter, onlyWithSales, showDoNotCall, taskFilterTab, taskTypeFilter, prefsLoaded])
 
   // --- Task Reminder Polling: Check every 60s ---
   useEffect(() => {
@@ -932,8 +934,10 @@ export default function Dashboard() {
     
     const ltv = a.totalSales || 0
     const matchesSalesFilter = !onlyWithSales || ltv > 0
+    const matchesLtvMin = !ltvMin || ltv >= parseFloat(ltvMin)
+    const matchesLtvMax = !ltvMax || ltv <= parseFloat(ltvMax)
 
-    return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesQuality && matchesYear && matchesSalesFilter
+    return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesQuality && matchesYear && matchesSalesFilter && matchesLtvMin && matchesLtvMax
   })
 
   const filteredTasksList = tasks.filter(task => {
@@ -979,7 +983,7 @@ export default function Dashboard() {
   ]
 
   const accentColor = effort === "sales" ? "emerald" : effort === "cold_call" ? "indigo" : "sky"
-  const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (timezoneFilter !== "All" ? 1 : 0) + (qualityFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0)
+  const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (timezoneFilter !== "All" ? 1 : 0) + (qualityFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0) + (ltvMin ? 1 : 0) + (ltvMax ? 1 : 0)
 
   if (!isInitialized || loading) {
     return (
@@ -2148,6 +2152,28 @@ export default function Dashboard() {
                     <option value="All">All Industries</option>
                     {allIndustries.map(i => <option key={i} value={i}>{i}</option>)}
                   </select>
+                </div>
+
+                {/* LTV Range Filter */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">LTV Range ($)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={ltvMin}
+                      onChange={e => setLtvMin(e.target.value)}
+                      placeholder="Min"
+                      className="w-full bg-neutral-800 border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-neutral-500 text-xs">–</span>
+                    <input
+                      type="number"
+                      value={ltvMax}
+                      onChange={e => setLtvMax(e.target.value)}
+                      placeholder="Max"
+                      className="w-full bg-neutral-800 border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
                 </div>
 
                 {/* Checkbox filters */}
