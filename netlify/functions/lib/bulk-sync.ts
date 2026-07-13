@@ -88,11 +88,23 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
     result.hasMore = data.page_context?.has_more_page || false
 
     // Upsert records
+    // Guard: Only accept records from the correct Zoho Books organization.
+    // The main org generates IDs starting with '6821836'. Reject anything else
+    // to prevent cross-org duplicates.
+    const VALID_ORG_PREFIX = '6821836'
+
     const ops = []
     for (const item of items) {
       const custName = (item.customer_name || '').toLowerCase().trim()
       const dbAccountId = nameMap.get(custName)
       if (!dbAccountId) { result.skipped++; continue }
+
+      // Validate the zohoId belongs to the correct org
+      const itemId = item.invoice_id || item.salesorder_id || item.estimate_id || ''
+      if (itemId && !itemId.startsWith(VALID_ORG_PREFIX)) {
+        result.skipped++
+        continue
+      }
 
       if (entity === 'invoices') {
         if (!item.invoice_id) { result.skipped++; continue }
