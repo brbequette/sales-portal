@@ -48,20 +48,42 @@ export async function bulkSync(options: { fullSync?: boolean } = {}) {
     let apiCalls = 0
 
     while (hasMore) {
-      let url = `${BOOKS_BASE}/${endpoint}?organization_id=${ORG_ID}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
-      if (lastModified) {
-        url += `&last_modified_time=${encodeURIComponent(lastModified)}`
-      }
+      let url = `${BOOKS_BASE}/${endpoint}?organization_id=${ORG_ID}&page=${page}&per_page=200&sort_column=date&sort_order=D`
 
       const res = await fetch(url, { headers })
       apiCalls++
 
       if (!res.ok) {
-        console.error(`Books API error ${res.status} for ${endpoint} page ${page}`)
+        const errorText = await res.text().catch(() => 'unknown')
+        console.error(`Books API error ${res.status} for ${endpoint} page ${page}: ${errorText.substring(0, 200)}`)
+        if (res.status === 401 || res.status === 403) {
+          throw new Error(`Auth failed (${res.status}) — check Zoho credentials`)
+        }
+        if (res.status === 429) {
+          // Rate limited — wait 60s and retry once
+          console.log('Rate limited, waiting 60s...')
+          await new Promise(r => setTimeout(r, 60000))
+          continue
+        }
         break
       }
 
+      // Check for HTML response (auth redirect)
+      const contentType = res.headers.get('content-type') || ''
+      if (!contentType.includes('json')) {
+        const text = await res.text().catch(() => '')
+        console.error(`Non-JSON response for ${endpoint} page ${page}: ${text.substring(0, 200)}`)
+        throw new Error(`Zoho returned non-JSON response for ${endpoint} — likely auth issue. Check API credentials.`)
+      }
+
       const data = await res.json()
+      
+      // Zoho sometimes returns { code: 0, message: "..." } for errors
+      if (data.code !== undefined && data.code !== 0) {
+        console.error(`Zoho error for ${endpoint}: ${data.message || JSON.stringify(data)}`)
+        throw new Error(`Zoho API error: ${data.message || 'Unknown error'}`)
+      }
+
       const items = data[arrayKey] || []
       if (items.length === 0) break
 
