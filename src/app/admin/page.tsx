@@ -1,10 +1,12 @@
 "use client"
 
 import Link from "next/link"
+import { useState } from "react"
 import { 
   FiUsers, FiClock, FiDollarSign, 
   FiTarget, FiAward, FiCalendar, FiMessageSquare, 
-  FiFileText, FiActivity, FiSettings, FiDatabase
+  FiFileText, FiActivity, FiSettings, FiDatabase,
+  FiRefreshCw, FiCheckCircle, FiAlertTriangle
 } from "react-icons/fi"
 
 const sections = [
@@ -43,6 +45,33 @@ const sections = [
 ]
 
 export default function AdminDashboardPage() {
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<any>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
+
+  const handleBulkSync = async (fullSync: boolean) => {
+    setSyncing(true)
+    setSyncResult(null)
+    setSyncError(null)
+    try {
+      const res = await fetch('/api/admin/bulk-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullSync })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSyncResult(data)
+      } else {
+        setSyncError(data.error || 'Sync failed')
+      }
+    } catch (err: any) {
+      setSyncError(err.message || 'Network error')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   return (
     <div className="p-6">
       <div className="mb-8">
@@ -81,6 +110,88 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         ))}
+
+        {/* Bulk Sync Section */}
+        <div>
+          <h2 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-4">
+            Data Sync
+          </h2>
+          <div className="p-5 rounded-xl border border-white/5 bg-white/[0.02] space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-indigo-500/10 text-indigo-400">
+                <FiRefreshCw size={20} className={syncing ? "animate-spin" : ""} />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-white mb-1">Bulk Sync — Zoho Books</h3>
+                <p className="text-xs text-neutral-400 leading-relaxed mb-3">
+                  Pull all invoices, quotes, and sales orders from Zoho Books. Incremental sync only fetches records modified since last sync.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleBulkSync(false)}
+                    disabled={syncing}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {syncing ? "Syncing..." : "Incremental Sync"}
+                  </button>
+                  <button
+                    onClick={() => handleBulkSync(true)}
+                    disabled={syncing}
+                    className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Full Sync (All Records)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {syncing && (
+              <div className="flex items-center gap-2 text-indigo-400 text-xs font-medium bg-indigo-950/30 border border-indigo-500/20 rounded-lg p-3">
+                <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
+                Syncing documents from Zoho Books — this may take a minute...
+              </div>
+            )}
+
+            {syncResult && (
+              <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2 text-emerald-400 text-sm font-bold">
+                  <FiCheckCircle size={14} />
+                  Sync Complete
+                </div>
+                <p className="text-xs text-emerald-300">{syncResult.message}</p>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="bg-black/20 rounded p-2 text-center">
+                    <div className="text-lg font-black text-white">{syncResult.stats?.invoices?.synced || 0}</div>
+                    <div className="text-neutral-500">Invoices</div>
+                    <div className="text-[10px] text-neutral-600">{syncResult.stats?.invoices?.apiCalls || 0} calls</div>
+                  </div>
+                  <div className="bg-black/20 rounded p-2 text-center">
+                    <div className="text-lg font-black text-white">{syncResult.stats?.salesOrders?.synced || 0}</div>
+                    <div className="text-neutral-500">Sales Orders</div>
+                    <div className="text-[10px] text-neutral-600">{syncResult.stats?.salesOrders?.apiCalls || 0} calls</div>
+                  </div>
+                  <div className="bg-black/20 rounded p-2 text-center">
+                    <div className="text-lg font-black text-white">{syncResult.stats?.quotes?.synced || 0}</div>
+                    <div className="text-neutral-500">Quotes</div>
+                    <div className="text-[10px] text-neutral-600">{syncResult.stats?.quotes?.apiCalls || 0} calls</div>
+                  </div>
+                </div>
+                {syncResult.stats?.errors?.length > 0 && (
+                  <div className="text-xs text-red-400 mt-1">
+                    Errors: {syncResult.stats.errors.join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {syncError && (
+              <div className="bg-red-950/30 border border-red-500/20 rounded-lg p-3 flex items-center gap-2 text-red-400 text-xs">
+                <FiAlertTriangle size={14} />
+                <span>{syncError}</span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
