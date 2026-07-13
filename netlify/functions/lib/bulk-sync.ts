@@ -88,10 +88,10 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
     result.hasMore = data.page_context?.has_more_page || false
 
     // Upsert records
-    // Guard: Only accept records from the correct Zoho Books organization.
-    // The main org generates IDs starting with '6821836'. Reject anything else
+    // Guard: Only accept records from the correct Zoho Books organization (664670946).
+    // This org generates IDs starting with '1254360'. Reject anything else
     // to prevent cross-org duplicates.
-    const VALID_ORG_PREFIX = '6821836'
+    const VALID_ORG_PREFIX = '1254360'
 
     const ops = []
     for (const item of items) {
