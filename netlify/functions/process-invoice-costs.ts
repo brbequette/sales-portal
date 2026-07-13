@@ -140,11 +140,10 @@ export const handler: Handler = async (event) => {
       }
 
       const flags = []
-      if (noVig) flags.push('NO VIG')
+      if (noVig && !gift) flags.push('No VIG')
       if (gift) flags.push('GIFT')
-      const flagStr = flags.length > 0 ? ` [${flags.join(', ')}]` : ''
 
-      lineItemBreakdown.push(`${item.name}: ${qty}x @ $${cost.toFixed(2)} = $${itemDeadCost.toFixed(2)}${flagStr}`)
+      lineItemBreakdown.push('') // placeholder — rebuilt after vigRate is known
       lineItemDetails.push({
         name: item.name,
         sku: item.sku || null,
@@ -207,6 +206,17 @@ export const handler: Handler = async (event) => {
 
     // 5. Calculate Dead Cost Plus VIG
     const deadCostPlusVig = (deadCostSubjectToVig * vigRate) + deadCostNoVig
+
+    // Rebuild ITEMS DC BREAKDOWN now that vigRate is finalized
+    const finalBreakdown = lineItemDetails.map(d => {
+      const vigDC = d.noVig ? d.deadCost : d.deadCost * vigRate
+      const vigLabel = d.noVig ? 'No VIG' : 'Subj to VIG'
+      const flags = []
+      if (d.noVig && !d.gift) flags.push('No VIG')
+      if (d.gift) flags.push('GIFT')
+      const flagStr = flags.length > 0 ? ` [${flags.join(', ')}]` : ''
+      return `${d.quantity}x ${d.sku || d.name} | Cost: $${d.cost.toFixed(2)} | DC: $${d.deadCost.toFixed(2)} | VIG-DC: $${vigDC.toFixed(2)} | ${vigLabel}${flagStr}`
+    })
 
     // 6. Calculate Profit = Sub_Total - Dead Cost Plus VIG - CC Fees - Additional Costs - Insurance
     const subTotal = parseFloat(invoice.sub_total || 0)
@@ -271,7 +281,7 @@ export const handler: Handler = async (event) => {
       'PROFIT': profit.toFixed(2),
       'COMMISSION FROM PROFIT %': commissionPct,
       'SALES COMMISSION': salesCommission.toFixed(2),
-      'ITEMS DC BREAKDOWN': lineItemBreakdown.join('\n'),
+      'ITEMS DC BREAKDOWN': finalBreakdown.join('\n'),
     }
 
     // Add PAID IN FULL DATE if paid and not already set
