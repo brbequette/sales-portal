@@ -10,6 +10,7 @@ export async function GET() {
         name: true,
         email: true,
         role: true,
+        zohoId: true,
         canSendCampaigns: true,
         permissions: true
       }
@@ -24,7 +25,7 @@ export async function GET() {
 export async function PUT(req: Request) {
   try {
     const body = await req.json()
-    const { id, canSendCampaigns, permissions, role } = body
+    const { id, canSendCampaigns, permissions, role, name, email, zohoId } = body
 
     if (!id) {
       return NextResponse.json({ success: false, error: "Missing user ID" }, { status: 400 })
@@ -34,6 +35,9 @@ export async function PUT(req: Request) {
     if (canSendCampaigns !== undefined) updateData.canSendCampaigns = canSendCampaigns
     if (permissions !== undefined) updateData.permissions = permissions
     if (role !== undefined) updateData.role = role
+    if (name !== undefined) updateData.name = name
+    if (email !== undefined) updateData.email = email
+    if (zohoId !== undefined) updateData.zohoId = zohoId || null  // empty string → null
 
     const user = await prisma.user.update({
       where: { id },

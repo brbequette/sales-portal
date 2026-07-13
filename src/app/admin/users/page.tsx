@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FiCheckSquare, FiSquare, FiUser, FiShield, FiChevronDown, FiChevronUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSave, FiUserPlus } from "react-icons/fi"
+import { FiCheckSquare, FiSquare, FiUser, FiShield, FiChevronDown, FiChevronUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSave, FiUserPlus, FiEdit3 } from "react-icons/fi"
 import { PERMISSION_GROUPS, ALL_PERMISSIONS, DEFAULT_REP_PERMISSIONS, resolvePermissions, type UserPermissions } from "@/lib/permissions"
 
 export default function AdminUsersPage() {
@@ -14,6 +14,7 @@ export default function AdminUsersPage() {
   const [newUser, setNewUser] = useState({ name: "", email: "", role: "Sales Representative", zohoId: "" })
   const [addingUser, setAddingUser] = useState(false)
   const [addError, setAddError] = useState("")
+  const [editedUserInfo, setEditedUserInfo] = useState<Record<string, { name: string; email: string; zohoId: string; role: string }>>({})
 
   useEffect(() => {
     fetch('/api/admin/users')
@@ -39,6 +40,12 @@ export default function AdminUsersPage() {
         setEditedPermissions(prev => ({
           ...prev,
           [userId]: getEffectivePermissions(user)
+        }))
+      }
+      if (user && !editedUserInfo[userId]) {
+        setEditedUserInfo(prev => ({
+          ...prev,
+          [userId]: { name: user.name || "", email: user.email || "", zohoId: user.zohoId || "", role: user.role || "Sales Representative" }
         }))
       }
     }
@@ -68,18 +75,20 @@ export default function AdminUsersPage() {
 
     setSavingUser(userId)
     try {
+      const info = editedUserInfo[userId]
       const res = await fetch('/api/admin/users', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           id: userId, 
           permissions: perms,
-          canSendCampaigns: perms.sendCampaigns // Keep legacy field in sync
+          canSendCampaigns: perms.sendCampaigns,
+          ...(info ? { name: info.name, email: info.email, zohoId: info.zohoId, role: info.role } : {})
         })
       })
       const data = await res.json()
       if (data.success) {
-        setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: perms, canSendCampaigns: perms.sendCampaigns } : u))
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: perms, canSendCampaigns: perms.sendCampaigns, ...(info || {}) } : u))
       } else {
         alert("Failed to save: " + data.error)
       }
@@ -92,9 +101,12 @@ export default function AdminUsersPage() {
 
   const hasChanges = (userId: string) => {
     const edited = editedPermissions[userId]
-    if (!edited) return false
-    const current = getEffectivePermissions(users.find(u => u.id === userId))
-    return JSON.stringify(edited) !== JSON.stringify(current)
+    const info = editedUserInfo[userId]
+    const user = users.find(u => u.id === userId)
+    if (!user) return false
+    const permChanged = edited && JSON.stringify(edited) !== JSON.stringify(getEffectivePermissions(user))
+    const infoChanged = info && (info.name !== (user.name || "") || info.email !== (user.email || "") || info.zohoId !== (user.zohoId || "") || info.role !== (user.role || ""))
+    return permChanged || infoChanged
   }
 
   const countEnabled = (perms: UserPermissions) => {
@@ -178,6 +190,51 @@ export default function AdminUsersPage() {
                       >
                         <FiToggleLeft size={13} /> Rep Defaults
                       </button>
+                    </div>
+
+                    {/* User Info Section */}
+                    <div className="mb-5 pb-5 border-b border-neutral-800">
+                      <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <FiEdit3 size={11} /> User Info
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] text-neutral-500 font-semibold block mb-1">Name</label>
+                          <input
+                            value={editedUserInfo[user.id]?.name || ""}
+                            onChange={e => setEditedUserInfo(prev => ({ ...prev, [user.id]: { ...prev[user.id], name: e.target.value } }))}
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-neutral-500 font-semibold block mb-1">Email</label>
+                          <input
+                            value={editedUserInfo[user.id]?.email || ""}
+                            onChange={e => setEditedUserInfo(prev => ({ ...prev, [user.id]: { ...prev[user.id], email: e.target.value } }))}
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-neutral-500 font-semibold block mb-1">Zoho User ID</label>
+                          <input
+                            value={editedUserInfo[user.id]?.zohoId || ""}
+                            onChange={e => setEditedUserInfo(prev => ({ ...prev, [user.id]: { ...prev[user.id], zohoId: e.target.value } }))}
+                            placeholder="e.g. 4912873000000275001"
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-neutral-500 font-semibold block mb-1">Role</label>
+                          <select
+                            value={editedUserInfo[user.id]?.role || "Sales Representative"}
+                            onChange={e => setEditedUserInfo(prev => ({ ...prev, [user.id]: { ...prev[user.id], role: e.target.value } }))}
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
+                          >
+                            <option value="Sales Representative">Sales Representative</option>
+                            <option value="Admin">Admin</option>
+                          </select>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Permission Groups */}
