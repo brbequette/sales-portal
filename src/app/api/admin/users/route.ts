@@ -46,3 +46,41 @@ export async function PUT(req: Request) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json()
+    const { name, email, role, zohoId } = body
+
+    if (!name || !email) {
+      return NextResponse.json({ success: false, error: "Name and email are required" }, { status: 400 })
+    }
+
+    // Check for existing user by email or zohoId
+    const existingByEmail = await prisma.user.findUnique({ where: { email } })
+    if (existingByEmail) {
+      return NextResponse.json({ success: false, error: `A user with email "${email}" already exists.` }, { status: 409 })
+    }
+
+    if (zohoId) {
+      const existingByZoho = await prisma.user.findUnique({ where: { zohoId } })
+      if (existingByZoho) {
+        return NextResponse.json({ success: false, error: `A user with Zoho ID "${zohoId}" already exists (${existingByZoho.name || existingByZoho.email}).` }, { status: 409 })
+      }
+    }
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        role: role || "Sales Representative",
+        zohoId: zohoId || null,
+      }
+    })
+
+    return NextResponse.json({ success: true, user, message: `User "${name}" created. They can now log in via Zoho OAuth.` })
+  } catch (error: any) {
+    console.error("Error creating user:", error)
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+  }
+}

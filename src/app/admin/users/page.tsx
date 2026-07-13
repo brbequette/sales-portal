@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FiCheckSquare, FiSquare, FiUser, FiShield, FiChevronDown, FiChevronUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSave } from "react-icons/fi"
+import { FiCheckSquare, FiSquare, FiUser, FiShield, FiChevronDown, FiChevronUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSave, FiUserPlus } from "react-icons/fi"
 import { PERMISSION_GROUPS, ALL_PERMISSIONS, DEFAULT_REP_PERMISSIONS, resolvePermissions, type UserPermissions } from "@/lib/permissions"
 
 export default function AdminUsersPage() {
@@ -10,6 +10,10 @@ export default function AdminUsersPage() {
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
   const [savingUser, setSavingUser] = useState<string | null>(null)
   const [editedPermissions, setEditedPermissions] = useState<Record<string, UserPermissions>>({})
+  const [showAddUser, setShowAddUser] = useState(false)
+  const [newUser, setNewUser] = useState({ name: "", email: "", role: "Sales Representative", zohoId: "" })
+  const [addingUser, setAddingUser] = useState(false)
+  const [addError, setAddError] = useState("")
 
   useEffect(() => {
     fetch('/api/admin/users')
@@ -111,6 +115,12 @@ export default function AdminUsersPage() {
             </h1>
             <p className="text-xs text-neutral-500 mt-1">Configure feature access for each user. Click a user to expand their permissions.</p>
           </div>
+          <button
+            onClick={() => { setShowAddUser(true); setAddError(""); setNewUser({ name: "", email: "", role: "Sales Representative", zohoId: "" }) }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors cursor-pointer"
+          >
+            <FiUserPlus size={14} /> Add User
+          </button>
         </header>
 
         <div className="space-y-3">
@@ -237,6 +247,99 @@ export default function AdminUsersPage() {
           })}
         </div>
       </main>
+
+      {/* Add User Modal */}
+      {showAddUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddUser(false)}>
+          <div className="bg-neutral-900 border border-neutral-700 rounded-xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <FiUserPlus className="text-emerald-400" /> Add New User
+            </h2>
+            <p className="text-xs text-neutral-400">Create a user so they can log in via Zoho OAuth. If they already have accounts assigned in Zoho CRM, their stub user will be automatically merged on first login.</p>
+            
+            {addError && <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-2">{addError}</div>}
+            
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-neutral-400 font-semibold block mb-1">Full Name *</label>
+                <input
+                  value={newUser.name}
+                  onChange={e => setNewUser(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="John Smith"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-neutral-400 font-semibold block mb-1">Email *</label>
+                <input
+                  value={newUser.email}
+                  onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="john@titandiamond.com"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-neutral-400 font-semibold block mb-1">Role</label>
+                <select
+                  value={newUser.role}
+                  onChange={e => setNewUser(prev => ({ ...prev, role: e.target.value }))}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
+                >
+                  <option value="Sales Representative">Sales Representative</option>
+                  <option value="Admin">Admin</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-neutral-400 font-semibold block mb-1">Zoho User ID <span className="text-neutral-600">(optional)</span></label>
+                <input
+                  value={newUser.zohoId}
+                  onChange={e => setNewUser(prev => ({ ...prev, zohoId: e.target.value }))}
+                  placeholder="e.g. 4912873000000275001"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                />
+                <p className="text-[10px] text-neutral-600 mt-1">Found in Zoho CRM → Settings → Users → click user → URL contains the ID</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setShowAddUser(false)}
+                className="flex-1 py-2 text-xs font-bold rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!newUser.name || !newUser.email) { setAddError("Name and email are required."); return }
+                  setAddingUser(true); setAddError("")
+                  try {
+                    const res = await fetch('/api/admin/users', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(newUser)
+                    })
+                    const data = await res.json()
+                    if (data.success) {
+                      setUsers(prev => [...prev, data.user])
+                      setShowAddUser(false)
+                    } else {
+                      setAddError(data.error || "Failed to create user")
+                    }
+                  } catch (e: any) {
+                    setAddError("Network error: " + e.message)
+                  } finally {
+                    setAddingUser(false)
+                  }
+                }}
+                disabled={addingUser}
+                className="flex-1 py-2 text-xs font-bold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {addingUser ? "Creating..." : "Create User"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

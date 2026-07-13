@@ -614,6 +614,27 @@ All dates are stored in **Phoenix time (MST)** — no daylight saving time chang
 If you forgot to clock in/out or need a correction, use the **Request Change** button on the Timeclock page.
     `,
   },
+  {
+    id: "user-management",
+    title: "Adding & Managing Users",
+    category: "Admin",
+    content: `
+### Adding New Users
+1. Go to **Admin → User Permissions**
+2. Click **Add User** in the top-right
+3. Fill in their name, email (must match their Zoho login email), role, and optionally their Zoho User ID
+4. Once created, the user can log in via Zoho OAuth
+
+### How User Sync Works
+- **First Login**: When a new user logs in via Zoho OAuth, the system creates or merges their account automatically.
+- **Account Owner Sync**: When accounts are synced from Zoho CRM, if an account owner doesn't exist in the portal yet, a "stub" user is created. When that person logs in via Zoho, their stub is automatically merged — their real name and email replace the placeholder.
+- **No duplicates**: The system checks both Zoho User ID and email to prevent duplicate user records.
+
+### User Roles
+- **Sales Representative**: Can view their assigned accounts, log calls, manage tasks
+- **Admin**: Full access to all accounts, admin tools, user management, and campaigns
+    `,
+  },
 ]
 
 
