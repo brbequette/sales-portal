@@ -1,10 +1,15 @@
 "use client"
 import React, { useState } from "react"
-import { FiPlay, FiCheck, FiAlertCircle, FiLoader } from "react-icons/fi"
+import { FiPlay, FiCheck, FiAlertCircle, FiLoader, FiCpu } from "react-icons/fi"
 
 export default function BooksScriptsPage() {
   const [loading, setLoading] = useState<string | null>(null)
   const [results, setResults] = useState<Record<string, string>>({})
+
+  // Bulk process costs state
+  const [bulkFilter, setBulkFilter] = useState<'unpaid' | 'all' | 'recent'>('unpaid')
+  const [bulkProgress, setBulkProgress] = useState("")
+  const [bulkRunning, setBulkRunning] = useState(false)
 
   const runScript = async (scriptName: string, endpoint: string) => {
     if (!confirm(`Are you sure you want to run ${scriptName}? This may modify live Zoho Books data.`)) return
@@ -21,11 +26,106 @@ export default function BooksScriptsPage() {
     }
   }
 
+  const runBulkProcessCosts = async () => {
+    if (!confirm(`Process costs for ${bulkFilter === 'all' ? 'ALL' : bulkFilter} invoices? This will recalculate dead costs, profit, and commissions on each invoice.`)) return
+    
+    setBulkRunning(true)
+    setBulkProgress("Starting...")
+    setResults(prev => ({ ...prev, 'bulk-costs': '' }))
+
+    let page = 1
+    let totalProcessed = 0
+    let totalErrors = 0
+    let totalSkipped = 0
+
+    try {
+      while (true) {
+        setBulkProgress(`Processing page ${page}... (${totalProcessed} done, ${totalErrors} errors)`)
+
+        const res = await fetch('/api/admin/books/bulk-process-costs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ page, filter: bulkFilter, perPage: 25 })
+        })
+
+        const data = await res.json()
+        if (!data.success) {
+          setResults(prev => ({ ...prev, 'bulk-costs': `Error on page ${page}: ${data.error}` }))
+          break
+        }
+
+        for (const r of (data.results || [])) {
+          if (r.status === 'processed') totalProcessed++
+          else if (r.status === 'skipped') totalSkipped++
+          else totalErrors++
+        }
+
+        if (!data.hasMore) {
+          setResults(prev => ({ ...prev, 'bulk-costs': `✅ Complete! ${totalProcessed} processed, ${totalSkipped} skipped, ${totalErrors} errors across ${page} pages.` }))
+          break
+        }
+
+        page++
+        if (page > 200) break // Safety
+      }
+    } catch (err: any) {
+      setResults(prev => ({ ...prev, 'bulk-costs': `Error: ${err.message}` }))
+    } finally {
+      setBulkRunning(false)
+      setBulkProgress("")
+    }
+  }
+
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-8">
       <h1 className="text-2xl font-bold text-white">Zoho Books Maintenance Scripts</h1>
       <p className="text-neutral-400">Run manual backend scripts to fix or sync Zoho Books data.</p>
       
+      {/* ── Bulk Process Costs — Full Width ── */}
+      <div className="glass-panel border border-indigo-500/30 p-6 rounded-2xl space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-indigo-400 flex items-center gap-2"><FiCpu /> Bulk Process Invoice Costs</h2>
+            <p className="text-sm text-neutral-400 mt-2">
+              Recalculate <strong>dead costs, VIG, profit, and commissions</strong> for invoices. Updates all custom fields in Zoho Books. 
+              Only fields that changed are written (prevents unnecessary API calls).
+            </p>
+          </div>
+          <select
+            value={bulkFilter}
+            onChange={e => setBulkFilter(e.target.value as any)}
+            disabled={bulkRunning}
+            className="bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded-lg px-3 py-2 shrink-0"
+          >
+            <option value="unpaid">Unpaid Only</option>
+            <option value="recent">Last 90 Days</option>
+            <option value="all">All Invoices</option>
+          </select>
+        </div>
+
+        {bulkProgress && (
+          <div className="flex items-center gap-2 text-indigo-400 text-xs font-medium bg-indigo-950/30 border border-indigo-500/20 rounded-lg p-3">
+            <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin shrink-0" />
+            {bulkProgress}
+          </div>
+        )}
+
+        {results['bulk-costs'] && (
+          <div className={`text-xs font-bold p-3 rounded-lg border ${results['bulk-costs'].includes('✅') ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+            {results['bulk-costs']}
+          </div>
+        )}
+
+        <button
+          disabled={bulkRunning || loading !== null}
+          onClick={runBulkProcessCosts}
+          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+        >
+          {bulkRunning ? <FiLoader className="animate-spin" /> : <FiCpu />}
+          {bulkRunning ? 'Processing...' : `Process ${bulkFilter === 'all' ? 'All' : bulkFilter === 'recent' ? 'Recent' : 'Unpaid'} Invoices`}
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
         {/* Script 1 */}

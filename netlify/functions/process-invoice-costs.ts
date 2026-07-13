@@ -6,36 +6,58 @@ const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
 
+// ── Loop Guard ──
+// Prevents re-entry when our PUT triggers a Zoho workflow that calls back
+const recentlyProcessed = new Map<string, number>()
+const LOOP_GUARD_TTL = 60_000 // 60 seconds
+
+function isRecentlyProcessed(invoiceId: string): boolean {
+  const lastTime = recentlyProcessed.get(invoiceId)
+  if (lastTime && Date.now() - lastTime < LOOP_GUARD_TTL) return true
+  return false
+}
+
+function markProcessed(invoiceId: string) {
+  recentlyProcessed.set(invoiceId, Date.now())
+  // Cleanup old entries
+  for (const [id, time] of recentlyProcessed) {
+    if (Date.now() - time > LOOP_GUARD_TTL * 2) recentlyProcessed.delete(id)
+  }
+}
+
 // Determine if a line item should NOT have VIG applied.
 // VIG is removed when:
-//   1. The item is flagged as a gift
-//   2. The item has a "Subject to VIG" checkbox that is unchecked (false)
-// By default, items ARE subject to VIG.
+//   1. The item has a "Subject to VIG" checkbox that is unchecked (false)
+// Gift items ARE included in dead costs but go to the NO VIG bucket
 function isNoVigItem(item: any): boolean {
-  // 1. Gift items never get VIG
-  const name = (item.name || '').toLowerCase()
-  const desc = (item.description || '').toLowerCase()
-  if (item.is_gift || name.includes('gift') || desc.includes('gift')) {
-    return true
-  }
-
-  // 2. Check item-level custom fields for a "Subject to VIG" checkbox
-  //    If the checkbox exists and is unchecked (false), this item is no-vig
+  // Check item-level custom fields for a "Subject to VIG" checkbox
   const customFields = item.item_custom_fields || []
   for (const cf of customFields) {
     const label = (cf.label || '').toUpperCase()
     if (label.includes('SUBJECT TO VIG') || label.includes('VIG') || label.includes('REMOVE VIG')) {
-      // "Subject to VIG" checkbox: true = has vig, false = no vig
       if (label.includes('REMOVE') || label.includes('NO VIG')) {
-        // "Remove VIG" / "No VIG" checkbox: true = no vig
         return cf.value === true || cf.value === 'true'
       }
-      // "Subject to VIG" checkbox: false = no vig
       return cf.value === false || cf.value === 'false' || cf.value === ''
     }
   }
-
   return false // default: item IS subject to VIG
+}
+
+// Check if an item is a gift
+function isGiftItem(item: any): boolean {
+  const name = (item.name || '').toLowerCase()
+  const desc = (item.description || '').toLowerCase()
+  if (item.is_gift || name.includes('gift') || desc.includes('gift')) return true
+  // Check custom fields for gift flag
+  const customFields = item.item_custom_fields || []
+  for (const cf of customFields) {
+    const label = (cf.label || '').toUpperCase()
+    if (label.includes('GIFT')) {
+      return cf.value === true || cf.value === 'true'
+    }
+  }
+  return false
 }
 
 export const handler: Handler = async (event) => {
@@ -51,7 +73,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { invoiceNumber, invoiceId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides } = body
+    const { invoiceNumber, invoiceId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard } = body
 
     if (!invoiceNumber && !invoiceId) {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing invoiceNumber or invoiceId" }) }
@@ -73,6 +95,12 @@ export const handler: Handler = async (event) => {
       booksInvoiceId = searchData.invoices[0].invoice_id
     }
 
+    // ── Loop Guard Check ──
+    if (!skipLoopGuard && isRecentlyProcessed(booksInvoiceId)) {
+      console.log(`Loop guard: Skipping invoice ${booksInvoiceId} — processed within last ${LOOP_GUARD_TTL / 1000}s`)
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, skipped: true, reason: 'Loop guard — recently processed' }) }
+    }
+
     // 2. Fetch full invoice details
     const detailRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { headers: authHeaders })
     if (!detailRes.ok) throw new Error(`Failed to fetch invoice details: ${detailRes.status}`)
@@ -81,6 +109,8 @@ export const handler: Handler = async (event) => {
     const invoice = detailData.invoice
 
     // 3. Calculate Dead Costs from line items
+    // Gift items: their purchase_rate is included in dead costs (NO VIG bucket)
+    // Regular items: purchase_rate goes to Subject to VIG or No VIG based on checkbox
     let deadCostSubjectToVig = 0
     let deadCostNoVig = 0
     const lineItemBreakdown: string[] = []
@@ -93,11 +123,15 @@ export const handler: Handler = async (event) => {
       const rate = parseFloat(item.rate || 0)
       const itemTotal = parseFloat(item.item_total || 0)
 
-      // Determine if this item is no-vig (user overrides take priority)
+      const gift = isGiftItem(item)
+
+      // Determine VIG eligibility (user overrides take priority)
       let noVig = isNoVigItem(item)
       if (noVigOverrides && item.line_item_id && noVigOverrides[item.line_item_id] !== undefined) {
         noVig = noVigOverrides[item.line_item_id]
       }
+      // Gift items always go to NO VIG bucket but ARE included in dead costs
+      if (gift) noVig = true
 
       if (noVig) {
         deadCostNoVig += itemDeadCost
@@ -105,7 +139,12 @@ export const handler: Handler = async (event) => {
         deadCostSubjectToVig += itemDeadCost
       }
 
-      lineItemBreakdown.push(`${item.name}: ${qty}x @ $${cost.toFixed(2)} = $${itemDeadCost.toFixed(2)}${noVig ? ' [NO VIG]' : ''}`)
+      const flags = []
+      if (noVig) flags.push('NO VIG')
+      if (gift) flags.push('GIFT')
+      const flagStr = flags.length > 0 ? ` [${flags.join(', ')}]` : ''
+
+      lineItemBreakdown.push(`${item.name}: ${qty}x @ $${cost.toFixed(2)} = $${itemDeadCost.toFixed(2)}${flagStr}`)
       lineItemDetails.push({
         name: item.name,
         sku: item.sku || null,
@@ -114,7 +153,8 @@ export const handler: Handler = async (event) => {
         cost,
         itemTotal,
         deadCost: itemDeadCost,
-        noVig
+        noVig,
+        gift
       })
     }
 
@@ -125,7 +165,6 @@ export const handler: Handler = async (event) => {
     const salespersonName = invoice.salesperson_name
 
     if (!vigRate) {
-      // Check existing custom field value first
       const existingVig = invoice.custom_fields?.find((f: any) =>
         f.label.toUpperCase().includes('SALESPERSON VIG') || f.api_name === 'cf_salesperson_vig'
       )
@@ -135,7 +174,6 @@ export const handler: Handler = async (event) => {
     }
 
     if (!vigRate && salespersonName) {
-      // Look up VIG from settings
       const users = await prisma.user.findMany()
       const isMontgomery = salespersonName.toLowerCase().includes('montgomery') || salespersonName.toLowerCase().includes('morgan')
       if (isMontgomery) {
@@ -153,7 +191,6 @@ export const handler: Handler = async (event) => {
             if (userVig.constantVigEnabled && userVig.constantVigValue !== null) {
               vigRate = userVig.constantVigValue
             } else {
-              // Use invoice date month for VIG lookup
               const invDate = invoice.date || invoice.created_time
               const monthKey = invDate ? new Date(invDate).toISOString().substring(0, 7) : new Date().toISOString().substring(0, 7)
               const monthlyGoal = (userVig.monthlyVigGoals || []).find((g: any) => g.monthKey === monthKey)
@@ -169,13 +206,11 @@ export const handler: Handler = async (event) => {
     if (!vigRate) vigRate = 1.5 // fallback default
 
     // 5. Calculate Dead Cost Plus VIG
-    // Dead Cost Plus VIG = (Dead Cost Subject to VIG × VIG) + Dead Cost No VIG
     const deadCostPlusVig = (deadCostSubjectToVig * vigRate) + deadCostNoVig
 
-    // 6. Calculate Profit = Sub_Total - Dead Cost Plus VIG
+    // 6. Calculate Profit = Sub_Total - Dead Cost Plus VIG - CC Fees - Additional Costs - Insurance
     const subTotal = parseFloat(invoice.sub_total || 0)
 
-    // Check for additional costs from custom fields
     const ccFeesField = invoice.custom_fields?.find((f: any) => f.label.toUpperCase().includes('CREDIT CARD PROCESSING'))
     const additionalCostsField = invoice.custom_fields?.find((f: any) => f.label.toUpperCase().includes('ADDITIONAL COSTS SEE'))
     const insuranceField = invoice.custom_fields?.find((f: any) => f.label.toUpperCase() === 'INSURANCE')
@@ -189,7 +224,6 @@ export const handler: Handler = async (event) => {
     const marginPercent = subTotal > 0 ? (profit / subTotal) * 100 : 0
 
     // 7. Calculate Commission
-    // Commission % — use manual override, existing field, or default 50%
     let commissionPct = manualCommPct
     if (!commissionPct) {
       const existingCommPct = invoice.custom_fields?.find((f: any) =>
@@ -202,6 +236,10 @@ export const handler: Handler = async (event) => {
     if (!commissionPct) commissionPct = 50 // default 50%
 
     const salesCommission = profit > 0 ? profit * (commissionPct / 100) : 0
+
+    // 8. Check for Paid In Full Date
+    const isPaid = invoice.status === 'paid' || parseFloat(invoice.balance || 0) <= 0
+    const existingPaidDate = invoice.custom_fields?.find((f: any) => f.label.toUpperCase().includes('PAID IN FULL DATE'))
 
     console.log(`\n=== Processing Invoice ${invoice.invoice_number} ===`)
     console.log(`  Customer: ${invoice.customer_name}`)
@@ -218,35 +256,50 @@ export const handler: Handler = async (event) => {
     console.log(`  Profit: $${profit.toFixed(2)} (${marginPercent.toFixed(1)}%)`)
     console.log(`  Commission %: ${commissionPct}%`)
     console.log(`  Sales Commission: $${salesCommission.toFixed(2)}`)
+    console.log(`  Paid: ${isPaid}`)
 
-    // 8. Build custom field updates by matching label names
+    // 9. Build custom field updates — only update fields that changed
     const existingFields = invoice.custom_fields || []
     const fieldsToUpdate: any[] = []
 
     const fieldMap: Record<string, any> = {
-      'DEAD COST TOTAL': deadCostTotal,
-      'DEAD COST SUBJECT TO VIG': deadCostSubjectToVig,
-      'DEAD COST NO VIG': deadCostNoVig,
+      'DEAD COST TOTAL': deadCostTotal.toFixed(2),
+      'DEAD COST SUBJECT TO VIG': deadCostSubjectToVig.toFixed(2),
+      'DEAD COST NO VIG': deadCostNoVig.toFixed(2),
       'SALESPERSON VIG': vigRate,
-      'DEAD COST PLUS VIG': deadCostPlusVig,
-      'PROFIT': profit,
+      'DEAD COST PLUS VIG': deadCostPlusVig.toFixed(2),
+      'PROFIT': profit.toFixed(2),
       'COMMISSION FROM PROFIT %': commissionPct,
-      'SALES COMMISSION': salesCommission,
+      'SALES COMMISSION': salesCommission.toFixed(2),
       'ITEMS DC BREAKDOWN': lineItemBreakdown.join('\n'),
     }
 
+    // Add PAID IN FULL DATE if paid and not already set
+    if (isPaid && existingPaidDate && !existingPaidDate.value) {
+      fieldMap['PAID IN FULL DATE'] = new Date().toISOString().split('T')[0]
+    }
+
+    let changesDetected = 0
     for (const [label, value] of Object.entries(fieldMap)) {
       const field = existingFields.find((f: any) => f.label.toUpperCase().trim() === label)
       if (field) {
-        fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
+        // Compare values — skip if unchanged (prevents unnecessary PUTs)
+        const existingVal = String(field.value || '').trim()
+        const newVal = String(value).trim()
+        if (existingVal !== newVal) {
+          fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
+          changesDetected++
+        }
       } else {
         console.warn(`Custom field "${label}" not found on invoice`)
       }
     }
 
-    // 9. Write to Zoho Books
+    // 10. Write to Zoho Books — only if there are actual changes
     let zohoUpdateResult: any = null
     if (fieldsToUpdate.length > 0) {
+      markProcessed(booksInvoiceId) // Set loop guard BEFORE the PUT
+
       const putRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
         method: "PUT",
         headers: {
@@ -261,11 +314,13 @@ export const handler: Handler = async (event) => {
       if (!putRes.ok || putData.code !== 0) {
         console.error("Zoho Books update failed:", JSON.stringify(putData))
       } else {
-        console.log(`✅ Updated ${fieldsToUpdate.length} custom fields on invoice ${invoice.invoice_number}`)
+        console.log(`✅ Updated ${fieldsToUpdate.length} custom fields on invoice ${invoice.invoice_number} (${changesDetected} changed)`)
       }
+    } else {
+      console.log(`⏭️ No changes detected for invoice ${invoice.invoice_number} — skipping PUT`)
     }
 
-    // 10. Update local DB
+    // 11. Update local DB
     const localInvoice = await prisma.invoice.findFirst({
       where: {
         OR: [
@@ -289,7 +344,9 @@ export const handler: Handler = async (event) => {
             profit,
             commission: salesCommission,
             commissionPercent: commissionPct,
-            custom_fields: existingFields
+            vigRate,
+            custom_fields: existingFields,
+            ...(isPaid && !currentItems.paidInFullDate ? { paidInFullDate: new Date().toISOString().split('T')[0] } : {})
           }
         }
       })
@@ -321,6 +378,7 @@ export const handler: Handler = async (event) => {
           lineItems: lineItemDetails,
           itemsDcBreakdown: lineItemBreakdown,
           fieldsUpdated: fieldsToUpdate.length,
+          changesDetected,
           zohoUpdateResult
         }
       })

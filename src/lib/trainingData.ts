@@ -522,6 +522,44 @@ Maintain the company holiday calendar under **Admin → Holidays** so payroll re
     `,
   },
   {
+    id: "admin-books-scripts",
+    title: "Admin: Books Scripts & Cost Processing",
+    category: "Admin & Management",
+    content: `
+### Zoho Books Maintenance Scripts
+Navigate to **Admin → Books Scripts** to access maintenance tools for Zoho Books data.
+
+### Bulk Process Invoice Costs
+The **Bulk Process Invoice Costs** tool recalculates all financial fields for invoices:
+- **Dead Cost Total** — Sum of all line item purchase costs
+- **Dead Cost Subject to VIG** — Costs where "Subject to VIG" is checked
+- **Dead Cost No VIG** — Costs where "Subject to VIG" is unchecked (including gift items)
+- **Dead Cost Plus VIG** — (Subject to VIG × VIG Rate) + No VIG
+- **Profit** — Sub Total minus Dead Cost Plus VIG, CC Fees, Additional Costs, and Insurance
+- **Sales Commission** — Profit × Commission %
+- **Paid In Full Date** — Auto-set when invoice balance reaches $0
+
+Filter options: **Unpaid Only** (default), **Last 90 Days**, or **All Invoices**.
+Only fields that actually changed are written, preventing unnecessary API calls.
+
+### Incremental (Single Invoice) Processing
+Click **Process Costs** on any invoice detail modal to recalculate just that invoice.
+
+### Credit Card Processing Fees
+When a credit card payment is processed through the portal, the system automatically:
+1. Calculates the **CC Processing Fee** (3.5% of the charge amount)
+2. Writes the fee to the **CREDIT CARD PROCESSING FEES** field
+3. Records the **CC CHARGE(S) BREAKDOWN** with auth code, card type, last 4 digits, and amount
+4. If the invoice is fully paid, sets the **PAID IN FULL DATE**
+
+### Gift Items
+Gift items are always included in **Dead Costs** but placed in the **No VIG** bucket — they never have VIG applied to them.
+
+### Loop Prevention
+The system prevents update loops when Zoho workflows trigger callbacks after field updates. Each invoice has a 60-second cooldown after processing.
+    `,
+  },
+  {
     id: "tools-task-reminders",
     title: "Task Reminders",
     category: "Tools & Resources",
