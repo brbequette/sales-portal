@@ -151,8 +151,8 @@ export function GlobalTopBar() {
         router.push(`/account?id=${item.zohoId}`)
         break
       case "invoices":
-        // For now, route to account, later handle popup if needed
-        router.push(`/account?id=${item.zohoId || item.accountId}&invoiceId=${item.zohoId || item.id}`)
+        // Route to the account page using the account's zohoId, with invoiceId for auto-open
+        router.push(`/account?id=${item.accountZohoId || item.accountId}&invoiceId=${item.zohoId || item.id}`)
         break
       case "deals":
         router.push(`/account?id=${item.accountId}`)

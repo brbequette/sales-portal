@@ -60,6 +60,7 @@ export const handler: Handler = async (event) => {
             }
           ]
         },
+        include: { account: { select: { name: true, zohoId: true } } },
         take: 10
       })
     } catch (e) {
@@ -72,6 +73,7 @@ export const handler: Handler = async (event) => {
               { status: { contains: query, mode: "insensitive" } }
             ]
           },
+          include: { account: { select: { name: true, zohoId: true } } },
           take: 10
         })
       } catch (fallbackErr) {
@@ -154,6 +156,8 @@ export const handler: Handler = async (event) => {
     const enrichedInvoices = invoices.map((inv: any) => ({
       ...inv,
       invoiceNumber: inv.items?.invoiceNumber || inv.items?.invoice_number || null,
+      accountName: inv.account?.name,
+      accountZohoId: inv.account?.zohoId,
       docType: 'Invoice'
     }))
 
