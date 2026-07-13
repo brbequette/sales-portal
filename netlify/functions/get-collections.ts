@@ -152,6 +152,7 @@ export const handler: Handler = async (event) => {
         dead_cost: items?.deadCostTotal || 0,
         customer_city: inv.account?.billingCity || null,
         customer_state: inv.account?.billingState || null,
+        shipping_charge: items?.shippingCharge ?? null,
       }
     })
 

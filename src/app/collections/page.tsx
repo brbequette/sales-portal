@@ -39,6 +39,7 @@ type Invoice = {
   account?: {
     ownerId?: string | null
   } | null
+  shipping_charge?: number | null
 }
 
 type CallOutcome =
@@ -944,6 +945,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                           />
                           <div>
                             <span className="font-mono font-bold text-emerald-400">#{inv.invoice_number}</span>
+                            {inv.shipping_charge === 0 && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400 ml-2">⚠ No Ship $</span>}
                             <span className="text-neutral-505 ml-2">Due: {inv.due_date || "—"}</span>
                           </div>
                         </div>
@@ -1542,6 +1544,7 @@ export default function CollectionsPage() {
                           <span className="font-mono text-xs text-emerald-400 font-bold">
                             #{inv.invoice_number}
                           </span>
+                          {inv.shipping_charge === 0 && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400 ml-1.5">⚠ No Ship $</span>}
                         </td>
                         <td className="px-4 py-3">
                           <span className="font-semibold text-white text-xs truncate max-w-[200px] block">{inv.customer_name}</span>
