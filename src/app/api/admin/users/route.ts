@@ -12,10 +12,12 @@ export async function GET() {
         role: true,
         zohoId: true,
         canSendCampaigns: true,
-        permissions: true
+        permissions: true,
+        _count: { select: { accounts: true } }
       }
     })
-    return NextResponse.json({ success: true, users })
+    const mapped = users.map(u => ({ ...u, accountCount: (u as any)._count?.accounts || 0, _count: undefined }))
+    return NextResponse.json({ success: true, users: mapped })
   } catch (error: any) {
     console.error("Error fetching users:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })

@@ -5,6 +5,7 @@
 export interface UserPermissions {
   // Navigation / Page Access
   dashboard: boolean
+  salesBoard: boolean
   salesDocuments: boolean
   collections: boolean
   commissions: boolean
@@ -40,6 +41,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: keyof UserP
     label: "Page Access",
     permissions: [
       { key: "dashboard", label: "Dashboard", description: "Access the main dashboard with KPIs and account pipeline" },
+      { key: "salesBoard", label: "Sales Board", description: "Access the Sales Board with quotes, SOs, and invoices" },
       { key: "salesDocuments", label: "Sales Documents", description: "View and manage quotes, sales orders, and invoices" },
       { key: "collections", label: "Collections", description: "Access the collections board for overdue accounts" },
       { key: "commissions", label: "Commissions", description: "View commission statements and payouts" },
@@ -81,6 +83,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: keyof UserP
 // Default permissions: all enabled (used for admins or when permissions is null)
 export const ALL_PERMISSIONS: UserPermissions = {
   dashboard: true,
+  salesBoard: true,
   salesDocuments: true,
   collections: true,
   commissions: true,
@@ -110,6 +113,7 @@ export const ALL_PERMISSIONS: UserPermissions = {
 // Default permissions for a new sales rep (restricted)
 export const DEFAULT_REP_PERMISSIONS: UserPermissions = {
   dashboard: true,
+  salesBoard: false,
   salesDocuments: true,
   collections: false,
   commissions: true,

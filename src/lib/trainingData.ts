@@ -430,6 +430,14 @@ Administrators and managers get an **Admin Settings** hub with controls that gov
     content: `
 Manage granular feature-level permissions from **Admin → Users**.
 
+### Search, Sort & Filter
+- **Search** — Use the search bar at the top to find users by name or email.
+- **Sort** — Click column headers (Name, Email, Role, Accounts) to sort ascending/descending.
+- **Filter by Role** — Use the filter tabs (All / Admin / Reps) to narrow the user list.
+
+### Account Count
+Each user row displays how many accounts are currently assigned to them. This count updates automatically after bulk reassignment.
+
 ### User Permissions System
 Click any user to expand their **permissions panel**. Each permission can be individually toggled on/off.
 
@@ -441,6 +449,7 @@ Click any user to expand their **permissions panel**. Each permission can be ind
 ### Quick Actions
 - **Enable All** — Grants all permissions (full admin access)
 - **Rep Defaults** — Sets standard sales rep permissions (basic page access, no admin features)
+- **Assign Accounts** — Opens a modal to bulk-reassign accounts to the selected user. Search the full account list, select multiple accounts, then click "Reassign to [User Name]". This syncs both Zoho CRM and the local database. A progress bar shows real-time status during reassignment.
     `,
   },
   {
@@ -633,6 +642,15 @@ If you forgot to clock in/out or need a correction, use the **Request Change** b
 ### User Roles
 - **Sales Representative**: Can view their assigned accounts, log calls, manage tasks
 - **Admin**: Full access to all accounts, admin tools, user management, and campaigns
+
+### Bulk Account Assignment
+1. Go to **Admin → User Permissions**
+2. Expand a user and click **Assign Accounts**
+3. Search and select accounts to reassign to that user
+4. Click **Reassign** — this updates both the local database and Zoho CRM
+
+### Sales Board Permission
+The Sales Board tab on the dashboard is a permission-gated feature. It is **not** available to reps by default. To grant access, go to Admin → User Permissions → expand the user → enable "Sales Board" under Page Access.
     `,
   },
 ]

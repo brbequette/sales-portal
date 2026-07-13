@@ -1,6 +1,7 @@
 "use client"
 
 import { formatPhoneNumber } from "@/lib/formatters"
+import { resolvePermissions } from "@/lib/permissions"
 
 
 import { useZoho } from "@/components/ZohoProvider"
@@ -501,6 +502,17 @@ export default function Dashboard() {
       }
     }
   }, [isInitialized, currentUser, router])
+
+  // Fetch dbUser permissions on load
+  useEffect(() => {
+    if (!currentUser?.email && !currentUser?.id) return
+    fetch('/api/admin/users').then(r => r.json()).then(data => {
+      if (data?.success) {
+        const user = data.users.find((u: any) => u.email === currentUser?.email || u.id === currentUser?.id)
+        if (user) setDbUser(user)
+      }
+    }).catch(() => {})
+  }, [currentUser?.email, currentUser?.id])
 
   useEffect(() => {
     if (viewingInvoice) {
@@ -1081,6 +1093,7 @@ export default function Dashboard() {
               </div>
             </div>
           </button>
+          {resolvePermissions(dbUser?.permissions, dbUser?.role || currentUser?.role).salesBoard && (
           <button
             onClick={() => handleEffortChange("dashboard")}
             className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
@@ -1106,12 +1119,15 @@ export default function Dashboard() {
               </div>
             </div>
           </button>
+          )}
         </div>
 
-        {effort === "dashboard" ? (
+        {effort === "dashboard" && resolvePermissions(dbUser?.permissions, dbUser?.role || currentUser?.role).salesBoard ? (
           <div className="mt-4">
             <SalesBoard />
           </div>
+        ) : effort === "dashboard" ? (
+          <></>
         ) : (
           <>
             {/* Quick Invoice Lookups */}

@@ -1,8 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { FiCheckSquare, FiSquare, FiUser, FiShield, FiChevronDown, FiChevronUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSave, FiUserPlus, FiEdit3 } from "react-icons/fi"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { FiCheckSquare, FiSquare, FiUser, FiShield, FiChevronDown, FiChevronUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSave, FiUserPlus, FiEdit3, FiSearch, FiArrowUp, FiArrowDown, FiRefreshCw, FiUsers } from "react-icons/fi"
 import { PERMISSION_GROUPS, ALL_PERMISSIONS, DEFAULT_REP_PERMISSIONS, resolvePermissions, type UserPermissions } from "@/lib/permissions"
+
+type SortField = "name" | "email" | "role" | "accountCount"
+type SortDir = "asc" | "desc"
+type RoleFilter = "All" | "Admin" | "Sales Representative"
+
+interface AccountItem {
+  id: string
+  name: string
+  owner?: { id: string; name: string; email: string } | null
+}
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([])
@@ -15,6 +25,22 @@ export default function AdminUsersPage() {
   const [addingUser, setAddingUser] = useState(false)
   const [addError, setAddError] = useState("")
   const [editedUserInfo, setEditedUserInfo] = useState<Record<string, { name: string; email: string; zohoId: string; role: string }>>({})
+
+  // New state for search, sort, filter
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sortField, setSortField] = useState<SortField>("name")
+  const [sortDir, setSortDir] = useState<SortDir>("asc")
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("All")
+
+  // Assign accounts modal state
+  const [showAssignModal, setShowAssignModal] = useState(false)
+  const [assignUserId, setAssignUserId] = useState<string | null>(null)
+  const [allAccounts, setAllAccounts] = useState<AccountItem[]>([])
+  const [loadingAccounts, setLoadingAccounts] = useState(false)
+  const [accountSearchQuery, setAccountSearchQuery] = useState("")
+  const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set())
+  const [assigning, setAssigning] = useState(false)
+  const [assignProgress, setAssignProgress] = useState({ done: 0, total: 0, errors: [] as string[] })
 
   useEffect(() => {
     fetch('/api/admin/users')
@@ -115,7 +141,205 @@ export default function AdminUsersPage() {
 
   const totalPerms = Object.keys(ALL_PERMISSIONS).length
 
+  // Sorting handler
+  const handleSort = useCallback((field: SortField) => {
+    setSortField(prev => {
+      if (prev === field) {
+        setSortDir(d => d === "asc" ? "desc" : "asc")
+        return field
+      }
+      setSortDir("asc")
+      return field
+    })
+  }, [])
+
+  // Filtered and sorted users
+  const filteredUsers = useMemo(() => {
+    let result = [...users]
+
+    // Role filter
+    if (roleFilter !== "All") {
+      result = result.filter(u => {
+        if (roleFilter === "Admin") {
+          return u.role?.toLowerCase().includes("admin") || u.role === "Administrator"
+        }
+        return u.role === "Sales Representative"
+      })
+    }
+
+    // Search
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim()
+      result = result.filter(u =>
+        (u.name || "").toLowerCase().includes(q) ||
+        (u.email || "").toLowerCase().includes(q)
+      )
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      let aVal: any, bVal: any
+      switch (sortField) {
+        case "name":
+          aVal = (a.name || "").toLowerCase()
+          bVal = (b.name || "").toLowerCase()
+          break
+        case "email":
+          aVal = (a.email || "").toLowerCase()
+          bVal = (b.email || "").toLowerCase()
+          break
+        case "role":
+          aVal = (a.role || "").toLowerCase()
+          bVal = (b.role || "").toLowerCase()
+          break
+        case "accountCount":
+          aVal = a.accountCount || 0
+          bVal = b.accountCount || 0
+          break
+      }
+      if (aVal < bVal) return sortDir === "asc" ? -1 : 1
+      if (aVal > bVal) return sortDir === "asc" ? 1 : -1
+      return 0
+    })
+
+    return result
+  }, [users, roleFilter, searchQuery, sortField, sortDir])
+
+  // Open assign accounts modal
+  const openAssignModal = useCallback(async (userId: string) => {
+    setAssignUserId(userId)
+    setShowAssignModal(true)
+    setAccountSearchQuery("")
+    setSelectedAccountIds(new Set())
+    setAssigning(false)
+    setAssignProgress({ done: 0, total: 0, errors: [] })
+    setLoadingAccounts(true)
+    setAllAccounts([])
+    try {
+      // Fetch all accounts (paginated) - get first page, check for hasMore
+      let page = 1
+      let allFetched: AccountItem[] = []
+      let hasMore = true
+      while (hasMore) {
+        const res = await fetch(`/api/get-accounts?email=admin@titandiamond.com&role=Admin&page=${page}`)
+        const data = await res.json()
+        if (data.success && data.accounts) {
+          allFetched = [...allFetched, ...data.accounts.map((a: any) => ({
+            id: a.id,
+            name: a.name || "Unnamed Account",
+            owner: a.owner || null,
+          }))]
+          hasMore = data.pagination?.hasMore || false
+          page++
+        } else {
+          hasMore = false
+        }
+      }
+      setAllAccounts(allFetched)
+    } catch (err) {
+      console.error("Failed to fetch accounts:", err)
+    } finally {
+      setLoadingAccounts(false)
+    }
+  }, [])
+
+  // Filtered accounts in modal
+  const filteredAccounts = useMemo(() => {
+    if (!accountSearchQuery.trim()) return allAccounts
+    const q = accountSearchQuery.toLowerCase().trim()
+    return allAccounts.filter(a =>
+      a.name.toLowerCase().includes(q) ||
+      (a.owner?.name || "").toLowerCase().includes(q)
+    )
+  }, [allAccounts, accountSearchQuery])
+
+  // Toggle account selection
+  const toggleAccountSelection = useCallback((accountId: string) => {
+    setSelectedAccountIds(prev => {
+      const next = new Set(prev)
+      if (next.has(accountId)) next.delete(accountId)
+      else next.add(accountId)
+      return next
+    })
+  }, [])
+
+  // Select / deselect all visible
+  const toggleSelectAll = useCallback(() => {
+    const visibleIds = filteredAccounts.map(a => a.id)
+    setSelectedAccountIds(prev => {
+      const allSelected = visibleIds.every(id => prev.has(id))
+      const next = new Set(prev)
+      if (allSelected) {
+        visibleIds.forEach(id => next.delete(id))
+      } else {
+        visibleIds.forEach(id => next.add(id))
+      }
+      return next
+    })
+  }, [filteredAccounts])
+
+  // Perform bulk assignment
+  const performAssignment = useCallback(async () => {
+    if (!assignUserId || selectedAccountIds.size === 0) return
+    const user = users.find(u => u.id === assignUserId)
+    if (!user) return
+
+    setAssigning(true)
+    const ids = Array.from(selectedAccountIds)
+    const progress = { done: 0, total: ids.length, errors: [] as string[] }
+    setAssignProgress({ ...progress })
+
+    for (const accountId of ids) {
+      try {
+        const res = await fetch('/api/update-account-owner', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accountId, newOwnerId: assignUserId })
+        })
+        const data = await res.json()
+        if (!data.success) {
+          const acct = allAccounts.find(a => a.id === accountId)
+          progress.errors.push(`${acct?.name || accountId}: ${data.message || "Failed"}`)
+        }
+      } catch (err: any) {
+        const acct = allAccounts.find(a => a.id === accountId)
+        progress.errors.push(`${acct?.name || accountId}: ${err.message}`)
+      }
+      progress.done++
+      setAssignProgress({ ...progress })
+    }
+
+    setAssigning(false)
+
+    // Refresh user list to get updated account counts
+    if (progress.errors.length === 0) {
+      try {
+        const res = await fetch('/api/admin/users')
+        const data = await res.json()
+        if (data.success) setUsers(data.users || [])
+      } catch {}
+      setShowAssignModal(false)
+    }
+  }, [assignUserId, selectedAccountIds, users, allAccounts])
+
+  // Sort header component
+  const SortHeader = ({ field, label }: { field: SortField; label: string }) => (
+    <button
+      onClick={() => handleSort(field)}
+      className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500 hover:text-neutral-300 transition-colors cursor-pointer select-none"
+    >
+      {label}
+      {sortField === field ? (
+        sortDir === "asc" ? <FiArrowUp size={10} className="text-emerald-400" /> : <FiArrowDown size={10} className="text-emerald-400" />
+      ) : (
+        <FiArrowUp size={10} className="opacity-0 group-hover:opacity-30" />
+      )}
+    </button>
+  )
+
   if (loading) return <div className="p-8 text-neutral-400">Loading...</div>
+
+  const assignUser = assignUserId ? users.find(u => u.id === assignUserId) : null
 
   return (
     <div className="flex flex-col text-neutral-100 font-sans h-full">
@@ -135,8 +359,60 @@ export default function AdminUsersPage() {
           </button>
         </header>
 
+        {/* Search + Filter Bar */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <FiSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search by name or email…"
+              className="w-full bg-neutral-900/60 border border-neutral-800 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-emerald-500/50 transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300 cursor-pointer"
+              >
+                <FiX size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* Role Filter Tabs */}
+          <div className="flex rounded-lg border border-neutral-800 overflow-hidden shrink-0">
+            {(["All", "Admin", "Sales Representative"] as RoleFilter[]).map(role => (
+              <button
+                key={role}
+                onClick={() => setRoleFilter(role)}
+                className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                  roleFilter === role
+                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                    : "text-neutral-500 hover:text-neutral-300 hover:bg-white/[0.03]"
+                }`}
+              >
+                {role === "Sales Representative" ? "Reps" : role}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Column Sort Headers */}
+        <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_auto_auto_auto] gap-4 px-4 items-center">
+          <SortHeader field="name" label="Name" />
+          <SortHeader field="email" label="Email" />
+          <SortHeader field="role" label="Role" />
+          <SortHeader field="accountCount" label="Accounts" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 text-right">Perms</span>
+        </div>
+
+        {/* Results count */}
+        <p className="text-[10px] text-neutral-600">{filteredUsers.length} user{filteredUsers.length !== 1 ? "s" : ""} shown</p>
+
         <div className="space-y-3">
-          {users.map((user) => {
+          {filteredUsers.map((user) => {
             const isExpanded = expandedUser === user.id
             const effectivePerms = editedPermissions[user.id] || getEffectivePermissions(user)
             const enabledCount = countEnabled(effectivePerms)
@@ -156,11 +432,22 @@ export default function AdminUsersPage() {
                     </div>
                     <div>
                       <h3 className="font-bold text-white text-sm">{user.name || "Unnamed User"}</h3>
-                      <p className="text-[10px] text-neutral-500">{user.email} &bull; <span className={isAdmin ? "text-emerald-400 font-bold" : "text-neutral-400"}>{user.role}</span></p>
+                      <p className="text-[10px] text-neutral-500">
+                        {user.email} &bull; <span className={isAdmin ? "text-emerald-400 font-bold" : "text-neutral-400"}>{user.role}</span>
+                        {" "}&bull;{" "}
+                        <span className="text-neutral-400">
+                          <FiUsers size={9} className="inline -mt-px mr-0.5" />
+                          {user.accountCount ?? 0} account{(user.accountCount ?? 0) !== 1 ? "s" : ""}
+                        </span>
+                      </p>
                     </div>
                   </div>
                   
                   <div className="flex items-center gap-3">
+                    {/* Account count badge (visible on wider screens) */}
+                    <span className="hidden sm:inline text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400 border border-neutral-700">
+                      <FiUsers size={9} className="inline -mt-px mr-0.5" />{user.accountCount ?? 0}
+                    </span>
                     {/* Permission count badge */}
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                       enabledCount === totalPerms ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' :
@@ -189,6 +476,12 @@ export default function AdminUsersPage() {
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-sky-500/10 text-sky-400 border border-sky-500/20 hover:bg-sky-500/20 transition-colors"
                       >
                         <FiToggleLeft size={13} /> Rep Defaults
+                      </button>
+                      <button
+                        onClick={() => openAssignModal(user.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 transition-colors cursor-pointer"
+                      >
+                        <FiUsers size={13} /> Assign Accounts
                       </button>
                     </div>
 
@@ -302,6 +595,12 @@ export default function AdminUsersPage() {
               </div>
             )
           })}
+
+          {filteredUsers.length === 0 && (
+            <div className="text-center py-12 text-neutral-500 text-sm">
+              No users match your search or filter.
+            </div>
+          )}
         </div>
       </main>
 
@@ -392,6 +691,140 @@ export default function AdminUsersPage() {
                 className="flex-1 py-2 text-xs font-bold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors cursor-pointer disabled:opacity-50"
               >
                 {addingUser ? "Creating..." : "Create User"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Accounts Modal */}
+      {showAssignModal && assignUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !assigning && setShowAssignModal(false)}>
+          <div className="bg-neutral-900 border border-neutral-700 rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="p-5 pb-4 border-b border-neutral-800 shrink-0">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <FiUsers className="text-violet-400" /> Assign Accounts
+              </h2>
+              <p className="text-xs text-neutral-400 mt-1">
+                Select accounts to reassign to <span className="text-white font-semibold">{assignUser.name || assignUser.email}</span>.
+                This updates both Zoho CRM and the local database.
+              </p>
+            </div>
+
+            {/* Search */}
+            <div className="px-5 py-3 border-b border-neutral-800 shrink-0">
+              <div className="relative">
+                <FiSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+                <input
+                  type="text"
+                  value={accountSearchQuery}
+                  onChange={e => setAccountSearchQuery(e.target.value)}
+                  placeholder="Search accounts…"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-violet-500/50 transition-colors"
+                />
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <button
+                  onClick={toggleSelectAll}
+                  className="text-[10px] text-violet-400 font-bold hover:text-violet-300 transition-colors cursor-pointer"
+                >
+                  {filteredAccounts.length > 0 && filteredAccounts.every(a => selectedAccountIds.has(a.id)) ? "Deselect All" : "Select All"} ({filteredAccounts.length})
+                </button>
+                <span className="text-[10px] text-neutral-500">
+                  {selectedAccountIds.size} selected
+                </span>
+              </div>
+            </div>
+
+            {/* Account List */}
+            <div className="flex-1 overflow-y-auto px-5 py-2 min-h-0">
+              {loadingAccounts ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-neutral-400 text-sm">
+                  <FiRefreshCw size={14} className="animate-spin" /> Loading accounts…
+                </div>
+              ) : filteredAccounts.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500 text-sm">
+                  {allAccounts.length === 0 ? "No accounts found." : "No accounts match your search."}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {filteredAccounts.map(account => {
+                    const isSelected = selectedAccountIds.has(account.id)
+                    return (
+                      <button
+                        key={account.id}
+                        onClick={() => toggleAccountSelection(account.id)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? "bg-violet-500/10 border border-violet-500/25"
+                            : "border border-transparent hover:bg-white/[0.03]"
+                        }`}
+                      >
+                        <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${
+                          isSelected ? 'bg-violet-500 border-violet-500' : 'border-neutral-600'
+                        }`}>
+                          {isSelected && <FiCheck size={10} className="text-white" />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <span className={`text-xs font-bold block truncate ${isSelected ? "text-white" : "text-neutral-300"}`}>
+                            {account.name}
+                          </span>
+                          {account.owner && (
+                            <span className="text-[10px] text-neutral-500 block truncate">
+                              Current owner: {account.owner.name || account.owner.email}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Progress bar during assignment */}
+            {assigning && assignProgress.total > 0 && (
+              <div className="px-5 py-3 border-t border-neutral-800 shrink-0">
+                <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1.5">
+                  <span>Reassigning {assignProgress.done}/{assignProgress.total}…</span>
+                  <span>{Math.round((assignProgress.done / assignProgress.total) * 100)}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-violet-500 rounded-full transition-all duration-300"
+                    style={{ width: `${(assignProgress.done / assignProgress.total) * 100}%` }}
+                  />
+                </div>
+                {assignProgress.errors.length > 0 && (
+                  <div className="mt-2 max-h-20 overflow-y-auto space-y-1">
+                    {assignProgress.errors.map((err, i) => (
+                      <p key={i} className="text-[10px] text-red-400">{err}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="p-5 pt-3 border-t border-neutral-800 flex gap-2 shrink-0">
+              <button
+                onClick={() => setShowAssignModal(false)}
+                disabled={assigning}
+                className="flex-1 py-2 text-xs font-bold rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {assignProgress.errors.length > 0 && !assigning ? "Close" : "Cancel"}
+              </button>
+              <button
+                onClick={performAssignment}
+                disabled={selectedAccountIds.size === 0 || assigning}
+                className="flex-1 py-2 text-xs font-bold rounded-lg bg-violet-600 text-white hover:bg-violet-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+              >
+                {assigning ? (
+                  <><FiRefreshCw size={12} className="animate-spin" /> Reassigning…</>
+                ) : (
+                  <>Reassign {selectedAccountIds.size > 0 ? `${selectedAccountIds.size} ` : ""}to {assignUser.name || "User"}</>
+                )}
               </button>
             </div>
           </div>
