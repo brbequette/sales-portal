@@ -8,7 +8,8 @@ import {
   FiX, FiPhoneCall, FiUser, FiClock, FiCheckSquare, 
   FiArrowRight, FiBookOpen, FiActivity, FiTag, FiAlertCircle,
   FiChevronDown, FiChevronRight, FiMapPin, FiShoppingCart, FiZap,
-  FiPackage, FiFileText, FiDollarSign, FiLoader, FiMail, FiCreditCard, FiTrendingUp
+  FiPackage, FiFileText, FiDollarSign, FiLoader, FiMail, FiCreditCard, FiTrendingUp,
+  FiSearch, FiPlus
 } from "react-icons/fi"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
@@ -54,8 +55,13 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const [showAiMagic, setShowAiMagic] = useState(false)
 
   // Order Builder States
-  type OrderLine = { id: string; name: string; paidQty: number; freeQty: number; unitPrice: number }
+  type OrderLine = { id: string; name: string; sku: string; paidQty: number; freeQty: number; unitPrice: number }
   const [orderLines, setOrderLines] = useState<OrderLine[]>([])
+  const [catalogProducts, setCatalogProducts] = useState<any[]>([])
+  const [productSearch, setProductSearch] = useState('')
+  const [showProductDropdown, setShowProductDropdown] = useState(false)
+  const [showMockOrder, setShowMockOrder] = useState(false)
+  const productSearchRef = useRef<HTMLDivElement>(null)
   const bladeProducts = [
     { name: 'The Medusa Blade', wholesale: 100, promo: 68, promoFree: 1, promoPaid: 5 },
     { name: 'The King Turbo', wholesale: 175, promo: 175, promoFree: 1, promoPaid: 2 },
@@ -110,6 +116,24 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
       }
     }
   }, [currentIndex, isPowerDialerActive, activeAccount])
+
+  // Fetch catalog products once
+  useEffect(() => {
+    fetch('/api/get-products').then(r => r.json()).then(d => {
+      if (d.success) setCatalogProducts(d.products || [])
+    }).catch(() => {})
+  }, [])
+
+  // Click outside to close product dropdown
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (productSearchRef.current && !productSearchRef.current.contains(e.target as Node)) {
+        setShowProductDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   // Fetch account intel (purchases + notes + address) on-demand per active account
   const [accountDetail, setAccountDetail] = useState<any>(null)
@@ -425,6 +449,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
           },
           orderLines: orderLines.length > 0 ? orderLines.map(l => ({
             name: l.name,
+            sku: l.sku,
             paidQty: l.paidQty,
             freeQty: l.freeQty,
             unitPrice: l.unitPrice,
@@ -893,32 +918,105 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
               )}
             </div>
 
-            {/* Add blade buttons */}
-            <div className="flex flex-wrap gap-1.5">
-              {bladeProducts.map(bp => {
-                const already = orderLines.some(l => l.name === bp.name)
-                return (
-                  <button
-                    key={bp.name}
-                    type="button"
-                    disabled={already}
-                    onClick={() => setOrderLines(prev => [...prev, {
-                      id: Date.now().toString() + bp.name,
-                      name: bp.name,
-                      paidQty: bp.promoPaid,
-                      freeQty: bp.promoFree,
-                      unitPrice: bp.promo
-                    }])}
-                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
-                      already
-                        ? 'bg-violet-500/10 border-violet-500/30 text-violet-400 opacity-50 cursor-not-allowed'
-                        : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-violet-500/50 hover:text-violet-300'
-                    }`}
-                  >
-                    {already ? '✓ ' : '+ '}{bp.name}
+            {/* Product Search */}
+            <div ref={productSearchRef} className="relative">
+              <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 focus-within:border-violet-500 transition-colors">
+                <FiSearch size={12} className="text-neutral-500 shrink-0" />
+                <input
+                  type="text"
+                  value={productSearch}
+                  onChange={(e) => { setProductSearch(e.target.value); setShowProductDropdown(true) }}
+                  onFocus={() => setShowProductDropdown(true)}
+                  placeholder="Search products to add..."
+                  className="flex-1 bg-transparent text-xs text-white placeholder-neutral-600 outline-none"
+                />
+                {productSearch && (
+                  <button type="button" onClick={() => { setProductSearch(''); setShowProductDropdown(false) }} className="text-neutral-500 hover:text-white cursor-pointer">
+                    <FiX size={12} />
                   </button>
+                )}
+              </div>
+              {showProductDropdown && productSearch.length >= 2 && (() => {
+                const term = productSearch.toLowerCase()
+                const filtered = catalogProducts
+                  .filter(p => {
+                    const desc = (() => { try { return JSON.parse(p.description || '{}') } catch { return {} } })()
+                    return (desc.status !== 'inactive') && (
+                      p.name?.toLowerCase().includes(term) ||
+                      p.sku?.toLowerCase().includes(term) ||
+                      p.category?.toLowerCase().includes(term)
+                    )
+                  })
+                  .slice(0, 8)
+                if (filtered.length === 0) return null
+                return (
+                  <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                    {filtered.map(p => {
+                      const already = orderLines.some(l => l.sku === p.sku)
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          disabled={already}
+                          onClick={() => {
+                            setOrderLines(prev => [...prev, {
+                              id: Date.now().toString() + p.sku,
+                              name: p.name,
+                              sku: p.sku,
+                              paidQty: 1,
+                              freeQty: 0,
+                              unitPrice: p.price || 0
+                            }])
+                            setProductSearch('')
+                            setShowProductDropdown(false)
+                          }}
+                          className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-neutral-800 transition-colors border-b border-neutral-800/50 last:border-0 ${already ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <FiPlus size={12} className={already ? 'text-neutral-600' : 'text-violet-400'} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-bold text-white truncate">{p.name}</p>
+                            <p className="text-[9px] text-neutral-500">{p.sku} · {p.category}</p>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold text-amber-400 shrink-0">${(p.price || 0).toFixed(2)}</span>
+                          {already && <span className="text-[8px] text-violet-400 font-bold">ADDED</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
                 )
-              })}
+              })()}
+            </div>
+
+            {/* Quick-add promo blade buttons */}
+            <div>
+              <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold mb-1.5">Quick Add — Promo Blades</p>
+              <div className="flex flex-wrap gap-1.5">
+                {bladeProducts.map(bp => {
+                  const already = orderLines.some(l => l.name === bp.name)
+                  return (
+                    <button
+                      key={bp.name}
+                      type="button"
+                      disabled={already}
+                      onClick={() => setOrderLines(prev => [...prev, {
+                        id: Date.now().toString() + bp.name,
+                        name: bp.name,
+                        sku: bp.name.replace(/\s+/g, '-').toLowerCase(),
+                        paidQty: bp.promoPaid,
+                        freeQty: bp.promoFree,
+                        unitPrice: bp.promo
+                      }])}
+                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                        already
+                          ? 'bg-violet-500/10 border-violet-500/30 text-violet-400 opacity-50 cursor-not-allowed'
+                          : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-violet-500/50 hover:text-violet-300'
+                      }`}
+                    >
+                      {already ? '✓ ' : '⚡ '}{bp.name}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             {/* Line Items */}
@@ -936,10 +1034,12 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
 
                 {orderLines.map((line) => {
                   const lineTotal = line.paidQty * line.unitPrice
-                  const blade = bladeProducts.find(b => b.name === line.name)
                   return (
                     <div key={line.id} className="grid grid-cols-[1fr_60px_60px_70px_70px_28px] gap-1.5 items-center bg-neutral-900/50 border border-neutral-800/50 rounded-lg px-2 py-1.5">
-                      <span className="text-[11px] font-bold text-white truncate">{line.name}</span>
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-bold text-white truncate block">{line.name}</span>
+                        {line.sku && <span className="text-[8px] text-neutral-600 block">{line.sku}</span>}
+                      </div>
                       
                       {/* Paid Qty */}
                       <div className="flex items-center justify-center gap-0.5">
@@ -979,38 +1079,166 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 <div className="border-t border-violet-500/20 pt-2 mt-2 space-y-1">
                   <div className="flex justify-between px-2">
                     <span className="text-[10px] text-neutral-400">Paid Items</span>
-                    <span className="text-[11px] font-bold text-white">{orderLines.reduce((s, l) => s + l.paidQty, 0)} blades</span>
+                    <span className="text-[11px] font-bold text-white">{orderLines.reduce((s, l) => s + l.paidQty, 0)} items</span>
                   </div>
                   <div className="flex justify-between px-2">
                     <span className="text-[10px] text-emerald-400">Free Items</span>
-                    <span className="text-[11px] font-bold text-emerald-400">{orderLines.reduce((s, l) => s + l.freeQty, 0)} blades</span>
-                  </div>
-                  <div className="flex justify-between px-2">
-                    <span className="text-[10px] text-neutral-400">Total Blades Shipping</span>
-                    <span className="text-[11px] font-black text-white">{orderLines.reduce((s, l) => s + l.paidQty + l.freeQty, 0)} blades</span>
+                    <span className="text-[11px] font-bold text-emerald-400">{orderLines.reduce((s, l) => s + l.freeQty, 0)} items</span>
                   </div>
                   <div className="flex justify-between px-2 pt-1 border-t border-neutral-800">
                     <span className="text-xs font-bold text-violet-300">Order Total</span>
                     <span className="text-sm font-black text-amber-400">${orderLines.reduce((s, l) => s + (l.paidQty * l.unitPrice), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="flex justify-between px-2">
-                    <span className="text-[9px] text-neutral-500">Per Blade (incl. free)</span>
-                    <span className="text-[10px] font-bold text-neutral-400">
-                      {(() => {
-                        const totalBlades = orderLines.reduce((s, l) => s + l.paidQty + l.freeQty, 0)
-                        const totalCost = orderLines.reduce((s, l) => s + (l.paidQty * l.unitPrice), 0)
-                        return totalBlades > 0 ? `$${(totalCost / totalBlades).toFixed(2)}/blade` : '-'
-                      })()}
-                    </span>
-                  </div>
                 </div>
+
+                {/* Submit Order Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowMockOrder(true)}
+                  className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs font-black uppercase tracking-wider hover:from-violet-500 hover:to-purple-500 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <FiFileText size={14} /> Preview Sales Order
+                </button>
               </div>
             )}
 
             {orderLines.length === 0 && (
-              <p className="text-[10px] text-neutral-600 italic text-center py-2">Tap a blade above to start building the order</p>
+              <p className="text-[10px] text-neutral-600 italic text-center py-2">Search for a product or tap a promo blade to start building the order</p>
             )}
           </div>
+
+          {/* MOCK SALES ORDER PREVIEW */}
+          {showMockOrder && orderLines.length > 0 && (
+            <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4" onClick={() => setShowMockOrder(false)}>
+              <div className="bg-neutral-900 border border-neutral-700 rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="sticky top-0 bg-neutral-900 border-b border-neutral-800 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+                  <div>
+                    <h3 className="text-white font-black text-base">Sales Order Preview</h3>
+                    <p className="text-[10px] text-neutral-500 mt-0.5">
+                      {activeAccount.name} · {new Date().toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button type="button" onClick={() => setShowMockOrder(false)} className="text-neutral-500 hover:text-white cursor-pointer">
+                    <FiX size={18} />
+                  </button>
+                </div>
+
+                <div className="px-6 py-4 space-y-5">
+                  {/* Customer Info */}
+                  <div className="grid grid-cols-2 gap-3 text-[10px]">
+                    <div>
+                      <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Bill To</p>
+                      <p className="text-white font-bold">{activeAccount.name}</p>
+                      {(accountDetail?.billingStreet || activeAccount.billingStreet) && (
+                        <p className="text-neutral-400">{accountDetail?.billingStreet || activeAccount.billingStreet}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Ship To</p>
+                      <p className="text-white font-bold">{activeAccount.name}</p>
+                      {(accountDetail?.shippingStreet || activeAccount.shippingStreet) && (
+                        <p className="text-neutral-400">{accountDetail?.shippingStreet || activeAccount.shippingStreet}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Paid Line Items */}
+                  {orderLines.some(l => l.paidQty > 0) && (
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-neutral-500 mb-2 flex items-center gap-1.5">
+                        <FiDollarSign size={10} /> Paid Items
+                      </p>
+                      <div className="border border-neutral-800 rounded-lg overflow-hidden">
+                        <div className="grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-1.5 bg-neutral-800/50 text-[8px] font-bold text-neutral-500 uppercase tracking-wider">
+                          <span>Item</span>
+                          <span className="text-center">Qty</span>
+                          <span className="text-right">Unit Price</span>
+                          <span className="text-right">Amount</span>
+                        </div>
+                        {orderLines.filter(l => l.paidQty > 0).map((line, i) => (
+                          <div key={`paid-${line.id}`} className={`grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-2 ${i % 2 === 0 ? 'bg-neutral-900/50' : ''}`}>
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-bold text-white truncate">{line.name}</p>
+                              {line.sku && <p className="text-[8px] text-neutral-600">{line.sku}</p>}
+                            </div>
+                            <span className="text-[11px] font-black text-white text-center">{line.paidQty}</span>
+                            <span className="text-[10px] font-mono text-neutral-400 text-right">${line.unitPrice.toFixed(2)}</span>
+                            <span className="text-[11px] font-black text-white text-right">${(line.paidQty * line.unitPrice).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Free / Gift Line Items */}
+                  {orderLines.some(l => l.freeQty > 0) && (
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-500 mb-2 flex items-center gap-1.5">
+                        <FiTag size={10} /> Free / Gift Items
+                      </p>
+                      <div className="border border-emerald-900/50 rounded-lg overflow-hidden">
+                        <div className="grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-1.5 bg-emerald-950/30 text-[8px] font-bold text-emerald-600 uppercase tracking-wider">
+                          <span>Item</span>
+                          <span className="text-center">Qty</span>
+                          <span className="text-right">Unit Price</span>
+                          <span className="text-right">Amount</span>
+                        </div>
+                        {orderLines.filter(l => l.freeQty > 0).map((line, i) => (
+                          <div key={`free-${line.id}`} className={`grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-2 ${i % 2 === 0 ? 'bg-emerald-950/10' : ''}`}>
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-bold text-emerald-300 truncate">{line.name}</p>
+                              {line.sku && <p className="text-[8px] text-emerald-700">{line.sku}</p>}
+                              <p className="text-[8px] text-emerald-500 font-bold">PROMOTIONAL — FREE</p>
+                            </div>
+                            <span className="text-[11px] font-black text-emerald-400 text-center">{line.freeQty}</span>
+                            <span className="text-[10px] font-mono text-emerald-600 text-right">$0.00</span>
+                            <span className="text-[11px] font-black text-emerald-400 text-right">$0.00</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Order Totals */}
+                  <div className="border-t border-neutral-800 pt-3 space-y-1.5">
+                    <div className="flex justify-between px-1">
+                      <span className="text-[10px] text-neutral-500">Subtotal (Paid)</span>
+                      <span className="text-xs font-bold text-white">${orderLines.reduce((s, l) => s + (l.paidQty * l.unitPrice), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between px-1">
+                      <span className="text-[10px] text-emerald-500">Free Items Value</span>
+                      <span className="text-xs font-bold text-emerald-400">$0.00</span>
+                    </div>
+                    <div className="flex justify-between px-1">
+                      <span className="text-[10px] text-neutral-500">Total Items Shipping</span>
+                      <span className="text-xs font-bold text-white">{orderLines.reduce((s, l) => s + l.paidQty + l.freeQty, 0)} items</span>
+                    </div>
+                    <div className="flex justify-between px-1 pt-2 border-t border-neutral-800">
+                      <span className="text-sm font-black text-white">ORDER TOTAL</span>
+                      <span className="text-lg font-black text-amber-400">${orderLines.reduce((s, l) => s + (l.paidQty * l.unitPrice), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+
+                  {/* Sales Rep */}
+                  <div className="text-[9px] text-neutral-600 border-t border-neutral-800 pt-3">
+                    <p>Sales Rep: <span className="text-neutral-400 font-bold">{repName}</span></p>
+                    <p>Created: <span className="text-neutral-400">{new Date().toLocaleString()}</span></p>
+                  </div>
+                </div>
+
+                {/* Footer Actions */}
+                <div className="sticky bottom-0 bg-neutral-900 border-t border-neutral-800 px-6 py-3 flex gap-2 rounded-b-2xl">
+                  <button type="button" onClick={() => setShowMockOrder(false)} className="flex-1 py-2 rounded-lg bg-neutral-800 text-neutral-400 text-xs font-bold hover:bg-neutral-700 transition-colors cursor-pointer">
+                    Edit Order
+                  </button>
+                  <button type="button" onClick={() => { setShowMockOrder(false) }} className="flex-1 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs font-black hover:from-violet-500 hover:to-purple-500 transition-all cursor-pointer">
+                    Confirm Order
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* SALES CLOSE SCRIPT */}
           <div className="mx-5 mt-4 bg-sky-950/20 border border-sky-900/50 p-5 rounded-2xl space-y-4">
