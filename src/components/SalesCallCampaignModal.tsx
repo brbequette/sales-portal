@@ -3,7 +3,7 @@
 import { formatPhoneNumber } from "@/lib/formatters"
 
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { 
   FiX, FiPhoneCall, FiUser, FiClock, FiCheckSquare, 
   FiArrowRight, FiBookOpen, FiActivity, FiTag, FiAlertCircle,
@@ -55,20 +55,48 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const [showAiMagic, setShowAiMagic] = useState(false)
 
   // Order Builder States
-  type OrderLine = { id: string; name: string; sku: string; paidQty: number; freeQty: number; unitPrice: number }
+  type OrderLine = { id: string; name: string; sku: string; paidQty: number; freeQty: number; unitPrice: number; cost: number }
   const [orderLines, setOrderLines] = useState<OrderLine[]>([])
   const [catalogProducts, setCatalogProducts] = useState<any[]>([])
   const [productSearch, setProductSearch] = useState('')
   const [showProductDropdown, setShowProductDropdown] = useState(false)
   const [showMockOrder, setShowMockOrder] = useState(false)
   const productSearchRef = useRef<HTMLDivElement>(null)
-  const bladeProducts = [
-    { name: 'The Medusa Blade', wholesale: 100, promo: 68, promoFree: 1, promoPaid: 5 },
-    { name: 'The King Turbo', wholesale: 175, promo: 175, promoFree: 1, promoPaid: 2 },
-    { name: 'The Titan', wholesale: 299, promo: 250, promoFree: 1, promoPaid: 2 },
-    { name: 'The Dark Knight Blade', wholesale: 175, promo: 150, promoFree: 1, promoPaid: 3 },
-    { name: 'Titan Razor Blade', wholesale: 120, promo: 100, promoFree: 1, promoPaid: 3 },
-  ]
+  const DEFAULT_VIG_RATE = 1.5
+  const COMMISSION_PCT = 50
+
+  // Top 10 selling blades from catalog (by Zoho Books name)
+  const topBladeProducts = useMemo(() => {
+    if (catalogProducts.length === 0) return []
+    return catalogProducts
+      .filter(p => {
+        const cat = (p.category || '').toLowerCase()
+        const status = (() => { try { return JSON.parse(p.description || '{}').status } catch { return 'active' } })()
+        return cat.includes('blade') && status !== 'inactive'
+      })
+      .map(p => {
+        const desc = (() => { try { return JSON.parse(p.description || '{}') } catch { return {} } })()
+        return { name: p.name, sku: p.sku, price: p.price || 0, cost: desc.cost || 0 }
+      })
+      .slice(0, 10)
+  }, [catalogProducts])
+
+  // Financial calculations derived from order lines
+  const orderFinancials = (() => {
+    if (orderLines.length === 0) return null
+    const subTotal = orderLines.reduce((s, l) => s + (l.paidQty * l.unitPrice), 0)
+    // Dead cost = cost × total qty (paid + free)
+    const deadCostTotal = orderLines.reduce((s, l) => s + (l.cost * (l.paidQty + l.freeQty)), 0)
+    // Paid items are subject to VIG, free items are NOT subject to VIG (gift bucket)
+    const deadCostSubjectToVig = orderLines.reduce((s, l) => s + (l.cost * l.paidQty), 0)
+    const deadCostNoVig = orderLines.reduce((s, l) => s + (l.cost * l.freeQty), 0)
+    const deadCostPlusVig = (deadCostSubjectToVig * DEFAULT_VIG_RATE) + deadCostNoVig
+    const deadProfit = subTotal - deadCostTotal
+    const profitAfterVig = subTotal - deadCostPlusVig
+    const salesCommission = profitAfterVig > 0 ? profitAfterVig * (COMMISSION_PCT / 100) : 0
+    const marginPct = subTotal > 0 ? (profitAfterVig / subTotal) * 100 : 0
+    return { subTotal, deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig, deadProfit, profitAfterVig, salesCommission, marginPct }
+  })()
 
   // Power Dialer States
   const [isPowerDialerActive, setIsPowerDialerActive] = useState(false)
@@ -959,13 +987,15 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                           type="button"
                           disabled={already}
                           onClick={() => {
+                            const desc = (() => { try { return JSON.parse(p.description || '{}') } catch { return {} } })()
                             setOrderLines(prev => [...prev, {
                               id: Date.now().toString() + p.sku,
                               name: p.name,
                               sku: p.sku,
                               paidQty: 1,
                               freeQty: 0,
-                              unitPrice: p.price || 0
+                              unitPrice: p.price || 0,
+                              cost: desc.cost || 0
                             }])
                             setProductSearch('')
                             setShowProductDropdown(false)
@@ -987,24 +1017,26 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
               })()}
             </div>
 
-            {/* Quick-add promo blade buttons */}
+            {/* Quick-add top blades */}
+            {topBladeProducts.length > 0 && (
             <div>
-              <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold mb-1.5">Quick Add — Promo Blades</p>
+              <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold mb-1.5">Quick Add — Top Blades</p>
               <div className="flex flex-wrap gap-1.5">
-                {bladeProducts.map(bp => {
-                  const already = orderLines.some(l => l.name === bp.name)
+                {topBladeProducts.map(bp => {
+                  const already = orderLines.some(l => l.sku === bp.sku)
                   return (
                     <button
-                      key={bp.name}
+                      key={bp.sku}
                       type="button"
                       disabled={already}
                       onClick={() => setOrderLines(prev => [...prev, {
-                        id: Date.now().toString() + bp.name,
+                        id: Date.now().toString() + bp.sku,
                         name: bp.name,
-                        sku: bp.name.replace(/\s+/g, '-').toLowerCase(),
-                        paidQty: bp.promoPaid,
-                        freeQty: bp.promoFree,
-                        unitPrice: bp.promo
+                        sku: bp.sku,
+                        paidQty: 1,
+                        freeQty: 0,
+                        unitPrice: bp.price,
+                        cost: bp.cost
                       }])}
                       className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
                         already
@@ -1018,6 +1050,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 })}
               </div>
             </div>
+            )}
 
             {/* Line Items */}
             {orderLines.length > 0 && (
@@ -1090,6 +1123,37 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                     <span className="text-sm font-black text-amber-400">${orderLines.reduce((s, l) => s + (l.paidQty * l.unitPrice), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                 </div>
+
+                {/* Financial Estimates */}
+                {orderFinancials && (
+                  <div className="border-t border-amber-500/20 pt-2 mt-1 space-y-1">
+                    <p className="text-[8px] font-bold uppercase tracking-wider text-amber-500/60 px-2 mb-1">💰 Profit Estimates</p>
+                    <div className="flex justify-between px-2">
+                      <span className="text-[10px] text-neutral-500">Dead Cost</span>
+                      <span className="text-[10px] font-bold text-red-400">-${orderFinancials.deadCostTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between px-2">
+                      <span className="text-[10px] text-neutral-500">Dead Profit <span className="text-[8px] text-neutral-600">(Rev − Cost)</span></span>
+                      <span className={`text-[10px] font-bold ${orderFinancials.deadProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>${orderFinancials.deadProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between px-2">
+                      <span className="text-[10px] text-neutral-500">VIG Adjustment <span className="text-[8px] text-neutral-600">({DEFAULT_VIG_RATE}×)</span></span>
+                      <span className="text-[10px] font-bold text-red-400">-${orderFinancials.deadCostPlusVig.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between px-2 pt-1 border-t border-neutral-800">
+                      <span className="text-[10px] font-bold text-amber-300">Profit after VIG</span>
+                      <span className={`text-[11px] font-black ${orderFinancials.profitAfterVig >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>${orderFinancials.profitAfterVig.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between px-2">
+                      <span className="text-[10px] text-neutral-500">Sales Commission <span className="text-[8px] text-neutral-600">({COMMISSION_PCT}%)</span></span>
+                      <span className="text-[11px] font-black text-green-400">${orderFinancials.salesCommission.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between px-2">
+                      <span className="text-[9px] text-neutral-600">Margin</span>
+                      <span className={`text-[9px] font-bold ${orderFinancials.marginPct >= 30 ? 'text-emerald-500' : orderFinancials.marginPct >= 15 ? 'text-amber-500' : 'text-red-500'}`}>{orderFinancials.marginPct.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Submit Order Button */}
                 <button
@@ -1219,6 +1283,42 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       <span className="text-lg font-black text-amber-400">${orderLines.reduce((s, l) => s + (l.paidQty * l.unitPrice), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                     </div>
                   </div>
+
+                  {/* Financial Breakdown */}
+                  {orderFinancials && (
+                    <div className="border-t border-amber-500/30 pt-3 space-y-1.5">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1.5 mb-1">
+                        <FiTrendingUp size={10} /> Profit Breakdown
+                      </p>
+                      <div className="bg-neutral-800/50 rounded-lg p-3 space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-[10px] text-neutral-500">Dead Cost (All Items)</span>
+                          <span className="text-[10px] font-bold text-red-400">-${orderFinancials.deadCostTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[10px] text-neutral-500">Dead Profit</span>
+                          <span className={`text-[10px] font-bold ${orderFinancials.deadProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>${orderFinancials.deadProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[10px] text-neutral-500">
+                            Cost + VIG <span className="text-[8px] text-neutral-600">({DEFAULT_VIG_RATE}× paid, 1× free)</span>
+                          </span>
+                          <span className="text-[10px] font-bold text-red-400">-${orderFinancials.deadCostPlusVig.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between pt-1.5 border-t border-neutral-700">
+                          <span className="text-xs font-bold text-amber-300">Profit after VIG</span>
+                          <span className={`text-sm font-black ${orderFinancials.profitAfterVig >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            ${orderFinancials.profitAfterVig.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            <span className={`text-[9px] ml-1 ${orderFinancials.marginPct >= 30 ? 'text-emerald-500' : orderFinancials.marginPct >= 15 ? 'text-amber-500' : 'text-red-500'}`}>({orderFinancials.marginPct.toFixed(1)}%)</span>
+                          </span>
+                        </div>
+                        <div className="flex justify-between pt-1.5 border-t border-neutral-700">
+                          <span className="text-xs font-bold text-green-300">Sales Commission ({COMMISSION_PCT}%)</span>
+                          <span className="text-sm font-black text-green-400">${orderFinancials.salesCommission.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Sales Rep */}
                   <div className="text-[9px] text-neutral-600 border-t border-neutral-800 pt-3">
