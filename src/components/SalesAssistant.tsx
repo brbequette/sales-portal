@@ -111,18 +111,18 @@ export function SalesAssistant({ accountId, accountData }: { accountId: string, 
         {/* Quick Actions */}
         <div className="flex items-center gap-2 pt-2 border-t border-neutral-800">
           <span className="text-xs text-neutral-500 font-semibold mr-2">QUICK ACTIONS:</span>
-          {accountData?.crmDetails?.Phone && (
+          {accountData?.booksContact?.phone && (
             <a 
-              href={"tel:" + accountData.crmDetails.Phone.replace(/[^0-9+]/g, '')}
+              href={"tel:" + accountData.booksContact.phone.replace(/[^0-9+]/g, '')}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded transition-colors text-xs font-bold"
               title="Click to Call (ZDialer)"
             >
               <FiPhoneCall size={14} /> Call
             </a>
           )}
-          {accountData?.crmDetails?.Email && (
+          {accountData?.booksContact?.email && (
             <a 
-              href={"mailto:" + accountData.crmDetails.Email}
+              href={"mailto:" + accountData.booksContact.email}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded transition-colors text-xs font-bold"
               title="Send Email"
             >

@@ -301,26 +301,26 @@ function AccountHubContent() {
                     <FiDatabase className="text-blue-500" />
                     <span>Account Profile & Addresses</span>
                   </h3>
-                  {(account.crmDetails?.Phone || account.contacts?.[0]?.phone) && (
-                    <a href={"tel:" + (account.crmDetails?.Phone || account.contacts?.[0]?.phone).replace(/[^0-9+]/g, '')}
+                  {(account.booksContact?.phone || account.contacts?.[0]?.phone) && (
+                    <a href={"tel:" + (account.booksContact?.phone || account.contacts?.[0]?.phone).replace(/[^0-9+]/g, '')}
                       className="text-xs text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1.5 truncate min-w-0"
                       title="Click to dial account main line"
                     >
-                      📞 Dial Main: {formatPhoneNumber(account.crmDetails?.Phone || account.contacts?.[0]?.phone)}
+                      📞 Dial Main: {formatPhoneNumber(account.booksContact?.phone || account.contacts?.[0]?.phone)}
                     </a>
                   )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Billing Address — DB fields as primary, CRM as fallback */}
+                  {/* Billing Address — DB fields as primary, Books as fallback */}
                   <div className="address-card">
                     <h4 className="text-blue-400">Billing Address</h4>
                     <div className="text-xs text-neutral-300 leading-relaxed">
-                      {(account.billingStreet || account.crmDetails?.Billing_Street) ? (
+                      {(account.billingStreet || account.booksContact?.billing_address?.address) ? (
                         <>
-                          <p className="street">{account.crmDetails?.Billing_Street || account.billingStreet}</p>
-                          <p>{account.crmDetails?.Billing_City || account.billingCity || ''}, {account.crmDetails?.Billing_State || account.billingState || ''} {account.crmDetails?.Billing_Code || account.billingZip || ''}</p>
-                          <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.crmDetails?.Billing_Country || 'U.S.A'}</p>
+                          <p className="street">{account.billingStreet || account.booksContact?.billing_address?.address}</p>
+                          <p>{account.billingCity || account.booksContact?.billing_address?.city || ''}, {account.billingState || account.booksContact?.billing_address?.state || ''} {account.billingZip || account.booksContact?.billing_address?.zip || ''}</p>
+                          <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.billingCountry || account.booksContact?.billing_address?.country || 'U.S.A'}</p>
                         </>
                       ) : (
                         <p className="text-neutral-500 italic text-[11px]">No billing address configured</p>
@@ -328,15 +328,15 @@ function AccountHubContent() {
                     </div>
                   </div>
 
-                  {/* Shipping Address — DB fields as primary, CRM as fallback */}
+                  {/* Shipping Address — DB fields as primary, Books as fallback */}
                   <div className="address-card">
                     <h4 className="text-amber-400">Shipping Address</h4>
                     <div className="text-xs text-neutral-300 leading-relaxed">
-                      {(account.shippingStreet || account.crmDetails?.Shipping_Street) ? (
+                      {(account.shippingStreet || account.booksContact?.shipping_address?.address) ? (
                         <>
-                          <p className="street">{account.crmDetails?.Shipping_Street || account.shippingStreet}</p>
-                          <p>{account.crmDetails?.Shipping_City || account.shippingCity || ''}, {account.crmDetails?.Shipping_State || account.shippingState || ''} {account.crmDetails?.Shipping_Code || account.shippingZip || ''}</p>
-                          <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.crmDetails?.Shipping_Country || 'U.S.A'}</p>
+                          <p className="street">{account.shippingStreet || account.booksContact?.shipping_address?.address}</p>
+                          <p>{account.shippingCity || account.booksContact?.shipping_address?.city || ''}, {account.shippingState || account.booksContact?.shipping_address?.state || ''} {account.shippingZip || account.booksContact?.shipping_address?.zip || ''}</p>
+                          <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.shippingCountry || account.booksContact?.shipping_address?.country || 'U.S.A'}</p>
                         </>
                       ) : (
                         <p className="text-neutral-500 italic text-[11px]">No shipping address configured</p>
@@ -350,11 +350,11 @@ function AccountHubContent() {
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div>
                         <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Phone</span>
-                        {(account.crmDetails?.Phone || account.contacts?.[0]?.phone) ? (
-                          <a href={"tel:" + (account.crmDetails?.Phone || account.contacts[0].phone).replace(/[^0-9+]/g, '')}
+                        {(account.booksContact?.phone || account.contacts?.[0]?.phone) ? (
+                          <a href={"tel:" + (account.booksContact?.phone || account.contacts[0].phone).replace(/[^0-9+]/g, '')}
                             className="text-blue-400 hover:underline font-bold font-mono truncate block text-left"
                           >
-                            {formatPhoneNumber(account.crmDetails?.Phone || account.contacts[0].phone)}
+                            {formatPhoneNumber(account.booksContact?.phone || account.contacts[0].phone)}
                           </a>
                         ) : (
                           <span className="text-neutral-200 font-bold block">—</span>
@@ -362,14 +362,14 @@ function AccountHubContent() {
                       </div>
                       <div>
                         <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Website</span>
-                        {account.crmDetails?.Website ? (
+                        {account.booksContact?.website ? (
                           <a 
-                            href={account.crmDetails.Website.startsWith('http') ? account.crmDetails.Website : `https://${account.crmDetails.Website}`} 
+                            href={account.booksContact.website.startsWith('http') ? account.booksContact.website : `https://${account.booksContact.website}`} 
                             target="_blank" 
                             rel="noreferrer" 
                             className="text-blue-400 hover:underline truncate block font-bold font-mono"
                           >
-                            {account.crmDetails.Website}
+                            {account.booksContact.website}
                           </a>
                         ) : (
                           <span className="text-neutral-400 font-bold">—</span>
@@ -377,11 +377,11 @@ function AccountHubContent() {
                       </div>
                       <div>
                         <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Industry</span>
-                        <span className="text-neutral-200 font-bold truncate block">{account.crmDetails?.Industry || account.industry || '—'}</span>
+                        <span className="text-neutral-200 font-bold truncate block">{account.industry || '—'}</span>
                       </div>
                       <div>
                         <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Tags / Segment</span>
-                        <span className="text-neutral-200 font-bold truncate block">{account.crmDetails?.Tags || account.tags || 'General'}</span>
+                        <span className="text-neutral-200 font-bold truncate block">{account.tags || 'General'}</span>
                       </div>
                     </div>
                   </div>
@@ -438,10 +438,10 @@ function AccountHubContent() {
                   </div>
                 )}
 
-                {account.crmDetails?.Description && (
+                {account.booksContact?.notes && (
                   <div className="bg-neutral-950/20 p-4 border border-neutral-800/80 rounded-xl">
-                    <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold mb-1">CRM Account Description</span>
-                    <p className="text-xs text-neutral-300 leading-relaxed italic whitespace-pre-line">{account.crmDetails.Description}</p>
+                    <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold mb-1">Account Notes</span>
+                    <p className="text-xs text-neutral-300 leading-relaxed italic whitespace-pre-line">{account.booksContact.notes}</p>
                   </div>
                 )}
               </div>

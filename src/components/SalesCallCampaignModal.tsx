@@ -102,21 +102,24 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     }
   }, [currentIndex, isPowerDialerActive, activeAccount])
 
-  // Fetch account intel (purchases + notes) on-demand per active account
+  // Fetch account intel (purchases + notes + address) on-demand per active account
+  const [accountDetail, setAccountDetail] = useState<any>(null)
   useEffect(() => {
     if (!activeAccount?.zohoId) return
     let cancelled = false
     setIsLoadingIntel(true)
     setAccountPurchases([])
     setAccountNotes([])
+    setAccountDetail(null)
 
     Promise.all([
       fetch(`/api/get-account-purchases?accountId=${activeAccount.zohoId}`).then(r => r.json()).catch(() => ({ products: [] })),
-      fetch(`/api/get-account-details?id=${activeAccount.zohoId}`).then(r => r.json()).catch(() => ({ notes: [] }))
+      fetch(`/api/get-account-details?id=${activeAccount.zohoId}`).then(r => r.json()).catch(() => ({ account: null }))
     ]).then(([purchaseData, detailData]) => {
       if (cancelled) return
       setAccountPurchases(purchaseData.products || [])
-      setAccountNotes(detailData.notes || [])
+      setAccountNotes(detailData.account?.notes || detailData.notes || [])
+      setAccountDetail(detailData.account || null)
     }).finally(() => {
       if (!cancelled) setIsLoadingIntel(false)
     })
@@ -478,14 +481,19 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-lg font-black text-white leading-tight">{activeAccount.name}</h3>
-                    {(activeAccount.billingStreet || activeAccount.billingCity) && (
-                      <div className="text-xs text-neutral-400 mt-1 flex items-center gap-1 font-semibold">
-                        <FiMapPin size={12} className="text-neutral-500" />
-                        {activeAccount.billingStreet && `${activeAccount.billingStreet}, `}
-                        {activeAccount.billingCity && `${activeAccount.billingCity}, `}
-                        {activeAccount.billingState} {activeAccount.billingZip}
-                      </div>
-                    )}
+                    {(() => {
+                      const addr = accountDetail || activeAccount
+                      const hasAddr = addr.billingStreet || addr.billingCity
+                      return hasAddr ? (
+                        <div className="text-xs text-neutral-400 mt-1 flex items-center gap-1 font-semibold">
+                          <FiMapPin size={12} className="text-emerald-500" />
+                          {addr.billingStreet && `${addr.billingStreet}, `}
+                          {addr.billingCity && `${addr.billingCity}, `}
+                          {addr.billingState} {addr.billingZip}
+                          {addr.billingCountry && addr.billingCountry !== 'U.S.A.' && addr.billingCountry !== 'USA' && `, ${addr.billingCountry}`}
+                        </div>
+                      ) : null
+                    })()}
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
                       <FiTag size={10} /> {activeAccount.tags || "General"}
@@ -505,7 +513,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
 
                   {cleanPhone && (
                     <a 
-                      href={`tel:${cleanPhone}`}
+                      href={"tel:" + cleanPhone}
                       onClick={() => {
                         fetch('/api/calls/log', {
                           method: 'POST',
@@ -525,8 +533,8 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 </div>
               </div>
 
-              {/* Contacts */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-neutral-800/60 pt-4">
+              {/* Contact + Phone + Address Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-neutral-800/60 pt-4">
                 <div className="space-y-1">
                   <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Contact Name</span>
                   <div className="flex items-center gap-1.5 text-xs text-neutral-300 font-semibold">
@@ -543,7 +551,51 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                     <p className="text-xs text-neutral-500 font-mono">—</p>
                   )}
                 </div>
+
+                <div className="space-y-1">
+                  <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Shipping Address</span>
+                  {(() => {
+                    const addr = accountDetail || activeAccount
+                    const hasShip = addr.shippingStreet || addr.shippingCity
+                    return hasShip ? (
+                      <div className="text-xs text-neutral-300 font-semibold flex items-start gap-1">
+                        <FiMapPin size={11} className="text-neutral-500 mt-0.5 shrink-0" />
+                        <span>
+                          {addr.shippingStreet && `${addr.shippingStreet}, `}
+                          {addr.shippingCity && `${addr.shippingCity}, `}
+                          {addr.shippingState} {addr.shippingZip}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-neutral-500">—</p>
+                    )
+                  })()}
+                </div>
               </div>
+
+              {/* Buying History Summary */}
+              {accountPurchases.length > 0 && (
+                <div className="grid grid-cols-3 gap-3 border-t border-neutral-800/60 pt-4">
+                  <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl px-3 py-2 text-center">
+                    <div className="text-sm font-black text-amber-400">
+                      ${accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </div>
+                    <div className="text-[9px] font-bold text-neutral-500 uppercase">Total Spend</div>
+                  </div>
+                  <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl px-3 py-2 text-center">
+                    <div className="text-sm font-black text-blue-400">
+                      {accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0)}
+                    </div>
+                    <div className="text-[9px] font-bold text-neutral-500 uppercase">Items Bought</div>
+                  </div>
+                  <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl px-3 py-2 text-center">
+                    <div className="text-sm font-black text-emerald-400">
+                      {accountPurchases.length}
+                    </div>
+                    <div className="text-[9px] font-bold text-neutral-500 uppercase">Products</div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Account Intel Panel — Purchases, Notes, Invoices */}

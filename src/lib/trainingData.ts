@@ -715,6 +715,33 @@ The Sales Board tab on the dashboard is a permission-gated feature. It is **not*
 Each user has a **"Show on Sales Board"** toggle in Admin → User Permissions. When enabled, that user appears as a tracked rep on the live Sales Board display. The Sales Board dynamically loads users with this flag — no hardcoded rep list.
     `,
   },
+  {
+    id: "admin-data-sync",
+    title: "Data Sync & Account Enrichment",
+    category: "Admin & Management",
+    content: `
+### Account Data Source: Zoho Books
+All account data (addresses, phone numbers, invoices, sales orders, quotes) is synced from **Zoho Books** — not CRM. Since CRM and Books are already synced in Zoho, Books is the single source of truth.
+
+### Admin Bulk Sync
+Go to **Admin → Data Sync** to sync data from Zoho Books:
+- **Sync Accounts** — Updates account IDs and caches address info from Books contacts
+- **Sync Invoices** — Pulls all invoices and links them to accounts
+- **Sync Sales Orders** — Pulls all sales orders
+- **Sync Quotes** — Pulls all estimates/quotes
+- **⚡ Sync All** — Runs all syncs in order (accounts first)
+
+### Address Info
+Account addresses (billing + shipping) are fetched from **Zoho Books contacts** and cached in the database. When you view an account, the address loads from the cache. If it's missing, it's fetched live from Books and cached automatically.
+
+### Campaign Modal Enhancements
+The **Sales Outreach Campaign** modal now displays:
+- **Billing address** under the account name
+- **Shipping address** in the contact row
+- **Buying history summary** — Total Spend, Items Bought, and Products count
+- **Purchase details** — in the Account Intel panel (Purchases tab)
+    `,
+  },
 ]
 
 
