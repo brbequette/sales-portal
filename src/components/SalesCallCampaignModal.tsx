@@ -42,6 +42,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const [ffBladesPerOrder, setFfBladesPerOrder] = useState('')
   const [ffImprovementPriority, setFfImprovementPriority] = useState('')
   const [showFactFinding, setShowFactFinding] = useState(false)
+  const [expandedFF, setExpandedFF] = useState<Record<string, boolean>>({})
   const [callType, setCallType] = useState<"cold" | "update">("cold")
 
   // AI States
@@ -149,6 +150,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     setFfBladesPerOrder(activeAccount.bladesPerOrder || '')
     setFfImprovementPriority(activeAccount.improvementPriority || '')
     setShowFactFinding(false)
+    setExpandedFF({})
 
     // Auto-detect call type
     if (activeAccount.lastCalledAt) {
@@ -695,98 +697,64 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       <div className="bg-neutral-950/60 border border-neutral-800 p-4 rounded-xl text-sm text-neutral-300 leading-relaxed whitespace-pre-line select-text">
                         {`Hey, ${contactName} this is ${repName} over at Titan Diamond USA. I'm giving you a call today because we have an early release on our brand new 2026 line-up of blades that we featured at the The World of Concrete and ConExpo shows in Las Vegas this year and what's great is with this new release, our manufacturer wants us to give away free blades to our new customers to build new relationships... I just have a quick couple questions to see which blade will work best for you and what you're cutting...`}
                       </div>
+                      {/* Fact-Finding Questions — collapsible when answered */}
+                      {(() => {
+                        const questions = [
+                          { num: 1, key: 'bladeSizes', q: '"First off... what size blades do you run? 14"?', value: ffBladeSizes, render: () => renderPills(['10"', '12"', '14"', '16"', '18"', '20"', '24"', '30"', '36"'], ffBladeSizes, setFfBladeSizes, true) },
+                          { num: 2, key: 'materials', q: '"What are you guys cutting out there?"', value: ffMaterialsCut, render: () => renderPills(['Concrete', 'Asphalt', 'Brick', 'Block', 'Stone', 'Pavers', 'Granite', 'Marble', 'Tile', 'Ductile Iron', 'Rebar', 'Green Concrete'], ffMaterialsCut, setFfMaterialsCut, true) },
+                          { num: 3, key: 'supplier', q: '"Where do you pick up your blades now, do you buy them retail or over the phone from a wholesaler like me?"', value: ffCurrentSupplier, render: () => renderPills(['Home Depot', 'Lowes', 'Sunbelt', 'United Rentals', 'White Cap', 'HD Supply', 'Ace', 'Local Supplier', 'Online', 'Manufacturer Direct', 'Other'], ffCurrentSupplier, setFfCurrentSupplier, true) },
+                          { num: 4, key: 'cost', q: '"How much are they charging you for a good 14" blade? $250? $300 Bucks?"', value: ffAvgBladeCost, render: () => renderPills(['$25-50', '$50-75', '$75-100', '$100-150', '$150-200', '$200-300', '$300-400', '$400+'], ffAvgBladeCost, setFfAvgBladeCost, true) },
+                          { num: 5, key: 'crews', q: '"How many crews do you have?"', value: ffCrewCount, render: () => renderPills(['1', '2-3', '4-5', '6-10', '10+'], ffCrewCount, setFfCrewCount, true) },
+                          { num: 6, key: 'qty', q: '"And how many blades do you normally pick up at a time.. 6.. 12.. 25?"', value: ffBladesPerOrder, render: () => renderPills(['1-3', '4-6', '6-10', '12-25', '25+'], ffBladesPerOrder, setFfBladesPerOrder, true) },
+                          { num: 7, key: 'priority', q: '"Let me ask you one last question... if you could improve one thing about the blades you are using right now... what would it be... longer life... faster cutting... or cleaner cutting?"', value: ffImprovementPriority, render: () => (
+                            <div className="flex gap-1.5 flex-wrap">
+                              {['Longer life', 'Faster cutting', 'Cleaner cutting', 'Lower price'].map(opt => (
+                                <button key={opt} type="button" onClick={() => setFfImprovementPriority(ffImprovementPriority === opt ? '' : opt)} className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${ffImprovementPriority === opt ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400'}`}>
+                                  {ffImprovementPriority === opt ? '\u2713 ' : ''}{opt}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        ]
 
-                      {/* Q1: Blade Sizes */}
-                      <div className="bg-cyan-950/20 border border-cyan-800/30 rounded-xl p-3 space-y-2">
-                        <div className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">1</span>
-                          <p className="text-sm text-cyan-100/90 leading-relaxed italic">{'"First off... what size blades do you run? 14"?'}</p>
-                        </div>
-                        <div className="pl-7">
-                          {renderPills(['10"', '12"', '14"', '16"', '18"', '20"', '24"', '30"', '36"'], ffBladeSizes, setFfBladeSizes, true)}
-                        </div>
-                      </div>
+                        return questions.map(({ num, key, q, value, render }) => {
+                          const isAnswered = !!value
+                          const isExpanded = expandedFF[key] ?? !isAnswered
+                          return (
+                            <div key={key} className={`rounded-xl border transition-all ${isAnswered && !isExpanded ? 'bg-cyan-950/10 border-cyan-800/15 p-2' : 'bg-cyan-950/20 border-cyan-800/30 p-3 space-y-2'}`}>
+                              {isAnswered && !isExpanded ? (
+                                /* Collapsed answered state — compact chip */
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedFF(prev => ({ ...prev, [key]: true }))}
+                                  className="w-full flex items-center gap-2 cursor-pointer group"
+                                >
+                                  <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 text-[8px] font-black flex items-center justify-center shrink-0">{'\u2713'}</span>
+                                  <span className="text-[10px] text-neutral-500 italic truncate flex-1 text-left">Q{num}</span>
+                                  <span className="text-[9px] font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded truncate max-w-[250px]">{value}</span>
+                                  <FiChevronRight size={10} className="text-neutral-600 group-hover:text-neutral-400 transition-colors shrink-0" />
+                                </button>
+                              ) : (
+                                /* Expanded state — full question + pills */
+                                <>
+                                  <div className="flex items-start gap-2">
+                                    <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5 ${isAnswered ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}`}>{num}</span>
+                                    <p className="text-sm text-cyan-100/90 leading-relaxed italic flex-1">{q}</p>
+                                    {isAnswered && (
+                                      <button type="button" onClick={() => setExpandedFF(prev => ({ ...prev, [key]: false }))} className="text-neutral-600 hover:text-neutral-400 cursor-pointer shrink-0 mt-0.5">
+                                        <FiChevronDown size={12} />
+                                      </button>
+                                    )}
+                                  </div>
+                                  <div className="pl-7">{render()}</div>
+                                </>
+                              )}
+                            </div>
+                          )
+                        })
+                      })()}
 
-                      {/* Q2: Materials */}
-                      <div className="bg-cyan-950/20 border border-cyan-800/30 rounded-xl p-3 space-y-2">
-                        <div className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">2</span>
-                          <p className="text-sm text-cyan-100/90 leading-relaxed italic">"What are you guys cutting out there?"</p>
-                        </div>
-                        <div className="pl-7">
-                          {renderPills(['Concrete', 'Asphalt', 'Brick', 'Block', 'Stone', 'Pavers', 'Granite', 'Marble', 'Tile', 'Ductile Iron', 'Rebar', 'Green Concrete'], ffMaterialsCut, setFfMaterialsCut, true)}
-                        </div>
-                      </div>
-
-                      {/* Q3: Supplier + Cost */}
-                      <div className="bg-cyan-950/20 border border-cyan-800/30 rounded-xl p-3 space-y-2">
-                        <div className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">3</span>
-                          <p className="text-sm text-cyan-100/90 leading-relaxed italic">"Where do you pick up your blades now, do you buy them retail or over the phone from a wholesaler like me?"</p>
-                        </div>
-                        <div className="pl-7">
-                          {renderPills(['Home Depot', 'Lowes', 'Sunbelt', 'United Rentals', 'White Cap', 'HD Supply', 'Ace', 'Local Supplier', 'Online', 'Manufacturer Direct', 'Other'], ffCurrentSupplier, setFfCurrentSupplier, true)}
-                        </div>
-                      </div>
-
-                      {/* Q4: Price */}
-                      <div className="bg-cyan-950/20 border border-cyan-800/30 rounded-xl p-3 space-y-2">
-                        <div className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">4</span>
-                          <p className="text-sm text-cyan-100/90 leading-relaxed italic">{`"How much are they charging you for a good 14" blade? $250? $300 Bucks?"`}</p>
-                        </div>
-                        <div className="pl-7">
-                          {renderPills(['$25-50', '$50-75', '$75-100', '$100-150', '$150-200', '$200-300', '$300-400', '$400+'], ffAvgBladeCost, setFfAvgBladeCost, true)}
-                        </div>
-                      </div>
-
-                      {/* Q5: Crews */}
-                      <div className="bg-cyan-950/20 border border-cyan-800/30 rounded-xl p-3 space-y-2">
-                        <div className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">5</span>
-                          <p className="text-sm text-cyan-100/90 leading-relaxed italic">"How many crews do you have?"</p>
-                        </div>
-                        <div className="pl-7">
-                          {renderPills(['1', '2-3', '4-5', '6-10', '10+'], ffCrewCount, setFfCrewCount, true)}
-                        </div>
-                      </div>
-
-                      {/* Q6: Blades Per Order */}
-                      <div className="bg-cyan-950/20 border border-cyan-800/30 rounded-xl p-3 space-y-2">
-                        <div className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">6</span>
-                          <p className="text-sm text-cyan-100/90 leading-relaxed italic">"And how many blades do you normally pick up at a time.. 6.. 12.. 25?"</p>
-                        </div>
-                        <div className="pl-7">
-                          {renderPills(['1-3', '4-6', '6-10', '12-25', '25+'], ffBladesPerOrder, setFfBladesPerOrder, true)}
-                        </div>
-                      </div>
-
-                      {/* Q7: Improvement Priority */}
-                      <div className="bg-cyan-950/20 border border-cyan-800/30 rounded-xl p-3 space-y-2">
-                        <div className="flex items-start gap-2">
-                          <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">7</span>
-                          <p className="text-sm text-cyan-100/90 leading-relaxed italic">"Let me ask you one last question... if you could improve one thing about the blades you are using right now... what would it be... longer life... faster cutting... or cleaner cutting?"</p>
-                        </div>
-                        <div className="pl-7 flex gap-1.5">
-                          {['Longer life', 'Faster cutting', 'Cleaner cutting', 'Lower price'].map(opt => (
-                            <button
-                              key={opt}
-                              type="button"
-                              onClick={() => setFfImprovementPriority(ffImprovementPriority === opt ? '' : opt)}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
-                                ffImprovementPriority === opt
-                                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
-                                  : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400'
-                              }`}
-                            >
-                              {ffImprovementPriority === opt ? '\u2713 ' : ''}{opt}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Fact-Finding Summary Badge */}
+                      {/* Fact-Finding Progress Badge */}
                       <div className="flex items-center justify-between bg-neutral-900/40 border border-neutral-800/40 rounded-lg px-3 py-1.5">
                         <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
                           <FiActivity size={10} /> Fact-Finding Progress
@@ -811,17 +779,17 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       {generateScript()}
                     </div>
 
-                    {/* Inline fact-finding for follow-ups (for any missing data) */}
+                    {/* Fact-finding for follow-ups — same collapsible pattern */}
                     {(() => {
-                      const fields = [
-                        { label: 'Blade Sizes', q: '"What size blades are you running?"', filled: !!ffBladeSizes, render: () => renderPills(['10"', '12"', '14"', '16"', '18"', '20"', '24"', '30"', '36"'], ffBladeSizes, setFfBladeSizes, true) },
-                        { label: 'Materials', q: '"What materials are you cutting?"', filled: !!ffMaterialsCut, render: () => renderPills(['Concrete', 'Asphalt', 'Brick', 'Block', 'Stone', 'Pavers', 'Granite', 'Marble', 'Tile', 'Ductile Iron', 'Rebar', 'Green Concrete'], ffMaterialsCut, setFfMaterialsCut, true) },
-                        { label: 'Supplier', q: '"Where do you pick up your blades?"', filled: !!ffCurrentSupplier, render: () => renderPills(['Home Depot', 'Lowes', 'Sunbelt', 'United Rentals', 'White Cap', 'HD Supply', 'Ace', 'Local Supplier', 'Online', 'Manufacturer Direct', 'Other'], ffCurrentSupplier, setFfCurrentSupplier, true) },
-                        { label: 'Avg Cost', q: '"How much are they charging you?"', filled: !!ffAvgBladeCost, render: () => renderPills(['$25-50', '$50-75', '$75-100', '$100-150', '$150-200', '$200-300', '$300-400', '$400+'], ffAvgBladeCost, setFfAvgBladeCost, true) },
-                        { label: 'Crews', q: '"How many crews do you have?"', filled: !!ffCrewCount, render: () => renderPills(['1', '2-3', '4-5', '6-10', '10+'], ffCrewCount, setFfCrewCount, true) },
-                        { label: 'Blades/Order', q: '"How many blades do you pick up at a time?"', filled: !!ffBladesPerOrder, render: () => renderPills(['1-3', '4-6', '6-10', '12-25', '25+'], ffBladesPerOrder, setFfBladesPerOrder, true) },
-                        { label: 'Priority', q: '"What would you improve about your blades?"', filled: !!ffImprovementPriority, render: () => (
-                          <div className="flex gap-1.5">
+                      const questions = [
+                        { num: 1, key: 'bladeSizes', q: '"What size blades are you running?"', value: ffBladeSizes, render: () => renderPills(['10"', '12"', '14"', '16"', '18"', '20"', '24"', '30"', '36"'], ffBladeSizes, setFfBladeSizes, true) },
+                        { num: 2, key: 'materials', q: '"What materials are you cutting?"', value: ffMaterialsCut, render: () => renderPills(['Concrete', 'Asphalt', 'Brick', 'Block', 'Stone', 'Pavers', 'Granite', 'Marble', 'Tile', 'Ductile Iron', 'Rebar', 'Green Concrete'], ffMaterialsCut, setFfMaterialsCut, true) },
+                        { num: 3, key: 'supplier', q: '"Where do you pick up your blades?"', value: ffCurrentSupplier, render: () => renderPills(['Home Depot', 'Lowes', 'Sunbelt', 'United Rentals', 'White Cap', 'HD Supply', 'Ace', 'Local Supplier', 'Online', 'Manufacturer Direct', 'Other'], ffCurrentSupplier, setFfCurrentSupplier, true) },
+                        { num: 4, key: 'cost', q: '"How much are they charging you?"', value: ffAvgBladeCost, render: () => renderPills(['$25-50', '$50-75', '$75-100', '$100-150', '$150-200', '$200-300', '$300-400', '$400+'], ffAvgBladeCost, setFfAvgBladeCost, true) },
+                        { num: 5, key: 'crews', q: '"How many crews do you have?"', value: ffCrewCount, render: () => renderPills(['1', '2-3', '4-5', '6-10', '10+'], ffCrewCount, setFfCrewCount, true) },
+                        { num: 6, key: 'qty', q: '"How many blades do you pick up at a time?"', value: ffBladesPerOrder, render: () => renderPills(['1-3', '4-6', '6-10', '12-25', '25+'], ffBladesPerOrder, setFfBladesPerOrder, true) },
+                        { num: 7, key: 'priority', q: '"What would you improve about your blades?"', value: ffImprovementPriority, render: () => (
+                          <div className="flex gap-1.5 flex-wrap">
                             {['Longer life', 'Faster cutting', 'Cleaner cutting', 'Lower price'].map(opt => (
                               <button key={opt} type="button" onClick={() => setFfImprovementPriority(ffImprovementPriority === opt ? '' : opt)} className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border transition-all cursor-pointer ${ffImprovementPriority === opt ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600'}`}>
                                 {ffImprovementPriority === opt ? '\u2713 ' : ''}{opt}
@@ -830,19 +798,44 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                           </div>
                         )}
                       ]
-                      const missing = fields.filter(f => !f.filled)
-                      if (missing.length === 0) return null
+
                       return (
-                        <div className="bg-amber-950/20 border border-amber-800/30 rounded-xl p-3 space-y-2">
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                            <FiActivity size={10} /> Missing Fact-Finding ({missing.length} of 7)
+                        <div className="space-y-1.5">
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5 px-1">
+                            <FiActivity size={10} /> Fact-Finding
+                            <span className="ml-auto text-[8px] font-black text-amber-300">
+                              {questions.filter(q => !!q.value).length}/7
+                            </span>
                           </span>
-                          {missing.map((f, i) => (
-                            <div key={i} className="space-y-1.5">
-                              <p className="text-xs text-amber-200/80 italic pl-1">{f.q}</p>
-                              <div className="pl-1">{f.render()}</div>
-                            </div>
-                          ))}
+                          {questions.map(({ num, key, q, value, render }) => {
+                            const isAnswered = !!value
+                            const isExpanded = expandedFF[key] ?? !isAnswered
+                            return (
+                              <div key={key} className={`rounded-xl border transition-all ${isAnswered && !isExpanded ? 'bg-amber-950/10 border-amber-800/15 p-2' : 'bg-amber-950/20 border-amber-800/30 p-3 space-y-2'}`}>
+                                {isAnswered && !isExpanded ? (
+                                  <button type="button" onClick={() => setExpandedFF(prev => ({ ...prev, [key]: true }))} className="w-full flex items-center gap-2 cursor-pointer group">
+                                    <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 text-[8px] font-black flex items-center justify-center shrink-0">{'\u2713'}</span>
+                                    <span className="text-[10px] text-neutral-500 italic truncate flex-1 text-left">Q{num}</span>
+                                    <span className="text-[9px] font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded truncate max-w-[250px]">{value}</span>
+                                    <FiChevronRight size={10} className="text-neutral-600 group-hover:text-neutral-400 transition-colors shrink-0" />
+                                  </button>
+                                ) : (
+                                  <>
+                                    <div className="flex items-start gap-2">
+                                      <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5 ${isAnswered ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-500/10 text-amber-500'}`}>{num}</span>
+                                      <p className="text-xs text-amber-200/80 leading-relaxed italic flex-1">{q}</p>
+                                      {isAnswered && (
+                                        <button type="button" onClick={() => setExpandedFF(prev => ({ ...prev, [key]: false }))} className="text-neutral-600 hover:text-neutral-400 cursor-pointer shrink-0 mt-0.5">
+                                          <FiChevronDown size={12} />
+                                        </button>
+                                      )}
+                                    </div>
+                                    <div className="pl-7">{render()}</div>
+                                  </>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
                       )
                     })()}
