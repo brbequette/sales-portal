@@ -735,17 +735,36 @@ Go to **Admin → Data Sync** to sync data from Zoho Books:
 Account addresses (billing + shipping) are fetched from **Zoho Books contacts** and cached in the database. When you view an account, the address loads from the cache. If it's missing, it's fetched live from Books and cached automatically.
 
 ### Campaign Modal Enhancements
-The **Sales Outreach Campaign** modal now displays:
-- **Billing address** under the account name
-- **Shipping address** in the contact row
-- **Email address** — from Books contact or primary contact
-- **Buying history summary** — Total Spend, Items Bought, and Products count
-- **Purchase details** — in the Account Intel panel (Purchases tab)
+The **Sales Outreach Campaign** has been redesigned as a **full-screen 3-panel dialer**:
+
+#### Left Panel — Account Queue
+- Scrollable list of all accounts in the campaign
+- Active account highlighted with cyan glow; completed accounts dimmed
+- Status dots: green (active), red (overdue invoices), grey (done)
+- Click any account to jump to it instantly
+
+#### Center Panel — Dialer + Script + Close
+- **Dialer HUD**: Large contact name, phone (click-to-call), email (click-to-email), shipping address, action buttons (Call, SMS, Email)
+- **Buying History KPIs**: Total Spend, Items Bought, Products count
+- **Outreach Script**: Cold Call / Follow-Up toggle with dynamic personalized script
+- **Fact-Finding**: Collapsible section with blade sizes, materials, crews, supplier, cost, improvement priority
+- **Blade Pitch Recommendations**: Good → Better → Best with full pricing and free blade promotions
+- **Sales Close Script**: 4-step close (Verify Address → Payment → Email → Final Close)
+- **Log Outcome**: Contact reached toggle, spoke with, outcome dropdown, notes, follow-up date, Skip/Log & Next
+
+#### Right Panel — Account Intelligence
+- **Profile**: Billing address, shipping address, industry, tags, owner, website
+- **Purchase History**: Full scrollable table (Item, Qty, Total)
+- **Deals**: Active deals with stage, amount, closing date
+- **Invoices**: All invoices with status badges (paid/overdue/other)
+- **Sales Orders**: SO number, status, amount
+- **Notes/Call Log**: Previous notes with author, sentiment, date
+- **Fact-Finding Profile**: Read-only summary of known account intelligence
 
 ### Sales Close Script
-After the blade pitch recommendations, the campaign modal now includes a **Move to Close** section with 4 scripted steps:
+After the blade pitch recommendations, the campaign dialer includes a **Move to Close** section with 4 scripted steps:
 1. **Verify Shipping Address** — reads back the customer's address on file (auto-populated from Zoho Books)
-2. **Take Payment** — credit card collection script (card number, expiration, CVV, billing ZIP) with Net 30 alternative
+2. **Take Payment** — "What's easiest for you — do you want us to bill you later, or do you wanna throw this on a card and get it out of the way?" with card details or Net 30 alternative
 3. **Confirm Email** — reads back the email on file or asks for one (for receipts and tracking)
 4. **Final Close** — relationship-building wrap-up and confirmation of shipping timeline
 

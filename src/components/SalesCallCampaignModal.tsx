@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { formatPhoneNumber } from "@/lib/formatters"
 
@@ -224,7 +224,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                   : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400'
               }`}
             >
-              {isChecked ? '✓ ' : ''}{opt}
+              {isChecked ? 'âœ“ ' : ''}{opt}
             </button>
           )
         })}
@@ -245,17 +245,17 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     }
 
     if (callType === "cold") {
-      return `Hey, ${contactName} this is ${repName} over at Titan Diamond USA. I’m giving you a call today because we have an early release on our brand new 2026 line-up of blades that we featured at the The World of Concrete and ConExpo shows in Las Vegas this year and what’s great is with this new release, our manufacturer wants us to give away free blades to our new customers to build new relationships… I just have a quick couple questions to see which blade will work best for you and what you’re cutting...\n
-1) First off… what size blades do you run? 14”?
+      return `Hey, ${contactName} this is ${repName} over at Titan Diamond USA. Iâ€™m giving you a call today because we have an early release on our brand new 2026 line-up of blades that we featured at the The World of Concrete and ConExpo shows in Las Vegas this year and whatâ€™s great is with this new release, our manufacturer wants us to give away free blades to our new customers to build new relationshipsâ€¦ I just have a quick couple questions to see which blade will work best for you and what youâ€™re cutting...\n
+1) First offâ€¦ what size blades do you run? 14â€?
 2) What are you guys cutting out there?
 3) Where do you pick up your blades now, do you buy them retail or over the phone from a wholesaler like me?
-4) How much are they charging you for a good 14” blade? $250? $300 Bucks?
+4) How much are they charging you for a good 14â€ blade? $250? $300 Bucks?
 5) How many crews do you have?
 6) And how many blades do you normally pick up at a time.. 6.. 12.. 25?
-7) Let me ask you one last question… if you could improve one thing about the blades you are using right now… what would it be… longer life… faster cutting… or cleaner cutting?`
+7) Let me ask you one last questionâ€¦ if you could improve one thing about the blades you are using right nowâ€¦ what would it beâ€¦ longer lifeâ€¦ faster cuttingâ€¦ or cleaner cutting?`
     }
 
-    // Update Account / Follow Up — personalized with purchase history
+    // Update Account / Follow Up â€” personalized with purchase history
     let scriptText = `Hi ${contactName}, this is ${repName} with Titan Diamond USA! Hope you're having a great ${timeOfDay}.\n\n`
 
     if (accountPurchases.length > 0) {
@@ -264,7 +264,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
       const totalQty = accountPurchases.reduce((sum: number, p: any) => sum + (p.quantity || 0), 0)
       const lastItemNames = topItems.map((p: any) => p.name).join(', ')
 
-      scriptText += `I was looking at your account and saw that you've picked up ${totalQty} items from us totaling about $${totalSpent.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} — including ${lastItemNames}. `
+      scriptText += `I was looking at your account and saw that you've picked up ${totalQty} items from us totaling about $${totalSpent.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} â€” including ${lastItemNames}. `
 
       if (totalQty >= 10) {
         scriptText += `You're one of our valued repeat customers, so I wanted to make sure you're taken care of first on our latest deals.\n\n`
@@ -277,7 +277,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
       const hasCupWheels = accountPurchases.some((p: any) => (p.name || '').toLowerCase().includes('cup') || (p.name || '').toLowerCase().includes('wheel') || (p.name || '').toLowerCase().includes('grind'))
 
       if (hasBlades && !hasCupWheels) {
-        scriptText += `I also noticed you've been running our diamond blades — have you had a chance to try our cup wheels and grinding products? A lot of our blade customers end up loving them for surface prep and finishing work.\n\n`
+        scriptText += `I also noticed you've been running our diamond blades â€” have you had a chance to try our cup wheels and grinding products? A lot of our blade customers end up loving them for surface prep and finishing work.\n\n`
       } else if (hasBlades && !hasCoredrills) {
         scriptText += `Since you're running our blades, I wanted to let you know we also carry core drill bits if you ever need them on the job. Same quality, same direct pricing.\n\n`
       } else {
@@ -296,7 +296,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     if (!ffImprovementPriority) missing.push("what's the one thing you'd improve about your current blades (longer life, faster, or cleaner cutting)")
     
     if (missing.length > 0) {
-      scriptText += `By the way, I was just updating your account profile and realized I didn't have it on file—could you remind me ${missing[0]}?\n\n`
+      scriptText += `By the way, I was just updating your account profile and realized I didn't have it on fileâ€”could you remind me ${missing[0]}?\n\n`
     }
 
     scriptText += `Is there anything we can quote or ship out for you today?`
@@ -310,11 +310,11 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     const recommendations = [];
 
     const pitches = {
-      medusa: `Let me tell you about one of my best selling blades for the kind of work you are doing. It's called "The Medusa". What my customers all love about this blade is that it has a 12mm jumbo segment compared to most blades on the market that are just 10mm giving you longer blade life. This new blade is perfect for Cured Concrete, Brick, Block, Stone & Pavers. The segments are made under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed. Each one of the segments are laser welded for reliability and safety and the core is speed tensioned to eliminate warping and wobbling.\n\nNow ${contactName}, retail stores in your city would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $100 bucks! Right now, like I said, we are giving this blade away for FREE! The way the promotion works is I send 6 blades out there — the first blade you pull out of the box is absolutely FREE! No matter how you feel about it! The other 5 blades are only $68 bucks each! If you do the math, you're getting 6 blades for $340 bucks! That's less than $57 bucks per blade! And at that price you're stealing them!`,
-      kingTurbo: `Let me tell you about one of my best blades for what you are doing... it's called "THE KING TURBO BLADE". What my customers all love about this blade is that it has 24 serrated turbo segments which makes the blade cut super fast and super smooth through Hard Re-enforced Concrete and other hard materials. This premium soft bond blade will actually pull itself through the cut, so you don't have to put a lot of pressure on the saw — you just let the blade do the work for you. They form the diamond segments differently, making them under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed.\n\nNow ${contactName}, retail stores will sell a blade of this quality for $250 bucks all day long! I normally wholesale it for $175 bucks! Right now, like I said, we are giving this blade away for FREE! The way the promotion works is I send three blades out there — the first blade you pull out of the box is absolutely FREE! No matter how you feel about it! The other two are only $175 each! If you do the math you're getting three blades for $350 bucks! That's $116 bucks per blade! And at that price you're stealing them!`,
-      titan: `I want to tell you about one of my best blades for what you're doing. It's called "THE TITAN". This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from Re-enforced Concrete, Asphalt, Ductile Iron, Re-enforced Concrete Pipe and even Rebar! The major improvement over other blades on the market is when they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed. On top of all that, it has a speed tensioned Cobalt Core which prevents warping and wobbling, and the segments are laser welded!\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used, hands down! I don't expect you to take my word for it — I'll prove it to you! If you were able to find a blade of this quality at your local supplier it would cost $400 or more! Obviously, I'm not a retail store; I normally wholesale these blades for $299 each! Like I said, right now I am giving you one absolutely free of charge. What I'm gonna do is send you out my starter pack — the first blade you pull out of the box is absolutely free! The other two blades in the box are only $250 each! If you do the math, you're getting three blades for $500 bucks — that's only $166 bucks per blade! And at that price you're stealing them!`,
-      darkKnight: `I want to tell you about one of my best blades for what you're doing. It's called my "Dark Knight Blade". This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from re-enforced concrete to asphalt, to brick, block & stone. The major improvement over other blades is that they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed. On top of all that, it has a speed tensioned Cobalt Core which prevents warping and wobbling, and the segments are laser welded!\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used, hands down! I don't expect you to take my word for it — I'll prove it to you! If you were able to find a blade of this quality at your local supplier it would cost $250 or more! Obviously, I'm not a retail store; I normally wholesale these blades for $175 each! Like I said, right now I am giving you one absolutely free of charge. What I'm gonna do is send you out my starter pack — the first blade you pull out of the box is absolutely free! The other 3 blades in the box are only $150 each! If you do the math, you're getting 4 blades for $450 bucks — that's less than $113 bucks per blade! And at that price you're stealing them!`,
-      razor: `This blade is ideal for cutting Ceramic Tile, Marble, Granite & even Porcelain and it cuts through it like a hot knife through butter! The new "Razor Blade" has a reinforced core to prevent warping, wobbling and walking and runs super quiet. This blade cuts really clean & fast & the manufacturer claims 100% chip free cutting.\n\nNow ${contactName}, retail stores would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $120 bucks! Right now, like I said, we are giving this blade away for FREE! The way the promotion works is I send four blades out there — the first blade you pull out of the box is absolutely FREE! No matter how you feel about it! The next three are only $100 each!`,
+      medusa: `Let me tell you about one of my best selling blades for the kind of work you are doing. It's called "The Medusa". What my customers all love about this blade is that it has a 12mm jumbo segment compared to most blades on the market that are just 10mm giving you longer blade life. This new blade is perfect for Cured Concrete, Brick, Block, Stone & Pavers. The segments are made under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed. Each one of the segments are laser welded for reliability and safety and the core is speed tensioned to eliminate warping and wobbling.\n\nNow ${contactName}, retail stores in your city would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $100 bucks! Right now, like I said, we are giving this blade away for FREE! The way the promotion works is I send 6 blades out there â€” the first blade you pull out of the box is absolutely FREE! No matter how you feel about it! The other 5 blades are only $68 bucks each! If you do the math, you're getting 6 blades for $340 bucks! That's less than $57 bucks per blade! And at that price you're stealing them!`,
+      kingTurbo: `Let me tell you about one of my best blades for what you are doing... it's called "THE KING TURBO BLADE". What my customers all love about this blade is that it has 24 serrated turbo segments which makes the blade cut super fast and super smooth through Hard Re-enforced Concrete and other hard materials. This premium soft bond blade will actually pull itself through the cut, so you don't have to put a lot of pressure on the saw â€” you just let the blade do the work for you. They form the diamond segments differently, making them under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed.\n\nNow ${contactName}, retail stores will sell a blade of this quality for $250 bucks all day long! I normally wholesale it for $175 bucks! Right now, like I said, we are giving this blade away for FREE! The way the promotion works is I send three blades out there â€” the first blade you pull out of the box is absolutely FREE! No matter how you feel about it! The other two are only $175 each! If you do the math you're getting three blades for $350 bucks! That's $116 bucks per blade! And at that price you're stealing them!`,
+      titan: `I want to tell you about one of my best blades for what you're doing. It's called "THE TITAN". This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from Re-enforced Concrete, Asphalt, Ductile Iron, Re-enforced Concrete Pipe and even Rebar! The major improvement over other blades on the market is when they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed. On top of all that, it has a speed tensioned Cobalt Core which prevents warping and wobbling, and the segments are laser welded!\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used, hands down! I don't expect you to take my word for it â€” I'll prove it to you! If you were able to find a blade of this quality at your local supplier it would cost $400 or more! Obviously, I'm not a retail store; I normally wholesale these blades for $299 each! Like I said, right now I am giving you one absolutely free of charge. What I'm gonna do is send you out my starter pack â€” the first blade you pull out of the box is absolutely free! The other two blades in the box are only $250 each! If you do the math, you're getting three blades for $500 bucks â€” that's only $166 bucks per blade! And at that price you're stealing them!`,
+      darkKnight: `I want to tell you about one of my best blades for what you're doing. It's called my "Dark Knight Blade". This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from re-enforced concrete to asphalt, to brick, block & stone. The major improvement over other blades is that they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed. On top of all that, it has a speed tensioned Cobalt Core which prevents warping and wobbling, and the segments are laser welded!\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used, hands down! I don't expect you to take my word for it â€” I'll prove it to you! If you were able to find a blade of this quality at your local supplier it would cost $250 or more! Obviously, I'm not a retail store; I normally wholesale these blades for $175 each! Like I said, right now I am giving you one absolutely free of charge. What I'm gonna do is send you out my starter pack â€” the first blade you pull out of the box is absolutely free! The other 3 blades in the box are only $150 each! If you do the math, you're getting 4 blades for $450 bucks â€” that's less than $113 bucks per blade! And at that price you're stealing them!`,
+      razor: `This blade is ideal for cutting Ceramic Tile, Marble, Granite & even Porcelain and it cuts through it like a hot knife through butter! The new "Razor Blade" has a reinforced core to prevent warping, wobbling and walking and runs super quiet. This blade cuts really clean & fast & the manufacturer claims 100% chip free cutting.\n\nNow ${contactName}, retail stores would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $120 bucks! Right now, like I said, we are giving this blade away for FREE! The way the promotion works is I send four blades out there â€” the first blade you pull out of the box is absolutely FREE! No matter how you feel about it! The next three are only $100 each!`,
       generic: "With direct-from-manufacturer pricing and higher quality products, we only offer the best of the best based upon your application."
     };
 
@@ -425,542 +425,236 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     }
   }
 
+  const displayEmail = primaryContact?.email || accountDetail?.booksContact?.email || activeAccount.booksContact?.email || ''
+
   return (
-    <div className="fixed inset-0 z-[150] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-neutral-900 border border-neutral-800 w-full max-w-5xl h-[90vh] rounded-3xl flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-        
-        {/* Header */}
-        <header className="bg-neutral-950 px-6 py-4 border-b border-neutral-850 flex justify-between items-center shrink-0">
+    <div className="fixed inset-0 z-[200] bg-[#06080f] flex flex-col">
+
+      {/* â”€â”€â”€ TOP HEADER BAR â”€â”€â”€ */}
+      <header className="bg-[#0a0d14] border-b border-cyan-500/10 h-14 px-5 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center">
+            <FiPhoneCall className="text-cyan-400 animate-pulse" size={16} />
+          </div>
           <div>
-            <h2 className="text-white font-black text-base flex items-center gap-2">
-              <FiPhoneCall className="text-sky-400 animate-pulse" />
-              <span>Dashboard Sales Outreach Campaign</span>
-            </h2>
-            <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mt-0.5">
-              Account {currentIndex + 1} of {accounts.length} &bull; Spoke with {accounts.filter((_, i) => i < currentIndex).length} so far
-            </p>
+            <h1 className="text-white font-black text-sm tracking-wide">TITAN SALES DIALER</h1>
+            <p className="text-[10px] text-neutral-500 font-bold">Account {currentIndex + 1} of {accounts.length}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {/* Call Timer */}
+          <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/40 border border-cyan-500/20">
+            <FiClock className="text-cyan-500/60" size={14} />
+            <span className="font-mono text-lg font-black text-cyan-400 tabular-nums tracking-wider">{formatTimer(timerSeconds)}</span>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Power Dialer Toggle */}
-            <button
-              onClick={() => setIsPowerDialerActive(!isPowerDialerActive)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                isPowerDialerActive 
-                  ? 'bg-sky-500 border-sky-400 text-black shadow-lg shadow-sky-500/20 animate-pulse' 
-                  : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white'
-              }`}
-            >
-              <FiZap className={isPowerDialerActive ? "text-black" : "text-sky-400"} />
-              {isPowerDialerActive ? "Power Dialer ON" : "Start Power Dialer"}
-            </button>
+          {/* Power Dialer */}
+          <button
+            onClick={() => setIsPowerDialerActive(!isPowerDialerActive)}
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer ${
+              isPowerDialerActive
+                ? 'bg-cyan-500 border-cyan-400 text-black shadow-lg shadow-cyan-500/30 animate-pulse'
+                : 'bg-neutral-900/60 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
+            }`}
+          >
+            <FiZap size={14} />
+            {isPowerDialerActive ? "âš¡ AUTO-DIAL ON" : "Power Dialer"}
+          </button>
 
-            {/* Call Timer */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900 border border-neutral-800 font-mono text-xs font-bold text-sky-400">
-              <FiClock className="animate-spin text-neutral-500" style={{ animationDuration: '4s' }} />
-              <span>{formatTimer(timerSeconds)}</span>
-            </div>
-            
-            <button 
-              onClick={onClose}
-              className="text-neutral-400 hover:text-white p-1 hover:bg-neutral-800 rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg transition-colors cursor-pointer"
-            >
-              &times;
-            </button>
+          {/* End Campaign */}
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer border border-transparent hover:border-red-500/20"
+          >
+            <FiX size={16} /> End
+          </button>
+        </div>
+      </header>
+
+      {/* â”€â”€â”€ MAIN 3-PANEL BODY â”€â”€â”€ */}
+      <div className="flex-1 flex min-h-0">
+
+        {/* â•â•â• LEFT PANEL: ACCOUNT QUEUE â•â•â• */}
+        <div className="w-52 bg-[#080b12] border-r border-neutral-800/50 flex flex-col shrink-0">
+          <div className="px-3 py-3 border-b border-neutral-800/40">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Queue ({accounts.length})</span>
           </div>
-        </header>
-
-        {/* Content Body Grid */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x divide-neutral-800">
-          
-          {/* Left Side: Client Summary & Script (3 Cols) */}
-          <div className="lg:col-span-3 flex flex-col p-6 space-y-6 overflow-y-auto scrollbar-thin">
-            
-            {/* Account Card */}
-            <div className="bg-neutral-950/40 border border-neutral-800/80 p-5 rounded-2xl space-y-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-lg font-black text-white leading-tight">{activeAccount.name}</h3>
-                    {(() => {
-                      const addr = accountDetail || activeAccount
-                      const hasAddr = addr.billingStreet || addr.billingCity
-                      return hasAddr ? (
-                        <div className="text-xs text-neutral-400 mt-1 flex items-center gap-1 font-semibold">
-                          <FiMapPin size={12} className="text-emerald-500" />
-                          {addr.billingStreet && `${addr.billingStreet}, `}
-                          {addr.billingCity && `${addr.billingCity}, `}
-                          {addr.billingState} {addr.billingZip}
-                          {addr.billingCountry && addr.billingCountry !== 'U.S.A.' && addr.billingCountry !== 'USA' && `, ${addr.billingCountry}`}
-                        </div>
-                      ) : null
-                    })()}
-                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                      <FiTag size={10} /> {activeAccount.tags || "General"}
+          <div className="flex-1 overflow-y-auto scrollbar-thin p-2 space-y-1">
+            {accounts.map((acc: any, i: number) => {
+              const isActive = i === currentIndex
+              const isDone = i < currentIndex
+              const hasOverdue = (acc.invoices || []).some((inv: any) => inv.status?.toLowerCase() === 'overdue')
+              const hasPhone = acc.contacts?.some((c: any) => c.phone || c.mobilePhone)
+              return (
+                <button
+                  key={acc.id}
+                  onClick={() => setCurrentIndex(i)}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs transition-all cursor-pointer border ${
+                    isActive
+                      ? 'bg-cyan-500/10 border-cyan-500/30 shadow-lg shadow-cyan-500/5'
+                      : isDone
+                      ? 'bg-neutral-900/30 border-transparent opacity-50'
+                      : 'bg-neutral-950/40 border-neutral-800/40 hover:bg-neutral-900/60 hover:border-neutral-700/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${isDone ? 'bg-neutral-600' : hasOverdue ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                    <span className={`font-bold truncate ${isActive ? 'text-cyan-300' : isDone ? 'text-neutral-500' : 'text-neutral-300'}`}>
+                      {acc.name}
                     </span>
-                    <span className="text-[10px] font-semibold text-neutral-500">{activeAccount.timeZone || "No Timezone"}</span>
                   </div>
-                </div>
+                  <div className="flex items-center gap-2 mt-1 ml-4">
+                    {isDone && <span className="text-[9px] text-neutral-600">âœ“ Done</span>}
+                    {!isDone && hasPhone && <FiPhoneCall size={9} className="text-neutral-600" />}
+                    {!isDone && hasOverdue && <span className="text-[8px] font-bold text-red-500/70 uppercase">Overdue</span>}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
-                <div className="flex items-center gap-2">
-                  <Link 
-                    href={`/account?id=${activeAccount.zohoId}&pos=true`}
-                    className="p-3 bg-emerald-500 hover:bg-emerald-400 text-black rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shadow-emerald-500/10 cursor-pointer"
-                    title={`Start Quote / Order for ${activeAccount.name}`}
-                  >
-                    <FiShoppingCart size={18} />
-                  </Link>
+        {/* â•â•â• CENTER PANEL: DIALER + SCRIPT + CLOSE + LOG â•â•â• */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-thin">
 
-                  {cleanPhone && (
-                    <a 
-                      href={"tel:" + cleanPhone}
-                      onClick={() => {
-                        fetch('/api/calls/log', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            action: 'INITIATE_CALL', accountId: activeAccount?.id, userId: currentUser?.id,
-                            userEmail: currentUser?.email
-                          })
-                        }).catch(err => console.error("Error logging call initiation:", err))
-                      }}
-                      className="p-3 bg-sky-500 hover:bg-sky-400 text-black rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-lg shadow-sky-500/10 cursor-pointer"
-                      title={`Dial ${cleanPhone}`}
-                    >
-                      <FiPhoneCall size={18} />
+          {/* DIALER HUD */}
+          <div className="mx-5 mt-5 bg-gradient-to-r from-cyan-500/[0.04] to-blue-500/[0.04] border border-cyan-500/15 rounded-2xl p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h2 className="text-2xl font-black text-white leading-tight">{contactName}</h2>
+                <p className="text-sm text-neutral-400 font-semibold mt-0.5">{activeAccount.name}</p>
+                <div className="flex flex-wrap items-center gap-4 mt-3">
+                  {displayPhone && (
+                    <div className="flex items-center gap-1.5">
+                      <FiPhoneCall size={13} className="text-cyan-500" />
+                      <span className="text-sm font-mono font-bold text-cyan-300">{formatPhoneNumber(displayPhone)}</span>
+                    </div>
+                  )}
+                  {displayEmail && (
+                    <a href={`mailto:${displayEmail}`} className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 transition-colors">
+                      <FiMail size={13} />
+                      <span className="font-mono font-bold truncate max-w-[200px]">{displayEmail}</span>
                     </a>
                   )}
-                </div>
-              </div>
-
-              {/* Contact + Phone + Email + Address Row */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 border-t border-neutral-800/60 pt-4">
-                <div className="space-y-1">
-                  <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Contact Name</span>
-                  <div className="flex items-center gap-1.5 text-xs text-neutral-300 font-semibold">
-                    <FiUser size={12} className="text-neutral-500" />
-                    <span>{primaryContact ? `${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim() : "No Contact Found"}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Phone</span>
-                  {displayPhone ? (
-                    <a href={"tel:" + cleanPhone } className="text-xs text-blue-400 hover:text-blue-300 hover:underline font-bold font-mono">{formatPhoneNumber(displayPhone)}</a>
-                  ) : (
-                    <p className="text-xs text-neutral-500 font-mono">—</p>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Email</span>
-                  {(() => {
-                    const email = primaryContact?.email || accountDetail?.booksContact?.email || activeAccount.booksContact?.email
-                    return email ? (
-                      <a href={"mailto:" + email} className="text-xs text-blue-400 hover:text-blue-300 hover:underline font-bold font-mono truncate block" title={email}>
-                        <FiMail size={11} className="inline mr-1 -mt-0.5" />{email}
-                      </a>
-                    ) : (
-                      <p className="text-xs text-neutral-500 font-mono">—</p>
-                    )
-                  })()}
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Shipping Address</span>
                   {(() => {
                     const addr = accountDetail || activeAccount
-                    const hasShip = addr.shippingStreet || addr.shippingCity
-                    return hasShip ? (
-                      <div className="text-xs text-neutral-300 font-semibold flex items-start gap-1">
-                        <FiMapPin size={11} className="text-neutral-500 mt-0.5 shrink-0" />
-                        <span>
-                          {addr.shippingStreet && `${addr.shippingStreet}, `}
-                          {addr.shippingCity && `${addr.shippingCity}, `}
-                          {addr.shippingState} {addr.shippingZip}
-                        </span>
+                    const ship = addr.shippingStreet || addr.shippingCity
+                    return ship ? (
+                      <div className="flex items-center gap-1.5 text-xs text-neutral-400">
+                        <FiMapPin size={12} className="text-neutral-500" />
+                        <span>{addr.shippingStreet && `${addr.shippingStreet}, `}{addr.shippingCity && `${addr.shippingCity}, `}{addr.shippingState} {addr.shippingZip}</span>
                       </div>
-                    ) : (
-                      <p className="text-xs text-neutral-500">—</p>
-                    )
+                    ) : null
                   })()}
                 </div>
               </div>
-
-              {/* Buying History Summary */}
-              {accountPurchases.length > 0 && (
-                <div className="grid grid-cols-3 gap-3 border-t border-neutral-800/60 pt-4">
-                  <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl px-3 py-2 text-center">
-                    <div className="text-sm font-black text-amber-400">
-                      ${accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                    </div>
-                    <div className="text-[9px] font-bold text-neutral-500 uppercase">Total Spend</div>
-                  </div>
-                  <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl px-3 py-2 text-center">
-                    <div className="text-sm font-black text-blue-400">
-                      {accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0)}
-                    </div>
-                    <div className="text-[9px] font-bold text-neutral-500 uppercase">Items Bought</div>
-                  </div>
-                  <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl px-3 py-2 text-center">
-                    <div className="text-sm font-black text-emerald-400">
-                      {accountPurchases.length}
-                    </div>
-                    <div className="text-[9px] font-bold text-neutral-500 uppercase">Products</div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Account Intel Panel — Purchases, Notes, Invoices */}
-            <div className="bg-neutral-950/40 border border-neutral-800/80 rounded-2xl overflow-hidden">
-              {/* Tab Bar */}
-              <div className="flex border-b border-neutral-800/60 text-[10px] font-bold uppercase tracking-wider">
-                <button
-                  onClick={() => setIntelTab('purchases')}
-                  className={`flex-1 px-3 py-2.5 flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${intelTab === 'purchases' ? 'text-amber-400 border-b-2 border-amber-500 bg-amber-500/5' : 'text-neutral-500 hover:text-neutral-300'}`}
-                >
-                  <FiPackage size={12} /> Purchases ({accountPurchases.length})
-                </button>
-                <button
-                  onClick={() => setIntelTab('notes')}
-                  className={`flex-1 px-3 py-2.5 flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${intelTab === 'notes' ? 'text-sky-400 border-b-2 border-sky-500 bg-sky-500/5' : 'text-neutral-500 hover:text-neutral-300'}`}
-                >
-                  <FiFileText size={12} /> Notes ({accountNotes.length})
-                </button>
-                <button
-                  onClick={() => setIntelTab('invoices')}
-                  className={`flex-1 px-3 py-2.5 flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${intelTab === 'invoices' ? 'text-emerald-400 border-b-2 border-emerald-500 bg-emerald-500/5' : 'text-neutral-500 hover:text-neutral-300'}`}
-                >
-                  <FiDollarSign size={12} /> Invoices
-                </button>
-              </div>
-
-              {/* Tab Content */}
-              <div className="max-h-48 overflow-y-auto scrollbar-thin p-3">
-                {isLoadingIntel ? (
-                  <div className="flex items-center justify-center py-6 text-neutral-500">
-                    <FiLoader className="animate-spin mr-2" size={16} />
-                    <span className="text-xs">Loading account intel...</span>
-                  </div>
-                ) : (
-                  <>
-                    {/* Purchases Tab */}
-                    {intelTab === 'purchases' && (
-                      accountPurchases.length === 0 ? (
-                        <p className="text-xs text-neutral-500 text-center py-4">No purchase history found.</p>
-                      ) : (
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="text-[9px] uppercase tracking-wider text-neutral-500 border-b border-neutral-800/60">
-                              <th className="text-left py-1.5 pr-2">Item</th>
-                              <th className="text-left py-1.5 pr-2">SKU</th>
-                              <th className="text-right py-1.5 pr-2">Qty</th>
-                              <th className="text-right py-1.5 pr-2">Avg Price</th>
-                              <th className="text-right py-1.5">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {accountPurchases.map((p: any, i: number) => (
-                              <tr key={i} className="border-b border-neutral-800/30 hover:bg-white/[0.02]">
-                                <td className="py-1.5 pr-2 text-neutral-300 font-medium max-w-[180px] truncate">{p.name}</td>
-                                <td className="py-1.5 pr-2 text-neutral-500 font-mono">{p.sku || '—'}</td>
-                                <td className="py-1.5 pr-2 text-right text-neutral-300 font-bold">{p.quantity}</td>
-                                <td className="py-1.5 pr-2 text-right text-neutral-400">${(p.totalSpend / (p.quantity || 1)).toFixed(2)}</td>
-                                <td className="py-1.5 text-right text-emerald-400 font-bold">${p.totalSpend?.toFixed(2)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )
-                    )}
-
-                    {/* Notes Tab */}
-                    {intelTab === 'notes' && (
-                      accountNotes.length === 0 ? (
-                        <p className="text-xs text-neutral-500 text-center py-4">No notes for this account.</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {accountNotes.map((note: any, i: number) => (
-                            <div key={note.id || i} className="bg-neutral-900/50 border border-neutral-800/40 rounded-lg p-2.5">
-                              <div className="flex justify-between items-start mb-1">
-                                <span className="text-[10px] font-bold text-neutral-400">
-                                  {note.author?.name || 'System'}
-                                  {note.sentiment && <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[8px] uppercase ${note.sentiment === 'positive' ? 'bg-emerald-500/10 text-emerald-400' : note.sentiment === 'negative' ? 'bg-red-500/10 text-red-400' : 'bg-neutral-500/10 text-neutral-400'}`}>{note.sentiment}</span>}
-                                </span>
-                                <span className="text-[9px] text-neutral-600">{note.createdAt ? new Date(note.createdAt).toLocaleDateString() : ''}</span>
-                              </div>
-                              <p className="text-xs text-neutral-300 leading-relaxed whitespace-pre-wrap">{note.content}</p>
-                            </div>
-                          ))}
-                        </div>
-                      )
-                    )}
-
-                    {/* Invoices Tab */}
-                    {intelTab === 'invoices' && (
-                      !activeAccount.invoices || activeAccount.invoices.length === 0 ? (
-                        <p className="text-xs text-neutral-500 text-center py-4">No invoices found.</p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {(activeAccount.invoices || []).slice(0, 15).map((inv: any, i: number) => {
-                            const items = inv.items || {}
-                            return (
-                              <div key={inv.id || i} className="flex items-center justify-between bg-neutral-900/50 border border-neutral-800/40 rounded-lg px-3 py-2">
-                                <div>
-                                  <span className="text-xs text-white font-bold">{items.invoiceNumber || items.invoice_number || `INV-${i + 1}`}</span>
-                                  <span className={`ml-2 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${inv.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400' : inv.status === 'overdue' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>{inv.status}</span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-xs font-bold text-neutral-300">${(inv.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                  <span className="text-[9px] text-neutral-500 ml-2">{inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : ''}</span>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )
-                    )}
-                  </>
+              <div className="flex gap-2 shrink-0">
+                {cleanPhone && (
+                  <button
+                    onClick={() => initiateCall(cleanPhone)}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
+                  >
+                    <FiPhoneCall size={14} /> Call
+                  </button>
+                )}
+                {cleanPhone && (
+                  <a
+                    href={`sms:${cleanPhone}`}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 transition-all"
+                  >
+                    ðŸ’¬ SMS
+                  </a>
+                )}
+                {displayEmail && (
+                  <a
+                    href={`mailto:${displayEmail}`}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-xs rounded-xl border border-blue-500/20 transition-all"
+                  >
+                    <FiMail size={14} /> Email
+                  </a>
                 )}
               </div>
             </div>
+          </div>
 
-            {/* Script Box */}
-            <div className="space-y-2 flex-1 flex flex-col">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
-                  <FiBookOpen /> Outreach Script Guidance
-                </span>
-                <div className="flex bg-neutral-900 border border-neutral-800 rounded text-[10px] font-bold p-0.5">
-                  <button onClick={() => setCallType("cold")} className={`px-2 py-1 rounded transition-colors ${callType === "cold" ? "bg-sky-600 text-black" : "text-neutral-500"}`}>Cold Call</button>
-                  <button onClick={() => setCallType("update")} className={`px-2 py-1 rounded transition-colors ${callType === "update" ? "bg-sky-600 text-black" : "text-neutral-500"}`}>Follow-Up</button>
+          {/* BUYING HISTORY KPIs */}
+          {accountPurchases.length > 0 && (
+            <div className="grid grid-cols-3 gap-3 px-5 mt-4">
+              <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl px-3 py-2 text-center">
+                <div className="text-sm font-black text-amber-400">
+                  ${accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </div>
+                <div className="text-[9px] font-bold text-neutral-500 uppercase">Total Spend</div>
               </div>
-              <div className="bg-neutral-950/60 border border-neutral-800 p-5 rounded-2xl text-sm text-neutral-300 leading-relaxed font-sans whitespace-pre-line select-text flex-1">
-                {generateScript()}
+              <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl px-3 py-2 text-center">
+                <div className="text-sm font-black text-blue-400">{accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0)}</div>
+                <div className="text-[9px] font-bold text-neutral-500 uppercase">Items Bought</div>
+              </div>
+              <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl px-3 py-2 text-center">
+                <div className="text-sm font-black text-emerald-400">{accountPurchases.length}</div>
+                <div className="text-[9px] font-bold text-neutral-500 uppercase">Products</div>
               </div>
             </div>
+          )}
 
-            {/* AI Campaign Magic Collapsible Section */}
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => setShowAiMagic(!showAiMagic)}
-                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-purple-400 hover:text-purple-300 transition-colors cursor-pointer"
-              >
-                {showAiMagic ? <FiChevronDown size={14} /> : <FiChevronRight size={14} />}
-                <span>✨ AI Campaign Magic</span>
-              </button>
-
-              {showAiMagic && (
-                <div className="bg-neutral-950/60 border border-purple-900/30 p-5 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Type</label>
-                      <select
-                        value={aiType}
-                        onChange={e => setAiType(e.target.value as "text" | "image")}
-                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors cursor-pointer"
-                      >
-                        <option value="text">Copywriting (Text)</option>
-                        <option value="image">Ad Creative (Image)</option>
-                      </select>
-                    </div>
-                    {aiType === "text" && (
-                      <div>
-                        <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Channel</label>
-                        <select
-                          value={aiChannel}
-                          onChange={e => setAiChannel(e.target.value)}
-                          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors cursor-pointer"
-                        >
-                          <option value="SMS">SMS / Text</option>
-                          <option value="Email">Email Blast</option>
-                          <option value="Social Media">Social Media</option>
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Prompt / Instructions</label>
-                    <textarea
-                      rows={2}
-                      value={aiPrompt}
-                      onChange={e => setAiPrompt(e.target.value)}
-                      placeholder={aiType === "text" ? "e.g., Write a promo for 14-inch concrete blades" : "e.g., A diamond blade cutting concrete, cinematic lighting"}
-                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-purple-500 transition-colors resize-none"
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={isGeneratingAi || !aiPrompt}
-                    onClick={handleGenerateAi}
-                    className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:hover:bg-purple-600 text-white font-bold py-2 rounded-xl transition-colors text-xs flex justify-center items-center gap-2"
-                  >
-                    {isGeneratingAi ? (
-                      <>
-                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Generating Magic...
-                      </>
-                    ) : "Generate Magic"}
-                  </button>
-
-                  {aiResult && (
-                    <div className="mt-4 pt-4 border-t border-purple-900/30 animate-in fade-in duration-300">
-                      <label className="block text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-2">Generated Result:</label>
-                      {aiType === "text" ? (
-                        <div className="bg-neutral-900 border border-neutral-800 p-3 rounded-xl text-xs text-neutral-300 whitespace-pre-wrap select-text leading-relaxed">
-                          {aiResult}
-                        </div>
-                      ) : (
-                        <div className="rounded-xl overflow-hidden border border-neutral-800 relative group">
-                          <img src={aiResult} alt="Generated Ad Creative" className="w-full h-auto object-cover" />
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-sm">
-                            <a href={aiResult} target="_blank" rel="noreferrer" className="bg-white text-black px-4 py-2 rounded-lg text-xs font-bold hover:scale-105 transition-transform">
-                              Open Full Image
-                            </a>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+          {/* SCRIPT SECTION */}
+          <div className="mx-5 mt-4 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
+                <FiBookOpen /> Outreach Script
+              </span>
+              <div className="flex bg-neutral-900 border border-neutral-800 rounded text-[10px] font-bold p-0.5">
+                <button onClick={() => setCallType("cold")} className={`px-2 py-1 rounded transition-colors cursor-pointer ${callType === "cold" ? "bg-cyan-600 text-black" : "text-neutral-500"}`}>Cold Call</button>
+                <button onClick={() => setCallType("update")} className={`px-2 py-1 rounded transition-colors cursor-pointer ${callType === "update" ? "bg-cyan-600 text-black" : "text-neutral-500"}`}>Follow-Up</button>
+              </div>
             </div>
+            <div className="bg-neutral-950/60 border border-neutral-800 p-5 rounded-2xl text-sm text-neutral-300 leading-relaxed whitespace-pre-line select-text">
+              {generateScript()}
+            </div>
+          </div>
 
-            {/* Fact-Finding Collapsible Section */}
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => setShowFactFinding(!showFactFinding)}
-                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 transition-colors cursor-pointer"
-              >
-                {showFactFinding ? <FiChevronDown size={14} /> : <FiChevronRight size={14} />}
-                <span>📋 Fact-Finding</span>
-              </button>
+          {/* FACT FINDING - Collapsible */}
+          <div className="mx-5 mt-4">
+            <button
+              type="button"
+              onClick={() => setShowFactFinding(!showFactFinding)}
+              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 transition-colors cursor-pointer"
+            >
+              {showFactFinding ? <FiChevronDown size={14} /> : <FiChevronRight size={14} />}
+              <span>ðŸ“‹ Fact-Finding Questions</span>
+            </button>
 
-              {showFactFinding && (
-                <div className="bg-neutral-950/60 border border-neutral-800 p-5 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Blade Sizes */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Blade Sizes</label>
-                      {renderPills(['4"', '4.5"', '7"', '9"', '10"', '12"', '14"', '16"', '18"', '20"'], ffBladeSizes, setFfBladeSizes)}
-                    </div>
-                    {/* Materials Cut */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Materials Cut</label>
-                      {renderPills(['Concrete', 'Green Concrete', 'Asphalt', 'Granite', 'Marble', 'Tile', 'Block', 'Brick', 'Glass', 'Metal'], ffMaterialsCut, setFfMaterialsCut)}
-                    </div>
-                    {/* Current Supplier */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Current Supplier</label>
-                      <input
-                        type="text"
-                        value={ffCurrentSupplier}
-                        onChange={e => setFfCurrentSupplier(e.target.value)}
-                        placeholder="Current blade supplier"
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 transition-colors"
-                      />
-                    </div>
-                    {/* Avg Blade Cost */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Avg Blade Cost</label>
-                      <input
-                        type="text"
-                        value={ffAvgBladeCost}
-                        onChange={e => setFfAvgBladeCost(e.target.value)}
-                        placeholder="$45-65"
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Product Interest - Multi-select checkboxes */}
+            {showFactFinding && (
+              <div className="bg-neutral-950/60 border border-amber-900/30 p-5 rounded-2xl space-y-4 mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Product Interest</label>
-                    <div className="flex flex-wrap gap-2">
-                      {['Turbo Blades', 'Continuous Rim', 'Segmented', 'Core Bits', 'Cup Wheels', 'Polishing Pads'].map(product => {
-                        const isChecked = ffProductInterest.includes(product)
-                        return (
-                          <button
-                            key={product}
-                            type="button"
-                            onClick={() => {
-                              setFfProductInterest(prev =>
-                                isChecked ? prev.filter(p => p !== product) : [...prev, product]
-                              )
-                            }}
-                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
-                              isChecked
-                                ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
-                                : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400'
-                            }`}
-                          >
-                            {isChecked ? '✓ ' : ''}{product}
-                          </button>
-                        )
-                      })}
-                    </div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Blade Sizes</label>
+                    {renderPills(['10"', '12"', '14"', '16"', '18"', '20"', '24"', '30"', '36"'], ffBladeSizes, setFfBladeSizes)}
                   </div>
-
-                  {/* Ready to Buy */}
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Ready to Buy</label>
-                    <select
-                      value={ffReadyToBuy}
-                      onChange={e => setFfReadyToBuy(e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors cursor-pointer"
-                    >
-                      <option value="">-- Select --</option>
-                      <option value="Immediate">Immediate</option>
-                      <option value="Next Month">Next Month</option>
-                      <option value="Evaluating">Evaluating</option>
-                      <option value="Not Now">Not Now</option>
-                    </select>
-                  </div>
-
-                  {/* Pain Points */}
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Pain Points</label>
-                    <textarea
-                      rows={2}
-                      value={ffPainPoints}
-                      onChange={e => setFfPainPoints(e.target.value)}
-                      placeholder="Quality issues, delivery delays, pricing concerns..."
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 transition-colors resize-none"
-                    />
-                  </div>
-
-                  {/* Job Types */}
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Job Types</label>
-                    {renderPills(['Residential', 'Commercial', 'Industrial', 'Highway/Road', 'Government'], ffJobTypes, setFfJobTypes)}
-                  </div>
-
-                  {/* Crew Count */}
                   <div>
                     <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Crew Count</label>
-                    {renderPills(['1', '2-3', '4-5', '6-10', '11+'], ffCrewCount, setFfCrewCount)}
+                    {renderPills(['1', '2-3', '4-5', '6-10', '10+'], ffCrewCount, setFfCrewCount)}
                   </div>
-
-                  {/* Blades Per Order */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Materials Cut</label>
+                    {renderPills(['Concrete', 'Asphalt', 'Brick', 'Block', 'Stone', 'Pavers', 'Granite', 'Marble', 'Tile', 'Ductile Iron', 'Rebar', 'Green Concrete'], ffMaterialsCut, setFfMaterialsCut)}
+                  </div>
                   <div>
                     <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Blades Per Order</label>
-                    {renderPills(['1-5', '6-10', '11-20', '21-50', '50+'], ffBladesPerOrder, setFfBladesPerOrder)}
+                    {renderPills(['1-3', '4-6', '6-10', '12-25', '25+'], ffBladesPerOrder, setFfBladesPerOrder)}
                   </div>
-
-                  {/* Improvement Priority */}
                   <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Current Supplier</label>
+                    <input type="text" value={ffCurrentSupplier} onChange={e => setFfCurrentSupplier(e.target.value)} placeholder="e.g. Home Depot, local supplier" className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Avg Blade Cost</label>
+                    <input type="text" value={ffAvgBladeCost} onChange={e => setFfAvgBladeCost(e.target.value)} placeholder="e.g. $45-65" className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors" />
+                  </div>
+                  <div className="col-span-2">
                     <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Improvement Priority</label>
-                    <select
-                      value={ffImprovementPriority}
-                      onChange={e => setFfImprovementPriority(e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors cursor-pointer"
-                    >
+                    <select value={ffImprovementPriority} onChange={e => setFfImprovementPriority(e.target.value)} className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors cursor-pointer">
                       <option value="">-- Select --</option>
                       <option value="Longer life">Longer Life</option>
                       <option value="Faster cutting">Faster Cutting</option>
@@ -969,231 +663,343 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                     </select>
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Recommendation Box */}
-            <div className="bg-emerald-950/20 border border-emerald-900/50 p-5 rounded-2xl space-y-4 mt-4 animate-in fade-in duration-300">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5 mb-1">
-                <FiCheckSquare /> Pitch Recommendations
-              </span>
-              {getBladeRecommendation().map((rec, i) => (
-                <div key={i} className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-900 text-emerald-300">{rec.tier}</span>
-                    <h4 className="text-white font-bold text-sm">{rec.blade}</h4>
-                  </div>
-                  <p className="text-xs text-emerald-100/70 leading-relaxed">{rec.pitch}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* ── SALES CLOSE SCRIPT ── */}
-            <div className="bg-sky-950/20 border border-sky-900/50 p-5 rounded-2xl space-y-4 mt-4 animate-in fade-in duration-300">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5 mb-1">
-                <FiCreditCard /> Move to Close
-              </span>
-
-              {/* Step 1: Verify Info */}
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-black flex items-center justify-center">1</span>
-                  <h4 className="text-white font-bold text-sm">Verify Shipping Address</h4>
-                </div>
-                <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
-                  {(() => {
-                    const addr = accountDetail || activeAccount
-                    const hasAddr = addr.billingStreet || addr.billingCity || addr.shippingStreet || addr.shippingCity
-                    const shipAddr = addr.shippingStreet || addr.billingStreet
-                    const shipCity = addr.shippingCity || addr.billingCity
-                    const shipState = addr.shippingState || addr.billingState
-                    const shipZip = addr.shippingZip || addr.billingZip
-                    return hasAddr
-                      ? `"Now to get these blades in your hands… you're still out there at ${shipAddr}${shipCity ? ', ' + shipCity : ''}${shipState ? ', ' + shipState : ''} ${shipZip || ''}… is that correct?"`
-                      : '"Now to get these blades in your hands… what\'s the best shipping address for you?"'
-                  })()}
-                </p>
               </div>
-
-              {/* Step 2: Payment */}
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-black flex items-center justify-center">2</span>
-                  <h4 className="text-white font-bold text-sm">Take Payment</h4>
-                </div>
-                <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
-                  "Perfect — we'll take care of everything right now and get your confirmation sent out today. Should we mark this to your attention, or do I need a PO Number?"
-                </p>
-                <p className="text-xs text-sky-100/70 leading-relaxed pl-7 mt-1">
-                  "What's easiest for you — do you want us to bill you later, or do you wanna throw this on a card and get it out of the way?"
-                </p>
-                <p className="text-xs text-neutral-500 pl-7 mt-1 italic">
-                  If card: "Perfect, go ahead and read the number from left to right, 4 digits at a time."
-                </p>
-                <div className="pl-7 mt-2 grid grid-cols-2 gap-2">
-                  <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">💳 Full card number</div>
-                  <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">📅 Expiration date</div>
-                  <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">🔒 CVV code</div>
-                  <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">📍 Billing ZIP code</div>
-                </div>
-                <p className="text-xs text-neutral-500 pl-7 mt-2 italic">
-                  Or Net 30: "Great — I'll get everything rolling and email your invoice with Net 30 terms. Who's the best contact for billing on your end?"
-                </p>
-              </div>
-
-              {/* Step 3: Get Email */}
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-black flex items-center justify-center">3</span>
-                  <h4 className="text-white font-bold text-sm">Confirm Email</h4>
-                </div>
-                <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
-                  {(() => {
-                    const email = primaryContact?.email || accountDetail?.booksContact?.email || activeAccount.booksContact?.email
-                    return email
-                      ? `"Got it — I'm submitting that now through our secure processor. You'll receive an email receipt and full tracking info shortly. Just confirming — should I send everything to ${email}?"`
-                      : '"Got it — I\'m submitting that now through our secure processor. You\'ll receive an email receipt and full tracking info shortly. What\'s the best email address to send everything to?"'
-                  })()}
-                </p>
-              </div>
-
-              {/* Step 4: Final Confirm */}
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black flex items-center justify-center">✓</span>
-                  <h4 className="text-white font-bold text-sm">Final Close</h4>
-                </div>
-                <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
-                  "You're all set, {contactName} — we'll have your blades on the way within 3-5 business days. If anything comes up, you can reach me directly at this number — and again, I really appreciate your trust in us and look forward to building a long relationship with you."
-                </p>
-              </div>
-            </div>
-
+            )}
           </div>
 
-          {/* Right Side: Log Outcome Form (2 Cols) */}
-          <div className="lg:col-span-2 p-6 flex flex-col space-y-5 overflow-y-auto scrollbar-thin bg-neutral-900/60 justify-between">
-            
-            <div className="space-y-5">
+          {/* BLADE PITCH RECOMMENDATIONS */}
+          <div className="mx-5 mt-4 bg-emerald-950/20 border border-emerald-900/50 p-5 rounded-2xl space-y-4">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5 mb-1">
+              <FiCheckSquare /> Pitch Recommendations
+            </span>
+            {getBladeRecommendation().map((rec, i) => (
+              <div key={i} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-900 text-emerald-300">{rec.tier}</span>
+                  <h4 className="text-white font-bold text-sm">{rec.blade}</h4>
+                </div>
+                <p className="text-xs text-emerald-100/70 leading-relaxed">{rec.pitch}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* SALES CLOSE SCRIPT */}
+          <div className="mx-5 mt-4 bg-sky-950/20 border border-sky-900/50 p-5 rounded-2xl space-y-4">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5 mb-1">
+              <FiCreditCard /> Move to Close
+            </span>
+
+            {/* Step 1: Verify Address */}
+            <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <FiActivity className="text-sky-400" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Log Outreach Outcome</h3>
+                <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-black flex items-center justify-center">1</span>
+                <h4 className="text-white font-bold text-sm">Verify Shipping Address</h4>
               </div>
+              <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
+                {(() => {
+                  const addr = accountDetail || activeAccount
+                  const hasAddr = addr.billingStreet || addr.billingCity || addr.shippingStreet || addr.shippingCity
+                  const shipAddr = addr.shippingStreet || addr.billingStreet
+                  const shipCity = addr.shippingCity || addr.billingCity
+                  const shipState = addr.shippingState || addr.billingState
+                  const shipZip = addr.shippingZip || addr.billingZip
+                  return hasAddr
+                    ? `"Now to get these blades in your handsâ€¦ you're still out there at ${shipAddr}${shipCity ? ', ' + shipCity : ''}${shipState ? ', ' + shipState : ''} ${shipZip || ''}â€¦ is that correct?"`
+                    : '"Now to get these blades in your handsâ€¦ what\'s the best shipping address for you?"'
+                })()}
+              </p>
+            </div>
 
-              {/* Contact reached selector */}
-              <div className="flex items-center gap-3">
-                <label className="text-xs font-bold text-neutral-400">Did you reach a contact?</label>
-                <div className="flex bg-neutral-950 p-0.5 rounded-lg border border-neutral-800">
-                  <button 
-                    type="button"
-                    onClick={() => setContactReached(true)}
-                    className={`px-3 py-1 rounded text-xs font-bold transition-all ${contactReached ? 'bg-sky-500 text-black' : 'text-neutral-500 hover:text-neutral-300'}`}
-                  >
-                    Yes
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setContactReached(false)}
-                    className={`px-3 py-1 rounded text-xs font-bold transition-all ${!contactReached ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
-                  >
-                    No
-                  </button>
-                </div>
+            {/* Step 2: Payment */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-black flex items-center justify-center">2</span>
+                <h4 className="text-white font-bold text-sm">Take Payment</h4>
               </div>
-
-              {contactReached && (
-                <>
-                  {/* Spoke With */}
-                  <div>
-                    <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Spoke With</label>
-                    <input 
-                      type="text"
-                      placeholder="Name of contact spoken to"
-                      value={spokeTo}
-                      onChange={e => setSpokeTo(e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors"
-                    />
-                  </div>
-
-                  {/* Outcome selection */}
-                  <div>
-                    <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Outreach Outcome</label>
-                    <select
-                      value={outcome}
-                      onChange={e => setOutcome(e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors cursor-pointer"
-                    >
-                      <option value="check_in">General Check-in</option>
-                      <option value="pitch">Product Pitch</option>
-                      <option value="order_placed">Order Placed</option>
-                      <option value="follow_up">Request Callback / Follow Up</option>
-                      <option value="other">Other / Account Audit</option>
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {!contactReached && (
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Outreach Attempt Outcome</label>
-                  <select
-                    value={outcome}
-                    onChange={e => setOutcome(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors cursor-pointer"
-                  >
-                    <option value="left_voicemail">Left Voicemail</option>
-                    <option value="no_answer">No Answer / Busy</option>
-                    <option value="other">Other / Closed</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Call Notes */}
-              <div>
-                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Outreach Details &amp; Notes</label>
-                <textarea
-                  rows={4}
-                  placeholder="Enter details about product interest, pricing feedback, follow-up notes..."
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors resize-none"
-                />
+              <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
+                "Perfect â€” we'll take care of everything right now and get your confirmation sent out today. Should we mark this to your attention, or do I need a PO Number?"
+              </p>
+              <p className="text-xs text-sky-100/70 leading-relaxed pl-7 mt-1">
+                "What's easiest for you â€” do you want us to bill you later, or do you wanna throw this on a card and get it out of the way?"
+              </p>
+              <p className="text-xs text-neutral-500 pl-7 mt-1 italic">
+                If card: "Perfect, go ahead and read the number from left to right, 4 digits at a time."
+              </p>
+              <div className="pl-7 mt-2 grid grid-cols-2 gap-2">
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ’³ Full card number</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ“… Expiration date</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ”’ CVV code</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ“ Billing ZIP code</div>
               </div>
+              <p className="text-xs text-neutral-500 pl-7 mt-2 italic">
+                Or Net 30: "Great â€” I'll get everything rolling and email your invoice with Net 30 terms. Who's the best contact for billing on your end?"
+              </p>
+            </div>
 
-              {/* Follow-up Date */}
-              <div>
-                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Schedule Follow-up Action (Optional)</label>
-                <input 
-                  type="date"
-                  value={followUpDate}
-                  min={new Date().toISOString().split('T')[0]}
-                  onChange={e => setFollowUpDate(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors"
-                />
+            {/* Step 3: Confirm Email */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-black flex items-center justify-center">3</span>
+                <h4 className="text-white font-bold text-sm">Confirm Email</h4>
+              </div>
+              <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
+                {displayEmail
+                  ? `"Got it â€” I'm submitting that now through our secure processor. You'll receive an email receipt and full tracking info shortly. Just confirming â€” should I send everything to ${displayEmail}?"`
+                  : '"Got it â€” I\'m submitting that now through our secure processor. You\'ll receive an email receipt and full tracking info shortly. What\'s the best email address to send everything to?"'}
+              </p>
+            </div>
+
+            {/* Step 4: Final Close */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black flex items-center justify-center">âœ“</span>
+                <h4 className="text-white font-bold text-sm">Final Close</h4>
+              </div>
+              <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
+                "You're all set, {contactName} â€” we'll have your blades on the way within 3-5 business days. If anything comes up, you can reach me directly at this number â€” and again, I really appreciate your trust in us and look forward to building a long relationship with you."
+              </p>
+            </div>
+          </div>
+
+          {/* LOG OUTCOME */}
+          <div className="mx-5 mt-4 mb-5 bg-neutral-950/40 border border-neutral-800 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <FiActivity className="text-cyan-400" />
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Log Outreach Outcome</h3>
+            </div>
+
+            {/* Contact reached toggle */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-bold text-neutral-400">Did you reach a contact?</label>
+              <div className="flex bg-neutral-950 p-0.5 rounded-lg border border-neutral-800">
+                <button type="button" onClick={() => setContactReached(true)} className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${contactReached ? 'bg-cyan-500 text-black' : 'text-neutral-500 hover:text-neutral-300'}`}>Yes</button>
+                <button type="button" onClick={() => setContactReached(false)} className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${!contactReached ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>No</button>
               </div>
             </div>
 
-            {/* Campaign Actions */}
-            <div className="pt-4 border-t border-neutral-800 flex gap-2">
-              <button
-                type="button"
-                onClick={handleNext}
-                className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 font-bold text-xs rounded-xl transition-all"
-              >
+            {contactReached && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Spoke With</label>
+                  <input type="text" placeholder="Name of contact" value={spokeTo} onChange={e => setSpokeTo(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Outcome</label>
+                  <select value={outcome} onChange={e => setOutcome(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors cursor-pointer">
+                    <option value="check_in">General Check-in</option>
+                    <option value="pitch">Product Pitch</option>
+                    <option value="order_placed">Order Placed</option>
+                    <option value="follow_up">Request Callback / Follow Up</option>
+                    <option value="other">Other / Account Audit</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {!contactReached && (
+              <div>
+                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Outcome</label>
+                <select value={outcome} onChange={e => setOutcome(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors cursor-pointer">
+                  <option value="left_voicemail">Left Voicemail</option>
+                  <option value="no_answer">No Answer / Busy</option>
+                  <option value="other">Other / Closed</option>
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Notes</label>
+              <textarea rows={3} placeholder="Product interest, pricing feedback, follow-up notes..." value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors resize-none" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Follow-up Date (Optional)</label>
+              <input type="date" value={followUpDate} min={new Date().toISOString().split('T')[0]} onChange={e => setFollowUpDate(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors" />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button type="button" onClick={handleNext} className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 font-bold text-xs rounded-xl transition-all cursor-pointer">
                 Skip Account
               </button>
-              
-              <button
-                type="button"
-                onClick={handleLogAndNext}
-                className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-black font-extrabold text-xs rounded-xl shadow-lg shadow-sky-950/20 hover:shadow-sky-950/40 transition-all"
-              >
-                <span>Log Outcome &amp; Next</span>
+              <button type="button" onClick={handleLogAndNext} className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-black font-extrabold text-xs rounded-xl shadow-lg shadow-cyan-950/20 transition-all cursor-pointer">
+                <span>Log Outcome & Next</span>
                 <FiArrowRight size={13} />
               </button>
             </div>
-
           </div>
+
+        </div>
+
+        {/* â•â•â• RIGHT PANEL: ACCOUNT INTEL â•â•â• */}
+        <div className="w-[340px] bg-[#080b12] border-l border-neutral-800/50 overflow-y-auto scrollbar-thin p-4 space-y-4 shrink-0">
+
+          {isLoadingIntel && (
+            <div className="flex items-center justify-center py-10 text-neutral-500">
+              <FiLoader className="animate-spin mr-2" size={18} />
+              <span className="text-xs font-bold">Loading account intel...</span>
+            </div>
+          )}
+
+          {/* PROFILE */}
+          <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5"><FiUser size={11} /> Profile</span>
+            {(() => {
+              const addr = accountDetail || activeAccount
+              return (
+                <div className="space-y-1.5">
+                  {(addr.billingStreet || addr.billingCity) && (
+                    <div>
+                      <span className="text-[9px] font-bold text-neutral-600 uppercase">Billing</span>
+                      <p className="text-xs text-neutral-300">{addr.billingStreet && `${addr.billingStreet}, `}{addr.billingCity && `${addr.billingCity}, `}{addr.billingState} {addr.billingZip}</p>
+                    </div>
+                  )}
+                  {(addr.shippingStreet || addr.shippingCity) && (
+                    <div>
+                      <span className="text-[9px] font-bold text-neutral-600 uppercase">Shipping</span>
+                      <p className="text-xs text-neutral-300">{addr.shippingStreet && `${addr.shippingStreet}, `}{addr.shippingCity && `${addr.shippingCity}, `}{addr.shippingState} {addr.shippingZip}</p>
+                    </div>
+                  )}
+                  {activeAccount.industry && <div className="flex items-center gap-1.5"><span className="text-[9px] font-bold text-neutral-600">Industry:</span><span className="text-xs text-neutral-300">{activeAccount.industry}</span></div>}
+                  {activeAccount.tags && <div className="flex items-center gap-1.5"><FiTag size={10} className="text-neutral-600" /><span className="text-xs text-neutral-300">{activeAccount.tags}</span></div>}
+                  {activeAccount.owner?.name && <div className="flex items-center gap-1.5"><span className="text-[9px] font-bold text-neutral-600">Owner:</span><span className="text-xs text-neutral-300">{activeAccount.owner.name}</span></div>}
+                  {accountDetail?.booksContact?.website && <div className="flex items-center gap-1.5"><span className="text-[9px] font-bold text-neutral-600">Web:</span><a href={accountDetail.booksContact.website.startsWith('http') ? accountDetail.booksContact.website : `https://${accountDetail.booksContact.website}`} target="_blank" rel="noopener" className="text-xs text-blue-400 hover:underline truncate">{accountDetail.booksContact.website}</a></div>}
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* PURCHASES */}
+          <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5"><FiPackage size={11} /> Purchases ({accountPurchases.length})</span>
+            {accountPurchases.length === 0 ? (
+              <p className="text-xs text-neutral-500 text-center py-2">No purchase history</p>
+            ) : (
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-[9px] uppercase tracking-wider text-neutral-500 border-b border-neutral-800/60">
+                    <th className="text-left py-1 pr-1">Item</th>
+                    <th className="text-right py-1 pr-1">Qty</th>
+                    <th className="text-right py-1">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {accountPurchases.map((p: any, i: number) => (
+                    <tr key={i} className="border-b border-neutral-800/30">
+                      <td className="py-1 pr-1 text-neutral-300 font-medium truncate max-w-[140px]">{p.name}</td>
+                      <td className="py-1 pr-1 text-right text-neutral-400 font-bold">{p.quantity}</td>
+                      <td className="py-1 text-right text-emerald-400 font-bold">${p.totalSpend?.toFixed(0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* DEALS */}
+          {activeAccount.deals && activeAccount.deals.length > 0 && (
+            <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5"><FiDollarSign size={11} /> Deals ({activeAccount.deals.length})</span>
+              <div className="space-y-1.5">
+                {activeAccount.deals.slice(0, 10).map((deal: any, i: number) => (
+                  <div key={deal.id || i} className="flex items-center justify-between bg-neutral-900/50 border border-neutral-800/40 rounded-lg px-2.5 py-1.5">
+                    <div>
+                      <span className="text-xs text-white font-bold">{deal.name || `Deal ${i+1}`}</span>
+                      {deal.stage && <span className="ml-1.5 text-[9px] font-bold text-purple-400">{deal.stage}</span>}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-bold text-neutral-300">${(deal.amount || 0).toLocaleString()}</span>
+                      {deal.closingDate && <span className="text-[9px] text-neutral-500 ml-1.5">{new Date(deal.closingDate).toLocaleDateString()}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* INVOICES */}
+          <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5"><FiFileText size={11} /> Invoices ({(activeAccount.invoices || []).length})</span>
+            {!activeAccount.invoices || activeAccount.invoices.length === 0 ? (
+              <p className="text-xs text-neutral-500 text-center py-2">No invoices</p>
+            ) : (
+              <div className="space-y-1">
+                {(activeAccount.invoices || []).slice(0, 20).map((inv: any, i: number) => {
+                  const items = inv.items || {}
+                  return (
+                    <div key={inv.id || i} className="flex items-center justify-between bg-neutral-900/50 border border-neutral-800/40 rounded-lg px-2.5 py-1.5">
+                      <div>
+                        <span className="text-xs text-white font-bold">{items.invoiceNumber || items.invoice_number || `INV-${i+1}`}</span>
+                        <span className={`ml-1.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${inv.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400' : inv.status === 'overdue' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>{inv.status}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-bold text-neutral-300">${(inv.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        <span className="text-[9px] text-neutral-500 ml-1.5">{inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : ''}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* SALES ORDERS */}
+          {activeAccount.salesOrders && activeAccount.salesOrders.length > 0 && (
+            <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5"><FiShoppingCart size={11} /> Sales Orders ({activeAccount.salesOrders.length})</span>
+              <div className="space-y-1">
+                {activeAccount.salesOrders.slice(0, 15).map((so: any, i: number) => {
+                  const items = so.items || {}
+                  return (
+                    <div key={so.id || i} className="flex items-center justify-between bg-neutral-900/50 border border-neutral-800/40 rounded-lg px-2.5 py-1.5">
+                      <div>
+                        <span className="text-xs text-white font-bold">{items.salesorder_number || items.salesOrderNumber || `SO-${i+1}`}</span>
+                        <span className={`ml-1.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${so.status === 'fulfilled' || so.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>{so.status}</span>
+                      </div>
+                      <span className="text-xs font-bold text-neutral-300">${(so.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* NOTES / CALL LOG */}
+          <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5"><FiFileText size={11} /> Notes ({accountNotes.length})</span>
+            {accountNotes.length === 0 ? (
+              <p className="text-xs text-neutral-500 text-center py-2">No notes</p>
+            ) : (
+              <div className="space-y-1.5">
+                {accountNotes.map((note: any, i: number) => (
+                  <div key={note.id || i} className="bg-neutral-900/50 border border-neutral-800/40 rounded-lg p-2">
+                    <div className="flex justify-between items-start mb-0.5">
+                      <span className="text-[10px] font-bold text-neutral-400">
+                        {note.author?.name || 'System'}
+                        {note.sentiment && <span className={`ml-1 px-1 py-0.5 rounded text-[8px] uppercase ${note.sentiment === 'positive' ? 'bg-emerald-500/10 text-emerald-400' : note.sentiment === 'negative' ? 'bg-red-500/10 text-red-400' : 'bg-neutral-500/10 text-neutral-400'}`}>{note.sentiment}</span>}
+                      </span>
+                      <span className="text-[9px] text-neutral-600">{note.createdAt ? new Date(note.createdAt).toLocaleDateString() : ''}</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-300 leading-relaxed whitespace-pre-wrap line-clamp-3">{note.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* FACT FINDING PROFILE (read-only) */}
+          {(activeAccount.bladeSizes || activeAccount.materialsCut || activeAccount.currentSupplier || activeAccount.crewCount || activeAccount.bladesPerOrder || activeAccount.improvementPriority) && (
+            <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5"><FiActivity size={11} /> Fact-Finding Profile</span>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                {activeAccount.bladeSizes && <><span className="text-[9px] font-bold text-neutral-600">Blades:</span><span className="text-xs text-neutral-300">{activeAccount.bladeSizes}</span></>}
+                {activeAccount.materialsCut && <><span className="text-[9px] font-bold text-neutral-600">Materials:</span><span className="text-xs text-neutral-300">{activeAccount.materialsCut}</span></>}
+                {activeAccount.currentSupplier && <><span className="text-[9px] font-bold text-neutral-600">Supplier:</span><span className="text-xs text-neutral-300">{activeAccount.currentSupplier}</span></>}
+                {activeAccount.crewCount && <><span className="text-[9px] font-bold text-neutral-600">Crews:</span><span className="text-xs text-neutral-300">{activeAccount.crewCount}</span></>}
+                {activeAccount.bladesPerOrder && <><span className="text-[9px] font-bold text-neutral-600">Per Order:</span><span className="text-xs text-neutral-300">{activeAccount.bladesPerOrder}</span></>}
+                {activeAccount.improvementPriority && <><span className="text-[9px] font-bold text-neutral-600">Priority:</span><span className="text-xs text-neutral-300">{activeAccount.improvementPriority}</span></>}
+              </div>
+            </div>
+          )}
 
         </div>
 
@@ -1201,3 +1007,4 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     </div>
   )
 }
+
