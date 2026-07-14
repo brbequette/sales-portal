@@ -1025,7 +1025,10 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                   "Perfect — we'll take care of everything right now and get your confirmation sent out today. Should we mark this to your attention, or do I need a PO Number?"
                 </p>
                 <p className="text-xs text-sky-100/70 leading-relaxed pl-7 mt-1">
-                  "Alright — now I'll take your card details whenever you're ready. You can go ahead and read the number from left to right, 4 digits at a time."
+                  "What's easiest for you — do you want us to bill you later, or do you wanna throw this on a card and get it out of the way?"
+                </p>
+                <p className="text-xs text-neutral-500 pl-7 mt-1 italic">
+                  If card: "Perfect, go ahead and read the number from left to right, 4 digits at a time."
                 </p>
                 <div className="pl-7 mt-2 grid grid-cols-2 gap-2">
                   <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">💳 Full card number</div>
