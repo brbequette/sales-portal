@@ -8,7 +8,7 @@ import {
   FiX, FiPhoneCall, FiUser, FiClock, FiCheckSquare, 
   FiArrowRight, FiBookOpen, FiActivity, FiTag, FiAlertCircle,
   FiChevronDown, FiChevronRight, FiMapPin, FiShoppingCart, FiZap,
-  FiPackage, FiFileText, FiDollarSign, FiLoader, FiMail, FiCreditCard
+  FiPackage, FiFileText, FiDollarSign, FiLoader, FiMail, FiCreditCard, FiTrendingUp
 } from "react-icons/fi"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
@@ -868,30 +868,68 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             })()}
           </div>
 
-          {/* PURCHASES */}
-          <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5"><FiPackage size={11} /> Purchases ({accountPurchases.length})</span>
+          {/* PRODUCT LTV */}
+          <div className="bg-gradient-to-b from-amber-950/20 to-neutral-950/40 border border-amber-500/20 rounded-xl p-3 space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+              <FiTrendingUp size={11} /> Product LTV
+              {accountPurchases.length > 0 && (
+                <span className="ml-auto text-[9px] font-black text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                  ${accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} LTV
+                </span>
+              )}
+            </span>
             {accountPurchases.length === 0 ? (
-              <p className="text-xs text-neutral-500 text-center py-2">No purchase history</p>
+              <p className="text-xs text-neutral-500 text-center py-3">No products purchased yet</p>
             ) : (
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-[9px] uppercase tracking-wider text-neutral-500 border-b border-neutral-800/60">
-                    <th className="text-left py-1 pr-1">Item</th>
-                    <th className="text-right py-1 pr-1">Qty</th>
-                    <th className="text-right py-1">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accountPurchases.map((p: any, i: number) => (
-                    <tr key={i} className="border-b border-neutral-800/30">
-                      <td className="py-1 pr-1 text-neutral-300 font-medium truncate max-w-[140px]">{p.name}</td>
-                      <td className="py-1 pr-1 text-right text-neutral-400 font-bold">{p.quantity}</td>
-                      <td className="py-1 text-right text-emerald-400 font-bold">${p.totalSpend?.toFixed(0)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="space-y-2">
+                {accountPurchases.map((p: any, i: number) => {
+                  const maxSpend = Math.max(...accountPurchases.map((x: any) => x.totalSpend || 0))
+                  const pct = maxSpend > 0 ? ((p.totalSpend || 0) / maxSpend) * 100 : 0
+                  const avgOrder = p.quantity > 0 ? (p.totalSpend || 0) / p.quantity : 0
+                  return (
+                    <div key={i} className="bg-neutral-900/60 border border-neutral-800/40 rounded-lg p-2.5">
+                      <div className="flex items-start justify-between mb-1">
+                        <span className="text-xs text-white font-bold leading-tight pr-2 flex-1">{p.name}</span>
+                        <span className="text-xs font-black text-amber-400 shrink-0">${(p.totalSpend || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                      </div>
+                      {p.sku && p.sku !== 'N/A' && (
+                        <span className="text-[8px] font-bold text-neutral-600 uppercase">SKU: {p.sku}</span>
+                      )}
+                      <div className="w-full bg-neutral-800/60 rounded-full h-1.5 mt-1.5 overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-500" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <span className="text-[9px] text-neutral-500">
+                          <span className="text-neutral-400 font-bold">{p.quantity}</span> units purchased
+                        </span>
+                        <span className="text-[9px] text-neutral-500">
+                          avg <span className="text-neutral-400 font-bold">${avgOrder.toFixed(0)}</span>/unit
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+                {/* Account LTV Summary */}
+                <div className="border-t border-amber-500/10 pt-2 mt-1 grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <div className="text-xs font-black text-amber-400">{accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0)}</div>
+                    <div className="text-[8px] font-bold text-neutral-600 uppercase">Total Units</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-black text-emerald-400">{accountPurchases.length}</div>
+                    <div className="text-[8px] font-bold text-neutral-600 uppercase">Products</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-black text-cyan-400">
+                      ${accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0) > 0 && accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0) > 0
+                        ? (accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0) / accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0)).toFixed(0)
+                        : '0'
+                      }
+                    </div>
+                    <div className="text-[8px] font-bold text-neutral-600 uppercase">Avg/Unit</div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 
