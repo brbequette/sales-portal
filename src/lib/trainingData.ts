@@ -754,12 +754,15 @@ The **Sales Outreach Campaign** has been redesigned as a **full-screen 3-panel d
 
 #### Right Panel — Account Intelligence
 - **Profile**: Billing address, shipping address, industry, tags, owner, website
-- **Purchase History**: Full scrollable table (Item, Qty, Total)
+- **Product LTV**: Per-product lifetime value cards with visual spend bars, total LTV badge, avg cost per unit, and account-wide summary KPIs
 - **Deals**: Active deals with stage, amount, closing date
 - **Invoices**: All invoices with status badges (paid/overdue/other)
 - **Sales Orders**: SO number, status, amount
 - **Notes/Call Log**: Previous notes with author, sentiment, date
-- **Fact-Finding Profile**: Read-only summary of known account intelligence
+- **Fact-Finding (Unified)**: Collapsible editable form that doubles as the saved profile — shows compact summary when collapsed, full pill-selectable form when expanded. Data is pre-filled from account records and saved on call log.
+
+#### Phone Numbers & ZDialer
+Phone numbers are displayed as plain text (not tel: links) so Zoho ZDialer can detect and handle click-to-call. The "Call" button copies the number to clipboard for ZDialer use.
 
 ### Sales Close Script
 After the blade pitch recommendations, the campaign dialer includes a **Move to Close** section with 4 scripted steps:

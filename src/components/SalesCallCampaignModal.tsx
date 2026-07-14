@@ -79,11 +79,8 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
       })
     }).catch(err => console.error("Error logging call initiation:", err))
     
-    const link = document.createElement('a')
-    link.href = `tel:${phone}`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    // Copy number to clipboard for ZDialer - no tel: link to avoid native phone app
+    navigator.clipboard?.writeText(phone).catch(() => {})
   }
 
   // Power Dialer Auto-Dial Effect
@@ -202,10 +199,10 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const cleanPhone = displayPhone ? displayPhone.replace(/[^0-9+]/g, '') : ''
   const contactName = spokeTo || (primaryContact ? `${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim() : "there")
 
-  const renderPills = (options: string[], valueStr: string, setValueStr: (val: string) => void) => {
+  const renderPills = (options: string[], valueStr: string, setValueStr: (val: string) => void, compact = false) => {
     const selected = valueStr ? valueStr.split(',').map(s => s.trim()).filter(Boolean) : []
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className={`flex flex-wrap ${compact ? 'gap-1' : 'gap-2'}`}>
         {options.map(opt => {
           const isChecked = selected.includes(opt)
           return (
@@ -218,13 +215,13 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                   : [...selected, opt]
                 setValueStr(newSelected.join(', '))
               }}
-              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+              className={`${compact ? 'px-1.5 py-0.5 text-[8px]' : 'px-2.5 py-1.5 text-[10px]'} rounded-lg font-bold border transition-all cursor-pointer ${
                 isChecked
                   ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
                   : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400'
               }`}
             >
-              {isChecked ? 'âœ" ' : ''}{opt}
+              {isChecked ? '✓ ' : ''}{opt}
             </button>
           )
         })}
@@ -526,9 +523,9 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 <p className="text-sm text-neutral-400 font-semibold mt-0.5">{activeAccount.name}</p>
                 <div className="flex flex-wrap items-center gap-4 mt-3">
                   {displayPhone && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5" title="Phone number for ZDialer">
                       <FiPhoneCall size={13} className="text-cyan-500" />
-                      <span className="text-sm font-mono font-bold text-cyan-300">{formatPhoneNumber(displayPhone)}</span>
+                      <span className="text-sm font-mono font-bold text-cyan-300 select-all">{formatPhoneNumber(displayPhone)}</span>
                     </div>
                   )}
                   {displayEmail && (
@@ -612,59 +609,6 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             <div className="bg-neutral-950/60 border border-neutral-800 p-5 rounded-2xl text-sm text-neutral-300 leading-relaxed whitespace-pre-line select-text">
               {generateScript()}
             </div>
-          </div>
-
-          {/* FACT FINDING - Collapsible */}
-          <div className="mx-5 mt-4">
-            <button
-              type="button"
-              onClick={() => setShowFactFinding(!showFactFinding)}
-              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 transition-colors cursor-pointer"
-            >
-              {showFactFinding ? <FiChevronDown size={14} /> : <FiChevronRight size={14} />}
-              <span>ðŸ"‹ Fact-Finding Questions</span>
-            </button>
-
-            {showFactFinding && (
-              <div className="bg-neutral-950/60 border border-amber-900/30 p-5 rounded-2xl space-y-4 mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Blade Sizes</label>
-                    {renderPills(['10"', '12"', '14"', '16"', '18"', '20"', '24"', '30"', '36"'], ffBladeSizes, setFfBladeSizes)}
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Crew Count</label>
-                    {renderPills(['1', '2-3', '4-5', '6-10', '10+'], ffCrewCount, setFfCrewCount)}
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Materials Cut</label>
-                    {renderPills(['Concrete', 'Asphalt', 'Brick', 'Block', 'Stone', 'Pavers', 'Granite', 'Marble', 'Tile', 'Ductile Iron', 'Rebar', 'Green Concrete'], ffMaterialsCut, setFfMaterialsCut)}
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Blades Per Order</label>
-                    {renderPills(['1-3', '4-6', '6-10', '12-25', '25+'], ffBladesPerOrder, setFfBladesPerOrder)}
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Current Supplier</label>
-                    <input type="text" value={ffCurrentSupplier} onChange={e => setFfCurrentSupplier(e.target.value)} placeholder="e.g. Home Depot, local supplier" className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Avg Blade Cost</label>
-                    <input type="text" value={ffAvgBladeCost} onChange={e => setFfAvgBladeCost(e.target.value)} placeholder="e.g. $45-65" className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors" />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Improvement Priority</label>
-                    <select value={ffImprovementPriority} onChange={e => setFfImprovementPriority(e.target.value)} className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors cursor-pointer">
-                      <option value="">-- Select --</option>
-                      <option value="Longer life">Longer Life</option>
-                      <option value="Faster cutting">Faster Cutting</option>
-                      <option value="Cleaner cutting">Cleaner Cutting</option>
-                      <option value="Lower price">Lower Price</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* BLADE PITCH RECOMMENDATIONS */}
@@ -1024,20 +968,80 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             )}
           </div>
 
-          {/* FACT FINDING PROFILE (read-only) */}
-          {(activeAccount.bladeSizes || activeAccount.materialsCut || activeAccount.currentSupplier || activeAccount.crewCount || activeAccount.bladesPerOrder || activeAccount.improvementPriority) && (
-            <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5"><FiActivity size={11} /> Fact-Finding Profile</span>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                {activeAccount.bladeSizes && <><span className="text-[9px] font-bold text-neutral-600">Blades:</span><span className="text-xs text-neutral-300">{activeAccount.bladeSizes}</span></>}
-                {activeAccount.materialsCut && <><span className="text-[9px] font-bold text-neutral-600">Materials:</span><span className="text-xs text-neutral-300">{activeAccount.materialsCut}</span></>}
-                {activeAccount.currentSupplier && <><span className="text-[9px] font-bold text-neutral-600">Supplier:</span><span className="text-xs text-neutral-300">{activeAccount.currentSupplier}</span></>}
-                {activeAccount.crewCount && <><span className="text-[9px] font-bold text-neutral-600">Crews:</span><span className="text-xs text-neutral-300">{activeAccount.crewCount}</span></>}
-                {activeAccount.bladesPerOrder && <><span className="text-[9px] font-bold text-neutral-600">Per Order:</span><span className="text-xs text-neutral-300">{activeAccount.bladesPerOrder}</span></>}
-                {activeAccount.improvementPriority && <><span className="text-[9px] font-bold text-neutral-600">Priority:</span><span className="text-xs text-neutral-300">{activeAccount.improvementPriority}</span></>}
+          {/* FACT-FINDING (unified editable form + saved data) */}
+          <div className="bg-gradient-to-b from-amber-950/20 to-neutral-950/40 border border-amber-500/20 rounded-xl p-3 space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowFactFinding(!showFactFinding)}
+              className="w-full flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 transition-colors cursor-pointer"
+            >
+              <FiActivity size={11} />
+              Fact-Finding
+              {(ffBladeSizes || ffMaterialsCut || ffCurrentSupplier) && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 text-[8px] text-amber-300 font-black">
+                  {[ffBladeSizes, ffMaterialsCut, ffCurrentSupplier, ffCrewCount, ffBladesPerOrder, ffImprovementPriority].filter(Boolean).length}/6
+                </span>
+              )}
+              <span className="ml-auto">{showFactFinding ? <FiChevronDown size={12} /> : <FiChevronRight size={12} />}</span>
+            </button>
+
+            {/* Compact summary when collapsed */}
+            {!showFactFinding && (ffBladeSizes || ffMaterialsCut || ffCurrentSupplier || ffCrewCount || ffImprovementPriority) && (
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 pt-1">
+                {ffBladeSizes && <><span className="text-[8px] font-bold text-neutral-600">Blades:</span><span className="text-[10px] text-neutral-300">{ffBladeSizes}</span></>}
+                {ffMaterialsCut && <><span className="text-[8px] font-bold text-neutral-600">Materials:</span><span className="text-[10px] text-neutral-300">{ffMaterialsCut}</span></>}
+                {ffCurrentSupplier && <><span className="text-[8px] font-bold text-neutral-600">Supplier:</span><span className="text-[10px] text-neutral-300">{ffCurrentSupplier}</span></>}
+                {ffCrewCount && <><span className="text-[8px] font-bold text-neutral-600">Crews:</span><span className="text-[10px] text-neutral-300">{ffCrewCount}</span></>}
+                {ffBladesPerOrder && <><span className="text-[8px] font-bold text-neutral-600">Per Order:</span><span className="text-[10px] text-neutral-300">{ffBladesPerOrder}</span></>}
+                {ffAvgBladeCost && <><span className="text-[8px] font-bold text-neutral-600">Avg Cost:</span><span className="text-[10px] text-neutral-300">{ffAvgBladeCost}</span></>}
+                {ffImprovementPriority && <><span className="text-[8px] font-bold text-neutral-600">Priority:</span><span className="text-[10px] text-amber-400 font-bold">{ffImprovementPriority}</span></>}
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Editable form when expanded */}
+            {showFactFinding && (
+              <div className="space-y-2.5 pt-1">
+                <div>
+                  <label className="block text-[8px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Blade Sizes</label>
+                  {renderPills(['10"', '12"', '14"', '16"', '18"', '20"', '24"', '30"', '36"'], ffBladeSizes, setFfBladeSizes, true)}
+                </div>
+                <div>
+                  <label className="block text-[8px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Materials Cut</label>
+                  {renderPills(['Concrete', 'Asphalt', 'Brick', 'Block', 'Stone', 'Pavers', 'Granite', 'Marble', 'Tile', 'Ductile Iron', 'Rebar', 'Green Concrete'], ffMaterialsCut, setFfMaterialsCut, true)}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[8px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Crew Count</label>
+                    {renderPills(['1', '2-3', '4-5', '6-10', '10+'], ffCrewCount, setFfCrewCount, true)}
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Blades/Order</label>
+                    {renderPills(['1-3', '4-6', '6-10', '12-25', '25+'], ffBladesPerOrder, setFfBladesPerOrder, true)}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[8px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Current Supplier</label>
+                    <input type="text" value={ffCurrentSupplier} onChange={e => setFfCurrentSupplier(e.target.value)} placeholder="e.g. Home Depot" className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-amber-500 transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Avg Blade Cost</label>
+                    <input type="text" value={ffAvgBladeCost} onChange={e => setFfAvgBladeCost(e.target.value)} placeholder="e.g. $45-65" className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-amber-500 transition-colors" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[8px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Improvement Priority</label>
+                  <select value={ffImprovementPriority} onChange={e => setFfImprovementPriority(e.target.value)} className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-amber-500 transition-colors cursor-pointer">
+                    <option value="">-- Select --</option>
+                    <option value="Longer life">Longer Life</option>
+                    <option value="Faster cutting">Faster Cutting</option>
+                    <option value="Cleaner cutting">Cleaner Cutting</option>
+                    <option value="Lower price">Lower Price</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
 
         </div>
 
