@@ -15,6 +15,9 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    const params = event.queryStringParameters || {}
+    const visibleOnly = params.visibleOnly === "true"
+
     const users = await prisma.user.findMany({
       where: {
         AND: [
@@ -27,15 +30,26 @@ export const handler: Handler = async (event) => {
         id: true, 
         name: true, 
         email: true, 
-        role: true
+        role: true,
+        zohoId: true,
+        showOnSalesBoard: true,
       },
       orderBy: { name: "asc" }
     })
 
+    let filtered = users
+    if (visibleOnly) {
+      const visibleRepsSetting = await prisma.systemSetting.findUnique({ where: { key: "visible_reps" } })
+      const visibleReps: string[] = JSON.parse(visibleRepsSetting?.value || "[]")
+      if (visibleReps.length > 0) {
+        filtered = users.filter(u => visibleReps.includes(u.id))
+      }
+    }
+
     return {
       statusCode: 200,
       headers: cors,
-      body: JSON.stringify({ success: true, users })
+      body: JSON.stringify({ success: true, users: filtered })
     }
   } catch (error: any) {
     console.error("Get Users Error:", error)

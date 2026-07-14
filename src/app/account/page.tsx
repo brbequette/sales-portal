@@ -388,55 +388,39 @@ function AccountHubContent() {
                 </div>
 
                 {/* ── Business Profile (Blade/Equipment Details) ── */}
-                {(account.bladeSizes || account.materialsCut || account.currentSupplier || account.crewCount || account.bladesPerOrder || account.averageBladeCost) && (
-                  <div className="bg-neutral-950/30 p-4 border border-neutral-800/80 rounded-xl">
-                    <h4 className="text-[10px] font-bold text-orange-400 uppercase tracking-wider mb-3">Business Profile</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
-                      {account.bladeSizes && (
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Blade Sizes</span>
-                          <span className="text-neutral-200 font-bold">{account.bladeSizes}</span>
-                        </div>
-                      )}
-                      {account.materialsCut && (
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Materials Cut</span>
-                          <span className="text-neutral-200 font-bold">{account.materialsCut}</span>
-                        </div>
-                      )}
-                      {account.currentSupplier && (
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Current Supplier</span>
-                          <span className="text-neutral-200 font-bold">{account.currentSupplier}</span>
-                        </div>
-                      )}
-                      {account.averageBladeCost && (
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Avg Blade Cost</span>
-                          <span className="text-emerald-400 font-bold">{account.averageBladeCost}</span>
-                        </div>
-                      )}
-                      {account.crewCount && (
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Crew Count</span>
-                          <span className="text-neutral-200 font-bold">{account.crewCount}</span>
-                        </div>
-                      )}
-                      {account.bladesPerOrder && (
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Blades/Order</span>
-                          <span className="text-neutral-200 font-bold">{account.bladesPerOrder}</span>
-                        </div>
-                      )}
-                      {account.improvementPriority && (
-                        <div className="col-span-2">
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Improvement Priority</span>
-                          <span className="text-neutral-200 font-bold">{account.improvementPriority}</span>
-                        </div>
-                      )}
+                <div className="bg-neutral-950/30 p-4 border border-neutral-800/80 rounded-xl">
+                  <h4 className="text-[10px] font-bold text-orange-400 uppercase tracking-wider mb-3">Business Profile</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Blade Sizes</span>
+                      <span className="text-neutral-200 font-bold">{account.bladeSizes || <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Materials Cut</span>
+                      <span className="text-neutral-200 font-bold">{account.materialsCut || <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Current Supplier</span>
+                      <span className="text-neutral-200 font-bold">{account.currentSupplier || <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Avg Blade Cost</span>
+                      <span className="text-neutral-200 font-bold">{account.averageBladeCost ? <span className="text-emerald-400 font-bold">{account.averageBladeCost}</span> : <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Crew Count</span>
+                      <span className="text-neutral-200 font-bold">{account.crewCount || <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Blades/Order</span>
+                      <span className="text-neutral-200 font-bold">{account.bladesPerOrder || <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Improvement Priority</span>
+                      <span className="text-neutral-200 font-bold">{account.improvementPriority || <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
                     </div>
                   </div>
-                )}
+                </div>
 
                 {account.booksContact?.notes && (
                   <div className="bg-neutral-950/20 p-4 border border-neutral-800/80 rounded-xl">

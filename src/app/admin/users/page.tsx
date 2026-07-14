@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { FiCheckSquare, FiSquare, FiUser, FiShield, FiChevronDown, FiChevronUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSave, FiUserPlus, FiEdit3, FiSearch, FiArrowUp, FiArrowDown, FiRefreshCw, FiUsers } from "react-icons/fi"
+import { FiCheckSquare, FiSquare, FiUser, FiShield, FiChevronDown, FiChevronUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSave, FiUserPlus, FiEdit3, FiSearch, FiArrowUp, FiArrowDown, FiRefreshCw, FiUsers, FiZap, FiEye, FiEyeOff } from "react-icons/fi"
 import { PERMISSION_GROUPS, ALL_PERMISSIONS, DEFAULT_REP_PERMISSIONS, resolvePermissions, type UserPermissions } from "@/lib/permissions"
 
 type SortField = "name" | "email" | "role" | "accountCount"
@@ -41,15 +41,71 @@ export default function AdminUsersPage() {
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set())
   const [assigning, setAssigning] = useState(false)
   const [assignProgress, setAssignProgress] = useState({ done: 0, total: 0, errors: [] as string[] })
+  const [syncing, setSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState("")
+  const [visibleReps, setVisibleReps] = useState<string[]>([])
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/admin/users')
+      const data = await res.json()
+      if (data.success) setUsers(data.users || [])
+    } catch {}
+  }
+
+  const fetchVisibleReps = async () => {
+    try {
+      const res = await fetch('/api/get-update-config')
+      const data = await res.json()
+      if (data.success && data.config?.visibleReps) {
+        setVisibleReps(data.config.visibleReps)
+      }
+    } catch {}
+  }
 
   useEffect(() => {
-    fetch('/api/admin/users')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setUsers(data.users || [])
-      })
-      .finally(() => setLoading(false))
+    Promise.all([fetchUsers(), fetchVisibleReps()]).finally(() => setLoading(false))
   }, [])
+
+  const syncFromZoho = async () => {
+    setSyncing(true)
+    setSyncMessage("")
+    try {
+      const res = await fetch('/api/get-accounts?refresh=true&includeHidden=true')
+      const data = await res.json()
+      if (data.success) {
+        // Refresh the user list
+        await fetchUsers()
+        setSyncMessage(`✅ Synced! ${users.length} users loaded from Zoho.`)
+      } else {
+        setSyncMessage(`❌ Sync failed: ${data.error || 'Unknown error'}`)
+      }
+    } catch (e: any) {
+      setSyncMessage(`❌ Sync error: ${e.message}`)
+    } finally {
+      setSyncing(false)
+      setTimeout(() => setSyncMessage(""), 5000)
+    }
+  }
+
+  const toggleVisibleRep = async (userId: string) => {
+    const newSet = new Set(visibleReps)
+    if (newSet.has(userId)) newSet.delete(userId)
+    else newSet.add(userId)
+    const newList = Array.from(newSet)
+    setVisibleReps(newList)
+    try {
+      // Save via update-config endpoint
+      const configRes = await fetch('/api/get-update-config')
+      const configData = await configRes.json()
+      const currentConfig = configData.success ? configData.config : {}
+      await fetch('/api/save-update-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...currentConfig, visibleReps: newList })
+      })
+    } catch {}
+  }
 
   const getEffectivePermissions = (user: any): UserPermissions => {
     return resolvePermissions(user.permissions, user.role)
@@ -344,20 +400,34 @@ export default function AdminUsersPage() {
   return (
     <div className="flex flex-col text-neutral-100 font-sans h-full">
       <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto safe-bottom">
-        <header className="flex items-center justify-between gap-4 mb-2">
+        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2">
           <div>
             <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <FiShield className="text-emerald-400" /> User Permissions
+              <FiShield className="text-emerald-400" /> User Management
             </h1>
-            <p className="text-xs text-neutral-500 mt-1">Configure feature access for each user. Click a user to expand their permissions.</p>
+            <p className="text-xs text-neutral-500 mt-1">Manage users, permissions, and visibility across the portal. Click a user to expand.</p>
           </div>
-          <button
-            onClick={() => { setShowAddUser(true); setAddError(""); setNewUser({ name: "", email: "", role: "Sales Representative", zohoId: "" }) }}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors cursor-pointer"
-          >
-            <FiUserPlus size={14} /> Add User
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={syncFromZoho}
+              disabled={syncing}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 hover:bg-sky-500/30 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <FiRefreshCw size={14} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync from Zoho'}
+            </button>
+            <button
+              onClick={() => { setShowAddUser(true); setAddError(""); setNewUser({ name: "", email: "", role: "Sales Representative", zohoId: "" }) }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors cursor-pointer"
+            >
+              <FiUserPlus size={14} /> Add User
+            </button>
+          </div>
         </header>
+        {syncMessage && (
+          <div className={`text-xs font-semibold px-3 py-2 rounded-lg ${syncMessage.startsWith('✅') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+            {syncMessage}
+          </div>
+        )}
 
         {/* Search + Filter Bar */}
         <div className="flex flex-col sm:flex-row gap-3">
@@ -431,7 +501,20 @@ export default function AdminUsersPage() {
                       {isAdmin ? <FiShield size={18} /> : <FiUser size={18} />}
                     </div>
                     <div>
-                      <h3 className="font-bold text-white text-sm">{user.name || "Unnamed User"}</h3>
+                      <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                        {user.name || "Unnamed User"}
+                        {user.zohoId ? (
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" title={`Zoho ID: ${user.zohoId}`}>ZOHO ✓</span>
+                        ) : (
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20" title="No Zoho ID linked">NO ZOHO</span>
+                        )}
+                        {visibleReps.length > 0 && visibleReps.includes(user.id) && (
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400 border border-purple-500/20" title="Visible across portal (Stats, Commissions, Dashboard)">VISIBLE</span>
+                        )}
+                        {user.showOnSalesBoard && (
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20" title="Shown on Sales Board">BOARD</span>
+                        )}
+                      </h3>
                       <p className="text-[10px] text-neutral-500">
                         {user.email} &bull; <span className={isAdmin ? "text-emerald-400 font-bold" : "text-neutral-400"}>{user.role}</span>
                         {" "}&bull;{" "}
@@ -530,33 +613,52 @@ export default function AdminUsersPage() {
                       </div>
                     </div>
 
-                    {/* Sales Board Toggle */}
-                    <div className="flex items-center justify-between bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-4 py-3">
-                      <div>
-                        <div className="text-xs font-bold text-white flex items-center gap-2">
-                          <FiUsers className="text-amber-400" size={13} /> Show on Sales Board
+                    {/* Visibility Toggles */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Visible in Portal (Stats, Commissions, Dashboard) */}
+                      <div className="flex items-center justify-between bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-4 py-3">
+                        <div>
+                          <div className="text-xs font-bold text-white flex items-center gap-2">
+                            <FiEye className="text-purple-400" size={13} /> Visible in Portal
+                          </div>
+                          <div className="text-[10px] text-neutral-500 mt-0.5">Show in Stats, Commissions, Dashboard dropdowns</div>
                         </div>
-                        <div className="text-[10px] text-neutral-500 mt-0.5">Include this user on the live Sales Board display</div>
+                        <button
+                          onClick={() => toggleVisibleRep(user.id)}
+                          className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${visibleReps.includes(user.id) ? 'bg-purple-500' : 'bg-neutral-700'}`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${visibleReps.includes(user.id) ? 'translate-x-5' : ''}`} />
+                        </button>
                       </div>
-                      <button
-                        onClick={async () => {
-                          const newVal = !user.showOnSalesBoard
-                          try {
-                            const res = await fetch('/api/admin/users', {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ id: user.id, showOnSalesBoard: newVal })
-                            })
-                            const data = await res.json()
-                            if (data.success) {
-                              setUsers(prev => prev.map(u => u.id === user.id ? { ...u, showOnSalesBoard: newVal } : u))
-                            }
-                          } catch {}
-                        }}
-                        className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${user.showOnSalesBoard ? 'bg-amber-500' : 'bg-neutral-700'}`}
-                      >
-                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${user.showOnSalesBoard ? 'translate-x-5' : ''}`} />
-                      </button>
+
+                      {/* Show on Sales Board */}
+                      <div className="flex items-center justify-between bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-4 py-3">
+                        <div>
+                          <div className="text-xs font-bold text-white flex items-center gap-2">
+                            <FiUsers className="text-amber-400" size={13} /> Show on Sales Board
+                          </div>
+                          <div className="text-[10px] text-neutral-500 mt-0.5">Include this user on the live Sales Board display</div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const newVal = !user.showOnSalesBoard
+                            try {
+                              const res = await fetch('/api/admin/users', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: user.id, showOnSalesBoard: newVal })
+                              })
+                              const data = await res.json()
+                              if (data.success) {
+                                setUsers(prev => prev.map(u => u.id === user.id ? { ...u, showOnSalesBoard: newVal } : u))
+                              }
+                            } catch {}
+                          }}
+                          className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${user.showOnSalesBoard ? 'bg-amber-500' : 'bg-neutral-700'}`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${user.showOnSalesBoard ? 'translate-x-5' : ''}`} />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Permission Groups */}

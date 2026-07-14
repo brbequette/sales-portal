@@ -40,6 +40,7 @@ type Invoice = {
     ownerId?: string | null
   } | null
   shipping_charge?: number | null
+  account_quality?: string | null
 }
 
 type CallOutcome =
@@ -1083,6 +1084,7 @@ export default function CollectionsPage() {
   const [showCallCampaign, setShowCallCampaign] = useState(false)
   
   const [showAllReps, setShowAllReps] = useState(false)
+  const [showDoNotCall, setShowDoNotCall] = useState(false)
 
   const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
 
@@ -1113,6 +1115,9 @@ export default function CollectionsPage() {
 
   // Ownership filtering: My Invoices vs All Reps
   const visibleInvoices = invoices.filter(i => {
+    // DNC filtering — hide invoices whose account is DO_NOT_CALL unless checkbox is checked
+    if (!showDoNotCall && i.account_quality === "DO_NOT_CALL") return false
+
     if (showAllReps) return true
     if (!user) return true
     const myName = user.name?.toLowerCase() || ""
@@ -1345,6 +1350,16 @@ export default function CollectionsPage() {
               </select>
             </div>
           )}
+
+          <label className="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showDoNotCall}
+              onChange={e => setShowDoNotCall(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-red-500 focus:ring-red-500"
+            />
+            <span>Include Do Not Call</span>
+          </label>
         </div>
 
         {/* Filters Button */}

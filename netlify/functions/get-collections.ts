@@ -153,6 +153,7 @@ export const handler: Handler = async (event) => {
         customer_city: inv.account?.billingCity || null,
         customer_state: inv.account?.billingState || null,
         shipping_charge: items?.shippingCharge ?? null,
+        account_quality: inv.account?.quality || null,
       }
     })
 

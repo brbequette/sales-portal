@@ -37,6 +37,7 @@ export default function AdminUpdateAccountsPage() {
 
   const [apiError, setApiError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [showDoNotCall, setShowDoNotCall] = useState(false)
 
   const normalizedRole = currentUser?.role?.toLowerCase() || ""
   const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
@@ -209,6 +210,7 @@ export default function AdminUpdateAccountsPage() {
   // Filter
   const filtered = useMemo(() => {
     let result = accountsWithStats
+      .filter(a => showDoNotCall || a.quality !== "DO_NOT_CALL")
     if (ownerFilter !== "All") {
       result = result.filter(a => a.ownerId === ownerFilter)
     }
@@ -223,7 +225,7 @@ export default function AdminUpdateAccountsPage() {
       result = result.filter(a => a.totalRev <= parseFloat(ltvMax))
     }
     return result
-  }, [accountsWithStats, ownerFilter, localSearch, ltvMin, ltvMax])
+  }, [accountsWithStats, ownerFilter, localSearch, ltvMin, ltvMax, showDoNotCall])
 
   // Sort
   const sorted = useMemo(() => {
@@ -434,7 +436,7 @@ export default function AdminUpdateAccountsPage() {
               ))}
             </div>
             {/* LTV Range Filter */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <FiDollarSign size={12} className="text-neutral-500 shrink-0" />
               <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider shrink-0">LTV</span>
               <input
@@ -457,6 +459,16 @@ export default function AdminUpdateAccountsPage() {
                   <FiX size={12} />
                 </button>
               )}
+              <div className="w-px h-4 bg-neutral-700 mx-1" />
+              <label className="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showDoNotCall}
+                  onChange={e => setShowDoNotCall(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-red-500 focus:ring-red-500"
+                />
+                <span>Include Do Not Call</span>
+              </label>
             </div>
           </div>
 

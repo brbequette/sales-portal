@@ -326,7 +326,7 @@ Every customer has a single profile that ties everything together.
 ### What's on an account
 - **Billing & Shipping Addresses** — always visible at the top of the Overview tab, stored locally so they load instantly.
 - **Company Profile** — phone, website, industry, and tags.
-- **Business Profile** — blade sizes, materials cut, current supplier, average blade cost, crew count, blades per order, and improvement priority.
+- **Business Profile** — always visible on the account page showing blade sizes, materials cut, current supplier, average blade cost, crew count, blades per order, and improvement priority. Fields show "Not recorded" when empty. Edit via the Edit Account modal which has multi-select pill toggles for each fact-finding field.
 - **Contacts** with phone numbers used for calling and texting.
 - **Purchase history** and products purchased.
 - **Deals/quotes** and invoice history.
@@ -337,7 +337,7 @@ Every customer has a single profile that ties everything together.
 - Mark the **primary contact** so calls and texts use the right number.
 - Set the account **timezone** for considerate call timing.
 - Keep **status** and **quality** current so dashboards and reassignment work correctly.
-- Update the **business profile** fields when you learn about a customer's equipment and needs.
+- Update the **business profile** fields when you learn about a customer's equipment and needs — use the Edit Account modal's pill selectors under the "📋 Fact-Finding" section.
 
 ### Customer location in Collections
 The Collections page shows each customer's **city and state** below their name for quick location reference.
@@ -771,6 +771,68 @@ After the blade pitch recommendations, the campaign dialer includes a **Move to 
 4. **Final Close** — relationship-building wrap-up and confirmation of shipping timeline
 
 The blade pitches now include the **full pricing, free blade promotion, and close transition** from the actual sales scripts.
+    `,
+  },
+  // ─────────────────────────────── ADMIN & MANAGEMENT ───────────────────────────────
+  {
+    id: "admin-fact-finding",
+    title: "Fact-Finding on Account Pages",
+    category: "Admin & Management",
+    content: `
+### Fact-Finding Questions
+
+Every account has 7 fact-finding fields that capture key information about the customer's blade usage. You can view and edit these from the **Account page → Overview tab → Business Profile** section.
+
+### Editing Fact-Finding Data
+1. Navigate to any account page
+2. Click the **Edit** button in the header
+3. Scroll to the **📋 Fact-Finding** section
+4. Click pills to select/deselect answers for each question:
+   - **Blade Sizes** — what size blades they run (10"–36")
+   - **Materials Cut** — what they're cutting (Concrete, Asphalt, Brick, etc.)
+   - **Current Supplier** — where they buy blades (Home Depot, Sunbelt, etc.)
+   - **Avg Blade Cost** — how much they pay per blade
+   - **Crew Count** — how many crews they have
+   - **Blades Per Order** — how many blades they buy at a time
+   - **Improvement Priority** — what matters most (Longer life, Faster cutting, etc.)
+
+### Where Fact-Finding Gets Captured
+- **Campaign Dialer** — automatically asked during sales calls and saved when the call is logged
+- **Account Edit Modal** — manually editable at any time
+- Existing answers are never overwritten unless you change them
+
+### Business Profile Display
+The Business Profile section on the account Overview tab **always appears** — even if no data has been collected yet. Fields without data show "Not recorded" in muted text so you can see what's missing at a glance.
+    `,
+  },
+  {
+    id: "admin-do-not-call",
+    title: "Do Not Call (DNC) Filtering",
+    category: "Admin & Management",
+    content: `
+### How Do Not Call Works
+
+Accounts can be marked as **🚫 DO NOT CALL** using the Quality Picker on any account page. Once marked, they are **hidden by default** from all lists across the portal.
+
+### Where DNC Filtering Applies
+- **Dashboard / Sales Hub** — DNC accounts are hidden from all effort modes (Sales, Call List, Cold Call)
+- **Update Accounts** — DNC accounts are hidden from the admin account management list
+- **Collections** — DNC accounts are filtered out of overdue invoice lists
+
+### How to Include DNC Accounts
+Every page that filters DNC accounts has an **"Include Do Not Call"** checkbox in the filter area. Check it to temporarily show those accounts alongside regular ones.
+
+### Setting DNC Status
+1. Go to any account page
+2. Use the **Quality Picker** dropdown (top of the page, near the account name)
+3. Select **🚫 DO NOT CALL**
+
+The account will immediately be hidden from all lists until you check the "Include Do Not Call" filter checkbox.
+
+### Important Notes
+- DNC status is **never auto-changed** by the system — it's a manual override that sticks
+- The Zoho sync will not downgrade or change DNC status
+- You can always find DNC accounts by checking the filter checkbox or searching by name
     `,
   },
 ]

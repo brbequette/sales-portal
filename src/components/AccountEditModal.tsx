@@ -7,6 +7,32 @@ interface AccountEditModalProps {
   onSaved: () => void
 }
 
+const FACT_FINDING_FIELDS: { key: string; label: string; options: string[] }[] = [
+  { key: "bladeSizes", label: "Blade Sizes", options: ['10"', '12"', '14"', '16"', '18"', '20"', '24"', '30"', '36"'] },
+  { key: "materialsCut", label: "Materials Cut", options: ["Concrete", "Asphalt", "Brick", "Block", "Stone", "Pavers", "Granite", "Marble", "Tile", "Ductile Iron", "Rebar", "Green Concrete"] },
+  { key: "currentSupplier", label: "Current Supplier", options: ["Home Depot", "Lowes", "Sunbelt", "United Rentals", "White Cap", "HD Supply", "Ace", "Local Supplier", "Online", "Manufacturer Direct", "Other"] },
+  { key: "averageBladeCost", label: "Avg Blade Cost", options: ["$25-50", "$50-75", "$75-100", "$100-150", "$150-200", "$200-300", "$300-400", "$400+"] },
+  { key: "crewCount", label: "Crew Count", options: ["1", "2-3", "4-5", "6-10", "10+"] },
+  { key: "bladesPerOrder", label: "Blades Per Order", options: ["1-3", "4-6", "6-10", "12-25", "25+"] },
+  { key: "improvementPriority", label: "Improvement Priority", options: ["Longer life", "Faster cutting", "Cleaner cutting", "Lower price"] },
+]
+
+function togglePillValue(current: string, value: string): string {
+  const items = current.split(",").map(s => s.trim()).filter(Boolean)
+  const idx = items.indexOf(value)
+  if (idx >= 0) {
+    items.splice(idx, 1)
+  } else {
+    items.push(value)
+  }
+  return items.join(", ")
+}
+
+function isPillSelected(current: string, value: string): boolean {
+  const items = current.split(",").map(s => s.trim()).filter(Boolean)
+  return items.includes(value)
+}
+
 export function AccountEditModal({ account, onClose, onSaved }: AccountEditModalProps) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -15,6 +41,13 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
     timeZone: account?.timeZone || "",
     tags: Array.isArray(account?.tags) ? account.tags.join(", ") : (account?.tags || ""),
     status: account?.status || "Open",
+    bladeSizes: account?.bladeSizes || "",
+    materialsCut: account?.materialsCut || "",
+    currentSupplier: account?.currentSupplier || "",
+    averageBladeCost: account?.averageBladeCost || "",
+    crewCount: account?.crewCount || "",
+    bladesPerOrder: account?.bladesPerOrder || "",
+    improvementPriority: account?.improvementPriority || "",
   })
 
   const handleSave = async () => {
@@ -30,7 +63,14 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
           industry: formData.industry,
           timeZone: formData.timeZone,
           tags: formattedTags,
-          status: formData.status
+          status: formData.status,
+          bladeSizes: formData.bladeSizes,
+          materialsCut: formData.materialsCut,
+          currentSupplier: formData.currentSupplier,
+          averageBladeCost: formData.averageBladeCost,
+          crewCount: formData.crewCount,
+          bladesPerOrder: formData.bladesPerOrder,
+          improvementPriority: formData.improvementPriority,
         })
       })
 
@@ -50,7 +90,7 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="bg-[#111111] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-[#111111] border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#0f1013] shrink-0">
@@ -110,6 +150,40 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
+          </div>
+
+          {/* ── Fact-Finding Section ── */}
+          <div className="border-t border-neutral-800 pt-4 mt-2">
+            <h3 className="text-sm font-bold text-orange-400 mb-4">📋 Fact-Finding</h3>
+            <div className="space-y-4">
+              {FACT_FINDING_FIELDS.map(field => {
+                const currentValue = (formData as any)[field.key] as string
+                return (
+                  <div key={field.key}>
+                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">{field.label}</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {field.options.map(option => {
+                        const selected = isPillSelected(currentValue, option)
+                        return (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, [field.key]: togglePillValue(currentValue, option) })}
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                              selected
+                                ? "bg-orange-500/20 text-orange-300 border border-orange-500/30"
+                                : "bg-neutral-800 text-neutral-400 border border-neutral-700 hover:border-neutral-600"
+                            }`}
+                          >
+                            {option}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
 
