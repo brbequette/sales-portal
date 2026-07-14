@@ -1578,6 +1578,11 @@ export default function Dashboard() {
                                     setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, timeZone: newTz } : a))
                                   }}
                                 />
+                                {account.owner?.name && (
+                                  <span className="text-[10px] text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 flex items-center gap-1">
+                                    <FiUser size={8} />{account.owner.name.split(' ')[0]}
+                                  </span>
+                                )}
                               </div>
                               {/* Mobile-only compact metadata stack */}
                               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap sm:hidden text-[10px] text-neutral-400 font-medium">

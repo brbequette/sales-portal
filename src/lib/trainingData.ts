@@ -434,7 +434,7 @@ Administrators and managers get an **Admin Settings** hub with controls that gov
 - **Payouts** — record and adjust commission payouts.
 - **Team Timeclock** — review and approve everyone's hours.
 - **Vig** — late-fee settings.
-- **Update Accounts** — bulk account maintenance.
+- **Update Accounts** — bulk account maintenance and owner reassignment. Changing account owner updates both the CRM Account record AND all associated Contacts to the new rep. Account owner name (first name) is shown as a sky-blue chip on every account card in the dashboard.
     `,
   },
   {
