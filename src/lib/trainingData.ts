@@ -745,7 +745,7 @@ The **Sales Outreach Campaign** has been redesigned as a **full-screen 3-panel d
 
 #### Center Panel — Dialer + Script + Close
 - **Sticky Account HUD** (always visible while scrolling): Contact name, company, phone (ZDialer text), email, address, Call/SMS/Email buttons, KPI chips (LTV, Units, Overdue), top 3 products inline
-- **Outreach Script**: Cold Call / Follow-Up toggle with dynamic personalized script
+- **Outreach Script + Fact-Finding**: Cold Call / Follow-Up toggle. On Cold Call, each of the 7 fact-finding questions appears inline with its form (pill selectors, text inputs) directly below the question text. A progress tracker (7 dots) shows completion. On Follow-Up, the generated script shows first, followed by any missing fact-finding fields.
 - **Blade Pitch Recommendations**: Good → Better → Best with full pricing and free blade promotions
 - **Sales Close Script**: 4-step close (Verify Address → Payment → Email → Final Close)
 - **Log Outcome**: Contact reached toggle, spoke with, outcome dropdown, notes, follow-up date, Skip/Log & Next
