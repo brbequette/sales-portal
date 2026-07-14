@@ -609,6 +609,55 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 </div>
               )}
             </div>
+
+            {/* Row 4: Fact-Finding Summary (appears as answers come in) */}
+            {(ffBladeSizes || ffMaterialsCut || ffCurrentSupplier || ffAvgBladeCost || ffCrewCount || ffBladesPerOrder || ffImprovementPriority) && (
+              <div className="px-5 mt-1.5 flex items-center gap-1.5 flex-wrap">
+                <FiActivity size={9} className="text-amber-500/60" />
+                {ffBladeSizes && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/5 border border-amber-500/10">
+                    <span className="text-[7px] font-bold text-neutral-600">Blades:</span>
+                    <span className="text-[8px] font-bold text-amber-300">{ffBladeSizes}</span>
+                  </span>
+                )}
+                {ffMaterialsCut && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/5 border border-amber-500/10">
+                    <span className="text-[7px] font-bold text-neutral-600">Cuts:</span>
+                    <span className="text-[8px] font-bold text-amber-300">{ffMaterialsCut}</span>
+                  </span>
+                )}
+                {ffCurrentSupplier && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/5 border border-amber-500/10">
+                    <span className="text-[7px] font-bold text-neutral-600">From:</span>
+                    <span className="text-[8px] font-bold text-amber-300">{ffCurrentSupplier}</span>
+                  </span>
+                )}
+                {ffAvgBladeCost && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/5 border border-amber-500/10">
+                    <span className="text-[7px] font-bold text-neutral-600">Pays:</span>
+                    <span className="text-[8px] font-bold text-amber-300">{ffAvgBladeCost}</span>
+                  </span>
+                )}
+                {ffCrewCount && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/5 border border-amber-500/10">
+                    <span className="text-[7px] font-bold text-neutral-600">Crews:</span>
+                    <span className="text-[8px] font-bold text-amber-300">{ffCrewCount}</span>
+                  </span>
+                )}
+                {ffBladesPerOrder && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/5 border border-amber-500/10">
+                    <span className="text-[7px] font-bold text-neutral-600">Qty:</span>
+                    <span className="text-[8px] font-bold text-amber-300">{ffBladesPerOrder}</span>
+                  </span>
+                )}
+                {ffImprovementPriority && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-500/5 border border-emerald-500/15">
+                    <span className="text-[7px] font-bold text-neutral-600">Wants:</span>
+                    <span className="text-[8px] font-black text-emerald-400">{ffImprovementPriority}</span>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* SCRIPT + FACT-FINDING FLOW (integrated) */}
