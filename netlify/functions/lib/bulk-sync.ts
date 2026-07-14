@@ -105,6 +105,26 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
         const dbAccountId = nameMap.get(contactName)
         if (!dbAccountId) { result.skipped++; continue }
 
+        // Check if this account already has this zohoId (no-op) or if another account owns it
+        const existingWithZohoId = await prisma.account.findUnique({ where: { zohoId: contactId }, select: { id: true } })
+        if (existingWithZohoId) {
+          if (existingWithZohoId.id === dbAccountId) {
+            result.skipped++ // Already correct
+          } else {
+            console.warn(`Contacts sync: zohoId ${contactId} already belongs to account ${existingWithZohoId.id}, skipping for ${dbAccountId} (${contactName})`)
+            result.skipped++
+          }
+          continue
+        }
+
+        // Check if this account already has a different zohoId
+        const currentAccount = await prisma.account.findUnique({ where: { id: dbAccountId }, select: { zohoId: true } })
+        if (currentAccount && currentAccount.zohoId && currentAccount.zohoId !== contactId && currentAccount.zohoId.startsWith(VALID_ORG_PREFIX)) {
+          // Account already has a valid Books zohoId — don't overwrite
+          result.skipped++
+          continue
+        }
+
         ops.push(prisma.account.update({
           where: { id: dbAccountId },
           data: { zohoId: contactId }
@@ -199,10 +219,25 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
       }
     }
 
-    // Execute in batches of 50
+    // Execute in batches of 50 — fall back to individual on failure
     for (let i = 0; i < ops.length; i += 50) {
-      await prisma.$transaction(ops.slice(i, i + 50))
-      result.synced += Math.min(50, ops.length - i)
+      const batch = ops.slice(i, i + 50)
+      try {
+        await prisma.$transaction(batch)
+        result.synced += batch.length
+      } catch (batchErr: any) {
+        console.warn(`Batch ${i / 50 + 1} failed as transaction, retrying individually: ${batchErr.message}`)
+        // Execute each op individually so one bad record doesn't block the rest
+        for (const op of batch) {
+          try {
+            await op
+            result.synced++
+          } catch (individualErr: any) {
+            console.warn(`Individual sync failed: ${individualErr.message}`)
+            result.skipped++
+          }
+        }
+      }
     }
 
   } catch (err: any) {
