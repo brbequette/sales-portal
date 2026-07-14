@@ -67,30 +67,71 @@ export const handler: Handler = async (event) => {
     }
 
     // 2. Update Account owner in Zoho CRM
-    // Uses same pattern as trigger-reassignment.ts which works: Owner as plain string
-    const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`, {
-      method: "PUT",
-      headers: authHeaders,
-      body: JSON.stringify({
-        data: [{
-          id: account.zohoId,
-          Owner: newOwner.zohoId
-        }]
+    // First try with stored zohoId; if invalid, search CRM by name to get real CRM Account ID
+    let crmAccountId = account.zohoId
+    
+    const attemptOwnerUpdate = async (accountCrmId: string) => {
+      const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`, {
+        method: "PUT",
+        headers: authHeaders,
+        body: JSON.stringify({
+          data: [{ id: accountCrmId, Owner: newOwner.zohoId }]
+        })
       })
-    })
+      const crmData: any = await crmRes.json()
+      return { ok: crmRes.ok, data: crmData }
+    }
 
-    const crmData: any = await crmRes.json()
+    let result = await attemptOwnerUpdate(crmAccountId)
 
-    if (!crmRes.ok || crmData.data?.[0]?.code !== "SUCCESS") {
-      console.error("Zoho CRM Account Owner Update Failed:", JSON.stringify(crmData))
-      const detail = crmData.data?.[0]?.message || crmData.message || crmData.code || JSON.stringify(crmData)
+    // If ID is invalid, search CRM by account name to find the real CRM Account ID
+    if (!result.ok || result.data.data?.[0]?.code !== "SUCCESS") {
+      const invalidMsg = result.data.data?.[0]?.message || result.data.message || ""
+      console.log(`Direct update failed (${invalidMsg}), searching CRM for account: ${account.name}`)
+      
+      try {
+        const searchRes = await fetch(
+          `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/search?criteria=(Account_Name:equals:${encodeURIComponent(account.name)})&fields=id,Account_Name,Owner`,
+          { headers: authHeaders }
+        )
+        if (searchRes.ok) {
+          const searchData: any = await searchRes.json()
+          if (searchData.data && searchData.data.length > 0) {
+            crmAccountId = searchData.data[0].id
+            console.log(`Found CRM Account ID: ${crmAccountId} for "${account.name}"`)
+            
+            // Retry with the real CRM ID
+            result = await attemptOwnerUpdate(crmAccountId)
+            
+            // Update local DB with correct CRM ID if different
+            if (crmAccountId !== account.zohoId) {
+              try {
+                await prisma.account.update({
+                  where: { id: accountId },
+                  data: { zohoId: crmAccountId }
+                })
+                console.log(`Updated local zohoId from ${account.zohoId} to ${crmAccountId}`)
+              } catch (e) {
+                console.error("Failed to update local zohoId:", e)
+              }
+            }
+          }
+        }
+      } catch (searchErr) {
+        console.error("CRM search fallback error:", searchErr)
+      }
+    }
+
+    if (!result.ok || result.data.data?.[0]?.code !== "SUCCESS") {
+      console.error("Zoho CRM Account Owner Update Failed:", JSON.stringify(result.data))
+      const detail = result.data.data?.[0]?.message || result.data.message || result.data.code || JSON.stringify(result.data)
       return {
         statusCode: 500,
         headers: cors,
         body: JSON.stringify({ 
           success: false, 
           message: `Failed to update account owner in Zoho CRM: ${detail}`,
-          details: crmData 
+          details: result.data 
         })
       }
     }
@@ -100,7 +141,7 @@ export const handler: Handler = async (event) => {
     let contactErrors: string[] = []
     try {
       const searchRes = await fetch(
-        `https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/search?criteria=(Account_Name.id:equals:${account.zohoId})&fields=id,Full_Name`,
+        `https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/search?criteria=(Account_Name.id:equals:${crmAccountId})&fields=id,Full_Name`,
         { headers: authHeaders }
       )
 
