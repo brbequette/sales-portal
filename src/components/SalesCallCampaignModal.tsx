@@ -426,93 +426,41 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
 
   return (
     <div className="fixed inset-0 z-[200] bg-[#06080f] flex flex-col">
-      {/* ─── TOP HEADER BAR (Sticky) ─── */}
-      <header className="bg-[#0a0d14]/95 backdrop-blur-md border-b border-cyan-500/10 px-5 py-2.5 shrink-0 sticky top-0 z-50">
-        <div className="flex items-center justify-between">
-          {/* Left: Branding + Account Counter */}
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center">
-              <FiPhoneCall className="text-cyan-400 animate-pulse" size={16} />
-            </div>
-            <div>
-              <h1 className="text-white font-black text-sm tracking-wide">TITAN SALES DIALER</h1>
-              <p className="text-[10px] text-neutral-500 font-bold">Account {currentIndex + 1} of {accounts.length}</p>
-            </div>
+      {/* --- COMPACT TOP BAR --- */}
+      <header className="bg-[#0a0d14] border-b border-cyan-500/10 px-5 py-1.5 shrink-0 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center">
+            <FiPhoneCall className="text-cyan-400 animate-pulse" size={12} />
           </div>
-
-          {/* Center: Account Stats + Top Products */}
-          <div className="flex items-center gap-3">
-            {/* KPI Chips */}
-            {accountPurchases.length > 0 && (
-              <>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/5 border border-amber-500/15">
-                  <FiDollarSign size={11} className="text-amber-500" />
-                  <span className="text-[11px] font-black text-amber-400">${accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                  <span className="text-[8px] font-bold text-neutral-600 uppercase">LTV</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/5 border border-blue-500/15">
-                  <FiShoppingCart size={11} className="text-blue-500" />
-                  <span className="text-[11px] font-black text-blue-400">{accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0)}</span>
-                  <span className="text-[8px] font-bold text-neutral-600 uppercase">Units</span>
-                </div>
-              </>
-            )}
-            {/* Overdue Balance */}
-            {(() => {
-              const overdueInvs = (activeAccount.invoices || []).filter((inv: any) => inv.status?.toLowerCase() === 'overdue')
-              const overdueTotal = overdueInvs.reduce((s: number, inv: any) => s + (Number(inv.balance) || Number(inv.total) || 0), 0)
-              return overdueTotal > 0 ? (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/5 border border-red-500/20">
-                  <FiAlertCircle size={11} className="text-red-500" />
-                  <span className="text-[11px] font-black text-red-400">${overdueTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                  <span className="text-[8px] font-bold text-neutral-600 uppercase">Due</span>
-                </div>
-              ) : null
-            })()}
-
-            {/* Top 3 Products - pipe separator */}
-            {accountPurchases.length > 0 && (
-              <div className="flex items-center gap-1 pl-2 border-l border-neutral-800/60">
-                <FiPackage size={10} className="text-neutral-600 mr-0.5" />
-                {accountPurchases.slice(0, 3).map((p: any, i: number) => (
-                  <span key={i} className="flex items-center gap-1">
-                    {i > 0 && <span className="text-neutral-800">·</span>}
-                    <span className="text-[9px] text-neutral-400 font-bold truncate max-w-[100px]" title={p.name}>{p.name}</span>
-                    <span className="text-[8px] font-black text-emerald-500">${(p.totalSpend || 0) >= 1000 ? ((p.totalSpend / 1000).toFixed(1) + 'k') : (p.totalSpend || 0).toFixed(0)}</span>
-                  </span>
-                ))}
-              </div>
-            )}
+          <h1 className="text-white font-black text-xs tracking-wide">TITAN DIALER</h1>
+          <span className="text-[9px] text-neutral-600 font-bold">{currentIndex + 1}/{accounts.length}</span>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/40 border border-cyan-500/20">
+            <FiClock className="text-cyan-500/60" size={11} />
+            <span className="font-mono text-sm font-black text-cyan-400 tabular-nums tracking-wider">{formatTimer(timerSeconds)}</span>
           </div>
-
-          {/* Right: Timer + Controls */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-cyan-500/20">
-              <FiClock className="text-cyan-500/60" size={12} />
-              <span className="font-mono text-base font-black text-cyan-400 tabular-nums tracking-wider">{formatTimer(timerSeconds)}</span>
-            </div>
-            <button
-              onClick={() => setIsPowerDialerActive(!isPowerDialerActive)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold transition-all border cursor-pointer ${
-                isPowerDialerActive
-                  ? 'bg-cyan-500 border-cyan-400 text-black shadow-lg shadow-cyan-500/30 animate-pulse'
-                  : 'bg-neutral-900/60 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
-              }`}
-            >
-              <FiZap size={12} />
-              {isPowerDialerActive ? "⚡ AUTO" : "Power Dialer"}
-            </button>
-            <button
-              onClick={onClose}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer border border-transparent hover:border-red-500/20"
-            >
-              <FiX size={14} /> End
-            </button>
-          </div>
+          <button
+            onClick={() => setIsPowerDialerActive(!isPowerDialerActive)}
+            className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold transition-all border cursor-pointer ${
+              isPowerDialerActive
+                ? 'bg-cyan-500 border-cyan-400 text-black shadow-lg shadow-cyan-500/30 animate-pulse'
+                : 'bg-neutral-900/60 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
+            }`}
+          >
+            <FiZap size={10} />
+            {isPowerDialerActive ? "\u26a1 AUTO" : "Power Dialer"}
+          </button>
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+          >
+            <FiX size={12} /> End
+          </button>
         </div>
       </header>
 
-      {/* ─── MAIN 3-PANEL BODY ─── */}
+      {/* --- MAIN 3-PANEL BODY --- */}
       <div className="flex-1 flex min-h-0">
 
         {/* === LEFT PANEL: ACCOUNT QUEUE === */}
@@ -545,7 +493,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-1 ml-4">
-                    {isDone && <span className="text-[9px] text-neutral-600">✓ Done</span>}
+                    {isDone && <span className="text-[9px] text-neutral-600">{'\u2713'} Done</span>}
                     {!isDone && hasPhone && <FiPhoneCall size={9} className="text-neutral-600" />}
                     {!isDone && hasOverdue && <span className="text-[8px] font-bold text-red-500/70 uppercase">Overdue</span>}
                   </div>
@@ -558,67 +506,110 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
         {/* === CENTER PANEL: DIALER + SCRIPT + CLOSE + LOG === */}
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-thin">
 
-          {/* DIALER HUD */}
-          <div className="mx-5 mt-5 bg-gradient-to-r from-cyan-500/[0.04] to-blue-500/[0.04] border border-cyan-500/15 rounded-2xl p-6">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h2 className="text-2xl font-black text-white leading-tight">{contactName}</h2>
-                <p className="text-sm text-neutral-400 font-semibold mt-0.5">{activeAccount.name}</p>
-                <div className="flex flex-wrap items-center gap-4 mt-3">
-                  {displayPhone && (
-                    <div className="flex items-center gap-1.5" title="Phone number for ZDialer">
-                      <FiPhoneCall size={13} className="text-cyan-500" />
-                      <span className="text-sm font-mono font-bold text-cyan-300 select-all">{formatPhoneNumber(displayPhone)}</span>
-                    </div>
-                  )}
-                  {displayEmail && (
-                    <a href={`mailto:${displayEmail}`} className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 transition-colors">
-                      <FiMail size={13} />
-                      <span className="font-mono font-bold truncate max-w-[200px]">{displayEmail}</span>
-                    </a>
-                  )}
-                  {(() => {
-                    const addr = accountDetail || activeAccount
-                    const ship = addr.shippingStreet || addr.shippingCity
-                    return ship ? (
-                      <div className="flex items-center gap-1.5 text-xs text-neutral-400">
-                        <FiMapPin size={12} className="text-neutral-500" />
-                        <span>{addr.shippingStreet && `${addr.shippingStreet}, `}{addr.shippingCity && `${addr.shippingCity}, `}{addr.shippingState} {addr.shippingZip}</span>
-                      </div>
-                    ) : null
-                  })()}
-                </div>
+          {/* STICKY ACCOUNT HUD - stays visible at all times */}
+          <div className="sticky top-0 z-40 bg-[#06080f]/95 backdrop-blur-md border-b border-cyan-500/10 pb-3">
+            {/* Row 1: Contact Name + Actions */}
+            <div className="px-5 pt-3 flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl font-black text-white leading-tight truncate">{contactName}</h2>
+                <p className="text-xs text-neutral-400 font-semibold truncate">{activeAccount.name}</p>
               </div>
-              <div className="flex gap-2 shrink-0">
+              <div className="flex gap-1.5 shrink-0 ml-3">
                 {cleanPhone && (
                   <button
                     onClick={() => initiateCall(cleanPhone)}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-[10px] rounded-lg shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
                   >
-                    <FiPhoneCall size={14} /> Call
+                    <FiPhoneCall size={12} /> Call
                   </button>
                 )}
                 {cleanPhone && (
                   <a
                     href={`sms:${cleanPhone}`}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 transition-all"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-[10px] rounded-lg border border-emerald-500/20 transition-all"
                   >
-                    💬 SMS
+                    {'\ud83d\udcac'} SMS
                   </a>
                 )}
                 {displayEmail && (
                   <a
                     href={`mailto:${displayEmail}`}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-xs rounded-xl border border-blue-500/20 transition-all"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-[10px] rounded-lg border border-blue-500/20 transition-all"
                   >
-                    <FiMail size={14} /> Email
+                    <FiMail size={12} /> Email
                   </a>
                 )}
               </div>
             </div>
-          </div>
 
-          {/* KPI stats moved to top header bar */}
+            {/* Row 2: Phone + Email + Address */}
+            <div className="px-5 mt-1.5 flex flex-wrap items-center gap-3">
+              {displayPhone && (
+                <div className="flex items-center gap-1" title="Phone number for ZDialer">
+                  <FiPhoneCall size={10} className="text-cyan-500" />
+                  <span className="text-xs font-mono font-bold text-cyan-300 select-all">{formatPhoneNumber(displayPhone)}</span>
+                </div>
+              )}
+              {displayEmail && (
+                <div className="flex items-center gap-1 text-xs text-blue-400">
+                  <FiMail size={10} />
+                  <span className="font-mono font-bold truncate max-w-[180px]">{displayEmail}</span>
+                </div>
+              )}
+              {(() => {
+                const addr = accountDetail || activeAccount
+                const ship = addr.shippingStreet || addr.shippingCity
+                return ship ? (
+                  <div className="flex items-center gap-1 text-[10px] text-neutral-400">
+                    <FiMapPin size={10} className="text-neutral-500" />
+                    <span>{addr.shippingStreet && `${addr.shippingStreet}, `}{addr.shippingCity && `${addr.shippingCity}, `}{addr.shippingState} {addr.shippingZip}</span>
+                  </div>
+                ) : null
+              })()}
+            </div>
+
+            {/* Row 3: Stats Chips + Top 3 Products */}
+            <div className="px-5 mt-2 flex items-center gap-2 flex-wrap">
+              {accountPurchases.length > 0 && (
+                <>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/5 border border-amber-500/15">
+                    <FiDollarSign size={10} className="text-amber-500" />
+                    <span className="text-[10px] font-black text-amber-400">${accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                    <span className="text-[7px] font-bold text-neutral-600 uppercase">LTV</span>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/5 border border-blue-500/15">
+                    <FiShoppingCart size={10} className="text-blue-500" />
+                    <span className="text-[10px] font-black text-blue-400">{accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0)}</span>
+                    <span className="text-[7px] font-bold text-neutral-600 uppercase">Units</span>
+                  </div>
+                </>
+              )}
+              {(() => {
+                const overdueInvs = (activeAccount.invoices || []).filter((inv: any) => inv.status?.toLowerCase() === 'overdue')
+                const overdueTotal = overdueInvs.reduce((s: number, inv: any) => s + (Number(inv.balance) || Number(inv.total) || 0), 0)
+                return overdueTotal > 0 ? (
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/5 border border-red-500/20">
+                    <FiAlertCircle size={10} className="text-red-500" />
+                    <span className="text-[10px] font-black text-red-400">${overdueTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                    <span className="text-[7px] font-bold text-neutral-600 uppercase">Due</span>
+                  </div>
+                ) : null
+              })()}
+              {/* Top 3 Products inline */}
+              {accountPurchases.length > 0 && (
+                <div className="flex items-center gap-1 pl-1.5 border-l border-neutral-800/60">
+                  <FiPackage size={9} className="text-neutral-600" />
+                  {accountPurchases.slice(0, 3).map((p: any, i: number) => (
+                    <span key={i} className="flex items-center gap-0.5">
+                      {i > 0 && <span className="text-neutral-800">{'\u00b7'}</span>}
+                      <span className="text-[8px] text-neutral-400 font-bold truncate max-w-[90px]" title={p.name}>{p.name}</span>
+                      <span className="text-[7px] font-black text-emerald-500">${(p.totalSpend || 0) >= 1000 ? ((p.totalSpend / 1000).toFixed(1) + 'k') : (p.totalSpend || 0).toFixed(0)}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* SCRIPT SECTION */}
           <div className="mx-5 mt-4 space-y-2">
