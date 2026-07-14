@@ -426,53 +426,96 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
 
   return (
     <div className="fixed inset-0 z-[200] bg-[#06080f] flex flex-col">
-
-      {/* â"€â"€â"€ TOP HEADER BAR â"€â"€â"€ */}
-      <header className="bg-[#0a0d14] border-b border-cyan-500/10 h-14 px-5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center">
-            <FiPhoneCall className="text-cyan-400 animate-pulse" size={16} />
-          </div>
-          <div>
-            <h1 className="text-white font-black text-sm tracking-wide">TITAN SALES DIALER</h1>
-            <p className="text-[10px] text-neutral-500 font-bold">Account {currentIndex + 1} of {accounts.length}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          {/* Call Timer */}
-          <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/40 border border-cyan-500/20">
-            <FiClock className="text-cyan-500/60" size={14} />
-            <span className="font-mono text-lg font-black text-cyan-400 tabular-nums tracking-wider">{formatTimer(timerSeconds)}</span>
+      {/* ─── TOP HEADER BAR (Sticky) ─── */}
+      <header className="bg-[#0a0d14]/95 backdrop-blur-md border-b border-cyan-500/10 px-5 py-2.5 shrink-0 sticky top-0 z-50">
+        <div className="flex items-center justify-between">
+          {/* Left: Branding + Account Counter */}
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center">
+              <FiPhoneCall className="text-cyan-400 animate-pulse" size={16} />
+            </div>
+            <div>
+              <h1 className="text-white font-black text-sm tracking-wide">TITAN SALES DIALER</h1>
+              <p className="text-[10px] text-neutral-500 font-bold">Account {currentIndex + 1} of {accounts.length}</p>
+            </div>
           </div>
 
-          {/* Power Dialer */}
-          <button
-            onClick={() => setIsPowerDialerActive(!isPowerDialerActive)}
-            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all border cursor-pointer ${
-              isPowerDialerActive
-                ? 'bg-cyan-500 border-cyan-400 text-black shadow-lg shadow-cyan-500/30 animate-pulse'
-                : 'bg-neutral-900/60 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
-            }`}
-          >
-            <FiZap size={14} />
-            {isPowerDialerActive ? "âš¡ AUTO-DIAL ON" : "Power Dialer"}
-          </button>
+          {/* Center: Account Stats + Top Products */}
+          <div className="flex items-center gap-3">
+            {/* KPI Chips */}
+            {accountPurchases.length > 0 && (
+              <>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/5 border border-amber-500/15">
+                  <FiDollarSign size={11} className="text-amber-500" />
+                  <span className="text-[11px] font-black text-amber-400">${accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  <span className="text-[8px] font-bold text-neutral-600 uppercase">LTV</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/5 border border-blue-500/15">
+                  <FiShoppingCart size={11} className="text-blue-500" />
+                  <span className="text-[11px] font-black text-blue-400">{accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0)}</span>
+                  <span className="text-[8px] font-bold text-neutral-600 uppercase">Units</span>
+                </div>
+              </>
+            )}
+            {/* Overdue Balance */}
+            {(() => {
+              const overdueInvs = (activeAccount.invoices || []).filter((inv: any) => inv.status?.toLowerCase() === 'overdue')
+              const overdueTotal = overdueInvs.reduce((s: number, inv: any) => s + (Number(inv.balance) || Number(inv.total) || 0), 0)
+              return overdueTotal > 0 ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/5 border border-red-500/20">
+                  <FiAlertCircle size={11} className="text-red-500" />
+                  <span className="text-[11px] font-black text-red-400">${overdueTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  <span className="text-[8px] font-bold text-neutral-600 uppercase">Due</span>
+                </div>
+              ) : null
+            })()}
 
-          {/* End Campaign */}
-          <button
-            onClick={onClose}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer border border-transparent hover:border-red-500/20"
-          >
-            <FiX size={16} /> End
-          </button>
+            {/* Top 3 Products - pipe separator */}
+            {accountPurchases.length > 0 && (
+              <div className="flex items-center gap-1 pl-2 border-l border-neutral-800/60">
+                <FiPackage size={10} className="text-neutral-600 mr-0.5" />
+                {accountPurchases.slice(0, 3).map((p: any, i: number) => (
+                  <span key={i} className="flex items-center gap-1">
+                    {i > 0 && <span className="text-neutral-800">·</span>}
+                    <span className="text-[9px] text-neutral-400 font-bold truncate max-w-[100px]" title={p.name}>{p.name}</span>
+                    <span className="text-[8px] font-black text-emerald-500">${(p.totalSpend || 0) >= 1000 ? ((p.totalSpend / 1000).toFixed(1) + 'k') : (p.totalSpend || 0).toFixed(0)}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Right: Timer + Controls */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-cyan-500/20">
+              <FiClock className="text-cyan-500/60" size={12} />
+              <span className="font-mono text-base font-black text-cyan-400 tabular-nums tracking-wider">{formatTimer(timerSeconds)}</span>
+            </div>
+            <button
+              onClick={() => setIsPowerDialerActive(!isPowerDialerActive)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold transition-all border cursor-pointer ${
+                isPowerDialerActive
+                  ? 'bg-cyan-500 border-cyan-400 text-black shadow-lg shadow-cyan-500/30 animate-pulse'
+                  : 'bg-neutral-900/60 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
+              }`}
+            >
+              <FiZap size={12} />
+              {isPowerDialerActive ? "⚡ AUTO" : "Power Dialer"}
+            </button>
+            <button
+              onClick={onClose}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer border border-transparent hover:border-red-500/20"
+            >
+              <FiX size={14} /> End
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* â"€â"€â"€ MAIN 3-PANEL BODY â"€â"€â"€ */}
+      {/* ─── MAIN 3-PANEL BODY ─── */}
       <div className="flex-1 flex min-h-0">
 
-        {/* â•â•â• LEFT PANEL: ACCOUNT QUEUE â•â•â• */}
+        {/* === LEFT PANEL: ACCOUNT QUEUE === */}
         <div className="w-52 bg-[#080b12] border-r border-neutral-800/50 flex flex-col shrink-0">
           <div className="px-3 py-3 border-b border-neutral-800/40">
             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Queue ({accounts.length})</span>
@@ -502,7 +545,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-1 ml-4">
-                    {isDone && <span className="text-[9px] text-neutral-600">âœ" Done</span>}
+                    {isDone && <span className="text-[9px] text-neutral-600">✓ Done</span>}
                     {!isDone && hasPhone && <FiPhoneCall size={9} className="text-neutral-600" />}
                     {!isDone && hasOverdue && <span className="text-[8px] font-bold text-red-500/70 uppercase">Overdue</span>}
                   </div>
@@ -512,7 +555,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
           </div>
         </div>
 
-        {/* â•â•â• CENTER PANEL: DIALER + SCRIPT + CLOSE + LOG â•â•â• */}
+        {/* === CENTER PANEL: DIALER + SCRIPT + CLOSE + LOG === */}
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-thin">
 
           {/* DIALER HUD */}
@@ -560,7 +603,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                     href={`sms:${cleanPhone}`}
                     className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 transition-all"
                   >
-                    ðŸ'¬ SMS
+                    💬 SMS
                   </a>
                 )}
                 {displayEmail && (
@@ -575,25 +618,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             </div>
           </div>
 
-          {/* BUYING HISTORY KPIs */}
-          {accountPurchases.length > 0 && (
-            <div className="grid grid-cols-3 gap-3 px-5 mt-4">
-              <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl px-3 py-2 text-center">
-                <div className="text-sm font-black text-amber-400">
-                  ${accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                </div>
-                <div className="text-[9px] font-bold text-neutral-500 uppercase">Total Spend</div>
-              </div>
-              <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl px-3 py-2 text-center">
-                <div className="text-sm font-black text-blue-400">{accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0)}</div>
-                <div className="text-[9px] font-bold text-neutral-500 uppercase">Items Bought</div>
-              </div>
-              <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl px-3 py-2 text-center">
-                <div className="text-sm font-black text-emerald-400">{accountPurchases.length}</div>
-                <div className="text-[9px] font-bold text-neutral-500 uppercase">Products</div>
-              </div>
-            </div>
-          )}
+          {/* KPI stats moved to top header bar */}
 
           {/* SCRIPT SECTION */}
           <div className="mx-5 mt-4 space-y-2">
@@ -670,10 +695,10 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 If card: "Perfect, go ahead and read the number from left to right, 4 digits at a time."
               </p>
               <div className="pl-7 mt-2 grid grid-cols-2 gap-2">
-                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ'³ Full card number</div>
-                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ"... Expiration date</div>
-                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ"' CVV code</div>
-                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ" Billing ZIP code</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">💳 Full card number</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">📅 Expiration date</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">🔒 CVV code</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">📍 Billing ZIP code</div>
               </div>
               <p className="text-xs text-neutral-500 pl-7 mt-2 italic">
                 Or Net 30: "Great  --  I'll get everything rolling and email your invoice with Net 30 terms. Who's the best contact for billing on your end?"
@@ -696,7 +721,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             {/* Step 4: Final Close */}
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black flex items-center justify-center">âœ"</span>
+                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black flex items-center justify-center">✓</span>
                 <h4 className="text-white font-bold text-sm">Final Close</h4>
               </div>
               <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
@@ -774,7 +799,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
 
         </div>
 
-        {/* â•â•â• RIGHT PANEL: ACCOUNT INTEL â•â•â• */}
+        {/* === RIGHT PANEL: ACCOUNT INTEL === */}
         <div className="w-[340px] bg-[#080b12] border-l border-neutral-800/50 overflow-y-auto scrollbar-thin p-4 space-y-4 shrink-0">
 
           {isLoadingIntel && (
@@ -813,69 +838,78 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
           </div>
 
           {/* PRODUCT LTV */}
-          <div className="bg-gradient-to-b from-amber-950/20 to-neutral-950/40 border border-amber-500/20 rounded-xl p-3 space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-              <FiTrendingUp size={11} /> Product LTV
-              {accountPurchases.length > 0 && (
-                <span className="ml-auto text-[9px] font-black text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full">
-                  ${accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} LTV
-                </span>
-              )}
-            </span>
-            {accountPurchases.length === 0 ? (
-              <p className="text-xs text-neutral-500 text-center py-3">No products purchased yet</p>
-            ) : (
-              <div className="space-y-2">
-                {accountPurchases.map((p: any, i: number) => {
-                  const maxSpend = Math.max(...accountPurchases.map((x: any) => x.totalSpend || 0))
-                  const pct = maxSpend > 0 ? ((p.totalSpend || 0) / maxSpend) * 100 : 0
-                  const avgOrder = p.quantity > 0 ? (p.totalSpend || 0) / p.quantity : 0
-                  return (
-                    <div key={i} className="bg-neutral-900/60 border border-neutral-800/40 rounded-lg p-2.5">
-                      <div className="flex items-start justify-between mb-1">
-                        <span className="text-xs text-white font-bold leading-tight pr-2 flex-1">{p.name}</span>
-                        <span className="text-xs font-black text-amber-400 shrink-0">${(p.totalSpend || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                      </div>
-                      {p.sku && p.sku !== 'N/A' && (
-                        <span className="text-[8px] font-bold text-neutral-600 uppercase">SKU: {p.sku}</span>
-                      )}
-                      <div className="w-full bg-neutral-800/60 rounded-full h-1.5 mt-1.5 overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-500" style={{ width: `${pct}%` }} />
-                      </div>
-                      <div className="flex items-center justify-between mt-1.5">
-                        <span className="text-[9px] text-neutral-500">
-                          <span className="text-neutral-400 font-bold">{p.quantity}</span> units purchased
-                        </span>
-                        <span className="text-[9px] text-neutral-500">
-                          avg <span className="text-neutral-400 font-bold">${avgOrder.toFixed(0)}</span>/unit
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
-                {/* Account LTV Summary */}
-                <div className="border-t border-amber-500/10 pt-2 mt-1 grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <div className="text-xs font-black text-amber-400">{accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0)}</div>
-                    <div className="text-[8px] font-bold text-neutral-600 uppercase">Total Units</div>
+          {(() => {
+            const giftKeywords = ['shirt', 'knife', 'knives', 'hat', 'cap', 'tracking', 'adjustment', 'credit', 'discount', 'shipping', 'freight', 'free', 'promo', 'gift', 'sample', 'return']
+            const isGift = (name: string) => giftKeywords.some(k => name.toLowerCase().includes(k))
+            const products = accountPurchases.filter((p: any) => !isGift(p.name || ''))
+            const gifts = accountPurchases.filter((p: any) => isGift(p.name || ''))
+            const maxSpend = Math.max(...accountPurchases.map((x: any) => x.totalSpend || 0), 1)
+
+            const renderCard = (p: any, i: number, color: string) => {
+              const pct = maxSpend > 0 ? ((p.totalSpend || 0) / maxSpend) * 100 : 0
+              const avgOrder = p.quantity > 0 ? (p.totalSpend || 0) / p.quantity : 0
+              return (
+                <div key={i} className="bg-neutral-900/60 border border-neutral-800/40 rounded-lg p-2">
+                  <div className="flex items-start justify-between mb-0.5">
+                    <span className="text-[11px] text-white font-bold leading-tight pr-2 flex-1">{p.name}</span>
+                    <span className={`text-[11px] font-black shrink-0 ${color}`}>${(p.totalSpend || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                   </div>
-                  <div>
-                    <div className="text-xs font-black text-emerald-400">{accountPurchases.length}</div>
-                    <div className="text-[8px] font-bold text-neutral-600 uppercase">Products</div>
+                  {p.sku && p.sku !== 'N/A' && (
+                    <span className="text-[8px] font-bold text-neutral-600 uppercase">SKU: {p.sku}</span>
+                  )}
+                  <div className="w-full bg-neutral-800/60 rounded-full h-1 mt-1 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-500 ${color === 'text-amber-400' ? 'bg-gradient-to-r from-amber-500 to-amber-400' : 'bg-gradient-to-r from-purple-500 to-purple-400'}`} style={{ width: `${pct}%` }} />
                   </div>
-                  <div>
-                    <div className="text-xs font-black text-cyan-400">
-                      ${accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0) > 0 && accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0) > 0
-                        ? (accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0) / accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0)).toFixed(0)
-                        : '0'
-                      }
-                    </div>
-                    <div className="text-[8px] font-bold text-neutral-600 uppercase">Avg/Unit</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-[8px] text-neutral-500">
+                      <span className="text-neutral-400 font-bold">{p.quantity}</span> units
+                    </span>
+                    <span className="text-[8px] text-neutral-500">
+                      avg <span className="text-neutral-400 font-bold">${avgOrder.toFixed(0)}</span>/unit
+                    </span>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )
+            }
+
+            return (
+              <>
+                {/* Products Section */}
+                <div className="bg-gradient-to-b from-amber-950/20 to-neutral-950/40 border border-amber-500/20 rounded-xl p-3 space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <FiTrendingUp size={11} /> Products
+                    {products.length > 0 && (
+                      <span className="ml-auto text-[9px] font-black text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                        ${products.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} LTV
+                      </span>
+                    )}
+                  </span>
+                  {products.length === 0 ? (
+                    <p className="text-xs text-neutral-500 text-center py-2">No products purchased yet</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {products.map((p: any, i: number) => renderCard(p, i, 'text-amber-400'))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Gifts & Promos Section */}
+                {gifts.length > 0 && (
+                  <div className="bg-gradient-to-b from-purple-950/20 to-neutral-950/40 border border-purple-500/20 rounded-xl p-3 space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                      <FiTag size={11} /> Gifts & Promos
+                      <span className="ml-auto text-[9px] font-black text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-full">
+                        {gifts.length} items
+                      </span>
+                    </span>
+                    <div className="space-y-1.5">
+                      {gifts.map((p: any, i: number) => renderCard(p, i, 'text-purple-400'))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+          })()}
 
           {/* DEALS */}
           {activeAccount.deals && activeAccount.deals.length > 0 && (
