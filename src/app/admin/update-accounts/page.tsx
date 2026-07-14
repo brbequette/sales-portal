@@ -2,6 +2,7 @@
 
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { FiTarget, FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiX, FiSearch, FiArrowUp, FiArrowDown, FiCheckSquare, FiSquare, FiUsers, FiDollarSign } from "react-icons/fi"
 
@@ -503,9 +504,9 @@ export default function AdminUpdateAccountsPage() {
                       </button>
                     </td>
                     <td className="px-3 py-3">
-                      <div className="font-bold text-white truncate max-w-[200px] sm:max-w-[300px]" title={acc.name}>
+                      <Link href={`/account?id=${acc.zohoId}`} className="font-bold text-white truncate max-w-[200px] sm:max-w-[300px] block hover:text-emerald-400 transition-colors" title={acc.name}>
                         {acc.name}
-                      </div>
+                      </Link>
                       <div className="text-[10px] text-neutral-500 mt-0.5">{acc.industry || "No Industry"}</div>
                     </td>
                     <td className="px-3 py-3 text-right text-neutral-300 whitespace-nowrap">
