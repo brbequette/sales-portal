@@ -56,7 +56,7 @@ export const handler: Handler = async (event) => {
       return {
         statusCode: 404,
         headers: cors,
-        body: JSON.stringify({ success: false, message: "New owner not found or missing zohoId" })
+        body: JSON.stringify({ success: false, message: `New owner not found or missing Zoho User ID. Owner: ${newOwner?.name || 'not found'}, zohoId: ${newOwner?.zohoId || 'empty'}` })
       }
     }
 
@@ -66,44 +66,32 @@ export const handler: Handler = async (event) => {
       "Content-Type": "application/json"
     }
 
-    // 2. Update Account owner in Zoho CRM using the change_owner action
-    const accountOwnerRes = await fetch(
-      `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${account.zohoId}/actions/change_owner`,
-      {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify({
-          owner: { id: newOwner.zohoId }
-        })
-      }
-    )
-
-    const accountOwnerData: any = await accountOwnerRes.json()
-
-    if (!accountOwnerRes.ok || (accountOwnerData.data?.[0]?.code !== "SUCCESS" && accountOwnerData.status !== "success")) {
-      console.error("Zoho CRM Account Owner Change Failed:", JSON.stringify(accountOwnerData))
-      
-      // Fallback: try regular PUT with Owner field
-      const fallbackRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`, {
-        method: "PUT",
-        headers: authHeaders,
-        body: JSON.stringify({
-          data: [{ id: account.zohoId, Owner: { id: newOwner.zohoId } }]
-        })
+    // 2. Update Account owner in Zoho CRM
+    // Uses same pattern as trigger-reassignment.ts which works: Owner as plain string
+    const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`, {
+      method: "PUT",
+      headers: authHeaders,
+      body: JSON.stringify({
+        data: [{
+          id: account.zohoId,
+          Owner: newOwner.zohoId
+        }]
       })
-      const fallbackData: any = await fallbackRes.json()
-      
-      if (!fallbackRes.ok || fallbackData.data?.[0]?.code !== "SUCCESS") {
-        console.error("Zoho CRM Account Owner PUT Fallback Also Failed:", JSON.stringify(fallbackData))
-        return {
-          statusCode: 500,
-          headers: cors,
-          body: JSON.stringify({ 
-            success: false, 
-            message: "Failed to update account owner in Zoho CRM", 
-            details: { changeOwner: accountOwnerData, putFallback: fallbackData }
-          })
-        }
+    })
+
+    const crmData: any = await crmRes.json()
+
+    if (!crmRes.ok || crmData.data?.[0]?.code !== "SUCCESS") {
+      console.error("Zoho CRM Account Owner Update Failed:", JSON.stringify(crmData))
+      const detail = crmData.data?.[0]?.message || crmData.message || crmData.code || JSON.stringify(crmData)
+      return {
+        statusCode: 500,
+        headers: cors,
+        body: JSON.stringify({ 
+          success: false, 
+          message: `Failed to update account owner in Zoho CRM: ${detail}`,
+          details: crmData 
+        })
       }
     }
 
@@ -111,50 +99,43 @@ export const handler: Handler = async (event) => {
     let contactsUpdated = 0
     let contactErrors: string[] = []
     try {
-      // Search for contacts associated with this account
       const searchRes = await fetch(
         `https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/search?criteria=(Account_Name.id:equals:${account.zohoId})&fields=id,Full_Name`,
         { headers: authHeaders }
       )
 
-      if (searchRes.ok) {
+      if (searchRes.ok && searchRes.status !== 204) {
         const searchData: any = await searchRes.json()
         const contacts = searchData.data || []
 
-        // Update each contact's owner
-        for (const contact of contacts) {
-          try {
-            const contactOwnerRes = await fetch(
-              `https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/${contact.id}/actions/change_owner`,
-              {
-                method: "POST",
-                headers: authHeaders,
-                body: JSON.stringify({
-                  owner: { id: newOwner.zohoId }
-                })
-              }
-            )
-            
-            if (contactOwnerRes.ok) {
-              contactsUpdated++
-            } else {
-              // Fallback: try PUT
-              const fallbackRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts`, {
+        if (contacts.length > 0) {
+          // Batch update contacts in groups of 100 (Zoho API limit)
+          for (let i = 0; i < contacts.length; i += 100) {
+            const batch = contacts.slice(i, i + 100)
+            try {
+              const contactRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts`, {
                 method: "PUT",
                 headers: authHeaders,
                 body: JSON.stringify({
-                  data: [{ id: contact.id, Owner: { id: newOwner.zohoId } }]
+                  data: batch.map((c: any) => ({
+                    id: c.id,
+                    Owner: newOwner.zohoId
+                  }))
                 })
               })
-              const fallbackData: any = await fallbackRes.json()
-              if (fallbackRes.ok && fallbackData.data?.[0]?.code === "SUCCESS") {
-                contactsUpdated++
-              } else {
-                contactErrors.push(`Contact ${contact.Full_Name || contact.id}: ${fallbackData.data?.[0]?.message || 'failed'}`)
+              const contactData: any = await contactRes.json()
+              if (contactRes.ok && contactData.data) {
+                for (const result of contactData.data) {
+                  if (result.code === "SUCCESS") {
+                    contactsUpdated++
+                  } else {
+                    contactErrors.push(`Contact ${result.details?.id || 'unknown'}: ${result.message}`)
+                  }
+                }
               }
+            } catch (e: any) {
+              contactErrors.push(`Batch error: ${e.message}`)
             }
-          } catch (e: any) {
-            contactErrors.push(`Contact ${contact.id}: ${e.message}`)
           }
         }
       }
@@ -189,3 +170,4 @@ export const handler: Handler = async (event) => {
     }
   }
 }
+
