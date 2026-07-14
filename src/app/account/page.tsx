@@ -191,7 +191,7 @@ function AccountHubContent() {
       <header className="flex-none bg-neutral-900 border-b border-neutral-800 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <Link href="/" className="text-neutral-400 hover:text-white text-sm shrink-0">← Back</Link>
+            <button onClick={() => router.back()} className="text-neutral-400 hover:text-white text-sm shrink-0 cursor-pointer">← Back</button>
             <div className="h-5 w-px bg-neutral-700 shrink-0"></div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">

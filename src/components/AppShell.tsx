@@ -1,11 +1,11 @@
 "use client"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import {
   FiHome, FiPhoneCall, FiDollarSign, FiTool, FiUser,
-  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare
+  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare, FiArrowLeft
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 import { UserSettingsModal } from "@/components/UserSettingsModal"
@@ -13,9 +13,14 @@ import { CommandPalette } from "@/components/CommandPalette"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { zohoContext: user } = useZoho()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+
+  // Show back button on sub-pages (not main nav destinations)
+  const mainPages = ["/", "/login", "/sales", "/messages", "/collections", "/commissions", "/stats", "/tools", "/training", "/catalog", "/timeclock"]
+  const showBackButton = !mainPages.includes(pathname)
 
   const normalizedRole = user?.role?.toLowerCase() || ""
   const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
@@ -65,6 +70,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </div>
+
+        {/* Back Button */}
+        {showBackButton && (
+          <button
+            onClick={() => router.back()}
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-all relative group border border-transparent hover:border-white/10"
+            title="Go Back"
+          >
+            <FiArrowLeft size={18} />
+            <div className="absolute left-14 bg-black/80 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity border border-white/10 shadow-xl whitespace-nowrap z-50">
+              Go Back
+            </div>
+          </button>
+        )}
 
         {/* Nav */}
         <nav className="flex-1 flex flex-col items-center gap-3 w-full px-2">
