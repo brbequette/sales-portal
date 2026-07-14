@@ -676,7 +676,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                           <p className="text-sm text-cyan-100/90 leading-relaxed italic">"Where do you pick up your blades now, do you buy them retail or over the phone from a wholesaler like me?"</p>
                         </div>
                         <div className="pl-7">
-                          <input type="text" value={ffCurrentSupplier} onChange={e => setFfCurrentSupplier(e.target.value)} placeholder="e.g. Home Depot, local supplier..." className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-cyan-500 transition-colors" />
+                          {renderPills(['Home Depot', 'Lowes', 'Sunbelt', 'United Rentals', 'White Cap', 'HD Supply', 'Ace', 'Local Supplier', 'Online', 'Manufacturer Direct', 'Other'], ffCurrentSupplier, setFfCurrentSupplier, true)}
                         </div>
                       </div>
 
@@ -687,7 +687,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                           <p className="text-sm text-cyan-100/90 leading-relaxed italic">{`"How much are they charging you for a good 14" blade? $250? $300 Bucks?"`}</p>
                         </div>
                         <div className="pl-7">
-                          <input type="text" value={ffAvgBladeCost} onChange={e => setFfAvgBladeCost(e.target.value)} placeholder="e.g. $250, $45-65..." className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-cyan-500 transition-colors" />
+                          {renderPills(['$25-50', '$50-75', '$75-100', '$100-150', '$150-200', '$200-300', '$300-400', '$400+'], ffAvgBladeCost, setFfAvgBladeCost, true)}
                         </div>
                       </div>
 
@@ -767,8 +767,8 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       const fields = [
                         { label: 'Blade Sizes', q: '"What size blades are you running?"', filled: !!ffBladeSizes, render: () => renderPills(['10"', '12"', '14"', '16"', '18"', '20"', '24"', '30"', '36"'], ffBladeSizes, setFfBladeSizes, true) },
                         { label: 'Materials', q: '"What materials are you cutting?"', filled: !!ffMaterialsCut, render: () => renderPills(['Concrete', 'Asphalt', 'Brick', 'Block', 'Stone', 'Pavers', 'Granite', 'Marble', 'Tile', 'Ductile Iron', 'Rebar', 'Green Concrete'], ffMaterialsCut, setFfMaterialsCut, true) },
-                        { label: 'Supplier', q: '"Where do you pick up your blades?"', filled: !!ffCurrentSupplier, render: () => <input type="text" value={ffCurrentSupplier} onChange={e => setFfCurrentSupplier(e.target.value)} placeholder="e.g. Home Depot" className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-cyan-500 transition-colors" /> },
-                        { label: 'Avg Cost', q: '"How much are they charging you?"', filled: !!ffAvgBladeCost, render: () => <input type="text" value={ffAvgBladeCost} onChange={e => setFfAvgBladeCost(e.target.value)} placeholder="e.g. $45-65" className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-cyan-500 transition-colors" /> },
+                        { label: 'Supplier', q: '"Where do you pick up your blades?"', filled: !!ffCurrentSupplier, render: () => renderPills(['Home Depot', 'Lowes', 'Sunbelt', 'United Rentals', 'White Cap', 'HD Supply', 'Ace', 'Local Supplier', 'Online', 'Manufacturer Direct', 'Other'], ffCurrentSupplier, setFfCurrentSupplier, true) },
+                        { label: 'Avg Cost', q: '"How much are they charging you?"', filled: !!ffAvgBladeCost, render: () => renderPills(['$25-50', '$50-75', '$75-100', '$100-150', '$150-200', '$200-300', '$300-400', '$400+'], ffAvgBladeCost, setFfAvgBladeCost, true) },
                         { label: 'Crews', q: '"How many crews do you have?"', filled: !!ffCrewCount, render: () => renderPills(['1', '2-3', '4-5', '6-10', '10+'], ffCrewCount, setFfCrewCount, true) },
                         { label: 'Blades/Order', q: '"How many blades do you pick up at a time?"', filled: !!ffBladesPerOrder, render: () => renderPills(['1-3', '4-6', '6-10', '12-25', '25+'], ffBladesPerOrder, setFfBladesPerOrder, true) },
                         { label: 'Priority', q: '"What would you improve about your blades?"', filled: !!ffImprovementPriority, render: () => (
