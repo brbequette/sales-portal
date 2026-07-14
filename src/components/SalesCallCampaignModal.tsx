@@ -53,6 +53,17 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const [isGeneratingAi, setIsGeneratingAi] = useState(false)
   const [showAiMagic, setShowAiMagic] = useState(false)
 
+  // Order Builder States
+  type OrderLine = { id: string; name: string; paidQty: number; freeQty: number; unitPrice: number }
+  const [orderLines, setOrderLines] = useState<OrderLine[]>([])
+  const bladeProducts = [
+    { name: 'The Medusa Blade', wholesale: 100, promo: 68, promoFree: 1, promoPaid: 5 },
+    { name: 'The King Turbo', wholesale: 175, promo: 175, promoFree: 1, promoPaid: 2 },
+    { name: 'The Titan', wholesale: 299, promo: 250, promoFree: 1, promoPaid: 2 },
+    { name: 'The Dark Knight Blade', wholesale: 175, promo: 150, promoFree: 1, promoPaid: 3 },
+    { name: 'Titan Razor Blade', wholesale: 120, promo: 100, promoFree: 1, promoPaid: 3 },
+  ]
+
   // Power Dialer States
   const [isPowerDialerActive, setIsPowerDialerActive] = useState(false)
 
@@ -151,6 +162,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     setFfImprovementPriority(activeAccount.improvementPriority || '')
     setShowFactFinding(false)
     setExpandedFF({})
+    setOrderLines([])
 
     // Auto-detect call type
     if (activeAccount.lastCalledAt) {
@@ -410,7 +422,14 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             crewCount: ffCrewCount || undefined,
             bladesPerOrder: ffBladesPerOrder || undefined,
             improvementPriority: ffImprovementPriority || undefined,
-          }
+          },
+          orderLines: orderLines.length > 0 ? orderLines.map(l => ({
+            name: l.name,
+            paidQty: l.paidQty,
+            freeQty: l.freeQty,
+            unitPrice: l.unitPrice,
+            lineTotal: l.paidQty * l.unitPrice
+          })) : undefined
         })
       })
       const data = await response.json()
@@ -859,6 +878,138 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 <p className="text-xs text-emerald-100/70 leading-relaxed">{rec.pitch}</p>
               </div>
             ))}
+          </div>
+
+          {/* ORDER BUILDER */}
+          <div className="mx-5 mt-4 bg-violet-950/20 border border-violet-900/50 p-5 rounded-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
+                <FiShoppingCart /> Build Order
+              </span>
+              {orderLines.length > 0 && (
+                <span className="text-[10px] font-black text-violet-300">
+                  {orderLines.length} item{orderLines.length !== 1 ? 's' : ''} · ${orderLines.reduce((s, l) => s + (l.paidQty * l.unitPrice), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              )}
+            </div>
+
+            {/* Add blade buttons */}
+            <div className="flex flex-wrap gap-1.5">
+              {bladeProducts.map(bp => {
+                const already = orderLines.some(l => l.name === bp.name)
+                return (
+                  <button
+                    key={bp.name}
+                    type="button"
+                    disabled={already}
+                    onClick={() => setOrderLines(prev => [...prev, {
+                      id: Date.now().toString() + bp.name,
+                      name: bp.name,
+                      paidQty: bp.promoPaid,
+                      freeQty: bp.promoFree,
+                      unitPrice: bp.promo
+                    }])}
+                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                      already
+                        ? 'bg-violet-500/10 border-violet-500/30 text-violet-400 opacity-50 cursor-not-allowed'
+                        : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-violet-500/50 hover:text-violet-300'
+                    }`}
+                  >
+                    {already ? '✓ ' : '+ '}{bp.name}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Line Items */}
+            {orderLines.length > 0 && (
+              <div className="space-y-2">
+                {/* Header */}
+                <div className="grid grid-cols-[1fr_60px_60px_70px_70px_28px] gap-1.5 px-2 text-[8px] font-bold text-neutral-600 uppercase tracking-wider">
+                  <span>Item</span>
+                  <span className="text-center">Paid</span>
+                  <span className="text-center">Free</span>
+                  <span className="text-right">Price</span>
+                  <span className="text-right">Line $</span>
+                  <span></span>
+                </div>
+
+                {orderLines.map((line) => {
+                  const lineTotal = line.paidQty * line.unitPrice
+                  const blade = bladeProducts.find(b => b.name === line.name)
+                  return (
+                    <div key={line.id} className="grid grid-cols-[1fr_60px_60px_70px_70px_28px] gap-1.5 items-center bg-neutral-900/50 border border-neutral-800/50 rounded-lg px-2 py-1.5">
+                      <span className="text-[11px] font-bold text-white truncate">{line.name}</span>
+                      
+                      {/* Paid Qty */}
+                      <div className="flex items-center justify-center gap-0.5">
+                        <button type="button" onClick={() => setOrderLines(prev => prev.map(l => l.id === line.id ? { ...l, paidQty: Math.max(0, l.paidQty - 1) } : l))} className="w-5 h-5 rounded bg-neutral-800 text-neutral-400 text-[10px] font-bold flex items-center justify-center hover:bg-neutral-700 cursor-pointer">-</button>
+                        <span className="text-[11px] font-black text-white w-5 text-center">{line.paidQty}</span>
+                        <button type="button" onClick={() => setOrderLines(prev => prev.map(l => l.id === line.id ? { ...l, paidQty: l.paidQty + 1 } : l))} className="w-5 h-5 rounded bg-neutral-800 text-neutral-400 text-[10px] font-bold flex items-center justify-center hover:bg-neutral-700 cursor-pointer">+</button>
+                      </div>
+
+                      {/* Free Qty */}
+                      <div className="flex items-center justify-center gap-0.5">
+                        <button type="button" onClick={() => setOrderLines(prev => prev.map(l => l.id === line.id ? { ...l, freeQty: Math.max(0, l.freeQty - 1) } : l))} className="w-5 h-5 rounded bg-emerald-900/30 text-emerald-400 text-[10px] font-bold flex items-center justify-center hover:bg-emerald-900/50 cursor-pointer">-</button>
+                        <span className="text-[11px] font-black text-emerald-400 w-5 text-center">{line.freeQty}</span>
+                        <button type="button" onClick={() => setOrderLines(prev => prev.map(l => l.id === line.id ? { ...l, freeQty: l.freeQty + 1 } : l))} className="w-5 h-5 rounded bg-emerald-900/30 text-emerald-400 text-[10px] font-bold flex items-center justify-center hover:bg-emerald-900/50 cursor-pointer">+</button>
+                      </div>
+
+                      {/* Unit Price */}
+                      <div className="text-right">
+                        <input
+                          type="number"
+                          value={line.unitPrice}
+                          onChange={(e) => setOrderLines(prev => prev.map(l => l.id === line.id ? { ...l, unitPrice: parseFloat(e.target.value) || 0 } : l))}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded px-1.5 py-0.5 text-[10px] font-mono font-bold text-white text-right focus:border-violet-500 outline-none"
+                          step="0.01"
+                        />
+                      </div>
+
+                      {/* Line Total */}
+                      <span className="text-[11px] font-black text-amber-400 text-right">${lineTotal.toFixed(2)}</span>
+
+                      {/* Remove */}
+                      <button type="button" onClick={() => setOrderLines(prev => prev.filter(l => l.id !== line.id))} className="w-5 h-5 rounded bg-red-900/20 text-red-400 text-[10px] font-bold flex items-center justify-center hover:bg-red-900/40 cursor-pointer ml-auto">×</button>
+                    </div>
+                  )
+                })}
+
+                {/* Order Summary */}
+                <div className="border-t border-violet-500/20 pt-2 mt-2 space-y-1">
+                  <div className="flex justify-between px-2">
+                    <span className="text-[10px] text-neutral-400">Paid Items</span>
+                    <span className="text-[11px] font-bold text-white">{orderLines.reduce((s, l) => s + l.paidQty, 0)} blades</span>
+                  </div>
+                  <div className="flex justify-between px-2">
+                    <span className="text-[10px] text-emerald-400">Free Items</span>
+                    <span className="text-[11px] font-bold text-emerald-400">{orderLines.reduce((s, l) => s + l.freeQty, 0)} blades</span>
+                  </div>
+                  <div className="flex justify-between px-2">
+                    <span className="text-[10px] text-neutral-400">Total Blades Shipping</span>
+                    <span className="text-[11px] font-black text-white">{orderLines.reduce((s, l) => s + l.paidQty + l.freeQty, 0)} blades</span>
+                  </div>
+                  <div className="flex justify-between px-2 pt-1 border-t border-neutral-800">
+                    <span className="text-xs font-bold text-violet-300">Order Total</span>
+                    <span className="text-sm font-black text-amber-400">${orderLines.reduce((s, l) => s + (l.paidQty * l.unitPrice), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between px-2">
+                    <span className="text-[9px] text-neutral-500">Per Blade (incl. free)</span>
+                    <span className="text-[10px] font-bold text-neutral-400">
+                      {(() => {
+                        const totalBlades = orderLines.reduce((s, l) => s + l.paidQty + l.freeQty, 0)
+                        const totalCost = orderLines.reduce((s, l) => s + (l.paidQty * l.unitPrice), 0)
+                        return totalBlades > 0 ? `$${(totalCost / totalBlades).toFixed(2)}/blade` : '-'
+                      })()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {orderLines.length === 0 && (
+              <p className="text-[10px] text-neutral-600 italic text-center py-2">Tap a blade above to start building the order</p>
+            )}
           </div>
 
           {/* SALES CLOSE SCRIPT */}
