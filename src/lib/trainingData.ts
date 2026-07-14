@@ -738,8 +738,18 @@ Account addresses (billing + shipping) are fetched from **Zoho Books contacts** 
 The **Sales Outreach Campaign** modal now displays:
 - **Billing address** under the account name
 - **Shipping address** in the contact row
+- **Email address** — from Books contact or primary contact
 - **Buying history summary** — Total Spend, Items Bought, and Products count
 - **Purchase details** — in the Account Intel panel (Purchases tab)
+
+### Sales Close Script
+After the blade pitch recommendations, the campaign modal now includes a **Move to Close** section with 4 scripted steps:
+1. **Verify Shipping Address** — reads back the customer's address on file (auto-populated from Zoho Books)
+2. **Take Payment** — credit card collection script (card number, expiration, CVV, billing ZIP) with Net 30 alternative
+3. **Confirm Email** — reads back the email on file or asks for one (for receipts and tracking)
+4. **Final Close** — relationship-building wrap-up and confirmation of shipping timeline
+
+The blade pitches now include the **full pricing, free blade promotion, and close transition** from the actual sales scripts.
     `,
   },
 ]

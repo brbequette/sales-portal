@@ -8,7 +8,7 @@ import {
   FiX, FiPhoneCall, FiUser, FiClock, FiCheckSquare, 
   FiArrowRight, FiBookOpen, FiActivity, FiTag, FiAlertCircle,
   FiChevronDown, FiChevronRight, FiMapPin, FiShoppingCart, FiZap,
-  FiPackage, FiFileText, FiDollarSign, FiLoader
+  FiPackage, FiFileText, FiDollarSign, FiLoader, FiMail, FiCreditCard
 } from "react-icons/fi"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
@@ -310,11 +310,11 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     const recommendations = [];
 
     const pitches = {
-      medusa: "Let me tell you about one of my best selling blades for the kind of work you are doing. It's called 'The Medusa'. What my customers all love about this blade is that it has a 12mm jumbo segment compared to most blades on the market that are just 10mm giving you longer blade life. This new blade is perfect for Cured Concrete, Brick, Block, Stone & Pavers. The segments are made under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed. Each one of the segments are laser welded for reliability and safety and the core is speed tensioned to eliminate warping and wobbling.",
-      kingTurbo: "Let me tell you about one of my best blades for what you are doing... it's called 'THE KING TURBO BLADE'. What my customers all love about this blade is that it has 24 serrated turbo segments which makes the blade cut super fast and super smooth through Hard Re-enforced Concrete and other hard materials. This premium soft bond blade will actually pull itself through the cut, so you don't have to put a lot of pressure on the saw you just let the blade do the work for you. They form the diamond segments differently, making them under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed.",
-      titan: "I want to tell you about one of my best blades for what you're doing. It's called 'THE TITAN'. This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from Re-enforced Concrete, Asphalt, Ductile Iron, Re-enforced Concrete Pipe and even Rebar! The major improvement over other blades on the market is when they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed. On top of all that, it has a speed tensioned Cobalt Core which prevents warping and wobbling, and the segments are laser welded!",
-      darkKnight: "I want to tell you about one of my best blades for what you're doing. It's called my 'Dark Knight Blade'. This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from re-enforced concrete to asphalt, to brick, block & stone. The major improvement over other blades is that they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed. On top of all that, it has a speed tensioned Cobalt Core which prevents warping and wobbling, and the segments are laser welded!",
-      razor: "This blade is ideal for cutting Ceramic Tile, Marble, Granite & even Porcelain and it cuts through it like a hot knife through butter! The new 'Razor Blade' has a reinforced core to prevent warping, wobbling and walking and runs super quiet. This blade cuts really clean & fast & the manufacturer claims 100% chip free cutting.",
+      medusa: `Let me tell you about one of my best selling blades for the kind of work you are doing. It's called "The Medusa". What my customers all love about this blade is that it has a 12mm jumbo segment compared to most blades on the market that are just 10mm giving you longer blade life. This new blade is perfect for Cured Concrete, Brick, Block, Stone & Pavers. The segments are made under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed. Each one of the segments are laser welded for reliability and safety and the core is speed tensioned to eliminate warping and wobbling.\n\nNow ${contactName}, retail stores in your city would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $100 bucks! Right now, like I said, we are giving this blade away for FREE! The way the promotion works is I send 6 blades out there — the first blade you pull out of the box is absolutely FREE! No matter how you feel about it! The other 5 blades are only $68 bucks each! If you do the math, you're getting 6 blades for $340 bucks! That's less than $57 bucks per blade! And at that price you're stealing them!`,
+      kingTurbo: `Let me tell you about one of my best blades for what you are doing... it's called "THE KING TURBO BLADE". What my customers all love about this blade is that it has 24 serrated turbo segments which makes the blade cut super fast and super smooth through Hard Re-enforced Concrete and other hard materials. This premium soft bond blade will actually pull itself through the cut, so you don't have to put a lot of pressure on the saw — you just let the blade do the work for you. They form the diamond segments differently, making them under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed.\n\nNow ${contactName}, retail stores will sell a blade of this quality for $250 bucks all day long! I normally wholesale it for $175 bucks! Right now, like I said, we are giving this blade away for FREE! The way the promotion works is I send three blades out there — the first blade you pull out of the box is absolutely FREE! No matter how you feel about it! The other two are only $175 each! If you do the math you're getting three blades for $350 bucks! That's $116 bucks per blade! And at that price you're stealing them!`,
+      titan: `I want to tell you about one of my best blades for what you're doing. It's called "THE TITAN". This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from Re-enforced Concrete, Asphalt, Ductile Iron, Re-enforced Concrete Pipe and even Rebar! The major improvement over other blades on the market is when they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed. On top of all that, it has a speed tensioned Cobalt Core which prevents warping and wobbling, and the segments are laser welded!\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used, hands down! I don't expect you to take my word for it — I'll prove it to you! If you were able to find a blade of this quality at your local supplier it would cost $400 or more! Obviously, I'm not a retail store; I normally wholesale these blades for $299 each! Like I said, right now I am giving you one absolutely free of charge. What I'm gonna do is send you out my starter pack — the first blade you pull out of the box is absolutely free! The other two blades in the box are only $250 each! If you do the math, you're getting three blades for $500 bucks — that's only $166 bucks per blade! And at that price you're stealing them!`,
+      darkKnight: `I want to tell you about one of my best blades for what you're doing. It's called my "Dark Knight Blade". This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from re-enforced concrete to asphalt, to brick, block & stone. The major improvement over other blades is that they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed. On top of all that, it has a speed tensioned Cobalt Core which prevents warping and wobbling, and the segments are laser welded!\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used, hands down! I don't expect you to take my word for it — I'll prove it to you! If you were able to find a blade of this quality at your local supplier it would cost $250 or more! Obviously, I'm not a retail store; I normally wholesale these blades for $175 each! Like I said, right now I am giving you one absolutely free of charge. What I'm gonna do is send you out my starter pack — the first blade you pull out of the box is absolutely free! The other 3 blades in the box are only $150 each! If you do the math, you're getting 4 blades for $450 bucks — that's less than $113 bucks per blade! And at that price you're stealing them!`,
+      razor: `This blade is ideal for cutting Ceramic Tile, Marble, Granite & even Porcelain and it cuts through it like a hot knife through butter! The new "Razor Blade" has a reinforced core to prevent warping, wobbling and walking and runs super quiet. This blade cuts really clean & fast & the manufacturer claims 100% chip free cutting.\n\nNow ${contactName}, retail stores would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $120 bucks! Right now, like I said, we are giving this blade away for FREE! The way the promotion works is I send four blades out there — the first blade you pull out of the box is absolutely FREE! No matter how you feel about it! The next three are only $100 each!`,
       generic: "With direct-from-manufacturer pricing and higher quality products, we only offer the best of the best based upon your application."
     };
 
@@ -533,8 +533,8 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 </div>
               </div>
 
-              {/* Contact + Phone + Address Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-neutral-800/60 pt-4">
+              {/* Contact + Phone + Email + Address Row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 border-t border-neutral-800/60 pt-4">
                 <div className="space-y-1">
                   <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Contact Name</span>
                   <div className="flex items-center gap-1.5 text-xs text-neutral-300 font-semibold">
@@ -544,12 +544,26 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Phone Details</span>
+                  <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Phone</span>
                   {displayPhone ? (
                     <a href={"tel:" + cleanPhone } className="text-xs text-blue-400 hover:text-blue-300 hover:underline font-bold font-mono">{formatPhoneNumber(displayPhone)}</a>
                   ) : (
                     <p className="text-xs text-neutral-500 font-mono">—</p>
                   )}
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-500 block">Email</span>
+                  {(() => {
+                    const email = primaryContact?.email || accountDetail?.booksContact?.email || activeAccount.booksContact?.email
+                    return email ? (
+                      <a href={"mailto:" + email} className="text-xs text-blue-400 hover:text-blue-300 hover:underline font-bold font-mono truncate block" title={email}>
+                        <FiMail size={11} className="inline mr-1 -mt-0.5" />{email}
+                      </a>
+                    ) : (
+                      <p className="text-xs text-neutral-500 font-mono">—</p>
+                    )
+                  })()}
                 </div>
 
                 <div className="space-y-1">
@@ -972,6 +986,84 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                   <p className="text-xs text-emerald-100/70 leading-relaxed">{rec.pitch}</p>
                 </div>
               ))}
+            </div>
+
+            {/* ── SALES CLOSE SCRIPT ── */}
+            <div className="bg-sky-950/20 border border-sky-900/50 p-5 rounded-2xl space-y-4 mt-4 animate-in fade-in duration-300">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5 mb-1">
+                <FiCreditCard /> Move to Close
+              </span>
+
+              {/* Step 1: Verify Info */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-black flex items-center justify-center">1</span>
+                  <h4 className="text-white font-bold text-sm">Verify Shipping Address</h4>
+                </div>
+                <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
+                  {(() => {
+                    const addr = accountDetail || activeAccount
+                    const hasAddr = addr.billingStreet || addr.billingCity || addr.shippingStreet || addr.shippingCity
+                    const shipAddr = addr.shippingStreet || addr.billingStreet
+                    const shipCity = addr.shippingCity || addr.billingCity
+                    const shipState = addr.shippingState || addr.billingState
+                    const shipZip = addr.shippingZip || addr.billingZip
+                    return hasAddr
+                      ? `"Now to get these blades in your hands… you're still out there at ${shipAddr}${shipCity ? ', ' + shipCity : ''}${shipState ? ', ' + shipState : ''} ${shipZip || ''}… is that correct?"`
+                      : '"Now to get these blades in your hands… what\'s the best shipping address for you?"'
+                  })()}
+                </p>
+              </div>
+
+              {/* Step 2: Payment */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-black flex items-center justify-center">2</span>
+                  <h4 className="text-white font-bold text-sm">Take Payment</h4>
+                </div>
+                <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
+                  "Perfect — we'll take care of everything right now and get your confirmation sent out today. Should we mark this to your attention, or do I need a PO Number?"
+                </p>
+                <p className="text-xs text-sky-100/70 leading-relaxed pl-7 mt-1">
+                  "Alright — now I'll take your card details whenever you're ready. You can go ahead and read the number from left to right, 4 digits at a time."
+                </p>
+                <div className="pl-7 mt-2 grid grid-cols-2 gap-2">
+                  <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">💳 Full card number</div>
+                  <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">📅 Expiration date</div>
+                  <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">🔒 CVV code</div>
+                  <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">📍 Billing ZIP code</div>
+                </div>
+                <p className="text-xs text-neutral-500 pl-7 mt-2 italic">
+                  Or Net 30: "Great — I'll get everything rolling and email your invoice with Net 30 terms. Who's the best contact for billing on your end?"
+                </p>
+              </div>
+
+              {/* Step 3: Get Email */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-black flex items-center justify-center">3</span>
+                  <h4 className="text-white font-bold text-sm">Confirm Email</h4>
+                </div>
+                <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
+                  {(() => {
+                    const email = primaryContact?.email || accountDetail?.booksContact?.email || activeAccount.booksContact?.email
+                    return email
+                      ? `"Got it — I'm submitting that now through our secure processor. You'll receive an email receipt and full tracking info shortly. Just confirming — should I send everything to ${email}?"`
+                      : '"Got it — I\'m submitting that now through our secure processor. You\'ll receive an email receipt and full tracking info shortly. What\'s the best email address to send everything to?"'
+                  })()}
+                </p>
+              </div>
+
+              {/* Step 4: Final Confirm */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black flex items-center justify-center">✓</span>
+                  <h4 className="text-white font-bold text-sm">Final Close</h4>
+                </div>
+                <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
+                  "You're all set, {contactName} — we'll have your blades on the way within 3-5 business days. If anything comes up, you can reach me directly at this number — and again, I really appreciate your trust in us and look forward to building a long relationship with you."
+                </p>
+              </div>
             </div>
 
           </div>
