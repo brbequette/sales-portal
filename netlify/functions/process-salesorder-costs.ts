@@ -202,7 +202,7 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    if (!vigRate) vigRate = 1.5 // fallback default
+    if (!vigRate) vigRate = 1.3 // fallback default
 
     // 5. Calculate Dead Cost Plus VIG
     const deadCostPlusVig = (deadCostSubjectToVig * vigRate) + deadCostNoVig
@@ -218,7 +218,8 @@ export const handler: Handler = async (event) => {
       return `${d.quantity}x ${d.sku || d.name} | Cost: $${d.cost.toFixed(2)} | DC: $${d.deadCost.toFixed(2)} | VIG-DC: $${vigDC.toFixed(2)} | ${vigLabel}${flagStr}`
     })
 
-    // 6. Calculate Profit = Sub_Total - Dead Cost Plus VIG - CC Fees - Additional Costs - Insurance
+    // 6. Calculate Profit = Sub_Total - Dead Cost Plus VIG - CC Fees - Additional Costs
+    // NOTE: Insurance is NOT deducted from profit — it is company revenue, not a cost.
     const subTotal = parseFloat(salesorder.sub_total || 0)
 
     const ccFeesField = salesorder.custom_fields?.find((f: any) => f.label.toUpperCase().includes('CREDIT CARD PROCESSING'))
@@ -227,9 +228,9 @@ export const handler: Handler = async (event) => {
 
     const ccFees = ccFeesField ? parseFloat(ccFeesField.value || 0) : 0
     const additionalCosts = additionalCostsField ? parseFloat(additionalCostsField.value || 0) : 0
-    const insurance = insuranceField ? parseFloat(insuranceField.value || 0) : 0
+    const insurance = insuranceField ? parseFloat(insuranceField.value || 0) : 0 // retained for logging/return only
 
-    const totalDeductions = deadCostPlusVig + ccFees + additionalCosts + insurance
+    const totalDeductions = deadCostPlusVig + ccFees + additionalCosts
     const profit = subTotal - totalDeductions
     const marginPercent = subTotal > 0 ? (profit / subTotal) * 100 : 0
 

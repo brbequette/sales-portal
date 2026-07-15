@@ -535,7 +535,7 @@ The **Bulk Process Invoice Costs** tool recalculates all financial fields for in
 - **Dead Cost Subject to VIG** — Costs where "Subject to VIG" is checked
 - **Dead Cost No VIG** — Costs where "Subject to VIG" is unchecked (including gift items)
 - **Dead Cost Plus VIG** — (Subject to VIG × VIG Rate) + No VIG
-- **Profit** — Sub Total minus Dead Cost Plus VIG, CC Fees, Additional Costs, and Insurance
+- **Profit** — Sub Total minus Dead Cost Plus VIG, CC Fees, and Additional Costs (Insurance is company revenue — NOT deducted from profit)
 - **Sales Commission** — Profit × Commission %
 - **Paid In Full Date** — Auto-set when invoice balance reaches $0
 
@@ -610,7 +610,7 @@ Clicking it will:
    - Items with the "Subject to VIG" checkbox **unchecked** → No VIG.
    - All other items → Subject to VIG.
 4. Calculate **Dead Cost Plus VIG** = (Subject to VIG × VIG Rate) + No VIG.
-5. Deduct CC Fees, Additional Costs, and Insurance.
+5. Deduct CC Fees and Additional Costs only. Insurance is **NOT** deducted — it is collected by the company.
 6. Calculate **Profit** = Sub Total − Dead Cost Plus VIG − fees.
 7. Calculate **Sales Commission** = Profit × Commission %.
 8. Write **all** of these values back to the Zoho Books custom fields.
@@ -648,7 +648,7 @@ The VIG rate follows the same priority as invoices:
 1. Manual override passed in the request.
 2. Existing "Salesperson VIG" custom field on the SO.
 3. The salesperson's VIG settings (constant or monthly goal).
-4. Fallback default of 1.5×.
+4. Fallback default of **1.3x**.
 
 ### Loop prevention
 Each sales order has a 60-second cooldown after processing to prevent update loops from Zoho workflow callbacks.
@@ -671,7 +671,7 @@ Quotes (Estimates) support the same cost processing as Invoices and Sales Orders
 2. **Dead Cost Subject to VIG** / **Dead Cost No VIG** — split based on the "Subject to VIG" checkbox and gift status.
 3. **Dead Cost Plus VIG** = (Subject to VIG × VIG Rate) + No VIG.
 4. **Dead Profit Actual** — Sub Total minus Dead Cost Total (raw margin before VIG and fees).
-5. **Profit** = Sub Total − Dead Cost Plus VIG − CC Fees − Additional Costs − Insurance.
+5. **Profit** = Sub Total − Dead Cost Plus VIG − CC Fees − Additional Costs. Insurance is **company revenue** and is NOT deducted.
 6. **Sales Commission** = Profit × Commission %.
 
 All values are written to Zoho Books custom fields on the Estimate.
@@ -682,7 +682,7 @@ All values are written to Zoho Books custom fields on the Estimate.
 - Compare Dead Profit Actual (raw margin) against Profit (after VIG and fees) to understand the cost impact of VIG.
 
 ### VIG rate lookup
-Same priority as invoices and sales orders: manual override → existing custom field → salesperson settings → 1.5× fallback.
+Same priority as invoices and sales orders: manual override → existing custom field → salesperson settings → **1.3x fallback**.
 
 ### Loop prevention
 Each quote has a 60-second cooldown after processing to prevent update loops from Zoho workflow callbacks.
@@ -718,7 +718,7 @@ Commissions are pulled directly from the **SALES COMMISSION** custom field in Zo
 
 To ensure your commission shows correctly:
 1. Run **Process Costs** on the invoice (from the invoice details modal) to calculate and write the SALES COMMISSION field.
-2. Commission = 50% of Profit (by default), where Profit = Sub Total − Dead Cost Plus VIG − CC Fees − Additional Costs − Insurance.
+2. Commission = 50% of Profit (by default), where Profit = Sub Total - Dead Cost Plus VIG - CC Fees - Additional Costs. Insurance is **company revenue** and is NOT deducted.
 
 ### Split Timing
 - **Upfront (50%)** — credited when the invoice is created.
@@ -805,18 +805,22 @@ Account addresses (billing + shipping) are fetched from **Zoho Books contacts** 
 The **Sales Outreach Campaign** has been redesigned as a **full-screen 3-panel dialer**:
 
 #### Left Panel — Account Queue
-- Scrollable list of all accounts in the campaign
+- Scrollable list of all accounts in the campaign (expanded info treatment with width 'w-80')
 - Active account highlighted with cyan glow; completed accounts dimmed
 - Status dots: green (active), red (overdue invoices), grey (done)
 - Click any account to jump to it instantly
+- **Expanded Information Cards**:
+  - Displays primary contact name and direct phone number inline.
+  - Financial summary showing Lifetime Value (LTV) and Overdue Balance badges.
+  - Geographic context showing account billing location (city/state) and active Timezone indicator.
+  - Color-coded Quality badges (e.g. HOT) for rapid lead prioritization.
 
 #### Center Panel — Dialer + Script + Close
-- **Sticky Account HUD** (always visible while scrolling): Contact name, company, phone (ZDialer text), email, address, Call/SMS/Email buttons, KPI chips (LTV, Units, Overdue), top 3 products inline, and fact-finding summary chips that appear as answers are captured (Blades, Cuts, From, Pays, Crews, Qty, Wants)
+- **Sticky Account HUD** (always visible while scrolling): Contact name, company, phone (ZDialer text), email, address, Call/SMS/Email buttons, KPI chips (LTV, Units, Overdue), top 3 products inline, fact-finding summary chips, and an **inline Call Outcome Logging Bar** (Reached toggle, Spoke With, Outcome select, Follow-up date, Notes input, and Skip / Log & Next buttons) to log calls dynamically without scrolling.
 - **Outreach Script + Fact-Finding**: Cold Call / Follow-Up toggle. On Cold Call, each of the 7 fact-finding questions appears inline with its form (pill selectors, text inputs) directly below the question text. A progress tracker (7 dots) shows completion. On Follow-Up, the generated script shows first, followed by any missing fact-finding fields.
 - **Blade Pitch Recommendations**: Good → Better → Best with full pricing and free blade promotions
-- **Order Builder**: Search any product from catalog with live search dropdown, or quick-add the top 10 selling blades (pulled dynamically from Zoho Books catalog by product name) with one tap. Each line item has paid qty, free qty (green), editable unit price, and auto-calculated line total. Financial estimates are calculated in real-time: Dead Cost (purchase cost × all items), Dead Profit (revenue − dead cost), Profit after VIG (using 1.5× multiplier on paid items, 1× on free/gift items), Sales Commission estimate (50% of profit), and margin %. "Preview Sales Order" button opens a mock sales order that separates paid items and free/gift items into distinct line item sections with customer info, order totals, and a full profit breakdown panel. Order data is saved with the call log.
+- **Order Builder**: Search any product from catalog with live search dropdown, or quick-add the top 10 selling blades (pulled dynamically from Zoho Books catalog by product name) with one tap. Each line item has paid qty, free qty (green), editable unit price, and auto-calculated line total. Financial estimates are calculated in real-time: Dead Cost (purchase cost × all items), Dead Profit (revenue − dead cost), Profit after VIG (using 1.3× multiplier on paid items, 1× on free/gift items), Sales Commission estimate (50% of profit), and margin %. "Preview Sales Order" button opens a mock sales order that separates paid items and free/gift items into distinct line item sections with customer info, order totals, and a full profit breakdown panel. Order data is saved with the call log.
 - **Sales Close Script**: 4-step close (Verify Address → Payment → Email → Final Close)
-- **Log Outcome**: Contact reached toggle, spoke with, outcome dropdown, notes, follow-up date, Skip/Log & Next
 
 #### Right Panel — Account Intelligence
 - **Profile**: Billing address, shipping address, industry, tags, owner, website
@@ -827,7 +831,7 @@ The **Sales Outreach Campaign** has been redesigned as a **full-screen 3-panel d
 - **Notes/Call Log**: Previous notes with author, sentiment, date
 - **Fact-Finding (Unified)**: Collapsible editable form that doubles as the saved profile — shows compact summary when collapsed, full pill-selectable form when expanded. Data is pre-filled from account records and saved on call log.
 
-#### Phone Numbers & ZDialer
+### Phone Numbers & ZDialer
 Phone numbers are displayed as plain text (not tel: links) so Zoho ZDialer can detect and handle click-to-call. The "Call" button copies the number to clipboard for ZDialer use.
 
 ### Sales Close Script
@@ -913,7 +917,7 @@ The account will immediately be hidden from all lists until you check the "Inclu
 
 This is different from the calculated **Profit** field:
 - **Dead Profit** = Subtotal − Dead Cost Total (raw margin)
-- **Profit** = Subtotal − Dead Cost Plus VIG − CC Fees − Additional Costs − Insurance (net margin after all deductions)
+- **Profit** = Subtotal - Dead Cost Plus VIG - CC Fees - Additional Costs (net margin after all deductions). Insurance is **company revenue** and is NOT included in this deduction.
 
 ### Where Dead Profit is Calculated
 

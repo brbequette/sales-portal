@@ -158,7 +158,7 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    let vigRate = 1.5; // Default
+    let vigRate = 1.3; // Default
 
     const salespersonName = returnedDoc.salesperson_name;
     if (salespersonName) {

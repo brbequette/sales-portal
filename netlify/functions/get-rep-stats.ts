@@ -226,7 +226,7 @@ export const handler: Handler = async (event) => {
       email: "",
       role: "",
       constantVigEnabled: false,
-      constantVigValue: 1.5,
+      constantVigValue: 1.3,
       monthlyVigGoals: [],
       revenue: 0,
       profit: 0,
@@ -437,7 +437,7 @@ export const handler: Handler = async (event) => {
         const metGoal = actual >= target;
         // Keep Montgomery hardcode fallback if constantVig is not enabled yet
         const isMontgomery = rep.repName && rep.repName.toLowerCase().includes("montgomery") && rep.repName.toLowerCase().includes("morgan");
-        rep.monthly.vigRate = isMontgomery ? 1.0 : (metGoal ? 1.3 : 1.5);
+        rep.monthly.vigRate = isMontgomery ? 1.0 : (metGoal ? 1.3 : 1.3);
       }
     })
 
@@ -554,7 +554,7 @@ export const handler: Handler = async (event) => {
         const target = vigGoal.metric === 'SUBTOTAL' ? vigGoal.subtotalGoal : vigGoal.profitGoal;
         const actual = vigGoal.metric === 'SUBTOTAL' ? subtotal : profit;
         
-        let vigRate = 1.5;
+        let vigRate = 1.3;
         
         if (year < 2025) {
           vigRate = 1.3;
@@ -565,7 +565,7 @@ export const handler: Handler = async (event) => {
         } else {
           const met = actual >= target;
           const isMontgomery = u.name && u.name.toLowerCase().includes("montgomery") && u.name.toLowerCase().includes("morgan");
-          vigRate = isMontgomery ? 1.0 : (met ? 1.3 : 1.5);
+          vigRate = isMontgomery ? 1.0 : (met ? 1.3 : 1.3);
         }
         
         repVigs[u.id] = { 

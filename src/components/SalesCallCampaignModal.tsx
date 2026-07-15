@@ -62,7 +62,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const [showProductDropdown, setShowProductDropdown] = useState(false)
   const [showMockOrder, setShowMockOrder] = useState(false)
   const productSearchRef = useRef<HTMLDivElement>(null)
-  const DEFAULT_VIG_RATE = 1.5
+  const DEFAULT_VIG_RATE = 1.3
   const COMMISSION_PCT = 50
 
   // Top 10 selling blades from catalog (by Zoho Books name)
@@ -538,21 +538,30 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
       <div className="flex-1 flex min-h-0">
 
         {/* === LEFT PANEL: ACCOUNT QUEUE === */}
-        <div className="w-52 bg-[#080b12] border-r border-neutral-800/50 flex flex-col shrink-0">
-          <div className="px-3 py-3 border-b border-neutral-800/40">
+        <div className="w-80 bg-[#080b12] border-r border-neutral-800/50 flex flex-col shrink-0">
+          <div className="px-4 py-3 border-b border-neutral-800/40">
             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Queue ({accounts.length})</span>
           </div>
-          <div className="flex-1 overflow-y-auto scrollbar-thin p-2 space-y-1">
+          <div className="flex-1 overflow-y-auto scrollbar-thin p-2 space-y-1.5">
             {accounts.map((acc: any, i: number) => {
               const isActive = i === currentIndex
               const isDone = i < currentIndex
               const hasOverdue = (acc.invoices || []).some((inv: any) => inv.status?.toLowerCase() === 'overdue')
-              const hasPhone = acc.contacts?.some((c: any) => c.phone || c.mobilePhone)
+              const primaryContact = acc.contacts?.find((c: any) => c.isPrimary) || acc.contacts?.[0]
+              const contactName = primaryContact ? `${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim() : ""
+              const displayPhone = primaryContact?.phone || primaryContact?.mobilePhone || ""
+              const hasPhone = !!displayPhone
+
+              const ltv = acc.totalSales || 0
+              const overdueBalance = acc.overdueBalance || 0
+              const location = [acc.billingCity, acc.billingState].filter(Boolean).join(", ")
+              const tz = acc.timeZone || ""
+
               return (
                 <button
                   key={acc.id}
                   onClick={() => setCurrentIndex(i)}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs transition-all cursor-pointer border ${
+                  className={`w-full text-left px-3 py-3 rounded-xl text-xs transition-all cursor-pointer border flex flex-col gap-1.5 ${
                     isActive
                       ? 'bg-cyan-500/10 border-cyan-500/30 shadow-lg shadow-cyan-500/5'
                       : isDone
@@ -560,17 +569,67 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       : 'bg-neutral-950/40 border-neutral-800/40 hover:bg-neutral-900/60 hover:border-neutral-700/60'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${isDone ? 'bg-neutral-600' : hasOverdue ? 'bg-red-500' : 'bg-emerald-500'}`} />
-                    <span className={`font-bold truncate ${isActive ? 'text-cyan-300' : isDone ? 'text-neutral-500' : 'text-neutral-300'}`}>
-                      {acc.name}
-                    </span>
+                  <div className="flex items-start justify-between gap-2 w-full">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isDone ? 'bg-neutral-600' : hasOverdue ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                      <span className={`font-black text-[12px] leading-snug break-words ${isActive ? 'text-cyan-300' : isDone ? 'text-neutral-500' : 'text-neutral-200'}`}>
+                        {acc.name}
+                      </span>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1">
+                      {isDone ? (
+                        <span className="text-[8px] font-black uppercase text-neutral-600 bg-neutral-950 px-1 py-0.5 rounded border border-neutral-800">✓ Done</span>
+                      ) : (
+                        acc.quality && acc.quality !== 'NEVER_STATUSED' && (
+                          <span className={`text-[8px] font-black uppercase px-1 py-0.5 rounded border ${
+                            acc.quality === 'HOT' 
+                              ? 'bg-red-500/10 border-red-500/20 text-red-400' 
+                              : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                          }`}>
+                            {acc.quality}
+                          </span>
+                        )
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-1 ml-4">
-                    {isDone && <span className="text-[9px] text-neutral-600">{'\u2713'} Done</span>}
-                    {!isDone && hasPhone && <FiPhoneCall size={9} className="text-neutral-600" />}
-                    {!isDone && hasOverdue && <span className="text-[8px] font-bold text-red-500/70 uppercase">Overdue</span>}
-                  </div>
+
+                  {/* Primary Contact Name & Phone */}
+                  {contactName && (
+                    <div className="flex items-center gap-1.5 text-[10px] text-neutral-400 font-bold ml-[18px]">
+                      <FiUser size={10} className="text-neutral-500 shrink-0" />
+                      <span className="truncate">{contactName}</span>
+                      {hasPhone && <span className="text-neutral-600">·</span>}
+                      {hasPhone && <span className="text-neutral-500 font-normal truncate">{displayPhone}</span>}
+                    </div>
+                  )}
+
+                  {/* Financial Stats (LTV, Overdue Balance) */}
+                  {(ltv > 0 || overdueBalance > 0) && (
+                    <div className="flex items-center gap-2 ml-[18px] text-[9px] font-semibold">
+                      {ltv > 0 && (
+                        <span className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/15 font-black">
+                          LTV: ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)}
+                        </span>
+                      )}
+                      {overdueBalance > 0 && (
+                        <span className="text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/15 font-black">
+                          Overdue: ${overdueBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Location / Timezone */}
+                  {(location || tz) && (
+                    <div className="flex items-center justify-between ml-[18px] text-[9px] text-neutral-500 font-bold">
+                      <span className="truncate max-w-[170px]">{location || "No Location"}</span>
+                      {tz && (
+                        <span className="text-[8px] font-black text-cyan-400 bg-cyan-500/10 px-1.5 py-0.2 rounded border border-cyan-500/15 uppercase">
+                          {tz}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </button>
               )
             })}
@@ -732,6 +791,101 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 )}
               </div>
             )}
+
+            {/* Row 5: Call Outcome Logging Bar */}
+            <div className="px-5 mt-2.5 pt-2.5 border-t border-neutral-800/60 flex items-center gap-3 flex-wrap">
+              {/* Reached Toggle */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-[10px] font-bold text-neutral-400">Reached:</span>
+                <div className="flex bg-neutral-950 p-0.5 rounded border border-neutral-800">
+                  <button type="button" onClick={() => { setContactReached(true); setOutcome("check_in"); }} className={`px-2 py-0.5 rounded-[3px] text-[10px] font-bold transition-all cursor-pointer ${contactReached ? 'bg-cyan-500 text-black' : 'text-neutral-500 hover:text-neutral-300'}`}>Yes</button>
+                  <button type="button" onClick={() => { setContactReached(false); setOutcome("left_voicemail"); }} className={`px-2 py-0.5 rounded-[3px] text-[10px] font-bold transition-all cursor-pointer ${!contactReached ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>No</button>
+                </div>
+              </div>
+
+              {/* Spoke With */}
+              {contactReached && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-[10px] font-bold text-neutral-400">Spoke With:</span>
+                  <input 
+                    type="text" 
+                    placeholder="Name" 
+                    value={spokeTo} 
+                    onChange={e => setSpokeTo(e.target.value)} 
+                    className="w-28 bg-neutral-950 border border-neutral-800 rounded px-2 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500" 
+                  />
+                </div>
+              )}
+
+              {/* Outcome Dropdown */}
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-[10px] font-bold text-neutral-400">Outcome:</span>
+                <select 
+                  value={outcome} 
+                  onChange={e => setOutcome(e.target.value)} 
+                  className="bg-neutral-950 border border-neutral-800 rounded px-1.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 cursor-pointer max-w-[120px]"
+                >
+                  {contactReached ? (
+                    <>
+                      <option value="check_in">Check-in</option>
+                      <option value="pitch">Pitch</option>
+                      <option value="order_placed">Order Placed</option>
+                      <option value="follow_up">Follow Up</option>
+                      <option value="other">Other</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="left_voicemail">Voicemail</option>
+                      <option value="no_answer">No Answer</option>
+                      <option value="other">Other</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              {/* Follow-up Date */}
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-[10px] font-bold text-neutral-400">Follow-up:</span>
+                <input 
+                  type="date" 
+                  value={followUpDate} 
+                  min={new Date().toISOString().split('T')[0]} 
+                  onChange={e => setFollowUpDate(e.target.value)} 
+                  className="bg-neutral-950 border border-neutral-800 rounded px-1.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 w-24" 
+                />
+              </div>
+
+              {/* Notes Input */}
+              <div className="flex-1 min-w-[150px] flex items-center gap-1">
+                <span className="text-[10px] font-bold text-neutral-400">Notes:</span>
+                <input 
+                  type="text" 
+                  placeholder="Pricing feedback, next steps..." 
+                  value={notes} 
+                  onChange={e => setNotes(e.target.value)} 
+                  className="flex-1 bg-neutral-950 border border-neutral-800 rounded px-2.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500" 
+                />
+              </div>
+
+              {/* Actions buttons inline */}
+              <div className="flex gap-1.5 shrink-0 ml-auto items-center">
+                <button 
+                  type="button" 
+                  onClick={handleNext} 
+                  className="px-2.5 py-1 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 font-bold text-[9px] rounded transition-all cursor-pointer uppercase tracking-wider"
+                >
+                  Skip
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleLogAndNext} 
+                  className="flex items-center gap-0.5 px-3.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-black font-extrabold text-[9px] rounded shadow-sm shadow-cyan-950/20 transition-all cursor-pointer uppercase tracking-wider"
+                >
+                  <span>Log & Next</span>
+                  <FiArrowRight size={10} />
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* SCRIPT + FACT-FINDING FLOW (integrated) */}
@@ -1424,74 +1578,6 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
               </p>
             </div>
           </div>
-
-          {/* LOG OUTCOME */}
-          <div className="mx-5 mt-4 mb-5 bg-neutral-950/40 border border-neutral-800 rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <FiActivity className="text-cyan-400" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Log Outreach Outcome</h3>
-            </div>
-
-            {/* Contact reached toggle */}
-            <div className="flex items-center gap-3">
-              <label className="text-xs font-bold text-neutral-400">Did you reach a contact?</label>
-              <div className="flex bg-neutral-950 p-0.5 rounded-lg border border-neutral-800">
-                <button type="button" onClick={() => setContactReached(true)} className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${contactReached ? 'bg-cyan-500 text-black' : 'text-neutral-500 hover:text-neutral-300'}`}>Yes</button>
-                <button type="button" onClick={() => setContactReached(false)} className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${!contactReached ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>No</button>
-              </div>
-            </div>
-
-            {contactReached && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Spoke With</label>
-                  <input type="text" placeholder="Name of contact" value={spokeTo} onChange={e => setSpokeTo(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Outcome</label>
-                  <select value={outcome} onChange={e => setOutcome(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors cursor-pointer">
-                    <option value="check_in">General Check-in</option>
-                    <option value="pitch">Product Pitch</option>
-                    <option value="order_placed">Order Placed</option>
-                    <option value="follow_up">Request Callback / Follow Up</option>
-                    <option value="other">Other / Account Audit</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {!contactReached && (
-              <div>
-                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Outcome</label>
-                <select value={outcome} onChange={e => setOutcome(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors cursor-pointer">
-                  <option value="left_voicemail">Left Voicemail</option>
-                  <option value="no_answer">No Answer / Busy</option>
-                  <option value="other">Other / Closed</option>
-                </select>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Notes</label>
-              <textarea rows={3} placeholder="Product interest, pricing feedback, follow-up notes..." value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors resize-none" />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Follow-up Date (Optional)</label>
-              <input type="date" value={followUpDate} min={new Date().toISOString().split('T')[0]} onChange={e => setFollowUpDate(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors" />
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <button type="button" onClick={handleNext} className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 font-bold text-xs rounded-xl transition-all cursor-pointer">
-                Skip Account
-              </button>
-              <button type="button" onClick={handleLogAndNext} className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-black font-extrabold text-xs rounded-xl shadow-lg shadow-cyan-950/20 transition-all cursor-pointer">
-                <span>Log Outcome & Next</span>
-                <FiArrowRight size={13} />
-              </button>
-            </div>
-          </div>
-
         </div>
 
         {/* === RIGHT PANEL: ACCOUNT INTEL === */}
