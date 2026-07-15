@@ -789,42 +789,47 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                           )}
                         ]
 
-                        return questions.map(({ num, key, q, value, render }) => {
-                          const isAnswered = !!value
-                          const isExpanded = expandedFF[key] ?? !isAnswered
-                          return (
-                            <div key={key} className={`rounded-xl border transition-all ${isAnswered && !isExpanded ? 'bg-cyan-950/10 border-cyan-800/15 p-2' : 'bg-cyan-950/20 border-cyan-800/30 p-3 space-y-2'}`}>
-                              {isAnswered && !isExpanded ? (
-                                /* Collapsed answered state — compact chip */
-                                <button
-                                  type="button"
-                                  onClick={() => setExpandedFF(prev => ({ ...prev, [key]: true }))}
-                                  className="w-full flex items-center gap-2 cursor-pointer group"
-                                >
-                                  <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 text-[8px] font-black flex items-center justify-center shrink-0">{'\u2713'}</span>
-                                  <span className="text-[10px] text-neutral-500 italic truncate flex-1 text-left">Q{num}</span>
-                                  <span className="text-[9px] font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded truncate max-w-[250px]">{value}</span>
-                                  <FiChevronRight size={10} className="text-neutral-600 group-hover:text-neutral-400 transition-colors shrink-0" />
-                                </button>
-                              ) : (
-                                /* Expanded state — full question + pills */
-                                <>
-                                  <div className="flex items-start gap-2">
-                                    <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5 ${isAnswered ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}`}>{num}</span>
-                                    <p className="text-sm text-cyan-100/90 leading-relaxed italic flex-1">{q}</p>
-                                    {isAnswered && (
-                                      <button type="button" onClick={() => setExpandedFF(prev => ({ ...prev, [key]: false }))} className="text-neutral-600 hover:text-neutral-400 cursor-pointer shrink-0 mt-0.5">
-                                        <FiChevronDown size={12} />
-                                      </button>
-                                    )}
-                                  </div>
-                                  <div className="pl-7">{render()}</div>
-                                </>
-                              )}
-                            </div>
-                          )
-                        })
+                        return (
+                          <div className="grid grid-cols-2 gap-2">
+                            {questions.map(({ num, key, q, value, render }) => {
+                              const isAnswered = !!value
+                              const isExpanded = expandedFF[key] ?? !isAnswered
+                              return (
+                                <div key={key} className={`rounded-xl border transition-all ${isAnswered && !isExpanded ? 'bg-cyan-950/10 border-cyan-800/15 p-2' : 'bg-cyan-950/20 border-cyan-800/30 p-3 space-y-2'}`}>
+                                  {isAnswered && !isExpanded ? (
+                                    /* Collapsed answered state — compact chip */
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedFF(prev => ({ ...prev, [key]: true }))}
+                                      className="w-full flex items-center gap-2 cursor-pointer group"
+                                    >
+                                      <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 text-[8px] font-black flex items-center justify-center shrink-0">{'\u2713'}</span>
+                                      <span className="text-[10px] text-neutral-500 italic truncate flex-1 text-left">Q{num}</span>
+                                      <span className="text-[9px] font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded truncate max-w-[140px]">{value}</span>
+                                      <FiChevronRight size={10} className="text-neutral-600 group-hover:text-neutral-400 transition-colors shrink-0" />
+                                    </button>
+                                  ) : (
+                                    /* Expanded state — full question + pills */
+                                    <>
+                                      <div className="flex items-start gap-2">
+                                        <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5 ${isAnswered ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}`}>{num}</span>
+                                        <p className="text-xs text-cyan-100/90 leading-relaxed italic flex-1">{q}</p>
+                                        {isAnswered && (
+                                          <button type="button" onClick={() => setExpandedFF(prev => ({ ...prev, [key]: false }))} className="text-neutral-600 hover:text-neutral-400 cursor-pointer shrink-0 mt-0.5">
+                                            <FiChevronDown size={12} />
+                                          </button>
+                                        )}
+                                      </div>
+                                      <div className="pl-7">{render()}</div>
+                                    </>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
                       })()}
+
 
                       {/* Fact-Finding Progress Badge */}
                       <div className="flex items-center justify-between bg-neutral-900/40 border border-neutral-800/40 rounded-lg px-3 py-1.5">
@@ -879,35 +884,37 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                               {questions.filter(q => !!q.value).length}/7
                             </span>
                           </span>
-                          {questions.map(({ num, key, q, value, render }) => {
-                            const isAnswered = !!value
-                            const isExpanded = expandedFF[key] ?? !isAnswered
-                            return (
-                              <div key={key} className={`rounded-xl border transition-all ${isAnswered && !isExpanded ? 'bg-amber-950/10 border-amber-800/15 p-2' : 'bg-amber-950/20 border-amber-800/30 p-3 space-y-2'}`}>
-                                {isAnswered && !isExpanded ? (
-                                  <button type="button" onClick={() => setExpandedFF(prev => ({ ...prev, [key]: true }))} className="w-full flex items-center gap-2 cursor-pointer group">
-                                    <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 text-[8px] font-black flex items-center justify-center shrink-0">{'\u2713'}</span>
-                                    <span className="text-[10px] text-neutral-500 italic truncate flex-1 text-left">Q{num}</span>
-                                    <span className="text-[9px] font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded truncate max-w-[250px]">{value}</span>
-                                    <FiChevronRight size={10} className="text-neutral-600 group-hover:text-neutral-400 transition-colors shrink-0" />
-                                  </button>
-                                ) : (
-                                  <>
-                                    <div className="flex items-start gap-2">
-                                      <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5 ${isAnswered ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-500/10 text-amber-500'}`}>{num}</span>
-                                      <p className="text-xs text-amber-200/80 leading-relaxed italic flex-1">{q}</p>
-                                      {isAnswered && (
-                                        <button type="button" onClick={() => setExpandedFF(prev => ({ ...prev, [key]: false }))} className="text-neutral-600 hover:text-neutral-400 cursor-pointer shrink-0 mt-0.5">
-                                          <FiChevronDown size={12} />
-                                        </button>
-                                      )}
-                                    </div>
-                                    <div className="pl-7">{render()}</div>
-                                  </>
-                                )}
-                              </div>
-                            )
-                          })}
+                          <div className="grid grid-cols-2 gap-2">
+                            {questions.map(({ num, key, q, value, render }) => {
+                              const isAnswered = !!value
+                              const isExpanded = expandedFF[key] ?? !isAnswered
+                              return (
+                                <div key={key} className={`rounded-xl border transition-all ${isAnswered && !isExpanded ? 'bg-amber-950/10 border-amber-800/15 p-2' : 'bg-amber-950/20 border-amber-800/30 p-3 space-y-2'}`}>
+                                  {isAnswered && !isExpanded ? (
+                                    <button type="button" onClick={() => setExpandedFF(prev => ({ ...prev, [key]: true }))} className="w-full flex items-center gap-2 cursor-pointer group">
+                                      <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 text-[8px] font-black flex items-center justify-center shrink-0">{'\u2713'}</span>
+                                      <span className="text-[10px] text-neutral-500 italic truncate flex-1 text-left">Q{num}</span>
+                                      <span className="text-[9px] font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded truncate max-w-[140px]">{value}</span>
+                                      <FiChevronRight size={10} className="text-neutral-600 group-hover:text-neutral-400 transition-colors shrink-0" />
+                                    </button>
+                                  ) : (
+                                    <>
+                                      <div className="flex items-start gap-2">
+                                        <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5 ${isAnswered ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-500/10 text-amber-500'}`}>{num}</span>
+                                        <p className="text-xs text-amber-200/80 leading-relaxed italic flex-1">{q}</p>
+                                        {isAnswered && (
+                                          <button type="button" onClick={() => setExpandedFF(prev => ({ ...prev, [key]: false }))} className="text-neutral-600 hover:text-neutral-400 cursor-pointer shrink-0 mt-0.5">
+                                            <FiChevronDown size={12} />
+                                          </button>
+                                        )}
+                                      </div>
+                                      <div className="pl-7">{render()}</div>
+                                    </>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
                         </div>
                       )
                     })()}
