@@ -816,12 +816,11 @@ The **Sales Outreach Campaign** has been redesigned as a **full-screen 3-panel d
   - Color-coded Quality badges (e.g. HOT) for rapid lead prioritization.
 
 #### Center Panel — Dialer + Script + Close
-- **Sticky Account HUD** (always visible while scrolling): Contact name, company, phone (ZDialer text), email, address, Call/SMS/Email buttons, KPI chips (LTV, Units, Overdue), top 3 products inline, and fact-finding summary chips that appear as answers are captured (Blades, Cuts, From, Pays, Crews, Qty, Wants)
+- **Sticky Account HUD** (always visible while scrolling): Contact name, company, phone (ZDialer text), email, address, Call/SMS/Email buttons, KPI chips (LTV, Units, Overdue), top 3 products inline, fact-finding summary chips, and an **inline Call Outcome Logging Bar** (Reached toggle, Spoke With, Outcome select, Follow-up date, Notes input, and Skip / Log & Next buttons) to log calls dynamically without scrolling.
 - **Outreach Script + Fact-Finding**: Cold Call / Follow-Up toggle. On Cold Call, each of the 7 fact-finding questions appears inline with its form (pill selectors, text inputs) directly below the question text. A progress tracker (7 dots) shows completion. On Follow-Up, the generated script shows first, followed by any missing fact-finding fields.
 - **Blade Pitch Recommendations**: Good → Better → Best with full pricing and free blade promotions
 - **Order Builder**: Search any product from catalog with live search dropdown, or quick-add the top 10 selling blades (pulled dynamically from Zoho Books catalog by product name) with one tap. Each line item has paid qty, free qty (green), editable unit price, and auto-calculated line total. Financial estimates are calculated in real-time: Dead Cost (purchase cost × all items), Dead Profit (revenue − dead cost), Profit after VIG (using 1.3× multiplier on paid items, 1× on free/gift items), Sales Commission estimate (50% of profit), and margin %. "Preview Sales Order" button opens a mock sales order that separates paid items and free/gift items into distinct line item sections with customer info, order totals, and a full profit breakdown panel. Order data is saved with the call log.
 - **Sales Close Script**: 4-step close (Verify Address → Payment → Email → Final Close)
-- **Log Outcome**: Contact reached toggle, spoke with, outcome dropdown, notes, follow-up date, Skip/Log & Next
 
 #### Right Panel — Account Intelligence
 - **Profile**: Billing address, shipping address, industry, tags, owner, website

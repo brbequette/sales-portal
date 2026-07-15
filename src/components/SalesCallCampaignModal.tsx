@@ -791,6 +791,101 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 )}
               </div>
             )}
+
+            {/* Row 5: Call Outcome Logging Bar */}
+            <div className="px-5 mt-2.5 pt-2.5 border-t border-neutral-800/60 flex items-center gap-3 flex-wrap">
+              {/* Reached Toggle */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-[10px] font-bold text-neutral-400">Reached:</span>
+                <div className="flex bg-neutral-950 p-0.5 rounded border border-neutral-800">
+                  <button type="button" onClick={() => { setContactReached(true); setOutcome("check_in"); }} className={`px-2 py-0.5 rounded-[3px] text-[10px] font-bold transition-all cursor-pointer ${contactReached ? 'bg-cyan-500 text-black' : 'text-neutral-500 hover:text-neutral-300'}`}>Yes</button>
+                  <button type="button" onClick={() => { setContactReached(false); setOutcome("left_voicemail"); }} className={`px-2 py-0.5 rounded-[3px] text-[10px] font-bold transition-all cursor-pointer ${!contactReached ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>No</button>
+                </div>
+              </div>
+
+              {/* Spoke With */}
+              {contactReached && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-[10px] font-bold text-neutral-400">Spoke With:</span>
+                  <input 
+                    type="text" 
+                    placeholder="Name" 
+                    value={spokeTo} 
+                    onChange={e => setSpokeTo(e.target.value)} 
+                    className="w-28 bg-neutral-950 border border-neutral-800 rounded px-2 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500" 
+                  />
+                </div>
+              )}
+
+              {/* Outcome Dropdown */}
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-[10px] font-bold text-neutral-400">Outcome:</span>
+                <select 
+                  value={outcome} 
+                  onChange={e => setOutcome(e.target.value)} 
+                  className="bg-neutral-950 border border-neutral-800 rounded px-1.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 cursor-pointer max-w-[120px]"
+                >
+                  {contactReached ? (
+                    <>
+                      <option value="check_in">Check-in</option>
+                      <option value="pitch">Pitch</option>
+                      <option value="order_placed">Order Placed</option>
+                      <option value="follow_up">Follow Up</option>
+                      <option value="other">Other</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="left_voicemail">Voicemail</option>
+                      <option value="no_answer">No Answer</option>
+                      <option value="other">Other</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              {/* Follow-up Date */}
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-[10px] font-bold text-neutral-400">Follow-up:</span>
+                <input 
+                  type="date" 
+                  value={followUpDate} 
+                  min={new Date().toISOString().split('T')[0]} 
+                  onChange={e => setFollowUpDate(e.target.value)} 
+                  className="bg-neutral-950 border border-neutral-800 rounded px-1.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 w-24" 
+                />
+              </div>
+
+              {/* Notes Input */}
+              <div className="flex-1 min-w-[150px] flex items-center gap-1">
+                <span className="text-[10px] font-bold text-neutral-400">Notes:</span>
+                <input 
+                  type="text" 
+                  placeholder="Pricing feedback, next steps..." 
+                  value={notes} 
+                  onChange={e => setNotes(e.target.value)} 
+                  className="flex-1 bg-neutral-950 border border-neutral-800 rounded px-2.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500" 
+                />
+              </div>
+
+              {/* Actions buttons inline */}
+              <div className="flex gap-1.5 shrink-0 ml-auto items-center">
+                <button 
+                  type="button" 
+                  onClick={handleNext} 
+                  className="px-2.5 py-1 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 font-bold text-[9px] rounded transition-all cursor-pointer uppercase tracking-wider"
+                >
+                  Skip
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleLogAndNext} 
+                  className="flex items-center gap-0.5 px-3.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-black font-extrabold text-[9px] rounded shadow-sm shadow-cyan-950/20 transition-all cursor-pointer uppercase tracking-wider"
+                >
+                  <span>Log & Next</span>
+                  <FiArrowRight size={10} />
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* SCRIPT + FACT-FINDING FLOW (integrated) */}
@@ -1483,74 +1578,6 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
               </p>
             </div>
           </div>
-
-          {/* LOG OUTCOME */}
-          <div className="mx-5 mt-4 mb-5 bg-neutral-950/40 border border-neutral-800 rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <FiActivity className="text-cyan-400" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Log Outreach Outcome</h3>
-            </div>
-
-            {/* Contact reached toggle */}
-            <div className="flex items-center gap-3">
-              <label className="text-xs font-bold text-neutral-400">Did you reach a contact?</label>
-              <div className="flex bg-neutral-950 p-0.5 rounded-lg border border-neutral-800">
-                <button type="button" onClick={() => setContactReached(true)} className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${contactReached ? 'bg-cyan-500 text-black' : 'text-neutral-500 hover:text-neutral-300'}`}>Yes</button>
-                <button type="button" onClick={() => setContactReached(false)} className={`px-3 py-1 rounded text-xs font-bold transition-all cursor-pointer ${!contactReached ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>No</button>
-              </div>
-            </div>
-
-            {contactReached && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Spoke With</label>
-                  <input type="text" placeholder="Name of contact" value={spokeTo} onChange={e => setSpokeTo(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Outcome</label>
-                  <select value={outcome} onChange={e => setOutcome(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors cursor-pointer">
-                    <option value="check_in">General Check-in</option>
-                    <option value="pitch">Product Pitch</option>
-                    <option value="order_placed">Order Placed</option>
-                    <option value="follow_up">Request Callback / Follow Up</option>
-                    <option value="other">Other / Account Audit</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {!contactReached && (
-              <div>
-                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Outcome</label>
-                <select value={outcome} onChange={e => setOutcome(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors cursor-pointer">
-                  <option value="left_voicemail">Left Voicemail</option>
-                  <option value="no_answer">No Answer / Busy</option>
-                  <option value="other">Other / Closed</option>
-                </select>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Notes</label>
-              <textarea rows={3} placeholder="Product interest, pricing feedback, follow-up notes..." value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors resize-none" />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Follow-up Date (Optional)</label>
-              <input type="date" value={followUpDate} min={new Date().toISOString().split('T')[0]} onChange={e => setFollowUpDate(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors" />
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <button type="button" onClick={handleNext} className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 font-bold text-xs rounded-xl transition-all cursor-pointer">
-                Skip Account
-              </button>
-              <button type="button" onClick={handleLogAndNext} className="flex-1 flex items-center justify-center gap-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-black font-extrabold text-xs rounded-xl shadow-lg shadow-cyan-950/20 transition-all cursor-pointer">
-                <span>Log Outcome & Next</span>
-                <FiArrowRight size={13} />
-              </button>
-            </div>
-          </div>
-
         </div>
 
         {/* === RIGHT PANEL: ACCOUNT INTEL === */}
