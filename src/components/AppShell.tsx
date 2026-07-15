@@ -5,7 +5,7 @@ import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import {
   FiHome, FiPhoneCall, FiDollarSign, FiTool, FiUser,
-  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare, FiArrowLeft
+  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare, FiArrowLeft, FiCheckSquare
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 import { UserSettingsModal } from "@/components/UserSettingsModal"
@@ -19,21 +19,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [showSettings, setShowSettings] = useState(false)
 
   // Show back button on sub-pages (not main nav destinations)
-  const mainPages = ["/", "/login", "/sales", "/messages", "/collections", "/commissions", "/stats", "/tools", "/training", "/catalog", "/timeclock"]
+  const mainPages = ["/", "/login", "/sales", "/messages", "/collections", "/commissions", "/stats", "/tools", "/training", "/catalog", "/timeclock", "/tasks"]
   const showBackButton = !mainPages.includes(pathname)
 
   const normalizedRole = user?.role?.toLowerCase() || ""
   const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
 
   const navItems = [
-    { href: "/",            icon: FiHome,      label: "Sales Hub",    color: "text-[var(--primary)]" },
-    { href: "/sales",       icon: FiFileText,  label: "Sales Docs",   color: "text-[var(--accent)]" },
+    { href: "/",            icon: FiHome,        label: "Sales Hub",    color: "text-[var(--primary)]" },
+    { href: "/tasks",       icon: FiCheckSquare, label: "Task Hub",     color: "text-violet-400" },
+    { href: "/sales",       icon: FiFileText,    label: "Sales Docs",   color: "text-[var(--accent)]" },
     { href: "/messages",    icon: FiMessageSquare, label: "Messages", color: "text-[var(--info)]" },
-    { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-[var(--danger)]" },
-    { href: "/commissions", icon: FiDollarSign,label: "Commissions",  color: "text-[var(--success)]" },
-    { href: "/stats",       icon: FiBarChart2, label: "Rep Stats",    color: "text-neutral-100" },
-    { href: "/tools",       icon: FiTool,      label: "Tools & Media",color: "text-[var(--accent)]" },
-    { href: "/training",    icon: FiBookOpen,  label: "Training Hub", color: "text-[var(--primary)]" },
+    { href: "/collections", icon: FiPhoneCall,   label: "Collections",  color: "text-[var(--danger)]" },
+    { href: "/commissions", icon: FiDollarSign,  label: "Commissions",  color: "text-[var(--success)]" },
+    { href: "/stats",       icon: FiBarChart2,   label: "Rep Stats",    color: "text-neutral-100" },
+    { href: "/tools",       icon: FiTool,        label: "Tools & Media",color: "text-[var(--accent)]" },
+    { href: "/training",    icon: FiBookOpen,    label: "Training Hub", color: "text-[var(--primary)]" },
   ]
 
   if (isAdmin) {
@@ -42,10 +43,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Choose primary items for the bottom navigation bar on mobile
   const bottomItems = [
-    { href: "/",            icon: FiHome,      label: "Hub",          color: "text-[var(--primary)]" },
-    { href: "/sales",       icon: FiFileText,  label: "Docs",         color: "text-[var(--accent)]" },
-    { href: "/messages",    icon: FiMessageSquare, label: "Msgs",     color: "text-[var(--info)]" },
-    { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-[var(--danger)]" },
+    { href: "/",            icon: FiHome,        label: "Hub",         color: "text-[var(--primary)]" },
+    { href: "/tasks",       icon: FiCheckSquare, label: "Tasks",       color: "text-violet-400" },
+    { href: "/messages",    icon: FiMessageSquare, label: "Msgs",      color: "text-[var(--info)]" },
+    { href: "/collections", icon: FiPhoneCall,   label: "Collections", color: "text-[var(--danger)]" },
   ]
 
   // Don't show nav on login page

@@ -24,7 +24,7 @@ export function TaskEditor({ task, onSave }: { task: any, onSave: () => void }) 
     setSaving(true)
     try {
       const res = await fetch('/api/update-task', {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           taskId: task.id,

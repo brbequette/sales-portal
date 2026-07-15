@@ -942,6 +942,84 @@ Each document gets:
 - The system includes a loop guard to prevent re-processing within 60 seconds
     `,
   },
+  {
+    id: "task-hub-dashboard",
+    title: "Task Hub — Dashboard & Calendar",
+    category: "Sales & Orders",
+    content: `
+### What Is the Task Hub?
+
+The Task Hub (/tasks) is the central workspace for managing all tasks across the team. It replaces the task sidebar on the main dashboard with a full-featured management environment.
+
+### Task Categories
+
+Tasks are automatically sorted into 3 categories based on their type:
+
+**Communication** (blue) — Calls, Emails, Texts
+- Any task of type Call, Email, or Text
+- These are customer-facing interaction tasks
+
+**Sales** (green) — Account & Deal Tasks
+- Tasks of type "Task" that are linked to an account or deal
+- Used to track sales follow-ups, quotes, and deal progress
+
+**Office & Process** (amber) — Internal Tasks
+- Tasks of type "Processing" or unlinked general tasks
+- Used for back-office work, order processing, and admin
+
+### Dashboard View
+
+The default view shows **three columns** (one per category) so you can see all task types at a glance.
+
+- Each card shows: type badge, priority, status, title, description, linked assets (account/deal/invoice/SO/quote chips), assignee, due date
+- **Overdue tasks** are highlighted in red
+- Use the **category tabs** to filter to a single lane
+- Use the search bar, status filter, type filter, and sort to narrow results
+
+### Adding an Outcome / Update
+
+On any task card, hover to reveal the action buttons. Click the **speech bubble icon** to add an outcome note.
+
+Outcomes are timestamped and appended to the task description: e.g. [Outcome Jul 14 5:30pm]: Spoke with customer...
+
+You can also add outcomes from the **Task Detail Panel** (click any task title to open it).
+
+### Task Detail Panel
+
+Clicking a task title opens a slide-in panel with:
+- Editable subject, status, and priority
+- All connected assets (account link, deal, invoice, SO, quote)
+- Full notes/description editor
+- Outcomes history with ability to add new ones
+- Save Changes and Complete buttons
+
+### Calendar View
+
+Switch to the Calendar using the Dashboard/Calendar toggle at the top right.
+
+**4 views:**
+- **Day** — All tasks due that day in a single pane
+- **Week** — 7-column layout with tasks placed in their day
+- **Month** — Grid with task chips on each day; click a day to drill into Day view
+- **Year** — 12-month heatmap; days with tasks are highlighted, red = high priority
+
+Use the **category filter chips** in the Calendar view to show/hide categories.
+
+### Quick Actions (on every task card)
+
+- **Edit icon** — Change status inline (dropdown)
+- **Speech bubble** — Add outcome / update note
+- **Check icon** — Mark as Complete
+
+### Creating a New Task
+
+Click **+ New Task** in the header to go to the task creation form. You can also use the global top bar quick-add button.
+
+### Syncing With Zoho
+
+Tasks are synced from Zoho CRM. Click the **refresh icon** (↺) to force a fresh sync from Zoho for the latest tasks.
+    `,
+  },
 ]
 
 
