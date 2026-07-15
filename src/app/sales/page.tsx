@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import Link from "next/link"
-import { FiSearch, FiFilter, FiFileText, FiCheckCircle, FiAlertCircle, FiX, FiChevronRight } from "react-icons/fi"
+import { FiSearch, FiFilter, FiFileText, FiCheckCircle, FiAlertCircle, FiX, FiChevronRight, FiChevronDown, FiCheck } from "react-icons/fi"
 import { createPortal } from "react-dom"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 
@@ -27,7 +27,8 @@ export default function SalesListPage() {
 
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<"All" | "Quote" | "SalesOrder" | "Invoice">("All")
-  const [statusFilter, setStatusFilter] = useState<"All" | "Paid" | "Unpaid" | "Overdue">("All")
+  const [statusFilter, setStatusFilter] = useState<string[]>([])
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
   const [viewingSalesDoc, setViewingSalesDoc] = useState<{ type: 'Quote' | 'SalesOrder' | 'Invoice', doc: any } | null>(null)
   const [showAllReps, setShowAllReps] = useState(false)
@@ -134,7 +135,7 @@ export default function SalesListPage() {
           date: raw.issueDate || raw.orderDate || raw.createdAt || new Date().toISOString(),
           amount: parseFloat(raw.amount || 0),
           profit,
-          invoiceNumber: raw.items?.invoiceNumber,
+          invoiceNumber: raw.items?.invoiceNumber || raw.items?.invoice_number || raw.items?.estimateNumber || raw.items?.estimate_number || raw.items?.salesOrderNumber || raw.items?.salesorder_number || raw.items?.quoteNumber,
           raw
         }
       }
@@ -164,15 +165,76 @@ export default function SalesListPage() {
     return Array.from(repSet).sort()
   }, [accounts])
 
+  // Status options per document type
+  const STATUS_OPTIONS: Record<string, { value: string; label: string; color: string }[]> = {
+    All: [
+      { value: 'Paid', label: 'Paid', color: 'text-emerald-400' },
+      { value: 'Unpaid', label: 'Unpaid', color: 'text-amber-400' },
+      { value: 'Overdue', label: 'Overdue', color: 'text-rose-400' },
+      { value: 'Open', label: 'Open', color: 'text-sky-400' },
+      { value: 'Accepted', label: 'Accepted', color: 'text-emerald-400' },
+      { value: 'Sent', label: 'Sent', color: 'text-blue-400' },
+      { value: 'Confirmed', label: 'Confirmed', color: 'text-emerald-400' },
+      { value: 'Invoiced', label: 'Invoiced', color: 'text-sky-400' },
+      { value: 'Declined', label: 'Declined', color: 'text-red-400' },
+      { value: 'Draft', label: 'Draft', color: 'text-neutral-400' },
+      { value: 'Void', label: 'Void', color: 'text-neutral-500' },
+      { value: 'Closed', label: 'Closed', color: 'text-neutral-400' },
+    ],
+    Quote: [
+      { value: 'Accepted', label: 'Accepted', color: 'text-emerald-400' },
+      { value: 'Sent', label: 'Sent', color: 'text-blue-400' },
+      { value: 'Invoiced', label: 'Invoiced', color: 'text-sky-400' },
+      { value: 'Declined', label: 'Declined', color: 'text-red-400' },
+      { value: 'Draft', label: 'Draft', color: 'text-neutral-400' },
+      { value: 'Void', label: 'Void', color: 'text-neutral-500' },
+    ],
+    SalesOrder: [
+      { value: 'Open', label: 'Open', color: 'text-sky-400' },
+      { value: 'Confirmed', label: 'Confirmed', color: 'text-emerald-400' },
+      { value: 'Closed', label: 'Closed', color: 'text-neutral-400' },
+      { value: 'Invoiced', label: 'Invoiced', color: 'text-sky-400' },
+      { value: 'Draft', label: 'Draft', color: 'text-neutral-400' },
+      { value: 'Void', label: 'Void', color: 'text-neutral-500' },
+    ],
+    Invoice: [
+      { value: 'Paid', label: 'Paid', color: 'text-emerald-400' },
+      { value: 'Unpaid', label: 'Unpaid', color: 'text-amber-400' },
+      { value: 'Overdue', label: 'Overdue', color: 'text-rose-400' },
+      { value: 'Sent', label: 'Sent', color: 'text-blue-400' },
+      { value: 'Draft', label: 'Draft', color: 'text-neutral-400' },
+      { value: 'Void', label: 'Void', color: 'text-neutral-500' },
+    ],
+  }
+
+  const currentStatusOptions = STATUS_OPTIONS[typeFilter] || STATUS_OPTIONS.All
+
+  // Clear invalid status filters when type changes
+  useEffect(() => {
+    const validValues = new Set(currentStatusOptions.map(o => o.value))
+    setStatusFilter(prev => prev.filter(s => validValues.has(s)))
+  }, [typeFilter])
+
+  const toggleStatus = (val: string) => {
+    setStatusFilter(prev => prev.includes(val) ? prev.filter(s => s !== val) : [...prev, val])
+  }
+
   // Filter docs
   const filteredDocs = useMemo(() => {
     return allDocs.filter(d => {
       if (typeFilter !== "All" && d.type !== typeFilter) return false
       
-      if (statusFilter === "Paid" && d.status !== "Paid") return false
-      if (statusFilter === "Overdue" && d.status !== "Overdue" && d.status.toLowerCase() !== "overdue") return false
-      if (statusFilter === "Unpaid") {
-        if (d.status === "Paid" || d.status === "Void" || d.status === "Draft") return false
+      // Multi-select status filter
+      if (statusFilter.length > 0) {
+        const sLower = (d.status || '').toLowerCase()
+        const match = statusFilter.some(f => {
+          const fLower = f.toLowerCase()
+          if (fLower === 'unpaid') {
+            return sLower !== 'paid' && sLower !== 'void' && sLower !== 'voided' && sLower !== 'draft' && sLower !== 'closed'
+          }
+          return sLower === fLower
+        })
+        if (!match) return false
       }
 
       if (search) {
@@ -246,19 +308,56 @@ export default function SalesListPage() {
             <div className="w-[1px] h-6 bg-neutral-800 mx-2" />
             
             <span className="text-xs font-bold text-neutral-500 uppercase mr-2 tracking-wider">Status</span>
-            {["All", "Paid", "Unpaid", "Overdue"].map(s => (
+            <div className="relative">
               <button
-                key={s}
-                onClick={() => setStatusFilter(s as any)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                  statusFilter === s 
-                    ? "bg-[var(--primary)]/14 text-[var(--primary)] border-[var(--primary)]/35" 
+                onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                  statusFilter.length > 0
+                    ? "bg-[var(--primary)]/14 text-[var(--primary)] border-[var(--primary)]/35"
                     : "bg-white/[0.035] text-neutral-400 border-white/10 hover:bg-white/[0.06]"
                 }`}
               >
-                {s}
+                {statusFilter.length === 0 ? 'All Statuses' : statusFilter.length === 1 ? statusFilter[0] : `${statusFilter.length} selected`}
+                <FiChevronDown size={12} className={`transition-transform ${statusDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
-            ))}
+              {statusDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setStatusDropdownOpen(false)} />
+                  <div className="absolute top-full left-0 mt-1 z-50 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl min-w-[180px] py-1 animate-scale-in">
+                    {/* Clear All */}
+                    <button
+                      onClick={() => { setStatusFilter([]); setStatusDropdownOpen(false) }}
+                      className={`w-full text-left px-3 py-2 text-xs font-bold transition-colors flex items-center gap-2 ${
+                        statusFilter.length === 0 ? 'text-[var(--primary)] bg-[var(--primary)]/10' : 'text-neutral-400 hover:bg-white/[0.06]'
+                      }`}
+                    >
+                      {statusFilter.length === 0 && <FiCheck size={12} />}
+                      <span className={statusFilter.length === 0 ? '' : 'ml-5'}>All Statuses</span>
+                    </button>
+                    <div className="h-px bg-neutral-800 my-1" />
+                    {currentStatusOptions.map(opt => {
+                      const isSelected = statusFilter.includes(opt.value)
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => toggleStatus(opt.value)}
+                          className={`w-full text-left px-3 py-2 text-xs font-bold transition-colors flex items-center gap-2 ${
+                            isSelected ? 'bg-white/[0.06]' : 'hover:bg-white/[0.04]'
+                          }`}
+                        >
+                          <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${
+                            isSelected ? 'bg-[var(--primary)] border-[var(--primary)]' : 'border-neutral-600'
+                          }`}>
+                            {isSelected && <FiCheck size={10} className="text-white" />}
+                          </span>
+                          <span className={opt.color}>{opt.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="flex justify-between items-center mb-3">
@@ -311,7 +410,7 @@ export default function SalesListPage() {
                           </td>
                           <td className="py-3 px-4">
                             <div className="font-bold text-sm text-white">{doc.accountName}</div>
-                            <div className="text-[10px] text-neutral-500 font-mono mt-0.5">#{doc.invoiceNumber || doc.zohoId?.slice(-6) || doc.id.slice(-6)}</div>
+                            <div className="text-[10px] text-neutral-500 font-mono mt-0.5">#{doc.invoiceNumber || doc.raw?.items?.invoiceNumber || doc.raw?.items?.invoice_number || doc.raw?.items?.estimate_number || doc.raw?.items?.salesorder_number || doc.zohoId?.slice(-6) || doc.id.slice(-6)}</div>
                           </td>
                           <td className="py-3 px-4 text-right">
                             <div className="text-sm font-bold text-white">${doc.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>

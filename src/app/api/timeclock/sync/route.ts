@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     const da = parts.find(p => p.type === 'day')?.value
     const phoenixDate = `${ye}-${mo}-${da}`
 
-    const clockOutTime = new Date(now.getTime() + 20 * 60000)
+
 
     // Upsert TimeEntry for this user and date
     // If it exists, only update lastActivity. If not, create it.
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         } else if (Array.isArray(existing.inactivityPeriods)) {
           newInactivityPeriods = existing.inactivityPeriods
         }
-      } catch (e) {}
+      } catch (e) { console.warn('Failed to parse inactivityPeriods:', e) }
       if (!Array.isArray(newInactivityPeriods)) newInactivityPeriods = []
 
       const timeSinceLastActivity = now.getTime() - new Date(existing.lastActivity).getTime()
@@ -92,7 +92,9 @@ export async function POST(req: Request) {
       })
     }
 
-    return NextResponse.json({ success: true, entry })
+    // Determine active status: active if last activity is within 20 minutes and no manual clock out
+    const isActive = !entry.manualClockOut && (now.getTime() - new Date(entry.lastActivity).getTime() < 20 * 60000)
+    return NextResponse.json({ success: true, entry, active: isActive })
   } catch (error: any) {
     console.error("Error in timeclock ping:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })

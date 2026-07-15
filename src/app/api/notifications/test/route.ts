@@ -19,9 +19,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
     }
 
-    await sendPushNotification(userId, { title, body, url })
+    const result = await sendPushNotification(userId, { title, body, url })
 
-    return NextResponse.json({ success: true })
+    if (result.subscriptionsSent === 0 && result.message) {
+      return NextResponse.json({ success: true, warning: result.message, subscriptionsSent: 0 })
+    }
+
+    return NextResponse.json({ success: true, subscriptionsSent: result.subscriptionsSent })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

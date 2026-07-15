@@ -6,6 +6,11 @@ const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
 let _cachedToken: string | null = null;
 let _tokenExpiresAt = 0;
 
+// In-memory response cache (survives across requests in the same server process)
+let cachedData: any = null;
+let cacheTime = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 async function getAccessToken() {
   const now = Date.now();
   if (_cachedToken && now < _tokenExpiresAt - 5 * 60 * 1000) {
@@ -40,8 +45,15 @@ async function getAccessToken() {
   throw new Error('No Zoho OAuth credentials or Access Token configured.');
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Check cache (bypass with ?bust=true)
+    const { searchParams } = new URL(request.url);
+    const bustCache = searchParams.get('bust') === 'true';
+    if (!bustCache && cachedData && Date.now() - cacheTime < CACHE_TTL) {
+      return NextResponse.json(cachedData);
+    }
+
     const token = await getAccessToken();
     const authHeader = `Zoho-oauthtoken ${token}`;
     const invoiceBaseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices`;
@@ -159,7 +171,10 @@ export async function GET() {
       return new Date(dateB).getTime() - new Date(dateA).getTime();
     });
 
-    return NextResponse.json({ invoices: combined });
+    const responseData = { invoices: combined };
+    cachedData = responseData;
+    cacheTime = Date.now();
+    return NextResponse.json(responseData);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

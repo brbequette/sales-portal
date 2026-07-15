@@ -191,7 +191,7 @@ function AccountHubContent() {
       <header className="flex-none bg-neutral-900 border-b border-neutral-800 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <Link href="/" className="text-neutral-400 hover:text-white text-sm shrink-0">← Back</Link>
+            <button onClick={() => router.back()} className="text-neutral-400 hover:text-white text-sm shrink-0 cursor-pointer">← Back</button>
             <div className="h-5 w-px bg-neutral-700 shrink-0"></div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -210,6 +210,13 @@ function AccountHubContent() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push(`/tasks/new?accountId=${account.zohoId}&accountName=${encodeURIComponent(account.name)}`)}
+              className="shrink-0 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-3 py-1.5 text-xs sm:text-sm rounded-full font-bold transition-colors border border-neutral-700 flex items-center gap-1.5"
+              title="Create a task linked to this account"
+            >
+              <span>+ Task</span>
+            </button>
             <button
               onClick={async () => {
                 try {
@@ -244,7 +251,7 @@ function AccountHubContent() {
       </header>
 
       {/* ── KPI Strip ── */}
-      <div className="flex-none bg-black/40 border-b border-neutral-800 px-4 py-2 overflow-x-auto">
+      <div className="flex-none bg-black/40 border-b border-neutral-800 px-4 py-2 overflow-x-auto scroll-fade-x scrollbar-none">
         <div className="flex gap-5 min-w-max">
           {kpis.map(k => (
             <div key={k.label}>
@@ -287,108 +294,141 @@ function AccountHubContent() {
 
           {activeTab === "overview" && (
             <div className="flex flex-col space-y-8">
-              {/* Account Profile and Addresses Cards */}
-              {account.crmDetails && (
-                <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-5 shadow-xl space-y-5 animate-in fade-in slide-in-from-top-4 duration-300">
-                  <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-wider">
-                      <FiDatabase className="text-blue-500" />
-                      <span>Account Profile &amp; Addresses</span>
-                    </h3>
-                    {account.crmDetails.Phone && (
-                      <a href={"tel:" + account.crmDetails.Phone.replace(/[^0-9+]/g, '')}
-                        className="text-xs text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1.5"
-                        title="Click to dial account main line"
-                      >
-                        📞 Dial Main: {formatPhoneNumber(account.crmDetails.Phone)}
-                      </a>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    {/* Billing Address */}
-                    <div className="bg-neutral-950/40 p-4 border border-neutral-800 rounded-xl space-y-1.5">
-                      <h4 className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Billing Address</h4>
-                      <div className="text-xs text-neutral-300 leading-relaxed font-sans">
-                        {account.crmDetails.Billing_Street ? (
-                          <>
-                            <p className="font-semibold text-white">{account.crmDetails.Billing_Street}</p>
-                            <p>{account.crmDetails.Billing_City || ''}, {account.crmDetails.Billing_State || ''} {account.crmDetails.Billing_Code || ''}</p>
-                            <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.crmDetails.Billing_Country || 'U.S.A'}</p>
-                          </>
-                        ) : (
-                          <p className="text-neutral-500 italic text-[11px]">No billing address configured</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Shipping Address */}
-                    <div className="bg-neutral-950/40 p-4 border border-neutral-800 rounded-xl space-y-1.5">
-                      <h4 className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Shipping Address</h4>
-                      <div className="text-xs text-neutral-300 leading-relaxed font-sans">
-                        {account.crmDetails.Shipping_Street ? (
-                          <>
-                            <p className="font-semibold text-white">{account.crmDetails.Shipping_Street}</p>
-                            <p>{account.crmDetails.Shipping_City || ''}, {account.crmDetails.Shipping_State || ''} {account.crmDetails.Shipping_Code || ''}</p>
-                            <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.crmDetails.Shipping_Country || 'U.S.A'}</p>
-                          </>
-                        ) : (
-                          <p className="text-neutral-500 italic text-[11px]">No shipping address configured</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Company Details */}
-                    <div className="bg-neutral-950/40 p-4 border border-neutral-800 rounded-xl space-y-2.5">
-                      <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Company Profile</h4>
-                      <div className="grid grid-cols-2 gap-3 text-xs">
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Phone</span>
-                          {account.crmDetails.Phone ? (
-                            <a href={"tel:" + account.crmDetails.Phone.replace(/[^0-9+]/g, '')}
-                              className="text-blue-450 hover:underline font-bold font-mono truncate block text-left"
-                            >
-                              {formatPhoneNumber(account.crmDetails.Phone)}
-                            </a>
-                          ) : (
-                            <span className="text-neutral-200 font-bold block">—</span>
-                          )}
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Website</span>
-                          {account.crmDetails.Website ? (
-                            <a 
-                              href={account.crmDetails.Website.startsWith('http') ? account.crmDetails.Website : `https://${account.crmDetails.Website}`} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              className="text-blue-400 hover:underline truncate block font-bold font-mono"
-                            >
-                              {account.crmDetails.Website}
-                            </a>
-                          ) : (
-                            <span className="text-neutral-400 font-bold">—</span>
-                          )}
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Industry</span>
-                          <span className="text-neutral-200 font-bold truncate block">{account.crmDetails.Industry || account.industry || '—'}</span>
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Tags / Segment</span>
-                          <span className="text-neutral-200 font-bold truncate block">{account.crmDetails.Tags || account.tags || 'General'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {account.crmDetails.Description && (
-                    <div className="bg-neutral-950/20 p-4 border border-neutral-800/80 rounded-xl">
-                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold mb-1">CRM Account Description</span>
-                      <p className="text-xs text-neutral-300 leading-relaxed italic whitespace-pre-line">{account.crmDetails.Description}</p>
-                    </div>
+              {/* ── Account Profile & Addresses — Always Visible ── */}
+              <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-5 shadow-xl space-y-5 animate-slide-up">
+                <div className="flex items-center justify-between border-b border-neutral-800 pb-3 gap-3">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-wider shrink-0">
+                    <FiDatabase className="text-blue-500" />
+                    <span>Account Profile & Addresses</span>
+                  </h3>
+                  {(account.booksContact?.phone || account.contacts?.[0]?.phone) && (
+                    <a href={"tel:" + (account.booksContact?.phone || account.contacts?.[0]?.phone).replace(/[^0-9+]/g, '')}
+                      className="text-xs text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1.5 truncate min-w-0"
+                      title="Click to dial account main line"
+                    >
+                      📞 Dial Main: {formatPhoneNumber(account.booksContact?.phone || account.contacts?.[0]?.phone)}
+                    </a>
                   )}
                 </div>
-              )}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Billing Address — DB fields as primary, Books as fallback */}
+                  <div className="address-card">
+                    <h4 className="text-blue-400">Billing Address</h4>
+                    <div className="text-xs text-neutral-300 leading-relaxed">
+                      {(account.billingStreet || account.booksContact?.billing_address?.address) ? (
+                        <>
+                          <p className="street">{account.billingStreet || account.booksContact?.billing_address?.address}</p>
+                          <p>{account.billingCity || account.booksContact?.billing_address?.city || ''}, {account.billingState || account.booksContact?.billing_address?.state || ''} {account.billingZip || account.booksContact?.billing_address?.zip || ''}</p>
+                          <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.billingCountry || account.booksContact?.billing_address?.country || 'U.S.A'}</p>
+                        </>
+                      ) : (
+                        <p className="text-neutral-500 italic text-[11px]">No billing address configured</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Shipping Address — DB fields as primary, Books as fallback */}
+                  <div className="address-card">
+                    <h4 className="text-amber-400">Shipping Address</h4>
+                    <div className="text-xs text-neutral-300 leading-relaxed">
+                      {(account.shippingStreet || account.booksContact?.shipping_address?.address) ? (
+                        <>
+                          <p className="street">{account.shippingStreet || account.booksContact?.shipping_address?.address}</p>
+                          <p>{account.shippingCity || account.booksContact?.shipping_address?.city || ''}, {account.shippingState || account.booksContact?.shipping_address?.state || ''} {account.shippingZip || account.booksContact?.shipping_address?.zip || ''}</p>
+                          <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">{account.shippingCountry || account.booksContact?.shipping_address?.country || 'U.S.A'}</p>
+                        </>
+                      ) : (
+                        <p className="text-neutral-500 italic text-[11px]">No shipping address configured</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Company Details */}
+                  <div className="address-card">
+                    <h4 className="text-emerald-400">Company Profile</h4>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Phone</span>
+                        {(account.booksContact?.phone || account.contacts?.[0]?.phone) ? (
+                          <a href={"tel:" + (account.booksContact?.phone || account.contacts[0].phone).replace(/[^0-9+]/g, '')}
+                            className="text-blue-400 hover:underline font-bold font-mono truncate block text-left"
+                          >
+                            {formatPhoneNumber(account.booksContact?.phone || account.contacts[0].phone)}
+                          </a>
+                        ) : (
+                          <span className="text-neutral-200 font-bold block">—</span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Website</span>
+                        {account.booksContact?.website ? (
+                          <a 
+                            href={account.booksContact.website.startsWith('http') ? account.booksContact.website : `https://${account.booksContact.website}`} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="text-blue-400 hover:underline truncate block font-bold font-mono"
+                          >
+                            {account.booksContact.website}
+                          </a>
+                        ) : (
+                          <span className="text-neutral-400 font-bold">—</span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Industry</span>
+                        <span className="text-neutral-200 font-bold truncate block">{account.industry || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Tags / Segment</span>
+                        <span className="text-neutral-200 font-bold truncate block">{account.tags || 'General'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Business Profile (Blade/Equipment Details) ── */}
+                <div className="bg-neutral-950/30 p-4 border border-neutral-800/80 rounded-xl">
+                  <h4 className="text-[10px] font-bold text-orange-400 uppercase tracking-wider mb-3">Business Profile</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Blade Sizes</span>
+                      <span className="text-neutral-200 font-bold">{account.bladeSizes || <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Materials Cut</span>
+                      <span className="text-neutral-200 font-bold">{account.materialsCut || <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Current Supplier</span>
+                      <span className="text-neutral-200 font-bold">{account.currentSupplier || <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Avg Blade Cost</span>
+                      <span className="text-neutral-200 font-bold">{account.averageBladeCost ? <span className="text-emerald-400 font-bold">{account.averageBladeCost}</span> : <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Crew Count</span>
+                      <span className="text-neutral-200 font-bold">{account.crewCount || <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Blades/Order</span>
+                      <span className="text-neutral-200 font-bold">{account.bladesPerOrder || <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Improvement Priority</span>
+                      <span className="text-neutral-200 font-bold">{account.improvementPriority || <span className="text-neutral-600 italic font-normal">Not recorded</span>}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {account.booksContact?.notes && (
+                  <div className="bg-neutral-950/20 p-4 border border-neutral-800/80 rounded-xl">
+                    <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold mb-1">Account Notes</span>
+                    <p className="text-xs text-neutral-300 leading-relaxed italic whitespace-pre-line">{account.booksContact.notes}</p>
+                  </div>
+                )}
+              </div>
 
               <div className="w-full">
                 <AccountAnalytics
@@ -548,7 +588,7 @@ function AccountHubContent() {
                   />
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col min-h-[450px] min-h-0">
+                <div className="flex-1 flex flex-col min-h-0">
                   <CommunicationCenter accountId={id} contacts={account.contacts} />
                 </div>
               )}
@@ -610,6 +650,9 @@ function AccountHubContent() {
                           inv.status === "Overdue" ? "bg-red-900/40 text-red-400" :
                           "bg-neutral-800 text-neutral-300"
                         }`}>{inv.status || "—"}</div>
+                        {inv.status !== 'Paid' && inv.status !== 'Void' && inv.status !== 'Draft' && inv.items?.shippingCharge === 0 && (
+                          <div className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded inline-block mt-1 ml-1 bg-amber-900/40 text-amber-400">⚠ No Ship $</div>
+                        )}
                       </div>
                     </div>
                   )

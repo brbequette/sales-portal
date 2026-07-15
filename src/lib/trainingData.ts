@@ -160,12 +160,12 @@ Use the top-bar **Catalog Lookup** button to check a price mid-call without losi
 Never lose a lead — capture next steps as **Tasks**.
 
 ### Creating a task
-1. Click **Add Task** in the top bar (available everywhere).
+1. Click **Add Task** in the top bar, or use the **+ Task** button on any account page to auto-link it.
 2. Link it to an account so it appears in that account's timeline.
-3. Set a due date; the account's **next action date** updates so it surfaces when it's time.
+3. Set a **due date and time** — the time field lets you schedule tasks down to the minute for calls and follow-ups.
 
 ### Where tasks show up
-Open tasks appear on your dashboard and on the linked account, keeping your follow-up queue front and center.
+Open tasks appear on your dashboard **Task Manager** and on the linked account. When a time is set, the display shows "Due: Jun 30, 2026 at 2:30 PM" so you know exactly when to act.
     `,
   },
   {
@@ -295,6 +295,20 @@ The **Collections** tab tracks overdue invoices and customer payments.
 2. Call or text the customer (the dial pad detects the account automatically).
 3. Log the outcome, notes, and any **payment promise** with a follow-up date.
 
+### Processing Payments
+When a customer is ready to pay, click **Record Payment** on any invoice. You have two options:
+
+- **Run Credit Card** — Process a card payment through **Authorize.net** directly in the portal. Enter the card number, expiration, CVV, and billing ZIP. The system will charge the card and automatically record the payment in Zoho Books.
+- **Manual Record** — For payments made by check, ACH, wire, cash, or PayPal, select the payment method, enter the reference/auth code, and the payment will be recorded in Zoho Books.
+
+### Credit Card Processing Steps
+1. Open the invoice and click **Record Payment**.
+2. Select the **Run Credit Card** tab.
+3. Enter the payment amount (defaults to the full balance).
+4. Fill in **cardholder name**, **card number**, **expiration**, **CVV**, and **ZIP**.
+5. Click **Charge** — the system tokenizes the card securely, charges it through Authorize.net, and records the payment in Zoho Books automatically.
+6. If the charge succeeds but Zoho recording fails, you'll see a warning with the auth code so you can record it manually.
+
 ### Constant Vig (late fees)
 For late payments the system automatically calculates a **Constant Vig** based on days overdue. In a customer's collection profile you can see the original invoice amount separated from the accrued late fees.
 
@@ -310,6 +324,9 @@ Use the collection call log to record promises to pay and schedule the next touc
 Every customer has a single profile that ties everything together.
 
 ### What's on an account
+- **Billing & Shipping Addresses** — always visible at the top of the Overview tab, stored locally so they load instantly.
+- **Company Profile** — phone, website, industry, and tags.
+- **Business Profile** — always visible on the account page showing blade sizes, materials cut, current supplier, average blade cost, crew count, blades per order, and improvement priority. Fields show "Not recorded" when empty. Edit via the Edit Account modal which has multi-select pill toggles for each fact-finding field.
 - **Contacts** with phone numbers used for calling and texting.
 - **Purchase history** and products purchased.
 - **Deals/quotes** and invoice history.
@@ -320,6 +337,10 @@ Every customer has a single profile that ties everything together.
 - Mark the **primary contact** so calls and texts use the right number.
 - Set the account **timezone** for considerate call timing.
 - Keep **status** and **quality** current so dashboards and reassignment work correctly.
+- Update the **business profile** fields when you learn about a customer's equipment and needs — use the Edit Account modal's pill selectors under the "📋 Fact-Finding" section.
+
+### Customer location in Collections
+The Collections page shows each customer's **city and state** below their name for quick location reference.
     `,
   },
 
@@ -413,7 +434,7 @@ Administrators and managers get an **Admin Settings** hub with controls that gov
 - **Payouts** — record and adjust commission payouts.
 - **Team Timeclock** — review and approve everyone's hours.
 - **Vig** — late-fee settings.
-- **Update Accounts** — bulk account maintenance.
+- **Update Accounts** — bulk account maintenance and owner reassignment. Changing account owner updates both the CRM Account record AND all associated Contacts to the new rep. Account owner name (first name) is shown as a sky-blue chip on every account card in the dashboard.
     `,
   },
   {
@@ -421,15 +442,28 @@ Administrators and managers get an **Admin Settings** hub with controls that gov
     title: "Admin: Users & Permissions",
     category: "Admin & Management",
     content: `
-Manage who can do what from **Admin → Users**.
+Manage granular feature-level permissions from **Admin → Users**.
 
-### Tasks
-1. Create or edit a user and assign their **role** (rep, collections, manager, administrator).
-2. Grant feature permissions such as **Send Campaigns**.
-3. Assign the **Zoho sender numbers** a rep may text from.
+### Search, Sort & Filter
+- **Search** — Use the search bar at the top to find users by name or email.
+- **Sort** — Click column headers (Name, Email, Role, Accounts) to sort ascending/descending.
+- **Filter by Role** — Use the filter tabs (All / Admin / Reps) to narrow the user list.
 
-### Note on roles
-Role names containing "admin", "manager", or "collections" unlock elevated navigation. Keep roles accurate so people see exactly the tools they need.
+### Account Count
+Each user row displays how many accounts are currently assigned to them. This count updates automatically after bulk reassignment.
+
+### User Permissions System
+Click any user to expand their **permissions panel**. Each permission can be individually toggled on/off.
+
+### Permission Groups
+- **Page Access** — Control which pages a user can see (Dashboard, Sales Docs, Collections, Commissions, Messages, Tasks, Timeclock, Catalog, Tools, Training)
+- **Actions** — Control what actions a user can perform (Send Campaigns, Record Payments, Apply Discounts, Convert/Void Documents, Send Emails, Create Packages/Dropships/Accounts, Edit Account Details)
+- **Admin** — Control admin-level access (Admin Panel, Manage Users, Manage Settings, Run Scripts, View All Reps)
+
+### Quick Actions
+- **Enable All** — Grants all permissions (full admin access)
+- **Rep Defaults** — Sets standard sales rep permissions (basic page access, no admin features)
+- **Assign Accounts** — Opens a modal to bulk-reassign accounts to the selected user. Search the full account list, select multiple accounts, then click "Reassign to [User Name]". This syncs both Zoho CRM and the local database. A progress bar shows real-time status during reassignment.
     `,
   },
   {
@@ -487,4 +521,505 @@ Under **Admin → Campaigns**, create reusable message templates and control whi
 Maintain the company holiday calendar under **Admin → Holidays** so payroll reflects paid days correctly.
     `,
   },
+  {
+    id: "admin-books-scripts",
+    title: "Admin: Books Scripts & Cost Processing",
+    category: "Admin & Management",
+    content: `
+### Zoho Books Maintenance Scripts
+Navigate to **Admin → Books Scripts** to access maintenance tools for Zoho Books data.
+
+### Bulk Process Invoice Costs
+The **Bulk Process Invoice Costs** tool recalculates all financial fields for invoices:
+- **Dead Cost Total** — Sum of all line item purchase costs
+- **Dead Cost Subject to VIG** — Costs where "Subject to VIG" is checked
+- **Dead Cost No VIG** — Costs where "Subject to VIG" is unchecked (including gift items)
+- **Dead Cost Plus VIG** — (Subject to VIG × VIG Rate) + No VIG
+- **Profit** — Sub Total minus Dead Cost Plus VIG, CC Fees, Additional Costs, and Insurance
+- **Sales Commission** — Profit × Commission %
+- **Paid In Full Date** — Auto-set when invoice balance reaches $0
+
+Filter options: **Unpaid Only** (default), **Last 90 Days**, or **All Invoices**.
+Only fields that actually changed are written, preventing unnecessary API calls.
+
+### Incremental (Single Invoice) Processing
+Click **Process Costs** on any invoice detail modal to recalculate just that invoice.
+
+### Credit Card Processing Fees
+When a credit card payment is processed through the portal, the system automatically:
+1. Calculates the **CC Processing Fee** (3.5% of the charge amount)
+2. Writes the fee to the **CREDIT CARD PROCESSING FEES** field
+3. Records the **CC CHARGE(S) BREAKDOWN** with auth code, card type, last 4 digits, and amount
+4. If the invoice is fully paid, sets the **PAID IN FULL DATE**
+
+### Gift Items
+Gift items are always included in **Dead Costs** but placed in the **No VIG** bucket — they never have VIG applied to them.
+
+### Loop Prevention
+The system prevents update loops when Zoho workflows trigger callbacks after field updates. Each invoice has a 60-second cooldown after processing.
+
+### Needs Shipping Costs Flag
+When an invoice has a **$0.00 shipping charge**, the system flags it with a **"Needs Shipping Costs"** warning:
+- **Invoice Detail Modal** — A pulsing amber alert banner appears in the Data View panel
+- **Account Invoice List** — An amber **"⚠ No Ship $"** badge appears next to the status
+- This flag only appears on non-draft, non-void invoices
+- To resolve: update the shipping charge in Zoho Books
+    `,
+  },
+  {
+    id: "tools-task-reminders",
+    title: "Task Reminders",
+    category: "Tools & Resources",
+    content: `
+### Setting up notifications
+Before reminders will work, you need to enable notifications in **User Settings** (gear icon in the top bar):
+1. **Push Notifications** — click **Enable** to allow browser notifications. A toggle lets you turn them on/off.
+2. **SMS Notifications** — toggle on to receive text reminders.
+3. **Email Notifications** — toggle on to receive email reminders.
+4. **Default Reminder Timing** — choose how far in advance reminders fire (5 min, 30 min, 1 hour, 1 day, etc.).
+
+### Setting a reminder on a task
+When creating or editing a task you can set a **Reminder Date/Time** and choose **Notify Via** (push, SMS, or email).
+
+### How reminders work
+The system checks for pending reminders every 60 seconds while the dashboard is open. When a reminder fires:
+- **Push** — a browser notification is sent to all your registered devices.
+- **SMS / Email** — a text or email is sent to your contact info on file.
+- The task card shows a pulsing amber **🔔 REMINDER!** badge so you can spot it at a glance.
+
+### Tips
+- Set reminders **before** a task's due date so you have time to act.
+- Make sure you've clicked the **🔔 bell icon** in the top bar at least once to grant browser notification permission.
+- Your notification preferences are saved per-user and persist across sessions.
+    `,
+  },
+  {
+    id: "invoice-process-costs",
+    title: "Processing Invoice Costs & Commissions",
+    category: "Sales Docs",
+    content: `
+### Process Costs Button
+
+When viewing any **Invoice** in the details modal, you'll see an amber **Process Costs** button in the action bar.
+
+Clicking it will:
+1. Fetch the full invoice from Zoho Books (including line items).
+2. Calculate **Dead Cost Total** — the sum of each line item's cost × quantity.
+3. Split dead cost into **Subject to VIG** and **No VIG** categories:
+   - Items marked as **gifts** → No VIG.
+   - Items with the "Subject to VIG" checkbox **unchecked** → No VIG.
+   - All other items → Subject to VIG.
+4. Calculate **Dead Cost Plus VIG** = (Subject to VIG × VIG Rate) + No VIG.
+5. Deduct CC Fees, Additional Costs, and Insurance.
+6. Calculate **Profit** = Sub Total − Dead Cost Plus VIG − fees.
+7. Calculate **Sales Commission** = Profit × Commission %.
+8. Write **all** of these values back to the Zoho Books custom fields.
+
+### When to use it
+- After creating a new invoice that hasn't had its costs filled in yet.
+- After line items or costs change on an existing invoice.
+- To verify that the Dead Cost, Profit, and Commission fields are correct.
+
+### Important
+The VIG rate is pulled from the salesperson's settings. If you need to override it, update the rep's VIG in Admin → VIG Settings first.
+    `,
+  },
+  {
+    id: "salesorder-process-costs",
+    title: "Processing Sales Order Costs & Commissions",
+    category: "Sales Docs",
+    content: `
+### Process Costs on Sales Orders
+
+Sales Orders support the same cost processing as Invoices. When viewing a **Sales Order** in the details modal, you can run **Process Costs** to calculate and write back all financial fields.
+
+### What it calculates
+1. **Dead Cost Total** — sum of each line item's purchase cost × quantity.
+2. **Dead Cost Subject to VIG** / **Dead Cost No VIG** — split based on the "Subject to VIG" checkbox and gift status.
+3. **Dead Cost Plus VIG** = (Subject to VIG × VIG Rate) + No VIG.
+4. **Dead Profit Actual** — Sub Total minus Dead Cost Total (raw margin before VIG and fees).
+5. **Profit** = Sub Total − Dead Cost Plus VIG − CC Fees − Additional Costs − Insurance.
+6. **Sales Commission** = Profit × Commission %.
+
+All values are written to Zoho Books custom fields on the Sales Order.
+
+### VIG rate lookup
+The VIG rate follows the same priority as invoices:
+1. Manual override passed in the request.
+2. Existing "Salesperson VIG" custom field on the SO.
+3. The salesperson's VIG settings (constant or monthly goal).
+4. Fallback default of 1.5×.
+
+### Loop prevention
+Each sales order has a 60-second cooldown after processing to prevent update loops from Zoho workflow callbacks.
+
+### Local database
+Cost data is also stored in the local Sales Order record for fast dashboard access.
+    `,
+  },
+  {
+    id: "quote-process-costs",
+    title: "Processing Quote Costs & Commissions",
+    category: "Sales Docs",
+    content: `
+### Process Costs on Quotes
+
+Quotes (Estimates) support the same cost processing as Invoices and Sales Orders. When viewing a **Quote** in the details modal, you can run **Process Costs** to calculate and write back all financial fields.
+
+### What it calculates
+1. **Dead Cost Total** — sum of each line item's purchase cost × quantity.
+2. **Dead Cost Subject to VIG** / **Dead Cost No VIG** — split based on the "Subject to VIG" checkbox and gift status.
+3. **Dead Cost Plus VIG** = (Subject to VIG × VIG Rate) + No VIG.
+4. **Dead Profit Actual** — Sub Total minus Dead Cost Total (raw margin before VIG and fees).
+5. **Profit** = Sub Total − Dead Cost Plus VIG − CC Fees − Additional Costs − Insurance.
+6. **Sales Commission** = Profit × Commission %.
+
+All values are written to Zoho Books custom fields on the Estimate.
+
+### Why process costs on a Quote?
+- Preview profit margins **before** converting to a Sales Order or Invoice.
+- Verify the deal is worth pursuing at the quoted price.
+- Compare Dead Profit Actual (raw margin) against Profit (after VIG and fees) to understand the cost impact of VIG.
+
+### VIG rate lookup
+Same priority as invoices and sales orders: manual override → existing custom field → salesperson settings → 1.5× fallback.
+
+### Loop prevention
+Each quote has a 60-second cooldown after processing to prevent update loops from Zoho workflow callbacks.
+
+### Local database
+Cost data is also stored in the local Quote record for fast dashboard access.
+    `,
+  },
+  {
+    id: "campaign-intel-panel",
+    title: "Sales Call Campaign — Account Intel Panel",
+    category: "Sales Hub",
+    content: `
+### Account Intel Panel
+
+When running a Sales Call Campaign, a **tabbed info panel** appears between the account card and the script:
+
+- **📦 Purchases** — full purchase history: Item Name, SKU, Qty Bought, Average Price, Total Spent. Auto-loaded from Zoho Books invoice line items.
+- **📝 Notes** — all notes for the account (author, date, sentiment badge, content). Gives you full context on previous interactions.
+- **📊 Invoices** — list of recent invoices with status badges (paid, overdue, sent) and amounts.
+
+Data loads automatically as you cycle through accounts. Use this to quickly understand what the customer has bought before and what previous reps have noted.
+    `,
+  },
+  {
+    id: "commissions-calculation",
+    title: "How Commissions Are Calculated",
+    category: "Commissions",
+    content: `
+### Commission Source
+
+Commissions are pulled directly from the **SALES COMMISSION** custom field in Zoho Books — the system does NOT calculate commission on its own.
+
+To ensure your commission shows correctly:
+1. Run **Process Costs** on the invoice (from the invoice details modal) to calculate and write the SALES COMMISSION field.
+2. Commission = 50% of Profit (by default), where Profit = Sub Total − Dead Cost Plus VIG − CC Fees − Additional Costs − Insurance.
+
+### Split Timing
+- **Upfront (50%)** — credited when the invoice is created.
+- **Final (50%)** — credited when the invoice is marked as paid.
+
+If an invoice has no SALES COMMISSION field set in Zoho Books, it will show as $0 commission until processed.
+    `,
+  },
+  {
+    id: "timeclock-how-it-works",
+    title: "How the Timeclock Works",
+    category: "Timeclock",
+    content: `
+### Automatic Tracking
+
+The timeclock tracks your activity automatically while you're using the Sales Portal. It pings every 5 minutes to record your presence.
+
+### Key Behaviors
+- **Clock In**: Click the Clock In button in the top bar. Activity tracking starts immediately.
+- **Clock Out**: Click Clock Out, or the system auto-clocks you out after **20 minutes of inactivity** at your **last activity time** (no idle time is counted).
+- **Inactivity**: If you're away for 20+ minutes and come back, that gap is recorded as an inactivity period and subtracted from your hours.
+- **Hours Display**: Both the top bar and the timeclock page show hours with inactivity subtracted.
+
+### Time Zones
+All dates are stored in **Phoenix time (MST)** — no daylight saving time changes.
+
+### Requesting Changes
+If you forgot to clock in/out or need a correction, use the **Request Change** button on the Timeclock page.
+    `,
+  },
+  {
+    id: "user-management",
+    title: "Adding & Managing Users",
+    category: "Admin",
+    content: `
+### Adding New Users
+1. Go to **Admin → User Permissions**
+2. Click **Add User** in the top-right
+3. Fill in their name, email (must match their Zoho login email), role, and optionally their Zoho User ID
+4. Once created, the user can log in via Zoho OAuth
+
+### How User Sync Works
+- **First Login**: When a new user logs in via Zoho OAuth, the system creates or merges their account automatically.
+- **Account Owner Sync**: When accounts are synced from Zoho CRM, if an account owner doesn't exist in the portal yet, a "stub" user is created. When that person logs in via Zoho, their stub is automatically merged — their real name and email replace the placeholder.
+- **No duplicates**: The system checks both Zoho User ID and email to prevent duplicate user records.
+
+### User Roles
+- **Sales Representative**: Can view their assigned accounts, log calls, manage tasks
+- **Admin**: Full access to all accounts, admin tools, user management, and campaigns
+
+### Bulk Account Assignment
+1. Go to **Admin → User Permissions**
+2. Expand a user and click **Assign Accounts**
+3. Search and select accounts to reassign to that user
+4. Click **Reassign** — this updates both the local database and Zoho CRM
+
+### Sales Board Permission
+The Sales Board tab on the dashboard is a permission-gated feature. It is **not** available to reps by default. To grant access, go to Admin → User Permissions → expand the user → enable "Sales Board" under Page Access.
+
+### Show on Sales Board
+Each user has a **"Show on Sales Board"** toggle in Admin → User Permissions. When enabled, that user appears as a tracked rep on the live Sales Board display. The Sales Board dynamically loads users with this flag — no hardcoded rep list.
+    `,
+  },
+  {
+    id: "admin-data-sync",
+    title: "Data Sync & Account Enrichment",
+    category: "Admin & Management",
+    content: `
+### Account Data Source: Zoho Books
+All account data (addresses, phone numbers, invoices, sales orders, quotes) is synced from **Zoho Books** — not CRM. Since CRM and Books are already synced in Zoho, Books is the single source of truth.
+
+### Admin Bulk Sync
+Go to **Admin → Data Sync** to sync data from Zoho Books:
+- **Sync Accounts** — Updates account IDs and caches address info from Books contacts
+- **Sync Invoices** — Pulls all invoices and links them to accounts
+- **Sync Sales Orders** — Pulls all sales orders
+- **Sync Quotes** — Pulls all estimates/quotes
+- **⚡ Sync All** — Runs all syncs in order (accounts first)
+
+### Address Info
+Account addresses (billing + shipping) are fetched from **Zoho Books contacts** and cached in the database. When you view an account, the address loads from the cache. If it's missing, it's fetched live from Books and cached automatically.
+
+### Campaign Modal Enhancements
+The **Sales Outreach Campaign** has been redesigned as a **full-screen 3-panel dialer**:
+
+#### Left Panel — Account Queue
+- Scrollable list of all accounts in the campaign
+- Active account highlighted with cyan glow; completed accounts dimmed
+- Status dots: green (active), red (overdue invoices), grey (done)
+- Click any account to jump to it instantly
+
+#### Center Panel — Dialer + Script + Close
+- **Sticky Account HUD** (always visible while scrolling): Contact name, company, phone (ZDialer text), email, address, Call/SMS/Email buttons, KPI chips (LTV, Units, Overdue), top 3 products inline, and fact-finding summary chips that appear as answers are captured (Blades, Cuts, From, Pays, Crews, Qty, Wants)
+- **Outreach Script + Fact-Finding**: Cold Call / Follow-Up toggle. On Cold Call, each of the 7 fact-finding questions appears inline with its form (pill selectors, text inputs) directly below the question text. A progress tracker (7 dots) shows completion. On Follow-Up, the generated script shows first, followed by any missing fact-finding fields.
+- **Blade Pitch Recommendations**: Good → Better → Best with full pricing and free blade promotions
+- **Order Builder**: Search any product from catalog with live search dropdown, or quick-add the top 10 selling blades (pulled dynamically from Zoho Books catalog by product name) with one tap. Each line item has paid qty, free qty (green), editable unit price, and auto-calculated line total. Financial estimates are calculated in real-time: Dead Cost (purchase cost × all items), Dead Profit (revenue − dead cost), Profit after VIG (using 1.5× multiplier on paid items, 1× on free/gift items), Sales Commission estimate (50% of profit), and margin %. "Preview Sales Order" button opens a mock sales order that separates paid items and free/gift items into distinct line item sections with customer info, order totals, and a full profit breakdown panel. Order data is saved with the call log.
+- **Sales Close Script**: 4-step close (Verify Address → Payment → Email → Final Close)
+- **Log Outcome**: Contact reached toggle, spoke with, outcome dropdown, notes, follow-up date, Skip/Log & Next
+
+#### Right Panel — Account Intelligence
+- **Profile**: Billing address, shipping address, industry, tags, owner, website
+- **Product LTV**: Per-product lifetime value cards with visual spend bars, total LTV badge, avg cost per unit, and account-wide summary KPIs
+- **Deals**: Active deals with stage, amount, closing date
+- **Invoices**: All invoices with status badges (paid/overdue/other)
+- **Sales Orders**: SO number, status, amount
+- **Notes/Call Log**: Previous notes with author, sentiment, date
+- **Fact-Finding (Unified)**: Collapsible editable form that doubles as the saved profile — shows compact summary when collapsed, full pill-selectable form when expanded. Data is pre-filled from account records and saved on call log.
+
+#### Phone Numbers & ZDialer
+Phone numbers are displayed as plain text (not tel: links) so Zoho ZDialer can detect and handle click-to-call. The "Call" button copies the number to clipboard for ZDialer use.
+
+### Sales Close Script
+After the blade pitch recommendations, the campaign dialer includes a **Move to Close** section with 4 scripted steps:
+1. **Verify Shipping Address** — reads back the customer's address on file (auto-populated from Zoho Books)
+2. **Take Payment** — "What's easiest for you — do you want us to bill you later, or do you wanna throw this on a card and get it out of the way?" with card details or Net 30 alternative
+3. **Confirm Email** — reads back the email on file or asks for one (for receipts and tracking)
+4. **Final Close** — relationship-building wrap-up and confirmation of shipping timeline
+
+The blade pitches now include the **full pricing, free blade promotion, and close transition** from the actual sales scripts.
+    `,
+  },
+  // ─────────────────────────────── ADMIN & MANAGEMENT ───────────────────────────────
+  {
+    id: "admin-fact-finding",
+    title: "Fact-Finding on Account Pages",
+    category: "Admin & Management",
+    content: `
+### Fact-Finding Questions
+
+Every account has 7 fact-finding fields that capture key information about the customer's blade usage. You can view and edit these from the **Account page → Overview tab → Business Profile** section.
+
+### Editing Fact-Finding Data
+1. Navigate to any account page
+2. Click the **Edit** button in the header
+3. Scroll to the **📋 Fact-Finding** section
+4. Click pills to select/deselect answers for each question:
+   - **Blade Sizes** — what size blades they run (10"–36")
+   - **Materials Cut** — what they're cutting (Concrete, Asphalt, Brick, etc.)
+   - **Current Supplier** — where they buy blades (Home Depot, Sunbelt, etc.)
+   - **Avg Blade Cost** — how much they pay per blade
+   - **Crew Count** — how many crews they have
+   - **Blades Per Order** — how many blades they buy at a time
+   - **Improvement Priority** — what matters most (Longer life, Faster cutting, etc.)
+
+### Where Fact-Finding Gets Captured
+- **Campaign Dialer** — automatically asked during sales calls and saved when the call is logged
+- **Account Edit Modal** — manually editable at any time
+- Existing answers are never overwritten unless you change them
+
+### Business Profile Display
+The Business Profile section on the account Overview tab **always appears** — even if no data has been collected yet. Fields without data show "Not recorded" in muted text so you can see what's missing at a glance.
+    `,
+  },
+  {
+    id: "admin-do-not-call",
+    title: "Do Not Call (DNC) Filtering",
+    category: "Admin & Management",
+    content: `
+### How Do Not Call Works
+
+Accounts can be marked as **🚫 DO NOT CALL** using the Quality Picker on any account page. Once marked, they are **hidden by default** from all lists across the portal.
+
+### Where DNC Filtering Applies
+- **Dashboard / Sales Hub** — DNC accounts are hidden from all effort modes (Sales, Call List, Cold Call)
+- **Update Accounts** — DNC accounts are hidden from the admin account management list
+- **Collections** — DNC accounts are filtered out of overdue invoice lists
+
+### How to Include DNC Accounts
+Every page that filters DNC accounts has an **"Include Do Not Call"** checkbox in the filter area. Check it to temporarily show those accounts alongside regular ones.
+
+### Setting DNC Status
+1. Go to any account page
+2. Use the **Quality Picker** dropdown (top of the page, near the account name)
+3. Select **🚫 DO NOT CALL**
+
+The account will immediately be hidden from all lists until you check the "Include Do Not Call" filter checkbox.
+
+### Important Notes
+- DNC status is **never auto-changed** by the system — it's a manual override that sticks
+- The Zoho sync will not downgrade or change DNC status
+- You can always find DNC accounts by checking the filter checkbox or searching by name
+    `,
+  },
+  {
+    id: "dead-profit-cost-processing",
+    title: "Dead Profit & Unified Cost Processing",
+    category: "Admin & Management",
+    content: `
+### What is Dead Profit?
+
+**Dead Profit Actual** is the simplest profit measure: **Subtotal minus Dead Cost Total** (all raw purchase costs, no VIG multiplier applied, includes ALL items — gift items, no-VIG items, everything).
+
+This is different from the calculated **Profit** field:
+- **Dead Profit** = Subtotal − Dead Cost Total (raw margin)
+- **Profit** = Subtotal − Dead Cost Plus VIG − CC Fees − Additional Costs − Insurance (net margin after all deductions)
+
+### Where Dead Profit is Calculated
+
+Dead Profit (field: \`cf_dead_profit_actual\`) is calculated on:
+- **Invoices** — via the Process Invoice Costs function
+- **Sales Orders** — via the Process Sales Order Costs function  
+- **Quotes** — via the Process Quote Costs function
+
+### Bulk Processing (Zoho Books Scripts page)
+
+The **Zoho Books Scripts** page (Admin → Zoho Books Scripts) has a "Bulk Process Document Costs" section that:
+1. Select document type: **Invoices**, **Sales Orders**, or **Quotes**
+2. Select filter: **Unpaid Only**, **Last 90 Days**, or **All**
+3. Click the button to process all matching documents page by page
+
+Each document gets:
+- Dead Cost Total, Dead Cost Subject to VIG, Dead Cost No VIG
+- Dead Profit Actual (Subtotal − Dead Cost Total)
+- VIG Rate, Dead Cost Plus VIG
+- Profit, Margin %, Commission, Sales Commission
+- All values written back to Zoho Books custom fields
+
+### Important Notes
+- This app is the **single source of truth** for cost calculations — Zoho Books automations are turned off
+- Only changed fields are written to Zoho (prevents unnecessary API calls)
+- The system includes a loop guard to prevent re-processing within 60 seconds
+    `,
+  },
+  {
+    id: "task-hub-dashboard",
+    title: "Task Hub — Dashboard & Calendar",
+    category: "Sales & Orders",
+    content: `
+### What Is the Task Hub?
+
+The Task Hub (/tasks) is the central workspace for managing all tasks across the team. It replaces the task sidebar on the main dashboard with a full-featured management environment.
+
+### Task Categories
+
+Tasks are automatically sorted into 3 categories based on their type:
+
+**Communication** (blue) — Calls, Emails, Texts
+- Any task of type Call, Email, or Text
+- These are customer-facing interaction tasks
+
+**Sales** (green) — Account & Deal Tasks
+- Tasks of type "Task" that are linked to an account or deal
+- Used to track sales follow-ups, quotes, and deal progress
+
+**Office & Process** (amber) — Internal Tasks
+- Tasks of type "Processing" or unlinked general tasks
+- Used for back-office work, order processing, and admin
+
+### Dashboard View
+
+The default view shows **three columns** (one per category) so you can see all task types at a glance.
+
+- Each card shows: type badge, priority, status, title, description, linked assets (account/deal/invoice/SO/quote chips), assignee, due date
+- **Overdue tasks** are highlighted in red
+- Use the **category tabs** to filter to a single lane
+- Use the search bar, status filter, type filter, and sort to narrow results
+
+### Adding an Outcome / Update
+
+On any task card, hover to reveal the action buttons. Click the **speech bubble icon** to add an outcome note.
+
+Outcomes are timestamped and appended to the task description: e.g. [Outcome Jul 14 5:30pm]: Spoke with customer...
+
+You can also add outcomes from the **Task Detail Panel** (click any task title to open it).
+
+### Task Detail Panel
+
+Clicking a task title opens a slide-in panel with:
+- Editable subject, status, and priority
+- All connected assets (account link, deal, invoice, SO, quote)
+- Full notes/description editor
+- Outcomes history with ability to add new ones
+- Save Changes and Complete buttons
+
+### Calendar View
+
+Switch to the Calendar using the Dashboard/Calendar toggle at the top right.
+
+**4 views:**
+- **Day** — All tasks due that day in a single pane
+- **Week** — 7-column layout with tasks placed in their day
+- **Month** — Grid with task chips on each day; click a day to drill into Day view
+- **Year** — 12-month heatmap; days with tasks are highlighted, red = high priority
+
+Use the **category filter chips** in the Calendar view to show/hide categories.
+
+### Quick Actions (on every task card)
+
+- **Edit icon** — Change status inline (dropdown)
+- **Speech bubble** — Add outcome / update note
+- **Check icon** — Mark as Complete
+
+### Creating a New Task
+
+Click **+ New Task** in the header to go to the task creation form. You can also use the global top bar quick-add button.
+
+### Syncing With Zoho
+
+Tasks are synced from Zoho CRM. Click the **refresh icon** (↺) to force a fresh sync from Zoho for the latest tasks.
+    `,
+  },
 ]
+
+

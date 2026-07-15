@@ -4,7 +4,7 @@ import { getZohoAccessToken } from "./lib/zoho-auth"
 
 const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID;
+const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
 
 export const handler: Handler = async (event) => {
   const cors = {
@@ -37,32 +37,84 @@ export const handler: Handler = async (event) => {
 
     const token = await getZohoAccessToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
+    const authHeaders = { Authorization: `Zoho-oauthtoken ${token}` }
 
-    // Extract primary contact data if any
+    // --- Step 1: Check if contact already exists in Zoho Books ---
+    const searchRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&contact_name=${encodeURIComponent(account.name)}`, {
+      headers: authHeaders
+    })
+    const searchData: any = await searchRes.json()
+    
+    if (searchRes.ok && searchData.contacts && searchData.contacts.length > 0) {
+      // Check for exact name match or matching CRM account ID
+      const existing = searchData.contacts.find((c: any) => 
+        c.contact_name?.toLowerCase() === account.name.toLowerCase() ||
+        c.zcrm_account_id === account.zohoId
+      )
+      if (existing) {
+        return {
+          statusCode: 200,
+          headers: cors,
+          body: JSON.stringify({ 
+            success: true, 
+            alreadyExists: true,
+            message: `Account "${account.name}" already exists in Zoho Books (ID: ${existing.contact_id}).`,
+            booksContact: existing
+          })
+        }
+      }
+    }
+
+    // --- Step 2: Build full payload with address info ---
     const primaryContact = account.contacts?.find(c => c.isPrimary) || account.contacts?.[0]
     
-    // Create payload for Zoho Books Contact
     const payload: any = {
       contact_name: account.name,
       company_name: account.name,
       zcrm_account_id: account.zohoId,
-      customer_sub_type: "business"
+      customer_sub_type: "business",
+      // Billing address
+      billing_address: {
+        street: account.billingStreet || "",
+        city: account.billingCity || "",
+        state: account.billingState || "",
+        zip: account.billingZip || "",
+        country: "US"
+      },
+      // Shipping address
+      shipping_address: {
+        street: account.shippingStreet || account.billingStreet || "",
+        city: account.shippingCity || account.billingCity || "",
+        state: account.shippingState || account.billingState || "",
+        zip: account.shippingZip || account.billingZip || "",
+        country: "US"
+      }
     }
 
+    // Add phone if available
+    if (primaryContact?.phone) {
+      payload.phone = primaryContact.phone
+    } else if (primaryContact?.mobilePhone) {
+      payload.phone = primaryContact.mobilePhone
+    }
+
+    // Add primary contact person
     if (primaryContact) {
       payload.contact_persons = [{
         first_name: primaryContact.firstName || "Unknown",
         last_name: primaryContact.lastName || "Unknown",
         email: primaryContact.email || "",
-        phone: primaryContact.phone || "",
+        phone: primaryContact.phone || primaryContact.mobilePhone || "",
+        mobile: primaryContact.mobilePhone || "",
         is_primary_contact: true
       }]
     }
 
+    // --- Step 3: Create the contact ---
     const res = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}`, {
       method: "POST",
       headers: {
-        Authorization: `Zoho-oauthtoken ${token}`,
+        ...authHeaders,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
@@ -72,9 +124,8 @@ export const handler: Handler = async (event) => {
 
     if (!res.ok || data.code !== 0) {
       console.error("Zoho Books API Error:", data)
-      // Check if it's already in books (code usually 1000 for duplicate, but can vary)
       if (data.message && data.message.toLowerCase().includes("already exists")) {
-        return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "Account already exists in Zoho Books." }) }
+        return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, alreadyExists: true, message: "Account already exists in Zoho Books." }) }
       }
       throw new Error(data.message || `API error ${res.status}`)
     }
@@ -82,7 +133,7 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 200,
       headers: cors,
-      body: JSON.stringify({ success: true, message: "Successfully pushed to Zoho Books", booksContact: data.contact })
+      body: JSON.stringify({ success: true, message: "Successfully pushed to Zoho Books with full address info", booksContact: data.contact })
     }
 
   } catch (error: any) {

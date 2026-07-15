@@ -224,30 +224,58 @@ export const handler: Handler = async (event, context) => {
       orderBy: { dueDate: 'asc' }
     })
 
-    // Map them to the shape the frontend expects initially to not break everything immediately
-    // The frontend currently expects: id, type, priority, title, description, actionUrl, accountId, ownerId
+    // ── Fetch owner names for all tasks ────────────────────────────────────
+    const ownerIds = [...new Set(tasks.map(t => t.ownerId).filter(Boolean))]
+    const owners = await prisma.user.findMany({
+      where: { id: { in: ownerIds } },
+      select: { id: true, name: true }
+    })
+    const ownerNameMap = new Map(owners.map(u => [u.id, u.name]))
+
+    // Priority normalizer (DB stores High/Normal/Low but legacy may store uppercase)
+    const normPriority = (p: string | null) => {
+      const s = (p || 'Normal').toLowerCase()
+      if (s === 'high') return 'High'
+      if (s === 'low') return 'Low'
+      return 'Normal'
+    }
+
     const formattedTasks = tasks.map(t => {
-      let actionUrl = "#"
-      let type = "ACCOUNT_UPDATE"
-      if (t.dealId) {
-        type = "DEAL_FOLLOWUP"
-        actionUrl = `/account/${t.deal?.zohoId || t.account?.zohoId || t.accountId}`
-      } else if (t.accountId) {
-        actionUrl = `/account/${t.account?.zohoId}`
+      // Use real stored type — fall back to subject inference if blank
+      let taskType = t.type || 'Task'
+      const subjLower = (t.subject || '').toLowerCase()
+      if (!t.type || t.type === 'Task') {
+        if (subjLower.includes('call')) taskType = 'Call'
+        else if (subjLower.includes('email')) taskType = 'Email'
+        else if (subjLower.includes('text') || subjLower.includes('sms')) taskType = 'Text'
+        else if (subjLower.includes('processing') || subjLower.includes('process')) taskType = 'Processing'
       }
 
       return {
         id: t.id,
         zohoId: t.zohoId,
-        type, // Legacy type mapping
-        priority: t.priority?.toUpperCase() || 'MEDIUM',
-        title: t.subject,
+        title: t.subject || 'Untitled Task',
         description: t.description,
-        actionUrl,
-        accountId: t.account?.zohoId || t.deal?.zohoId,
+        status: t.status || 'Not Started',
+        priority: normPriority(t.priority),
+        type: taskType,
+        dueDate: t.dueDate,
         ownerId: t.ownerId,
-        status: t.status,
-        dueDate: t.dueDate
+        ownerName: ownerNameMap.get(t.ownerId) || null,
+        accountId: t.account?.zohoId || null,
+        accountDbId: t.accountId,
+        accountName: t.account?.name || null,
+        dealId: t.deal?.zohoId || null,
+        dealDbId: t.dealId,
+        dealName: t.deal?.name || null,
+        invoiceId: t.invoiceId || null,
+        salesOrderId: t.salesOrderId || null,
+        quoteId: t.quoteId || null,
+        estimateId: t.estimateId || null,
+        reminderAt: t.reminderAt,
+        reminderMethod: t.reminderMethod,
+        reminderFired: t.reminderFired,
+        actionUrl: t.account?.zohoId ? `/account/${t.account.zohoId}` : '#'
       }
     })
 
@@ -256,6 +284,7 @@ export const handler: Handler = async (event, context) => {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({ success: true, tasks: formattedTasks })
     }
+
 
   } catch (error: any) {
     console.error("Get Tasks Error:", error)

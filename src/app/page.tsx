@@ -1,12 +1,13 @@
 "use client"
 
 import { formatPhoneNumber } from "@/lib/formatters"
+import { resolvePermissions } from "@/lib/permissions"
 
 
 import { useZoho } from "@/components/ZohoProvider"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { SalesCallCampaignModal } from "@/components/SalesCallCampaignModal"
-import { RecentActivityFeed } from "@/components/RecentActivityFeed"
+import { OrderNextSteps } from "@/components/OrderNextSteps"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -52,6 +53,8 @@ export default function Dashboard() {
   const [sortBy, setSortBy] = useState<"default" | "timezone_asc" | "timezone_desc" | "recentOrders_desc" | "recentOrders_asc">("default")
   const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [showDoNotCall, setShowDoNotCall] = useState(false)
+  const [ltvMin, setLtvMin] = useState("")
+  const [ltvMax, setLtvMax] = useState("")
   const [qualityFilter, setQualityFilter] = useState("All")
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
   const [repsList, setRepsList] = useState<any[]>([])
@@ -65,6 +68,7 @@ export default function Dashboard() {
   const [taskDescription, setTaskDescription] = useState("")
   const [taskPriority, setTaskPriority] = useState("Normal")
   const [taskDueDate, setTaskDueDate] = useState("")
+  const [taskDueTime, setTaskDueTime] = useState("")
   const [taskOwnerId, setTaskOwnerId] = useState("")
   const [taskStatus, setTaskStatus] = useState("Not Started")
   const [taskWhatId, setTaskWhatId] = useState("")
@@ -79,11 +83,17 @@ export default function Dashboard() {
   const [showEditTaskModal, setShowEditTaskModal] = useState(false)
 
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)
+  const [viewingDocType, setViewingDocType] = useState<'Quote' | 'SalesOrder' | 'Invoice'>('Invoice')
   const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
   const [isLoadingInvoiceDetails, setIsLoadingInvoiceDetails] = useState(false)
 
   const [taskFilterTab, setTaskFilterTab] = useState<"due" | "pending" | "completed" | "all">("due")
   const [taskTypeFilter, setTaskTypeFilter] = useState<string>("All")
+
+  // Reminder states
+  const [reminderDate, setReminderDate] = useState("")
+  const [reminderTime, setReminderTime] = useState("")
+  const [reminderMethods, setReminderMethods] = useState<string[]>([])
 
   // Campaign States
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([])
@@ -111,6 +121,57 @@ export default function Dashboard() {
   const [aiPrompt, setAiPrompt] = useState("")
   const [generatingAiText, setGeneratingAiText] = useState(false)
   const [generatingAiImage, setGeneratingAiImage] = useState(false)
+
+  // --- Persistent Filters: Load from preferences on mount ---
+  const [prefsLoaded, setPrefsLoaded] = useState(false)
+  useEffect(() => {
+    if (!preferences || prefsLoaded) return
+    // effort tab always defaults to "sales" (Sales Pipeline) — not restored from prefs
+    if (preferences.ownerFilter) setOwnerFilter(preferences.ownerFilter)
+    if (preferences.sortBy) setSortBy(preferences.sortBy)
+    if (preferences.searchQuery) setSearchQuery(preferences.searchQuery)
+    if (preferences.timezoneFilter) setTimezoneFilter(preferences.timezoneFilter)
+    if (preferences.qualityFilter) setQualityFilter(preferences.qualityFilter)
+    if (preferences.yearFilter) setYearFilter(preferences.yearFilter)
+    if (preferences.statusFilter) setStatusFilter(preferences.statusFilter)
+    if (preferences.industryFilter) setIndustryFilter(preferences.industryFilter)
+    if (preferences.onlyWithSales !== undefined) setOnlyWithSales(preferences.onlyWithSales)
+    if (preferences.showDoNotCall !== undefined) setShowDoNotCall(preferences.showDoNotCall)
+    if (preferences.taskFilterTab) setTaskFilterTab(preferences.taskFilterTab)
+    if (preferences.taskTypeFilter) setTaskTypeFilter(preferences.taskTypeFilter)
+    setPrefsLoaded(true)
+  }, [preferences])
+
+  // --- Persistent Filters: Save to preferences on change ---
+  useEffect(() => {
+    if (!prefsLoaded) return
+    updatePreferences({
+      ownerFilter, sortBy, searchQuery, timezoneFilter,
+      qualityFilter, yearFilter, statusFilter, industryFilter,
+      onlyWithSales, showDoNotCall, taskFilterTab, taskTypeFilter
+    })
+  }, [ownerFilter, sortBy, searchQuery, timezoneFilter, qualityFilter, yearFilter, statusFilter, industryFilter, onlyWithSales, showDoNotCall, taskFilterTab, taskTypeFilter, prefsLoaded])
+
+  // --- Task Reminder Polling: Check every 60s ---
+  useEffect(() => {
+    const checkReminders = async () => {
+      try {
+        const res = await fetch('/api/check-reminders')
+        const data = await res.json()
+        if (data.success && data.processed > 0) {
+          // Refresh tasks to show updated reminder states
+          const taskRes = await fetch(`/api/get-tasks?ownerId=${currentUser?.id}`)
+          const taskData = await taskRes.json()
+          if (taskData.success) setTasks(taskData.tasks)
+        }
+      } catch (e) {
+        // Silent fail for polling
+      }
+    }
+    checkReminders()
+    const interval = setInterval(checkReminders, 60000)
+    return () => clearInterval(interval)
+  }, [currentUser?.id])
 
   // Fetch Media Assets
   const fetchMediaAssets = async () => {
@@ -444,6 +505,17 @@ export default function Dashboard() {
     }
   }, [isInitialized, currentUser, router])
 
+  // Fetch dbUser permissions on load
+  useEffect(() => {
+    if (!currentUser?.email && !currentUser?.id) return
+    fetch('/api/admin/users').then(r => r.json()).then(data => {
+      if (data?.success) {
+        const user = data.users.find((u: any) => u.email === currentUser?.email || u.id === currentUser?.id)
+        if (user) setDbUser(user)
+      }
+    }).catch(() => {})
+  }, [currentUser?.email, currentUser?.id])
+
   useEffect(() => {
     if (viewingInvoice) {
       if (viewingInvoice.items?.custom_fields) {
@@ -474,7 +546,7 @@ export default function Dashboard() {
       setFullInvoiceDetails(null)
       setIsLoadingInvoiceDetails(false)
     }
-  }, [viewingInvoice])
+  }, [viewingInvoice?.id])
 
   const handleEffortChange = (val: "sales" | "call_list" | "cold_call" | "dashboard") => {
     setEffort(val)
@@ -493,7 +565,7 @@ export default function Dashboard() {
       const accountsQuery = `${query}${roleQuery}`
 
       const [resAccounts, resTasks] = await Promise.all([
-        fetch(`/api/get-accounts?${accountsQuery}&refresh=true&force=true&includeDocs=true`),
+        fetch(`/api/get-accounts?${accountsQuery}&refresh=true&includeDocs=true`),
         fetch(`/api/get-tasks?${accountsQuery}&refresh=true`),
       ])
       const dataAccounts = await resAccounts.json()
@@ -554,6 +626,7 @@ export default function Dashboard() {
     setTaskDescription("")
     setTaskPriority("Normal")
     setTaskDueDate("")
+    setTaskDueTime("")
     setTaskOwnerId(currentUser?.id || "")
     setTaskStatus("Not Started")
     setTaskWhatId("")
@@ -653,6 +726,8 @@ export default function Dashboard() {
     setTaskDescription(task.description || "")
     setTaskPriority(task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1).toLowerCase() : "Normal")
     setTaskDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : "")
+    const dueDt = task.dueDate ? new Date(task.dueDate) : null
+    setTaskDueTime(dueDt && (dueDt.getUTCHours() !== 0 || dueDt.getUTCMinutes() !== 0) ? `${String(dueDt.getHours()).padStart(2,'0')}:${String(dueDt.getMinutes()).padStart(2,'0')}` : "")
     setTaskOwnerId(task.ownerId || currentUser?.id || "")
     setTaskStatus(task.status || "Not Started")
     
@@ -668,6 +743,17 @@ export default function Dashboard() {
     setTaskSalesOrderId(task.salesOrderId || "")
     setTaskQuoteId(task.quoteId || "")
     setTaskEstimateId(task.estimateId || "")
+    
+    // Reminder fields
+    if (task.reminderAt) {
+      const rd = new Date(task.reminderAt)
+      setReminderDate(rd.toISOString().split('T')[0])
+      setReminderTime(`${String(rd.getHours()).padStart(2,'0')}:${String(rd.getMinutes()).padStart(2,'0')}`)
+    } else {
+      setReminderDate("")
+      setReminderTime("")
+    }
+    setReminderMethods(task.reminderMethod ? task.reminderMethod.split(',') : [])
     
     if (task.invoiceId) setSelectedTransaction(task.invoiceId)
     else if (task.salesOrderId) setSelectedTransaction(task.salesOrderId)
@@ -692,14 +778,17 @@ export default function Dashboard() {
           subject: taskSubject,
           description: taskDescription,
           priority: taskPriority,
-          dueDate: taskDueDate || null,
+          dueDate: taskDueDate ? (taskDueTime ? `${taskDueDate}T${taskDueTime}` : taskDueDate) : null,
           ownerId: taskOwnerId,
           status: taskStatus,
           whatId: taskWhatId || null,
           invoiceId: taskInvoiceId || null,
           salesOrderId: taskSalesOrderId || null,
           quoteId: taskQuoteId || null,
-          estimateId: taskEstimateId || null
+          estimateId: taskEstimateId || null,
+          reminderAt: reminderDate ? (reminderTime ? `${reminderDate}T${reminderTime}` : `${reminderDate}T09:00`) : null,
+          reminderMethod: reminderMethods.length > 0 ? reminderMethods.join(',') : null,
+          reminderFired: false
         })
       })
       const data = await res.json()
@@ -746,8 +835,11 @@ export default function Dashboard() {
     ON_HOLD: 1,
   }
 
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+
   const coldCallAccounts = accounts
-    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter) && (!a.totalSales || a.totalSales === 0) && (!a._count?.quotes || a._count.quotes === 0) && (!a._count?.salesOrders || a._count.salesOrders === 0))
+    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter) && (!a.totalSales || a.totalSales === 0) && (!a._count?.quotes || a._count.quotes === 0) && (!a._count?.salesOrders || a._count.salesOrders === 0) && (!a.lastCalledAt || new Date(a.lastCalledAt) < todayStart))
     .sort((a, b) => {
       const scoreA = qualityScores[a.quality] || 0
       const scoreB = qualityScores[b.quality] || 0
@@ -761,7 +853,7 @@ export default function Dashboard() {
     .slice(0, 50)
 
   const callListAccounts = accounts
-    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter) && (a.totalSales && a.totalSales > 0))
+    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter) && (a.totalSales && a.totalSales > 0) && (!a.lastCalledAt || new Date(a.lastCalledAt) < todayStart))
     .sort((a, b) => {
       const scoreA = qualityScores[a.quality] || 0
       const scoreB = qualityScores[b.quality] || 0
@@ -842,8 +934,10 @@ export default function Dashboard() {
     
     const ltv = a.totalSales || 0
     const matchesSalesFilter = !onlyWithSales || ltv > 0
+    const matchesLtvMin = !ltvMin || ltv >= parseFloat(ltvMin)
+    const matchesLtvMax = !ltvMax || ltv <= parseFloat(ltvMax)
 
-    return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesQuality && matchesYear && matchesSalesFilter
+    return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesQuality && matchesYear && matchesSalesFilter && matchesLtvMin && matchesLtvMax
   })
 
   const filteredTasksList = tasks.filter(task => {
@@ -889,7 +983,7 @@ export default function Dashboard() {
   ]
 
   const accentColor = effort === "sales" ? "emerald" : effort === "cold_call" ? "indigo" : "sky"
-  const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (timezoneFilter !== "All" ? 1 : 0) + (qualityFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0)
+  const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (timezoneFilter !== "All" ? 1 : 0) + (qualityFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0) + (ltvMin ? 1 : 0) + (ltvMax ? 1 : 0)
 
   if (!isInitialized || loading) {
     return (
@@ -1003,6 +1097,7 @@ export default function Dashboard() {
               </div>
             </div>
           </button>
+          {resolvePermissions(dbUser?.permissions, dbUser?.role || currentUser?.role).salesBoard && (
           <button
             onClick={() => handleEffortChange("dashboard")}
             className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
@@ -1028,12 +1123,15 @@ export default function Dashboard() {
               </div>
             </div>
           </button>
+          )}
         </div>
 
-        {effort === "dashboard" ? (
+        {effort === "dashboard" && resolvePermissions(dbUser?.permissions, dbUser?.role || currentUser?.role).salesBoard ? (
           <div className="mt-4">
             <SalesBoard />
           </div>
+        ) : effort === "dashboard" ? (
+          <></>
         ) : (
           <>
             {/* Quick Invoice Lookups */}
@@ -1073,14 +1171,15 @@ export default function Dashboard() {
             <FiCheckCircle size={13} />
             <span>Recent Paid Accounts</span>
             <span className="bg-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{Math.min(50, accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && (a.totalSales || 0) > 0).length)}</span>
+            <span className="bg-emerald-500/30 px-1.5 py-0.5 rounded text-[10px] font-black">${(() => { const t = accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && (a.totalSales || 0) > 0).reduce((s, a) => s + (a.totalSales || 0), 0); return t >= 1000 ? (t/1000).toFixed(1) + 'k' : t.toFixed(0); })()}</span>
           </button>
 
           <button
             onClick={() => {
               const unpaidAccounts = accounts
                 .filter(a => ownerFilter === "All" || a.ownerId === ownerFilter)
-                .filter(a => (a.overdueCount || 0) > 0 || (a.overdueBalance || 0) > 0)
-                .sort((a: any, b: any) => (b.overdueBalance || 0) - (a.overdueBalance || 0))
+                .filter(a => (a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)
+                .sort((a: any, b: any) => (b.unpaidBalance || 0) - (a.unpaidBalance || 0))
               setDrillType("accounts")
               setDrillTitle("Accounts with Unpaid Invoices")
               setDrillItems(unpaidAccounts)
@@ -1089,7 +1188,8 @@ export default function Dashboard() {
           >
             <FiAlertCircle size={13} />
             <span>Accounts with Unpaid</span>
-            <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.overdueCount || 0) > 0 || (a.overdueBalance || 0) > 0)).length}</span>
+            <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)).length}</span>
+            <span className="bg-amber-500/30 px-1.5 py-0.5 rounded text-[10px] font-black">${(() => { const t = accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)).reduce((s, a) => s + (a.unpaidBalance || 0), 0); return t >= 1000 ? (t/1000).toFixed(1) + 'k' : t.toFixed(0); })()}</span>
           </button>
 
           <button
@@ -1107,6 +1207,7 @@ export default function Dashboard() {
             <FiAlertCircle size={13} />
             <span>All Overdue Accounts</span>
             <span className="bg-rose-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.overdueCount || 0) > 0)).length}</span>
+            <span className="bg-rose-500/30 px-1.5 py-0.5 rounded text-[10px] font-black">${(() => { const t = accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.overdueCount || 0) > 0)).reduce((s, a) => s + (a.overdueBalance || 0), 0); return t >= 1000 ? (t/1000).toFixed(1) + 'k' : t.toFixed(0); })()}</span>
           </button>
         </div>
 
@@ -1477,6 +1578,11 @@ export default function Dashboard() {
                                     setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, timeZone: newTz } : a))
                                   }}
                                 />
+                                {account.owner?.name && (
+                                  <span className="text-[10px] text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 flex items-center gap-1">
+                                    <FiUser size={8} />{account.owner.name.split(' ')[0]}
+                                  </span>
+                                )}
                               </div>
                               {/* Mobile-only compact metadata stack */}
                               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap sm:hidden text-[10px] text-neutral-400 font-medium">
@@ -1583,7 +1689,7 @@ export default function Dashboard() {
 
           {/* Tasks — stacks below on mobile, column on desktop */}
           <div className={`lg:col-span-1 border-l border-[var(--border)] lg:pl-4 space-y-4 ${mobileTab === "accounts" ? "hidden sm:block" : ""}`}>
-            <RecentActivityFeed />
+            <OrderNextSteps accounts={accounts} onViewDoc={(type, doc) => { setViewingDocType(type as any); setViewingInvoice(doc) }} />
 
             {/* Header */}
             <div className="flex items-center justify-between">
@@ -1671,8 +1777,12 @@ export default function Dashboard() {
                   <div className="space-y-3 p-1">
                     {tasksPagination.paginatedItems.map(task => {
                       const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "Completed"
-                      const formattedDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null
+                      const dueDateObj = task.dueDate ? new Date(task.dueDate) : null
+                      const hasTime = dueDateObj && (dueDateObj.getHours() !== 0 || dueDateObj.getMinutes() !== 0)
+                      const formattedDate = dueDateObj ? dueDateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + (hasTime ? ` at ${dueDateObj.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}` : '') : null
                       const assigneeName = repsList.find(r => r.id === task.ownerId)?.name || repsList.find(r => r.id === task.ownerId)?.email || "Unassigned"
+                      const hasReminder = !!task.reminderAt
+                      const reminderFiredFlag = task.reminderFired === true
 
                       return (
                         <div key={task.id} className="glass-panel border border-[var(--border)] rounded-xl p-3.5 hover:border-[var(--border)] transition-all shadow-sm flex flex-col gap-2">
@@ -1697,6 +1807,15 @@ export default function Dashboard() {
                               }`}>
                                 {task.status}
                               </span>
+                              {hasReminder && (
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                                  reminderFiredFlag
+                                    ? "bg-amber-950/40 text-amber-400 border border-amber-500/20 animate-pulse"
+                                    : "bg-neutral-800 text-neutral-400 border border-[var(--border)]"
+                                }`}>
+                                  🔔 {reminderFiredFlag ? "REMINDER!" : "Reminder Set"}
+                                </span>
+                              )}
                             </div>
                             
                             {/* Edit / Complete Buttons */}
@@ -1862,28 +1981,58 @@ export default function Dashboard() {
                         <p className={`text-[10px] mt-0.5 ${item.status === 'Paid' ? 'text-blue-400' : 'text-amber-400'}`}>{item.status}</p>
                       </div>
                     </div>
-                  )}
-                  {drillType === "deals" && (
-                    <div>
-                      <p className="text-white text-sm font-bold">{item.title}</p>
-                      <p className="text-neutral-400 text-xs mt-0.5">{item.description}</p>
-                    </div>
-                  )}
-                  {drillType === "accounts" && (
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-white text-sm font-bold">{item.name}</p>
-                        {item._latestPaymentTime > 0 && (
-                          <p className="text-neutral-500 text-xs mt-0.5 flex items-center gap-1"><FiCalendar size={10} /> Paid: {new Date(item._latestPaymentTime).toLocaleDateString()}</p>
+                        )}
+                        {drillType === "deals" && (
+                          <div>
+                            <p className="text-white text-sm font-bold">{item.title}</p>
+                            <p className="text-neutral-400 text-xs mt-0.5">{item.description}</p>
+                          </div>
+                        )}
+                        {drillType === "accounts" && (
+                          <div>
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="text-white text-sm font-bold">{item.name}</p>
+                                {item._latestPaymentTime > 0 && (
+                                  <p className="text-neutral-500 text-xs mt-0.5 flex items-center gap-1"><FiCalendar size={10} /> Paid: {new Date(item._latestPaymentTime).toLocaleDateString()}</p>
+                                )}
+                                {(item.unpaidBalance > 0 || item.overdueBalance > 0) && (
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {item.unpaidBalance > 0 && (
+                                      <span className="text-[10px] font-black text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded">Unpaid: ${item.unpaidBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    )}
+                                    {item.overdueBalance > 0 && (
+                                      <span className="text-[10px] font-black text-rose-400 bg-rose-500/15 px-1.5 py-0.5 rounded">Overdue: ${item.overdueBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              <Link href={`/account?id=${item.zohoId}`} onClick={() => setDrillItems(null)} className="text-emerald-400 text-xs hover:underline flex items-center gap-1 shrink-0">
+                                View <FiChevronRight />
+                              </Link>
+                            </div>
+                            {item.unpaidInvoiceSummary && item.unpaidInvoiceSummary.length > 0 && (
+                              <div className="mt-2 space-y-1 border-t border-[var(--border)] pt-2">
+                                {item.unpaidInvoiceSummary.map((inv: any, i: number) => (
+                                  <div key={i} className="flex items-center justify-between text-[11px] px-2 py-1 rounded bg-neutral-900/50">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-emerald-400 font-mono font-bold">#{inv.invoiceNumber}</span>
+                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${inv.status === 'Overdue' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}`}>{inv.status}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-neutral-400">
+                                      {inv.dueDate && (
+                                        <span className="flex items-center gap-1"><FiCalendar size={9} /> Due: {new Date(inv.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                      )}
+                                      <span className="text-amber-400 font-bold">${inv.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
-                      <Link href={`/account?id=${item.zohoId}`} onClick={() => setDrillItems(null)} className="text-emerald-400 text-xs hover:underline flex items-center gap-1">
-                        View <FiChevronRight />
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    ))}
                   </div>
                 </div>
               )}
@@ -2010,6 +2159,28 @@ export default function Dashboard() {
                   </select>
                 </div>
 
+                {/* LTV Range Filter */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">LTV Range ($)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={ltvMin}
+                      onChange={e => setLtvMin(e.target.value)}
+                      placeholder="Min"
+                      className="w-full bg-neutral-800 border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-neutral-500 text-xs">–</span>
+                    <input
+                      type="number"
+                      value={ltvMax}
+                      onChange={e => setLtvMax(e.target.value)}
+                      placeholder="Max"
+                      className="w-full bg-neutral-800 border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
                 {/* Checkbox filters */}
                 <div className="space-y-3 pt-2">
                   <label className="flex items-center gap-3 text-xs font-semibold text-neutral-300 cursor-pointer select-none bg-neutral-800 border border-[var(--border)] rounded-lg px-3 py-2.5 hover:border-neutral-600 transition-colors">
@@ -2103,7 +2274,7 @@ export default function Dashboard() {
                   className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Priority</label>
                   <select 
@@ -2123,6 +2294,17 @@ export default function Dashboard() {
                     value={taskDueDate} 
                     onChange={e => setTaskDueDate(e.target.value)} 
                     className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    style={{ colorScheme: "dark" }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Time</label>
+                  <input 
+                    type="time" 
+                    value={taskDueTime} 
+                    onChange={e => setTaskDueTime(e.target.value)} 
+                    className="w-full glass-panel border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    style={{ colorScheme: "dark" }}
                   />
                 </div>
               </div>
@@ -2231,6 +2413,52 @@ export default function Dashboard() {
                     />
                   </div>
                 </div>
+              </div>
+              <div className="border-t border-[var(--border)] pt-3 mt-2">
+                <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">🔔 Reminder</h4>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Reminder Date</label>
+                    <input 
+                      type="date" 
+                      value={reminderDate} 
+                      onChange={e => setReminderDate(e.target.value)} 
+                      className="w-full glass-panel border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      style={{ colorScheme: "dark" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Reminder Time</label>
+                    <input 
+                      type="time" 
+                      value={reminderTime} 
+                      onChange={e => setReminderTime(e.target.value)} 
+                      className="w-full glass-panel border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      style={{ colorScheme: "dark" }}
+                    />
+                  </div>
+                </div>
+                {reminderDate && (
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Notify Via</label>
+                    <div className="flex items-center gap-3">
+                      {['push', 'sms', 'email'].map(method => (
+                        <label key={method} className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={reminderMethods.includes(method)}
+                            onChange={e => {
+                              if (e.target.checked) setReminderMethods(prev => [...prev, method])
+                              else setReminderMethods(prev => prev.filter(m => m !== method))
+                            }}
+                            className="w-3.5 h-3.5 rounded border-white/20 bg-[#111214] text-emerald-500 focus:ring-emerald-500"
+                          />
+                          <span className="text-xs text-neutral-300 font-semibold">{method === 'push' ? '🔔 Push' : method === 'sms' ? '💬 SMS' : '📧 Email'}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="pt-4 flex justify-end gap-2 border-t border-[var(--border)]">
                 <button 
@@ -2608,6 +2836,7 @@ export default function Dashboard() {
       {viewingInvoice && (
         <InvoiceDetailsModal 
           invoice={viewingInvoice} 
+          type={viewingDocType}
           onClose={() => setViewingInvoice(null)} 
         />
       )}

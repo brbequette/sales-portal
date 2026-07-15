@@ -20,6 +20,8 @@ model User {
   constantVigEnabled Boolean          @default(false)
   constantVigValue   Float?           @default(1.5)
   canSendCampaigns   Boolean          @default(false)
+  permissions        Json?
+  showOnSalesBoard   Boolean          @default(false)
   accounts           Account[]
   campaignBlasts     CampaignBlast[]
   deals              Deal[]
@@ -61,6 +63,10 @@ model Account {
   billingCity         String?
   billingState        String?
   billingZip          String?
+  shippingStreet      String?
+  shippingCity        String?
+  shippingState       String?
+  shippingZip         String?
   owner               User         @relation(fields: [ownerId], references: [id])
   contacts         Contact[]
   deals            Deal[]
@@ -233,6 +239,9 @@ model Task {
   type         String    @default("Task")
   account      Account?  @relation(fields: [accountId], references: [id])
   deal         Deal?     @relation(fields: [dealId], references: [id])
+  reminderAt       DateTime?
+  reminderMethod   String?
+  reminderFired    Boolean       @default(false)
   owner        User      @relation(fields: [ownerId], references: [id])
 
   @@index([ownerId])

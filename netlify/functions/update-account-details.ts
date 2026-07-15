@@ -23,7 +23,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { accountId, name, industry, timeZone, tags, quality, status, billingStreet, billingCity, billingState, billingZip } = body
+    const { accountId, name, industry, timeZone, tags, quality, status, billingStreet, billingCity, billingState, billingZip, bladeSizes, materialsCut, currentSupplier, averageBladeCost, crewCount, bladesPerOrder, improvementPriority } = body
 
     if (!accountId) {
       return {
@@ -54,6 +54,13 @@ export const handler: Handler = async (event) => {
     if (billingCity !== undefined) dataToUpdate.billingCity = billingCity
     if (billingState !== undefined) dataToUpdate.billingState = billingState
     if (billingZip !== undefined) dataToUpdate.billingZip = billingZip
+    if (bladeSizes !== undefined) dataToUpdate.bladeSizes = bladeSizes
+    if (materialsCut !== undefined) dataToUpdate.materialsCut = materialsCut
+    if (currentSupplier !== undefined) dataToUpdate.currentSupplier = currentSupplier
+    if (averageBladeCost !== undefined) dataToUpdate.averageBladeCost = averageBladeCost
+    if (crewCount !== undefined) dataToUpdate.crewCount = crewCount
+    if (bladesPerOrder !== undefined) dataToUpdate.bladesPerOrder = bladesPerOrder
+    if (improvementPriority !== undefined) dataToUpdate.improvementPriority = improvementPriority
 
     const updatedAccount = await prisma.account.update({
       where: { id: account.id },

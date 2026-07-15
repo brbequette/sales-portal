@@ -309,7 +309,7 @@ export const handler: Handler = async (event, context) => {
                   industry: record.Industry || 'Unknown',
                   tags: tagsStr,
                   ownerId: syncUser.id,
-                  timeZone: timeZone, billingStreet: record.Billing_Street || null, billingCity: record.Billing_City || null, billingState: record.Billing_State || null, billingZip: record.Billing_Code || null,
+                  timeZone: timeZone, billingStreet: record.Billing_Street || null, billingCity: record.Billing_City || null, billingState: record.Billing_State || null, billingZip: record.Billing_Code || null, shippingStreet: record.Shipping_Street || null, shippingCity: record.Shipping_City || null, shippingState: record.Shipping_State || null, shippingZip: record.Shipping_Code || null,
                   zohoModifiedTime: incomingModifiedTimeStr ? new Date(incomingModifiedTimeStr) : null,
                   rawData: record,
                 }
@@ -329,7 +329,7 @@ export const handler: Handler = async (event, context) => {
                     status: status,
                     lastPurchaseAt: lastPurchaseDate,
                     ownerId: syncUser.id,
-                    timeZone: timeZone, billingStreet: record.Billing_Street || null, billingCity: record.Billing_City || null, billingState: record.Billing_State || null, billingZip: record.Billing_Code || null,
+                    timeZone: timeZone, billingStreet: record.Billing_Street || null, billingCity: record.Billing_City || null, billingState: record.Billing_State || null, billingZip: record.Billing_Code || null, shippingStreet: record.Shipping_Street || null, shippingCity: record.Shipping_City || null, shippingState: record.Shipping_State || null, shippingZip: record.Shipping_Code || null,
                     zohoModifiedTime: incomingModifiedTimeStr ? new Date(incomingModifiedTimeStr) : null,
                     rawData: record,
                   }
@@ -489,7 +489,7 @@ export const handler: Handler = async (event, context) => {
                               zohoModifiedTime: (invRecord.Modified_Time || invRecord.Updated_Time) ? new Date(invRecord.Modified_Time || invRecord.Updated_Time) : null,
                             amount: parseFloat(invRecord.Sub_Total || 0),
                             status: status,
-                            issueDate: new Date(invRecord.Invoice_Date || invRecord.Created_Time),
+                            issueDate: new Date(invRecord.Invoice_Date || invRecord.Due_Date || invRecord.Created_Time),
                             dueDate: dueDate,
                             items: {
                               booksInvoiceId: invRecord.Invoice_ID,
@@ -508,7 +508,7 @@ export const handler: Handler = async (event, context) => {
                             accountId: dbAccountId,
                             amount: parseFloat(invRecord.Sub_Total || 0),
                             status: status,
-                            issueDate: new Date(invRecord.Invoice_Date || invRecord.Created_Time),
+                            issueDate: new Date(invRecord.Invoice_Date || invRecord.Due_Date || invRecord.Created_Time),
                             dueDate: dueDate,
                             items: {
                               booksInvoiceId: invRecord.Invoice_ID,
@@ -606,7 +606,7 @@ export const handler: Handler = async (event, context) => {
               if (syncUser.id === usersToSync[0]?.id) {
                 try {
                   const ZOHO_DC = process.env.ZOHO_DC || 'com';
-                  const ORG_ID = process.env.ZOHO_ORGANIZATION_ID;
+                  const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
                   const booksBase = `https://www.zohoapis.${ZOHO_DC}/books/v3`;
 
                   // Build a name-to-accountId map for matching
@@ -619,7 +619,7 @@ export const handler: Handler = async (event, context) => {
                   let soPage = 1;
                   let soSynced = 0;
                   let hasMoreSO = true;
-                  while (hasMoreSO && soPage <= 3) {
+                  while (hasMoreSO && soPage <= 2) {
                     const soRes = await fetch(
                       `${booksBase}/salesorders?organization_id=${ORG_ID}&page=${soPage}&per_page=200&sort_column=date&sort_order=D`,
                       { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
@@ -674,7 +674,7 @@ export const handler: Handler = async (event, context) => {
                   let estPage = 1;
                   let estSynced = 0;
                   let hasMoreEst = true;
-                  while (hasMoreEst && estPage <= 3) {
+                  while (hasMoreEst && estPage <= 2) {
                     const estRes = await fetch(
                       `${booksBase}/estimates?organization_id=${ORG_ID}&page=${estPage}&per_page=200&sort_column=date&sort_order=D`,
                       { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
@@ -967,11 +967,11 @@ export const handler: Handler = async (event, context) => {
           lastPurchaseAt: true,
           ownerId: true,
           industry: true,
-          timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true,
+          timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true, shippingStreet: true, shippingCity: true, shippingState: true, shippingZip: true, bladeSizes: true, materialsCut: true, currentSupplier: true, averageBladeCost: true, crewCount: true, bladesPerOrder: true, improvementPriority: true,
           invoices: {
             select: {
-              id: true, zohoId: true, amount: true, status: true, items: true,
-              ...(wantDocs ? { issueDate: true, dueDate: true, createdAt: true } : {})
+              id: true, zohoId: true, amount: true, status: true, items: true, issueDate: true, createdAt: true,
+              ...(wantDocs ? { dueDate: true } : {})
             }
           },
           ...(wantDocs ? {
@@ -1016,11 +1016,11 @@ export const handler: Handler = async (event, context) => {
           lastPurchaseAt: true,
           ownerId: true,
           industry: true,
-          timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true,
+          timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true, shippingStreet: true, shippingCity: true, shippingState: true, shippingZip: true, bladeSizes: true, materialsCut: true, currentSupplier: true, averageBladeCost: true, crewCount: true, bladesPerOrder: true, improvementPriority: true,
           invoices: {
             select: {
-              id: true, zohoId: true, amount: true, status: true, items: true,
-              ...(wantDocs ? { issueDate: true, dueDate: true, createdAt: true } : {})
+              id: true, zohoId: true, amount: true, status: true, items: true, issueDate: true, createdAt: true,
+              ...(wantDocs ? { dueDate: true } : {})
             }
           },
           ...(wantDocs ? {
@@ -1042,21 +1042,48 @@ export const handler: Handler = async (event, context) => {
 
     // Prune: aggregate invoices server-side, keep only primary contact. Stays well under 6MB Lambda limit.
     const totalCount = (dbAccounts as any)._totalCount ?? dbAccounts.length;
-    const EXCLUDED_STATUSES = new Set(['Writeoff', 'Write_off', 'Write Off', 'Bad Debt', 'Void', 'Draft']);
+    const EXCLUDED_STATUSES = new Set(['writeoff', 'write_off', 'write off', 'bad debt', 'void', 'voided', 'draft']);
     const accounts = dbAccounts.map((acc: any) => {
       const invoices: any[] = acc.invoices || [];
-      let totalSales = 0, totalProfit = 0, overdueBalance = 0, overdueCount = 0;
+      let totalSales = 0, totalProfit = 0, overdueBalance = 0, overdueCount = 0, unpaidBalance = 0, unpaidCount = 0;
+      const unpaidInvoiceSummary: { invoiceNumber: string; dueDate: string | null; balance: number; status: string; amount: number }[] = [];
+      let latestPaidInvoiceDate: Date | null = null;
       for (const inv of invoices) {
         const s = inv.status || '';
-        if (EXCLUDED_STATUSES.has(s)) continue;
+        const sLower = s.toLowerCase();
+        if (EXCLUDED_STATUSES.has(sLower)) continue;
         totalSales += inv.amount || 0;
         totalProfit += parseFloat(inv.items?.profit || 0);
+        // Track all open/unpaid invoices (any with a balance > 0)
+        const bal = inv.items?.balance != null ? parseFloat(inv.items.balance) : 0;
+        if (bal > 0 && s !== 'Paid') {
+          unpaidCount++;
+          unpaidBalance += isNaN(bal) ? 0 : bal;
+          unpaidInvoiceSummary.push({
+            invoiceNumber: inv.items?.invoiceNumber || inv.zohoId || inv.id,
+            dueDate: inv.dueDate || inv.items?.dueDate || null,
+            balance: isNaN(bal) ? 0 : bal,
+            status: s,
+            amount: inv.amount || 0
+          });
+        }
         if (s === 'Overdue' || s.toLowerCase() === 'overdue') {
           overdueCount++;
-          const bal = inv.items?.balance != null ? parseFloat(inv.items.balance) : (inv.amount || 0);
-          overdueBalance += isNaN(bal) ? 0 : bal;
+          const oBal = inv.items?.balance != null ? parseFloat(inv.items.balance) : (inv.amount || 0);
+          overdueBalance += isNaN(oBal) ? 0 : oBal;
+        }
+        // Track latest invoice date for lastPurchaseAt fallback (any non-excluded invoice = a purchase)
+        const invDate = inv.issueDate || inv.items?.date || inv.createdAt;
+        if (invDate) {
+          const d = new Date(invDate);
+          if (!latestPaidInvoiceDate || d > latestPaidInvoiceDate) {
+            latestPaidInvoiceDate = d;
+          }
         }
       }
+      // If CRM didn't provide lastPurchaseAt but we have paid invoices, derive it
+      const effectiveLastPurchaseAt = acc.lastPurchaseAt || latestPaidInvoiceDate;
+
       const primaryContact = acc.contacts?.find((c: any) => c.isPrimary) || acc.contacts?.[0] || null;
       return {
         id: acc.id,
@@ -1066,15 +1093,18 @@ export const handler: Handler = async (event, context) => {
         status: acc.status,
         quality: acc.quality,
         lastCalledAt: acc.lastCalledAt,
-        lastPurchaseAt: acc.lastPurchaseAt,
+        lastPurchaseAt: effectiveLastPurchaseAt,
         ownerId: acc.ownerId,
         industry: acc.industry,
-        timeZone: acc.timeZone, billingStreet: acc.billingStreet, billingCity: acc.billingCity, billingState: acc.billingState, billingZip: acc.billingZip,
+        timeZone: acc.timeZone, billingStreet: acc.billingStreet, billingCity: acc.billingCity, billingState: acc.billingState, billingZip: acc.billingZip, shippingStreet: acc.shippingStreet, shippingCity: acc.shippingCity, shippingState: acc.shippingState, shippingZip: acc.shippingZip, bladeSizes: acc.bladeSizes, materialsCut: acc.materialsCut, currentSupplier: acc.currentSupplier, averageBladeCost: acc.averageBladeCost, crewCount: acc.crewCount, bladesPerOrder: acc.bladesPerOrder, improvementPriority: acc.improvementPriority,
         owner: acc.owner,
         totalSales,
         totalProfit,
         overdueBalance,
         overdueCount,
+        unpaidBalance,
+        unpaidCount,
+        unpaidInvoiceSummary,
         contacts: primaryContact ? [primaryContact] : [],
         ...(wantDocs ? {
           invoices: acc.invoices || [],

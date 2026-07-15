@@ -34,9 +34,13 @@ type Invoice = {
   customer_id: string
   profit?: number
   dead_cost?: number
+  customer_city?: string | null
+  customer_state?: string | null
   account?: {
     ownerId?: string | null
   } | null
+  shipping_charge?: number | null
+  account_quality?: string | null
 }
 
 type CallOutcome =
@@ -942,6 +946,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                           />
                           <div>
                             <span className="font-mono font-bold text-emerald-400">#{inv.invoice_number}</span>
+                            {inv.shipping_charge === 0 && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400 ml-2">⚠ No Ship $</span>}
                             <span className="text-neutral-505 ml-2">Due: {inv.due_date || "—"}</span>
                           </div>
                         </div>
@@ -1079,6 +1084,7 @@ export default function CollectionsPage() {
   const [showCallCampaign, setShowCallCampaign] = useState(false)
   
   const [showAllReps, setShowAllReps] = useState(false)
+  const [showDoNotCall, setShowDoNotCall] = useState(false)
 
   const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
 
@@ -1109,6 +1115,9 @@ export default function CollectionsPage() {
 
   // Ownership filtering: My Invoices vs All Reps
   const visibleInvoices = invoices.filter(i => {
+    // DNC filtering — hide invoices whose account is DO_NOT_CALL unless checkbox is checked
+    if (!showDoNotCall && i.account_quality === "DO_NOT_CALL") return false
+
     if (showAllReps) return true
     if (!user) return true
     const myName = user.name?.toLowerCase() || ""
@@ -1341,6 +1350,16 @@ export default function CollectionsPage() {
               </select>
             </div>
           )}
+
+          <label className="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showDoNotCall}
+              onChange={e => setShowDoNotCall(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-red-500 focus:ring-red-500"
+            />
+            <span>Include Do Not Call</span>
+          </label>
         </div>
 
         {/* Filters Button */}
@@ -1540,9 +1559,13 @@ export default function CollectionsPage() {
                           <span className="font-mono text-xs text-emerald-400 font-bold">
                             #{inv.invoice_number}
                           </span>
+                          {inv.shipping_charge === 0 && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400 ml-1.5">⚠ No Ship $</span>}
                         </td>
                         <td className="px-4 py-3">
-                          <span className="font-semibold text-white text-xs">{inv.customer_name}</span>
+                          <span className="font-semibold text-white text-xs truncate max-w-[200px] block">{inv.customer_name}</span>
+                          {(inv.customer_city || inv.customer_state) && (
+                            <span className="text-[10px] text-neutral-500 block truncate">{[inv.customer_city, inv.customer_state].filter(Boolean).join(', ')}</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 hidden md:table-cell">
                           <span className="text-xs text-neutral-400">{inv.salesperson_name}</span>

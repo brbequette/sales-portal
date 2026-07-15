@@ -49,7 +49,7 @@ export function GlobalTopBar() {
     fetchTime()
     const interval = setInterval(fetchTime, 60000)
     return () => clearInterval(interval)
-  }, [currentUser])
+  }, [currentUser?.id])
 
   const calculateHours = (entry: any) => {
     if (!entry) return "0.0"
@@ -62,7 +62,25 @@ export function GlobalTopBar() {
     } else {
       end = new Date(entry.lastActivity)
     }
-    const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+    // Cap at now if active
+    const now = new Date()
+    if (end > now) end = now
+
+    // Subtract inactivity periods
+    let inactivityMs = 0
+    if (entry.inactivityPeriods && Array.isArray(entry.inactivityPeriods)) {
+      entry.inactivityPeriods.forEach((p: any) => {
+        const pStart = new Date(p.start)
+        const pEnd = new Date(p.end)
+        const overlapStart = new Date(Math.max(start.getTime(), pStart.getTime()))
+        const overlapEnd = new Date(Math.min(end.getTime(), pEnd.getTime()))
+        if (overlapEnd > overlapStart) {
+          inactivityMs += overlapEnd.getTime() - overlapStart.getTime()
+        }
+      })
+    }
+
+    const diffHours = ((end.getTime() - start.getTime()) - inactivityMs) / (1000 * 60 * 60)
     return Math.max(0, diffHours).toFixed(1)
   }
 
@@ -133,8 +151,8 @@ export function GlobalTopBar() {
         router.push(`/account?id=${item.zohoId}`)
         break
       case "invoices":
-        // For now, route to account, later handle popup if needed
-        router.push(`/account?id=${item.zohoId || item.accountId}&invoiceId=${item.zohoId || item.id}`)
+        // Route to the account page using the account's zohoId, with invoiceId for auto-open
+        router.push(`/account?id=${item.accountZohoId || item.accountId}&invoiceId=${item.zohoId || item.id}`)
         break
       case "deals":
         router.push(`/account?id=${item.accountId}`)
@@ -197,7 +215,7 @@ export function GlobalTopBar() {
                 
                 {results.invoices?.length > 0 && (
                   <div className="mb-2">
-                    <div className="px-4 py-1 text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-black/20">Invoices & Sales Orders</div>
+                    <div className="px-4 py-1 text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-black/20">Invoices, Orders & Quotes</div>
                     {results.invoices.map((i: any) => (
                       <div 
                         key={i.id} 
@@ -208,8 +226,8 @@ export function GlobalTopBar() {
                           <FiFileText />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm font-bold text-white truncate">{i.invoiceNumber || i.orderNumber || "Draft"}</div>
-                          <div className="text-xs text-neutral-500 truncate">{i.status}</div>
+                          <div className="text-sm font-bold text-white truncate">{i.invoiceNumber || i.items?.invoiceNumber || i.items?.invoice_number || i.items?.estimate_number || i.items?.salesorder_number || "Draft"}</div>
+                          <div className="text-xs text-neutral-500 truncate">{i.docType ? `${i.docType} · ` : ""}{i.status}{i.accountName ? ` · ${i.accountName}` : ""}</div>
                         </div>
                         <div className="text-sm font-bold text-emerald-400">${parseFloat(i.amount).toFixed(2)}</div>
                       </div>

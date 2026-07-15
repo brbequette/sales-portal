@@ -1,11 +1,11 @@
 "use client"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import {
   FiHome, FiPhoneCall, FiDollarSign, FiTool, FiUser,
-  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare
+  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare, FiArrowLeft, FiCheckSquare
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 import { UserSettingsModal } from "@/components/UserSettingsModal"
@@ -13,22 +13,28 @@ import { CommandPalette } from "@/components/CommandPalette"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { zohoContext: user } = useZoho()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+
+  // Show back button on sub-pages (not main nav destinations)
+  const mainPages = ["/", "/login", "/sales", "/messages", "/collections", "/commissions", "/stats", "/tools", "/training", "/catalog", "/timeclock", "/tasks"]
+  const showBackButton = !mainPages.includes(pathname)
 
   const normalizedRole = user?.role?.toLowerCase() || ""
   const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
 
   const navItems = [
-    { href: "/",            icon: FiHome,      label: "Sales Hub",    color: "text-[var(--primary)]" },
-    { href: "/sales",       icon: FiFileText,  label: "Sales Docs",   color: "text-[var(--accent)]" },
+    { href: "/",            icon: FiHome,        label: "Sales Hub",    color: "text-[var(--primary)]" },
+    { href: "/tasks",       icon: FiCheckSquare, label: "Task Hub",     color: "text-violet-400" },
+    { href: "/sales",       icon: FiFileText,    label: "Sales Docs",   color: "text-[var(--accent)]" },
     { href: "/messages",    icon: FiMessageSquare, label: "Messages", color: "text-[var(--info)]" },
-    { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-[var(--danger)]" },
-    { href: "/commissions", icon: FiDollarSign,label: "Commissions",  color: "text-[var(--success)]" },
-    { href: "/stats",       icon: FiBarChart2, label: "Rep Stats",    color: "text-neutral-100" },
-    { href: "/tools",       icon: FiTool,      label: "Tools & Media",color: "text-[var(--accent)]" },
-    { href: "/training",    icon: FiBookOpen,  label: "Training Hub", color: "text-[var(--primary)]" },
+    { href: "/collections", icon: FiPhoneCall,   label: "Collections",  color: "text-[var(--danger)]" },
+    { href: "/commissions", icon: FiDollarSign,  label: "Commissions",  color: "text-[var(--success)]" },
+    { href: "/stats",       icon: FiBarChart2,   label: "Rep Stats",    color: "text-neutral-100" },
+    { href: "/tools",       icon: FiTool,        label: "Tools & Media",color: "text-[var(--accent)]" },
+    { href: "/training",    icon: FiBookOpen,    label: "Training Hub", color: "text-[var(--primary)]" },
   ]
 
   if (isAdmin) {
@@ -37,10 +43,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Choose primary items for the bottom navigation bar on mobile
   const bottomItems = [
-    { href: "/",            icon: FiHome,      label: "Hub",          color: "text-[var(--primary)]" },
-    { href: "/sales",       icon: FiFileText,  label: "Docs",         color: "text-[var(--accent)]" },
-    { href: "/messages",    icon: FiMessageSquare, label: "Msgs",     color: "text-[var(--info)]" },
-    { href: "/collections", icon: FiPhoneCall, label: "Collections",  color: "text-[var(--danger)]" },
+    { href: "/",            icon: FiHome,        label: "Hub",         color: "text-[var(--primary)]" },
+    { href: "/tasks",       icon: FiCheckSquare, label: "Tasks",       color: "text-violet-400" },
+    { href: "/messages",    icon: FiMessageSquare, label: "Msgs",      color: "text-[var(--info)]" },
+    { href: "/collections", icon: FiPhoneCall,   label: "Collections", color: "text-[var(--danger)]" },
   ]
 
   // Don't show nav on login page
@@ -65,6 +71,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </div>
+
+        {/* Back Button */}
+        {showBackButton && (
+          <button
+            onClick={() => router.back()}
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 transition-all relative group border border-transparent hover:border-white/10"
+            title="Go Back"
+          >
+            <FiArrowLeft size={18} />
+            <div className="absolute left-14 bg-black/80 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity border border-white/10 shadow-xl whitespace-nowrap z-50">
+              Go Back
+            </div>
+          </button>
+        )}
 
         {/* Nav */}
         <nav className="flex-1 flex flex-col items-center gap-3 w-full px-2">

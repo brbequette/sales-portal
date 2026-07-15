@@ -1,57 +1,61 @@
-import { Handler } from "@netlify/functions"
+import type { Context } from "@netlify/functions"
 import OpenAI from "openai"
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "dummy_key",
-})
+// Zero-config client: Netlify AI Gateway injects OPENAI_API_KEY / OPENAI_BASE_URL
+// into the v2 function runtime, so the SDK auto-detects credentials.
+const openai = new OpenAI()
 
-export const handler: Handler = async (event, context) => {
-  const cors = {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+const cors = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+}
+
+export default async (req: Request, context: Context) => {
+  if (req.method === "OPTIONS") {
+    return new Response("", { status: 204, headers: cors })
   }
 
-  if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
-
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers: cors,
-      body: JSON.stringify({ success: false, message: "Method Not Allowed" })
-    }
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({ success: false, message: "Method Not Allowed" }),
+      { status: 405, headers: cors }
+    )
   }
 
   try {
-    const body = JSON.parse(event.body || "{}")
+    const body = await req.json().catch(() => ({}))
     const { prompt, type, channel } = body
 
     if (!prompt) {
-      return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, message: "Prompt is required" }) }
+      return new Response(
+        JSON.stringify({ success: false, message: "Prompt is required" }),
+        { status: 400, headers: cors }
+      )
     }
 
     if (type === "image") {
-      // Generate Image using DALL-E 3
+      // Generate Image using the AI Gateway supported image model
       const response = await openai.images.generate({
-        model: "dall-e-3",
+        model: "gpt-image-1",
         prompt: prompt,
         n: 1,
         size: "1024x1024",
       })
 
-      const imageUrl = response.data?.[0]?.url
+      const b64 = response.data?.[0]?.b64_json
+      const imageUrl = b64 ? `data:image/png;base64,${b64}` : null
 
-      return {
-        statusCode: 200,
-        headers: cors,
-        body: JSON.stringify({ success: true, result: imageUrl })
-      }
+      return new Response(
+        JSON.stringify({ success: true, result: imageUrl }),
+        { status: 200, headers: cors }
+      )
     } else {
       // Generate Text using GPT-4o
-      const systemPrompt = `You are an elite B2B sales copywriter for Titan Diamond, a company selling premium diamond blades and tools to contractors. 
+      const systemPrompt = `You are an elite B2B sales copywriter for Titan Diamond, a company selling premium diamond blades and tools to contractors.
 Your task is to write a highly persuasive, natural-sounding campaign message for a ${channel || "SMS"} campaign.
-Keep it concise, engaging, and professional. 
+Keep it concise, engaging, and professional.
 DO NOT use placeholders like [Name] or [Company]. Just write the message so it can be sent as a blast to many contractors.
 Use industry lingo occasionally if appropriate (e.g., "like a hot knife through butter", "let the blade do the work").`
 
@@ -67,18 +71,16 @@ Use industry lingo occasionally if appropriate (e.g., "like a hot knife through 
 
       const generatedText = response.choices[0]?.message?.content?.trim() || ""
 
-      return {
-        statusCode: 200,
-        headers: cors,
-        body: JSON.stringify({ success: true, result: generatedText })
-      }
+      return new Response(
+        JSON.stringify({ success: true, result: generatedText }),
+        { status: 200, headers: cors }
+      )
     }
   } catch (err: any) {
     console.error("AI campaign generation error:", err)
-    return {
-      statusCode: 500,
-      headers: cors,
-      body: JSON.stringify({ success: false, message: err.message || "Failed to generate AI content" })
-    }
+    return new Response(
+      JSON.stringify({ success: false, message: err.message || "Failed to generate AI content" }),
+      { status: 500, headers: cors }
+    )
   }
 }

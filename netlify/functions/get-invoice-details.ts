@@ -4,7 +4,7 @@ import { getZohoAccessToken } from "./lib/zoho-auth"
 
 const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID;
+const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
 
 export const handler: Handler = async (event) => {
   const cors = {
@@ -53,8 +53,8 @@ export const handler: Handler = async (event) => {
         let searchInvNumber = items.invoiceNumber;
         if (typeof searchInvNumber === 'string' && searchInvNumber.includes('|')) {
           searchInvNumber = searchInvNumber.split('|').pop()?.trim();
-        } else if (typeof searchInvNumber === 'string' && searchInvNumber.includes('-')) {
-          searchInvNumber = searchInvNumber.split('-').pop()?.trim();
+        } else if (typeof searchInvNumber === 'string' && searchInvNumber.startsWith('INV-')) {
+          searchInvNumber = searchInvNumber.substring(4).trim();
         }
 
         console.log(`Missing Books ID. Searching Zoho Books for invoice_number: ${searchInvNumber}...`)
@@ -128,6 +128,8 @@ export const handler: Handler = async (event) => {
       if (zohoDoc.last_payment_date) {
         currentItems.paymentDate = zohoDoc.last_payment_date
       }
+      // Store shipping charge for "Needs Shipping Costs" flag
+      currentItems.shippingCharge = parseFloat(zohoDoc.shipping_charge || 0)
       // Always write the authoritative salesperson from Zoho Books back to the DB
       // This self-corrects stale salesperson data (e.g. wrong name from old CRM sync)
       if (zohoDoc.salesperson_name) {
@@ -192,7 +194,7 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 200,
       headers: cors,
-      body: JSON.stringify({ success: true, invoice: zohoData.invoice, vigRate })
+      body: JSON.stringify({ success: true, invoice: returnedDoc, salesorder: type === "SalesOrder" ? returnedDoc : undefined, estimate: type === "Quote" ? returnedDoc : undefined, vigRate })
     }
   } catch (err: any) {
     console.error("get-invoice-details error:", err)

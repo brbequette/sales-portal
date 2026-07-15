@@ -1,9 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-
-async function main() {
-  const setting = await prisma.systemSetting.findUnique({where: {key: 'zoho_phone_numbers'}});
-  console.log(setting);
-}
-
-main().finally(() => prisma.$disconnect());
+(async () => {
+  const invs = await prisma.invoice.findMany({ where: { items: { string_contains: '8189' } } });
+  console.log(invs.map(i => ({ id: i.id, zohoId: i.zohoId })));
+})();

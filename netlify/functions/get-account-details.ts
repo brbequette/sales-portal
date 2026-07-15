@@ -58,7 +58,7 @@ export const handler: Handler = async (event, context) => {
         })
       }
     } catch (dbError) {
-      console.warn("Database connection failed, falling back to mock data:", dbError)
+      console.warn("Database connection failed, falling back to Zoho CRM self-heal:", dbError)
     }
 
     let crmDetails: any = null
@@ -162,47 +162,58 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
-    if (account && !crmDetails && account.zohoId) {
+    // Fetch enrichment from Zoho Books contact (address, contact persons) if not cached
+    let booksContact: any = null
+    if (account && account.zohoId) {
       try {
         const accessToken = await getZohoAccessToken()
         if (accessToken) {
           const ZOHO_DC = process.env.ZOHO_DC || 'com'
-          const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${account.zohoId}`, {
-            headers: {
-              'Authorization': `Zoho-oauthtoken ${accessToken}`
-            }
+          const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
+          const booksRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/contacts/${account.zohoId}?organization_id=${ORG_ID}`, {
+            headers: { 'Authorization': `Zoho-oauthtoken ${accessToken}` }
           })
-          if (crmRes.ok) {
-            const crmData = await crmRes.json()
-            crmDetails = crmData.data?.[0] || null
+          if (booksRes.ok) {
+            const booksData = await booksRes.json()
+            booksContact = booksData.contact || null
 
-            // Backfill stored billing address when the DB record is missing it,
-            // so the address stays available even without a live CRM call later.
-            if (crmDetails && (!account.billingStreet && !account.billingCity && !account.billingZip)) {
-              const billing = {
-                billingStreet: crmDetails.Billing_Street || null,
-                billingCity: crmDetails.Billing_City || null,
-                billingState: crmDetails.Billing_State || null,
-                billingZip: crmDetails.Billing_Code || null,
-              }
-              if (billing.billingStreet || billing.billingCity || billing.billingZip) {
-                try {
-                  await prisma.account.update({ where: { id: account.id }, data: billing })
-                  Object.assign(account, billing)
-                } catch (updateErr) {
-                  console.error("Failed to backfill billing address:", updateErr)
+            // Cache address in DB if missing
+            if (booksContact?.billing_address && !account.billingStreet) {
+              const ba = booksContact.billing_address
+              const sa = booksContact.shipping_address
+              await prisma.account.update({
+                where: { id: account.id },
+                data: {
+                  billingStreet: ba.address || null,
+                  billingCity: ba.city || null,
+                  billingState: ba.state || null,
+                  billingZip: ba.zip || null,
+                  shippingStreet: sa?.address || null,
+                  shippingCity: sa?.city || null,
+                  shippingState: sa?.state || null,
+                  shippingZip: sa?.zip || null,
                 }
-              }
+              })
+              account.billingStreet = ba.address || null
+              account.billingCity = ba.city || null
+              account.billingState = ba.state || null
+              account.billingZip = ba.zip || null
+              account.billingCountry = ba.country || null
+              account.shippingStreet = sa?.address || null
+              account.shippingCity = sa?.city || null
+              account.shippingState = sa?.state || null
+              account.shippingZip = sa?.zip || null
+              account.shippingCountry = sa?.country || null
             }
           }
         }
       } catch (err) {
-        console.error("Error fetching CRM details:", err)
+        console.error("Error fetching Books contact:", err)
       }
     }
 
     if (account) {
-      account.crmDetails = crmDetails
+      account.booksContact = booksContact
     }
 
     return {

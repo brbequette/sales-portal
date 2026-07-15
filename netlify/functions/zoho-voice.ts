@@ -136,7 +136,7 @@ export const handler: Handler = async (event, context) => {
                 if (defaultNum && defaultNum.number) {
                   fromNumber = defaultNum.number
                 }
-              } catch(e) {}
+              } catch(e) { console.warn('Failed to parse zoho_phone_numbers setting:', e) }
             }
           }
           if (!fromNumber) fromNumber = '+14804702577' // Fallback for backwards compatibility
@@ -161,7 +161,7 @@ export const handler: Handler = async (event, context) => {
 
           const resultText = await smsRes.text()
           let resultJson: any = {}
-          try { resultJson = JSON.parse(resultText) } catch (e) {}
+          try { resultJson = JSON.parse(resultText) } catch (e) { console.warn('Failed to parse Zoho Voice SMS response:', e) }
 
           if (smsRes.ok && resultJson.status !== 'error' && resultJson.code !== 'error') {
             apiSuccess = true

@@ -102,7 +102,11 @@ export default function AdminSettingsPage() {
       })
       const data = await res.json()
       if (data.success) {
-        alert("Test notification sent successfully!")
+        if (data.warning) {
+          alert("⚠️ " + data.warning)
+        } else {
+          alert(`✅ Test notification sent to ${data.subscriptionsSent} device(s)!`)
+        }
       } else {
         alert("Error sending notification: " + data.error)
       }

@@ -2,8 +2,12 @@
 
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
-import { useEffect, useState, useCallback, useRef } from "react"
-import { FiTarget, FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiX, FiSearch, FiShield } from "react-icons/fi"
+import Link from "next/link"
+import { useEffect, useState, useCallback, useRef, useMemo } from "react"
+import { FiTarget, FiAlertTriangle, FiArrowLeft, FiCheckCircle, FiX, FiSearch, FiArrowUp, FiArrowDown, FiCheckSquare, FiSquare, FiUsers, FiDollarSign } from "react-icons/fi"
+
+type SortKey = "name" | "lastPurchaseAt" | "totalRev" | "totalProf" | "owner"
+type SortDir = "asc" | "desc"
 
 export default function AdminUpdateAccountsPage() {
   const { isInitialized, zohoContext: currentUser } = useZoho()
@@ -11,14 +15,29 @@ export default function AdminUpdateAccountsPage() {
 
   const [loading, setLoading] = useState(true)
   const [reassigningId, setReassigningId] = useState<string | null>(null)
+  const [bulkAssigning, setBulkAssigning] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 })
 
   const [accounts, setAccounts] = useState<any[]>([])
   const [reps, setReps] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState("")
+  const [localSearch, setLocalSearch] = useState("")
   const [pendingOwners, setPendingOwners] = useState<Record<string, string>>({})
+
+  // Sort & Filter
+  const [sortKey, setSortKey] = useState<SortKey>("lastPurchaseAt")
+  const [sortDir, setSortDir] = useState<SortDir>("asc")
+  const [ownerFilter, setOwnerFilter] = useState("All")
+  const [ltvMin, setLtvMin] = useState("")
+  const [ltvMax, setLtvMax] = useState("")
+
+  // Selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkOwnerId, setBulkOwnerId] = useState("")
 
   const [apiError, setApiError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [showDoNotCall, setShowDoNotCall] = useState(false)
 
   const normalizedRole = currentUser?.role?.toLowerCase() || ""
   const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
@@ -68,7 +87,7 @@ export default function AdminUpdateAccountsPage() {
     let loaded = currentCount
     let page = 2
     while (loaded < totalCount) {
-      if (autoLoadRef.current !== myId) break // User searched or re-rendered
+      if (autoLoadRef.current !== myId) break
       try {
         const ts = Date.now()
         const query = currentUser?.id && !currentUser.id.includes("@") ? `zohoId=${currentUser.id}` : `email=${currentUser?.email}`
@@ -98,7 +117,6 @@ export default function AdminUpdateAccountsPage() {
     fetchAccounts()
   }, [fetchAccounts])
 
-  // Handle auto-dismissing success messages
   useEffect(() => {
     if (successMsg) {
       const t = setTimeout(() => setSuccessMsg(null), 5000)
@@ -137,8 +155,48 @@ export default function AdminUpdateAccountsPage() {
     }
   }
 
-  // Calculate stats for table presentation
-  const accountsWithStats = accounts.map(acc => {
+  // Bulk reassign
+  const handleBulkReassign = async () => {
+    if (!bulkOwnerId || selectedIds.size === 0) return
+    setBulkAssigning(true)
+    setApiError(null)
+    setBulkProgress({ done: 0, total: selectedIds.size })
+    const ids = Array.from(selectedIds)
+    let successes = 0
+    let failures = 0
+
+    for (let i = 0; i < ids.length; i++) {
+      try {
+        const res = await fetch("/api/update-account-owner", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accountId: ids[i], newOwnerId: bulkOwnerId })
+        })
+        const data = await res.json()
+        if (data.success) {
+          successes++
+          setAccounts(prev => prev.map(a => a.id === ids[i] ? { ...a, ownerId: bulkOwnerId } : a))
+        } else {
+          failures++
+        }
+      } catch {
+        failures++
+      }
+      setBulkProgress({ done: i + 1, total: ids.length })
+    }
+
+    setBulkAssigning(false)
+    setSelectedIds(new Set())
+    setBulkOwnerId("")
+    if (failures === 0) {
+      setSuccessMsg(`${successes} account${successes > 1 ? "s" : ""} reassigned successfully!`)
+    } else {
+      setApiError(`${successes} succeeded, ${failures} failed`)
+    }
+  }
+
+  // Compute stats
+  const accountsWithStats = useMemo(() => accounts.map(acc => {
     const invoices = acc.invoices || []
     let totalRev = 0
     let totalProf = 0
@@ -147,14 +205,96 @@ export default function AdminUpdateAccountsPage() {
       totalProf += parseFloat(inv.items?.profit || "0")
     })
     return { ...acc, totalRev, totalProf }
-  })
+  }), [accounts])
 
-  // Sort by Last Purchase Date ascending (oldest first) so they are the most "needy"
-  accountsWithStats.sort((a, b) => {
-    if (!a.lastPurchaseAt) return -1
-    if (!b.lastPurchaseAt) return 1
-    return new Date(a.lastPurchaseAt).getTime() - new Date(b.lastPurchaseAt).getTime()
-  })
+  // Filter
+  const filtered = useMemo(() => {
+    let result = accountsWithStats
+      .filter(a => showDoNotCall || a.quality !== "DO_NOT_CALL")
+    if (ownerFilter !== "All") {
+      result = result.filter(a => a.ownerId === ownerFilter)
+    }
+    if (localSearch) {
+      const q = localSearch.toLowerCase()
+      result = result.filter(a => a.name?.toLowerCase().includes(q))
+    }
+    if (ltvMin) {
+      result = result.filter(a => a.totalRev >= parseFloat(ltvMin))
+    }
+    if (ltvMax) {
+      result = result.filter(a => a.totalRev <= parseFloat(ltvMax))
+    }
+    return result
+  }, [accountsWithStats, ownerFilter, localSearch, ltvMin, ltvMax, showDoNotCall])
+
+  // Sort
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      let cmp = 0
+      switch (sortKey) {
+        case "name":
+          cmp = (a.name || "").localeCompare(b.name || "")
+          break
+        case "lastPurchaseAt":
+          const aDate = a.lastPurchaseAt ? new Date(a.lastPurchaseAt).getTime() : 0
+          const bDate = b.lastPurchaseAt ? new Date(b.lastPurchaseAt).getTime() : 0
+          cmp = aDate - bDate
+          break
+        case "totalRev":
+          cmp = a.totalRev - b.totalRev
+          break
+        case "totalProf":
+          cmp = a.totalProf - b.totalProf
+          break
+        case "owner":
+          const aOwner = reps.find(r => r.id === a.ownerId)?.name || ""
+          const bOwner = reps.find(r => r.id === b.ownerId)?.name || ""
+          cmp = aOwner.localeCompare(bOwner)
+          break
+      }
+      return sortDir === "asc" ? cmp : -cmp
+    })
+  }, [filtered, sortKey, sortDir, reps])
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(prev => prev === "asc" ? "desc" : "asc")
+    } else {
+      setSortKey(key)
+      setSortDir("asc")
+    }
+  }
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <span className="text-neutral-700 ml-1">↕</span>
+    return sortDir === "asc"
+      ? <FiArrowUp size={11} className="ml-1 text-purple-400 inline" />
+      : <FiArrowDown size={11} className="ml-1 text-purple-400 inline" />
+  }
+
+  // Selection helpers
+  const allVisibleSelected = sorted.length > 0 && sorted.every(a => selectedIds.has(a.id))
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(sorted.map(a => a.id)))
+    }
+  }
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // Unique owners for filter
+  const uniqueOwners = useMemo(() => {
+    const ownerIds = new Set(accountsWithStats.map(a => a.ownerId).filter(Boolean))
+    return reps.filter(r => ownerIds.has(r.id))
+  }, [accountsWithStats, reps])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -205,54 +345,192 @@ export default function AdminUpdateAccountsPage() {
           </div>
         )}
 
+        {/* Bulk Assign Bar */}
+        {selectedIds.size > 0 && (
+          <div className="bg-purple-950/40 border border-purple-500/30 rounded-xl p-3 flex flex-wrap items-center gap-3">
+            <span className="text-sm font-bold text-purple-300">
+              <FiCheckSquare size={14} className="inline mr-1.5" />
+              {selectedIds.size} selected
+            </span>
+            <select
+              value={bulkOwnerId}
+              onChange={e => setBulkOwnerId(e.target.value)}
+              className="bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 appearance-none cursor-pointer"
+            >
+              <option value="">Assign to...</option>
+              {reps.map(rep => (
+                <option key={rep.id} value={rep.id}>{rep.name} ({rep.role})</option>
+              ))}
+            </select>
+            <button
+              onClick={handleBulkReassign}
+              disabled={!bulkOwnerId || bulkAssigning}
+              className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {bulkAssigning ? `Assigning ${bulkProgress.done}/${bulkProgress.total}...` : `Reassign ${selectedIds.size} Accounts`}
+            </button>
+            <button
+              onClick={() => { setSelectedIds(new Set()); setBulkOwnerId("") }}
+              className="text-xs text-neutral-400 hover:text-white transition-colors ml-auto"
+            >
+              Clear Selection
+            </button>
+            {bulkAssigning && (
+              <div className="w-full mt-1 bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="h-full bg-purple-500 transition-all duration-300"
+                  style={{ width: `${bulkProgress.total ? (bulkProgress.done / bulkProgress.total) * 100 : 0}%` }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-lg overflow-hidden flex flex-col min-h-[500px]">
           
-          <div className="p-4 border-b border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h2 className="text-sm font-bold text-white">
-              {accounts.length} Update Accounts Found
-            </h2>
-            <form onSubmit={handleSearchSubmit} className="relative w-full sm:w-64">
-              <FiSearch size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+          {/* Toolbar: Count + Search + Filter */}
+          <div className="p-4 border-b border-neutral-800 flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h2 className="text-sm font-bold text-white">
+                {sorted.length}{sorted.length !== accountsWithStats.length ? ` of ${accountsWithStats.length}` : ""} Update Accounts
+              </h2>
+              <div className="flex items-center gap-2">
+                {/* Instant local filter */}
+                <div className="relative w-full sm:w-56">
+                  <FiSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+                  <input
+                    type="text"
+                    value={localSearch}
+                    onChange={e => setLocalSearch(e.target.value)}
+                    placeholder="Filter by name..."
+                    className="w-full bg-neutral-950 border border-neutral-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors"
+                  />
+                  {localSearch && (
+                    <button onClick={() => setLocalSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white">
+                      <FiX size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+            {/* Owner filter tabs */}
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setOwnerFilter("All")}
+                className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  ownerFilter === "All" ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" : "bg-neutral-800 text-neutral-500 border border-neutral-700 hover:text-neutral-300"
+                }`}
+              >
+                All Owners
+              </button>
+              {uniqueOwners.map(rep => (
+                <button
+                  key={rep.id}
+                  onClick={() => setOwnerFilter(ownerFilter === rep.id ? "All" : rep.id)}
+                  className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                    ownerFilter === rep.id ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" : "bg-neutral-800 text-neutral-500 border border-neutral-700 hover:text-neutral-300"
+                  }`}
+                >
+                  {rep.name?.split(" ")[0]}
+                </button>
+              ))}
+            </div>
+            {/* LTV Range Filter */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <FiDollarSign size={12} className="text-neutral-500 shrink-0" />
+              <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider shrink-0">LTV</span>
               <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search accounts..."
-                className="w-full bg-neutral-950 border border-neutral-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
+                type="number"
+                value={ltvMin}
+                onChange={e => setLtvMin(e.target.value)}
+                placeholder="Min"
+                className="w-20 bg-neutral-950 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none focus:border-purple-500"
               />
-            </form>
+              <span className="text-neutral-600 text-xs">–</span>
+              <input
+                type="number"
+                value={ltvMax}
+                onChange={e => setLtvMax(e.target.value)}
+                placeholder="Max"
+                className="w-20 bg-neutral-950 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none focus:border-purple-500"
+              />
+              {(ltvMin || ltvMax) && (
+                <button onClick={() => { setLtvMin(""); setLtvMax("") }} className="text-neutral-500 hover:text-white">
+                  <FiX size={12} />
+                </button>
+              )}
+              <div className="w-px h-4 bg-neutral-700 mx-1" />
+              <label className="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showDoNotCall}
+                  onChange={e => setShowDoNotCall(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-red-500 focus:ring-red-500"
+                />
+                <span>Include Do Not Call</span>
+              </label>
+            </div>
           </div>
 
           <div className="overflow-x-auto flex-1">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-neutral-950 text-[10px] uppercase tracking-wider text-neutral-500 font-bold border-b border-neutral-800">
-                  <th className="px-4 py-3 sticky top-0 bg-neutral-950 z-10 w-1/4">Account Name</th>
-                  <th className="px-4 py-3 sticky top-0 bg-neutral-950 z-10 text-right">Last Purchase</th>
-                  <th className="px-4 py-3 sticky top-0 bg-neutral-950 z-10 text-right">Revenue</th>
-                  <th className="px-4 py-3 sticky top-0 bg-neutral-950 z-10 text-right">Profit</th>
-                  <th className="px-4 py-3 sticky top-0 bg-neutral-950 z-10 w-1/3">Assign To</th>
+                  <th className="px-3 py-3 sticky top-0 bg-neutral-950 z-10 w-10">
+                    <button onClick={toggleSelectAll} className="text-neutral-400 hover:text-white transition-colors">
+                      {allVisibleSelected && sorted.length > 0 ? <FiCheckSquare size={14} className="text-purple-400" /> : <FiSquare size={14} />}
+                    </button>
+                  </th>
+                  <th className="px-3 py-3 sticky top-0 bg-neutral-950 z-10 cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("name")}>
+                    Account Name <SortIcon col="name" />
+                  </th>
+                  <th className="px-3 py-3 sticky top-0 bg-neutral-950 z-10 text-right cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("lastPurchaseAt")}>
+                    Last Purchase <SortIcon col="lastPurchaseAt" />
+                  </th>
+                  <th className="px-3 py-3 sticky top-0 bg-neutral-950 z-10 text-right cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("totalRev")}>
+                    Revenue <SortIcon col="totalRev" />
+                  </th>
+                  <th className="px-3 py-3 sticky top-0 bg-neutral-950 z-10 text-right cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("totalProf")}>
+                    Profit <SortIcon col="totalProf" />
+                  </th>
+                  <th className="px-3 py-3 sticky top-0 bg-neutral-950 z-10 w-1/3 cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("owner")}>
+                    Assign To <SortIcon col="owner" />
+                  </th>
                 </tr>
               </thead>
               <tbody className="text-sm divide-y divide-neutral-800">
-                {accountsWithStats.map(acc => (
-                  <tr key={acc.id} className="hover:bg-neutral-800/50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="font-bold text-white truncate max-w-[200px] sm:max-w-[300px]" title={acc.name}>
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center">
+                      <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                      <span className="text-neutral-500 text-xs">Loading accounts...</span>
+                    </td>
+                  </tr>
+                ) : sorted.map(acc => {
+                  const isSelected = selectedIds.has(acc.id)
+                  return (
+                  <tr key={acc.id} className={`transition-colors ${isSelected ? "bg-purple-950/20" : "hover:bg-neutral-800/50"}`}>
+                    <td className="px-3 py-3">
+                      <button onClick={() => toggleSelect(acc.id)} className="text-neutral-400 hover:text-white transition-colors">
+                        {isSelected ? <FiCheckSquare size={14} className="text-purple-400" /> : <FiSquare size={14} />}
+                      </button>
+                    </td>
+                    <td className="px-3 py-3">
+                      <Link href={`/account?id=${acc.zohoId}`} className="font-bold text-white truncate max-w-[200px] sm:max-w-[300px] block hover:text-emerald-400 transition-colors" title={acc.name}>
                         {acc.name}
-                      </div>
+                      </Link>
                       <div className="text-[10px] text-neutral-500 mt-0.5">{acc.industry || "No Industry"}</div>
                     </td>
-                    <td className="px-4 py-3 text-right text-neutral-300 whitespace-nowrap">
+                    <td className="px-3 py-3 text-right text-neutral-300 whitespace-nowrap">
                       {acc.lastPurchaseAt ? new Date(acc.lastPurchaseAt).toLocaleDateString() : "Never"}
                     </td>
-                    <td className="px-4 py-3 text-right text-neutral-300 whitespace-nowrap font-mono">
+                    <td className="px-3 py-3 text-right text-neutral-300 whitespace-nowrap font-mono">
                       ${acc.totalRev.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
-                    <td className="px-4 py-3 text-right text-neutral-300 whitespace-nowrap font-mono">
+                    <td className="px-3 py-3 text-right text-neutral-300 whitespace-nowrap font-mono">
                       ${acc.totalProf.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <div className="flex flex-col gap-2">
                         {reassigningId === acc.id ? (
                           <div className="flex items-center gap-2">
@@ -294,11 +572,11 @@ export default function AdminUpdateAccountsPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
-                {accountsWithStats.length === 0 && !loading && (
+                )})}
+                {sorted.length === 0 && !loading && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-neutral-500 text-sm">
-                      No update accounts found.
+                    <td colSpan={6} className="px-4 py-8 text-center text-neutral-500 text-sm">
+                      No accounts found{localSearch || ownerFilter !== "All" ? " matching filters" : ""}.
                     </td>
                   </tr>
                 )}

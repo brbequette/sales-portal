@@ -3,7 +3,7 @@ import { getZohoAccessToken } from "./zoho-auth"
 
 const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID;
+const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
 
 export async function syncRecentBooksInvoices() {
   try {
@@ -100,6 +100,8 @@ export async function syncRecentBooksInvoices() {
               data: {
                 status: status,
                 amount: newTotal,
+                ...(booksInv.date ? { issueDate: new Date(booksInv.date) } : {}),
+                ...(booksInv.due_date ? { dueDate: new Date(booksInv.due_date) } : {}),
                 items: currentItems
               }
             })

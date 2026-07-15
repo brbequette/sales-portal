@@ -35,12 +35,17 @@ export async function sendPushNotification(userId: string, payload: { title: str
     where: { userId }
   })
 
+  if (subscriptions.length === 0) {
+    return { notification, subscriptionsSent: 0, message: 'No push subscriptions found for this user. They need to enable push notifications in their User Settings first.' }
+  }
+
   const pushPayload = JSON.stringify({
     title: payload.title,
     body: payload.body,
     url: payload.url || `/?tab=dashboard`
   })
 
+  let sent = 0
   // Send to all endpoints, remove invalid ones
   const promises = subscriptions.map(async (sub) => {
     try {
@@ -51,6 +56,7 @@ export async function sendPushNotification(userId: string, payload: { title: str
           auth: sub.auth
         }
       }, pushPayload)
+      sent++
     } catch (error: any) {
       if (error.statusCode === 410 || error.statusCode === 404) {
         // Subscription expired or no longer valid
@@ -62,5 +68,5 @@ export async function sendPushNotification(userId: string, payload: { title: str
   })
 
   await Promise.all(promises)
-  return notification
+  return { notification, subscriptionsSent: sent }
 }

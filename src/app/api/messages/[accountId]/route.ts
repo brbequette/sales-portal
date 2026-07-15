@@ -83,7 +83,7 @@ export async function POST(req: Request, context: { params: Promise<{ accountId:
 
     const resultText = await smsRes.text()
     let resultJson: any = {}
-    try { resultJson = JSON.parse(resultText) } catch (e) {}
+    try { resultJson = JSON.parse(resultText) } catch (e) { console.warn('Failed to parse Zoho SMS response:', e) }
 
     if (smsRes.ok && resultJson.status !== 'error' && resultJson.code !== 'error') {
       const msg = await prisma.smsMessage.create({

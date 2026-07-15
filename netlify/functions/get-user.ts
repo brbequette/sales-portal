@@ -61,7 +61,8 @@ export const handler: Handler = async (event) => {
         id: user.zohoId || user.id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        permissions: user.permissions || null
       })
     }
   } catch (error: any) {

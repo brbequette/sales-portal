@@ -1,24 +1,24 @@
-import { Handler } from "@netlify/functions"
+import type { Context } from "@netlify/functions"
 import OpenAI from "openai"
 import { scriptTemplates } from "./lib/script-templates"
 import { PrismaClient } from "@prisma/client"
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "dummy_key",
-})
+// Zero-config client: Netlify AI Gateway injects OPENAI_API_KEY / OPENAI_BASE_URL
+// into the v2 function runtime, so the SDK auto-detects credentials.
+const openai = new OpenAI()
 
 const prisma = new PrismaClient()
 
-export const handler: Handler = async (event, context) => {
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ success: false, message: "Method Not Allowed" })
-    }
+export default async (req: Request, context: Context) => {
+  if (req.method !== "POST") {
+    return Response.json(
+      { success: false, message: "Method Not Allowed" },
+      { status: 405 }
+    )
   }
 
   try {
-    const body = JSON.parse(event.body || "{}")
+    const body = await req.json().catch(() => ({}))
     const { 
       accountId, 
       accountName, 
@@ -173,16 +173,13 @@ CRITICAL INSTRUCTIONS based on Call Type:
 
     const script = response.choices[0].message?.content || "Could not generate script."
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ success: true, script })
-    }
+    return Response.json({ success: true, script }, { status: 200 })
 
   } catch (error: any) {
     console.error('OpenAI API Error:', error)
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ success: false, error: error.message })
-    }
+    return Response.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    )
   }
 }

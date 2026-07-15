@@ -107,12 +107,24 @@ export const authOptions: NextAuthOptions = {
           [zohoProfile?.First_Name, zohoProfile?.Last_Name].filter(Boolean).join(" ") ||
           email.split("@")[0]
 
-        const zohoUserId = zohoProfile?.ZUID || zohoProfile?.zuid || null
+        const rawZuid = zohoProfile?.ZUID || zohoProfile?.zuid || null
+        const zohoUserId = rawZuid ? String(rawZuid) : null
 
-        // Sync to database
-        let dbUser = await prisma.user.findUnique({ where: { email } })
+        // Sync to database — check by zohoId first (merges stub users from account sync), then by email
+        let dbUser = null
+
+        // 1. Try finding by Zoho User ID (catches stub users created during account sync with dummy emails)
+        if (zohoUserId) {
+          dbUser = await prisma.user.findUnique({ where: { zohoId: zohoUserId } })
+        }
+
+        // 2. Fallback: find by real email
+        if (!dbUser) {
+          dbUser = await prisma.user.findUnique({ where: { email } })
+        }
 
         if (!dbUser) {
+          // Brand new user — create with real info
           dbUser = await prisma.user.create({
             data: {
               email,
@@ -123,14 +135,17 @@ export const authOptions: NextAuthOptions = {
           })
           console.log("Created new user via Zoho NextAuth:", email)
         } else {
+          // Existing user — merge/update: fix dummy email, missing name, missing zohoId
           const updates: any = {}
-          if (!dbUser.name && fullName) updates.name = fullName
+          if (dbUser.email.includes("@dummy.titandiamond.com") && email) updates.email = email
+          if ((!dbUser.name || dbUser.name === "Unknown Owner") && fullName) updates.name = fullName
           if (!dbUser.zohoId && zohoUserId) updates.zohoId = zohoUserId
           if (Object.keys(updates).length > 0) {
             dbUser = await prisma.user.update({
               where: { id: dbUser.id },
               data: updates,
             })
+            console.log("Merged/updated user on Zoho login:", email, updates)
           }
         }
         
