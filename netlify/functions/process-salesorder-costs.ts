@@ -11,14 +11,14 @@ const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
 const recentlyProcessed = new Map<string, number>()
 const LOOP_GUARD_TTL = 60_000 // 60 seconds
 
-function isRecentlyProcessed(invoiceId: string): boolean {
-  const lastTime = recentlyProcessed.get(invoiceId)
+function isRecentlyProcessed(salesorderId: string): boolean {
+  const lastTime = recentlyProcessed.get(salesorderId)
   if (lastTime && Date.now() - lastTime < LOOP_GUARD_TTL) return true
   return false
 }
 
-function markProcessed(invoiceId: string) {
-  recentlyProcessed.set(invoiceId, Date.now())
+function markProcessed(salesorderId: string) {
+  recentlyProcessed.set(salesorderId, Date.now())
   // Cleanup old entries
   for (const [id, time] of recentlyProcessed) {
     if (Date.now() - time > LOOP_GUARD_TTL * 2) recentlyProcessed.delete(id)
@@ -73,40 +73,40 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { invoiceNumber, invoiceId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard } = body
+    const { salesorderNumber, salesorderId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard } = body
 
-    if (!invoiceNumber && !invoiceId) {
-      return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing invoiceNumber or invoiceId" }) }
+    if (!salesorderNumber && !salesorderId) {
+      return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing salesorderNumber or salesorderId" }) }
     }
 
     const token = await getZohoAccessToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
     const authHeaders = { Authorization: `Zoho-oauthtoken ${token}` }
 
-    // 1. Find the invoice in Zoho Books
-    let booksInvoiceId = invoiceId
-    if (!booksInvoiceId && invoiceNumber) {
-      const searchRes = await fetch(`${baseUrl}/invoices?organization_id=${ORG_ID}&invoice_number=${invoiceNumber}`, { headers: authHeaders })
-      if (!searchRes.ok) throw new Error(`Failed to search for invoice: ${searchRes.status}`)
+    // 1. Find the sales order in Zoho Books
+    let booksSalesorderId = salesorderId
+    if (!booksSalesorderId && salesorderNumber) {
+      const searchRes = await fetch(`${baseUrl}/salesorders?organization_id=${ORG_ID}&salesorder_number=${salesorderNumber}`, { headers: authHeaders })
+      if (!searchRes.ok) throw new Error(`Failed to search for sales order: ${searchRes.status}`)
       const searchData: any = await searchRes.json()
-      if (!searchData.invoices || searchData.invoices.length === 0) {
-        return { statusCode: 404, headers: cors, body: JSON.stringify({ success: false, error: `Invoice ${invoiceNumber} not found in Zoho Books` }) }
+      if (!searchData.salesorders || searchData.salesorders.length === 0) {
+        return { statusCode: 404, headers: cors, body: JSON.stringify({ success: false, error: `Sales Order ${salesorderNumber} not found in Zoho Books` }) }
       }
-      booksInvoiceId = searchData.invoices[0].invoice_id
+      booksSalesorderId = searchData.salesorders[0].salesorder_id
     }
 
     // ── Loop Guard Check ──
-    if (!skipLoopGuard && isRecentlyProcessed(booksInvoiceId)) {
-      console.log(`Loop guard: Skipping invoice ${booksInvoiceId} — processed within last ${LOOP_GUARD_TTL / 1000}s`)
+    if (!skipLoopGuard && isRecentlyProcessed(booksSalesorderId)) {
+      console.log(`Loop guard: Skipping sales order ${booksSalesorderId} — processed within last ${LOOP_GUARD_TTL / 1000}s`)
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, skipped: true, reason: 'Loop guard — recently processed' }) }
     }
 
-    // 2. Fetch full invoice details
-    const detailRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { headers: authHeaders })
-    if (!detailRes.ok) throw new Error(`Failed to fetch invoice details: ${detailRes.status}`)
+    // 2. Fetch full sales order details
+    const detailRes = await fetch(`${baseUrl}/salesorders/${booksSalesorderId}?organization_id=${ORG_ID}`, { headers: authHeaders })
+    if (!detailRes.ok) throw new Error(`Failed to fetch sales order details: ${detailRes.status}`)
     const detailData: any = await detailRes.json()
     if (detailData.code !== 0) throw new Error(`Zoho error: ${detailData.message}`)
-    const invoice = detailData.invoice
+    const salesorder = detailData.salesorder
 
     // 3. Calculate Dead Costs from line items
     // Gift items: their purchase_rate is included in dead costs (NO VIG bucket)
@@ -116,7 +116,7 @@ export const handler: Handler = async (event) => {
     const lineItemBreakdown: string[] = []
     const lineItemDetails: any[] = []
 
-    for (const item of (invoice.line_items || [])) {
+    for (const item of (salesorder.line_items || [])) {
       const cost = parseFloat(item.purchase_rate || item.cost || 0)
       const qty = parseFloat(item.quantity || 1)
       const itemDeadCost = cost * qty
@@ -161,10 +161,10 @@ export const handler: Handler = async (event) => {
 
     // 4. Determine VIG rate
     let vigRate = manualVigRate || null
-    const salespersonName = invoice.salesperson_name
+    const salespersonName = salesorder.salesperson_name
 
     if (!vigRate) {
-      const existingVig = invoice.custom_fields?.find((f: any) =>
+      const existingVig = salesorder.custom_fields?.find((f: any) =>
         f.label.toUpperCase().includes('SALESPERSON VIG') || f.api_name === 'cf_salesperson_vig'
       )
       if (existingVig && existingVig.value && parseFloat(existingVig.value) > 0) {
@@ -190,8 +190,8 @@ export const handler: Handler = async (event) => {
             if (userVig.constantVigEnabled && userVig.constantVigValue !== null) {
               vigRate = userVig.constantVigValue
             } else {
-              const invDate = invoice.date || invoice.created_time
-              const monthKey = invDate ? new Date(invDate).toISOString().substring(0, 7) : new Date().toISOString().substring(0, 7)
+              const soDate = salesorder.date || salesorder.created_time
+              const monthKey = soDate ? new Date(soDate).toISOString().substring(0, 7) : new Date().toISOString().substring(0, 7)
               const monthlyGoal = (userVig.monthlyVigGoals || []).find((g: any) => g.monthKey === monthKey)
               if (monthlyGoal && monthlyGoal.manualVigRate !== null) {
                 vigRate = monthlyGoal.manualVigRate
@@ -219,11 +219,11 @@ export const handler: Handler = async (event) => {
     })
 
     // 6. Calculate Profit = Sub_Total - Dead Cost Plus VIG - CC Fees - Additional Costs - Insurance
-    const subTotal = parseFloat(invoice.sub_total || 0)
+    const subTotal = parseFloat(salesorder.sub_total || 0)
 
-    const ccFeesField = invoice.custom_fields?.find((f: any) => f.label.toUpperCase().includes('CREDIT CARD PROCESSING'))
-    const additionalCostsField = invoice.custom_fields?.find((f: any) => f.label.toUpperCase().includes('ADDITIONAL COSTS SEE'))
-    const insuranceField = invoice.custom_fields?.find((f: any) => f.label.toUpperCase() === 'INSURANCE')
+    const ccFeesField = salesorder.custom_fields?.find((f: any) => f.label.toUpperCase().includes('CREDIT CARD PROCESSING'))
+    const additionalCostsField = salesorder.custom_fields?.find((f: any) => f.label.toUpperCase().includes('ADDITIONAL COSTS SEE'))
+    const insuranceField = salesorder.custom_fields?.find((f: any) => f.label.toUpperCase() === 'INSURANCE')
 
     const ccFees = ccFeesField ? parseFloat(ccFeesField.value || 0) : 0
     const additionalCosts = additionalCostsField ? parseFloat(additionalCostsField.value || 0) : 0
@@ -239,7 +239,7 @@ export const handler: Handler = async (event) => {
     // 7. Calculate Commission
     let commissionPct = manualCommPct
     if (!commissionPct) {
-      const existingCommPct = invoice.custom_fields?.find((f: any) =>
+      const existingCommPct = salesorder.custom_fields?.find((f: any) =>
         f.label.toUpperCase().includes('COMMISSION FROM PROFIT')
       )
       if (existingCommPct && existingCommPct.value && parseFloat(existingCommPct.value) > 0) {
@@ -250,12 +250,8 @@ export const handler: Handler = async (event) => {
 
     const salesCommission = profit > 0 ? profit * (commissionPct / 100) : 0
 
-    // 8. Check for Paid In Full Date
-    const isPaid = invoice.status === 'paid' || parseFloat(invoice.balance || 0) <= 0
-    const existingPaidDate = invoice.custom_fields?.find((f: any) => f.label.toUpperCase().includes('PAID IN FULL DATE'))
-
-    console.log(`\n=== Processing Invoice ${invoice.invoice_number} ===`)
-    console.log(`  Customer: ${invoice.customer_name}`)
+    console.log(`\n=== Processing Sales Order ${salesorder.salesorder_number} ===`)
+    console.log(`  Customer: ${salesorder.customer_name}`)
     console.log(`  Salesperson: ${salespersonName || 'N/A'}`)
     console.log(`  Sub Total: $${subTotal.toFixed(2)}`)
     console.log(`  Dead Cost Subject to VIG: $${deadCostSubjectToVig.toFixed(2)}`)
@@ -270,10 +266,9 @@ export const handler: Handler = async (event) => {
     console.log(`  Dead Profit Actual: $${deadProfitActual.toFixed(2)}`)
     console.log(`  Commission %: ${commissionPct}%`)
     console.log(`  Sales Commission: $${salesCommission.toFixed(2)}`)
-    console.log(`  Paid: ${isPaid}`)
 
-    // 9. Build custom field updates — only update fields that changed
-    const existingFields = invoice.custom_fields || []
+    // 8. Build custom field updates — only update fields that changed
+    const existingFields = salesorder.custom_fields || []
     const fieldsToUpdate: any[] = []
 
     const fieldMap: Record<string, any> = {
@@ -293,11 +288,6 @@ export const handler: Handler = async (event) => {
       'cf_dead_profit_actual': deadProfitActual.toFixed(2),
     }
 
-    // Add PAID IN FULL DATE if paid and not already set
-    if (isPaid && existingPaidDate && !existingPaidDate.value) {
-      fieldMap['PAID IN FULL DATE'] = new Date().toISOString().split('T')[0]
-    }
-
     let changesDetected = 0
     for (const [label, value] of Object.entries(fieldMap)) {
       const field = existingFields.find((f: any) => f.label.toUpperCase().trim() === label)
@@ -309,7 +299,7 @@ export const handler: Handler = async (event) => {
           changesDetected++
         }
       } else {
-        console.warn(`Custom field "${label}" not found on invoice`)
+        console.warn(`Custom field "${label}" not found on sales order`)
       }
     }
 
@@ -327,16 +317,16 @@ export const handler: Handler = async (event) => {
           }
         }
       } else {
-        console.warn(`Custom field api_name "${apiName}" not found on invoice`)
+        console.warn(`Custom field api_name "${apiName}" not found on sales order`)
       }
     }
 
-    // 10. Write to Zoho Books — only if there are actual changes
+    // 9. Write to Zoho Books — only if there are actual changes
     let zohoUpdateResult: any = null
     if (fieldsToUpdate.length > 0) {
-      markProcessed(booksInvoiceId) // Set loop guard BEFORE the PUT
+      markProcessed(booksSalesorderId) // Set loop guard BEFORE the PUT
 
-      const putRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
+      const putRes = await fetch(`${baseUrl}/salesorders/${booksSalesorderId}?organization_id=${ORG_ID}`, {
         method: "PUT",
         headers: {
           ...authHeaders,
@@ -350,26 +340,26 @@ export const handler: Handler = async (event) => {
       if (!putRes.ok || putData.code !== 0) {
         console.error("Zoho Books update failed:", JSON.stringify(putData))
       } else {
-        console.log(`✅ Updated ${fieldsToUpdate.length} custom fields on invoice ${invoice.invoice_number} (${changesDetected} changed)`)
+        console.log(`✅ Updated ${fieldsToUpdate.length} custom fields on sales order ${salesorder.salesorder_number} (${changesDetected} changed)`)
       }
     } else {
-      console.log(`⏭️ No changes detected for invoice ${invoice.invoice_number} — skipping PUT`)
+      console.log(`⏭️ No changes detected for sales order ${salesorder.salesorder_number} — skipping PUT`)
     }
 
-    // 11. Update local DB
-    const localInvoice = await prisma.invoice.findFirst({
+    // 10. Update local DB
+    const localSalesOrder = await prisma.salesOrder.findFirst({
       where: {
         OR: [
-          { items: { path: ['invoiceNumber'], equals: invoice.invoice_number } },
-          { items: { path: ['booksInvoiceId'], equals: booksInvoiceId } }
+          { items: { path: ['salesOrderNumber'], equals: salesorder.salesorder_number } },
+          { zohoId: booksSalesorderId }
         ]
       }
     })
 
-    if (localInvoice) {
-      const currentItems = (localInvoice.items as any) || {}
-      await prisma.invoice.update({
-        where: { id: localInvoice.id },
+    if (localSalesOrder) {
+      const currentItems = (localSalesOrder.items as any) || {}
+      await prisma.salesOrder.update({
+        where: { id: localSalesOrder.id },
         data: {
           items: {
             ...currentItems,
@@ -383,7 +373,6 @@ export const handler: Handler = async (event) => {
             commissionPercent: commissionPct,
             vigRate,
             custom_fields: existingFields,
-            ...(isPaid && !currentItems.paidInFullDate ? { paidInFullDate: new Date().toISOString().split('T')[0] } : {})
           }
         }
       })
@@ -394,10 +383,10 @@ export const handler: Handler = async (event) => {
       headers: cors,
       body: JSON.stringify({
         success: true,
-        invoice: {
-          invoiceNumber: invoice.invoice_number,
-          booksInvoiceId,
-          customerName: invoice.customer_name,
+        salesorder: {
+          salesorderNumber: salesorder.salesorder_number,
+          booksSalesorderId,
+          customerName: salesorder.customer_name,
           salesperson: salespersonName,
           subTotal,
           deadCostSubjectToVig,
@@ -423,7 +412,7 @@ export const handler: Handler = async (event) => {
     }
 
   } catch (err: any) {
-    console.error("process-invoice-costs error:", err)
+    console.error("process-salesorder-costs error:", err)
     return {
       statusCode: 500,
       headers: cors,

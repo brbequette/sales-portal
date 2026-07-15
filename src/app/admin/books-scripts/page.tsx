@@ -8,6 +8,7 @@ export default function BooksScriptsPage() {
 
   // Bulk process costs state
   const [bulkFilter, setBulkFilter] = useState<'unpaid' | 'all' | 'recent'>('unpaid')
+  const [bulkEntity, setBulkEntity] = useState<'invoices' | 'salesorders' | 'estimates'>('invoices')
   const [bulkProgress, setBulkProgress] = useState("")
   const [bulkRunning, setBulkRunning] = useState(false)
 
@@ -27,7 +28,8 @@ export default function BooksScriptsPage() {
   }
 
   const runBulkProcessCosts = async () => {
-    if (!confirm(`Process costs for ${bulkFilter === 'all' ? 'ALL' : bulkFilter} invoices? This will recalculate dead costs, profit, and commissions on each invoice.`)) return
+    const entityLabel = bulkEntity === 'invoices' ? 'invoices' : bulkEntity === 'salesorders' ? 'sales orders' : 'quotes'
+    if (!confirm(`Process costs for ${bulkFilter === 'all' ? 'ALL' : bulkFilter} ${entityLabel}? This will recalculate dead costs, dead profit, VIG, profit, and commissions.`)) return
     
     setBulkRunning(true)
     setBulkProgress("Starting...")
@@ -45,7 +47,7 @@ export default function BooksScriptsPage() {
         const res = await fetch('/api/admin/books/bulk-process-costs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ page, filter: bulkFilter, perPage: 25 })
+          body: JSON.stringify({ entity: bulkEntity, page, filter: bulkFilter, perPage: 25 })
         })
 
         const data = await res.json()
@@ -85,22 +87,34 @@ export default function BooksScriptsPage() {
       <div className="glass-panel border border-indigo-500/30 p-6 rounded-2xl space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold text-indigo-400 flex items-center gap-2"><FiCpu /> Bulk Process Invoice Costs</h2>
+            <h2 className="text-lg font-bold text-indigo-400 flex items-center gap-2"><FiCpu /> Bulk Process Document Costs</h2>
             <p className="text-sm text-neutral-400 mt-2">
-              Recalculate <strong>dead costs, VIG, profit, and commissions</strong> for invoices. Updates all custom fields in Zoho Books. 
+              Recalculate <strong>dead costs, dead profit, VIG, profit, and commissions</strong> for invoices, sales orders, or quotes. Updates all custom fields in Zoho Books. 
               Only fields that changed are written (prevents unnecessary API calls).
             </p>
           </div>
-          <select
-            value={bulkFilter}
-            onChange={e => setBulkFilter(e.target.value as any)}
-            disabled={bulkRunning}
-            className="bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded-lg px-3 py-2 shrink-0"
-          >
-            <option value="unpaid">Unpaid Only</option>
-            <option value="recent">Last 90 Days</option>
-            <option value="all">All Invoices</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <select
+              value={bulkEntity}
+              onChange={e => setBulkEntity(e.target.value as any)}
+              disabled={bulkRunning}
+              className="bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded-lg px-3 py-2 shrink-0"
+            >
+              <option value="invoices">Invoices</option>
+              <option value="salesorders">Sales Orders</option>
+              <option value="estimates">Quotes</option>
+            </select>
+            <select
+              value={bulkFilter}
+              onChange={e => setBulkFilter(e.target.value as any)}
+              disabled={bulkRunning}
+              className="bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded-lg px-3 py-2 shrink-0"
+            >
+              <option value="unpaid">Unpaid Only</option>
+              <option value="recent">Last 90 Days</option>
+              <option value="all">All</option>
+            </select>
+          </div>
         </div>
 
         {bulkProgress && (
@@ -122,7 +136,7 @@ export default function BooksScriptsPage() {
           className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
         >
           {bulkRunning ? <FiLoader className="animate-spin" /> : <FiCpu />}
-          {bulkRunning ? 'Processing...' : `Process ${bulkFilter === 'all' ? 'All' : bulkFilter === 'recent' ? 'Recent' : 'Unpaid'} Invoices`}
+          {bulkRunning ? 'Processing...' : `Process ${bulkFilter === 'all' ? 'All' : bulkFilter === 'recent' ? 'Recent' : 'Unpaid'} ${bulkEntity === 'invoices' ? 'Invoices' : bulkEntity === 'salesorders' ? 'Sales Orders' : 'Quotes'}`}
         </button>
       </div>
 

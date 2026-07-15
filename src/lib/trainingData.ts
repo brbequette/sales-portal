@@ -625,6 +625,73 @@ The VIG rate is pulled from the salesperson's settings. If you need to override 
     `,
   },
   {
+    id: "salesorder-process-costs",
+    title: "Processing Sales Order Costs & Commissions",
+    category: "Sales Docs",
+    content: `
+### Process Costs on Sales Orders
+
+Sales Orders support the same cost processing as Invoices. When viewing a **Sales Order** in the details modal, you can run **Process Costs** to calculate and write back all financial fields.
+
+### What it calculates
+1. **Dead Cost Total** — sum of each line item's purchase cost × quantity.
+2. **Dead Cost Subject to VIG** / **Dead Cost No VIG** — split based on the "Subject to VIG" checkbox and gift status.
+3. **Dead Cost Plus VIG** = (Subject to VIG × VIG Rate) + No VIG.
+4. **Dead Profit Actual** — Sub Total minus Dead Cost Total (raw margin before VIG and fees).
+5. **Profit** = Sub Total − Dead Cost Plus VIG − CC Fees − Additional Costs − Insurance.
+6. **Sales Commission** = Profit × Commission %.
+
+All values are written to Zoho Books custom fields on the Sales Order.
+
+### VIG rate lookup
+The VIG rate follows the same priority as invoices:
+1. Manual override passed in the request.
+2. Existing "Salesperson VIG" custom field on the SO.
+3. The salesperson's VIG settings (constant or monthly goal).
+4. Fallback default of 1.5×.
+
+### Loop prevention
+Each sales order has a 60-second cooldown after processing to prevent update loops from Zoho workflow callbacks.
+
+### Local database
+Cost data is also stored in the local Sales Order record for fast dashboard access.
+    `,
+  },
+  {
+    id: "quote-process-costs",
+    title: "Processing Quote Costs & Commissions",
+    category: "Sales Docs",
+    content: `
+### Process Costs on Quotes
+
+Quotes (Estimates) support the same cost processing as Invoices and Sales Orders. When viewing a **Quote** in the details modal, you can run **Process Costs** to calculate and write back all financial fields.
+
+### What it calculates
+1. **Dead Cost Total** — sum of each line item's purchase cost × quantity.
+2. **Dead Cost Subject to VIG** / **Dead Cost No VIG** — split based on the "Subject to VIG" checkbox and gift status.
+3. **Dead Cost Plus VIG** = (Subject to VIG × VIG Rate) + No VIG.
+4. **Dead Profit Actual** — Sub Total minus Dead Cost Total (raw margin before VIG and fees).
+5. **Profit** = Sub Total − Dead Cost Plus VIG − CC Fees − Additional Costs − Insurance.
+6. **Sales Commission** = Profit × Commission %.
+
+All values are written to Zoho Books custom fields on the Estimate.
+
+### Why process costs on a Quote?
+- Preview profit margins **before** converting to a Sales Order or Invoice.
+- Verify the deal is worth pursuing at the quoted price.
+- Compare Dead Profit Actual (raw margin) against Profit (after VIG and fees) to understand the cost impact of VIG.
+
+### VIG rate lookup
+Same priority as invoices and sales orders: manual override → existing custom field → salesperson settings → 1.5× fallback.
+
+### Loop prevention
+Each quote has a 60-second cooldown after processing to prevent update loops from Zoho workflow callbacks.
+
+### Local database
+Cost data is also stored in the local Quote record for fast dashboard access.
+    `,
+  },
+  {
     id: "campaign-intel-panel",
     title: "Sales Call Campaign — Account Intel Panel",
     category: "Sales Hub",
@@ -833,6 +900,46 @@ The account will immediately be hidden from all lists until you check the "Inclu
 - DNC status is **never auto-changed** by the system — it's a manual override that sticks
 - The Zoho sync will not downgrade or change DNC status
 - You can always find DNC accounts by checking the filter checkbox or searching by name
+    `,
+  },
+  {
+    id: "dead-profit-cost-processing",
+    title: "Dead Profit & Unified Cost Processing",
+    category: "Admin & Management",
+    content: `
+### What is Dead Profit?
+
+**Dead Profit Actual** is the simplest profit measure: **Subtotal minus Dead Cost Total** (all raw purchase costs, no VIG multiplier applied, includes ALL items — gift items, no-VIG items, everything).
+
+This is different from the calculated **Profit** field:
+- **Dead Profit** = Subtotal − Dead Cost Total (raw margin)
+- **Profit** = Subtotal − Dead Cost Plus VIG − CC Fees − Additional Costs − Insurance (net margin after all deductions)
+
+### Where Dead Profit is Calculated
+
+Dead Profit (field: \`cf_dead_profit_actual\`) is calculated on:
+- **Invoices** — via the Process Invoice Costs function
+- **Sales Orders** — via the Process Sales Order Costs function  
+- **Quotes** — via the Process Quote Costs function
+
+### Bulk Processing (Zoho Books Scripts page)
+
+The **Zoho Books Scripts** page (Admin → Zoho Books Scripts) has a "Bulk Process Document Costs" section that:
+1. Select document type: **Invoices**, **Sales Orders**, or **Quotes**
+2. Select filter: **Unpaid Only**, **Last 90 Days**, or **All**
+3. Click the button to process all matching documents page by page
+
+Each document gets:
+- Dead Cost Total, Dead Cost Subject to VIG, Dead Cost No VIG
+- Dead Profit Actual (Subtotal − Dead Cost Total)
+- VIG Rate, Dead Cost Plus VIG
+- Profit, Margin %, Commission, Sales Commission
+- All values written back to Zoho Books custom fields
+
+### Important Notes
+- This app is the **single source of truth** for cost calculations — Zoho Books automations are turned off
+- Only changed fields are written to Zoho (prevents unnecessary API calls)
+- The system includes a loop guard to prevent re-processing within 60 seconds
     `,
   },
 ]
