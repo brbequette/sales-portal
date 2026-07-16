@@ -314,6 +314,11 @@ For late payments the system automatically calculates a **Constant Vig** based o
 
 ### Logging collection calls
 Use the collection call log to record promises to pay and schedule the next touch — the account resurfaces when the follow-up is due.
+
+### Visibility by role
+- **Collections role** — sees **all** invoices across every rep and every account company-wide (same as admin view). The "Show All Reps" toggle is on by default.
+- **Sales rep** — sees only their own accounts' invoices.
+- **Admin / Manager** — sees everything.
     `,
   },
   {

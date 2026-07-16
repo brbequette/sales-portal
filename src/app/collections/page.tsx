@@ -1086,11 +1086,11 @@ export default function CollectionsPage() {
   const [showAllReps, setShowAllReps] = useState(false)
   const [showDoNotCall, setShowDoNotCall] = useState(false)
 
-  const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
+  const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator" || user?.role?.toLowerCase().includes("collections")
 
   useEffect(() => {
     if (user) {
-      const isAdm = user.role?.toLowerCase().includes("admin") || user.role === "Administrator"
+      const isAdm = user.role?.toLowerCase().includes("admin") || user.role === "Administrator" || user.role?.toLowerCase().includes("collections")
       setShowAllReps(isAdm)
     }
   }, [user])
