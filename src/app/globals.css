@@ -236,6 +236,43 @@ select option {
   color: var(--foreground);
 }
 
+/*
+  ──────────────────────────────────────────────────────────────
+  LAYOUT ROBUSTNESS — keep every div and item fitting its place
+  ──────────────────────────────────────────────────────────────
+*/
+
+/* Never let the page scroll horizontally because of an overflowing child. */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Media and embeds always stay within their container. */
+img, video, canvas, svg, iframe {
+  max-width: 100%;
+}
+
+/* Long unbroken strings (emails, URLs, addresses, account names) wrap
+   instead of forcing a container wider than its column. */
+p, span, a, h1, h2, h3, h4, h5, h6, li, td, th, label, div {
+  overflow-wrap: break-word;
+}
+
+/* Utility: allow a flex/grid child to shrink below its content size so
+   sibling truncation (`truncate`) actually takes effect. */
+.fit-min {
+  min-width: 0;
+}
+
+/* Utility: clamp text to two lines with an ellipsis for tidy cards. */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* ── Text Utilities ── */
 .line-clamp-1 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
 .line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }

@@ -23,7 +23,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { accountId, name, industry, timeZone, tags, quality, status, bladeSizes, materialsCut, currentSupplier, averageBladeCost, crewCount, bladesPerOrder, improvementPriority } = body
+    const { accountId, name, industry, timeZone, tags, quality, status, billingStreet, billingCity, billingState, billingZip, bladeSizes, materialsCut, currentSupplier, averageBladeCost, crewCount, bladesPerOrder, improvementPriority } = body
 
     if (!accountId) {
       return {
@@ -50,6 +50,10 @@ export const handler: Handler = async (event) => {
     if (tags !== undefined) dataToUpdate.tags = tags
     if (quality !== undefined) dataToUpdate.quality = quality
     if (status !== undefined) dataToUpdate.status = status
+    if (billingStreet !== undefined) dataToUpdate.billingStreet = billingStreet
+    if (billingCity !== undefined) dataToUpdate.billingCity = billingCity
+    if (billingState !== undefined) dataToUpdate.billingState = billingState
+    if (billingZip !== undefined) dataToUpdate.billingZip = billingZip
     if (bladeSizes !== undefined) dataToUpdate.bladeSizes = bladeSizes
     if (materialsCut !== undefined) dataToUpdate.materialsCut = materialsCut
     if (currentSupplier !== undefined) dataToUpdate.currentSupplier = currentSupplier

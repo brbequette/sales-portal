@@ -3,8 +3,22 @@
 import { formatPhoneNumber } from "@/lib/formatters"
 
 import { useState, useEffect } from "react"
-import { FiX, FiUser, FiPhone, FiMail, FiDollarSign, FiClock, FiShoppingBag, FiInfo } from "react-icons/fi"
+import { FiX, FiUser, FiPhone, FiMail, FiDollarSign, FiClock, FiShoppingBag, FiInfo, FiMapPin } from "react-icons/fi"
 import { PointOfSale } from "@/components/PointOfSale"
+
+// Build a billing address from the account record, falling back to the live
+// Zoho CRM details so an address is shown whenever one exists on either source.
+function resolveAddress(account: any) {
+  const crm = account?.crmDetails || {}
+  const street = account?.billingStreet || crm.Billing_Street || ""
+  const city = account?.billingCity || crm.Billing_City || ""
+  const state = account?.billingState || crm.Billing_State || ""
+  const zip = account?.billingZip || crm.Billing_Code || ""
+  const cityLine = [city, state].filter(Boolean).join(", ")
+  const lastLine = [cityLine, zip].filter(Boolean).join(" ").trim()
+  const lines = [street, lastLine].filter(Boolean)
+  return { street, city, state, zip, lines, hasAddress: lines.length > 0 }
+}
 
 export function AccountSlideout({ accountId, onClose }: { accountId: string, onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<"overview" | "pos">("overview")
@@ -35,6 +49,10 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
   const openInvoices = account?.invoices?.filter((inv: any) => ['Sent', 'Overdue', 'Partially Paid'].includes(inv.status)) || []
   const outstandingBalance = openInvoices.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0) || 0
   const primaryContact = account?.contacts?.find((c: any) => c.isPrimary) || account?.contacts?.[0]
+  const address = resolveAddress(account)
+  const mapsUrl = address.hasAddress
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address.lines.join(", "))}`
+    : null
 
   return (
     <>
@@ -83,23 +101,47 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
                       <FiInfo /> Contact Information
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-neutral-900/50 p-4 rounded-xl border border-white/5">
-                        <div className="flex items-center gap-3 text-white mb-2">
-                          <FiUser className="text-emerald-500" />
-                          <span className="font-semibold">{primaryContact?.firstName} {primaryContact?.lastName}</span>
+                      <div className="bg-neutral-900/50 p-4 rounded-xl border border-white/5 min-w-0">
+                        <div className="flex items-center gap-3 text-white mb-2 min-w-0">
+                          <FiUser className="text-emerald-500 shrink-0" />
+                          <span className="font-semibold truncate">{[primaryContact?.firstName, primaryContact?.lastName].filter(Boolean).join(" ") || "No Contact Name"}</span>
                         </div>
-                        <div className="flex items-center gap-3 text-neutral-400 text-sm mb-1">
-                          <FiPhone className="text-neutral-500" />
-                          <a href={`tel:${primaryContact?.phone || primaryContact?.mobilePhone}`} className="hover:text-emerald-400 hover:underline">
-                            {primaryContact?.phone || primaryContact?.mobilePhone || 'No Phone'}
+                        <div className="flex items-center gap-3 text-neutral-400 text-sm mb-1 min-w-0">
+                          <FiPhone className="text-neutral-500 shrink-0" />
+                          <a href={`tel:${primaryContact?.phone || primaryContact?.mobilePhone}`} className="hover:text-emerald-400 hover:underline truncate">
+                            {formatPhoneNumber(primaryContact?.phone || primaryContact?.mobilePhone) || 'No Phone'}
                           </a>
                         </div>
-                        <div className="flex items-center gap-3 text-neutral-400 text-sm">
-                          <FiMail className="text-neutral-500" />
-                          <a href={`mailto:${primaryContact?.email}`} className="hover:text-emerald-400 hover:underline">
+                        <div className="flex items-center gap-3 text-neutral-400 text-sm min-w-0">
+                          <FiMail className="text-neutral-500 shrink-0" />
+                          <a href={`mailto:${primaryContact?.email}`} className="hover:text-emerald-400 hover:underline truncate">
                             {primaryContact?.email || 'No Email'}
                           </a>
                         </div>
+                      </div>
+
+                      {/* Billing Address — always shown alongside the account */}
+                      <div className="bg-neutral-900/50 p-4 rounded-xl border border-white/5 min-w-0">
+                        <div className="flex items-center justify-between gap-3 text-white mb-2 min-w-0">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <FiMapPin className="text-emerald-500 shrink-0" />
+                            <span className="font-semibold truncate">Billing Address</span>
+                          </div>
+                          {mapsUrl && (
+                            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-400 hover:underline shrink-0">
+                              Map
+                            </a>
+                          )}
+                        </div>
+                        {address.hasAddress ? (
+                          <div className="text-sm text-neutral-300 leading-relaxed break-words">
+                            {address.lines.map((line, i) => (
+                              <div key={i}>{line}</div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-neutral-500 italic">No address on file</div>
+                        )}
                       </div>
                     </div>
                   </section>
