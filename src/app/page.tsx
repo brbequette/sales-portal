@@ -1010,7 +1010,7 @@ export default function Dashboard() {
 
 
         {/* ── Workspace / Effort Selector Switcher ── */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <button
             onClick={() => handleEffortChange("sales")}
             className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
@@ -1213,7 +1213,7 @@ export default function Dashboard() {
 
 
         {/* Metrics row */}
-        <div className={`grid gap-2 sm:gap-3 ${effort === "sales" ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3"}`}>
+        <div className={`grid gap-2 sm:gap-3 ${effort === "sales" ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2 sm:grid-cols-3"}`}>
           {metrics.map(m => (
             <div key={m.label} className="glass-panel rounded-xl p-3 border border-[var(--border)] cursor-pointer hover:bg-white/[0.055] transition-all duration-200" onClick={() => {
               if (effort === "sales") {

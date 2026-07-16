@@ -27,6 +27,12 @@ export interface UserPermissions {
   createDropships: boolean
   createAccounts: boolean
   editAccountDetails: boolean
+  processCosts: boolean        // trigger cost recalculation on docs
+  logCalls: boolean            // access call log modals (sales + collection)
+
+  // Data Visibility
+  viewCostBreakdown: boolean   // see dead cost / VIG / margin on documents
+  viewCommissions: boolean     // see commission amounts on docs and rep stats
 
   // Admin
   adminAccess: boolean
@@ -34,6 +40,7 @@ export interface UserPermissions {
   manageSettings: boolean
   runScripts: boolean
   viewAllReps: boolean
+  manageVisibility: boolean    // access the VisibilityConfigPanel
 }
 
 export const PERMISSION_GROUPS: { label: string; permissions: { key: keyof UserPermissions; label: string; description: string }[] }[] = [
@@ -66,6 +73,15 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: keyof UserP
       { key: "createDropships", label: "Create Dropships", description: "Create dropship purchase orders" },
       { key: "createAccounts", label: "Create Accounts", description: "Create new customer accounts" },
       { key: "editAccountDetails", label: "Edit Account Details", description: "Edit account information, contacts, and status" },
+      { key: "processCosts", label: "Recalculate Costs", description: "Trigger cost/profit/commission recalculation on any document" },
+      { key: "logCalls", label: "Log Calls", description: "Access sales and collection call log modals" },
+    ]
+  },
+  {
+    label: "Data Visibility",
+    permissions: [
+      { key: "viewCostBreakdown", label: "View Cost Breakdown", description: "See dead cost, VIG, and margin details on documents" },
+      { key: "viewCommissions", label: "View Commissions", description: "See commission amounts on documents and rep stats" },
     ]
   },
   {
@@ -76,6 +92,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: { key: keyof UserP
       { key: "manageSettings", label: "Manage Settings", description: "Edit system settings, AI prompts, and campaign limits" },
       { key: "runScripts", label: "Run Scripts", description: "Execute Zoho Books scripts and admin operations" },
       { key: "viewAllReps", label: "View All Reps", description: "See all sales reps' data, not just own accounts" },
+      { key: "manageVisibility", label: "Manage Visibility", description: "Configure which fields/sections each role can see or edit" },
     ]
   }
 ]
@@ -103,11 +120,16 @@ export const ALL_PERMISSIONS: UserPermissions = {
   createDropships: true,
   createAccounts: true,
   editAccountDetails: true,
+  processCosts: true,
+  logCalls: true,
+  viewCostBreakdown: true,
+  viewCommissions: true,
   adminAccess: true,
   manageUsers: true,
   manageSettings: true,
   runScripts: true,
   viewAllReps: true,
+  manageVisibility: true,
 }
 
 // Default permissions for a new sales rep (restricted)
@@ -133,11 +155,16 @@ export const DEFAULT_REP_PERMISSIONS: UserPermissions = {
   createDropships: false,
   createAccounts: true,
   editAccountDetails: true,
+  processCosts: false,
+  logCalls: true,
+  viewCostBreakdown: false,
+  viewCommissions: false,
   adminAccess: false,
   manageUsers: false,
   manageSettings: false,
   runScripts: false,
   viewAllReps: false,
+  manageVisibility: false,
 }
 
 // Resolve a user's effective permissions

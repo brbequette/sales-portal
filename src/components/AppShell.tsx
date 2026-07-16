@@ -152,7 +152,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <span className="text-base font-bold text-white">Titan Hub</span>
         </div>
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-neutral-400 hover:text-white transition-colors">
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-neutral-400 hover:text-white transition-colors p-2.5 -mr-2.5 rounded-lg">
           {sidebarOpen ? <FiX size={22} /> : <FiMenu size={22} />}
         </button>
       </div>
@@ -200,7 +200,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
           return (
             <Link key={item.href} href={item.href}
-              className={`flex-1 flex flex-col items-center py-2 text-[10px] font-semibold transition-colors ${
+              className={`flex-1 flex flex-col items-center py-3 text-[11px] font-semibold transition-colors ${
                 active ? "text-white" : "text-neutral-600"
               }`}
             >

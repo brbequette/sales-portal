@@ -178,7 +178,7 @@ export function GlobalTopBar() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => { if (results) setShowResults(true) }}
-            className="w-full bg-white/[0.035] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary)] focus:bg-white/[0.055] transition-colors"
+            className="w-full bg-white/[0.035] border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--primary)] focus:bg-white/[0.055] transition-colors"
           />
           {loading && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
@@ -288,7 +288,7 @@ export function GlobalTopBar() {
       <div className="flex items-center gap-2 lg:gap-3 ml-4 shrink-0">
         
         {/* Timeclock Toggle Widget */}
-        <div className="flex items-center rounded-lg border border-white/10 bg-white/[0.045] overflow-hidden text-xs lg:text-sm h-8 lg:h-9">
+        <div className="flex items-center rounded-lg border border-white/10 bg-white/[0.045] overflow-hidden text-xs lg:text-sm h-10 lg:h-9">
           <button
             onClick={handleToggleClock}
             className={`px-3 lg:px-4 h-full font-bold transition-all flex items-center gap-2 border-r border-white/10 ${
@@ -339,7 +339,7 @@ export function GlobalTopBar() {
           </button>
 
           {showNotifications && (
-            <div className="absolute top-full right-0 mt-2 w-80 bg-[#151618] border border-white/10 rounded-xl shadow-[0_22px_70px_rgba(0,0,0,0.45)] overflow-hidden z-50 flex flex-col max-h-[70vh]">
+            <div className="absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-1rem)] bg-[#151618] border border-white/10 rounded-xl shadow-[0_22px_70px_rgba(0,0,0,0.45)] overflow-hidden z-50 flex flex-col max-h-[70vh]">
               <div className="flex items-center justify-between p-3 border-b border-white/10 bg-white/[0.02]">
                 <h3 className="text-sm font-bold text-white">Notifications</h3>
                 {unreadCount > 0 && (
@@ -385,13 +385,13 @@ export function GlobalTopBar() {
 
         <button
           onClick={() => router.push("/catalog")}
-          className="bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center gap-2 border border-white/10"
+          className="hidden sm:flex bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all items-center gap-2 border border-white/10"
         >
           <FiBox size={14} /> <span className="hidden sm:inline">Catalog Lookup</span>
         </button>
         <button
           onClick={() => router.push("/tasks/new")}
-          className="bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center gap-2 border border-white/10"
+          className="hidden sm:flex bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all items-center gap-2 border border-white/10"
         >
           <FiCheckSquare size={14} /> <span className="hidden sm:inline">Add Task</span>
         </button>

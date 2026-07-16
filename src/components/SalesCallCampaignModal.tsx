@@ -13,6 +13,7 @@ import {
 } from "react-icons/fi"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
+import { FactFindingPanel, FactFindingSummary, EMPTY_FACT_FINDING, type FactFindingValues } from "@/components/FactFindingPanel"
 
 interface SalesCallCampaignModalProps {
   accounts: any[]
@@ -30,20 +31,8 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const [followUpDate, setFollowUpDate] = useState("")
   const [contactReached, setContactReached] = useState(true)
   
-  // Fact-Finding States
-  const [ffBladeSizes, setFfBladeSizes] = useState('')
-  const [ffMaterialsCut, setFfMaterialsCut] = useState('')
-  const [ffCurrentSupplier, setFfCurrentSupplier] = useState('')
-  const [ffAvgBladeCost, setFfAvgBladeCost] = useState('')
-  const [ffProductInterest, setFfProductInterest] = useState<string[]>([])
-  const [ffReadyToBuy, setFfReadyToBuy] = useState('')
-  const [ffPainPoints, setFfPainPoints] = useState('')
-  const [ffJobTypes, setFfJobTypes] = useState('')
-  const [ffCrewCount, setFfCrewCount] = useState('')
-  const [ffBladesPerOrder, setFfBladesPerOrder] = useState('')
-  const [ffImprovementPriority, setFfImprovementPriority] = useState('')
-  const [showFactFinding, setShowFactFinding] = useState(false)
-  const [expandedFF, setExpandedFF] = useState<Record<string, boolean>>({})
+  // Fact-Finding — single unified object (replaces 11 individual ff* states)
+  const [factFinding, setFactFinding] = useState<FactFindingValues>(EMPTY_FACT_FINDING)
   const [callType, setCallType] = useState<"cold" | "update">("cold")
 
   // AI States
@@ -201,19 +190,19 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     setContactReached(true)
 
     // Reset and pre-fill fact-finding from account data
-    setFfBladeSizes(activeAccount.bladeSizes || '')
-    setFfMaterialsCut(activeAccount.materialsCut || '')
-    setFfCurrentSupplier(activeAccount.currentSupplier || '')
-    setFfAvgBladeCost(activeAccount.avgBladeCost || '')
-    setFfProductInterest(activeAccount.productInterest || [])
-    setFfReadyToBuy(activeAccount.readyToBuy || '')
-    setFfPainPoints(activeAccount.painPoints || '')
-    setFfJobTypes(activeAccount.jobTypes || '')
-    setFfCrewCount(activeAccount.crewCount || '')
-    setFfBladesPerOrder(activeAccount.bladesPerOrder || '')
-    setFfImprovementPriority(activeAccount.improvementPriority || '')
-    setShowFactFinding(false)
-    setExpandedFF({})
+    setFactFinding({
+      bladeSizes: activeAccount.bladeSizes || '',
+      materialsCut: activeAccount.materialsCut || '',
+      currentSupplier: activeAccount.currentSupplier || '',
+      avgBladeCost: activeAccount.averageBladeCost || activeAccount.avgBladeCost || '',
+      crewCount: activeAccount.crewCount || '',
+      bladesPerOrder: activeAccount.bladesPerOrder || '',
+      improvementPriority: activeAccount.improvementPriority || '',
+      readyToBuy: activeAccount.readyToBuy || '',
+      jobTypes: activeAccount.jobTypes || '',
+      painPoints: activeAccount.painPoints || '',
+      productInterest: activeAccount.productInterest || [],
+    })
     setOrderLines([])
 
     // Auto-detect call type
@@ -352,11 +341,11 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
 
     // Check for missing fact finding
     const missing: string[] = []
-    if (!ffBladeSizes) missing.push("what size blades you primarily run")
-    if (!ffMaterialsCut) missing.push("what materials you guys are cutting most right now")
-    if (!ffCrewCount) missing.push("how many crews you have out in the field")
-    if (!ffBladesPerOrder) missing.push("how many blades you normally pick up at a time")
-    if (!ffImprovementPriority) missing.push("what's the one thing you'd improve about your current blades (longer life, faster, or cleaner cutting)")
+    if (!factFinding.bladeSizes) missing.push("what size blades you primarily run")
+    if (!factFinding.materialsCut) missing.push("what materials you guys are cutting most right now")
+    if (!factFinding.crewCount) missing.push("how many crews you have out in the field")
+    if (!factFinding.bladesPerOrder) missing.push("how many blades you normally pick up at a time")
+    if (!factFinding.improvementPriority) missing.push("what's the one thing you'd improve about your current blades (longer life, faster, or cleaner cutting)")
     
     if (missing.length > 0) {
       scriptText += `By the way, I was just updating your account profile and realized I didn't have it on file -- could you remind me ${missing[0]}?\n\n`
@@ -367,8 +356,8 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   }
 
   const getBladeRecommendation = () => {
-    const mat = ffMaterialsCut.toLowerCase()
-    const prio = ffImprovementPriority.toLowerCase()
+    const mat = (factFinding.materialsCut || '').toLowerCase()
+    const prio = (factFinding.improvementPriority || '').toLowerCase()
     
     const recommendations = [];
 
@@ -463,17 +452,17 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
           durationMinutes: Math.max(1, Math.ceil(timerSeconds / 60)),
           userId: currentUser?.id,
           factFinding: {
-            bladeSizes: ffBladeSizes || undefined,
-            materialsCut: ffMaterialsCut || undefined,
-            currentSupplier: ffCurrentSupplier || undefined,
-            averageBladeCost: ffAvgBladeCost || undefined,
-            productInterest: ffProductInterest.length > 0 ? ffProductInterest : undefined,
-            readyToBuy: ffReadyToBuy || undefined,
-            painPoints: ffPainPoints || undefined,
-            jobTypes: ffJobTypes || undefined,
-            crewCount: ffCrewCount || undefined,
-            bladesPerOrder: ffBladesPerOrder || undefined,
-            improvementPriority: ffImprovementPriority || undefined,
+            bladeSizes: factFinding.bladeSizes || undefined,
+            materialsCut: factFinding.materialsCut || undefined,
+            currentSupplier: factFinding.currentSupplier || undefined,
+            averageBladeCost: factFinding.avgBladeCost || undefined,
+            productInterest: factFinding.productInterest.length > 0 ? factFinding.productInterest : undefined,
+            readyToBuy: factFinding.readyToBuy || undefined,
+            painPoints: factFinding.painPoints || undefined,
+            jobTypes: factFinding.jobTypes || undefined,
+            crewCount: factFinding.crewCount || undefined,
+            bladesPerOrder: factFinding.bladesPerOrder || undefined,
+            improvementPriority: factFinding.improvementPriority || undefined,
           },
           orderLines: orderLines.length > 0 ? orderLines.map(l => ({
             name: l.name,
@@ -744,51 +733,9 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             </div>
 
             {/* Row 4: Fact-Finding Summary (appears as answers come in) */}
-            {(ffBladeSizes || ffMaterialsCut || ffCurrentSupplier || ffAvgBladeCost || ffCrewCount || ffBladesPerOrder || ffImprovementPriority) && (
-              <div className="px-5 mt-1.5 flex items-center gap-1.5 flex-wrap">
-                <FiActivity size={9} className="text-amber-500/60" />
-                {ffBladeSizes && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/5 border border-amber-500/10">
-                    <span className="text-[7px] font-bold text-neutral-600">Blades:</span>
-                    <span className="text-[8px] font-bold text-amber-300">{ffBladeSizes}</span>
-                  </span>
-                )}
-                {ffMaterialsCut && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/5 border border-amber-500/10">
-                    <span className="text-[7px] font-bold text-neutral-600">Cuts:</span>
-                    <span className="text-[8px] font-bold text-amber-300">{ffMaterialsCut}</span>
-                  </span>
-                )}
-                {ffCurrentSupplier && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/5 border border-amber-500/10">
-                    <span className="text-[7px] font-bold text-neutral-600">From:</span>
-                    <span className="text-[8px] font-bold text-amber-300">{ffCurrentSupplier}</span>
-                  </span>
-                )}
-                {ffAvgBladeCost && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/5 border border-amber-500/10">
-                    <span className="text-[7px] font-bold text-neutral-600">Pays:</span>
-                    <span className="text-[8px] font-bold text-amber-300">{ffAvgBladeCost}</span>
-                  </span>
-                )}
-                {ffCrewCount && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/5 border border-amber-500/10">
-                    <span className="text-[7px] font-bold text-neutral-600">Crews:</span>
-                    <span className="text-[8px] font-bold text-amber-300">{ffCrewCount}</span>
-                  </span>
-                )}
-                {ffBladesPerOrder && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/5 border border-amber-500/10">
-                    <span className="text-[7px] font-bold text-neutral-600">Qty:</span>
-                    <span className="text-[8px] font-bold text-amber-300">{ffBladesPerOrder}</span>
-                  </span>
-                )}
-                {ffImprovementPriority && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-500/5 border border-emerald-500/15">
-                    <span className="text-[7px] font-bold text-neutral-600">Wants:</span>
-                    <span className="text-[8px] font-black text-emerald-400">{ffImprovementPriority}</span>
-                  </span>
-                )}
+            {Object.values(factFinding).some(v => Array.isArray(v) ? v.length > 0 : !!v) && (
+              <div className="px-5 mt-1.5">
+                <FactFindingSummary values={factFinding} />
               </div>
             )}
 
@@ -923,82 +870,14 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       <div className="bg-neutral-950/60 border border-neutral-800 p-4 rounded-xl text-sm text-neutral-300 leading-relaxed whitespace-pre-line select-text">
                         {`Hey, ${contactName} this is ${repName} over at Titan Diamond USA. I'm giving you a call today because we have an early release on our brand new 2026 line-up of blades that we featured at the The World of Concrete and ConExpo shows in Las Vegas this year and what's great is with this new release, our manufacturer wants us to give away free blades to our new customers to build new relationships... I just have a quick couple questions to see which blade will work best for you and what you're cutting...`}
                       </div>
-                      {/* Fact-Finding Questions — collapsible when answered */}
-                      {(() => {
-                        const questions = [
-                          { num: 1, key: 'bladeSizes', q: '"First off... what size blades do you run? 14"?', value: ffBladeSizes, render: () => renderPills(['10"', '12"', '14"', '16"', '18"', '20"', '24"', '30"', '36"'], ffBladeSizes, setFfBladeSizes, true) },
-                          { num: 2, key: 'materials', q: '"What are you guys cutting out there?"', value: ffMaterialsCut, render: () => renderPills(['Concrete', 'Asphalt', 'Brick', 'Block', 'Stone', 'Pavers', 'Granite', 'Marble', 'Tile', 'Ductile Iron', 'Rebar', 'Green Concrete'], ffMaterialsCut, setFfMaterialsCut, true) },
-                          { num: 3, key: 'supplier', q: '"Where do you pick up your blades now, do you buy them retail or over the phone from a wholesaler like me?"', value: ffCurrentSupplier, render: () => renderPills(['Home Depot', 'Lowes', 'Sunbelt', 'United Rentals', 'White Cap', 'HD Supply', 'Ace', 'Local Supplier', 'Online', 'Manufacturer Direct', 'Other'], ffCurrentSupplier, setFfCurrentSupplier, true) },
-                          { num: 4, key: 'cost', q: '"How much are they charging you for a good 14" blade? $250? $300 Bucks?"', value: ffAvgBladeCost, render: () => renderPills(['$25-50', '$50-75', '$75-100', '$100-150', '$150-200', '$200-300', '$300-400', '$400+'], ffAvgBladeCost, setFfAvgBladeCost, true) },
-                          { num: 5, key: 'crews', q: '"How many crews do you have?"', value: ffCrewCount, render: () => renderPills(['1', '2-3', '4-5', '6-10', '10+'], ffCrewCount, setFfCrewCount, true) },
-                          { num: 6, key: 'qty', q: '"And how many blades do you normally pick up at a time.. 6.. 12.. 25?"', value: ffBladesPerOrder, render: () => renderPills(['1-3', '4-6', '6-10', '12-25', '25+'], ffBladesPerOrder, setFfBladesPerOrder, true) },
-                          { num: 7, key: 'priority', q: '"Let me ask you one last question... if you could improve one thing about the blades you are using right now... what would it be... longer life... faster cutting... or cleaner cutting?"', value: ffImprovementPriority, render: () => (
-                            <div className="flex gap-1.5 flex-wrap">
-                              {['Longer life', 'Faster cutting', 'Cleaner cutting', 'Lower price'].map(opt => (
-                                <button key={opt} type="button" onClick={() => setFfImprovementPriority(ffImprovementPriority === opt ? '' : opt)} className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${ffImprovementPriority === opt ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400'}`}>
-                                  {ffImprovementPriority === opt ? '\u2713 ' : ''}{opt}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        ]
-
-                        return (
-                          <div className="grid grid-cols-2 gap-2">
-                            {questions.map(({ num, key, q, value, render }) => {
-                              const isAnswered = !!value
-                              const isExpanded = expandedFF[key] ?? !isAnswered
-                              return (
-                                <div key={key} className={`rounded-xl border transition-all ${isAnswered && !isExpanded ? 'bg-cyan-950/10 border-cyan-800/15 p-2' : 'bg-cyan-950/20 border-cyan-800/30 p-3 space-y-2'}`}>
-                                  {isAnswered && !isExpanded ? (
-                                    /* Collapsed answered state — compact chip */
-                                    <button
-                                      type="button"
-                                      onClick={() => setExpandedFF(prev => ({ ...prev, [key]: true }))}
-                                      className="w-full flex items-center gap-2 cursor-pointer group"
-                                    >
-                                      <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 text-[8px] font-black flex items-center justify-center shrink-0">{'\u2713'}</span>
-                                      <span className="text-[10px] text-neutral-500 italic truncate flex-1 text-left">Q{num}</span>
-                                      <span className="text-[9px] font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded truncate max-w-[140px]">{value}</span>
-                                      <FiChevronRight size={10} className="text-neutral-600 group-hover:text-neutral-400 transition-colors shrink-0" />
-                                    </button>
-                                  ) : (
-                                    /* Expanded state — full question + pills */
-                                    <>
-                                      <div className="flex items-start gap-2">
-                                        <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5 ${isAnswered ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}`}>{num}</span>
-                                        <p className="text-xs text-cyan-100/90 leading-relaxed italic flex-1">{q}</p>
-                                        {isAnswered && (
-                                          <button type="button" onClick={() => setExpandedFF(prev => ({ ...prev, [key]: false }))} className="text-neutral-600 hover:text-neutral-400 cursor-pointer shrink-0 mt-0.5">
-                                            <FiChevronDown size={12} />
-                                          </button>
-                                        )}
-                                      </div>
-                                      <div className="pl-7">{render()}</div>
-                                    </>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )
-                      })()}
-
-
-                      {/* Fact-Finding Progress Badge */}
-                      <div className="flex items-center justify-between bg-neutral-900/40 border border-neutral-800/40 rounded-lg px-3 py-1.5">
-                        <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
-                          <FiActivity size={10} /> Fact-Finding Progress
-                        </span>
-                        <div className="flex items-center gap-1">
-                          {[ffBladeSizes, ffMaterialsCut, ffCurrentSupplier, ffAvgBladeCost, ffCrewCount, ffBladesPerOrder, ffImprovementPriority].map((v, i) => (
-                            <div key={i} className={`w-2 h-2 rounded-full ${v ? 'bg-amber-400' : 'bg-neutral-800'}`} />
-                          ))}
-                          <span className="text-[9px] font-black text-amber-400 ml-1">
-                            {[ffBladeSizes, ffMaterialsCut, ffCurrentSupplier, ffAvgBladeCost, ffCrewCount, ffBladesPerOrder, ffImprovementPriority].filter(Boolean).length}/7
-                          </span>
-                        </div>
-                      </div>
+                      {/* Fact-Finding Questions — shared FactFindingPanel component */}
+                      <FactFindingPanel
+                        values={factFinding}
+                        onChange={setFactFinding}
+                        mode="dialer-cold"
+                        questionCount={7}
+                        accentColor="cyan"
+                      />
                     </>
                   )
                 }
@@ -1010,68 +889,14 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       {generateScript()}
                     </div>
 
-                    {/* Fact-finding for follow-ups — same collapsible pattern */}
-                    {(() => {
-                      const questions = [
-                        { num: 1, key: 'bladeSizes', q: '"What size blades are you running?"', value: ffBladeSizes, render: () => renderPills(['10"', '12"', '14"', '16"', '18"', '20"', '24"', '30"', '36"'], ffBladeSizes, setFfBladeSizes, true) },
-                        { num: 2, key: 'materials', q: '"What materials are you cutting?"', value: ffMaterialsCut, render: () => renderPills(['Concrete', 'Asphalt', 'Brick', 'Block', 'Stone', 'Pavers', 'Granite', 'Marble', 'Tile', 'Ductile Iron', 'Rebar', 'Green Concrete'], ffMaterialsCut, setFfMaterialsCut, true) },
-                        { num: 3, key: 'supplier', q: '"Where do you pick up your blades?"', value: ffCurrentSupplier, render: () => renderPills(['Home Depot', 'Lowes', 'Sunbelt', 'United Rentals', 'White Cap', 'HD Supply', 'Ace', 'Local Supplier', 'Online', 'Manufacturer Direct', 'Other'], ffCurrentSupplier, setFfCurrentSupplier, true) },
-                        { num: 4, key: 'cost', q: '"How much are they charging you?"', value: ffAvgBladeCost, render: () => renderPills(['$25-50', '$50-75', '$75-100', '$100-150', '$150-200', '$200-300', '$300-400', '$400+'], ffAvgBladeCost, setFfAvgBladeCost, true) },
-                        { num: 5, key: 'crews', q: '"How many crews do you have?"', value: ffCrewCount, render: () => renderPills(['1', '2-3', '4-5', '6-10', '10+'], ffCrewCount, setFfCrewCount, true) },
-                        { num: 6, key: 'qty', q: '"How many blades do you pick up at a time?"', value: ffBladesPerOrder, render: () => renderPills(['1-3', '4-6', '6-10', '12-25', '25+'], ffBladesPerOrder, setFfBladesPerOrder, true) },
-                        { num: 7, key: 'priority', q: '"What would you improve about your blades?"', value: ffImprovementPriority, render: () => (
-                          <div className="flex gap-1.5 flex-wrap">
-                            {['Longer life', 'Faster cutting', 'Cleaner cutting', 'Lower price'].map(opt => (
-                              <button key={opt} type="button" onClick={() => setFfImprovementPriority(ffImprovementPriority === opt ? '' : opt)} className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border transition-all cursor-pointer ${ffImprovementPriority === opt ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600'}`}>
-                                {ffImprovementPriority === opt ? '\u2713 ' : ''}{opt}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      ]
-
-                      return (
-                        <div className="space-y-1.5">
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5 px-1">
-                            <FiActivity size={10} /> Fact-Finding
-                            <span className="ml-auto text-[8px] font-black text-amber-300">
-                              {questions.filter(q => !!q.value).length}/7
-                            </span>
-                          </span>
-                          <div className="grid grid-cols-2 gap-2">
-                            {questions.map(({ num, key, q, value, render }) => {
-                              const isAnswered = !!value
-                              const isExpanded = expandedFF[key] ?? !isAnswered
-                              return (
-                                <div key={key} className={`rounded-xl border transition-all ${isAnswered && !isExpanded ? 'bg-amber-950/10 border-amber-800/15 p-2' : 'bg-amber-950/20 border-amber-800/30 p-3 space-y-2'}`}>
-                                  {isAnswered && !isExpanded ? (
-                                    <button type="button" onClick={() => setExpandedFF(prev => ({ ...prev, [key]: true }))} className="w-full flex items-center gap-2 cursor-pointer group">
-                                      <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 text-[8px] font-black flex items-center justify-center shrink-0">{'\u2713'}</span>
-                                      <span className="text-[10px] text-neutral-500 italic truncate flex-1 text-left">Q{num}</span>
-                                      <span className="text-[9px] font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded truncate max-w-[140px]">{value}</span>
-                                      <FiChevronRight size={10} className="text-neutral-600 group-hover:text-neutral-400 transition-colors shrink-0" />
-                                    </button>
-                                  ) : (
-                                    <>
-                                      <div className="flex items-start gap-2">
-                                        <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5 ${isAnswered ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-500/10 text-amber-500'}`}>{num}</span>
-                                        <p className="text-xs text-amber-200/80 leading-relaxed italic flex-1">{q}</p>
-                                        {isAnswered && (
-                                          <button type="button" onClick={() => setExpandedFF(prev => ({ ...prev, [key]: false }))} className="text-neutral-600 hover:text-neutral-400 cursor-pointer shrink-0 mt-0.5">
-                                            <FiChevronDown size={12} />
-                                          </button>
-                                        )}
-                                      </div>
-                                      <div className="pl-7">{render()}</div>
-                                    </>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })()}
+                    {/* Fact-finding for follow-ups — shared FactFindingPanel component */}
+                    <FactFindingPanel
+                      values={factFinding}
+                      onChange={setFactFinding}
+                      mode="dialer-followup"
+                      questionCount={7}
+                      accentColor="amber"
+                    />
                   </>
                 )
               })()}
