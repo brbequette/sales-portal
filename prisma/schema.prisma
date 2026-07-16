@@ -130,33 +130,45 @@ model Deal {
 }
 
 model SalesOrder {
-  id        String   @id @default(cuid())
-  accountId String
-  amount    Float
-  status    String   @default("Pending")
-  orderDate DateTime @default(now())
-  items     Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  zohoId    String?  @unique
-  zohoModifiedTime DateTime?
-  rawData          Json?
-  account   Account  @relation(fields: [accountId], references: [id])
+  id                String    @id @default(cuid())
+  accountId         String
+  amount            Float
+  status            String    @default("Pending")
+  orderDate         DateTime  @default(now())
+  items             Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  zohoId            String?   @unique
+  zohoModifiedTime  DateTime?
+  rawData           Json?
+  // Cost sync tracking
+  pendingCostSync   Boolean   @default(false)
+  costsCalculatedAt DateTime?
+  lastCostSyncAt    DateTime?
+  account           Account   @relation(fields: [accountId], references: [id])
+
+  @@index([pendingCostSync])
 }
 
 model Quote {
-  id         String    @id @default(cuid())
-  accountId  String
-  amount     Float
-  status     String    @default("Draft")
-  validUntil DateTime?
-  items      Json?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  zohoId     String?  @unique
-  zohoModifiedTime DateTime?
-  rawData          Json?
-  account    Account   @relation(fields: [accountId], references: [id])
+  id                String    @id @default(cuid())
+  accountId         String
+  amount            Float
+  status            String    @default("Draft")
+  validUntil        DateTime?
+  items             Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  zohoId            String?   @unique
+  zohoModifiedTime  DateTime?
+  rawData           Json?
+  // Cost sync tracking
+  pendingCostSync   Boolean   @default(false)
+  costsCalculatedAt DateTime?
+  lastCostSyncAt    DateTime?
+  account           Account   @relation(fields: [accountId], references: [id])
+
+  @@index([pendingCostSync])
 }
 
 model Product {
@@ -174,22 +186,27 @@ model Product {
 }
 
 model Invoice {
-  id        String    @id @default(cuid())
-  zohoId    String    @unique
-  accountId String
-  amount    Float
-  status    String
-  issueDate DateTime
-  dueDate   DateTime?
-  items     Json?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime @updatedAt
-  zohoModifiedTime DateTime?
-  rawData          Json?
-  account   Account   @relation(fields: [accountId], references: [id])
+  id                String    @id @default(cuid())
+  zohoId            String    @unique
+  accountId         String
+  amount            Float
+  status            String
+  issueDate         DateTime
+  dueDate           DateTime?
+  items             Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  zohoModifiedTime  DateTime?
+  rawData           Json?
+  // Cost sync tracking
+  pendingCostSync   Boolean   @default(false)
+  costsCalculatedAt DateTime?
+  lastCostSyncAt    DateTime?
+  account           Account   @relation(fields: [accountId], references: [id])
 
   @@index([accountId])
   @@index([status])
+  @@index([pendingCostSync])
 }
 
 model Note {

@@ -1120,12 +1120,276 @@ Each user account has a set of permissions that control what they can see and do
 | \`manageUsers\` | Add/edit/deactivate user accounts |
 | \`isAdmin\` | Full access override — all permissions enabled |
 
+[
+  {
+    id: "zoho-books-scripts",
+    title: "Zoho Books Scripts",
+    category: "Admin & Management",
+    content: `
+
+### Bulk Processing (Zoho Books Scripts page)
+
+The **Zoho Books Scripts** page (Admin → Zoho Books Scripts) has a "Bulk Process Document Costs" section that:
+1. Select document type: **Invoices**, **Sales Orders**, or **Quotes**
+2. Select filter: **Unpaid Only**, **Last 90 Days**, or **All**
+3. Click the button to process all matching documents page by page
+
+Each document gets:
+- Dead Cost Total, Dead Cost Subject to VIG, Dead Cost No VIG
+- Dead Profit Actual (Subtotal − Dead Cost Total)
+- VIG Rate, Dead Cost Plus VIG
+- Profit, Margin %, Commission, Sales Commission
+- All values written back to Zoho Books custom fields
+
+### Important Notes
+- This app is the **single source of truth** for cost calculations — Zoho Books automations are turned off
+- Only changed fields are written to Zoho (prevents unnecessary API calls)
+- The system includes a loop guard to prevent re-processing within 60 seconds
+    `,
+  },
+  {
+    id: "task-hub-dashboard",
+    title: "Task Hub — Dashboard & Calendar",
+    category: "Sales & Orders",
+    content: `
+### What Is the Task Hub?
+
+The Task Hub (/tasks) is the central workspace for managing all tasks across the team. It replaces the task sidebar on the main dashboard with a full-featured management environment.
+
+### Task Categories
+
+Tasks are automatically sorted into 3 categories based on their type:
+
+**Communication** (blue) — Calls, Emails, Texts
+- Any task of type Call, Email, or Text
+- These are customer-facing interaction tasks
+
+**Sales** (green) — Account & Deal Tasks
+- Tasks of type "Task" that are linked to an account or deal
+- Used to track sales follow-ups, quotes, and deal progress
+
+**Office & Process** (amber) — Internal Tasks
+- Tasks of type "Processing" or unlinked general tasks
+- Used for back-office work, order processing, and admin
+
+### Dashboard View
+
+The default view shows **three columns** (one per category) so you can see all task types at a glance.
+
+- Each card shows: type badge, priority, status, title, description, linked assets (account/deal/invoice/SO/quote chips), assignee, due date
+- **Overdue tasks** are highlighted in red
+- Use the **category tabs** to filter to a single lane
+- Use the search bar, status filter, type filter, and sort to narrow results
+
+### Adding an Outcome / Update
+
+On any task card, hover to reveal the action buttons. Click the **speech bubble icon** to add an outcome note.
+
+Outcomes are timestamped and appended to the task description: e.g. [Outcome Jul 14 5:30pm]: Spoke with customer...
+
+You can also add outcomes from the **Task Detail Panel** (click any task title to open it).
+
+### Task Detail Panel
+
+Clicking a task title opens a slide-in panel with:
+- Editable subject, status, and priority
+- All connected assets (account link, deal, invoice, SO, quote)
+- Full notes/description editor
+- Outcomes history with ability to add new ones
+- Save Changes and Complete buttons
+
+### Calendar View
+
+Switch to the Calendar using the Dashboard/Calendar toggle at the top right.
+
+**4 views:**
+- **Day** — All tasks due that day in a single pane
+- **Week** — 7-column layout with tasks placed in their day
+- **Month** — Grid with task chips on each day; click a day to drill into Day view
+- **Year** — 12-month heatmap; days with tasks are highlighted, red = high priority
+
+Use the **category filter chips** in the Calendar view to show/hide categories.
+
+### Quick Actions (on every task card)
+
+- **Edit icon** — Change status inline (dropdown)
+- **Speech bubble** — Add outcome / update note
+- **Check icon** — Mark as Complete
+
+### Creating a New Task
+
+Click **+ New Task** in the header to go to the task creation form. You can also use the global top bar quick-add button.
+
+### Syncing With Zoho
+
+Tasks are synced from Zoho CRM. Click the **refresh icon** (↺) to force a fresh sync from Zoho for the latest tasks.
+    `,
+  },
+
+  // ─────────────────────────────── TOOLS & RESOURCES ───────────────────────────────
+  {
+    id: "tools-fact-finding-panel",
+    title: "Fact-Finding: The Smart Question System",
+    category: "Tools & Resources",
+    content: `
+The **Fact-Finding Panel** is a shared component that appears in multiple places across the app. It standardizes how we capture customer profile data during every interaction.
+
+### Where it appears
+- **Titan Dialer (Campaign Modal)** — Cold call flow and Follow-up flow both use the same 7 core questions
+- **Account Edit Modal** — "Profile Data" section for updating known answers
+- **Account Slideout** — Read-only summary chips showing what we already know
+
+### The 7 Core Questions
+| # | Field | What to ask |
+|---|-------|-------------|
+| 1 | **Blade Sizes** | "First off, what size blades do you run? 14"?" |
+| 2 | **Materials Cut** | "What are you guys cutting out there?" |
+| 3 | **Current Supplier** | "Where do you pick up your blades now — retail or wholesale?" |
+| 4 | **Avg Blade Cost** | "How much are they charging you for a good 14" blade?" |
+| 5 | **Crew Count** | "How many crews do you have?" |
+| 6 | **Blades Per Order** | "How many blades do you normally pick up at a time?" |
+| 7 | **Improvement Priority** | "If you could improve one thing about your current blades, what would it be?" |
+
+### How the collapsible cards work
+- **Unanswered** — card is open and shows the full script question + pill options to tap
+- **Answered** — card collapses to a compact chip showing the answer; tap to expand and change it
+- **Progress bar** at the bottom tracks how many of 7 questions are answered
+
+### Answers carry over
+Once you fill in fact-finding answers during a call, they are saved to the account record. The next rep who calls that account will see the answers already pre-populated so you never ask the same question twice.
+
+### Cold Call vs. Follow-Up phrasing
+The same questions use slightly different wording:
+- **Cold call mode** (cyan): "First off, what size blades do you run?" 
+- **Follow-up mode** (amber): "What size blades are you running?"
+    `,
+  },
+  {
+    id: "tools-cost-processing",
+    title: "Cost Processing & Profit Calculation",
+    category: "Tools & Resources",
+    content: `
+The app automatically calculates profit and commissions on every invoice, quote, and sales order using a standardized formula.
+
+### The Formula
+\`\`\`
+Dead Cost  = sum of (line item cost × quantity)
+VIG        = Dead Cost × VIG Rate (default: 1.30 = 30% markup)
+Revenue    = sum of (line item price × quantity)
+Gross Profit = Revenue - VIG
+Commission = Gross Profit × 50%
+\`\`\`
+
+### VIG Rate
+The default VIG rate is **1.3 (30%)**. This represents the true cost including overhead, handling, and margin to the company. Admins can override VIG per document.
+
+### Insurance money
+Insurance reimbursements and insurance-funded payments do **not** affect commission or profit calculations. They are tracked separately and excluded.
+
+### Where costs are processed
+Three dedicated Netlify functions handle cost processing:
+- \`/api/process-invoice-costs\` — for Invoices
+- \`/api/process-quote-costs\` — for Quotes
+- \`/api/process-salesorder-costs\` — for Sales Orders
+
+All three use the same shared \`cost-calculations.ts\` library to ensure consistency.
+
+### Who can see cost breakdowns
+Only users with the \`viewCostBreakdown\` permission can see dead cost, VIG, and margin. Reps without this permission see only their commission amount.
+    `,
+  },
+  {
+    id: "tools-permissions",
+    title: "User Permissions Reference",
+    category: "Admin & Management",
+    content: `
+Each user account has a set of permissions that control what they can see and do. Admins assign permissions through the user management screen.
+
+### Permission Keys
+| Permission | What it controls |
+|-----------|-----------------|
+| \`viewAllReps\` | See all reps' accounts, not just assigned ones |
+| \`viewCostBreakdown\` | See dead cost, VIG, and margin on documents |
+| \`viewCommissions\` | See commission dollar amounts |
+| \`processCosts\` | Trigger cost recalculation on documents |
+| \`logCalls\` | Access call logging modals |
+| \`manageVisibility\` | Access the admin visibility config panel |
+| \`editAccounts\` | Edit account details |
+| \`processPayments\` | Record payments on invoices |
+| \`voidDocuments\` | Void invoices, quotes, and sales orders |
+| \`convertDocuments\` | Convert quotes → SO → Invoice |
+| \`manageUsers\` | Add/edit/deactivate user accounts |
+| \`isAdmin\` | Full access override — all permissions enabled |
+
 ### Sales Rep vs. Admin
 - **Sales Reps** see only their assigned accounts by default. They can log calls, view their own commissions, and create orders for their accounts.
 - **Admins** have full access to all accounts, cost data, user management, and configuration panels.
 
 ### Visible Reps list
 Admins can configure which reps appear in dropdowns system-wide using the "Visible Reps" setting in the update config. Reps not in this list are hidden from assignment dropdowns.
+    `,
+  },
+  {
+    id: "admin-bulk-cost-calculation",
+    title: "Bulk Cost Calculation & Zoho Sync",
+    category: "Admin & Management",
+    content: `
+The **Bulk Cost Calculation** system lets admins calculate commission and profit data for ALL documents at once and queue the results to be pushed to Zoho Books automatically.
+
+### Two-Phase Process
+
+**Phase 1 — Calculate (bulk-calculate-costs)**
+Scans every Invoice, Quote, and Sales Order in the database, fetches full details from Zoho Books, and runs the profit/commission formula on each document. Results are stored locally in the database.
+
+**Phase 2 — Sync (sync-costs-to-zoho)**
+Reads all documents with pending calculated values and pushes them to Zoho Books custom fields via PUT request. Marks each document as synced when complete.
+
+### Overlap Prevention (3 Layers)
+
+| Layer | How It Works |
+|-------|-------------|
+| **Run Lock** | A \`SystemSetting\` key \`cost_calc_running\` prevents two bulk runs from starting at the same time. Auto-expires after 30 minutes. |
+| **Doc-Level Check** | Each document's \`costsCalculatedAt\` timestamp is compared to \`zohoModifiedTime\`. If the doc hasn't changed since last calculation, it's skipped automatically. |
+| **Field-Level Diff** | Only fields whose calculated value actually differs from what's already in Zoho are included in the PUT payload. Documents with no changed fields are skipped. |
+
+### POST Parameters for bulk-calculate-costs
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| \`docTypes\` | string[] | all | Which types: \`invoices\`, \`quotes\`, \`salesorders\` |
+| \`force\` | boolean | false | Recalculate even if doc is current |
+| \`dryRun\` | boolean | false | Calculate but don't write to DB |
+| \`limit\` | number | none | Cap total docs per type (for testing) |
+| \`batchDelay\` | number | 600 | ms delay between batches of 10 |
+
+### POST Parameters for sync-costs-to-zoho
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| \`docTypes\` | string[] | all | Which types to sync |
+| \`dryRun\` | boolean | false | Log what would be pushed without PUTting |
+| \`batchDelay\` | number | 1000 | ms delay between batches |
+
+### API Endpoints
+
+- \`GET /api/bulk-calculate-costs\` — shows lock status and pending counts
+- \`POST /api/bulk-calculate-costs\` — trigger calculation run
+- \`GET /api/sync-costs-to-zoho\` — shows pending sync counts and last sync times
+- \`POST /api/sync-costs-to-zoho\` — push all pending values to Zoho Books
+
+### What Gets Calculated
+
+All documents get these fields populated in Zoho Books custom fields:
+- **Dead Cost Total** — sum of all line item costs
+- **Dead Cost Subject to VIG** — cost of items that go through VIG markup
+- **Dead Cost No VIG** — cost of items exempt from markup (gifts, no-VIG items)
+- **Salesperson VIG** — the VIG multiplier used (per-rep from DB or default 1.3)
+- **Dead Cost Plus VIG** — the true cost after markup
+- **Profit** — SubTotal − DeadCostPlusVIG − CC Fees − Additional Costs
+- **Commission From Profit %** — commission rate (default 50%)
+- **Sales Commission** — dollar amount of commission earned
+- **Items DC Breakdown** — per-line-item cost detail string
+- **Paid In Full Date** — auto-set when invoice is paid (invoices only)
     `,
   },
 ]
