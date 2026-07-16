@@ -793,7 +793,7 @@ All account data (addresses, phone numbers, invoices, sales orders, quotes) is s
 ### Admin Bulk Sync
 Go to **Admin → Data Sync** to sync data from Zoho Books:
 - **Sync Accounts** — Updates account IDs and caches address info from Books contacts
-- **Sync Invoices** — Pulls all invoices and links them to accounts
+- **Sync Invoices** — Pulls **all invoices for all assigned accounts** and links them to accounts. Sales reps now see every invoice on accounts assigned to them, regardless of who created the invoice in Zoho — not just invoices they personally own.
 - **Sync Sales Orders** — Pulls all sales orders
 - **Sync Quotes** — Pulls all estimates/quotes
 - **⚡ Sync All** — Runs all syncs in order (accounts first)

@@ -433,36 +433,47 @@ export const handler: Handler = async (event, context) => {
               }
 
               // accountMap is already populated above with duplicate handling included.
-              // Sync Invoices — cap at 5 pages (500 records)
+              // Sync Invoices — fetch ALL invoices for ALL accounts assigned to this rep,
+              // not just invoices where Owner.id = rep. This ensures reps can see every
+              // invoice on their accounts regardless of who created it in Zoho.
               try {
-                console.log(`Syncing invoices for owner ${syncUser.zohoId}...`);
-                let invoicePage = 1;
-                let hasMoreInvoices = true;
+                const repAccountZohoIds = Array.from(accountMap.keys());
+                console.log(`Syncing invoices for ${repAccountZohoIds.length} accounts assigned to ${syncUser.zohoId}...`);
                 let syncedInvoicesCount = 0;
-                const MAX_INVOICE_PAGES = 5;
                 let zohoInvoices: any[] = [];
 
                 if (!fullPull) {
-                  zohoInvoices = globalInvoices.filter(i => i.Owner?.id === syncUser.zohoId);
-                  hasMoreInvoices = false;
-                }
-
-                while (hasMoreInvoices) {
-                  const invoiceRes = await fetch(
-                    `https://www.zohoapis.${ZOHO_DC}/crm/v3/Invoices/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${invoicePage}&per_page=200`,
-                    { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-                  );
-
-                  if (!invoiceRes.ok) {
-                    break;
+                  // In incremental mode, filter the global invoice pull by whether
+                  // the invoice's account belongs to this rep (not by owner)
+                  const repAccountSet = new Set(repAccountZohoIds);
+                  zohoInvoices = globalInvoices.filter(i => repAccountSet.has(i.Account_Name?.id));
+                } else {
+                  // In full-pull mode, batch-fetch by Account_Name.id in chunks of 10
+                  // to keep URL lengths manageable
+                  const CHUNK_SIZE = 10;
+                  for (let ci = 0; ci < repAccountZohoIds.length; ci += CHUNK_SIZE) {
+                    const idChunk = repAccountZohoIds.slice(ci, ci + CHUNK_SIZE);
+                    const criteria = idChunk.map(id => `(Account_Name.id:equals:${id})`).join('or');
+                    let invPage = 1;
+                    let hasMore = true;
+                    while (hasMore) {
+                      try {
+                        const invoiceRes = await fetch(
+                          `https://www.zohoapis.${ZOHO_DC}/crm/v3/Invoices/search?criteria=${encodeURIComponent(criteria)}&page=${invPage}&per_page=200`,
+                          { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                        );
+                        if (!invoiceRes.ok) { hasMore = false; break; }
+                        const invoiceData = await invoiceRes.json();
+                        const pageInvoices = (invoiceData as any).data || [];
+                        zohoInvoices = [...zohoInvoices, ...pageInvoices];
+                        if (invoiceData.info && invoiceData.info.more_records) invPage++;
+                        else hasMore = false;
+                      } catch (fetchErr) {
+                        console.error(`Failed to fetch invoices for account chunk:`, fetchErr);
+                        hasMore = false;
+                      }
+                    }
                   }
-
-                  const invoiceData = await invoiceRes.json();
-                  const pageInvoices = (invoiceData as any).data || [];
-                  zohoInvoices = [...zohoInvoices, ...pageInvoices];
-                  
-                  if (invoiceData.info && invoiceData.info.more_records) invoicePage++;
-                  else hasMoreInvoices = false;
                 }
 
                 if (zohoInvoices.length > 0) {
@@ -531,7 +542,7 @@ export const handler: Handler = async (event, context) => {
                     syncedInvoicesCount += chunk.length;
                   }
                 }
-                console.log(`Synced ${syncedInvoicesCount} invoices for owner ${syncUser.zohoId}.`);
+                console.log(`Synced ${syncedInvoicesCount} invoices across ${repAccountZohoIds.length} accounts for ${syncUser.zohoId}.`);
               } catch (invError) {
                 console.error("Failed to sync invoices:", invError);
               }
