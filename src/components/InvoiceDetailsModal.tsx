@@ -18,6 +18,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
   const [isLoading, setIsLoading] = useState(false)
   const [isConverting, setIsConverting] = useState(false)
   const [actionLoading, setActionLoading] = useState("")
+  // Cost processing result stored inline (replaces alert)
+  const [costResult, setCostResult] = useState<any | null>(null)
   
   // Modals state
   const [showPackageModal, setShowPackageModal] = useState(false)
@@ -197,35 +199,37 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
   }
 
   const handleProcessCosts = async () => {
-    const invoiceNumber = displayData?.invoice_number || displayData?.items?.invoiceNumber || displayData?.invoiceNumber
-    if (!invoiceNumber && !zohoId) return
-    if (!confirm(`Calculate and write all costs, profit, and commission fields for this invoice?`)) return
+    const docLabel = type === 'Quote' ? 'quote/estimate' : type === 'SalesOrder' ? 'sales order' : 'invoice'
+    if (!confirm(`Calculate and write all costs, profit, and commission fields for this ${docLabel}?`)) return
     setActionLoading("process-costs")
+    setCostResult(null)
     try {
-      const res = await fetch("/api/process-invoice-costs", {
+      let endpoint = '/api/process-invoice-costs'
+      let bodyPayload: Record<string, any> = {}
+
+      if (type === 'SalesOrder') {
+        endpoint = '/api/process-salesorder-costs'
+        const soNumber = displayData?.salesorder_number || displayData?.items?.salesOrderNumber
+        bodyPayload = soNumber ? { salesorderNumber: soNumber } : { salesorderId: zohoId }
+      } else if (type === 'Quote') {
+        endpoint = '/api/process-quote-costs'
+        const estNumber = displayData?.estimate_number || displayData?.items?.estimateNumber
+        bodyPayload = estNumber ? { estimateNumber: estNumber } : { estimateId: zohoId }
+      } else {
+        const invoiceNumber = displayData?.invoice_number || displayData?.items?.invoiceNumber || displayData?.invoiceNumber
+        bodyPayload = invoiceNumber ? { invoiceNumber } : { invoiceId: zohoId }
+      }
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invoiceNumber: invoiceNumber,
-          invoiceId: !invoiceNumber ? zohoId : undefined
-        })
+        body: JSON.stringify(bodyPayload)
       })
       const data = await res.json()
       if (data.success) {
-        const inv = data.invoice
-        alert(
-          `✅ Invoice ${inv.invoiceNumber} processed!\n\n` +
-          `Sub Total: $${inv.subTotal.toFixed(2)}\n` +
-          `Dead Cost (VIG): $${inv.deadCostSubjectToVig.toFixed(2)}\n` +
-          `Dead Cost (No VIG): $${inv.deadCostNoVig.toFixed(2)}\n` +
-          `Dead Cost Total: $${inv.deadCostTotal.toFixed(2)}\n` +
-          `VIG Rate: ${inv.vigRate}x\n` +
-          `Dead Cost + VIG: $${inv.deadCostPlusVig.toFixed(2)}\n` +
-          `Profit: $${inv.profit.toFixed(2)} (${inv.marginPercent}%)\n` +
-          `Commission: $${inv.salesCommission.toFixed(2)} (${inv.commissionPercent}%)\n\n` +
-          `${inv.fieldsUpdated} fields updated in Zoho Books.`
-        )
-        onClose()
+        // Store result to show inline; key varies by doc type
+        const result = data.invoice || data.salesorder || data.estimate || data
+        setCostResult(result)
       } else {
         alert(`Failed: ${data.error}`)
       }
@@ -401,8 +405,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
 
             {/* ── SHARED ACTIONS (all document types) ── */}
             <div className="flex items-center gap-1">
-              {/* Process Costs (Invoice only) */}
-              {type === "Invoice" && !isVoided && (
+              {/* Process Costs — all document types */}
+              {!isVoided && (
                 <button
                   onClick={handleProcessCosts}
                   disabled={!!actionLoading}
@@ -526,10 +530,9 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
               )}
             </div>
 
-            {/* Custom Fields & Line Items */}
-            <div className="pt-3 border-t border-neutral-800 flex-1 overflow-y-auto pr-1">
-              <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3">Custom Fields & Data</h4>
-              
+            {/* ── Cost & Commission Panel + Line Items ── */}
+            <div className="pt-3 border-t border-neutral-800 flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
+
               {isLoading ? (
                 <div className="flex justify-center items-center py-8 gap-2 text-sm font-semibold text-neutral-400">
                   <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
@@ -537,9 +540,152 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
                 </div>
               ) : (
                 <>
-                  {/* Line Items Section */}
+                  {/* ── Cost & Commission Summary Card ── */}
+                  {(() => {
+                    // Prefer fresh costResult from just-processed data; fall back to stored items blob
+                    const src = costResult || displayData?.items || {}
+                    const profit       = parseFloat(src.profit ?? src.deadProfitActual ?? NaN)
+                    const deadCostTotal = parseFloat(src.deadCostTotal ?? NaN)
+                    const deadCostPlusVig = parseFloat(src.deadCostPlusVig ?? NaN)
+                    const commission   = parseFloat(src.commission ?? src.salesCommission ?? NaN)
+                    const commPct      = parseFloat(src.commissionPercent ?? NaN)
+                    const vigRate      = parseFloat(src.vigRate ?? NaN)
+                    const total        = parseFloat(displayData?.amount || displayData?.total || 0)
+                    const marginPct    = total > 0 && !isNaN(profit) ? (profit / total * 100) : NaN
+                    const hasCostData  = !isNaN(deadCostTotal) || !isNaN(profit)
+                    if (!hasCostData) return null
+                    return (
+                      <div className="rounded-xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/60 to-neutral-950/80 p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <FiDollarSign className="text-emerald-400 shrink-0" size={14} />
+                          <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Cost &amp; Commission</h4>
+                          {costResult && <span className="ml-auto text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">JUST PROCESSED</span>}
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                          {!isNaN(deadCostTotal) && (
+                            <div>
+                              <div className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Dead Cost Total</div>
+                              <div className="text-sm font-bold text-white">${deadCostTotal.toLocaleString(undefined,{minimumFractionDigits:2})}</div>
+                            </div>
+                          )}
+                          {!isNaN(deadCostPlusVig) && (
+                            <div>
+                              <div className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Dead Cost + VIG</div>
+                              <div className="text-sm font-bold text-amber-300">${deadCostPlusVig.toLocaleString(undefined,{minimumFractionDigits:2})}</div>
+                            </div>
+                          )}
+                          {!isNaN(profit) && (
+                            <div>
+                              <div className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Profit</div>
+                              <div className={`text-sm font-black ${profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                ${profit.toLocaleString(undefined,{minimumFractionDigits:2})}
+                                {!isNaN(marginPct) && <span className="ml-1 text-[10px] font-bold opacity-70">({marginPct.toFixed(1)}%)</span>}
+                              </div>
+                            </div>
+                          )}
+                          {!isNaN(commission) && (
+                            <div>
+                              <div className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Commission</div>
+                              <div className="text-sm font-black text-sky-400">
+                                ${commission.toLocaleString(undefined,{minimumFractionDigits:2})}
+                                {!isNaN(commPct) && <span className="ml-1 text-[10px] font-bold opacity-70">({commPct}%)</span>}
+                              </div>
+                            </div>
+                          )}
+                          {!isNaN(vigRate) && (
+                            <div>
+                              <div className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">VIG Rate</div>
+                              <div className="text-sm font-black text-emerald-300">{vigRate}x</div>
+                            </div>
+                          )}
+                          {costResult?.fieldsUpdated != null && (
+                            <div>
+                              <div className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Zoho Fields Updated</div>
+                              <div className="text-sm font-bold text-neutral-300">{costResult.fieldsUpdated}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* ── Per-Item Cost Breakdown Table ── */}
+                  {(() => {
+                    const lineItems: any[] = costResult?.lineItems ||
+                      (displayData?.items as any)?.lineItemDetails ||
+                      []
+                    if (!lineItems.length) return null
+                    return (
+                      <div>
+                        <h4 className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                          <FiCpu size={11} className="text-amber-400" /> Itemized Cost Breakdown
+                        </h4>
+                        <div className="rounded-xl border border-neutral-800 overflow-hidden">
+                          <div className="grid text-[9px] font-black uppercase tracking-wider text-neutral-500 bg-neutral-900/80 px-3 py-1.5" style={{gridTemplateColumns:'1fr 48px 56px 56px 56px 40px'}}>
+                            <span>Item</span>
+                            <span className="text-right">Qty</span>
+                            <span className="text-right">Rate</span>
+                            <span className="text-right">Dead Cost</span>
+                            <span className="text-right">VIG-DC</span>
+                            <span className="text-right">Flags</span>
+                          </div>
+                          <div className="divide-y divide-neutral-800/60">
+                            {lineItems.map((li: any, idx: number) => {
+                              const dcPerUnit = li.deadCost != null ? li.deadCost / (li.quantity || 1) : null
+                              return (
+                                <div key={idx} className="grid px-3 py-2 text-xs hover:bg-neutral-800/30 transition-colors" style={{gridTemplateColumns:'1fr 48px 56px 56px 56px 40px'}}>
+                                  <div className="min-w-0">
+                                    <div className="font-semibold text-white truncate">{li.name || li.sku || `Item ${idx+1}`}</div>
+                                    {li.sku && <div className="text-[9px] text-neutral-500 font-mono">{li.sku}</div>}
+                                  </div>
+                                  <div className="text-right text-neutral-300 self-center">{li.quantity ?? '—'}</div>
+                                  <div className="text-right text-neutral-300 self-center">
+                                    {li.rate != null ? `$${parseFloat(li.rate).toFixed(2)}` : '—'}
+                                  </div>
+                                  <div className="text-right self-center">
+                                    {li.deadCost != null ? (
+                                      <span className="text-amber-300 font-bold">${parseFloat(li.deadCost).toFixed(2)}</span>
+                                    ) : '—'}
+                                  </div>
+                                  <div className="text-right self-center">
+                                    {li.deadCost != null && !li.noVig ? (
+                                      <span className="text-emerald-400 font-bold">${(parseFloat(li.deadCost) * (parseFloat((displayData?.items as any)?.vigRate || costResult?.vigRate || 1.3))).toFixed(2)}</span>
+                                    ) : li.noVig ? (
+                                      <span className="text-neutral-400 text-[9px]">No VIG</span>
+                                    ) : '—'}
+                                  </div>
+                                  <div className="text-right self-center flex justify-end gap-0.5 flex-wrap">
+                                    {li.noVig && <span className="text-[8px] bg-blue-500/20 text-blue-300 px-1 rounded font-bold">NV</span>}
+                                    {li.gift && <span className="text-[8px] bg-pink-500/20 text-pink-300 px-1 rounded font-bold">GIFT</span>}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          {/* Totals footer */}
+                          {(() => {
+                            const src = costResult || (displayData?.items as any) || {}
+                            const dcTotal = parseFloat(src.deadCostTotal)
+                            const dcVig   = parseFloat(src.deadCostPlusVig)
+                            if (isNaN(dcTotal)) return null
+                            return (
+                              <div className="grid px-3 py-2 bg-neutral-900 border-t border-neutral-700 text-xs font-bold" style={{gridTemplateColumns:'1fr 48px 56px 56px 56px 40px'}}>
+                                <span className="text-neutral-400 uppercase text-[9px] tracking-wider self-center">Totals</span>
+                                <span /><span />
+                                <span className="text-right text-amber-300">${dcTotal.toFixed(2)}</span>
+                                <span className="text-right text-emerald-400">{!isNaN(dcVig) ? `$${dcVig.toFixed(2)}` : ''}</span>
+                                <span />
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* ── Zoho Line Items (from live fetch) ── */}
                   {displayData?.line_items && displayData.line_items.length > 0 && (
-                    <div className="mb-5">
+                    <div>
                       <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2">Line Items</h4>
                       <div className="space-y-2">
                         {displayData.line_items.map((item: any, i: number) => (
@@ -550,12 +696,9 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
                             </div>
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-[10px] text-neutral-400">
                               {item.sku && <span>SKU: <span className="font-mono text-neutral-300">{item.sku}</span></span>}
-                              {item.sku && item.vendor && <span>|</span>}
-                              {item.vendor && <span>Vendor: <span className="font-semibold text-neutral-300">{item.vendor}</span></span>}
-                              {(item.sku || item.vendor) && item.rate && <span>|</span>}
+                              {item.sku && item.rate && <span>|</span>}
                               {item.rate && <span>Price: ${parseFloat(item.rate).toLocaleString()}</span>}
-                              {(item.sku || item.vendor || item.rate) && item.cost && <span>|</span>}
-                              {item.cost && <span>Cost: ${parseFloat(item.cost).toLocaleString()}</span>}
+                              {item.purchase_rate != null && <span>| Cost: <span className="text-amber-300 font-bold">${parseFloat(item.purchase_rate).toFixed(2)}</span></span>}
                               <span>|</span>
                               <span>Qty: {item.quantity}</span>
                             </div>
@@ -566,35 +709,37 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
                     </div>
                   )}
 
-                  {/* Custom Fields Section */}
-                  {displayData?.custom_fields ? (
-                    <div className="flex flex-col gap-2 pb-4">
-                  {displayData.custom_fields
-                    .filter((f: any) => f.value && f.value !== "" && f.value !== false && f.value !== "false")
-                    .map((field: any) => (
-                    <div key={field.customfield_id || field.label} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 shadow-sm">
-                      <label className="text-[10px] text-emerald-500/80 uppercase font-bold tracking-wider mb-1 block">
-                        {field.label}
-                      </label>
-                      {field.data_type === "multiline" || String(field.value).includes("\n") ? (
-                        <pre className="text-xs text-neutral-200 font-mono whitespace-pre-wrap break-all bg-neutral-950 p-2.5 rounded border border-neutral-800/50">
-                          {field.value_formatted || field.value}
-                        </pre>
-                      ) : (
-                        <div className={`text-sm font-bold ${field.data_type === "amount" || field.data_type === "percent" || field.label.includes("VIG") || field.label.includes("COST") || field.label.includes("COMMISSION") ? "text-emerald-400" : "text-white"}`}>
-                          {field.value_formatted || field.value}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                    ) : (
-                      <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 overflow-x-auto">
-                        <pre className="text-[10px] text-neutral-300 font-mono whitespace-pre-wrap break-all">
-                          {JSON.stringify(displayData.items || displayData, null, 2)}
-                        </pre>
+                  {/* ── Custom Fields (Zoho Books) ── */}
+                  {displayData?.custom_fields && displayData.custom_fields.filter((f: any) => f.value && f.value !== "" && f.value !== false && f.value !== "false").length > 0 && (
+                    <div>
+                      <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2">Zoho Custom Fields</h4>
+                      <div className="flex flex-col gap-2 pb-4">
+                        {displayData.custom_fields
+                          .filter((f: any) => f.value && f.value !== "" && f.value !== false && f.value !== "false")
+                          .map((field: any) => (
+                            <div key={field.customfield_id || field.label} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 shadow-sm">
+                              <label className="text-[10px] text-emerald-500/80 uppercase font-bold tracking-wider mb-1 block">{field.label}</label>
+                              {field.data_type === "multiline" || String(field.value).includes("\n") ? (
+                                <pre className="text-xs text-neutral-200 font-mono whitespace-pre-wrap break-all bg-neutral-950 p-2.5 rounded border border-neutral-800/50">{field.value_formatted || field.value}</pre>
+                              ) : (
+                                <div className={`text-sm font-bold ${field.data_type === "amount" || field.data_type === "percent" || field.label.includes("VIG") || field.label.includes("COST") || field.label.includes("COMMISSION") ? "text-emerald-400" : "text-white"}`}>
+                                  {field.value_formatted || field.value}
+                                </div>
+                              )}
+                            </div>
+                          ))}
                       </div>
-                    )}
+                    </div>
+                  )}
+
+                  {/* ── Raw fallback (no custom fields AND no cost data) ── */}
+                  {!displayData?.custom_fields && !(displayData?.items as any)?.deadCostTotal && !costResult && (
+                    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 overflow-x-auto">
+                      <pre className="text-[10px] text-neutral-300 font-mono whitespace-pre-wrap break-all">
+                        {JSON.stringify(displayData.items || displayData, null, 2)}
+                      </pre>
+                    </div>
+                  )}
                 </>
               )}
             </div>

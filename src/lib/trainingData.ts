@@ -1430,4 +1430,57 @@ The **AI & Comm Center** tab on every Account page is the full-featured sales co
 Clicking Save Note and Log Call sends all data including outcome, notes, Fact-Finding answers, and order lines to the account record and logs the activity in the CRM.
     `,
   },
+  {
+    id: "itemized-costs-commission",
+    title: "Itemized Costs & Commission on Documents",
+    category: "Finance",
+    content: `
+## Itemized Cost & Commission Display
+
+Every Invoice, Sales Order, and Quote/Estimate now shows a full cost and commission breakdown in the **Document Details Modal**.
+
+### How to Access
+Open any document (invoice, sales order, or estimate) from an account page or the Collections view. The left-side **Data View** panel shows:
+
+### Cost & Commission Summary Card
+Appears automatically if the document has been cost-processed. Shows:
+- **Dead Cost Total** — raw sum of all line item purchase costs
+- **Dead Cost + VIG** — dead cost after applying the salesperson's VIG multiplier
+- **Profit** — Sub Total minus Dead Cost Plus VIG minus any CC/insurance fees, shown with margin %
+- **Commission** — dollar amount earned (profit × commission %, default 50%), shown with percentage
+- **VIG Rate** — the multiplier applied (default 1.3×)
+
+### Per-Item Cost Breakdown Table
+Shows a grid table of every line item with columns:
+- **Item** — product name and SKU
+- **Qty** — quantity ordered
+- **Rate** — sell price per unit
+- **Dead Cost** — purchase cost for this line (amber)
+- **VIG-DC** — VIG-adjusted cost for this line (emerald, or "No VIG" badge for exempt items)
+- **Flags** — NV badge (No VIG) or GIFT badge for special items
+
+The table totals row shows combined Dead Cost and VIG-DC totals.
+
+### Process Costs Button
+Available on **all three document types** (previously Invoice only). Click **Process Costs** in the top action bar to:
+1. Fetch live line item data from Zoho Books (including purchase_rate per item)
+2. Apply the dead cost formula with the rep's VIG rate
+3. Calculate profit and commission
+4. Write results back to Zoho Books custom fields
+5. Save itemized data (lineItemDetails) to the local database for instant display on next open
+6. Show the results immediately inline in the Cost & Commission Summary Card — no page reload needed
+
+### Zoho Books Line Items
+Below the cost breakdown, the raw Zoho Books line items are displayed with:
+- Item name, SKU, sell price (rate)
+- Purchase cost per unit (purchase_rate — the actual Zoho Books field name)
+- Quantity
+
+### Data Persistence
+After running Process Costs, the results are stored in the document's \`items\` JSON blob:
+- Aggregate fields: \`deadCostTotal\`, \`deadCostPlusVig\`, \`profit\`, \`commission\`, \`vigRate\`, etc.
+- Per-item array: \`lineItemDetails\` — each entry has \`{name, sku, quantity, rate, deadCost, noVig, gift}\`
+This means the cost breakdown loads instantly on the next open without re-processing.
+    `,
+  },
 ]

@@ -164,11 +164,14 @@ export const handler: Handler = async (event) => {
             deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
             deadProfitActual, profit,
             commission: salesCommission, commissionPercent: commissionPct, vigRate,
+            lineItemDetails,
+            itemsDcBreakdown: lineItemBreakdownStrings,
             custom_fields: existingFields,
           },
         },
       })
     }
+
 
     return {
       statusCode: 200,

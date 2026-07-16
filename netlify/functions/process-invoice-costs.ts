@@ -168,12 +168,15 @@ export const handler: Handler = async (event) => {
             deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
             deadProfitActual, profit,
             commission: salesCommission, commissionPercent: commissionPct, vigRate,
+            lineItemDetails,
+            itemsDcBreakdown: lineItemBreakdownStrings,
             custom_fields: existingFields,
             ...(isPaid && !currentItems.paidInFullDate ? { paidInFullDate: new Date().toISOString().split("T")[0] } : {}),
           },
         },
       })
     }
+
 
     return {
       statusCode: 200,

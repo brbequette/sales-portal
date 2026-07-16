@@ -142,6 +142,19 @@ export default function Dashboard() {
     setPrefsLoaded(true)
   }, [preferences])
 
+  // --- Validate ownerFilter after accounts load (prevents stale filter hiding all accounts) ---
+  useEffect(() => {
+    if (!accounts.length || ownerFilter === "All") return
+    // Build the set of valid owner IDs from loaded accounts
+    const validOwnerIds = new Set(accounts.map((a: any) => a.ownerId).filter(Boolean))
+    // If the saved ownerFilter ID doesn't correspond to any loaded account, reset it
+    if (!validOwnerIds.has(ownerFilter)) {
+      setOwnerFilter("All")
+    }
+  }, [accounts])
+
+
+
   // --- Persistent Filters: Save to preferences on change ---
   useEffect(() => {
     if (!prefsLoaded) return
