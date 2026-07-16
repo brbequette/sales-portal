@@ -589,7 +589,7 @@ function AccountHubContent() {
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col min-h-0">
-                  <CommunicationCenter accountId={id} contacts={account.contacts} />
+                  <CommunicationCenter accountId={id} account={{ ...account, invoices }} contacts={account.contacts} />
                 </div>
               )}
             </div>

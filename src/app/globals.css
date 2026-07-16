@@ -90,12 +90,16 @@ body {
   background-image: 
     radial-gradient(circle at 15% 50%, rgba(249, 115, 22, 0.08), transparent 25%),
     radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.08), transparent 25%);
-  background-attachment: fixed;
+  /* Fixed attachment only on non-touch — iOS Safari has paint artifacts with fixed */
+  background-attachment: scroll;
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100dvh;
+}
+@media (hover: hover) and (pointer: fine) {
+  body { background-attachment: fixed; }
 }
 
 /* ── Glassmorphism Utilities ── */
@@ -134,6 +138,8 @@ body {
 
 button, a, input, select, textarea {
   letter-spacing: 0;
+  /* Eliminate 300ms tap delay on older mobile browsers */
+  touch-action: manipulation;
 }
 
 /* ── Form Inputs ── */
@@ -243,7 +249,7 @@ select option {
   border-radius: 0.75rem;
 }
 .address-card h4 {
-  font-size: 0.625rem;
+  font-size: 0.75rem; /* raised from 0.625rem (10px) to 12px minimum */
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;

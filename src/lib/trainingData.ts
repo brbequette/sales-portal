@@ -1120,33 +1120,40 @@ Each user account has a set of permissions that control what they can see and do
 | \`manageUsers\` | Add/edit/deactivate user accounts |
 | \`isAdmin\` | Full access override — all permissions enabled |
 
-[
+### Sales Rep vs. Admin
+- **Sales Reps** see only their assigned accounts by default. They can log calls, view their own commissions, and create orders for their accounts.
+- **Admins** have full access to all accounts, cost data, user management, and configuration panels.
+
+### Visible Reps list
+Admins can configure which reps appear in dropdowns system-wide using the "Visible Reps" setting in the update config. Reps not in this list are hidden from assignment dropdowns.
+    `,
+  },
   {
     id: "zoho-books-scripts",
     title: "Zoho Books Scripts",
     category: "Admin & Management",
     content: `
-
 ### Bulk Processing (Zoho Books Scripts page)
 
-The **Zoho Books Scripts** page (Admin → Zoho Books Scripts) has a "Bulk Process Document Costs" section that:
-1. Select document type: **Invoices**, **Sales Orders**, or **Quotes**
-2. Select filter: **Unpaid Only**, **Last 90 Days**, or **All**
+The **Zoho Books Scripts** page (Admin → Zoho Books Scripts) has a Bulk Process Document Costs section that lets you:
+1. Select document type: Invoices, Sales Orders, or Quotes
+2. Select filter: Unpaid Only, Last 90 Days, or All
 3. Click the button to process all matching documents page by page
 
 Each document gets:
 - Dead Cost Total, Dead Cost Subject to VIG, Dead Cost No VIG
-- Dead Profit Actual (Subtotal − Dead Cost Total)
+- Dead Profit Actual (Subtotal minus Dead Cost Total)
 - VIG Rate, Dead Cost Plus VIG
 - Profit, Margin %, Commission, Sales Commission
 - All values written back to Zoho Books custom fields
 
 ### Important Notes
-- This app is the **single source of truth** for cost calculations — Zoho Books automations are turned off
+- This app is the single source of truth for cost calculations — Zoho Books automations are turned off
 - Only changed fields are written to Zoho (prevents unnecessary API calls)
 - The system includes a loop guard to prevent re-processing within 60 seconds
     `,
   },
+
   {
     id: "task-hub-dashboard",
     title: "Task Hub — Dashboard & Calendar",
@@ -1390,6 +1397,32 @@ All documents get these fields populated in Zoho Books custom fields:
 - **Sales Commission** — dollar amount of commission earned
 - **Items DC Breakdown** — per-line-item cost detail string
 - **Paid In Full Date** — auto-set when invoice is paid (invoices only)
+    `,
+  },
+  {
+    id: "comms-account-center",
+    title: "AI & Communications Center (Account Page)",
+    category: "Communication",
+    content: `
+The **AI & Comm Center** tab on every Account page is the full-featured sales command center with the same capabilities as the Titan Dialer used during call campaigns.
+
+### Channel Tabs
+- **Call** — Click-to-Dial, call outcome, follow-up reminder, and a 7-panel workflow
+- **SMS** — Chat bubble interface with outbound number selection
+- **Email** — Compose and log emails with template support
+- **WhatsApp** — Compose and log WhatsApp messages with template support
+
+### Call Sub-Tabs (7 panels inside the Call tab)
+1. **Log** — Pick call outcome, enter who you spoke with, set a follow-up date, write notes, and click Save
+2. **Script** — One-click personalized script generation. Toggle Cold Call or Follow-Up mode. Adapts to purchase history, overdue invoices, and missing Fact-Finding data
+3. **Fact-Finding** — 11-field survey: blade sizes, materials cut, current supplier, avg blade cost, crew count, blades per order, improvement priority, ready to buy, job types, pain points, product interest
+4. **Products** — Blade recommendations (Good/Better/Best tiers) based on materials cut and improvement priority, each with a full scripted pitch and Copy button
+5. **Intel** — Purchase history, call notes, and invoice list with overdue invoices highlighted in red
+6. **Order** — Build a live order: product search, paid qty, free qty per line. Shows sub-total, dead cost plus VIG (1.3x), profit, margin %, and your commission (50% of profit after VIG)
+7. **AI** — Generate custom SMS, Email, WhatsApp, or Script content. Results auto-routable to the SMS or Email tab
+
+### How it saves
+Clicking Save Note and Log Call sends all data including outcome, notes, Fact-Finding answers, and order lines to the account record and logs the activity in the CRM.
     `,
   },
 ]
