@@ -65,6 +65,7 @@ function AccountHubContent() {
   const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
   const [isLoadingInvoiceDetails, setIsLoadingInvoiceDetails] = useState(false)
   const [viewingSalesDoc, setViewingSalesDoc] = useState<{ type: 'SalesOrder' | 'Quote', doc: any } | null>(null)
+  const [debugInfo, setDebugInfo] = useState<any>(null)
   const [historyViewMode, setHistoryViewMode] = useState<"data" | "pdf">("data")
   const [aiViewMode, setAiViewMode] = useState<"assistant" | "comms">("comms")
   const [isEditingAccount, setIsEditingAccount] = useState(false)
@@ -77,7 +78,10 @@ function AccountHubContent() {
       const res = await fetch(`/api/get-account-details?id=${encodeURIComponent(id)}`)
       const data = await res.json()
       if (data.success) setAccount(data.account)
-      else setError(data.error || data.message || 'Failed to load account')
+      else {
+        setError(data.error || data.message || 'Failed to load account')
+        if (data.debug) setDebugInfo(data.debug)
+      }
     } catch (e: any) {
       console.error(e)
       if (showLoading) setError(e.message || 'Failed to load account')
@@ -148,6 +152,12 @@ function AccountHubContent() {
         <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4">
           <p className="text-red-400 font-semibold">Error loading account</p>
           <p className="text-red-400/80 text-sm mt-1">{error}</p>
+          {debugInfo && (
+            <pre className="text-xs text-yellow-300/70 mt-3 bg-black/30 rounded p-2 overflow-auto max-h-40">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          )}
+          <p className="text-xs text-neutral-500 mt-2">URL id param: <code className="text-yellow-400">{id}</code></p>
           <Link href="/" className="text-sm text-emerald-400 hover:text-emerald-300 mt-3 inline-block">← Back to Dashboard</Link>
         </div>
       ) : (
