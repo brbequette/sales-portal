@@ -59,8 +59,9 @@ The round **phone button** in the bottom-right corner opens the floating Communi
 
 ### Search tips
 1. Type at least one character in the top search bar.
-2. Results are grouped by Accounts, Invoices & Sales Orders, Deals & Quotes, and Products.
-3. Click any result to open it. Selecting a product opens its detail card instantly.
+2. Results are grouped by **Accounts**, **Invoices & Sales Orders**, **Deals**, and **Products**.
+3. Click any result to open it. Clicking an Account goes to the Account Hub. Clicking an Invoice, Deal, or Quote navigates to the related account page automatically. Selecting a product opens its detail card instantly.
+4. If an account page ever shows "Account not found," the portal will automatically attempt to re-import it from Zoho CRM. This is rare and usually means the sync hasn't run yet — try refreshing after a moment.
     `,
   },
   {
