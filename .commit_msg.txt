@@ -1,0 +1,8 @@
+Phase A complete: fact-finding consolidation, shared services, training update
+
+- NEW FactFindingPanel.tsx: shared collapsible question cards (cold/followup/profile modes)
+- REFACTOR SalesCallCampaignModal.tsx: -175 lines, 11 ff* states merged to single factFinding object
+- NEW cost-calculations.ts: shared VIG+commission formula used by all 3 cost processors
+- NEW accountService, callService, documentService: clean service layer
+- MODIFY permissions.ts: added viewCostBreakdown, processCosts, logCalls, manageVisibility
+- MODIFY trainingData.ts: added 3 new training modules (FactFinding, CostProcessing, Permissions)

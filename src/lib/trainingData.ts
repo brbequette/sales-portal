@@ -1024,6 +1024,108 @@ Click **+ New Task** in the header to go to the task creation form. You can also
 Tasks are synced from Zoho CRM. Click the **refresh icon** (↺) to force a fresh sync from Zoho for the latest tasks.
     `,
   },
+
+  // ─────────────────────────────── TOOLS & RESOURCES ───────────────────────────────
+  {
+    id: "tools-fact-finding-panel",
+    title: "Fact-Finding: The Smart Question System",
+    category: "Tools & Resources",
+    content: `
+The **Fact-Finding Panel** is a shared component that appears in multiple places across the app. It standardizes how we capture customer profile data during every interaction.
+
+### Where it appears
+- **Titan Dialer (Campaign Modal)** — Cold call flow and Follow-up flow both use the same 7 core questions
+- **Account Edit Modal** — "Profile Data" section for updating known answers
+- **Account Slideout** — Read-only summary chips showing what we already know
+
+### The 7 Core Questions
+| # | Field | What to ask |
+|---|-------|-------------|
+| 1 | **Blade Sizes** | "First off, what size blades do you run? 14"?" |
+| 2 | **Materials Cut** | "What are you guys cutting out there?" |
+| 3 | **Current Supplier** | "Where do you pick up your blades now — retail or wholesale?" |
+| 4 | **Avg Blade Cost** | "How much are they charging you for a good 14" blade?" |
+| 5 | **Crew Count** | "How many crews do you have?" |
+| 6 | **Blades Per Order** | "How many blades do you normally pick up at a time?" |
+| 7 | **Improvement Priority** | "If you could improve one thing about your current blades, what would it be?" |
+
+### How the collapsible cards work
+- **Unanswered** — card is open and shows the full script question + pill options to tap
+- **Answered** — card collapses to a compact chip showing the answer; tap to expand and change it
+- **Progress bar** at the bottom tracks how many of 7 questions are answered
+
+### Answers carry over
+Once you fill in fact-finding answers during a call, they are saved to the account record. The next rep who calls that account will see the answers already pre-populated so you never ask the same question twice.
+
+### Cold Call vs. Follow-Up phrasing
+The same questions use slightly different wording:
+- **Cold call mode** (cyan): "First off, what size blades do you run?" 
+- **Follow-up mode** (amber): "What size blades are you running?"
+    `,
+  },
+  {
+    id: "tools-cost-processing",
+    title: "Cost Processing & Profit Calculation",
+    category: "Tools & Resources",
+    content: `
+The app automatically calculates profit and commissions on every invoice, quote, and sales order using a standardized formula.
+
+### The Formula
+\`\`\`
+Dead Cost  = sum of (line item cost × quantity)
+VIG        = Dead Cost × VIG Rate (default: 1.30 = 30% markup)
+Revenue    = sum of (line item price × quantity)
+Gross Profit = Revenue - VIG
+Commission = Gross Profit × 50%
+\`\`\`
+
+### VIG Rate
+The default VIG rate is **1.3 (30%)**. This represents the true cost including overhead, handling, and margin to the company. Admins can override VIG per document.
+
+### Insurance money
+Insurance reimbursements and insurance-funded payments do **not** affect commission or profit calculations. They are tracked separately and excluded.
+
+### Where costs are processed
+Three dedicated Netlify functions handle cost processing:
+- \`/api/process-invoice-costs\` — for Invoices
+- \`/api/process-quote-costs\` — for Quotes
+- \`/api/process-salesorder-costs\` — for Sales Orders
+
+All three use the same shared \`cost-calculations.ts\` library to ensure consistency.
+
+### Who can see cost breakdowns
+Only users with the \`viewCostBreakdown\` permission can see dead cost, VIG, and margin. Reps without this permission see only their commission amount.
+    `,
+  },
+  {
+    id: "tools-permissions",
+    title: "User Permissions Reference",
+    category: "Admin & Management",
+    content: `
+Each user account has a set of permissions that control what they can see and do. Admins assign permissions through the user management screen.
+
+### Permission Keys
+| Permission | What it controls |
+|-----------|-----------------|
+| \`viewAllReps\` | See all reps' accounts, not just assigned ones |
+| \`viewCostBreakdown\` | See dead cost, VIG, and margin on documents |
+| \`viewCommissions\` | See commission dollar amounts |
+| \`processCosts\` | Trigger cost recalculation on documents |
+| \`logCalls\` | Access call logging modals |
+| \`manageVisibility\` | Access the admin visibility config panel |
+| \`editAccounts\` | Edit account details |
+| \`processPayments\` | Record payments on invoices |
+| \`voidDocuments\` | Void invoices, quotes, and sales orders |
+| \`convertDocuments\` | Convert quotes → SO → Invoice |
+| \`manageUsers\` | Add/edit/deactivate user accounts |
+| \`isAdmin\` | Full access override — all permissions enabled |
+
+### Sales Rep vs. Admin
+- **Sales Reps** see only their assigned accounts by default. They can log calls, view their own commissions, and create orders for their accounts.
+- **Admins** have full access to all accounts, cost data, user management, and configuration panels.
+
+### Visible Reps list
+Admins can configure which reps appear in dropdowns system-wide using the "Visible Reps" setting in the update config. Reps not in this list are hidden from assignment dropdowns.
+    `,
+  },
 ]
-
-
