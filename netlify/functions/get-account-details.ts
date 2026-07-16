@@ -24,8 +24,8 @@ export const handler: Handler = async (event, context) => {
 
     let account: any = null;
 
+    // 1. Try finding by zohoId
     try {
-      // Try finding by zohoId first, then by internal id
       account = await prisma.account.findUnique({
         where: { zohoId: id },
         include: {
@@ -40,8 +40,13 @@ export const handler: Handler = async (event, context) => {
           contacts: true
         }
       })
+    } catch (err) {
+      console.warn("zohoId lookup failed:", err)
+    }
 
-      if (!account) {
+    // 2. Fallback: find by internal DB id (CUID)
+    if (!account) {
+      try {
         account = await prisma.account.findUnique({
           where: { id: id },
           include: {
@@ -56,101 +61,108 @@ export const handler: Handler = async (event, context) => {
             contacts: true
           }
         })
+      } catch (err) {
+        console.warn("Internal id lookup failed (non-CUID id?):", err)
       }
-    } catch (dbError) {
-      console.warn("Database connection failed, falling back to Zoho CRM self-heal:", dbError)
     }
 
     let crmDetails: any = null
 
     if (!account) {
-      // Attempt to fetch dynamically from Zoho CRM on the fly to self-heal missing records
-      try {
-        const accessToken = await getZohoAccessToken()
-        if (accessToken) {
-          const ZOHO_DC = process.env.ZOHO_DC || 'com'
-          const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${id}`, {
-            headers: {
-              'Authorization': `Zoho-oauthtoken ${accessToken}`
-            }
-          })
-          
-          if (crmRes.ok) {
-            const crmData = await crmRes.json()
-            const record = crmData.data?.[0]
+      // Only attempt Zoho CRM self-heal if the id looks like a real Zoho CRM ID (all digits, 15-20 chars).
+      // Internal DB CUIDs start with 'c' and are never valid Zoho IDs.
+      const looksLikeZohoId = /^\d{15,20}$/.test(id)
+      if (!looksLikeZohoId) {
+        console.warn(`ID "${id}" does not look like a Zoho CRM ID, skipping self-heal.`)
+      } else {
+        // Attempt to fetch dynamically from Zoho CRM on the fly to self-heal missing records
+        try {
+          const accessToken = await getZohoAccessToken()
+          if (accessToken) {
+            const ZOHO_DC = process.env.ZOHO_DC || 'com'
+            const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${id}`, {
+              headers: {
+                'Authorization': `Zoho-oauthtoken ${accessToken}`
+              }
+            })
             
-            if (record) {
-              console.log(`Account ${id} found in Zoho CRM. Dynamic creation...`)
+            if (crmRes.ok) {
+              const crmData = await crmRes.json()
+              const record = crmData.data?.[0]
               
-              // Find or create default owner
-              const ownerZohoId = record.Owner?.id
-              const ownerName = record.Owner?.name
-              let ownerDbId = null
-              
-              if (ownerZohoId) {
-                let dbOwner = await prisma.user.findUnique({ where: { zohoId: ownerZohoId } })
-                if (!dbOwner) {
-                  dbOwner = await prisma.user.create({
-                    data: {
-                      zohoId: ownerZohoId,
-                      name: ownerName || "Unknown Owner",
-                      email: `${ownerZohoId}@dummy.titandiamond.com`,
-                      role: "Sales Representative"
-                    }
-                  })
+              if (record) {
+                console.log(`Account ${id} found in Zoho CRM. Dynamic creation...`)
+                
+                // Find or create default owner
+                const ownerZohoId = record.Owner?.id
+                const ownerName = record.Owner?.name
+                let ownerDbId = null
+                
+                if (ownerZohoId) {
+                  let dbOwner = await prisma.user.findUnique({ where: { zohoId: ownerZohoId } })
+                  if (!dbOwner) {
+                    dbOwner = await prisma.user.create({
+                      data: {
+                        zohoId: ownerZohoId,
+                        name: ownerName || "Unknown Owner",
+                        email: `${ownerZohoId}@dummy.titandiamond.com`,
+                        role: "Sales Representative"
+                      }
+                    })
+                  }
+                  ownerDbId = dbOwner.id
                 }
-                ownerDbId = dbOwner.id
-              }
 
-              // Fallback owner if not found
-              if (!ownerDbId) {
-                const firstUser = await prisma.user.findFirst()
-                ownerDbId = firstUser?.id || ""
-              }
-
-              let status = 'Open'
-              const lastPurchaseDate = record.Last_Purchase_Date ? new Date(record.Last_Purchase_Date) : null
-              if (lastPurchaseDate) {
-                const twelveMonthsAgo = new Date()
-                twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
-                status = lastPurchaseDate < twelveMonthsAgo ? 'Update Status' : 'Personal'
-              }
-
-              const tagsStr = Array.isArray(record.Tag)
-                ? record.Tag.map((t: any) => t.name).filter(Boolean).join(', ')
-                : null;
-
-              account = await prisma.account.create({
-                data: {
-                  zohoId: record.id,
-                  name: record.Account_Name || record.name || 'Unnamed Account',
-                  industry: record.Industry || 'Unknown',
-                  tags: tagsStr,
-                  status: status,
-                  lastPurchaseAt: lastPurchaseDate,
-                  ownerId: ownerDbId,
-                  billingStreet: record.Billing_Street || null,
-                  billingCity: record.Billing_City || null,
-                  billingState: record.Billing_State || null,
-                  billingZip: record.Billing_Code || null,
-                },
-                include: {
-                  invoices: { orderBy: { issueDate: 'desc' } },
-                  salesOrders: { orderBy: { orderDate: 'desc' } },
-                  quotes: { orderBy: { createdAt: 'desc' } },
-                  deals: { orderBy: { closingDate: 'desc' } },
-                  notes: { orderBy: { createdAt: 'desc' } },
-                  tasks: { orderBy: { dueDate: 'asc' } },
-                  contacts: true
+                // Fallback owner if not found
+                if (!ownerDbId) {
+                  const firstUser = await prisma.user.findFirst()
+                  ownerDbId = firstUser?.id || ""
                 }
-              })
-              
-              crmDetails = record
+
+                let status = 'Open'
+                const lastPurchaseDate = record.Last_Purchase_Date ? new Date(record.Last_Purchase_Date) : null
+                if (lastPurchaseDate) {
+                  const twelveMonthsAgo = new Date()
+                  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
+                  status = lastPurchaseDate < twelveMonthsAgo ? 'Update Status' : 'Personal'
+                }
+
+                const tagsStr = Array.isArray(record.Tag)
+                  ? record.Tag.map((t: any) => t.name).filter(Boolean).join(', ')
+                  : null;
+
+                account = await prisma.account.create({
+                  data: {
+                    zohoId: record.id,
+                    name: record.Account_Name || record.name || 'Unnamed Account',
+                    industry: record.Industry || 'Unknown',
+                    tags: tagsStr,
+                    status: status,
+                    lastPurchaseAt: lastPurchaseDate,
+                    ownerId: ownerDbId,
+                    billingStreet: record.Billing_Street || null,
+                    billingCity: record.Billing_City || null,
+                    billingState: record.Billing_State || null,
+                    billingZip: record.Billing_Code || null,
+                  },
+                  include: {
+                    invoices: { orderBy: { issueDate: 'desc' } },
+                    salesOrders: { orderBy: { orderDate: 'desc' } },
+                    quotes: { orderBy: { createdAt: 'desc' } },
+                    deals: { orderBy: { closingDate: 'desc' } },
+                    notes: { orderBy: { createdAt: 'desc' } },
+                    tasks: { orderBy: { dueDate: 'asc' } },
+                    contacts: true
+                  }
+                })
+                
+                crmDetails = record
+              }
             }
           }
+        } catch (err) {
+          console.error("Error auto-fetching missing account from Zoho CRM:", err)
         }
-      } catch (err) {
-        console.error("Error auto-fetching missing account from Zoho CRM:", err)
       }
     }
 

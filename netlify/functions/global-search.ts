@@ -82,7 +82,7 @@ export const handler: Handler = async (event) => {
     }
 
     // 3. Search Deals (Prisma)
-    const deals = await prisma.deal.findMany({
+    const dealsRaw = await prisma.deal.findMany({
       where: {
         OR: [
           { name: { contains: query, mode: "insensitive" } },
@@ -90,8 +90,14 @@ export const handler: Handler = async (event) => {
           { stage: { contains: query, mode: "insensitive" } }
         ]
       },
+      include: { account: { select: { name: true, zohoId: true } } },
       take: 10
     })
+    const deals = dealsRaw.map((d: any) => ({
+      ...d,
+      accountName: d.account?.name,
+      accountZohoId: d.account?.zohoId,
+    }))
 
     // 4. Search Products (Zoho Books)
     let products: any[] = []

@@ -155,7 +155,7 @@ export function GlobalTopBar() {
         router.push(`/account?id=${item.accountZohoId || item.accountId}&invoiceId=${item.zohoId || item.id}`)
         break
       case "deals":
-        router.push(`/account?id=${item.accountId}`)
+        router.push(`/account?id=${item.accountZohoId || item.accountId}`)
         break
       case "products":
         showProduct(item.name, item)
