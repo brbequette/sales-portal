@@ -23,8 +23,6 @@ export const handler: Handler = async (event, context) => {
     }
 
     let account: any = null;
-    let zohoLookupError: string | null = null;
-    let idLookupError: string | null = null;
 
     // 1. Try finding by zohoId
     try {
@@ -43,7 +41,6 @@ export const handler: Handler = async (event, context) => {
         }
       })
     } catch (err: any) {
-      zohoLookupError = err?.message || String(err)
       console.warn("zohoId lookup failed:", err)
     }
 
@@ -65,7 +62,6 @@ export const handler: Handler = async (event, context) => {
           }
         })
       } catch (err: any) {
-        idLookupError = err?.message || String(err)
         console.warn("Internal id lookup failed (non-CUID id?):", err)
       }
     }
@@ -174,16 +170,7 @@ export const handler: Handler = async (event, context) => {
       return {
         statusCode: 404,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ 
-          success: false, 
-          message: "Account not found",
-          debug: {
-            receivedId: id,
-            idLength: id.length,
-            zohoLookupError,
-            idLookupError,
-          }
-        })
+        body: JSON.stringify({ success: false, message: "Account not found" })
       }
     }
 
