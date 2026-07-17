@@ -7,6 +7,8 @@ import {
   FiFileText, FiDatabase, FiPhone, FiMessageSquare,
   FiShoppingCart, FiAlertTriangle, FiGrid, FiList,
   FiCheckSquare, FiZap, FiBarChart2, FiPackage,
+  FiChevronDown, FiChevronUp, FiUsers, FiMapPin,
+  FiTool, FiTrendingUp, FiClipboard, FiDollarSign, FiMail,
 } from "react-icons/fi"
 import { useZoho } from "@/components/ZohoProvider"
 import { AccountHistory } from "@/components/AccountHistory"
@@ -220,7 +222,234 @@ function AccountLeftRail({
   )
 }
 
-// Main Page
+// OverviewPanel — full accordion dashboard for the Overview tab
+function AccordionSection({
+  title, icon, badge, defaultOpen = true, children,
+}: {
+  title: string
+  icon: React.ReactNode
+  badge?: string | number
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="border border-neutral-800 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-3 py-2.5 bg-neutral-900 hover:bg-neutral-800/80 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-400">{icon}</span>
+          <span className="text-xs font-bold text-white uppercase tracking-wider">{title}</span>
+          {badge !== undefined && badge !== null && String(badge) !== "0" && (
+            <span className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-bold">{badge}</span>
+          )}
+        </div>
+        <span className="text-neutral-500">
+          {open ? <FiChevronUp size={13} /> : <FiChevronDown size={13} />}
+        </span>
+      </button>
+      {open && <div className="bg-neutral-900/40 border-t border-neutral-800">{children}</div>}
+    </div>
+  )
+}
+
+function OverviewPanel({
+  account, invoices, deals, quotes, salesOrders, notes,
+  onViewInvoice, onDrillDown, onNoteAdded, accountId,
+}: {
+  account: any
+  invoices: any[]
+  deals: any[]
+  quotes: any[]
+  salesOrders: any[]
+  notes: any[]
+  onViewInvoice: (zohoId: string) => void
+  onDrillDown: (title: string, invs: any[]) => void
+  onNoteAdded: (note: any) => void
+  accountId: string
+}) {
+  const primaryContact = account.contacts?.find((c: any) => c.isPrimary) || account.contacts?.[0]
+  const phone = primaryContact?.phone || primaryContact?.mobilePhone || account.booksContact?.phone || ""
+  const cleanPhone = phone.replace(/[^0-9+]/g, "")
+  const totalRevenue = invoices.reduce((s: number, i: any) => s + parseFloat(i.amount || 0), 0)
+  const paidInvoices = invoices.filter((i: any) => i.status === "Paid")
+  const overdueInvoices = invoices.filter((i: any) => i.status === "Overdue")
+  const overdueTotal = overdueInvoices.reduce((s: number, i: any) => s + parseFloat(i.amount || 0), 0)
+  const recentInvoices = [...invoices].sort((a, b) => new Date(b.issueDate || 0).getTime() - new Date(a.issueDate || 0).getTime()).slice(0, 5)
+
+  const label = (v: string) => (
+    <span className="text-[9px] text-neutral-500 block uppercase tracking-widest font-semibold mb-0.5">{v}</span>
+  )
+  const val = (v: any, fallback = "-") => (
+    <span className="text-xs font-bold text-neutral-200">{v || <span className="text-neutral-600 italic font-normal">{fallback}</span>}</span>
+  )
+
+  return (
+    <div className="flex flex-col gap-2 p-3 overflow-y-auto h-full">
+
+      {/* KPI Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {[
+          { label: "LTV", value: `$${totalRevenue >= 1000000 ? `${(totalRevenue/1000000).toFixed(1)}M` : totalRevenue >= 1000 ? `${(totalRevenue/1000).toFixed(1)}k` : totalRevenue.toFixed(0)}`, color: "text-emerald-400" },
+          { label: "Invoices", value: invoices.length, color: "text-blue-400" },
+          { label: "Overdue", value: overdueTotal > 0 ? `$${overdueTotal.toLocaleString(undefined,{maximumFractionDigits:0})}` : "None", color: overdueTotal > 0 ? "text-red-400" : "text-neutral-500" },
+          { label: "Paid", value: paidInvoices.length, color: "text-emerald-400" },
+        ].map(k => (
+          <div key={k.label} className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2">
+            <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-semibold">{k.label}</div>
+            <div className={`text-sm font-extrabold ${k.color}`}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Contact & Addresses */}
+      <AccordionSection title="Contact & Addresses" icon={<FiMapPin size={12} />} defaultOpen>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3">
+          {/* Primary Contact */}
+          <div className="bg-neutral-900/60 border border-neutral-800 rounded-lg p-3">
+            <div className="text-[9px] text-blue-400 uppercase tracking-widest font-bold mb-2">Primary Contact</div>
+            {primaryContact ? (
+              <>
+                <div className="text-xs font-bold text-white mb-1">
+                  {`${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim() || "No name"}
+                </div>
+                {phone && (
+                  <a href={`tel:${cleanPhone}`} className="flex items-center gap-1 text-[11px] text-sky-400 hover:text-sky-300 font-mono font-bold mb-1">
+                    <FiPhone size={9} />{phone}
+                  </a>
+                )}
+                {primaryContact.email && (
+                  <a href={`mailto:${primaryContact.email}`} className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-neutral-200 truncate">
+                    <FiMail size={9} />{primaryContact.email}
+                  </a>
+                )}
+              </>
+            ) : (
+              <div className="text-[10px] text-neutral-600 italic">No contact on file</div>
+            )}
+          </div>
+          {/* Billing */}
+          <div className="bg-neutral-900/60 border border-neutral-800 rounded-lg p-3">
+            <div className="text-[9px] text-amber-400 uppercase tracking-widest font-bold mb-2">Billing Address</div>
+            {(account.billingStreet || account.booksContact?.billing_address?.address) ? (
+              <div className="text-[11px] text-neutral-300 leading-relaxed">
+                <div>{account.billingStreet || account.booksContact?.billing_address?.address}</div>
+                <div>{account.billingCity || account.booksContact?.billing_address?.city}, {account.billingState || account.booksContact?.billing_address?.state} {account.billingZip || account.booksContact?.billing_address?.zip}</div>
+                <div className="text-neutral-600 text-[9px] uppercase font-bold mt-0.5">{account.billingCountry || "U.S.A"}</div>
+              </div>
+            ) : <div className="text-[10px] text-neutral-600 italic">Not on file</div>}
+          </div>
+          {/* Shipping */}
+          <div className="bg-neutral-900/60 border border-neutral-800 rounded-lg p-3">
+            <div className="text-[9px] text-emerald-400 uppercase tracking-widest font-bold mb-2">Shipping Address</div>
+            {(account.shippingStreet || account.booksContact?.shipping_address?.address) ? (
+              <div className="text-[11px] text-neutral-300 leading-relaxed">
+                <div>{account.shippingStreet || account.booksContact?.shipping_address?.address}</div>
+                <div>{account.shippingCity || account.booksContact?.shipping_address?.city}, {account.shippingState || account.booksContact?.shipping_address?.state} {account.shippingZip || account.booksContact?.shipping_address?.zip}</div>
+                <div className="text-neutral-600 text-[9px] uppercase font-bold mt-0.5">{account.shippingCountry || "U.S.A"}</div>
+              </div>
+            ) : <div className="text-[10px] text-neutral-600 italic">Not on file</div>}
+          </div>
+        </div>
+      </AccordionSection>
+
+      {/* Business Profile */}
+      <AccordionSection title="Business Profile" icon={<FiTool size={12} />} defaultOpen>
+        <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {[
+            { l: "Blade Sizes",      v: account.bladeSizes },
+            { l: "Materials Cut",    v: account.materialsCut },
+            { l: "Current Supplier", v: account.currentSupplier },
+            { l: "Avg Blade Cost",   v: account.averageBladeCost },
+            { l: "Crew Count",       v: account.crewCount },
+            { l: "Blades/Order",     v: account.bladesPerOrder },
+            { l: "Improvement",      v: account.improvementPriority },
+            { l: "Industry",         v: account.industry },
+            { l: "Tags",             v: account.tags },
+            { l: "Website",          v: account.booksContact?.website },
+          ].map(({ l, v }) => (
+            <div key={l}>{label(l)}{val(v)}</div>
+          ))}
+        </div>
+        {account.booksContact?.notes && (
+          <div className="px-3 pb-3">
+            <div className="bg-neutral-950/40 border border-neutral-800 rounded-lg p-2.5">
+              {label("Notes")}
+              <p className="text-[11px] text-neutral-300 leading-relaxed italic whitespace-pre-line">{account.booksContact.notes}</p>
+            </div>
+          </div>
+        )}
+      </AccordionSection>
+
+      {/* All Contacts */}
+      <AccordionSection title="All Contacts" icon={<FiUsers size={12} />} badge={(account.contacts || []).length} defaultOpen={false}>
+        <div className="p-3">
+          <ContactsView
+            contacts={account.contacts || []}
+            notes={notes}
+            accountId={accountId}
+            onNoteAdded={onNoteAdded}
+          />
+        </div>
+      </AccordionSection>
+
+      {/* Analytics */}
+      <AccordionSection title="Analytics" icon={<FiTrendingUp size={12} />} defaultOpen>
+        <div className="p-3">
+          <AccountAnalytics
+            invoices={invoices}
+            deals={deals}
+            quotes={quotes}
+            salesOrders={salesOrders}
+            onDrillDown={onDrillDown}
+          />
+        </div>
+      </AccordionSection>
+
+      {/* Recent Invoices */}
+      <AccordionSection title="Recent Invoices" icon={<FiDollarSign size={12} />} badge={invoices.length} defaultOpen={false}>
+        <div className="divide-y divide-neutral-800">
+          {recentInvoices.length === 0 ? (
+            <div className="p-4 text-center text-neutral-600 text-xs italic">No invoices found</div>
+          ) : recentInvoices.map((inv: any, idx: number) => (
+            <button
+              key={idx}
+              onClick={() => onViewInvoice(inv.zohoId)}
+              className="w-full flex items-center justify-between px-3 py-2 hover:bg-neutral-800/60 transition-colors text-left"
+            >
+              <div>
+                <div className="text-xs font-bold text-white">
+                  {inv.zohoId?.slice(-6) || "INV"}
+                </div>
+                <div className="text-[10px] text-neutral-500">
+                  {inv.issueDate ? new Date(inv.issueDate).toLocaleDateString(undefined, { timeZone: "UTC" }) : "-"}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs font-bold text-blue-400">${parseFloat(inv.amount || 0).toLocaleString()}</div>
+                <div className={`text-[9px] font-bold uppercase ${
+                  inv.status === "Paid" ? "text-emerald-400" : inv.status === "Overdue" ? "text-red-400" : "text-neutral-400"
+                }`}>{inv.status}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </AccordionSection>
+
+      {/* Deals */}
+      <AccordionSection title="Deals" icon={<FiClipboard size={12} />} badge={deals.length} defaultOpen={false}>
+        <div className="p-3">
+          <DealsHistory deals={deals} />
+        </div>
+      </AccordionSection>
+
+    </div>
+  )
+}
+
+// AccountHubContent
 
 function AccountHubContent() {
   const searchParams = useSearchParams()
@@ -514,172 +743,26 @@ function AccountHubContent() {
 
           {/* OVERVIEW */}
           {activeTab === "overview" && (
-            <div className="p-4 sm:p-6 space-y-8 max-w-5xl mx-auto w-full">
-              <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-5 shadow-xl space-y-5">
-                <div className="flex items-center justify-between border-b border-neutral-800 pb-3 gap-3">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-wider shrink-0">
-                    <FiDatabase className="text-blue-500" /> Account Profile
-                  </h3>
-                  {(account.booksContact?.phone || account.contacts?.[0]?.phone) && (
-                    <a
-                      href={"tel:" + (account.booksContact?.phone || account.contacts?.[0]?.phone).replace(/[^0-9+]/g, "")}
-                      className="text-xs text-blue-400 hover:text-blue-300 font-mono font-bold flex items-center gap-1.5 truncate min-w-0"
-                    >
-                      <FiPhone size={10} />
-                      {formatPhoneNumber(account.booksContact?.phone || account.contacts?.[0]?.phone)}
-                    </a>
-                  )}
-                </div>
-
-                {/* Addresses */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="address-card">
-                    <h4 className="text-blue-400">Billing Address</h4>
-                    <div className="text-xs text-neutral-300 leading-relaxed">
-                      {(account.billingStreet || account.booksContact?.billing_address?.address) ? (
-                        <>
-                          <p>{account.billingStreet || account.booksContact?.billing_address?.address}</p>
-                          <p>
-                            {account.billingCity || account.booksContact?.billing_address?.city || ""},&nbsp;
-                            {account.billingState || account.booksContact?.billing_address?.state || ""}&nbsp;
-                            {account.billingZip || account.booksContact?.billing_address?.zip || ""}
-                          </p>
-                          <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">
-                            {account.billingCountry || "U.S.A"}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-neutral-500 italic text-[11px]">No billing address configured</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="address-card">
-                    <h4 className="text-amber-400">Shipping Address</h4>
-                    <div className="text-xs text-neutral-300 leading-relaxed">
-                      {(account.shippingStreet || account.booksContact?.shipping_address?.address) ? (
-                        <>
-                          <p>{account.shippingStreet || account.booksContact?.shipping_address?.address}</p>
-                          <p>
-                            {account.shippingCity || account.booksContact?.shipping_address?.city || ""},&nbsp;
-                            {account.shippingState || account.booksContact?.shipping_address?.state || ""}&nbsp;
-                            {account.shippingZip || account.booksContact?.shipping_address?.zip || ""}
-                          </p>
-                          <p className="text-neutral-500 text-[10px] uppercase font-bold mt-1 tracking-wider">
-                            {account.shippingCountry || "U.S.A"}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-neutral-500 italic text-[11px]">No shipping address configured</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="address-card">
-                    <h4 className="text-emerald-400">Company Info</h4>
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div>
-                        <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Phone</span>
-                        {(account.booksContact?.phone || account.contacts?.[0]?.phone)
-                          ? (
-                            <a
-                              href={"tel:" + (account.booksContact?.phone || account.contacts[0].phone).replace(/[^0-9+]/g, "")}
-                              className="text-blue-400 hover:underline font-bold font-mono truncate block"
-                            >
-                              {formatPhoneNumber(account.booksContact?.phone || account.contacts[0].phone)}
-                            </a>
-                          )
-                          : <span className="text-neutral-200 font-bold block">-</span>
-                        }
-                      </div>
-                      <div>
-                        <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Website</span>
-                        {account.booksContact?.website
-                          ? (
-                            <a
-                              href={account.booksContact.website.startsWith("http") ? account.booksContact.website : `https://${account.booksContact.website}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-blue-400 hover:underline truncate block font-bold font-mono"
-                            >
-                              {account.booksContact.website}
-                            </a>
-                          )
-                          : <span className="text-neutral-400 font-bold">-</span>
-                        }
-                      </div>
-                      <div>
-                        <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Industry</span>
-                        <span className="text-neutral-200 font-bold truncate block">{account.industry || "-"}</span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Tags</span>
-                        <span className="text-neutral-200 font-bold truncate block">{account.tags || "General"}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Business Profile */}
-                <div className="bg-neutral-950/30 p-4 border border-neutral-800/80 rounded-xl">
-                  <h4 className="text-[10px] font-bold text-orange-400 uppercase tracking-wider mb-3">Business Profile</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
-                    {[
-                      { label: "Blade Sizes",       val: account.bladeSizes },
-                      { label: "Materials Cut",      val: account.materialsCut },
-                      { label: "Current Supplier",   val: account.currentSupplier },
-                      { label: "Avg Blade Cost",     val: account.averageBladeCost },
-                      { label: "Crew Count",         val: account.crewCount },
-                      { label: "Blades/Order",       val: account.bladesPerOrder },
-                    ].map(({ label, val }) => (
-                      <div key={label}>
-                        <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">{label}</span>
-                        <span className="text-neutral-200 font-bold">
-                          {val || <span className="text-neutral-600 italic font-normal">Not recorded</span>}
-                        </span>
-                      </div>
-                    ))}
-                    <div className="col-span-2">
-                      <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold">Improvement Priority</span>
-                      <span className="text-neutral-200 font-bold">
-                        {account.improvementPriority || <span className="text-neutral-600 italic font-normal">Not recorded</span>}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {account.booksContact?.notes && (
-                  <div className="bg-neutral-950/20 p-4 border border-neutral-800/80 rounded-xl">
-                    <span className="text-[9px] text-neutral-500 block uppercase tracking-wider font-semibold mb-1">Account Notes</span>
-                    <p className="text-xs text-neutral-300 leading-relaxed italic whitespace-pre-line">
-                      {account.booksContact.notes}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <AccountAnalytics
-                invoices={account.invoices}
-                deals={account.deals}
-                quotes={account.quotes}
-                salesOrders={account.salesOrders}
-                onDrillDown={(title, invs) => { setDrillTitle(title); setDrillInvoices(invs) }}
-              />
-
-              <div className="border-t border-neutral-800/50 pt-8">
-                <ContactsView
-                  contacts={account.contacts || []}
-                  notes={account.notes || []}
-                  accountId={account.id}
-                  onNoteAdded={(newNote: any) =>
-                    setAccount((prev: any) => prev ? { ...prev, notes: [newNote, ...(prev.notes || [])] } : prev)
-                  }
-                />
-              </div>
-
-              <div className="border-t border-neutral-800/50 pt-8">
-                <DealsHistory deals={account.deals} />
-              </div>
-            </div>
+            <OverviewPanel
+              account={account}
+              invoices={account.invoices || []}
+              deals={account.deals || []}
+              quotes={account.quotes || []}
+              salesOrders={account.salesOrders || []}
+              notes={account.notes || []}
+              onViewInvoice={(zohoId) => {
+                const inv = account.invoices?.find((i: any) => i.zohoId === zohoId)
+                setViewingInvoice(inv || { zohoId, id: zohoId })
+              }}
+              onDrillDown={(title, invs) => { setDrillTitle(title); setDrillInvoices(invs) }}
+              onNoteAdded={(newNote: any) =>
+                setAccount((prev: any) => prev ? { ...prev, notes: [newNote, ...(prev.notes || [])] } : prev)
+              }
+              accountId={account.id}
+            />
           )}
+
+
 
           {/* TRANSACTIONS */}
           {activeTab === "history" && (
