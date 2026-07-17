@@ -710,6 +710,8 @@ export function CommunicationCenter({
                 mode={callType === "cold" ? "dialer-cold" : "dialer-followup"}
                 questionCount={10}
                 accentColor="amber"
+                updatedAt={account?.factFindingUpdatedAt || account?.bladeSizesUpdatedAt || undefined}
+                updatedBy={account?.factFindingUpdatedBy || account?.bladeSizesUpdatedBy || undefined}
               />
             </div>
           )}

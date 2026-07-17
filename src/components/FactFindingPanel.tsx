@@ -5,14 +5,20 @@
  *
  * Shared fact-finding component used across:
  *   - SalesCallCampaignModal (dialer — cold + follow-up calls)
+ *   - CommunicationCenter (account screen — call tab)
  *   - AccountEditModal (Profile Data tab — editable account profile)
  *   - AccountSlideout (compact read-only summary chips)
  *
  * Standardizes all FF fields, options, and pill-selection UX in one place.
+ *
+ * Behavior (dialer modes):
+ *   - Unanswered questions: shown expanded with question text + clickable pills.
+ *   - Answered questions: remain expanded, show the selected answer highlighted
+ *     in an "answered" chip row, PLUS the pills so the rep can change the answer.
+ *     If updatedAt / updatedBy props are passed, shows audit metadata below the answer.
  */
 
-import { useState } from "react"
-import { FiActivity, FiChevronDown, FiChevronRight } from "react-icons/fi"
+import { FiActivity, FiClock, FiUser } from "react-icons/fi"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -152,9 +158,10 @@ interface PillRowProps {
   value: string
   onChange: (v: string) => void
   accentColor?: "cyan" | "amber"
+  readOnly?: boolean
 }
 
-function PillRow({ options, value, onChange, accentColor = "cyan" }: PillRowProps) {
+function PillRow({ options, value, onChange, accentColor = "cyan", readOnly = false }: PillRowProps) {
   const activeClass = accentColor === "amber"
     ? "bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-sm shadow-amber-500/10"
     : "bg-cyan-500/20 border-cyan-500/50 text-cyan-300 shadow-sm shadow-cyan-500/10"
@@ -165,11 +172,14 @@ function PillRow({ options, value, onChange, accentColor = "cyan" }: PillRowProp
         <button
           key={opt}
           type="button"
-          onClick={() => onChange(value === opt ? "" : opt)}
-          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+          disabled={readOnly}
+          onClick={() => !readOnly && onChange(value === opt ? "" : opt)}
+          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${readOnly ? "cursor-default" : "cursor-pointer"} ${
             value === opt
               ? activeClass
-              : "bg-neutral-900 border-neutral-700/60 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400"
+              : readOnly
+                ? "bg-neutral-900/50 border-neutral-800 text-neutral-600"
+                : "bg-neutral-900 border-neutral-700/60 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400"
           }`}
         >
           {value === opt ? "✓ " : ""}{opt}
@@ -183,16 +193,16 @@ function PillRow({ options, value, onChange, accentColor = "cyan" }: PillRowProp
 
 export function FactFindingSummary({ values }: { values: FactFindingValues }) {
   const chips: { label: string; value: string }[] = [
-    { label: "Blades", value: values.bladeSizes },
-    { label: "Cuts", value: values.materialsCut },
+    { label: "Blades",   value: values.bladeSizes },
+    { label: "Cuts",     value: values.materialsCut },
     { label: "Supplier", value: values.currentSupplier },
-    { label: "Pays", value: values.avgBladeCost },
-    { label: "Crews", value: values.crewCount },
-    { label: "Qty", value: values.bladesPerOrder },
-    { label: "Wants", value: values.improvementPriority },
+    { label: "Pays",     value: values.avgBladeCost },
+    { label: "Crews",    value: values.crewCount },
+    { label: "Qty",      value: values.bladesPerOrder },
+    { label: "Wants",    value: values.improvementPriority },
     { label: "Timeline", value: values.readyToBuy },
-    { label: "Jobs", value: values.jobTypes },
-    { label: "Pain", value: values.painPoints },
+    { label: "Jobs",     value: values.jobTypes },
+    { label: "Pain",     value: values.painPoints },
   ].filter(c => c.value)
 
   if (chips.length === 0) return (
@@ -212,18 +222,47 @@ export function FactFindingSummary({ values }: { values: FactFindingValues }) {
   )
 }
 
+// ─── Audit metadata row ───────────────────────────────────────────────────────
+
+function AuditRow({ updatedAt, updatedBy }: { updatedAt?: string; updatedBy?: string }) {
+  if (!updatedAt && !updatedBy) return null
+  const formatted = updatedAt
+    ? new Date(updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : null
+  return (
+    <div className="flex items-center gap-2 mt-1.5 pl-0.5">
+      {formatted && (
+        <span className="inline-flex items-center gap-0.5 text-[8px] font-semibold text-neutral-600">
+          <FiClock size={8} className="text-neutral-700" />
+          {formatted}
+        </span>
+      )}
+      {updatedBy && (
+        <span className="inline-flex items-center gap-0.5 text-[8px] font-semibold text-neutral-600">
+          <FiUser size={8} className="text-neutral-700" />
+          {updatedBy}
+        </span>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Panel ────────────────────────────────────────────────────────────────
 
 export interface FactFindingPanelProps {
   values: FactFindingValues
   onChange: (v: FactFindingValues) => void
-  /** "dialer-cold" = with cold call questions; "dialer-followup" = follow-up phrasing; "profile" = no script phrasing */
+  /** "dialer-cold" = cold-call script questions; "dialer-followup" = follow-up phrasing; "profile" = no script phrasing */
   mode?: "dialer-cold" | "dialer-followup" | "profile"
   readOnly?: boolean
   showProgress?: boolean
   /** Number of questions to show. Defaults to 7 (core). Set to 10 for full panel. */
   questionCount?: 7 | 10
   accentColor?: "cyan" | "amber"
+  /** ISO timestamp of when FF data was last saved to the account */
+  updatedAt?: string
+  /** Name/email of the person who last saved FF data */
+  updatedBy?: string
 }
 
 export function FactFindingPanel({
@@ -234,8 +273,9 @@ export function FactFindingPanel({
   showProgress = true,
   questionCount = 7,
   accentColor = "cyan",
+  updatedAt,
+  updatedBy,
 }: FactFindingPanelProps) {
-  const [expandedFF, setExpandedFF] = useState<Record<string, boolean>>({})
 
   const questions = FF_QUESTIONS.slice(0, questionCount)
   const answeredCount = questions.filter(q => {
@@ -256,17 +296,29 @@ export function FactFindingPanel({
       <div className="space-y-4">
         {questions.map(q => {
           const value = values[q.key] as string
+          const isAnswered = !!value
           return (
             <div key={q.key}>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1.5">
-                {q.label}
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                  {q.label}
+                </label>
+                {isAnswered && (
+                  <span className="text-[8px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                    ✓ {value}
+                  </span>
+                )}
+              </div>
               <PillRow
                 options={q.options}
                 value={value}
                 onChange={v => handleChange(q.key, v)}
                 accentColor="amber"
+                readOnly={readOnly}
               />
+              {isAnswered && (updatedAt || updatedBy) && (
+                <AuditRow updatedAt={updatedAt} updatedBy={updatedBy} />
+              )}
             </div>
           )
         })}
@@ -274,13 +326,18 @@ export function FactFindingPanel({
     )
   }
 
-  // ── Dialer mode (collapsible question cards) ─────────────────────────────────
-  const borderColor = accentColor === "amber" ? "border-amber-800/30 bg-amber-950/20" : "border-cyan-800/30 bg-cyan-950/20"
-  const answeredBorder = accentColor === "amber" ? "border-amber-800/15 bg-amber-950/10" : "border-cyan-800/15 bg-cyan-950/10"
+  // ── Dialer mode ─────────────────────────────────────────────────────────────
+  // Colors
+  const unansweredBg = accentColor === "amber"
+    ? "border-amber-800/30 bg-amber-950/20"
+    : "border-cyan-800/30 bg-cyan-950/20"
+  const answeredBg = accentColor === "amber"
+    ? "border-emerald-800/30 bg-emerald-950/15"
+    : "border-emerald-800/30 bg-emerald-950/15"
   const numColor = (isAnswered: boolean) => isAnswered
-    ? (accentColor === "amber" ? "bg-amber-500/20 text-amber-400" : "bg-amber-500/20 text-amber-400")
+    ? "bg-emerald-500/20 text-emerald-400"
     : (accentColor === "cyan" ? "bg-cyan-500/20 text-cyan-400" : "bg-amber-500/10 text-amber-500")
-  const textColor = accentColor === "amber" ? "text-amber-200/80" : "text-cyan-100/90"
+  const questionTextColor = accentColor === "amber" ? "text-amber-200/80" : "text-cyan-100/90"
 
   return (
     <div className="space-y-2">
@@ -288,67 +345,49 @@ export function FactFindingPanel({
         {questions.map(q => {
           const value = values[q.key] as string
           const isAnswered = !!value
-          const isExpanded = expandedFF[q.key] ?? !isAnswered
 
           return (
             <div
               key={q.key}
-              className={`rounded-xl border transition-all ${
-                isAnswered && !isExpanded ? `p-2 ${answeredBorder}` : `p-3 space-y-2 ${borderColor}`
-              }`}
+              className={`rounded-xl border p-3 space-y-2 transition-all ${isAnswered ? answeredBg : unansweredBg}`}
             >
-              {isAnswered && !isExpanded ? (
-                // Collapsed answered chip
-                <button
-                  type="button"
-                  onClick={() => setExpandedFF(prev => ({ ...prev, [q.key]: true }))}
-                  className="w-full flex items-center gap-2 cursor-pointer group"
-                >
-                  <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 text-[8px] font-black flex items-center justify-center shrink-0">✓</span>
-                  <span className="text-[10px] text-neutral-500 italic truncate flex-1 text-left">Q{q.num}</span>
-                  <span className="text-[9px] font-bold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded truncate max-w-[140px]">{value}</span>
-                  <FiChevronRight size={10} className="text-neutral-600 group-hover:text-neutral-400 transition-colors shrink-0" />
-                </button>
-              ) : (
-                // Expanded question + options
-                <>
-                  <div className="flex items-start gap-2">
-                    <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5 ${numColor(isAnswered)}`}>
-                      {q.num}
-                    </span>
-                    <p className={`text-xs leading-relaxed italic flex-1 ${textColor}`}>
-                      {getQuestion(q)}
-                    </p>
-                    {isAnswered && (
-                      <button
-                        type="button"
-                        onClick={() => setExpandedFF(prev => ({ ...prev, [q.key]: false }))}
-                        className="text-neutral-600 hover:text-neutral-400 cursor-pointer shrink-0 mt-0.5"
-                      >
-                        <FiChevronDown size={12} />
-                      </button>
-                    )}
-                  </div>
-                  <div className="pl-7">
-                    {readOnly ? (
-                      <span className="text-[10px] text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded font-bold">{value || "—"}</span>
-                    ) : (
-                      <PillRow
-                        options={q.options}
-                        value={value}
-                        onChange={v => handleChange(q.key, v)}
-                        accentColor={accentColor}
-                      />
-                    )}
-                  </div>
-                </>
+              {/* Question header */}
+              <div className="flex items-start gap-2">
+                <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5 ${numColor(isAnswered)}`}>
+                  {isAnswered ? "✓" : q.num}
+                </span>
+                <p className={`text-xs leading-relaxed italic flex-1 ${isAnswered ? "text-neutral-500" : questionTextColor}`}>
+                  {getQuestion(q)}
+                </p>
+              </div>
+
+              {/* Answered answer badge — shown above the pills so rep can see/change */}
+              {isAnswered && (
+                <div className="pl-7">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/25 px-2 py-1 rounded-lg">
+                    ✓ {value}
+                  </span>
+                  <AuditRow updatedAt={updatedAt} updatedBy={updatedBy} />
+                </div>
+              )}
+
+              {/* Pills — always shown so rep can change the answer */}
+              {!readOnly && (
+                <div className="pl-7">
+                  <PillRow
+                    options={q.options}
+                    value={value}
+                    onChange={v => handleChange(q.key, v)}
+                    accentColor={accentColor}
+                  />
+                </div>
               )}
             </div>
           )
         })}
       </div>
 
-      {/* Progress */}
+      {/* Progress bar */}
       {showProgress && (
         <div className="flex items-center justify-between bg-neutral-900/40 border border-neutral-800/40 rounded-lg px-3 py-1.5 mt-2">
           <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
@@ -358,9 +397,9 @@ export function FactFindingPanel({
             {questions.map((q, i) => {
               const v = values[q.key]
               const filled = Array.isArray(v) ? v.length > 0 : !!v
-              return <div key={i} className={`w-2 h-2 rounded-full ${filled ? "bg-amber-400" : "bg-neutral-800"}`} />
+              return <div key={i} className={`w-2 h-2 rounded-full transition-colors ${filled ? "bg-emerald-400" : "bg-neutral-800"}`} />
             })}
-            <span className="text-[9px] font-black text-amber-400 ml-1">{answeredCount}/{questions.length}</span>
+            <span className="text-[9px] font-black text-emerald-400 ml-1">{answeredCount}/{questions.length}</span>
           </div>
         </div>
       )}
