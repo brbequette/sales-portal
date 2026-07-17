@@ -292,7 +292,7 @@ function OverviewPanel({
   )
 
   return (
-    <div className="flex flex-col gap-2 p-3 overflow-y-auto h-full">
+    <div className="flex flex-col gap-2 p-3">
 
       {/* KPI Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -390,7 +390,7 @@ function OverviewPanel({
 
       {/* All Contacts */}
       <AccordionSection title="All Contacts" icon={<FiUsers size={12} />} badge={(account.contacts || []).length} defaultOpen={false}>
-        <div className="p-3">
+        <div className="p-3 max-h-[500px] overflow-y-auto">
           <ContactsView
             contacts={account.contacts || []}
             notes={notes}
@@ -765,7 +765,7 @@ function AccountHubContent() {
         )}
 
         {/* Main content area */}
-        <div className={`flex-1 min-w-0 flex flex-col min-h-0 ${isFluidTab ? "" : "overflow-y-auto scrollbar-thin"}`}>
+        <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-y-auto scrollbar-thin">
 
           {/* COMM CENTER */}
           {activeTab === "comms" && (
