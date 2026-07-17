@@ -96,7 +96,28 @@ Your accounts appear in a sortable, filterable list. Use it to:
 - **Quality** flags how promising an account is.
 - **Timezone** keeps your call timing polite — set it so the app knows the customer's local time.
 
-Update these inline; changes save immediately and sync to Zoho CRM where applicable.
+### Sorting accounts
+Use the **Sort** dropdown (top of the account list) to order accounts by:
+- **Default** — standard pipeline order.
+- **Time Zone (A-Z / Z-A)** — group by time zone for call-block planning.
+- **Orders (Newest / Oldest)** — sort by most recent purchase date.
+- **LTV (High to Low)** — highest-spending customers first. Best for big-account prioritization.
+- **LTV (Low to High)** — surface low-spend accounts that may need nurturing or have growth potential.
+
+The selected sort is **saved automatically** and restored on your next visit.
+
+### Product Buyer Search
+The **"Filter by product..."** input (amber icon, in the account list toolbar) narrows the list to accounts that purchased a specific product:
+- Type any part of a product name (e.g. "medusa", "t-shirt", "14-inch")
+- Only accounts with that product on a cached invoice line item will appear
+- An amber **Bought: [term]** badge shows in the active filters strip — click X to clear
+- Partial matches work: "14" matches "Medusa 14-inch", "Diamond 14", etc.
+- Requires line items to be cached first (see **Admin > Data Backfill**)
+
+### Filtering accounts
+Click **Filters** to open the full filter drawer. Active filters show as badges below the toolbar. Available filters: status, industry, quality, timezone, year of last purchase, LTV range, and missing-info flags (no phone, no email, no contacts).
+
+Update account fields inline; changes save immediately and sync to Zoho CRM where applicable.
     `,
   },
   {
@@ -453,6 +474,7 @@ Administrators and managers get an **Admin Settings** hub with controls that gov
 - **Team Timeclock** — review and approve everyone's hours.
 - **Vig** — late-fee settings.
 - **Update Accounts** — bulk account maintenance and owner reassignment. Changing account owner updates both the CRM Account record AND all associated Contacts to the new rep. Account owner name (first name) is shown as a sky-blue chip on every account card in the dashboard.
+- **Data Backfill** — one-time tool to populate full line items for all invoices, SOs, and quotes from Zoho Books. Enables the Product Buyer Search filter and instant-loading invoice modals.
     `,
   },
   {
@@ -582,6 +604,42 @@ When an invoice has a **$0.00 shipping charge**, the system flags it with a **"N
 - **Account Invoice List** — An amber **"⚠ No Ship $"** badge appears next to the status
 - This flag only appears on non-draft, non-void invoices
 - To resolve: update the shipping charge in Zoho Books
+    `,
+  },
+  {
+    id: "admin-data-backfill",
+    title: "Admin: Data Backfill (Line Items)",
+    category: "Admin & Management",
+    content: `
+The **Data Backfill** tool at **Admin > Data Backfill** is a one-time operation that populates full line-item detail for all invoices, sales orders, and quotes in the local database.
+
+### Why it matters
+With line items cached locally, the portal can:
+- Run the **Product Buyer Search** filter — instantly find all accounts that bought a specific product
+- Open invoice/SO/quote detail modals **instantly** without live Zoho API calls
+- Show purchased products across dashboard filters and account pages
+
+### Phase 1 — Map Zoho Books IDs (~3 minutes)
+Enumerates all Zoho Books invoices, SOs, and estimates (200 per page) and writes the Books ID into each matching local record. Must run before Phase 2.
+- Click **Run Phase 1** on the backfill page
+- Takes approximately 3 minutes
+- Safe to re-run — already-mapped records are skipped
+
+### Phase 2 — Fetch Line Items (~5-8 hours total)
+Fetches full detail (line items, custom fields, balance) for every uncached record, at 50 calls/minute.
+- Click **Start Phase 2** — runs continuously in batches of 18 records (~25 seconds each)
+- Progress is saved after every batch — close the tab and resume anytime with **Resume Phase 2**
+- A live progress bar and ETA are shown throughout
+
+### Duplicate protection built in
+- Exact doc-number matching only — no partial/fuzzy matches that could stamp the wrong record
+- A Books ID can only be written to one local record — conflicts are logged and skipped
+- Line items are always replaced from Zoho, never appended on top of existing data
+- A concurrency lock prevents two browser tabs from processing the same batch simultaneously
+
+### After completion
+- The daily 2 AM sync keeps data current — the backfill only needs to run once
+- All invoice modals load from cache; Product Buyer Search works for all 15,500+ accounts
     `,
   },
   {
