@@ -533,6 +533,7 @@ function AccountHubContent() {
   const [drillTitle, setDrillTitle] = useState("")
   const [drillInvoices, setDrillInvoices] = useState<any[] | null>(null)
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)
+  const [viewingInvoiceIndex, setViewingInvoiceIndex] = useState<number>(-1)
   const [viewingSalesDoc, setViewingSalesDoc] = useState<{ type: "SalesOrder" | "Quote"; doc: any } | null>(null)
   const [historyViewMode, setHistoryViewMode] = useState<"data" | "pdf">("data")
   const [isEditingAccount, setIsEditingAccount] = useState(false)
@@ -795,8 +796,10 @@ function AccountHubContent() {
               salesOrders={account.salesOrders || []}
               notes={account.notes || []}
               onViewInvoice={(zohoId) => {
-                const inv = account.invoices?.find((i: any) => i.zohoId === zohoId)
-                setViewingInvoice(inv || { zohoId, id: zohoId })
+                const idx = (account.invoices || []).findIndex((i: any) => i.zohoId === zohoId)
+                const inv = idx >= 0 ? account.invoices[idx] : { zohoId, id: zohoId }
+                setViewingInvoice(inv)
+                setViewingInvoiceIndex(idx)
               }}
               onViewSalesDoc={(type, doc) => setViewingSalesDoc({ type, doc })}
               onDrillDown={(title, invs) => { setDrillTitle(title); setDrillInvoices(invs) }}
@@ -880,7 +883,16 @@ function AccountHubContent() {
       )}
 
       {viewingInvoice && (
-        <InvoiceDetailsModal invoice={viewingInvoice} onClose={() => setViewingInvoice(null)} />
+        <InvoiceDetailsModal
+          invoice={viewingInvoice}
+          onClose={() => { setViewingInvoice(null); setViewingInvoiceIndex(-1) }}
+          invoiceList={account.invoices || []}
+          currentIndex={viewingInvoiceIndex >= 0 ? viewingInvoiceIndex : undefined}
+          onNavigate={(idx) => {
+            const inv = (account.invoices || [])[idx]
+            if (inv) { setViewingInvoice(inv); setViewingInvoiceIndex(idx) }
+          }}
+        />
       )}
       {viewingSalesDoc && (
         <InvoiceDetailsModal

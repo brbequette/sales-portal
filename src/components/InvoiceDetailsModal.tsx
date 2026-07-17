@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu } from "react-icons/fi"
+import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight } from "react-icons/fi"
 import { CreatePackageModal } from "./CreatePackageModal"
 import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
 import { RecordPaymentModal } from "./RecordPaymentModal"
@@ -11,9 +11,13 @@ interface InvoiceDetailsModalProps {
   invoice: any | string; // Can be an invoice object or just the zohoId string
   type?: "Quote" | "SalesOrder" | "Invoice";
   onClose: () => void;
+  // Optional navigation — pass the full list and current index to enable prev/next
+  invoiceList?: any[];
+  currentIndex?: number;
+  onNavigate?: (index: number) => void;
 }
 
-export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: InvoiceDetailsModalProps) {
+export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoiceList, currentIndex, onNavigate }: InvoiceDetailsModalProps) {
   const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isConverting, setIsConverting] = useState(false)
@@ -60,6 +64,20 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
 
     fetchDetails()
   }, [zohoId, invoice, isString, type])
+
+  // Keyboard navigation: left/right arrows when a list is provided
+  const hasList = invoiceList && invoiceList.length > 1 && onNavigate !== undefined && currentIndex !== undefined
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!hasList) return
+    if (e.key === "ArrowLeft" && currentIndex! > 0) onNavigate!(currentIndex! - 1)
+    if (e.key === "ArrowRight" && currentIndex! < invoiceList!.length - 1) onNavigate!(currentIndex! + 1)
+    if (e.key === "Escape") onClose()
+  }, [hasList, currentIndex, invoiceList, onNavigate, onClose])
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [handleKeyDown])
 
   const displayData = fullInvoiceDetails || initialData
 
@@ -293,11 +311,37 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
 
         {/* ── Header ── */}
         <div className="bg-neutral-850 px-3 sm:px-6 py-3 sm:py-4 border-b border-neutral-800 flex justify-between items-center shrink-0 gap-2">
-          <div className="min-w-0">
-            <h2 className={`text-sm font-bold flex items-center gap-2 ${typeColor}`}>
-              <FiFileText className="shrink-0" /> <span className="truncate">{typeLabel} Details</span>
-            </h2>
-            <p className="text-[10px] text-neutral-400 mt-0.5 font-mono truncate">Zoho ID: {zohoId}</p>
+          <div className="min-w-0 flex items-center gap-3">
+            <div className="min-w-0">
+              <h2 className={`text-sm font-bold flex items-center gap-2 ${typeColor}`}>
+                <FiFileText className="shrink-0" /> <span className="truncate">{typeLabel} Details</span>
+              </h2>
+              <p className="text-[10px] text-neutral-400 mt-0.5 font-mono truncate">Zoho ID: {zohoId}</p>
+            </div>
+            {/* Prev / Next navigation */}
+            {hasList && (
+              <div className="flex items-center gap-1 bg-neutral-950 border border-neutral-800 rounded-lg p-0.5 shrink-0">
+                <button
+                  onClick={() => onNavigate!(currentIndex! - 1)}
+                  disabled={currentIndex === 0}
+                  title="Previous invoice (←)"
+                  className="p-1.5 rounded text-neutral-400 hover:text-white hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <FiChevronLeft size={14} />
+                </button>
+                <span className="text-[10px] font-bold text-neutral-400 px-1 tabular-nums">
+                  {currentIndex! + 1} / {invoiceList!.length}
+                </span>
+                <button
+                  onClick={() => onNavigate!(currentIndex! + 1)}
+                  disabled={currentIndex === invoiceList!.length - 1}
+                  title="Next invoice (→)"
+                  className="p-1.5 rounded text-neutral-400 hover:text-white hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <FiChevronRight size={14} />
+                </button>
+              </div>
+            )}
           </div>
           
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end shrink-0">
