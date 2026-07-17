@@ -260,11 +260,12 @@ export const handler: Handler = async (event) => {
       const invoices = acc.invoices || []
       invoices.forEach(inv => {
         const items = inv.items as any || {}
+        // Subtotal = invoice line-item total (sub_total), NOT the balance due (amount)
         const amount = parseFloat(items.sub_total) || parseFloat(inv.amount as any) || 0
-        const deadCost = parseFloat((inv.items as any)?.deadCostTotal as any) || 0;
+        const deadCost = parseFloat(items.deadCostTotal) || 0
         
-        // "Dead Profit" is pure amount minus pure dead cost. Displayed on the dashboard.
-        const deadProfit = amount - deadCost;
+        // Dead Profit = sub_total - deadCostTotal (raw profit before VIG)
+        const deadProfit = amount - deadCost
         
         // Actual commission comes from Zoho directly
         const zohoCommission = parseFloat((inv.items as any)?.commission) 
@@ -507,9 +508,11 @@ export const handler: Handler = async (event) => {
       })
 
       monthInvoices.forEach(inv => {
-        const subtotal = parseFloat(inv.amount as any) || 0
-        const deadCost = parseFloat((inv.items as any)?.deadCostTotal as any) || 0;
-        const profit = deadCost > 0 ? (subtotal - deadCost) : (parseFloat((inv.items as any)?.profit as any) || 0)
+        // Subtotal = invoice line-item total (sub_total field), NOT balance due (amount)
+        const subtotal = parseFloat((inv.items as any)?.sub_total as any) || parseFloat(inv.amount as any) || 0
+        const deadCost = parseFloat((inv.items as any)?.deadCostTotal as any) || 0
+        // Dead profit = sub_total - deadCostTotal (raw profit before VIG adjustment)
+        const profit = subtotal - deadCost
         const salespersonName = (inv.items as any)?.salesperson
         let repId = unassignedId
         if (salespersonName) {
