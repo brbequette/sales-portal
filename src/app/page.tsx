@@ -1550,193 +1550,285 @@ export default function Dashboard() {
 
                     const isSelected = selectedAccountIds.includes(account.id)
 
+                    // ── derived contact display values ──
+                    const contactDisplayName = primaryContact
+                      ? `${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim()
+                      : ""
+                    const primaryPhone = cleanPhone
+                    const hasPhone = !!primaryPhone
+
                     return (
-                      <li key={account.id} className={`hover:bg-neutral-800/50 transition-all ${isSelected ? 'bg-emerald-950/10 hover:bg-emerald-950/15 border-l-2 border-emerald-500' : ''}`}>
-                        <div className="flex items-center justify-between px-4 py-3.5 gap-4">
-                          {/* Checkbox */}
-                          <div className="flex items-center shrink-0">
-                            <input 
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {
-                                setSelectedAccountIds(prev => 
-                                  prev.includes(account.id) 
-                                    ? prev.filter(id => id !== account.id) 
-                                    : [...prev, account.id]
-                                )
-                              }}
-                              className="w-4 h-4 rounded border-[var(--border)] text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer"
-                            />
-                          </div>
-                          {/* Left Side: Avatar & Basic Info */}
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <Link href={`/account?id=${account.zohoId}`} className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-300 font-bold text-sm border border-[var(--border)] shrink-0 hover:border-emerald-500 transition-colors">
+                      <li
+                        key={account.id}
+                        className={`group transition-all ${
+                          isSelected
+                            ? "bg-emerald-950/10 border-l-2 border-emerald-500"
+                            : "border-l-2 border-transparent hover:bg-neutral-800/40"
+                        }`}
+                      >
+                        {effort === "call_list" ? (
+                          /* ═══════════════ CALL LIST CARD ═══════════════ */
+                          <div className="flex items-stretch gap-0 px-3 py-2.5">
+
+                            {/* Checkbox */}
+                            <div className="flex items-center pr-3 shrink-0">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() =>
+                                  setSelectedAccountIds(prev =>
+                                    prev.includes(account.id)
+                                      ? prev.filter(id => id !== account.id)
+                                      : [...prev, account.id]
+                                  )
+                                }
+                                className="w-4 h-4 rounded border-neutral-700 text-sky-500 focus:ring-sky-500 bg-neutral-800 cursor-pointer"
+                              />
+                            </div>
+
+                            {/* Avatar */}
+                            <Link
+                              href={`/account?id=${account.zohoId}`}
+                              className="w-9 h-9 rounded-full bg-gradient-to-br from-neutral-700 to-neutral-800 flex items-center justify-center text-white font-bold text-sm border border-neutral-700 shrink-0 hover:border-sky-500 transition-colors self-center mr-3"
+                            >
                               {account.name.charAt(0)}
                             </Link>
-                            <div className="min-w-0">
-                              <Link href={`/account?id=${account.zohoId}`} className="text-sm font-bold text-white truncate block hover:text-emerald-400 transition-colors">{account.name}</Link>
-                              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                <span className="text-[10px] text-neutral-400 bg-neutral-800 px-1.5 py-0.5 rounded border border-[var(--border)]">{account.tags || "General"}</span>
+
+                            {/* Main content block */}
+                            <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+
+                              {/* Row 1: Account name + last called */}
+                              <div className="flex items-baseline justify-between gap-2">
+                                <Link
+                                  href={`/account?id=${account.zohoId}`}
+                                  className="text-sm font-bold text-white hover:text-sky-400 transition-colors truncate"
+                                >
+                                  {account.name}
+                                </Link>
+                                <span className={`text-xs font-bold shrink-0 ${
+                                  account.lastCalledAt ? "text-sky-400" : "text-amber-500"
+                                }`}>
+                                  {formatLastCalled(account.lastCalledAt)}
+                                </span>
+                              </div>
+
+                              {/* Row 2: Contact pill(s) */}
+                              {hasPhone ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] text-neutral-400 font-medium shrink-0">
+                                    {contactDisplayName || "Primary"}
+                                  </span>
+                                  <a
+                                    href={`tel:${primaryPhone}`}
+                                    className="text-[11px] text-sky-400 hover:text-sky-300 font-mono font-bold truncate"
+                                  >
+                                    {primaryContact?.phone || primaryPhone}
+                                  </a>
+                                </div>
+                              ) : top2Contacts.length > 0 ? (
+                                <div className="flex flex-col gap-0.5">
+                                  {top2Contacts.map((c: any, i: number) => {
+                                    const cPhone = (c.phone || c.mobilePhone || "").replace(/[^0-9+]/g, "")
+                                    const cName = `${c.firstName || ""} ${c.lastName || ""}`.trim() || "Contact"
+                                    return (
+                                      <div key={i} className="flex items-center gap-2">
+                                        {i === 0 && (
+                                          <span className="text-[9px] bg-sky-500/10 text-sky-400 border border-sky-500/20 px-1 py-0.5 rounded font-bold shrink-0">PRIMARY</span>
+                                        )}
+                                        <span className="text-[10px] text-neutral-400 font-medium shrink-0 truncate max-w-[80px]">{cName}</span>
+                                        {cPhone ? (
+                                          <a href={`tel:${cPhone}`} className="text-[11px] text-sky-400 hover:text-sky-300 font-mono font-bold truncate">
+                                            {cPhone}
+                                          </a>
+                                        ) : c.email ? (
+                                          <span className="text-[10px] text-neutral-500 italic truncate">{c.email}</span>
+                                        ) : (
+                                          <span className="text-[10px] text-red-400/60 italic">no number</span>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-red-400/70 italic">No contacts on file</span>
+                              )}
+
+                              {/* Row 3: Chips (quality, timezone, owner, activity, LTV) */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <QualityPicker
                                   zohoId={account.zohoId}
                                   accountId={account.id}
                                   currentQuality={account.quality || "NEVER_STATUSED"}
                                   compact
-                                  onUpdated={(newQuality) => {
+                                  onUpdated={(newQuality) =>
                                     setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, quality: newQuality } : a))
-                                  }}
+                                  }
                                 />
                                 <TimezonePicker
                                   zohoId={account.zohoId}
                                   accountId={account.id}
                                   currentTimezone={account.timeZone || ""}
                                   compact
-                                  onUpdated={(newTz) => {
+                                  onUpdated={(newTz) =>
                                     setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, timeZone: newTz } : a))
-                                  }}
+                                  }
                                 />
                                 {account.owner?.name && (
-                                  <span className="text-[10px] text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 flex items-center gap-1">
-                                    <FiUser size={8} />{account.owner.name.split(' ')[0]}
+                                  <span className="text-[9px] text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 flex items-center gap-1 font-semibold">
+                                    <FiUser size={8} />{account.owner.name.split(" ")[0]}
                                   </span>
                                 )}
-                              </div>
-                              {/* Call List: contact sub-rows when no primary phone */}
-                              {effort === "call_list" && !cleanPhone && top2Contacts.length > 0 && (
-                                <div className="mt-1.5 space-y-1">
-                                  {top2Contacts.map((c: any, i: number) => {
-                                    const cPhone = (c.phone || c.mobilePhone || "").replace(/[^0-9+]/g, "")
-                                    const cName = `${c.firstName || ""} ${c.lastName || ""}`.trim() || "Contact"
-                                    return (
-                                      <div key={i} className="flex items-center gap-1.5 text-[10px]">
-                                        <span className="text-neutral-500 shrink-0">#{i + 1}</span>
-                                        <span className="text-neutral-300 font-semibold truncate max-w-[100px]">{cName}</span>
-                                        {cPhone ? (
-                                          <a href={`tel:${cPhone}`} className="text-blue-400 hover:text-blue-300 font-mono font-bold truncate">
-                                            {cPhone}
-                                          </a>
-                                        ) : c.email ? (
-                                          <span className="text-neutral-500 italic truncate max-w-[120px]">{c.email}</span>
-                                        ) : (
-                                          <span className="text-neutral-700 italic">no phone</span>
-                                        )}
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                              {/* Mobile-only compact metadata stack */}
-                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap sm:hidden text-[10px] text-neutral-400 font-medium">
-                                {effort === "call_list" ? (
-                                  <span className="font-bold text-sky-400">{formatLastCalled(account.lastCalledAt)}</span>
-                                ) : (
-                                  <>
-                                    <span className="font-bold text-emerald-400">
-                                      ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)} LTV
-                                    </span>
-                                    {overdueBalance > 0 && (
-                                      <>
-                                        <span className="w-0.5 h-0.5 rounded-full bg-neutral-600"></span>
-                                        <span className="font-bold text-rose-400">
-                                          ${overdueBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })} Overdue
-                                        </span>
-                                      </>
-                                    )}
-                                  </>
-                                )}
-                                <span className="w-0.5 h-0.5 rounded-full bg-neutral-600"></span>
-                                <span className={`font-semibold ${activityColor}`}>{activityLabel}</span>
-                                {account.industry && (
-                                  <>
-                                    <span className="w-0.5 h-0.5 rounded-full bg-neutral-600"></span>
-                                    <span className="truncate max-w-[100px]">{account.industry}</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Middle Side: Sales Metrics & Invoice Counts */}
-                          <div className="hidden sm:flex flex-col text-right shrink-0 min-w-[160px]">
-                            {effort === "call_list" ? (
-                              <>
-                                <p className="text-sm font-bold text-sky-400">
-                                  {formatLastCalled(account.lastCalledAt)}
-                                </p>
-                                <div className="flex items-center justify-end gap-1.5 mt-0.5">
-                                  <span className="text-[10px] text-neutral-500">
-                                    LTV: ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)}
-                                  </span>
-                                </div>
-                                {/* Show top 2 contacts when no ZDialer number */}
-                                {!cleanPhone && top2Contacts.length > 0 && (
-                                  <div className="mt-2 space-y-1 border-t border-neutral-800 pt-1.5">
-                                    {top2Contacts.map((c: any, i: number) => {
-                                      const cPhone = (c.phone || c.mobilePhone || "").replace(/[^0-9+]/g, "")
-                                      const cName = `${c.firstName || ""} ${c.lastName || ""}`.trim() || "Contact"
-                                      return (
-                                        <div key={i} className="text-right">
-                                          <div className="text-[9px] text-neutral-500 truncate">{cName}</div>
-                                          {cPhone ? (
-                                            <a href={`tel:${cPhone}`} className="text-[10px] text-blue-400 hover:text-blue-300 font-mono font-bold block truncate">
-                                              {cPhone}
-                                            </a>
-                                          ) : c.email ? (
-                                            <span className="text-[9px] text-neutral-600 italic block truncate">{c.email}</span>
-                                          ) : (
-                                            <span className="text-[9px] text-neutral-700 italic">no phone</span>
-                                          )}
-                                        </div>
-                                      )
-                                    })}
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                <p className="text-sm font-bold text-emerald-400">
+                                <span className="text-[9px] text-neutral-600">|</span>
+                                <span className={`text-[10px] font-semibold ${activityColor}`}>{activityLabel}</span>
+                                <span className="text-[9px] text-neutral-600">|</span>
+                                <span className="text-[10px] text-emerald-400 font-semibold">
                                   ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)} LTV
-                                </p>
-                                <div className="flex items-center justify-end gap-1.5 mt-0.5">
-                                  <span className="text-[10px] text-neutral-400">Total Sales</span>
-                                </div>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Right Side: Actions */}
-                          <div className="flex items-center gap-3 shrink-0">
-                            <div className="text-right hidden md:block">
-                              <p className={`text-xs font-semibold ${activityColor}`}>{activityLabel}</p>
-                              <p className="text-[10px] text-neutral-500 mt-0.5">{account.industry || "Unknown Industry"}</p>
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              {cleanPhone ? (
-                                <a href={"tel:" + cleanPhone } className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
-                                  <FiPhoneCall size={12} />
+
+                            {/* Right: action buttons */}
+                            <div className="flex items-center gap-1.5 pl-3 shrink-0">
+                              {hasPhone ? (
+                                <a
+                                  href={`tel:${primaryPhone}`}
+                                  className="flex items-center justify-center w-8 h-8 bg-sky-600 hover:bg-sky-500 rounded-full text-white transition-colors"
+                                  title="Call"
+                                >
+                                  <FiPhoneCall size={13} />
                                 </a>
                               ) : (
-                                <button
-                                  className={`p-1.5 rounded-full text-[9px] font-bold transition-colors ${
-                                    effort === "call_list"
-                                      ? "bg-red-900/30 text-red-400 border border-red-800/50 cursor-default"
-                                      : "bg-neutral-800 rounded-full text-neutral-400 opacity-40 cursor-not-allowed"
-                                  }`}
-                                  disabled
-                                  title="No phone number on file"
+                                <div
+                                  className="flex items-center justify-center w-8 h-8 bg-red-900/30 border border-red-700/40 rounded-full cursor-not-allowed"
+                                  title="No phone number"
                                 >
-                                  {effort === "call_list" ? "No #" : <FiPhoneCall size={12} />}
-                                </button>
+                                  <FiPhoneCall size={12} className="text-red-500/60" />
+                                </div>
                               )}
-                              <a href={"sms:" + cleanPhone} className="p-1.5 bg-neutral-800 hover:bg-emerald-600 rounded-full text-neutral-400 hover:text-white transition-colors hidden sm:flex" title="Text Message (SMS)">
-                                <FiMessageSquare size={12} />
-                              </a>
-                              <Link href={`/account?id=${account.zohoId}`} className="p-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-full text-neutral-500 hover:text-white transition-colors">
+                              {hasPhone && (
+                                <a
+                                  href={`sms:${primaryPhone}`}
+                                  className="flex items-center justify-center w-8 h-8 bg-neutral-800 hover:bg-emerald-600 rounded-full text-neutral-400 hover:text-white transition-colors hidden sm:flex"
+                                  title="SMS"
+                                >
+                                  <FiMessageSquare size={12} />
+                                </a>
+                              )}
+                              <Link
+                                href={`/account?id=${account.zohoId}`}
+                                className="flex items-center justify-center w-8 h-8 bg-neutral-800 hover:bg-neutral-700 rounded-full text-neutral-400 hover:text-white transition-colors"
+                              >
                                 <FiChevronRight size={14} />
                               </Link>
                             </div>
                           </div>
-                        </div>
+                        ) : (
+                          /* ═══════════════ SALES LIST CARD ═══════════════ */
+                          <div className="flex items-center justify-between px-4 py-3.5 gap-4">
+                            {/* Checkbox */}
+                            <div className="flex items-center shrink-0">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() =>
+                                  setSelectedAccountIds(prev =>
+                                    prev.includes(account.id)
+                                      ? prev.filter(id => id !== account.id)
+                                      : [...prev, account.id]
+                                  )
+                                }
+                                className="w-4 h-4 rounded border-[var(--border)] text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer"
+                              />
+                            </div>
+                            {/* Avatar + info */}
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <Link href={`/account?id=${account.zohoId}`} className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-300 font-bold text-sm border border-[var(--border)] shrink-0 hover:border-emerald-500 transition-colors">
+                                {account.name.charAt(0)}
+                              </Link>
+                              <div className="min-w-0">
+                                <Link href={`/account?id=${account.zohoId}`} className="text-sm font-bold text-white truncate block hover:text-emerald-400 transition-colors">
+                                  {account.name}
+                                </Link>
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                  <span className="text-[10px] text-neutral-400 bg-neutral-800 px-1.5 py-0.5 rounded border border-[var(--border)]">{account.tags || "General"}</span>
+                                  <QualityPicker
+                                    zohoId={account.zohoId}
+                                    accountId={account.id}
+                                    currentQuality={account.quality || "NEVER_STATUSED"}
+                                    compact
+                                    onUpdated={(newQuality) =>
+                                      setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, quality: newQuality } : a))
+                                    }
+                                  />
+                                  <TimezonePicker
+                                    zohoId={account.zohoId}
+                                    accountId={account.id}
+                                    currentTimezone={account.timeZone || ""}
+                                    compact
+                                    onUpdated={(newTz) =>
+                                      setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, timeZone: newTz } : a))
+                                    }
+                                  />
+                                  {account.owner?.name && (
+                                    <span className="text-[10px] text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20 flex items-center gap-1">
+                                      <FiUser size={8} />{account.owner.name.split(" ")[0]}
+                                    </span>
+                                  )}
+                                </div>
+                                {/* Contact line */}
+                                {contactDisplayName && (
+                                  <div className="flex items-center gap-1.5 mt-1">
+                                    <span className="text-[10px] text-neutral-500 truncate">{contactDisplayName}</span>
+                                    {primaryPhone && (
+                                      <a href={`tel:${primaryPhone}`} className="text-[10px] text-blue-400/70 font-mono truncate hover:text-blue-300">
+                                        {primaryContact?.phone || primaryPhone}
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+                                {/* Mobile meta */}
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap sm:hidden text-[10px] text-neutral-400 font-medium">
+                                  <span className="font-bold text-emerald-400">
+                                    ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)} LTV
+                                  </span>
+                                  <span className="w-0.5 h-0.5 rounded-full bg-neutral-600"></span>
+                                  <span className={`font-semibold ${activityColor}`}>{activityLabel}</span>
+                                </div>
+                              </div>
+                            </div>
+                            {/* Middle: LTV */}
+                            <div className="hidden sm:flex flex-col text-right shrink-0 min-w-[110px]">
+                              <p className="text-sm font-bold text-emerald-400">
+                                ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)}
+                              </p>
+                              <p className="text-[10px] text-neutral-500 mt-0.5">Total Sales</p>
+                            </div>
+                            {/* Right: activity + actions */}
+                            <div className="flex items-center gap-3 shrink-0">
+                              <div className="text-right hidden md:block">
+                                <p className={`text-xs font-semibold ${activityColor}`}>{activityLabel}</p>
+                                <p className="text-[10px] text-neutral-500 mt-0.5">{account.industry || "Unknown Industry"}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                {primaryPhone ? (
+                                  <a href={`tel:${primaryPhone}`} className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
+                                    <FiPhoneCall size={12} />
+                                  </a>
+                                ) : (
+                                  <button className="p-1.5 bg-neutral-800 rounded-full text-neutral-400 opacity-30 cursor-not-allowed" disabled>
+                                    <FiPhoneCall size={12} />
+                                  </button>
+                                )}
+                                <a href={`sms:${primaryPhone}`} className="p-1.5 bg-neutral-800 hover:bg-emerald-600 rounded-full text-neutral-400 hover:text-white transition-colors hidden sm:flex" title="SMS">
+                                  <FiMessageSquare size={12} />
+                                </a>
+                                <Link href={`/account?id=${account.zohoId}`} className="p-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-full text-neutral-500 hover:text-white transition-colors">
+                                  <FiChevronRight size={14} />
+                                </Link>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </li>
                     )
                   })}
