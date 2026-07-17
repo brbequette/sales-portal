@@ -873,6 +873,7 @@ export default function TasksPage() {
   const [showFilter,     setShowFilter]     = useState(false)
   const [showSearch,     setShowSearch]     = useState(false)
   const [filters, setFilters] = useState({ status: "open", type: "all", priority: "all", sort: "dueDate" })
+  const [showCompleted, setShowCompleted] = useState(false)
 
   // ── Load tasks ─────────────────────────────────────────────────────────────
   const loadTasks = useCallback(async (forceRefresh = false) => {
@@ -928,7 +929,7 @@ export default function TasksPage() {
     if (category !== "all") list = list.filter(t => classifyTask(t) === category)
 
     // Status
-    if (filters.status === "open")      list = list.filter(t => t.status !== "Completed")
+    if (filters.status === "open")      list = list.filter(t => showCompleted || t.status !== "Completed")
     if (filters.status === "completed") list = list.filter(t => t.status === "Completed")
     if (filters.status === "overdue")   list = list.filter(t => isOverdue(t))
 
@@ -962,7 +963,7 @@ export default function TasksPage() {
       if (!b.dueDate) return -1
       return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
     })
-  }, [tasks, category, filters, searchQuery])
+  }, [tasks, category, filters, searchQuery, showCompleted])
 
   // ── Group by category ──────────────────────────────────────────────────────
   const groups = useMemo(() => ({
@@ -1074,7 +1075,28 @@ export default function TasksPage() {
           >
             <FiCalendar size={14} /> Calendar
           </button>
-          <span className="ml-auto text-xs text-neutral-600 self-center">{filteredTasks.length} task{filteredTasks.length !== 1 ? "s" : ""}</span>
+          {/* Show Completed toggle */}
+          <button
+            onClick={() => setShowCompleted(v => !v)}
+            className={`ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold border transition-all ${
+              showCompleted
+                ? "bg-emerald-600/20 text-emerald-400 border-emerald-500/40"
+                : "bg-white/3 text-neutral-500 border-white/8 hover:text-neutral-300"
+            }`}
+          >
+            <FiCheck size={13} />
+            <span className="hidden sm:inline">{showCompleted ? "Hide" : "Show"} Completed</span>
+            <span className="sm:hidden">Done</span>
+          </button>
+        </div>
+        {/* Task count */}
+        <div className="flex items-center mb-1">
+          <span className="text-xs text-neutral-600">{filteredTasks.length} task{filteredTasks.length !== 1 ? "s" : ""}</span>
+          {showCompleted && (
+            <span className="ml-2 text-xs text-emerald-500/70">
+              · {filteredTasks.filter(t => t.status === "Completed").length} completed
+            </span>
+          )}
         </div>
       </div>
 
