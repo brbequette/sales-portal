@@ -1135,7 +1135,7 @@ export default function TasksPage() {
                         <span className={`text-xs font-black uppercase tracking-wider ${cfg.text}`}>{catLabels[cat]}</span>
                         <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full border ${cfg.border} ${cfg.text} opacity-70`}>{catTasks.length}</span>
                       </div>
-                      <div className="px-3 py-2 space-y-2">
+                      <div className="px-3 py-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 items-start">
                         {catTasks.map(task => (
                           <TaskCard
                             key={task.id}
@@ -1152,7 +1152,7 @@ export default function TasksPage() {
               </div>
             ) : (
               /* Single category */
-              <div className="px-3 py-3 space-y-2">
+              <div className="px-3 py-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 items-start">
                 {filteredTasks.map(task => (
                   <TaskCard
                     key={task.id}
