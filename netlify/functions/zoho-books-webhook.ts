@@ -1,5 +1,6 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient } from "@prisma/client"
+import { getStore } from "@netlify/blobs"
 
 const prisma = new PrismaClient()
 
@@ -107,6 +108,16 @@ export const handler: Handler = async (event) => {
     }
 
     console.log(`✅ Webhook: Updated ${type} ${booksId} in local DB (status: ${status}, ${(updatedItems.line_items || []).length} line items)`)
+
+    // Invalidate cached PDF so next view gets a fresh copy from Zoho
+    try {
+      const store = getStore({ name: "invoice-pdfs", consistency: "strong" })
+      const t = type === 'SalesOrder' ? 'so' : type === 'Quote' ? 'qte' : 'inv'
+      await store.delete(`pdf/${t}/${booksId}`)
+      console.log(`🗑️  Invalidated stale PDF cache for ${type} ${booksId}`)
+    } catch (_) {
+      // Non-fatal — blob store may be unavailable during local dev
+    }
 
     return {
       statusCode: 200,
