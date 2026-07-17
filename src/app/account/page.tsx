@@ -96,10 +96,10 @@ function AccountLeftRail({
   ]
 
   return (
-    <aside className="w-60 xl:w-64 shrink-0 flex flex-col bg-neutral-900/60 border-r border-neutral-800 overflow-y-auto scrollbar-thin">
+    <aside className="w-56 xl:w-60 shrink-0 flex flex-col bg-neutral-900/60 border-r border-neutral-800 overflow-y-auto scrollbar-thin">
 
       {/* Primary Contact */}
-      <div className="p-4 border-b border-neutral-800">
+      <div className="p-3 border-b border-neutral-800">
         <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mb-2">Primary Contact</div>
         {contactName
           ? <div className="font-bold text-white text-sm mb-1 truncate">{contactName}</div>
@@ -135,8 +135,7 @@ function AccountLeftRail({
       {overdueTotal > 0 && (
         <button
           onClick={() => onTabSwitch("overview")}
-          className="mx-4 mt-4 flex items-center gap-2 bg-red-900/30 border border-red-500/40 rounded-lg px-3 py-2 text-left hover:bg-red-900/50 transition-colors"
-          style={{ width: "calc(100% - 2rem)" }}
+          className="mx-3 mt-3 flex items-center gap-2 bg-red-900/30 border border-red-500/40 rounded-lg px-3 py-2 text-left hover:bg-red-900/50 transition-colors w-[calc(100%-1.5rem)]"
         >
           <FiAlertTriangle className="text-red-400 shrink-0" size={13} />
           <div>
@@ -149,7 +148,7 @@ function AccountLeftRail({
       )}
 
       {/* Blade Profile */}
-      <div className="p-4 border-b border-neutral-800">
+      <div className="p-3 border-b border-neutral-800">
         <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mb-2">Blade Profile</div>
         <div className="space-y-1.5">
           {bladeRows.map(({ label, value }) => (
@@ -165,7 +164,7 @@ function AccountLeftRail({
 
       {/* Top Products */}
       {account.topProducts && account.topProducts.length > 0 && (
-        <div className="p-4 border-b border-neutral-800">
+        <div className="p-3 border-b border-neutral-800">
           <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mb-2">Top Products</div>
           <div className="space-y-2">
             {account.topProducts.slice(0, 3).map((p: any, i: number) => (
@@ -203,17 +202,17 @@ function AccountLeftRail({
 
       {/* Notes */}
       {notes && (
-        <div className="p-4 border-b border-neutral-800">
+        <div className="p-3 border-b border-neutral-800">
           <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mb-1.5">Notes</div>
           <p className="text-[10px] text-neutral-400 leading-relaxed line-clamp-4 italic">{notes}</p>
         </div>
       )}
 
       {/* Quick Sale CTA */}
-      <div className="p-4 mt-auto">
+      <div className="p-3 mt-auto">
         <button
           onClick={() => onTabSwitch("quicksale")}
-          className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-colors"
         >
           <FiShoppingCart size={12} /> Quick Sale
         </button>
@@ -237,17 +236,17 @@ function AccordionSection({
     <div className="border border-neutral-800 rounded-xl overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3 py-2.5 bg-neutral-900 hover:bg-neutral-800/80 transition-colors text-left"
+        className="w-full flex items-center justify-between px-3 py-2 bg-neutral-900 hover:bg-neutral-800/80 transition-colors text-left"
       >
         <div className="flex items-center gap-2">
           <span className="text-neutral-400">{icon}</span>
-          <span className="text-xs font-bold text-white uppercase tracking-wider">{title}</span>
+          <span className="text-[10px] font-bold text-white uppercase tracking-widest">{title}</span>
           {badge !== undefined && badge !== null && String(badge) !== "0" && (
             <span className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-bold">{badge}</span>
           )}
         </div>
         <span className="text-neutral-500">
-          {open ? <FiChevronUp size={13} /> : <FiChevronDown size={13} />}
+          {open ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />}
         </span>
       </button>
       {open && <div className="bg-neutral-900/40 border-t border-neutral-800">{children}</div>}
@@ -292,7 +291,7 @@ function OverviewPanel({
   )
 
   return (
-    <div className="flex flex-col gap-2 p-3">
+    <div className="flex flex-col gap-2 p-2">
 
       {/* KPI Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
