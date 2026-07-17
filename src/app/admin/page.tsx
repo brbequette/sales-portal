@@ -40,6 +40,7 @@ const sections = [
     cards: [
       { title: "Zoho Books Scripts", desc: "Run batch operations: tariff updates, draft processing, and maintenance.", href: "/admin/books-scripts", icon: FiDatabase, color: "text-amber-400", bg: "bg-amber-500/10" },
       { title: "System Settings", desc: "Configure Push Notifications, API settings, and AI prompts.", href: "/admin/settings", icon: FiSettings, color: "text-neutral-400", bg: "bg-neutral-500/10" },
+      { title: "Data Backfill", desc: "Populate line items for all invoices, SOs, and quotes from Zoho Books.", href: "/admin/backfill", icon: FiDatabase, color: "text-sky-400", bg: "bg-sky-500/10" },
     ]
   }
 ]
