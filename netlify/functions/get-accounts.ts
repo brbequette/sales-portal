@@ -1095,6 +1095,17 @@ export const handler: Handler = async (event, context) => {
       // If CRM didn't provide lastPurchaseAt but we have paid invoices, derive it
       const effectiveLastPurchaseAt = acc.lastPurchaseAt || latestPaidInvoiceDate;
 
+      // Collect unique product names from cached line_items for product buyer search
+      const purchasedProductNamesSet = new Set<string>()
+      for (const inv of invoices) {
+        const lineItems: any[] = (inv.items as any)?.line_items || []
+        for (const li of lineItems) {
+          const name = (li.name || li.item_name || li.description || '').trim()
+          if (name) purchasedProductNamesSet.add(name.toLowerCase())
+        }
+      }
+      const purchasedProductNames = Array.from(purchasedProductNamesSet)
+
       const primaryContact = acc.contacts?.find((c: any) => c.isPrimary) || acc.contacts?.[0] || null;
       return {
         id: acc.id,
@@ -1116,6 +1127,7 @@ export const handler: Handler = async (event, context) => {
         unpaidBalance,
         unpaidCount,
         unpaidInvoiceSummary,
+        purchasedProductNames,
         contacts: primaryContact ? [primaryContact] : [],
         ...(wantDocs ? {
           invoices: acc.invoices || [],

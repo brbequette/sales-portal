@@ -18,7 +18,7 @@ import { TimezonePicker } from "@/components/TimezonePicker"
 import { Pagination, usePagination } from "@/components/Pagination"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { SalesBoard } from "@/components/SalesBoard"
-import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand, FiTarget } from "react-icons/fi"
+import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand, FiTarget, FiBox } from "react-icons/fi"
 
 function formatLastCalled(dateStr: string | null) {
   if (!dateStr) return "Never called"
@@ -50,7 +50,7 @@ export default function Dashboard() {
   const [ownerFilter, setOwnerFilter] = useState("All")
   const [timezoneFilter, setTimezoneFilter] = useState("All")
   const [yearFilter, setYearFilter] = useState("All")
-  const [sortBy, setSortBy] = useState<"default" | "timezone_asc" | "timezone_desc" | "recentOrders_desc" | "recentOrders_asc">("default")
+  const [sortBy, setSortBy] = useState<"default" | "timezone_asc" | "timezone_desc" | "recentOrders_desc" | "recentOrders_asc" | "ltv_desc" | "ltv_asc">("default")
   const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [showDoNotCall, setShowDoNotCall] = useState(false)
   const [ltvMin, setLtvMin] = useState("")
@@ -58,6 +58,7 @@ export default function Dashboard() {
   const [qualityFilter, setQualityFilter] = useState("All")
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
   const [missingInfoFilter, setMissingInfoFilter] = useState<{ noPhone: boolean; noEmail: boolean; noContacts: boolean }>({ noPhone: false, noEmail: false, noContacts: false })
+  const [productSearch, setProductSearch] = useState("")
   const [repsList, setRepsList] = useState<any[]>([])
   const [accountsPage, setAccountsPage] = useState(1)
   const [accountsHasMore, setAccountsHasMore] = useState(false)
@@ -164,7 +165,7 @@ export default function Dashboard() {
       qualityFilter, yearFilter, statusFilter, industryFilter,
       onlyWithSales, showDoNotCall, taskFilterTab, taskTypeFilter
     })
-  }, [ownerFilter, sortBy, searchQuery, timezoneFilter, qualityFilter, yearFilter, statusFilter, industryFilter, onlyWithSales, showDoNotCall, taskFilterTab, taskTypeFilter, prefsLoaded])
+  }, [ownerFilter, sortBy, searchQuery, timezoneFilter, qualityFilter, yearFilter, statusFilter, industryFilter, onlyWithSales, showDoNotCall, taskFilterTab, taskTypeFilter, productSearch, prefsLoaded])
 
   // --- Task Reminder Polling: Check every 60s ---
   useEffect(() => {
@@ -924,6 +925,10 @@ export default function Dashboard() {
       const diff = getLatestDate(b) - getLatestDate(a)
       return sortBy === "recentOrders_desc" ? diff : -diff
     })
+  } else if (sortBy === "ltv_desc") {
+    effortAccounts = [...effortAccounts].sort((a, b) => (b.totalSales || 0) - (a.totalSales || 0))
+  } else if (sortBy === "ltv_asc") {
+    effortAccounts = [...effortAccounts].sort((a, b) => (a.totalSales || 0) - (b.totalSales || 0))
   }
 
   const effortTasks = tasks
@@ -965,7 +970,10 @@ export default function Dashboard() {
       (!missingInfoFilter.noContacts || (a.contacts || []).length === 0)
     )
 
-    return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesQuality && matchesYear && matchesSalesFilter && matchesLtvMin && matchesLtvMax && matchesMissingInfo
+    const matchesProduct = !productSearch.trim() ||
+      (a.purchasedProductNames || []).some((p: string) => p.includes(productSearch.trim().toLowerCase()))
+
+    return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesQuality && matchesYear && matchesSalesFilter && matchesLtvMin && matchesLtvMax && matchesMissingInfo && matchesProduct
   })
 
   const filteredTasksList = tasks.filter(task => {
@@ -1011,7 +1019,7 @@ export default function Dashboard() {
   ]
 
   const accentColor = effort === "sales" ? "emerald" : effort === "cold_call" ? "indigo" : "sky"
-  const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (timezoneFilter !== "All" ? 1 : 0) + (qualityFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0) + (ltvMin ? 1 : 0) + (ltvMax ? 1 : 0) + (missingInfoFilter.noPhone ? 1 : 0) + (missingInfoFilter.noEmail ? 1 : 0) + (missingInfoFilter.noContacts ? 1 : 0)
+  const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (timezoneFilter !== "All" ? 1 : 0) + (qualityFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0) + (ltvMin ? 1 : 0) + (ltvMax ? 1 : 0) + (missingInfoFilter.noPhone ? 1 : 0) + (missingInfoFilter.noEmail ? 1 : 0) + (missingInfoFilter.noContacts ? 1 : 0) + (productSearch ? 1 : 0)
 
   if (!isInitialized || loading) {
     return (
@@ -1352,6 +1360,8 @@ export default function Dashboard() {
                     <option value="timezone_desc">Time Zone (Z-A)</option>
                     <option value="recentOrders_desc">Orders (Newest)</option>
                     <option value="recentOrders_asc">Orders (Oldest)</option>
+                    <option value="ltv_desc">LTV (High → Low)</option>
+                    <option value="ltv_asc">LTV (Low → High)</option>
                   </select>
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                     <svg className="w-3 h-3 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1420,6 +1430,12 @@ export default function Dashboard() {
                   <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-neutral-800 border border-[var(--border)] text-xs text-neutral-300">
                     Has Purchases
                     <button onClick={() => setOnlyWithSales(false)} className="text-neutral-500 hover:text-white"><FiX size={12} /></button>
+                  </span>
+                )}
+                {productSearch && (
+                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-900/30 border border-amber-700/40 text-xs text-amber-300">
+                    <FiBox size={11} /> Bought: {productSearch}
+                    <button onClick={() => setProductSearch("")} className="text-amber-500 hover:text-white"><FiX size={12} /></button>
                   </span>
                 )}
                 <button 
@@ -1493,6 +1509,25 @@ export default function Dashboard() {
                         {searchQuery && (
                           <button 
                             onClick={() => setSearchQuery("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                          >
+                            <FiX size={12} />
+                          </button>
+                        )}
+                      </div>
+                      {/* Product buyer search */}
+                      <div className="relative flex-1 max-w-[200px]">
+                        <FiBox className="absolute left-2.5 top-1/2 -translate-y-1/2 text-amber-500/70" size={13} />
+                        <input
+                          type="text"
+                          placeholder="Filter by product..."
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          className="w-full bg-neutral-800/80 border border-[var(--border)] rounded-md pl-8 pr-8 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors"
+                        />
+                        {productSearch && (
+                          <button
+                            onClick={() => setProductSearch("")}
                             className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
                           >
                             <FiX size={12} />

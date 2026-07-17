@@ -8,7 +8,7 @@ interface UserPreferences {
   // Dashboard filter persistence
   effort?: "sales" | "call_list" | "cold_call" | "dashboard"
   ownerFilter?: string
-  sortBy?: "default" | "timezone_asc" | "timezone_desc" | "recentOrders_desc" | "recentOrders_asc"
+  sortBy?: "default" | "timezone_asc" | "timezone_desc" | "recentOrders_desc" | "recentOrders_asc" | "ltv_desc" | "ltv_asc"
   searchQuery?: string
   timezoneFilter?: string
   qualityFilter?: string
