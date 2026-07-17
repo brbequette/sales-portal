@@ -840,6 +840,13 @@ The **Sales Outreach Campaign** has been redesigned as a **full-screen 3-panel d
 ### Phone Numbers & ZDialer
 Phone numbers are displayed as plain text (not tel: links) so Zoho ZDialer can detect and handle click-to-call. The "Call" button copies the number to clipboard for ZDialer use.
 
+### Call List: Contact Fallback for Accounts with No Primary Phone
+When the **Call List** mode is active and an account row has no phone number tied to it (no ZDialer link can be generated), the top 2 contacts associated with that account are displayed inline within the row so reps can still act on the lead:
+- **Left side (under account name):** A compact contact sub-list appears with each contact's name and phone number (clickable tel: link) or email as a fallback.
+- **Middle column (desktop):** The same contacts appear right-aligned below the "Last Called" and LTV stats, separated by a subtle border.
+- **Phone action button:** Instead of a dimmed/disabled phone icon, a red "No #" badge is shown in call list mode so the rep instantly knows the number is missing.
+- Contact phones resolve in order: contact.phone, then contact.mobilePhone, then email as a text fallback.
+
 ### Sales Close Script
 After the blade pitch recommendations, the campaign dialer includes a **Move to Close** section with 4 scripted steps:
 1. **Verify Shipping Address** — reads back the customer's address on file (auto-populated from Zoho Books)

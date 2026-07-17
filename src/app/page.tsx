@@ -1527,6 +1527,10 @@ export default function Dashboard() {
 
                     const primaryContact = account.contacts?.find((c: any) => c.isPrimary) || account.contacts?.[0]
                     const cleanPhone = primaryContact?.phone ? primaryContact.phone.replace(/[^0-9+]/g, '') : ''
+                    // Top 2 contacts for call list fallback — primary always first
+                    const top2Contacts = [...(account.contacts || [])]
+                      .sort((a: any, b: any) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0))
+                      .slice(0, 2)
 
                     const daysSinceLastPurchase = account.lastPurchaseAt
                       ? Math.floor((Date.now() - new Date(account.lastPurchaseAt).getTime()) / 86400000)
@@ -1597,6 +1601,30 @@ export default function Dashboard() {
                                   </span>
                                 )}
                               </div>
+                              {/* Call List: contact sub-rows when no primary phone */}
+                              {effort === "call_list" && !cleanPhone && top2Contacts.length > 0 && (
+                                <div className="mt-1.5 space-y-1">
+                                  {top2Contacts.map((c: any, i: number) => {
+                                    const cPhone = (c.phone || c.mobilePhone || "").replace(/[^0-9+]/g, "")
+                                    const cName = `${c.firstName || ""} ${c.lastName || ""}`.trim() || "Contact"
+                                    return (
+                                      <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                                        <span className="text-neutral-500 shrink-0">#{i + 1}</span>
+                                        <span className="text-neutral-300 font-semibold truncate max-w-[100px]">{cName}</span>
+                                        {cPhone ? (
+                                          <a href={`tel:${cPhone}`} className="text-blue-400 hover:text-blue-300 font-mono font-bold truncate">
+                                            {cPhone}
+                                          </a>
+                                        ) : c.email ? (
+                                          <span className="text-neutral-500 italic truncate max-w-[120px]">{c.email}</span>
+                                        ) : (
+                                          <span className="text-neutral-700 italic">no phone</span>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
                               {/* Mobile-only compact metadata stack */}
                               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap sm:hidden text-[10px] text-neutral-400 font-medium">
                                 {effort === "call_list" ? (
@@ -1629,7 +1657,7 @@ export default function Dashboard() {
                           </div>
 
                           {/* Middle Side: Sales Metrics & Invoice Counts */}
-                          <div className="hidden sm:flex flex-col text-right shrink-0 min-w-[140px]">
+                          <div className="hidden sm:flex flex-col text-right shrink-0 min-w-[160px]">
                             {effort === "call_list" ? (
                               <>
                                 <p className="text-sm font-bold text-sky-400">
@@ -1640,6 +1668,29 @@ export default function Dashboard() {
                                     LTV: ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)}
                                   </span>
                                 </div>
+                                {/* Show top 2 contacts when no ZDialer number */}
+                                {!cleanPhone && top2Contacts.length > 0 && (
+                                  <div className="mt-2 space-y-1 border-t border-neutral-800 pt-1.5">
+                                    {top2Contacts.map((c: any, i: number) => {
+                                      const cPhone = (c.phone || c.mobilePhone || "").replace(/[^0-9+]/g, "")
+                                      const cName = `${c.firstName || ""} ${c.lastName || ""}`.trim() || "Contact"
+                                      return (
+                                        <div key={i} className="text-right">
+                                          <div className="text-[9px] text-neutral-500 truncate">{cName}</div>
+                                          {cPhone ? (
+                                            <a href={`tel:${cPhone}`} className="text-[10px] text-blue-400 hover:text-blue-300 font-mono font-bold block truncate">
+                                              {cPhone}
+                                            </a>
+                                          ) : c.email ? (
+                                            <span className="text-[9px] text-neutral-600 italic block truncate">{c.email}</span>
+                                          ) : (
+                                            <span className="text-[9px] text-neutral-700 italic">no phone</span>
+                                          )}
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                )}
                               </>
                             ) : (
                               <>
@@ -1665,8 +1716,16 @@ export default function Dashboard() {
                                   <FiPhoneCall size={12} />
                                 </a>
                               ) : (
-                                <button className="p-1.5 bg-neutral-800 rounded-full text-neutral-400 opacity-40 cursor-not-allowed" disabled>
-                                  <FiPhoneCall size={12} />
+                                <button
+                                  className={`p-1.5 rounded-full text-[9px] font-bold transition-colors ${
+                                    effort === "call_list"
+                                      ? "bg-red-900/30 text-red-400 border border-red-800/50 cursor-default"
+                                      : "bg-neutral-800 rounded-full text-neutral-400 opacity-40 cursor-not-allowed"
+                                  }`}
+                                  disabled
+                                  title="No phone number on file"
+                                >
+                                  {effort === "call_list" ? "No #" : <FiPhoneCall size={12} />}
                                 </button>
                               )}
                               <a href={"sms:" + cleanPhone} className="p-1.5 bg-neutral-800 hover:bg-emerald-600 rounded-full text-neutral-400 hover:text-white transition-colors hidden sm:flex" title="Text Message (SMS)">
