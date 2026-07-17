@@ -12,8 +12,7 @@ import {
 } from "react-icons/fi"
 import { useZoho } from "@/components/ZohoProvider"
 import { AccountHistory } from "@/components/AccountHistory"
-import { SalesAssistant } from "@/components/SalesAssistant"
-import { CommunicationCenter } from "@/components/CommunicationCenter"
+import { AccountDialer } from "@/components/AccountDialer"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { DocumentFlipbook } from "@/components/DocumentFlipbook"
 import { AccountAnalytics } from "@/components/AccountAnalytics"
@@ -536,7 +535,6 @@ function AccountHubContent() {
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)
   const [viewingSalesDoc, setViewingSalesDoc] = useState<{ type: "SalesOrder" | "Quote"; doc: any } | null>(null)
   const [historyViewMode, setHistoryViewMode] = useState<"data" | "pdf">("data")
-  const [aiViewMode, setAiViewMode] = useState<"assistant" | "comms">("comms")
   const [isEditingAccount, setIsEditingAccount] = useState(false)
   const [reorderCart, setReorderCart] = useState<InlineCartItem[]>([])
   const [leftRailOpen, setLeftRailOpen] = useState(true)
@@ -558,7 +556,7 @@ function AccountHubContent() {
   }
 
   useEffect(() => {
-    const handleInAppComm = () => { setActiveTab("comms"); setAiViewMode("comms") }
+    const handleInAppComm = () => { setActiveTab("comms") }
     window.addEventListener("inAppDial", handleInAppComm)
     window.addEventListener("inAppSms", handleInAppComm)
     return () => {
@@ -769,33 +767,11 @@ function AccountHubContent() {
           {/* COMM CENTER */}
           {activeTab === "comms" && (
             <div className="flex-1 min-h-0 flex flex-col">
-              {/* Sub-mode toggle */}
-              <div className="flex-none flex items-center justify-end px-4 py-2 bg-neutral-900/60 border-b border-neutral-800">
-                <div className="flex bg-neutral-950 p-0.5 rounded-lg border border-neutral-800">
-                  <button
-                    onClick={() => setAiViewMode("comms")}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      aiViewMode === "comms" ? "bg-emerald-500 text-white" : "text-neutral-400 hover:text-neutral-200"
-                    }`}
-                  >
-                    <FiPhone size={11} /> Comm Center
-                  </button>
-                  <button
-                    onClick={() => setAiViewMode("assistant")}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      aiViewMode === "assistant" ? "bg-emerald-500 text-white" : "text-neutral-400 hover:text-neutral-200"
-                    }`}
-                  >
-                    <FiZap size={11} /> AI Copilot
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0 flex flex-col">
-                {aiViewMode === "assistant"
-                  ? <SalesAssistant accountId={id} accountData={{ ...account, invoices, daysSinceLastPurchase, totalRevenue }} />
-                  : <CommunicationCenter accountId={id} account={{ ...account, invoices }} contacts={account.contacts} />
-                }
-              </div>
+              <AccountDialer
+                accountId={id}
+                account={account}
+                contacts={account.contacts || []}
+              />
             </div>
           )}
 

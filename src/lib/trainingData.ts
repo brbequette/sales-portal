@@ -327,23 +327,35 @@ Use the collection call log to record promises to pay and schedule the next touc
     title: "Account Profiles & History",
     category: "Collections & Customers",
     content: `
-Every customer has a single profile that ties everything together.
+Every customer has a single profile that ties everything together. When you open an account, you land on **three tabs** at the top:
+
+| Tab | What it does |
+|-----|-------------|
+| **Overview** | All account data in one place — collapsible accordion sections for Contact & Addresses, Business Profile, All Contacts, Analytics, Recent Invoices, Deals, Transaction History, Products Purchased, and Tasks. Open only the sections you need. |
+| **Comm Center** | The full Titan Dialer — same layout as the Call Campaign screen. Shows a sticky HUD with the contact's name, phone, email, and stats. Includes the outreach script, fact-finding questions, blade pitch recommendations, order builder, and an Intel sidebar showing purchase history, notes, and invoices. Log calls with outcome, spoke-to, follow-up date, and notes inline. |
+| **Quick Sale** | Full point-of-sale to place orders directly from the account page. |
 
 ### What's on an account
-- **Billing & Shipping Addresses** — always visible at the top of the Overview tab, stored locally so they load instantly.
-- **Company Profile** — phone, website, industry, and tags.
-- **Business Profile** — always visible on the account page showing blade sizes, materials cut, current supplier, average blade cost, crew count, blades per order, and improvement priority. Fields show "Not recorded" when empty. Edit via the Edit Account modal which has multi-select pill toggles for each fact-finding field.
-- **Contacts** with phone numbers used for calling and texting.
-- **Purchase history** and products purchased.
-- **Deals/quotes** and invoice history.
-- **Notes, calls, and messages** in one timeline.
-- **Analytics** summarizing the relationship.
+- **Left rail** — always visible: Primary Contact (call/SMS buttons), overdue alert, Blade Profile, Top Products with quick reorder, and Notes.
+- **Overview accordion** — expand any section: Billing/Shipping Addresses, Primary Contact details, Business Profile, All Contacts & Notes, Analytics charts, Recent Invoices (last 5), Deals, full Transaction History (Data or Flipbook view), Products Purchased, and Tasks.
+- **Business Profile** — blade sizes, materials cut, current supplier, average blade cost, crew count, blades per order, improvement priority. Edit via the Edit Account modal.
+- **Contacts** with phone numbers and email used for calling, texting, and emailing.
+
+### Comm Center (Titan Dialer)
+The Comm Center tab is a full dialer experience for the account:
+1. **Sticky HUD** shows the primary contact's name, phone (click to copy for ZDialer), email, city/state, LTV, units bought, and overdue balance.
+2. **Script toggle** — Cold Call script (7 discovery questions) or Follow-Up script (personalized with purchase history).
+3. **Fact-Finding** — capture blade sizes, materials cut, supplier, crew count, blades/order, improvement priority inline.
+4. **Pitch Recommendations** — Good/Better/Best blade suggestions based on what the customer cuts.
+5. **Order Builder** — search catalog and build an order with paid/free qty and cost analysis.
+6. **Intel sidebar** — purchases, notes, and invoices tabs for full account context during the call.
+7. **Inline log bar** — Reached toggle, Spoke With, Outcome dropdown, Follow-up date, Notes, and **Log Call** button all on one row.
 
 ### Keeping data clean
-- Mark the **primary contact** so calls and texts use the right number.
-- Set the account **timezone** for considerate call timing.
-- Keep **status** and **quality** current so dashboards and reassignment work correctly.
-- Update the **business profile** fields when you learn about a customer's equipment and needs — use the Edit Account modal's pill selectors under the "📋 Fact-Finding" section.
+- Mark the **primary contact** so the left rail and Comm Center use the right number first.
+- Set the account **timezone** so the local time shows in the header.
+- Keep **status** and **quality** current so dashboards and call lists work correctly.
+- Update **business profile** fields from the fact-finding section of the Comm Center or the Edit Account modal.
 
 ### Customer location in Collections
 The Collections page shows each customer's **city and state** below their name for quick location reference.
