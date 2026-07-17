@@ -158,50 +158,103 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
 
       <button
         onClick={onTap}
-        className="w-full text-left px-4 py-4 pl-5"
+        className="w-full text-left px-4 py-3.5 pl-5"
         style={{ WebkitTapHighlightColor: "transparent" }}
       >
-        {/* Top row: type + priority + due */}
-        <div className="flex items-center gap-2 mb-2.5">
-          <span className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full border ${cfg.border} ${cfg.bg} ${cfg.text}`}>
+        {/* Top row: type badge + priority + overdue + due date/time */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full border ${cfg.border} ${cfg.bg} ${cfg.text} shrink-0`}>
             {TYPE_ICON[task.type] || TYPE_ICON.Task}
             {task.type}
           </span>
           <PriorityIcon priority={task.priority} />
           {overdue && !completed && (
-            <span className="flex items-center gap-1 text-[10px] font-black text-red-400 bg-red-500/10 border border-red-500/30 px-2 py-0.5 rounded-full">
+            <span className="flex items-center gap-1 text-[10px] font-black text-red-400 bg-red-500/10 border border-red-500/30 px-2 py-0.5 rounded-full shrink-0">
               <FiAlertCircle size={9} /> OVERDUE
             </span>
           )}
           {task.dueDate && (
-            <span className={`ml-auto text-xs font-medium shrink-0 ${overdue && !completed ? "text-red-400" : "text-neutral-500"}`}>
-              {fmtDate(task.dueDate)}
+            <span className={`ml-auto text-[11px] font-semibold shrink-0 ${overdue && !completed ? "text-red-400" : "text-neutral-500"}`}>
+              <FiClock size={9} className="inline mr-0.5 -mt-0.5" />
+              {fmtDate(task.dueDate)}{fmtTime(task.dueDate) ? ` · ${fmtTime(task.dueDate)}` : ""}
             </span>
           )}
         </div>
 
-        {/* Title — large, readable */}
-        <p className={`text-base font-bold leading-tight mb-1.5 ${completed ? "line-through text-neutral-500" : "text-white"}`}>
+        {/* Title */}
+        <p className={`text-[15px] font-bold leading-snug mb-1 ${completed ? "line-through text-neutral-500" : "text-white"}`}>
           {task.title}
         </p>
 
-        {/* Account / deal chip */}
-        {(task.accountName || task.dealName) && (
-          <p className="text-xs text-sky-400 flex items-center gap-1 mb-1">
+        {/* Description preview — plain notes only, no outcome timestamps */}
+        {task.description && (() => {
+          const plain = task.description.split("\n").filter((l: string) => !/^\[.+\]/.test(l.trim())).join(" ").trim()
+          return plain ? (
+            <p className="text-xs text-neutral-500 leading-relaxed line-clamp-2 mb-1.5 mt-0.5">
+              {plain}
+            </p>
+          ) : null
+        })()}
+
+        {/* Account chip */}
+        {task.accountName && (
+          <p className="text-xs text-sky-400 flex items-center gap-1 mt-1.5">
             <FiUser size={10} className="shrink-0" />
-            {task.accountName || task.dealName}
+            {task.accountName}
           </p>
         )}
 
-        {/* Status chip + owner */}
-        <div className="flex items-center gap-2 mt-2">
+        {/* Deal chip — separate from account */}
+        {task.dealName && (
+          <p className="text-xs text-violet-400 flex items-center gap-1 mt-1">
+            <FiShare2 size={10} className="shrink-0" />
+            {task.dealName}
+          </p>
+        )}
+
+        {/* Linked document badges */}
+        {(task.invoiceId || task.salesOrderId || task.quoteId || task.estimateId) && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {task.invoiceId && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-400 flex items-center gap-1 shrink-0">
+                <FiFileText size={9} /> Invoice
+              </span>
+            )}
+            {task.salesOrderId && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center gap-1 shrink-0">
+                <FiFileText size={9} /> Sales Order
+              </span>
+            )}
+            {task.quoteId && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/25 text-blue-400 flex items-center gap-1 shrink-0">
+                <FiFileText size={9} /> Quote
+              </span>
+            )}
+            {task.estimateId && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/25 text-purple-400 flex items-center gap-1 shrink-0">
+                <FiFileText size={9} /> Estimate
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Bottom row: status + owner + reminder + chevron */}
+        <div className="flex items-center gap-2 mt-2.5">
           <StatusChip status={task.status} />
           {task.ownerName && (
-            <span className="text-[10px] text-neutral-600 truncate">{task.ownerName}</span>
+            <span className="text-[10px] text-neutral-600 truncate max-w-[100px]">{task.ownerName}</span>
           )}
-          <FiChevronRight size={14} className="ml-auto text-neutral-700" />
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            {task.reminderAt && !task.reminderFired && (
+              <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
+                <FiClock size={8} /> {fmtDate(task.reminderAt)}
+              </span>
+            )}
+            <FiChevronRight size={13} className="text-neutral-700" />
+          </div>
         </div>
       </button>
+
 
       {/* Quick action strip */}
       <div className="flex border-t border-white/5">
