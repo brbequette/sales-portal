@@ -57,6 +57,7 @@ export default function Dashboard() {
   const [ltvMax, setLtvMax] = useState("")
   const [qualityFilter, setQualityFilter] = useState("All")
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false)
+  const [missingInfoFilter, setMissingInfoFilter] = useState<{ noPhone: boolean; noEmail: boolean; noContacts: boolean }>({ noPhone: false, noEmail: false, noContacts: false })
   const [repsList, setRepsList] = useState<any[]>([])
   const [accountsPage, setAccountsPage] = useState(1)
   const [accountsHasMore, setAccountsHasMore] = useState(false)
@@ -851,8 +852,16 @@ export default function Dashboard() {
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
 
+  // Helper: does this account have ANY phone number (account, books contact, or any contact)
+  const accountHasPhone = (a: any): boolean => {
+    if (a.phone) return true
+    if (a.booksContact?.phone) return true
+    if ((a.contacts || []).some((c: any) => c.phone || c.mobilePhone)) return true
+    return false
+  }
+
   const coldCallAccounts = accounts
-    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter) && (!a.totalSales || a.totalSales === 0) && (!a._count?.quotes || a._count.quotes === 0) && (!a._count?.salesOrders || a._count.salesOrders === 0) && (!a.lastCalledAt || new Date(a.lastCalledAt) < todayStart))
+    .filter(a => a.quality !== "DO_NOT_CALL" && accountHasPhone(a) && (ownerFilter === "All" || a.ownerId === ownerFilter) && (!a.totalSales || a.totalSales === 0) && (!a._count?.quotes || a._count.quotes === 0) && (!a._count?.salesOrders || a._count.salesOrders === 0) && (!a.lastCalledAt || new Date(a.lastCalledAt) < todayStart))
     .sort((a, b) => {
       const scoreA = qualityScores[a.quality] || 0
       const scoreB = qualityScores[b.quality] || 0
@@ -866,7 +875,7 @@ export default function Dashboard() {
     .slice(0, 50)
 
   const callListAccounts = accounts
-    .filter(a => a.quality !== "DO_NOT_CALL" && (ownerFilter === "All" || a.ownerId === ownerFilter) && (a.totalSales && a.totalSales > 0) && (!a.lastCalledAt || new Date(a.lastCalledAt) < todayStart))
+    .filter(a => a.quality !== "DO_NOT_CALL" && accountHasPhone(a) && (ownerFilter === "All" || a.ownerId === ownerFilter) && (a.totalSales && a.totalSales > 0) && (!a.lastCalledAt || new Date(a.lastCalledAt) < todayStart))
     .sort((a, b) => {
       const scoreA = qualityScores[a.quality] || 0
       const scoreB = qualityScores[b.quality] || 0
@@ -950,7 +959,13 @@ export default function Dashboard() {
     const matchesLtvMin = !ltvMin || ltv >= parseFloat(ltvMin)
     const matchesLtvMax = !ltvMax || ltv <= parseFloat(ltvMax)
 
-    return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesQuality && matchesYear && matchesSalesFilter && matchesLtvMin && matchesLtvMax
+    const matchesMissingInfo = (
+      (!missingInfoFilter.noPhone || !accountHasPhone(a)) &&
+      (!missingInfoFilter.noEmail || (!a.email && !(a.contacts || []).some((c: any) => c.email))) &&
+      (!missingInfoFilter.noContacts || (a.contacts || []).length === 0)
+    )
+
+    return matchesSearch && matchesStatus && matchesIndustry && matchesTimezone && matchesQuality && matchesYear && matchesSalesFilter && matchesLtvMin && matchesLtvMax && matchesMissingInfo
   })
 
   const filteredTasksList = tasks.filter(task => {
@@ -996,7 +1011,7 @@ export default function Dashboard() {
   ]
 
   const accentColor = effort === "sales" ? "emerald" : effort === "cold_call" ? "indigo" : "sky"
-  const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (timezoneFilter !== "All" ? 1 : 0) + (qualityFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0) + (ltvMin ? 1 : 0) + (ltvMax ? 1 : 0)
+  const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) + (statusFilter !== "All" ? 1 : 0) + (industryFilter !== "All" ? 1 : 0) + (timezoneFilter !== "All" ? 1 : 0) + (qualityFilter !== "All" ? 1 : 0) + (onlyWithSales ? 1 : 0) + (ltvMin ? 1 : 0) + (ltvMax ? 1 : 0) + (missingInfoFilter.noPhone ? 1 : 0) + (missingInfoFilter.noEmail ? 1 : 0) + (missingInfoFilter.noContacts ? 1 : 0)
 
   if (!isInitialized || loading) {
     return (
@@ -2378,6 +2393,29 @@ export default function Dashboard() {
                       <span>Include hidden reps in dropdowns</span>
                     </label>
                   )}
+                 </div>
+
+                {/* Missing Info Filter */}
+                <div className="space-y-2 pt-1">
+                  <label className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    ⚠ Missing Vital Info
+                  </label>
+                  <p className="text-[10px] text-neutral-500">Show accounts missing key data — use to clean up your CRM</p>
+                  {[
+                    { key: "noPhone", label: "No Phone Number (account + all contacts)" },
+                    { key: "noEmail", label: "No Email (account + all contacts)" },
+                    { key: "noContacts", label: "No Contacts on File" },
+                  ].map(({ key, label }) => (
+                    <label key={key} className="flex items-center gap-3 text-xs font-semibold text-neutral-300 cursor-pointer select-none bg-amber-900/20 border border-amber-700/30 rounded-lg px-3 py-2.5 hover:border-amber-600/50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={missingInfoFilter[key as keyof typeof missingInfoFilter]}
+                        onChange={e => setMissingInfoFilter(prev => ({ ...prev, [key]: e.target.checked }))}
+                        className="rounded border-amber-700 text-amber-500 focus:ring-0 focus:ring-offset-0 w-4 h-4"
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
@@ -2393,6 +2431,7 @@ export default function Dashboard() {
                     setQualityFilter("All")
                     setYearFilter("All")
                     setOnlyWithSales(false)
+                    setMissingInfoFilter({ noPhone: false, noEmail: false, noContacts: false })
                     setShowFiltersDrawer(false)
                   }}
                   className="flex-1 bg-neutral-800 hover:bg-neutral-700 border border-[var(--border)] text-white font-bold py-2 px-4 rounded-lg text-xs transition-colors"
