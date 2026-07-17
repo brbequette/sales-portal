@@ -20,6 +20,8 @@ interface InvoiceDetailsModalProps {
 export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoiceList, currentIndex, onNavigate }: InvoiceDetailsModalProps) {
   const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [dataSource, setDataSource] = useState<'zoho_live' | 'local_db' | null>(null)
+  const [cachedAt, setCachedAt] = useState<string | null>(null)
   const [isConverting, setIsConverting] = useState(false)
   const [actionLoading, setActionLoading] = useState("")
   // Cost processing result stored inline (replaces alert)
@@ -38,32 +40,37 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
   const zohoId = isString ? invoice : (invoice?.zohoId || invoice?.id)
   const initialData = isString ? { id: zohoId, zohoId } : invoice
 
+  const fetchDetails = async (force = false) => {
+    if (!zohoId) return
+    setIsLoading(true)
+    try {
+      const url = `/api/get-invoice-details?targetId=${zohoId}&type=${type}${force ? '&force=true' : ''}`
+      const res = await fetch(url)
+      const data = await res.json()
+      if (data.success && (data.invoice || data.document)) {
+        const doc = data.invoice || data.document
+        setFullInvoiceDetails(doc)
+        setDataSource(data._source === 'local_db' ? 'local_db' : 'zoho_live')
+        setCachedAt(doc._cachedAt || null)
+      }
+    } catch (e) {
+      console.error("Failed to load full document details", e)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!zohoId) return;
 
-    // If it already has custom fields, seed it
+    // If it already has custom fields, seed it immediately (no spinner)
     if (!isString && invoice?.items?.custom_fields) {
       setFullInvoiceDetails({ custom_fields: invoice.items.custom_fields, ...invoice })
     }
 
-    // Fetch the full detailed document from Zoho Books
-    const fetchDetails = async () => {
-      setIsLoading(true)
-      try {
-        const res = await fetch(`/api/get-invoice-details?targetId=${zohoId}&type=${type}`)
-        const data = await res.json()
-        if (data.success && (data.invoice || data.document)) {
-          setFullInvoiceDetails(data.invoice || data.document)
-        }
-      } catch (e) {
-        console.error("Failed to load full document details", e)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchDetails()
-  }, [zohoId, invoice, isString, type])
+    fetchDetails(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zohoId, type])
 
   // Keyboard navigation: left/right arrows when a list is provided
   const hasList = invoiceList && invoiceList.length > 1 && onNavigate !== undefined && currentIndex !== undefined
@@ -316,7 +323,28 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               <h2 className={`text-sm font-bold flex items-center gap-2 ${typeColor}`}>
                 <FiFileText className="shrink-0" /> <span className="truncate">{typeLabel} Details</span>
               </h2>
-              <p className="text-[10px] text-neutral-400 mt-0.5 font-mono truncate">Zoho ID: {zohoId}</p>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <p className="text-[10px] text-neutral-400 font-mono truncate">Zoho ID: {zohoId}</p>
+                {dataSource === 'local_db' && (
+                  <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-sky-400 bg-sky-900/20 border border-sky-800/40 rounded px-1.5 py-0.5">
+                    ⚡ Cached{cachedAt ? ` · ${(() => { const mins = Math.round((Date.now() - new Date(cachedAt).getTime()) / 60000); return mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago` })()}` : ''}
+                  </span>
+                )}
+                {dataSource === 'zoho_live' && (
+                  <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-900/20 border border-emerald-800/40 rounded px-1.5 py-0.5">
+                    🔴 Live
+                  </span>
+                )}
+                {!isLoading && (
+                  <button
+                    onClick={() => fetchDetails(true)}
+                    title="Force refresh from Zoho Books"
+                    className="text-[9px] text-neutral-500 hover:text-neutral-300 transition-colors underline"
+                  >
+                    Refresh
+                  </button>
+                )}
+              </div>
             </div>
             {/* Prev / Next navigation */}
             {hasList && (

@@ -27,3 +27,7 @@
   from = "/account/:id"
   to = "/account?id=:id"
   status = 200
+
+# Daily Zoho Books sync — runs at 6:00 AM UTC (2:00 AM EST) every day
+[functions."daily-books-sync"]
+  schedule = "0 6 * * *"
