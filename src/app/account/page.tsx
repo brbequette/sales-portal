@@ -26,7 +26,7 @@ import { AccountProductsPurchased } from "@/components/AccountProductsPurchased"
 import { TaskEditor } from "@/components/TaskEditor"
 import { AccountEditModal } from "@/components/AccountEditModal"
 
-type ActiveTab = "comms" | "overview" | "history" | "purchased" | "tasks" | "quicksale"
+type ActiveTab = "comms" | "overview" | "quicksale"
 
 function useLocalTime(timeZone: string | undefined | null) {
   const [time, setTime] = useState<string>("...")
@@ -134,7 +134,7 @@ function AccountLeftRail({
       {/* Overdue Badge */}
       {overdueTotal > 0 && (
         <button
-          onClick={() => onTabSwitch("history")}
+          onClick={() => onTabSwitch("overview")}
           className="mx-4 mt-4 flex items-center gap-2 bg-red-900/30 border border-red-500/40 rounded-lg px-3 py-2 text-left hover:bg-red-900/50 transition-colors"
           style={{ width: "calc(100% - 2rem)" }}
         >
@@ -257,7 +257,7 @@ function AccordionSection({
 
 function OverviewPanel({
   account, invoices, deals, quotes, salesOrders, notes,
-  onViewInvoice, onDrillDown, onNoteAdded, accountId,
+  onViewInvoice, onViewSalesDoc, onDrillDown, onNoteAdded, accountId, zohoId, tasks, onTaskSave,
 }: {
   account: any
   invoices: any[]
@@ -266,10 +266,15 @@ function OverviewPanel({
   salesOrders: any[]
   notes: any[]
   onViewInvoice: (zohoId: string) => void
+  onViewSalesDoc: (type: "SalesOrder" | "Quote", doc: any) => void
   onDrillDown: (title: string, invs: any[]) => void
   onNoteAdded: (note: any) => void
   accountId: string
+  zohoId: string
+  tasks: any[]
+  onTaskSave: () => void
 }) {
+  const [historyMode, setHistoryMode] = useState<"data" | "pdf">("data")
   const primaryContact = account.contacts?.find((c: any) => c.isPrimary) || account.contacts?.[0]
   const phone = primaryContact?.phone || primaryContact?.mobilePhone || account.booksContact?.phone || ""
   const cleanPhone = phone.replace(/[^0-9+]/g, "")
@@ -445,6 +450,73 @@ function OverviewPanel({
         </div>
       </AccordionSection>
 
+      {/* Transaction History */}
+      <AccordionSection title="Transaction History" icon={<FiList size={12} />} badge={invoices.length} defaultOpen={false}>
+        <div className="p-2">
+          <div className="flex justify-end mb-2">
+            <div className="flex bg-neutral-950 p-0.5 rounded-lg border border-neutral-800">
+              <button
+                onClick={() => setHistoryMode("data")}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all flex items-center gap-1 ${
+                  historyMode === "data" ? "bg-emerald-500 text-white" : "text-neutral-400 hover:text-neutral-200"
+                }`}
+              >
+                <FiBarChart2 size={10} /> Data
+              </button>
+              <button
+                onClick={() => setHistoryMode("pdf")}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all flex items-center gap-1 ${
+                  historyMode === "pdf" ? "bg-emerald-500 text-white" : "text-neutral-400 hover:text-neutral-200"
+                }`}
+              >
+                <FiFileText size={10} /> Flipbook
+              </button>
+            </div>
+          </div>
+          {historyMode === "data" ? (
+            <AccountHistory
+              accountId={accountId}
+              invoices={invoices}
+              salesOrders={salesOrders}
+              quotes={quotes}
+              notes={notes}
+              onViewInvoice={onViewInvoice}
+              onViewSalesDoc={onViewSalesDoc}
+            />
+          ) : (
+            <DocumentFlipbook
+              invoices={invoices}
+              quotes={quotes}
+              salesOrders={salesOrders}
+              onViewInvoice={onViewInvoice}
+              onViewSalesDoc={onViewSalesDoc}
+            />
+          )}
+        </div>
+      </AccordionSection>
+
+      {/* Products Purchased */}
+      <AccordionSection title="Products Purchased" icon={<FiPackage size={12} />} defaultOpen={false}>
+        <div className="p-3">
+          <AccountProductsPurchased accountId={zohoId} />
+        </div>
+      </AccordionSection>
+
+      {/* Tasks */}
+      <AccordionSection title="Tasks" icon={<FiCheckSquare size={12} />} badge={tasks.length} defaultOpen={false}>
+        <div className="p-3">
+          {tasks.length === 0 ? (
+            <div className="text-center py-6 text-neutral-600 text-xs italic">No tasks for this account</div>
+          ) : (
+            <div className="space-y-2">
+              {tasks.map((task: any) => (
+                <TaskEditor key={task.id} task={task} onSave={onTaskSave} />
+              ))}
+            </div>
+          )}
+        </div>
+      </AccordionSection>
+
     </div>
   )
 }
@@ -459,7 +531,7 @@ function AccountHubContent() {
   const [account, setAccount] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<ActiveTab>("comms")
+  const [activeTab, setActiveTab] = useState<ActiveTab>("overview")
   const [drillTitle, setDrillTitle] = useState("")
   const [drillInvoices, setDrillInvoices] = useState<any[] | null>(null)
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)
@@ -536,12 +608,9 @@ function AccountHubContent() {
     : null
 
   const tabs: { id: ActiveTab; Icon: React.ElementType; label: string }[] = [
-    { id: "comms",     Icon: FiPhone,      label: "Comm Center" },
+    { id: "overview",  Icon: FiBarChart2,   label: "Overview" },
+    { id: "comms",     Icon: FiPhone,       label: "Comm Center" },
     { id: "quicksale", Icon: FiShoppingCart, label: "Quick Sale" },
-    { id: "overview",  Icon: FiBarChart2,  label: "Overview" },
-    { id: "history",   Icon: FiList,       label: "Transactions" },
-    { id: "purchased", Icon: FiPackage,    label: "Products" },
-    { id: "tasks",     Icon: FiCheckSquare, label: "Tasks" },
   ]
 
   const isFluidTab = activeTab === "comms" || activeTab === "quicksale"
@@ -754,92 +823,16 @@ function AccountHubContent() {
                 const inv = account.invoices?.find((i: any) => i.zohoId === zohoId)
                 setViewingInvoice(inv || { zohoId, id: zohoId })
               }}
+              onViewSalesDoc={(type, doc) => setViewingSalesDoc({ type, doc })}
               onDrillDown={(title, invs) => { setDrillTitle(title); setDrillInvoices(invs) }}
               onNoteAdded={(newNote: any) =>
                 setAccount((prev: any) => prev ? { ...prev, notes: [newNote, ...(prev.notes || [])] } : prev)
               }
               accountId={account.id}
+              zohoId={account.zohoId}
+              tasks={account.tasks || []}
+              onTaskSave={() => fetchAccountData(false)}
             />
-          )}
-
-
-
-          {/* TRANSACTIONS */}
-          {activeTab === "history" && (
-            <div className="p-4 sm:p-6 max-w-5xl mx-auto w-full">
-              <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl p-4 sm:p-6 shadow-xl flex flex-col min-h-[500px] space-y-4">
-                <div className="flex justify-end">
-                  <div className="flex bg-neutral-950 p-0.5 rounded-lg border border-neutral-800">
-                    <button
-                      onClick={() => setHistoryViewMode("data")}
-                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${historyViewMode === "data" ? "bg-emerald-500 text-white" : "text-neutral-400 hover:text-neutral-200"}`}
-                    >
-                      <FiBarChart2 size={11} /> Data
-                    </button>
-                    <button
-                      onClick={() => setHistoryViewMode("pdf")}
-                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${historyViewMode === "pdf" ? "bg-emerald-500 text-white" : "text-neutral-400 hover:text-neutral-200"}`}
-                    >
-                      <FiFileText size={11} /> Flipbook
-                    </button>
-                  </div>
-                </div>
-                {historyViewMode === "data"
-                  ? (
-                    <AccountHistory
-                      accountId={id}
-                      invoices={account.invoices || []}
-                      salesOrders={account.salesOrders || []}
-                      quotes={account.quotes || []}
-                      notes={account.notes || []}
-                      onViewInvoice={(zohoId) => {
-                        const inv = account.invoices?.find((i: any) => i.zohoId === zohoId)
-                        setViewingInvoice(inv || { zohoId, id: zohoId })
-                      }}
-                      onViewSalesDoc={(type, doc) => setViewingSalesDoc({ type, doc })}
-                    />
-                  )
-                  : (
-                    <DocumentFlipbook
-                      invoices={account.invoices}
-                      quotes={account.quotes}
-                      salesOrders={account.salesOrders}
-                      onViewInvoice={(zohoId) => {
-                        const inv = account.invoices?.find((i: any) => i.zohoId === zohoId)
-                        setViewingInvoice(inv || { zohoId, id: zohoId })
-                      }}
-                      onViewSalesDoc={(type, doc) => setViewingSalesDoc({ type, doc })}
-                    />
-                  )
-                }
-              </div>
-            </div>
-          )}
-
-          {/* PRODUCTS */}
-          {activeTab === "purchased" && (
-            <div className="p-4 sm:p-6 max-w-5xl mx-auto w-full">
-              <AccountProductsPurchased accountId={account.zohoId} />
-            </div>
-          )}
-
-          {/* TASKS */}
-          {activeTab === "tasks" && (
-            <div className="p-4 sm:p-6 max-w-5xl mx-auto w-full">
-              <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl p-4 sm:p-6 shadow-xl">
-                <h2 className="text-xl font-semibold mb-4 text-emerald-500">Account Tasks</h2>
-                {(!account.tasks || account.tasks.length === 0)
-                  ? <div className="text-center py-8 text-neutral-500">No tasks found for this account.</div>
-                  : (
-                    <div className="space-y-3">
-                      {account.tasks.map((task: any) => (
-                        <TaskEditor key={task.id} task={task} onSave={() => fetchAccountData(false)} />
-                      ))}
-                    </div>
-                  )
-                }
-              </div>
-            </div>
           )}
 
         </div>
