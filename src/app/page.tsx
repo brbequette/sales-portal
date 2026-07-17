@@ -1525,12 +1525,27 @@ export default function Dashboard() {
                     const overdueCount = 0
                     const overdueBalance = 0;
 
+                    const hasContacts = (account.contacts || []).length > 0
                     const primaryContact = account.contacts?.find((c: any) => c.isPrimary) || account.contacts?.[0]
-                    const cleanPhone = primaryContact?.phone ? primaryContact.phone.replace(/[^0-9+]/g, '') : ''
+
+                    // Phone rule: primary contact phone when contacts exist, company phone only if NO contacts
+                    const companyPhone = account.phone || account.booksContact?.phone || ''
+                    const contactPhone = primaryContact?.phone || primaryContact?.mobilePhone || ''
+                    const rawPhone = hasContacts ? contactPhone : companyPhone
+                    const cleanPhone = rawPhone ? rawPhone.replace(/[^0-9+]/g, '') : ''
+                    const displayPhone = rawPhone  // unformatted original for display
+
                     // Top 2 contacts for call list fallback — primary always first
                     const top2Contacts = [...(account.contacts || [])]
                       .sort((a: any, b: any) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0))
                       .slice(0, 2)
+
+                    // ── derived contact display values ──
+                    const contactDisplayName = primaryContact
+                      ? `${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim()
+                      : hasContacts ? "" : "Company"
+                    const primaryPhone = cleanPhone
+                    const hasPhone = !!primaryPhone
 
                     const daysSinceLastPurchase = account.lastPurchaseAt
                       ? Math.floor((Date.now() - new Date(account.lastPurchaseAt).getTime()) / 86400000)
@@ -1549,13 +1564,6 @@ export default function Dashboard() {
                     }
 
                     const isSelected = selectedAccountIds.includes(account.id)
-
-                    // ── derived contact display values ──
-                    const contactDisplayName = primaryContact
-                      ? `${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim()
-                      : ""
-                    const primaryPhone = cleanPhone
-                    const hasPhone = !!primaryPhone
 
                     return (
                       <li
