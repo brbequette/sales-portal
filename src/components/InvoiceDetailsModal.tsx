@@ -470,7 +470,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose }: Invo
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">{type === 'Quote' ? 'Quote' : type === 'SalesOrder' ? 'SO' : 'Invoice'} #</label>
-                  <div className="text-sm text-white font-mono truncate">{displayData.items?.invoiceNumber || displayData.invoiceNumber || displayData.invoice_number || displayData.estimate_number || displayData.salesorder_number || displayData.id?.slice(-6) || "—"}</div>
+                  <div className="text-sm text-white font-mono truncate">{displayData.items?.invoiceNumber || displayData.items?.invoice_number || displayData.items?.salesOrderNumber || displayData.items?.salesorder_number || displayData.items?.estimateNumber || displayData.items?.estimate_number || displayData.invoiceNumber || displayData.invoice_number || displayData.salesorder_number || displayData.estimate_number || displayData.zohoId || "—"}</div>
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Amount</label>

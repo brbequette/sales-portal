@@ -27,9 +27,9 @@ const getDocTypeParam = (tab: DocType): "Invoice" | "Quote" | "SalesOrder" => {
 }
 
 const getDocNumber = (doc: any, tab: DocType) => {
-  if (tab === "invoices") return doc?.items?.invoiceNumber || doc?.zohoId?.slice(-6).toUpperCase() || doc?.id?.slice(-6) || "—";
-  if (tab === "quotes") return doc?.quoteNumber || doc?.zohoId?.slice(-6).toUpperCase() || doc?.id?.slice(-6) || "—";
-  return doc?.orderNumber || doc?.zohoId?.slice(-6).toUpperCase() || doc?.id?.slice(-6) || "—";
+  if (tab === "invoices") return doc?.items?.invoiceNumber || doc?.items?.invoice_number || doc?.zohoId || doc?.id || "—";
+  if (tab === "quotes") return doc?.items?.estimateNumber || doc?.items?.estimate_number || doc?.items?.quoteNumber || doc?.quoteNumber || doc?.zohoId || doc?.id || "—";
+  return doc?.items?.salesOrderNumber || doc?.items?.salesorder_number || doc?.orderNumber || doc?.zohoId || doc?.id || "—";
 }
 
 interface DocumentFlipbookProps {

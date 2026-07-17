@@ -2151,7 +2151,7 @@ export default function Dashboard() {
                         )}
                         <p className="text-neutral-400 text-xs mt-1 flex items-center gap-1.5">
                           <FiFileText className="text-amber-500 shrink-0" size={11} />
-                          <span className="text-emerald-400 group-hover:underline font-mono">#{((item.items as any)?.invoiceNumber) || item.zohoId?.slice(-6) || item.id?.slice(-6) || "—"}</span>
+                          <span className="text-emerald-400 group-hover:underline font-mono">#{(item.items as any)?.invoiceNumber || (item.items as any)?.invoice_number || (item.items as any)?.salesOrderNumber || (item.items as any)?.salesorder_number || (item.items as any)?.estimateNumber || (item.items as any)?.estimate_number || item.zohoId || item.id || "—"}</span>
                           <span className="text-neutral-500 font-sans ml-1 flex flex-col gap-0.5 border-l border-[var(--border)] pl-2">
                             <span>Ordered: {new Date(item.issueDate || item.orderDate || item.createdAt || Date.now()).toLocaleDateString()}</span>
                             {item.status === 'Paid' && (

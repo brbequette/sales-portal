@@ -424,7 +424,7 @@ function OverviewPanel({
             >
               <div>
                 <div className="text-xs font-bold text-white">
-                  {inv.zohoId?.slice(-6) || "INV"}
+                  {(inv.items as any)?.invoiceNumber || (inv.items as any)?.invoice_number || inv.zohoId || "INV"}
                 </div>
                 <div className="text-[10px] text-neutral-500">
                   {inv.issueDate ? new Date(inv.issueDate).toLocaleDateString(undefined, { timeZone: "UTC" }) : "-"}
@@ -840,7 +840,7 @@ function AccountHubContent() {
                 : drillInvoices.map((inv, idx) => {
                     const invoiceNum = (inv.items && typeof inv.items === "object" && "invoiceNumber" in inv.items)
                       ? (inv.items as any).invoiceNumber
-                      : inv.zohoId?.slice(-6) || "INV"
+                      : inv.zohoId || "INV"
                     return (
                       <div
                         key={idx}

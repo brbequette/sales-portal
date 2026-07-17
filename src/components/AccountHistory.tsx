@@ -104,7 +104,7 @@ export function AccountHistory({
                   const formattedDate = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "—"
                   const invoiceNumber = (inv.items && typeof inv.items === 'object' && 'invoiceNumber' in inv.items)
                     ? (inv.items as any).invoiceNumber
-                    : (inv.zohoId || inv.id || "INV").slice(-6).toUpperCase();
+                    : (inv.items as any)?.invoice_number || inv.zohoId || inv.id || "INV";
 
                   return (
                     <div 
@@ -177,7 +177,7 @@ export function AccountHistory({
                       <div>
                         <div className="font-medium flex items-center gap-1.5 text-emerald-400 group-hover:underline font-mono">
                           <FiFileText className="text-blue-500 shrink-0" size={13} />
-                          <span>#{so.zohoId?.slice(-6).toUpperCase() || so.id.slice(-6).toUpperCase()}</span>
+                          <span>#{(so.items as any)?.salesOrderNumber || (so.items as any)?.salesorder_number || so.zohoId || so.id}</span>
                         </div>
                         <div className="text-sm text-gray-400">{formattedDate}</div>
                       </div>
@@ -242,7 +242,7 @@ export function AccountHistory({
                       <div>
                         <div className="font-medium flex items-center gap-1.5 text-emerald-400 group-hover:underline font-mono">
                           <FiFileText className="text-purple-500 shrink-0" size={13} />
-                          <span>#{quote.zohoId?.slice(-6).toUpperCase() || quote.id.slice(-6).toUpperCase()}</span>
+                          <span>#{(quote.items as any)?.estimateNumber || (quote.items as any)?.estimate_number || (quote.items as any)?.quoteNumber || quote.zohoId || quote.id}</span>
                         </div>
                         <div className="text-sm text-gray-400">{formattedDate}</div>
                       </div>
