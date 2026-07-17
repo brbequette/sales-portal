@@ -100,13 +100,76 @@ export const handler: Handler = async (event) => {
   if (phase === '1') {
     console.log("=== Backfill Phase 1: Mapping Books IDs ===")
     const token = await getZohoAccessToken()
-    let mapped = 0, skipped = 0, notFound = 0
+    let mapped = 0, skipped = 0, notFound = 0, duplicateGuarded = 0
 
     const types: Array<{ module: string, idField: string, numField: string, dbModel: 'invoice' | 'salesOrder' | 'quote', itemsKey: string }> = [
       { module: 'invoices',    idField: 'invoice_id',    numField: 'invoice_number',    dbModel: 'invoice',     itemsKey: 'booksInvoiceId' },
       { module: 'salesorders', idField: 'salesorder_id', numField: 'salesorder_number', dbModel: 'salesOrder',  itemsKey: 'booksSalesOrderId' },
       { module: 'estimates',   idField: 'estimate_id',   numField: 'estimate_number',   dbModel: 'quote',       itemsKey: 'booksEstimateId' },
     ]
+
+    // ── Exact-match helper: tries several canonical forms of a doc number ──────
+    // Returns the single unambiguous local record, or null.
+    // NEVER uses string_contains — only exact equals — to prevent partial matches
+    // (e.g. "INV-1" matching "INV-10", "INV-100", etc.)
+    async function findLocalRecord(model: 'invoice' | 'salesOrder' | 'quote', booksId: string, docNum: string): Promise<any | null> {
+      // Strip common prefixes to get the bare numeric portion
+      const bare = docNum.replace(/^(INV|SO|EST|Q|QU|SB)-?/i, '').trim()
+      // Candidate exact values: full docNum and bare number
+      const exactCandidates = Array.from(new Set([docNum, bare]))
+
+      const findOpts = (jsonKey: string) => exactCandidates.map(v => ({
+        items: { path: [jsonKey], equals: v }
+      }))
+
+      if (model === 'invoice') {
+        // 1. By Books invoice_id stored in booksInvoiceId (re-run safety)
+        const byBooksId = await prisma.invoice.findFirst({ where: { items: { path: ['booksInvoiceId'], equals: booksId } } })
+        if (byBooksId) return byBooksId // already mapped — caller will skip
+        // 2. Exact match on stored invoiceNumber field
+        for (const cond of findOpts('invoiceNumber')) {
+          const r = await prisma.invoice.findFirst({ where: cond }).catch(() => null)
+          if (r) return r
+        }
+        return null
+      }
+
+      if (model === 'salesOrder') {
+        const byBooksId = await prisma.salesOrder.findFirst({ where: { items: { path: ['booksSalesOrderId'], equals: booksId } } })
+        if (byBooksId) return byBooksId
+        for (const cond of findOpts('salesOrderNumber')) {
+          const r = await prisma.salesOrder.findFirst({ where: cond }).catch(() => null)
+          if (r) return r
+        }
+        return null
+      }
+
+      // quote
+      const byBooksId = await prisma.quote.findFirst({ where: { items: { path: ['booksEstimateId'], equals: booksId } } })
+      if (byBooksId) return byBooksId
+      for (const cond of findOpts('estimateNumber')) {
+        const r = await prisma.quote.findFirst({ where: cond }).catch(() => null)
+        if (r) return r
+      }
+      return null
+    }
+
+    // ── Books-ID uniqueness guard ────────────────────────────────────────────
+    // Ensures the same booksId is never stamped onto two different local records.
+    async function booksIdAlreadyAssigned(model: 'invoice' | 'salesOrder' | 'quote', itemsKey: string, booksId: string, localId: string): Promise<boolean> {
+      try {
+        if (model === 'invoice') {
+          const existing = await prisma.invoice.findFirst({ where: { items: { path: [itemsKey], equals: booksId } } })
+          return existing !== null && existing.id !== localId
+        }
+        if (model === 'salesOrder') {
+          const existing = await prisma.salesOrder.findFirst({ where: { items: { path: [itemsKey], equals: booksId } } })
+          return existing !== null && existing.id !== localId
+        }
+        const existing = await prisma.quote.findFirst({ where: { items: { path: [itemsKey], equals: booksId } } })
+        return existing !== null && existing.id !== localId
+      } catch { return false }
+    }
 
     for (const t of types) {
       let page = 1
@@ -131,42 +194,27 @@ export const handler: Handler = async (event) => {
           const docNum = rec[t.numField]
           if (!booksId || !docNum) continue
 
-          // Find local DB record by zohoId (booksId) first, then by doc number in items
-          let dbDoc: any = null
-          if (t.dbModel === 'invoice') {
-            dbDoc = await (prisma.invoice.findFirst as any)({ where: { zohoId: booksId } })
-            if (!dbDoc) {
-              // Try matching by invoice number stored in items.invoiceNumber
-              const candidates = await prisma.invoice.findMany({
-                where: { items: { path: ['invoiceNumber'], string_contains: docNum.replace('INV-', '').trim() } },
-                take: 1,
-              }).catch(() => [])
-              dbDoc = candidates[0] || null
-            }
-          } else if (t.dbModel === 'salesOrder') {
-            dbDoc = await (prisma.salesOrder.findFirst as any)({ where: { zohoId: booksId } })
-            if (!dbDoc) {
-              const candidates = await prisma.salesOrder.findMany({
-                where: { items: { path: ['salesOrderNumber'], string_contains: docNum.replace('SO-', '').trim() } },
-                take: 1,
-              }).catch(() => [])
-              dbDoc = candidates[0] || null
-            }
-          } else {
-            dbDoc = await (prisma.quote.findFirst as any)({ where: { zohoId: booksId } })
-            if (!dbDoc) {
-              const candidates = await prisma.quote.findMany({
-                where: { items: { path: ['estimateNumber'], string_contains: docNum.replace('EST-', '').trim() } },
-                take: 1,
-              }).catch(() => [])
-              dbDoc = candidates[0] || null
-            }
-          }
-
+          const dbDoc = await findLocalRecord(t.dbModel, booksId, docNum)
           if (!dbDoc) { notFound++; continue }
 
           const currentItems = (dbDoc.items as any) || {}
-          if (currentItems[t.itemsKey]) { skipped++; continue } // Already has Books ID
+
+          // Already stamped with the correct Books ID → skip
+          if (currentItems[t.itemsKey] === booksId) { skipped++; continue }
+
+          // If it already has a DIFFERENT Books ID stamped, don't overwrite
+          if (currentItems[t.itemsKey] && currentItems[t.itemsKey] !== booksId) {
+            console.warn(`⚠ ${t.dbModel} ${dbDoc.id} already has ${t.itemsKey}=${currentItems[t.itemsKey]}, would overwrite with ${booksId} — skipping`)
+            skipped++
+            continue
+          }
+
+          // Uniqueness guard: confirm booksId not already on another record
+          if (await booksIdAlreadyAssigned(t.dbModel, t.itemsKey, booksId, dbDoc.id)) {
+            console.warn(`⚠ Books ID ${booksId} already assigned to a different ${t.dbModel} — skipping to avoid duplicate`)
+            duplicateGuarded++
+            continue
+          }
 
           currentItems[t.itemsKey] = booksId
           if (!currentItems.invoiceNumber && t.dbModel === 'invoice') currentItems.invoiceNumber = docNum
@@ -187,10 +235,10 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    await saveCheckpoint({ phase1Done: true, phase1CompletedAt: new Date().toISOString(), phase1Mapped: mapped })
+    await saveCheckpoint({ phase1Done: true, phase1CompletedAt: new Date().toISOString(), phase1Mapped: mapped, phase1DupGuarded: duplicateGuarded })
     return {
       statusCode: 200, headers: cors,
-      body: JSON.stringify({ success: true, phase: 1, mapped, skipped, notFound, message: 'Phase 1 complete. Now run phase=2 to backfill line items.' })
+      body: JSON.stringify({ success: true, phase: 1, mapped, skipped, notFound, duplicateGuarded, message: `Phase 1 complete. ${mapped} mapped, ${duplicateGuarded} duplicates prevented. Now run phase=2 to backfill line items.` })
     }
   }
 
@@ -204,6 +252,22 @@ export const handler: Handler = async (event) => {
     }
 
     const offset = parseInt(cp.phase2Offset || '0', 10)
+
+    // ── Concurrency lock ──────────────────────────────────────────────────────
+    // If another invocation is already processing the same offset and started
+    // less than 60 seconds ago, reject this call to prevent duplicate writes.
+    const lockTs: number = cp.phase2LockTs || 0
+    const lockOffset: number = cp.phase2LockOffset ?? -1
+    const lockAge = Date.now() - lockTs
+    if (lockOffset === offset && lockAge < 60_000) {
+      return {
+        statusCode: 429, headers: cors,
+        body: JSON.stringify({ error: 'Another backfill batch is already running for this offset. Try again in a moment.', lockOffset, lockAge })
+      }
+    }
+    // Claim the lock immediately — write it before doing any API calls
+    await saveCheckpoint({ ...cp, phase2LockTs: Date.now(), phase2LockOffset: offset })
+
     const token = await getZohoAccessToken()
 
     console.log(`=== Backfill Phase 2: Fetching line items (offset ${offset}, batch ${BATCH_SIZE}) ===`)
