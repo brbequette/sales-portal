@@ -98,42 +98,51 @@ export const handler: Handler = async (event) => {
 
   // ── PHASE 1: Map doc numbers → Books IDs ──
   if (phase === '1') {
-    console.log("=== Backfill Phase 1: Mapping Books IDs ===")
-    const token = await getZohoAccessToken()
-    let mapped = 0, skipped = 0, notFound = 0, duplicateGuarded = 0
+    const cp = await readCheckpoint()
+
+    // ── Reset ──
+    if (reset === '1') {
+      await saveCheckpoint({ ...cp, phase1Module: 'invoices', phase1Page: 1, phase1Mapped: 0, phase1Skipped: 0, phase1NotFound: 0, phase1DupGuarded: 0, phase1Done: false })
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: 'Phase 1 checkpoint reset.' }) }
+    }
 
     const types: Array<{ module: string, idField: string, numField: string, dbModel: 'invoice' | 'salesOrder' | 'quote', itemsKey: string }> = [
       { module: 'invoices',    idField: 'invoice_id',    numField: 'invoice_number',    dbModel: 'invoice',     itemsKey: 'booksInvoiceId' },
       { module: 'salesorders', idField: 'salesorder_id', numField: 'salesorder_number', dbModel: 'salesOrder',  itemsKey: 'booksSalesOrderId' },
       { module: 'estimates',   idField: 'estimate_id',   numField: 'estimate_number',   dbModel: 'quote',       itemsKey: 'booksEstimateId' },
     ]
+    const moduleNames = types.map(t => t.module)
 
-    // ── Exact-match helper: tries several canonical forms of a doc number ──────
-    // Returns the single unambiguous local record, or null.
-    // NEVER uses string_contains — only exact equals — to prevent partial matches
-    // (e.g. "INV-1" matching "INV-10", "INV-100", etc.)
+    // Resume from checkpoint
+    const currentModule: string = cp.phase1Module || 'invoices'
+    const currentPage: number   = parseInt(cp.phase1Page || '1', 10)
+    let totalMapped       = parseInt(cp.phase1Mapped     || '0', 10)
+    let totalSkipped      = parseInt(cp.phase1Skipped    || '0', 10)
+    let totalNotFound     = parseInt(cp.phase1NotFound   || '0', 10)
+    let totalDupGuarded   = parseInt(cp.phase1DupGuarded || '0', 10)
+
+    const t = types.find(x => x.module === currentModule)
+    if (!t) {
+      // All modules exhausted → done
+      await saveCheckpoint({ ...cp, phase1Done: true, phase1CompletedAt: new Date().toISOString() })
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, phase: 1, done: true, totalMapped, message: 'Phase 1 complete!' }) }
+    }
+
+    // ── Exact-match helper ──────────────────────────────────────────────────
     async function findLocalRecord(model: 'invoice' | 'salesOrder' | 'quote', booksId: string, docNum: string): Promise<any | null> {
-      // Strip common prefixes to get the bare numeric portion
       const bare = docNum.replace(/^(INV|SO|EST|Q|QU|SB)-?/i, '').trim()
-      // Candidate exact values: full docNum and bare number
       const exactCandidates = Array.from(new Set([docNum, bare]))
-
-      const findOpts = (jsonKey: string) => exactCandidates.map(v => ({
-        items: { path: [jsonKey], equals: v }
-      }))
+      const findOpts = (jsonKey: string) => exactCandidates.map(v => ({ items: { path: [jsonKey], equals: v } }))
 
       if (model === 'invoice') {
-        // 1. By Books invoice_id stored in booksInvoiceId (re-run safety)
         const byBooksId = await prisma.invoice.findFirst({ where: { items: { path: ['booksInvoiceId'], equals: booksId } } })
-        if (byBooksId) return byBooksId // already mapped — caller will skip
-        // 2. Exact match on stored invoiceNumber field
+        if (byBooksId) return byBooksId
         for (const cond of findOpts('invoiceNumber')) {
           const r = await prisma.invoice.findFirst({ where: cond }).catch(() => null)
           if (r) return r
         }
         return null
       }
-
       if (model === 'salesOrder') {
         const byBooksId = await prisma.salesOrder.findFirst({ where: { items: { path: ['booksSalesOrderId'], equals: booksId } } })
         if (byBooksId) return byBooksId
@@ -143,8 +152,6 @@ export const handler: Handler = async (event) => {
         }
         return null
       }
-
-      // quote
       const byBooksId = await prisma.quote.findFirst({ where: { items: { path: ['booksEstimateId'], equals: booksId } } })
       if (byBooksId) return byBooksId
       for (const cond of findOpts('estimateNumber')) {
@@ -154,8 +161,7 @@ export const handler: Handler = async (event) => {
       return null
     }
 
-    // ── Books-ID uniqueness guard ────────────────────────────────────────────
-    // Ensures the same booksId is never stamped onto two different local records.
+    // ── Books-ID uniqueness guard ──────────────────────────────────────────
     async function booksIdAlreadyAssigned(model: 'invoice' | 'salesOrder' | 'quote', itemsKey: string, booksId: string, localId: string): Promise<boolean> {
       try {
         if (model === 'invoice') {
@@ -171,74 +177,106 @@ export const handler: Handler = async (event) => {
       } catch { return false }
     }
 
-    for (const t of types) {
-      let page = 1
-      let hasMore = true
-      console.log(`Phase 1: Enumerating ${t.module}...`)
+    // ── Fetch ONE Zoho list page ───────────────────────────────────────────
+    const token = await getZohoAccessToken()
+    const res = await fetch(
+      `${BASE_URL}/${t.module}?organization_id=${ORG_ID}&page=${currentPage}&per_page=200`,
+      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+    )
+    if (!res.ok) {
+      return { statusCode: 502, headers: cors, body: JSON.stringify({ error: `Zoho API error on ${t.module} page ${currentPage}: HTTP ${res.status}` }) }
+    }
 
-      while (hasMore) {
-        await sleep(RATE_DELAY_MS)
-        const res = await fetch(
-          `${BASE_URL}/${t.module}?organization_id=${ORG_ID}&page=${page}&per_page=200`,
-          { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-        )
-        if (!res.ok) {
-          console.error(`Failed to fetch ${t.module} page ${page}: ${res.status}`)
-          break
-        }
-        const data: any = await res.json()
-        const records: any[] = data[t.module] || []
+    const data: any = await res.json()
+    const records: any[] = data[t.module] || []
+    let mapped = 0, skipped = 0, notFound = 0, dupGuarded = 0
 
-        for (const rec of records) {
-          const booksId = rec[t.idField]
-          const docNum = rec[t.numField]
-          if (!booksId || !docNum) continue
+    for (const rec of records) {
+      const booksId = rec[t.idField]
+      const docNum  = rec[t.numField]
+      if (!booksId || !docNum) continue
 
-          const dbDoc = await findLocalRecord(t.dbModel, booksId, docNum)
-          if (!dbDoc) { notFound++; continue }
+      const dbDoc = await findLocalRecord(t.dbModel, booksId, docNum)
+      if (!dbDoc) { notFound++; continue }
 
-          const currentItems = (dbDoc.items as any) || {}
+      const currentItems = (dbDoc.items as any) || {}
 
-          // Already stamped with the correct Books ID → skip
-          if (currentItems[t.itemsKey] === booksId) { skipped++; continue }
+      if (currentItems[t.itemsKey] === booksId) { skipped++; continue }
 
-          // If it already has a DIFFERENT Books ID stamped, don't overwrite
-          if (currentItems[t.itemsKey] && currentItems[t.itemsKey] !== booksId) {
-            console.warn(`⚠ ${t.dbModel} ${dbDoc.id} already has ${t.itemsKey}=${currentItems[t.itemsKey]}, would overwrite with ${booksId} — skipping`)
-            skipped++
-            continue
-          }
+      if (currentItems[t.itemsKey] && currentItems[t.itemsKey] !== booksId) {
+        console.warn(`⚠ ${t.dbModel} ${dbDoc.id} already has ${t.itemsKey}=${currentItems[t.itemsKey]}, would overwrite — skipping`)
+        skipped++; continue
+      }
 
-          // Uniqueness guard: confirm booksId not already on another record
-          if (await booksIdAlreadyAssigned(t.dbModel, t.itemsKey, booksId, dbDoc.id)) {
-            console.warn(`⚠ Books ID ${booksId} already assigned to a different ${t.dbModel} — skipping to avoid duplicate`)
-            duplicateGuarded++
-            continue
-          }
+      if (await booksIdAlreadyAssigned(t.dbModel, t.itemsKey, booksId, dbDoc.id)) {
+        console.warn(`⚠ Books ID ${booksId} already on another ${t.dbModel} — skipping`)
+        dupGuarded++; continue
+      }
 
-          currentItems[t.itemsKey] = booksId
-          if (!currentItems.invoiceNumber && t.dbModel === 'invoice') currentItems.invoiceNumber = docNum
-          if (!currentItems.salesOrderNumber && t.dbModel === 'salesOrder') currentItems.salesOrderNumber = docNum
-          if (!currentItems.estimateNumber && t.dbModel === 'quote') currentItems.estimateNumber = docNum
+      currentItems[t.itemsKey] = booksId
+      if (!currentItems.invoiceNumber   && t.dbModel === 'invoice')    currentItems.invoiceNumber   = docNum
+      if (!currentItems.salesOrderNumber && t.dbModel === 'salesOrder') currentItems.salesOrderNumber = docNum
+      if (!currentItems.estimateNumber  && t.dbModel === 'quote')      currentItems.estimateNumber  = docNum
 
-          try {
-            if (t.dbModel === 'invoice') await prisma.invoice.update({ where: { id: dbDoc.id }, data: { items: currentItems } })
-            else if (t.dbModel === 'salesOrder') await prisma.salesOrder.update({ where: { id: dbDoc.id }, data: { items: currentItems } })
-            else await prisma.quote.update({ where: { id: dbDoc.id }, data: { items: currentItems } })
-            mapped++
-          } catch (e: any) { console.error(`Failed to update ${t.dbModel} ${dbDoc.id}:`, e.message) }
-        }
+      try {
+        if (t.dbModel === 'invoice')     await prisma.invoice.update({ where: { id: dbDoc.id }, data: { items: currentItems } })
+        else if (t.dbModel === 'salesOrder') await prisma.salesOrder.update({ where: { id: dbDoc.id }, data: { items: currentItems } })
+        else                             await prisma.quote.update({ where: { id: dbDoc.id }, data: { items: currentItems } })
+        mapped++
+      } catch (e: any) { console.error(`Failed to update ${t.dbModel} ${dbDoc.id}:`, e.message) }
+    }
 
-        hasMore = data.page_context?.has_more_page === true
-        page++
-        console.log(`  ${t.module} page ${page-1}: ${records.length} records, hasMore: ${hasMore}`)
+    totalMapped     += mapped
+    totalSkipped    += skipped
+    totalNotFound   += notFound
+    totalDupGuarded += dupGuarded
+
+    const hasMore = data.page_context?.has_more_page === true
+
+    // Advance checkpoint: next page in same module, or move to next module
+    let nextModule = currentModule
+    let nextPage   = currentPage + 1
+    let done       = false
+
+    if (!hasMore) {
+      const nextModuleIndex = moduleNames.indexOf(currentModule) + 1
+      if (nextModuleIndex >= moduleNames.length) {
+        done = true
+        nextModule = ''
+        nextPage = 1
+      } else {
+        nextModule = moduleNames[nextModuleIndex]
+        nextPage = 1
       }
     }
 
-    await saveCheckpoint({ phase1Done: true, phase1CompletedAt: new Date().toISOString(), phase1Mapped: mapped, phase1DupGuarded: duplicateGuarded })
+    await saveCheckpoint({
+      ...cp,
+      phase1Module: nextModule, phase1Page: nextPage,
+      phase1Mapped: totalMapped, phase1Skipped: totalSkipped,
+      phase1NotFound: totalNotFound, phase1DupGuarded: totalDupGuarded,
+      phase1Done: done,
+      ...(done ? { phase1CompletedAt: new Date().toISOString() } : {}),
+    })
+
+    // Estimate total pages: invoices ~39, salesorders ~2, estimates ~39 ≈ 80
+    const TOTAL_PAGES_EST = 80
+    const pagesProcessed = (moduleNames.indexOf(done ? moduleNames[moduleNames.length-1] : currentModule)) * 1 + currentPage
+    const pct = Math.min(99, Math.round((pagesProcessed / TOTAL_PAGES_EST) * 100))
+
     return {
       statusCode: 200, headers: cors,
-      body: JSON.stringify({ success: true, phase: 1, mapped, skipped, notFound, duplicateGuarded, message: `Phase 1 complete. ${mapped} mapped, ${duplicateGuarded} duplicates prevented. Now run phase=2 to backfill line items.` })
+      body: JSON.stringify({
+        success: true, phase: 1, done,
+        page: currentPage, module: currentModule,
+        pageMapped: mapped, pageSkipped: skipped, pageNotFound: notFound, pageDupGuarded: dupGuarded,
+        totalMapped, totalSkipped, totalDupGuarded,
+        percentComplete: done ? 100 : pct,
+        callAgain: !done,
+        message: done
+          ? `Phase 1 complete! ${totalMapped} IDs mapped, ${totalDupGuarded} duplicates prevented.`
+          : `${currentModule} page ${currentPage}: +${mapped} mapped. ${hasMore ? 'More pages in this module.' : `Moving to next module.`} Call again to continue.`
+      })
     }
   }
 

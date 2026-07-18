@@ -14,14 +14,20 @@ type BatchResult = {
   success: boolean
   phase: number
   done?: boolean
+  callAgain?: boolean
+  // Phase 1
+  totalMapped?: number
+  pageMapped?: number
+  percentComplete?: number
+  module?: string
+  page?: number
+  // Phase 2
   batchProcessed?: number
   batchErrors?: number
   offset?: number
   totalUncached?: number
   remaining?: number
-  percentComplete?: number
   etaMinutesRemaining?: number
-  callAgain?: boolean
   mapped?: number
   message?: string
   error?: string
@@ -43,11 +49,18 @@ export default function BackfillPage() {
     setLog(prev => [`[${ts}] ${msg}`, ...prev].slice(0, 200))
   }
 
+  // Safe JSON parse — guards against empty body (e.g. function timeout)
+  const safeJson = async (res: Response): Promise<any> => {
+    const text = await res.text()
+    if (!text || text.trim() === '') throw new Error(`Empty response (HTTP ${res.status}) — function may have timed out`)
+    try { return JSON.parse(text) } catch { throw new Error(`Invalid JSON (HTTP ${res.status}): ${text.slice(0, 120)}`) }
+  }
+
   const fetchStatus = async () => {
     setLoadingStatus(true)
     try {
       const res = await fetch("/api/backfill-books-data?status=1")
-      const data = await res.json()
+      const data = await safeJson(res)
       setStatus(data)
     } catch (e) {
       addLog("❌ Failed to fetch status")
@@ -58,26 +71,53 @@ export default function BackfillPage() {
 
   useEffect(() => { fetchStatus() }, [])
 
+  const phase1AutoRef = useRef(false)
+
   const runPhase1 = async () => {
     setPhase1Running(true)
-    addLog("▶ Starting Phase 1: Mapping Zoho Books IDs to all local records...")
-    try {
-      const res = await fetch("/api/backfill-books-data?phase=1")
-      const data: BatchResult = await res.json()
-      setLastResult(data)
-      addLog(`✅ Phase 1 complete: ${data.mapped} records mapped. ${data.message || ''}`)
-      await fetchStatus()
-    } catch (e: any) {
-      addLog(`❌ Phase 1 error: ${e.message}`)
-    } finally {
-      setPhase1Running(false)
+    phase1AutoRef.current = true
+    addLog("▶ Phase 1 starting — processing one Zoho page per call, auto-continuing...")
+
+    while (phase1AutoRef.current) {
+      try {
+        const res = await fetch("/api/backfill-books-data?phase=1")
+        const data: BatchResult = await safeJson(res)
+        setLastResult(data)
+
+        if (data.error) {
+          addLog(`❌ Phase 1 error: ${data.error}`)
+          break
+        }
+
+        addLog(
+          data.done
+            ? `🎉 Phase 1 complete! ${data.totalMapped} IDs mapped.`
+            : `📄 ${data.module} pg ${data.page}: +${data.pageMapped} mapped · ${data.percentComplete}% done`
+        )
+
+        if (data.done || !data.callAgain) break
+        // Small pause between calls
+        await new Promise(r => setTimeout(r, 300))
+      } catch (e: any) {
+        addLog(`❌ Phase 1 error: ${e.message}`)
+        break
+      }
     }
+
+    phase1AutoRef.current = false
+    setPhase1Running(false)
+    await fetchStatus()
+  }
+
+  const stopPhase1 = () => {
+    phase1AutoRef.current = false
+    addLog("⏹ Phase 1 stopping after current page...")
   }
 
   const runPhase2Batch = async (): Promise<BatchResult | null> => {
     try {
       const res = await fetch("/api/backfill-books-data?phase=2")
-      const data: BatchResult = await res.json()
+      const data: BatchResult = await safeJson(res)
       setLastResult(data)
       addLog(
         data.done
@@ -218,13 +258,24 @@ export default function BackfillPage() {
               Quotes: <span className="text-white font-bold">{status.hasBookId.quotes.toLocaleString()}</span> / {status.totals.quotes.toLocaleString()}
             </div>
           )}
-          <button
-            onClick={runPhase1}
-            disabled={phase1Running || phase2Running}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold text-sm transition-colors"
-          >
-            {phase1Running ? <><FiRefreshCw className="animate-spin" size={14} /> Running...</> : <><FiPlay size={14} /> {phase1Done ? 'Re-run Phase 1' : 'Run Phase 1'}</>}
-          </button>
+          <div className="flex gap-2">
+            {!phase1Running ? (
+              <button
+                onClick={runPhase1}
+                disabled={phase2Running}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold text-sm transition-colors"
+              >
+                <FiPlay size={14} /> {phase1Done ? 'Re-run Phase 1' : 'Run Phase 1'}
+              </button>
+            ) : (
+              <button
+                onClick={stopPhase1}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-rose-700 hover:bg-rose-600 text-white font-bold text-sm transition-colors"
+              >
+                <FiPause size={14} /> Stop After Page
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Phase 2 */}
