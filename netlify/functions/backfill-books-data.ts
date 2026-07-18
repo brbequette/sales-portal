@@ -33,7 +33,8 @@ const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
 const BASE_URL = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
 // How many records to process per Phase 2 invocation (fits in 26s Netlify timeout)
-const BATCH_SIZE = 18
+// 12 records × 1.3s rate delay = ~16s minimum, leaving 10s headroom for DB writes
+const BATCH_SIZE = 12
 // Delay between Zoho API calls in ms (50 calls/min = 1200ms)
 const RATE_DELAY_MS = 1300
 
@@ -299,28 +300,9 @@ export const handler: Handler = async (event) => {
 
     const offset = parseInt(cp.phase2Offset || '0', 10)
 
-    // ── Concurrency lock ──────────────────────────────────────────────────────
-    // If another invocation is already processing the same offset and started
-    // less than 60 seconds ago, reject this call to prevent duplicate writes.
-    const lockTs: number = cp.phase2LockTs || 0
-    const lockOffset: number = cp.phase2LockOffset ?? -1
-    const lockAge = Date.now() - lockTs
-    if (lockOffset === offset && lockAge < 60_000) {
-      return {
-        statusCode: 200, headers: cors,
-        body: JSON.stringify({
-          success: true, phase: 2, done: false,
-          callAgain: true, retryAfterMs: Math.max(1000, 60_000 - lockAge),
-          message: `Batch at offset ${offset} is still running (${Math.round(lockAge / 1000)}s ago). Retrying after delay.`
-        })
-      }
-    }
-    // Claim the lock immediately — write it before doing any API calls
-    await saveCheckpoint({ ...cp, phase2LockTs: Date.now(), phase2LockOffset: offset })
-
     const token = await getZohoAccessToken()
 
-    console.log(`=== Backfill Phase 2: Fetching line items (offset ${offset}, batch ${BATCH_SIZE}) ===`)
+    console.log(`=== Backfill Phase 2: offset=${offset}, batch=${BATCH_SIZE} ===`)
 
     // Collect all uncached records across all three types
     type DocRef = { id: string; booksId: string; model: 'invoice' | 'salesOrder' | 'quote'; status: string }
@@ -433,8 +415,7 @@ export const handler: Handler = async (event) => {
     const pct = Math.min(99, Math.round((newOffset / Math.max(1, totalUncached)) * 100))
     const etaMin = Math.ceil((remaining * RATE_DELAY_MS) / 60000)
 
-    // Clear the lock so the next batch can start immediately (no 60s wait)
-    await saveCheckpoint({ ...cp, phase2Offset: newOffset, phase2LastRun: new Date().toISOString(), phase2Processed: (cp.phase2Processed || 0) + processed, phase2LockTs: 0, phase2LockOffset: -1 })
+    await saveCheckpoint({ ...cp, phase2Offset: newOffset, phase2LastRun: new Date().toISOString(), phase2Processed: (cp.phase2Processed || 0) + processed })
 
     return {
       statusCode: 200, headers: cors,

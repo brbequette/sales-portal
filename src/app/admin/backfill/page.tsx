@@ -147,12 +147,6 @@ export default function BackfillPage() {
         const data: BatchResult = await safeJson(res)
         setLastResult(data)
 
-        // Handle lock-collision retry — lock now clears after each batch, so 3s is plenty
-        if (data.retryAfterMs && !data.done) {
-          addLog(`⏳ Lock collision — retrying in 3s...`)
-          await new Promise(r => setTimeout(r, 3000))
-          continue
-        }
 
         if (data.error) {
           consecutiveErrors++
