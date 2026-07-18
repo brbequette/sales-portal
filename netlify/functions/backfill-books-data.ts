@@ -106,10 +106,11 @@ export const handler: Handler = async (event) => {
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: 'Phase 1 checkpoint reset.' }) }
     }
 
-    const types: Array<{ module: string, idField: string, numField: string, dbModel: 'invoice' | 'salesOrder' | 'quote', itemsKey: string }> = [
+    const types: Array<{ module: string, idField: string, numField: string, dbModel: 'invoice' | 'salesOrder' | 'quote', itemsKey: string, statusFilter?: string }> = [
       { module: 'invoices',    idField: 'invoice_id',    numField: 'invoice_number',    dbModel: 'invoice',     itemsKey: 'booksInvoiceId' },
       { module: 'salesorders', idField: 'salesorder_id', numField: 'salesorder_number', dbModel: 'salesOrder',  itemsKey: 'booksSalesOrderId' },
-      { module: 'estimates',   idField: 'estimate_id',   numField: 'estimate_number',   dbModel: 'quote',       itemsKey: 'booksEstimateId' },
+      // Only fetch estimates that have been converted to an invoice — status=invoiced
+      { module: 'estimates',   idField: 'estimate_id',   numField: 'estimate_number',   dbModel: 'quote',       itemsKey: 'booksEstimateId', statusFilter: 'invoiced' },
     ]
     const moduleNames = types.map(t => t.module)
 
@@ -178,9 +179,11 @@ export const handler: Handler = async (event) => {
     }
 
     // ── Fetch ONE Zoho list page ───────────────────────────────────────────
+    // For estimates: only pull status=invoiced (converted to invoice) records
+    const statusParam = t.statusFilter ? `&status=${t.statusFilter}` : ''
     const token = await getZohoAccessToken()
     const res = await fetch(
-      `${BASE_URL}/${t.module}?organization_id=${ORG_ID}&page=${currentPage}&per_page=200`,
+      `${BASE_URL}/${t.module}?organization_id=${ORG_ID}&page=${currentPage}&per_page=200${statusParam}`,
       { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
     )
     if (!res.ok) {
@@ -195,6 +198,11 @@ export const handler: Handler = async (event) => {
       const booksId = rec[t.idField]
       const docNum  = rec[t.numField]
       if (!booksId || !docNum) continue
+
+      // Second guard: if this module requires a status filter, skip non-matching records
+      if (t.statusFilter && rec.status && rec.status.toLowerCase() !== t.statusFilter.toLowerCase()) {
+        skipped++; continue
+      }
 
       const dbDoc = await findLocalRecord(t.dbModel, booksId, docNum)
       if (!dbDoc) { notFound++; continue }
@@ -337,12 +345,14 @@ export const handler: Handler = async (event) => {
     }
 
     // Quotes without line_items but with booksEstimateId
+    // Only process quotes that have been converted to an invoice (status = Invoiced)
     const qtUncached = await prisma.quote.findMany({ select: { id: true, status: true, items: true } })
     for (const r of qtUncached) {
       const items = r.items as any
       const hasLines = items?.line_items && Array.isArray(items.line_items) && items.line_items.length > 0
       const booksId = items?.booksEstimateId
-      if (!hasLines && booksId) uncached.push({ id: r.id, booksId, model: 'quote', status: r.status || '' })
+      const isInvoiced = (r.status || '').toLowerCase() === 'invoiced'
+      if (!hasLines && booksId && isInvoiced) uncached.push({ id: r.id, booksId, model: 'quote', status: r.status || '' })
     }
 
     const totalUncached = uncached.length

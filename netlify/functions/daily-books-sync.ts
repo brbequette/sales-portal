@@ -76,7 +76,8 @@ export const handler = schedule("0 6 * * *", async () => {
       let page = 1
       let hasMore = true
       while (hasMore) {
-        const url = `${baseUrl}/estimates?organization_id=${ORG_ID}&last_modified_time=${sinceStr}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
+        // Only sync estimates that have been converted to an invoice (status=invoiced)
+        const url = `${baseUrl}/estimates?organization_id=${ORG_ID}&status=invoiced&last_modified_time=${sinceStr}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
         const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
         if (!res.ok) { console.error(`Estimates page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
@@ -84,6 +85,8 @@ export const handler = schedule("0 6 * * *", async () => {
         console.log(`Estimate page ${page}: ${estimates.length} records`)
 
         for (const est of estimates) {
+          // Double-check: only sync invoiced estimates (API filter may include others)
+          if ((est.status || '').toLowerCase() !== 'invoiced') continue
           await syncDocumentToDb(prisma, token, baseUrl, 'Quote', est.estimate_id, est)
           quotesSynced++
         }

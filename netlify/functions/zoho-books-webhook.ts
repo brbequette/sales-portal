@@ -68,6 +68,15 @@ export const handler: Handler = async (event) => {
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "Record not in local DB" }) }
     }
 
+    // For Quote/Estimate webhooks: only process estimates that have been converted to an invoice
+    if (type === 'Quote') {
+      const estStatus = (doc.status || '').toLowerCase()
+      if (estStatus !== 'invoiced') {
+        console.log(`Estimate ${booksId} status="${doc.status}" — not invoiced, skipping webhook sync`)
+        return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: `Estimate not invoiced (status: ${doc.status}) — skipped` }) }
+      }
+    }
+
     // Build the updated items JSON from webhook payload
     const currentItems = (dbDoc.items as any) || {}
     const updatedItems = {
