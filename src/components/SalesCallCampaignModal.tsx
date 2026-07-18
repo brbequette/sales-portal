@@ -105,16 +105,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     }).catch(() => {})
   }, [])
 
-  // Click outside to close product dropdown
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (productSearchRef.current && !productSearchRef.current.contains(e.target as Node)) {
-        setShowProductDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
+
 
   // Fetch account intel (purchases + notes + address) on-demand per active account
   const [accountDetail, setAccountDetail] = useState<any>(null)

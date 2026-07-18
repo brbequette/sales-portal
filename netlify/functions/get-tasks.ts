@@ -265,7 +265,7 @@ export const handler: Handler = async (event, context) => {
         accountId: t.account?.zohoId || null,
         accountDbId: t.accountId,
         accountName: t.account?.name || null,
-        accountPhone: t.account?.phone || null,
+        accountPhone: (t.account?.rawData as any)?.Phone || null,
         dealId: t.deal?.zohoId || null,
         dealDbId: t.dealId,
         dealName: t.deal?.name || null,
