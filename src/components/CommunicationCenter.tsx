@@ -31,6 +31,7 @@ import {
   FactFindingPanel, FactFindingSummary,
   EMPTY_FACT_FINDING, type FactFindingValues
 } from "@/components/FactFindingPanel"
+import { OrderBuilder, type OrderLine } from "@/components/OrderBuilder"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,16 +40,6 @@ type Message = {
   sender: "rep" | "client"
   text: string
   timestamp: string
-}
-
-type OrderLine = {
-  id: string
-  name: string
-  sku: string
-  paidQty: number
-  freeQty: number
-  unitPrice: number
-  cost: number
 }
 
 const DEFAULT_VIG_RATE = 1.3
@@ -875,96 +866,15 @@ export function CommunicationCenter({
           {/* ── ORDER sub-tab ────────────────────────────────────────── */}
           {callSubTab === "ORDER" && (
             <div className="flex-1 flex flex-col gap-3">
-              {/* Product search */}
-              <div ref={productSearchRef} className="relative">
-                <div className="relative">
-                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
-                  <input
-                    value={productSearch}
-                    onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(true) }}
-                    onFocus={() => setShowProductDropdown(true)}
-                    placeholder="Search catalog to add products..."
-                    className="w-full pl-9 pr-4 py-2.5 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:border-[var(--primary)]"
-                  />
-                </div>
-                {showProductDropdown && filteredProducts.length > 0 && (
-                  <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl overflow-hidden max-h-52 overflow-y-auto scrollbar-thin">
-                    {filteredProducts.map((p, i) => (
-                      <button
-                        key={i}
-                        onClick={() => addProductToOrder(p)}
-                        className="w-full text-left px-4 py-2.5 hover:bg-neutral-800 transition-colors flex items-center justify-between gap-2"
-                      >
-                        <div>
-                          <div className="text-xs font-bold text-white">{p.name}</div>
-                          <div className="text-[10px] text-neutral-500">{p.sku}</div>
-                        </div>
-                        <div className="text-xs font-black text-emerald-400 shrink-0">${(p.price || 0).toFixed(2)}</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Order lines */}
-              {orderLines.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-neutral-500 gap-2 py-8">
-                  <FiShoppingCart size={24} />
-                  <p className="text-sm">No products added yet</p>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col gap-2 overflow-y-auto scrollbar-thin">
-                  {orderLines.map(line => (
-                    <div key={line.id} className="p-3 bg-neutral-900/60 border border-neutral-800 rounded-xl flex flex-col gap-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-bold text-sm text-white">{line.name}</div>
-                          <div className="text-[10px] text-neutral-500">{line.sku} · ${line.unitPrice.toFixed(2)} ea</div>
-                        </div>
-                        <button
-                          onClick={() => setOrderLines(prev => prev.filter(l => l.id !== line.id))}
-                          className="text-red-400 hover:text-red-300 text-xs px-2 py-0.5 rounded hover:bg-red-500/10 transition-colors"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                      <div className="flex gap-4 items-center">
-                        <div className="flex items-center gap-2">
-                          <label className="text-[10px] text-neutral-500">Paid Qty</label>
-                          <input
-                            type="number" min={0}
-                            value={line.paidQty}
-                            onChange={e => setOrderLines(prev => prev.map(l => l.id === line.id ? { ...l, paidQty: Math.max(0, Number(e.target.value)) } : l))}
-                            className="w-16 bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-[var(--primary)] text-center"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <label className="text-[10px] text-neutral-500">Free Qty</label>
-                          <input
-                            type="number" min={0}
-                            value={line.freeQty}
-                            onChange={e => setOrderLines(prev => prev.map(l => l.id === line.id ? { ...l, freeQty: Math.max(0, Number(e.target.value)) } : l))}
-                            className="w-16 bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 text-center"
-                          />
-                        </div>
-                        <div className="ml-auto text-sm font-black text-emerald-400">
-                          ${(line.paidQty * line.unitPrice).toFixed(2)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Financials */}
-                  {orderFinancials && (
-                    <div className="mt-2 p-3 bg-neutral-900 border border-neutral-700 rounded-xl space-y-1.5 text-xs">
-                      <div className="flex justify-between text-neutral-400"><span>Sub Total</span><span className="font-bold text-white">${orderFinancials.subTotal.toFixed(2)}</span></div>
-                      <div className="flex justify-between text-neutral-400"><span>Dead Cost + VIG ({DEFAULT_VIG_RATE}x)</span><span className="text-amber-400 font-bold">−${orderFinancials.deadCostPlusVig.toFixed(2)}</span></div>
-                      <div className="flex justify-between border-t border-neutral-800 pt-1.5 font-bold"><span className="text-neutral-300">Profit</span><span className={orderFinancials.profitAfterVig >= 0 ? "text-emerald-400" : "text-red-400"}>${orderFinancials.profitAfterVig.toFixed(2)} ({orderFinancials.marginPct.toFixed(1)}%)</span></div>
-                      <div className="flex justify-between text-neutral-400"><span>Commission (50%)</span><span className="text-cyan-400 font-bold">${orderFinancials.salesCommission.toFixed(2)}</span></div>
-                    </div>
-                  )}
-                </div>
-              )}
+              <OrderBuilder
+                orderLines={orderLines}
+                setOrderLines={setOrderLines}
+                catalogProducts={catalogProducts}
+                vigRate={DEFAULT_VIG_RATE}
+                commissionPct={COMMISSION_PCT}
+                accountName={account?.name}
+                accountDetail={accountDetail}
+              />
             </div>
           )}
 

@@ -10,6 +10,7 @@ import {
   FiSearch, FiPlus, FiX, FiArrowRight, FiCreditCard, FiUser
 } from "react-icons/fi"
 import Link from "next/link"
+import { OrderBuilder, type OrderLine } from "@/components/OrderBuilder"
 
 interface AccountDialerProps {
   accountId: string
@@ -37,44 +38,10 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
   const [isGeneratingAi, setIsGeneratingAi] = useState(false)
   const [showAiMagic, setShowAiMagic] = useState(false)
 
-  type OrderLine = { id: string; name: string; sku: string; paidQty: number; freeQty: number; unitPrice: number; cost: number }
   const [orderLines, setOrderLines] = useState<OrderLine[]>([])
   const [catalogProducts, setCatalogProducts] = useState<any[]>([])
-  const [productSearch, setProductSearch] = useState('')
-  const [showProductDropdown, setShowProductDropdown] = useState(false)
-  const [showMockOrder, setShowMockOrder] = useState(false)
-  const productSearchRef = useRef<HTMLDivElement>(null)
   const DEFAULT_VIG_RATE = 1.3
   const COMMISSION_PCT = 50
-
-  const topBladeProducts = useMemo(() => {
-    if (catalogProducts.length === 0) return []
-    return catalogProducts
-      .filter(p => {
-        const cat = (p.category || '').toLowerCase()
-        const status = (() => { try { return JSON.parse(p.description || '{}').status } catch { return 'active' } })()
-        return cat.includes('blade') && status !== 'inactive'
-      })
-      .map(p => {
-        const desc = (() => { try { return JSON.parse(p.description || '{}') } catch { return {} } })()
-        return { name: p.name, sku: p.sku, price: p.price || 0, cost: desc.cost || 0 }
-      })
-      .slice(0, 10)
-  }, [catalogProducts])
-
-  const orderFinancials = (() => {
-    if (orderLines.length === 0) return null
-    const subTotal = orderLines.reduce((s, l) => s + (l.paidQty * l.unitPrice), 0)
-    const deadCostTotal = orderLines.reduce((s, l) => s + (l.cost * (l.paidQty + l.freeQty)), 0)
-    const deadCostSubjectToVig = orderLines.reduce((s, l) => s + (l.cost * l.paidQty), 0)
-    const deadCostNoVig = orderLines.reduce((s, l) => s + (l.cost * l.freeQty), 0)
-    const deadCostPlusVig = (deadCostSubjectToVig * DEFAULT_VIG_RATE) + deadCostNoVig
-    const deadProfit = subTotal - deadCostTotal
-    const profitAfterVig = subTotal - deadCostPlusVig
-    const salesCommission = profitAfterVig > 0 ? profitAfterVig * (COMMISSION_PCT / 100) : 0
-    const marginPct = subTotal > 0 ? (profitAfterVig / subTotal) * 100 : 0
-    return { subTotal, deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig, deadProfit, profitAfterVig, salesCommission, marginPct }
-  })()
 
   const [timerSeconds, setTimerSeconds] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -719,6 +686,20 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                     <p className="text-xs text-emerald-100/70 leading-relaxed">{rec.pitch}</p>
                   </div>
                 ))}
+              </div>
+
+              {/* ORDER BUILDER */}
+              <div className="mx-5 mt-4 bg-violet-950/20 border border-violet-900/50 p-5 rounded-2xl">
+                <OrderBuilder
+                  orderLines={orderLines}
+                  setOrderLines={setOrderLines}
+                  catalogProducts={catalogProducts}
+                  vigRate={DEFAULT_VIG_RATE}
+                  commissionPct={COMMISSION_PCT}
+                  accountName={account?.name}
+                  accountDetail={accountDetail}
+                  accent="cyan"
+                />
               </div>
 
             </>

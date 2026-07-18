@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"
 import { useZoho } from "@/components/ZohoProvider"
 import Link from "next/link"
 import {
-  FiPhone, FiMail, FiMessageSquare, FiCheckSquare, FiSettings,
+  FiPhone, FiPhoneCall, FiMail, FiMessageSquare, FiCheckSquare, FiSettings,
   FiCalendar, FiList, FiPlus, FiRefreshCw, FiChevronLeft, FiChevronRight,
   FiClock, FiUser, FiLink, FiFileText, FiAlertCircle, FiCheck,
   FiEdit2, FiX, FiSave, FiFlag, FiFilter, FiShare2, FiChevronDown,
@@ -23,6 +23,8 @@ interface Task {
   id: string
   zohoId: string
   title: string
+
+  accountPhone?: string | null
   description: string | null
   status: TaskStatus
   priority: TaskPriority
@@ -434,6 +436,29 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
               </div>
             </div>
 
+            {/* Account & Call Details */}
+            {task.accountName && (
+              <div>
+                <label className="text-xs text-neutral-500 font-bold uppercase tracking-wider block mb-2">Account</label>
+                <div className="bg-white/3 border border-white/8 rounded-xl px-4 py-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <FiUser className="text-sky-400 shrink-0" />
+                    <span className="text-sm font-medium text-white">{task.accountName}</span>
+                  </div>
+                  {task.type === "Call" && task.accountPhone && (
+                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-white/5">
+                      <span className="text-xs font-mono text-neutral-400">{task.accountPhone}</span>
+                      <a href={"tel:" + task.accountPhone.replace(/[^\d+]/g, '')} 
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 font-bold text-[10px] rounded-lg transition-all"
+                      >
+                        <FiPhoneCall size={10} /> Call Now
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Assignee */}
             {task.ownerName && (
               <div>
@@ -625,22 +650,29 @@ function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t
         </div>
         <div className="grid grid-cols-7">
           {cells.map((day,i) => {
-            if (!day) return <div key={i} className="aspect-square" />
+            if (!day) return <div key={i} className="min-h-[100px]" />
             const dt = tasksOn(day); const isToday = sameDay(day,today); const isCur = sameDay(day,cur)
             return (
-              <button key={i} onClick={() => {setCur(day); setView("day")}}
-                className={`aspect-square flex flex-col items-center justify-start p-1 rounded-xl transition-all ${isToday ? "bg-violet-500/15 ring-1 ring-violet-500/50" : isCur ? "bg-white/5" : "hover:bg-white/5"}`}
+              <div key={i} onClick={() => {setCur(day); setView("day")}}
+                className={`min-h-[100px] flex flex-col items-stretch justify-start p-1 border-b border-r border-white/5 transition-all cursor-pointer ${isToday ? "bg-violet-500/10" : isCur ? "bg-white/5" : "hover:bg-white/5"}`}
               >
-                <span className={`text-sm font-bold ${isToday ? "text-violet-400" : "text-neutral-300"}`}>{day.getDate()}</span>
-                {dt.length > 0 && (
-                  <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
-                    {dt.slice(0,3).map((_,j) => {
-                      const c = classifyTask(dt[j])
-                      return <span key={j} className={`w-1.5 h-1.5 rounded-full ${CAT[c].dot}`} />
-                    })}
-                  </div>
-                )}
-              </button>
+                <div className="flex justify-between items-center w-full mb-1 px-1">
+                  <span className={`text-[11px] font-bold ${isToday ? "text-violet-400" : "text-neutral-400"}`}>{day.getDate()}</span>
+                </div>
+                <div className="flex-1 overflow-y-auto no-scrollbar space-y-1">
+                  {dt.map(t => {
+                    const c = classifyTask(t); const cfg = CAT[c]
+                    return (
+                      <button key={t.id} onClick={(e) => { e.stopPropagation(); onSelectTask(t) }}
+                        className={`w-full text-left p-1 rounded text-[9px] font-medium leading-tight ${cfg.bg} border ${cfg.border} ${cfg.text} hover:brightness-110 transition-all`}
+                      >
+                        <div className="flex items-center gap-1 mb-[1px] truncate">{TYPE_ICON[t.type]}<span>{t.type}</span></div>
+                        <div className="text-white truncate font-bold">{t.title}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             )
           })}
         </div>

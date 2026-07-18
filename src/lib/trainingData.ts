@@ -159,6 +159,60 @@ The built-in **Point of Sale (POS)** turns a catalog search into a finished orde
     `,
   },
   {
+    id: "order-builder",
+    title: "Order Builder — Building Orders on a Call",
+    category: "Sales & Orders",
+    content: `
+The **Order Builder** appears in the **Titan Dialer**, the **Account Page Dialer**, and the **Communication Center** — all three use the exact same interface so the process is universal.
+
+### How to add products
+
+**Option 1 — Blade Lookup (fastest for blades)**
+1. Tap **Blade Lookup** to expand the filter panel.
+2. Set **Application** (Asphalt, Concrete, General Purpose, etc.), **Size** (4.5"–20"+), and **Type** (Segmented, Turbo, Continuous Rim, etc.).
+3. The system shows **Good / Better / Best** card options based on price tier — Good is entry level, Better is mid-range, Best is premium.
+4. Tap **Add** on the card to instantly add it to the order.
+
+**Option 2 — Product Search**
+- Type in the search box (2+ characters) to search the full catalog by name, SKU, or category.
+- Tap a result to add it to the order.
+
+**Option 3 — Quick Add**
+- Use the pill buttons under "Top Blades" to add the 10 most popular blades in one tap.
+
+### Managing line items
+
+**Sold Items (amber section)**
+- Items you are charging for (paidQty > 0) appear here.
+- **Qty**: Use the **−** and **+** buttons, or **click the number directly** to type in any quantity.
+- **Unit Price**: Click the price field to edit it directly.
+- **Line $**: Calculated automatically (paidQty × unitPrice).
+
+**Promotional / Gift Items (green 🎁 section)**
+- Items being given away FREE appear here — completely separated from sold items.
+- To add a free qty to a product, use the **"Add Promo Qty"** panel at the bottom (shows all items with a free qty stepper).
+- Free items are tracked for cost accounting but show $0.00 on the order preview.
+
+> **Important**: Always put gift/promotional items in the Free Qty field — never as a $0 sold item. This keeps reporting accurate.
+
+### Order Summary & Financials
+- **Order Total** — sum of all paid line items only.
+- **Dead Cost** — your cost for all items (paid + free).
+- **Profit after VIG** — profit after applying the 1.3× VIG multiplier on paid items.
+- **Commission** — your 50% cut of profit after VIG (shown for motivation!).
+- **Margin %** — color-coded: green ≥30%, amber ≥15%, red <15%.
+
+### Preview Sales Order
+Tap **Preview Sales Order** to see a formatted order summary with:
+- Bill To / Ship To address
+- Sold Items table (paid lines only)
+- 🎁 Promotional Items table (free lines only — clearly separated)
+- Order Total and profit breakdown
+
+This preview is for reference only — use the **POS** screen if you need to generate an actual Zoho Books quote or sales order.
+    `,
+  },
+  {
     id: "catalog-lookup",
     title: "Product Catalog Lookup",
     category: "Sales & Orders",
