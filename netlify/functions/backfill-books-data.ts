@@ -433,7 +433,8 @@ export const handler: Handler = async (event) => {
     const pct = Math.min(99, Math.round((newOffset / Math.max(1, totalUncached)) * 100))
     const etaMin = Math.ceil((remaining * RATE_DELAY_MS) / 60000)
 
-    await saveCheckpoint({ ...cp, phase2Offset: newOffset, phase2LastRun: new Date().toISOString(), phase2Processed: (cp.phase2Processed || 0) + processed })
+    // Clear the lock so the next batch can start immediately (no 60s wait)
+    await saveCheckpoint({ ...cp, phase2Offset: newOffset, phase2LastRun: new Date().toISOString(), phase2Processed: (cp.phase2Processed || 0) + processed, phase2LockTs: 0, phase2LockOffset: -1 })
 
     return {
       statusCode: 200, headers: cors,
