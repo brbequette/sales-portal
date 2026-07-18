@@ -307,8 +307,12 @@ export const handler: Handler = async (event) => {
     const lockAge = Date.now() - lockTs
     if (lockOffset === offset && lockAge < 60_000) {
       return {
-        statusCode: 429, headers: cors,
-        body: JSON.stringify({ error: 'Another backfill batch is already running for this offset. Try again in a moment.', lockOffset, lockAge })
+        statusCode: 200, headers: cors,
+        body: JSON.stringify({
+          success: true, phase: 2, done: false,
+          callAgain: true, retryAfterMs: Math.max(1000, 60_000 - lockAge),
+          message: `Batch at offset ${offset} is still running (${Math.round(lockAge / 1000)}s ago). Retrying after delay.`
+        })
       }
     }
     // Claim the lock immediately — write it before doing any API calls
@@ -422,10 +426,12 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    const newOffset = offset + batch.length
-    const remaining = totalUncached - newOffset
-    const pct = Math.round((newOffset / totalUncached) * 100)
-    const etaMin = Math.ceil((remaining * RATE_DELAY_MS) / 60000 / (BATCH_SIZE / batch.length))
+    // Always advance by BATCH_SIZE (not batch.length) so offset is deterministic
+    // even when some records error out mid-batch
+    const newOffset = offset + BATCH_SIZE
+    const remaining = Math.max(0, totalUncached - newOffset)
+    const pct = Math.min(99, Math.round((newOffset / Math.max(1, totalUncached)) * 100))
+    const etaMin = Math.ceil((remaining * RATE_DELAY_MS) / 60000)
 
     await saveCheckpoint({ ...cp, phase2Offset: newOffset, phase2LastRun: new Date().toISOString(), phase2Processed: (cp.phase2Processed || 0) + processed })
 
@@ -440,12 +446,12 @@ export const handler: Handler = async (event) => {
         offset: newOffset,
         totalUncached,
         remaining,
-        percentComplete: pct,
+        percentComplete: remaining <= 0 ? 100 : pct,
         etaMinutesRemaining: etaMin,
         callAgain: remaining > 0,
-        message: remaining > 0
-          ? `${pct}% done — ${remaining} records left (~${etaMin} min remaining). Call phase=2 again to continue.`
-          : 'All records backfilled!'
+        message: remaining <= 0
+          ? 'All records backfilled!'
+          : `${pct}% done — ${remaining} records left (~${etaMin} min remaining). Call phase=2 again to continue.`
       })
     }
   }

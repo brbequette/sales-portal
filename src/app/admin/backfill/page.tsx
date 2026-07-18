@@ -15,6 +15,7 @@ type BatchResult = {
   phase: number
   done?: boolean
   callAgain?: boolean
+  retryAfterMs?: number
   // Phase 1
   totalMapped?: number
   pageMapped?: number
@@ -137,14 +138,60 @@ export default function BackfillPage() {
     autoRunRef.current = true
     addLog("▶ Starting Phase 2 auto-run (will continue until complete or stopped)...")
 
+    let consecutiveErrors = 0
+    const MAX_CONSECUTIVE_ERRORS = 3
+
     while (autoRunRef.current) {
-      const result = await runPhase2Batch()
-      if (!result || result.done || !result.callAgain) {
-        addLog(result?.done ? "🎉 Backfill complete!" : "⏹ Stopped.")
-        break
+      try {
+        const res = await fetch("/api/backfill-books-data?phase=2")
+        const data: BatchResult = await safeJson(res)
+        setLastResult(data)
+
+        // Handle lock-collision retry hint
+        if (data.retryAfterMs && !data.done) {
+          addLog(`⏳ Lock collision — retrying in ${Math.round((data.retryAfterMs as number) / 1000)}s...`)
+          await new Promise(r => setTimeout(r, data.retryAfterMs as number))
+          continue
+        }
+
+        if (data.error) {
+          consecutiveErrors++
+          addLog(`❌ Batch error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${data.error}`)
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            addLog(`⛔ ${MAX_CONSECUTIVE_ERRORS} consecutive errors — stopping. Click Resume to try again.`)
+            break
+          }
+          await new Promise(r => setTimeout(r, 3000 * consecutiveErrors))
+          continue
+        }
+
+        // Success — reset error counter
+        consecutiveErrors = 0
+
+        addLog(
+          data.done
+            ? `🎉 DONE! All records backfilled.`
+            : `✅ Batch: +${data.batchProcessed} cached (${data.batchErrors || 0} errors) · ${data.percentComplete}% · ${data.remaining?.toLocaleString()} left · ~${data.etaMinutesRemaining}m remaining`
+        )
+
+        if (data.done || !data.callAgain) {
+          addLog("🎉 Backfill complete!")
+          break
+        }
+
+        // Small pause between batches
+        await new Promise(r => setTimeout(r, 500))
+
+      } catch (e: any) {
+        consecutiveErrors++
+        addLog(`❌ Network error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${e.message}`)
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          addLog(`⛔ ${MAX_CONSECUTIVE_ERRORS} consecutive errors — stopping. Click Resume to try again.`)
+          break
+        }
+        // Exponential backoff on network errors
+        await new Promise(r => setTimeout(r, 5000 * consecutiveErrors))
       }
-      // Small pause between batches to be gentle
-      await new Promise(r => setTimeout(r, 500))
     }
 
     autoRunRef.current = false
