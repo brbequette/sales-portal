@@ -136,6 +136,7 @@ interface ProcessOptions {
   dryRun: boolean
   limit?: number
   batchDelay: number
+  month?: string
 }
 
 interface DocResult {
@@ -213,7 +214,11 @@ async function processDocType(
   } as const
 
   if (docType === "invoices") {
-    dbDocs = await prisma.invoice.findMany({ where: { zohoId: { not: null } }, select: selectFields })
+    const whereClause: any = { zohoId: { not: null } }
+    if (opts.month) {
+      whereClause.date = { startsWith: opts.month }
+    }
+    dbDocs = await prisma.invoice.findMany({ where: whereClause, select: selectFields })
   } else if (docType === "quotes") {
     dbDocs = await prisma.quote.findMany({ where: { zohoId: { not: null } }, select: selectFields })
   } else {
@@ -357,12 +362,14 @@ export const handler: Handler = async (event) => {
   let body: any = {}
   try { body = JSON.parse(event.body || "{}") } catch { /* use defaults */ }
 
-  const docTypes: DocType[] = body.docTypes || ["invoices", "quotes", "salesorders"]
+  const { docTypes, force, dryRun, limit, batchDelay, month } = body
+
   const opts: ProcessOptions = {
-    force:      !!body.force,
-    dryRun:     !!body.dryRun,
-    limit:      body.limit ? Number(body.limit) : undefined,
-    batchDelay: body.batchDelay ? Number(body.batchDelay) : 600,
+    force: force === true,
+    dryRun: dryRun === true,
+    limit: limit ? parseInt(limit, 10) : undefined,
+    batchDelay: batchDelay ? parseInt(batchDelay, 10) : 600,
+    month: month || undefined
   }
 
   // Acquire global lock (skip for dry runs)
