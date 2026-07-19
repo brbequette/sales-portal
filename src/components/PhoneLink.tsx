@@ -1,5 +1,5 @@
 "use client"
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { FiPhone } from 'react-icons/fi'
 
 interface PhoneLinkProps {
@@ -7,35 +7,30 @@ interface PhoneLinkProps {
   className?: string
   icon?: boolean
   children?: React.ReactNode
+  /** Optional callback before the call action (e.g., for analytics/logging) */
+  onBeforeCall?: (phone: string) => void
 }
 
-export function PhoneLink({ phone, className = "", icon = false, children }: PhoneLinkProps) {
-  const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    // Basic mobile detection
-    if (typeof window !== 'undefined') {
-      setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent))
-    }
-  }, [])
-
+/**
+ * Unified click-to-dial component.
+ * 
+ * Desktop: tel: link → ZDialer Chrome extension intercepts automatically.
+ * Mobile:  tel: link → OS app chooser lets user pick ZDialer app or native Phone.
+ * 
+ * The `data-zohovoice="true"` attribute gives the ZDialer extension
+ * a stronger signal to intercept the link.
+ */
+export function PhoneLink({ phone, className = "", icon = false, children, onBeforeCall }: PhoneLinkProps) {
   if (!phone) return null
 
-  // Clean the phone number for the href
   const cleanPhone = phone.replace(/[^\d+]/g, '')
-  
-  // Desktop: Standard tel: which ZDialer Chrome extension intercepts
-  // Mobile: Try zdialer:// custom scheme for the ZDialer app
-  const href = isMobile ? `zdialer://${cleanPhone}` : `tel:${cleanPhone}`
 
   return (
     <a 
-      href={href} 
+      href={`tel:${cleanPhone}`}
       data-zohovoice="true"
       className={`inline-flex items-center gap-1.5 hover:text-emerald-400 transition-colors ${className}`}
-      onClick={(e) => {
-        // Optional: If zdialer fails on mobile, you could implement a fallback timeout to standard tel:
-      }}
+      onClick={() => onBeforeCall?.(cleanPhone)}
     >
       {children ? children : (
         <>

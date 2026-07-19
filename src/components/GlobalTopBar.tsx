@@ -26,6 +26,8 @@ export function GlobalTopBar() {
   const searchRef = useRef<HTMLDivElement>(null)
 
   const [timeEntry, setTimeEntry] = useState<any>(null)
+  const [geoStatus, setGeoStatus] = useState<{ status: string; location?: string } | null>(null)
+  const [clockLoading, setClockLoading] = useState(false)
 
   // ── Stats Strip Data ──
   const [stripStats, setStripStats] = useState<{
@@ -135,8 +137,31 @@ export function GlobalTopBar() {
   }
 
   const handleToggleClock = async () => {
-    if (!currentUser?.id) return
+    if (!currentUser?.id || clockLoading) return
+    setClockLoading(true)
     const action = (!timeEntry || timeEntry.manualClockOut) ? "clockIn" : "clockOut"
+    
+    // Capture GPS at clock-in/out moment
+    let latitude: number | null = null
+    let longitude: number | null = null
+    let accuracy: number | null = null
+    
+    if (navigator.geolocation) {
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true, timeout: 10000, maximumAge: 30000
+          })
+        })
+        latitude = pos.coords.latitude
+        longitude = pos.coords.longitude
+        accuracy = pos.coords.accuracy
+      } catch {
+        // Permission denied or unavailable — proceed without GPS
+        latitude = null
+      }
+    }
+    
     try {
       const res = await fetch("/api/timeclock/toggle", {
         method: "POST",
@@ -144,15 +169,27 @@ export function GlobalTopBar() {
         body: JSON.stringify({ 
           userId: currentUser.id,
           email: currentUser.email,
-          action: action,
-          name: currentUser.name || currentUser.fullName || "Zoho User"
+          action,
+          name: currentUser.name || currentUser.fullName || "Zoho User",
+          latitude,
+          longitude,
+          accuracy
         })
       })
       const data = await res.json()
       if (data.success) {
         setTimeEntry(data.entry)
+        // Show location feedback briefly
+        if (data.locationStatus) {
+          setGeoStatus({ status: data.locationStatus, location: data.locationName })
+          setTimeout(() => setGeoStatus(null), 4000)
+        }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Timeclock toggle error:", e)
+    } finally {
+      setClockLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -339,17 +376,22 @@ export function GlobalTopBar() {
       <div className="flex items-center gap-2 lg:gap-3 ml-4 shrink-0">
         
         {/* Timeclock Toggle Widget */}
-        <div className="flex items-center rounded-lg border border-white/10 bg-white/[0.045] overflow-hidden text-xs lg:text-sm h-10 lg:h-9">
+        <div className="relative flex items-center rounded-lg border border-white/10 bg-white/[0.045] overflow-hidden text-xs lg:text-sm h-10 lg:h-9">
           <button
             onClick={handleToggleClock}
+            disabled={clockLoading}
             className={`px-3 lg:px-4 h-full font-bold transition-all flex items-center gap-2 border-r border-white/10 ${
-              (!timeEntry || timeEntry.manualClockOut)
-                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" 
-                : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+              clockLoading
+                ? "bg-neutral-700/30 text-neutral-500 cursor-wait"
+                : (!timeEntry || timeEntry.manualClockOut)
+                  ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" 
+                  : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
             }`}
           >
-            <FiClock size={14} /> 
-            <span className="hidden sm:inline">{(!timeEntry || timeEntry.manualClockOut) ? "Clock In" : "Clock Out"}</span>
+            <FiClock size={14} className={clockLoading ? "animate-spin" : ""} /> 
+            <span className="hidden sm:inline">
+              {clockLoading ? "Locating..." : (!timeEntry || timeEntry.manualClockOut) ? "Clock In" : "Clock Out"}
+            </span>
           </button>
           
           {timeEntry && (
@@ -368,6 +410,22 @@ export function GlobalTopBar() {
           >
             {calculateHours(timeEntry)}h
           </button>
+
+          {/* Geolocation status toast */}
+          {geoStatus && (
+            <div className={`absolute -bottom-9 left-0 right-0 mx-auto w-max px-3 py-1.5 rounded-md text-[10px] font-bold shadow-lg border animate-pulse z-50 ${
+              geoStatus.status === 'VERIFIED'
+                ? 'bg-emerald-900/90 text-emerald-300 border-emerald-500/30'
+                : geoStatus.status === 'OUT_OF_RANGE'
+                  ? 'bg-amber-900/90 text-amber-300 border-amber-500/30'
+                  : 'bg-neutral-800/90 text-neutral-400 border-neutral-600/30'
+            }`}>
+              {geoStatus.status === 'VERIFIED' && `📍 ${geoStatus.location || 'On-Site'}`}
+              {geoStatus.status === 'OUT_OF_RANGE' && '⚠️ Out of Range'}
+              {geoStatus.status === 'DENIED' && '🔒 GPS Denied'}
+              {geoStatus.status === 'UNAVAILABLE' && '📡 GPS Unavailable'}
+            </div>
+          )}
         </div>
         
         {/* Notifications Dropdown */}

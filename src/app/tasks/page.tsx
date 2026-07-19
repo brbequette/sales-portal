@@ -11,6 +11,7 @@ import {
   FiChevronUp, FiSearch, FiArrowUp, FiArrowDown, FiMinus, FiRepeat,
   FiMoreVertical, FiSliders, FiEye
 } from "react-icons/fi"
+import { PhoneLink } from "@/components/PhoneLink"
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 type TaskType     = "Task" | "Call" | "Email" | "Text" | "Processing"
@@ -448,11 +449,12 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
                   {task.type === "Call" && task.accountPhone && (
                     <div className="flex items-center justify-between pt-2 mt-2 border-t border-white/5">
                       <span className="text-xs font-mono text-neutral-400">{task.accountPhone}</span>
-                      <a href={"tel:" + task.accountPhone.replace(/[^\d+]/g, '')} 
+                      <PhoneLink 
+                        phone={task.accountPhone}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 font-bold text-[10px] rounded-lg transition-all"
                       >
                         <FiPhoneCall size={10} /> Call Now
-                      </a>
+                      </PhoneLink>
                     </div>
                   )}
                 </div>

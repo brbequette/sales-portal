@@ -3,8 +3,9 @@
 import { formatPhoneNumber } from "@/lib/formatters"
 
 import { useState, useEffect } from "react"
-import { FiX, FiUser, FiPhone, FiMail, FiDollarSign, FiClock, FiShoppingBag, FiInfo, FiMapPin } from "react-icons/fi"
+import { FiX, FiUser, FiPhone, FiMail, FiDollarSign, FiClock, FiShoppingBag, FiInfo, FiMapPin, FiExternalLink, FiRefreshCw, FiAlertTriangle } from "react-icons/fi"
 import { PointOfSale } from "@/components/PointOfSale"
+import Link from "next/link"
 
 // Build a billing address from the account record, falling back to the live
 // Zoho CRM details so an address is shown whenever one exists on either source.
@@ -24,19 +25,24 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
   const [activeTab, setActiveTab] = useState<"overview" | "pos">("overview")
   const [account, setAccount] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!accountId) return
     const fetchAccount = async () => {
       setLoading(true)
+      setError(null)
       try {
         const res = await fetch(`/api/get-account-details?id=${encodeURIComponent(accountId)}`)
         const data = await res.json()
         if (data.success) {
           setAccount(data.account)
+        } else {
+          setError(data.error || "Failed to load account")
         }
       } catch (e) {
         console.error("Failed to load account details", e)
+        setError("Network error — could not load account")
       } finally {
         setLoading(false)
       }
@@ -47,7 +53,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
   // Calculate metrics
   const totalSales = account?.invoices?.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0) || 0
   const openInvoices = account?.invoices?.filter((inv: any) => ['Sent', 'Overdue', 'Partially Paid'].includes(inv.status)) || []
-  const outstandingBalance = openInvoices.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0) || 0
+  const outstandingBalance = openInvoices.reduce((sum: number, inv: any) => sum + (parseFloat(inv.balance_due || inv.balance || 0) || (inv.amount || 0)), 0) || 0
   const primaryContact = account?.contacts?.find((c: any) => c.isPrimary) || account?.contacts?.[0]
   const address = resolveAddress(account)
   const mapsUrl = address.hasAddress
@@ -63,7 +69,17 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
         <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#0f1013] shrink-0">
           <div>
             <h2 className="text-xl font-bold text-white">{account?.name || "Loading Account..."}</h2>
-            {account?.zohoId && <p className="text-xs text-neutral-500">ID: {account.zohoId}</p>}
+            <div className="flex items-center gap-3 mt-0.5">
+              {account?.zohoId && <p className="text-xs text-neutral-500">ID: {account.zohoId}</p>}
+              {account && (
+                <Link
+                  href={`/account?id=${accountId}`}
+                  className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 font-bold transition-colors"
+                >
+                  <FiExternalLink size={10} /> Open Full Account
+                </Link>
+              )}
+            </div>
           </div>
           <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors">
             <FiX size={20} />
@@ -89,7 +105,50 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
         {/* Content */}
         <div className="flex-1 overflow-y-auto relative">
           {loading ? (
-            <div className="absolute inset-0 flex items-center justify-center text-neutral-500">Loading details...</div>
+            <div className="p-6 space-y-5">
+              {/* Loading skeleton */}
+              <div className="space-y-3">
+                <div className="h-5 w-48 bg-neutral-800 rounded animate-pulse" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2 p-4 bg-neutral-900/60 rounded-xl border border-white/5">
+                    <div className="h-3 w-20 bg-neutral-800 rounded animate-pulse" />
+                    <div className="h-4 w-36 bg-neutral-800 rounded animate-pulse" />
+                    <div className="h-3 w-28 bg-neutral-800 rounded animate-pulse" />
+                  </div>
+                  <div className="space-y-2 p-4 bg-neutral-900/60 rounded-xl border border-white/5">
+                    <div className="h-3 w-20 bg-neutral-800 rounded animate-pulse" />
+                    <div className="h-4 w-32 bg-neutral-800 rounded animate-pulse" />
+                    <div className="h-3 w-24 bg-neutral-800 rounded animate-pulse" />
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="h-20 bg-neutral-900/60 rounded-xl border border-white/5 animate-pulse" />
+                <div className="h-20 bg-neutral-900/60 rounded-xl border border-white/5 animate-pulse" />
+              </div>
+              <div className="space-y-2">
+                {[1,2,3].map(i => <div key={i} className="h-12 bg-neutral-900/60 rounded-lg border border-white/5 animate-pulse" />)}
+              </div>
+            </div>
+          ) : error ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8">
+              <FiAlertTriangle size={32} className="text-red-400" />
+              <p className="text-sm text-neutral-400 text-center">{error}</p>
+              <button
+                onClick={() => {
+                  setLoading(true)
+                  setError(null)
+                  fetch(`/api/get-account-details?id=${encodeURIComponent(accountId)}`)
+                    .then(r => r.json())
+                    .then(data => { if (data.success) setAccount(data.account); else setError(data.error || "Failed") })
+                    .catch(() => setError("Network error"))
+                    .finally(() => setLoading(false))
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-bold rounded-lg transition-colors border border-white/10"
+              >
+                <FiRefreshCw size={14} /> Retry
+              </button>
+            </div>
           ) : (
             <div className="h-full">
               {activeTab === 'overview' && (

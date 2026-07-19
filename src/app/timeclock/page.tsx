@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { FiClock, FiAlertCircle, FiCheckCircle, FiXCircle } from "react-icons/fi"
+import { calculateHours, formatHours } from "@/lib/timeclock-utils"
 
 interface TimeEntry {
   id: string
@@ -14,6 +15,8 @@ interface TimeEntry {
   manualClockOut: string | null
   changeRequests: any[]
   inactivityPeriods?: any[]
+  locationStatus?: string
+  clockInLocation?: string | null
 }
 
 export default function UserTimeclockPage() {
@@ -121,38 +124,6 @@ export default function UserTimeclockPage() {
     return new Date(dateStr).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
   }
 
-  const calculateHours = (entry: TimeEntry) => {
-    const start = new Date(entry.manualClockIn || entry.clockIn)
-    let end: Date
-    if (entry.manualClockOut) {
-      end = new Date(entry.manualClockOut)
-    } else if (entry.clockOut) {
-      end = new Date(entry.clockOut)
-    } else {
-      end = new Date(entry.lastActivity)
-    }
-    
-    // If it's today, cap at "now" if they are currently active
-    const now = new Date()
-    if (end > now) end = now
-
-    let inactivityMinutes = 0
-    if (entry.inactivityPeriods && Array.isArray(entry.inactivityPeriods)) {
-      entry.inactivityPeriods.forEach((p: any) => {
-        const pStart = new Date(p.start)
-        const pEnd = new Date(p.end)
-        const overlapStart = new Date(Math.max(start.getTime(), pStart.getTime()))
-        const overlapEnd = new Date(Math.min(end.getTime(), pEnd.getTime()))
-        
-        if (overlapEnd > overlapStart) {
-          inactivityMinutes += (overlapEnd.getTime() - overlapStart.getTime()) / 60000
-        }
-      })
-    }
-    
-    const diffHours = ((end.getTime() - start.getTime()) / (1000 * 60 * 60)) - (inactivityMinutes / 60)
-    return Math.max(0, diffHours).toFixed(2)
-  }
 
   const getWeeklyHours = () => {
     const today = new Date()
@@ -171,7 +142,7 @@ export default function UserTimeclockPage() {
       const [y, m, d] = entry.date.split("-").map(Number)
       const entryDate = new Date(y, m - 1, d)
       if (entryDate >= monday && entryDate <= sunday) {
-        total += parseFloat(calculateHours(entry))
+        total += calculateHours(entry)
       }
     })
     return total.toFixed(2)
@@ -204,7 +175,7 @@ export default function UserTimeclockPage() {
       }
       
       groups[weekKey].entries.push(entry)
-      groups[weekKey].totalHours += parseFloat(calculateHours(entry))
+      groups[weekKey].totalHours += calculateHours(entry)
     })
     
     // Sort groups by week (descending)
@@ -221,21 +192,21 @@ export default function UserTimeclockPage() {
   return (
     <div className="min-h-[calc(100vh-64px)] bg-black text-white p-4 lg:p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between gap-3 items-start sm:items-center mb-8">
           <div>
             <h1 className="text-2xl font-black text-white flex items-center gap-2">
               <FiClock className="text-emerald-500" /> My Timeclock
             </h1>
-            <p className="text-neutral-400 mt-1">Review your automatically logged hours and request corrections.</p>
+            <p className="text-neutral-400 mt-1 text-sm sm:text-base">Review your automatically logged hours and request corrections.</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 w-full sm:w-auto">
             <button
               onClick={handleOpenMissingShiftModal}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-emerald-900/20 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-emerald-900/20 transition-colors flex items-center gap-2 whitespace-nowrap"
             >
               + Report Missing Shift
             </button>
-            <div className="bg-[#151618] border border-white/10 rounded-xl px-5 py-3 shadow-lg flex flex-col items-end">
+            <div className="bg-[#151618] border border-white/10 rounded-xl px-5 py-3 shadow-lg flex flex-col items-end ml-auto">
               <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">This Week</span>
               <span className="text-2xl font-black text-emerald-400">{getWeeklyHours()}h</span>
             </div>
@@ -247,23 +218,24 @@ export default function UserTimeclockPage() {
             <table className="w-full text-left text-sm">
               <thead className="bg-white/[0.02] border-b border-white/10 text-neutral-400">
                 <tr>
-                  <th className="px-6 py-4 font-semibold">Date</th>
+                  <th className="hidden sm:table-cell px-6 py-4 font-semibold">Date</th>
                   <th className="px-6 py-4 font-semibold">Clock In</th>
-                  <th className="px-6 py-4 font-semibold">Clock Out</th>
+                  <th className="hidden md:table-cell px-6 py-4 font-semibold">Clock Out</th>
                   <th className="px-6 py-4 font-semibold">Total Hours</th>
+                  <th className="hidden md:table-cell px-6 py-4 font-semibold">Inactivity</th>
                   <th className="px-6 py-4 font-semibold">Status / Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
                 {loading ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-neutral-500">Loading your timesheet...</td></tr>
+                  <tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-500">Loading your timesheet...</td></tr>
                 ) : entries.length === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-neutral-500">No timeclock data found.</td></tr>
+                  <tr><td colSpan={6} className="px-6 py-8 text-center text-neutral-500">No timeclock data found.</td></tr>
                 ) : (
                   groupedEntries.map((group) => (
                     <React.Fragment key={group.weekStart.toISOString()}>
                       <tr className="bg-[#1a1b1e] border-y border-white/10">
-                        <td colSpan={5} className="px-6 py-3">
+                        <td colSpan={6} className="px-6 py-3">
                            <div className="flex items-center justify-between w-full font-semibold text-emerald-400">
                              <span>Week of {group.weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {group.weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
                              <span className="text-white bg-white/10 px-2.5 py-1 rounded text-xs tracking-widest font-bold">TOTAL: {group.totalHours.toFixed(2)}H</span>
@@ -280,16 +252,49 @@ export default function UserTimeclockPage() {
                         return (
                           <React.Fragment key={entry.id}>
                           <tr className="hover:bg-white/[0.02] transition-colors">
-                            <td className="px-6 py-4 font-medium">{entry.date}</td>
+                            <td className="hidden sm:table-cell px-6 py-4 font-medium">{entry.date}</td>
                             <td className="px-6 py-4">
+                              <span className="sm:hidden text-[10px] text-neutral-500 block mb-0.5">{entry.date}</span>
                               {formatTime(effectiveIn)}
                               {entry.manualClockIn && <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">Edited</span>}
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="hidden md:table-cell px-6 py-4">
                               {formatTime(effectiveOut)}
                               {entry.manualClockOut && <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">Edited</span>}
                             </td>
-                            <td className="px-6 py-4 font-bold text-emerald-400">{calculateHours(entry)}h</td>
+                            <td className="px-6 py-4 font-bold text-emerald-400">
+                              <span className="md:hidden text-[10px] text-neutral-500 block mb-0.5">{formatTime(effectiveIn)} – {formatTime(effectiveOut)}</span>
+                              {calculateHours(entry).toFixed(2)}h
+                              {entry.locationStatus === 'VERIFIED' && (
+                                <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
+                                  📍 {entry.clockInLocation || 'On-Site'}
+                                </span>
+                              )}
+                              {entry.locationStatus === 'OUT_OF_RANGE' && (
+                                <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">
+                                  ⚠️ Off-Site
+                                </span>
+                              )}
+                              {entry.locationStatus === 'DENIED' && (
+                                <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-500/20 text-neutral-400 font-bold">
+                                  🔒 No GPS
+                                </span>
+                              )}
+                            </td>
+                            <td className="hidden md:table-cell px-6 py-4">
+                              {entry.inactivityPeriods && Array.isArray(entry.inactivityPeriods) && entry.inactivityPeriods.length > 0 ? (
+                                <div className="flex flex-col gap-1">
+                                  {entry.inactivityPeriods.map((lapse: any, idx: number) => (
+                                    <div key={lapse.id || idx} className="flex items-center gap-1.5 text-xs text-red-400">
+                                      <FiAlertCircle className="shrink-0" />
+                                      <span>{formatTime(lapse.start)} – {formatTime(lapse.end)} ({lapse.durationMinutes}m)</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-neutral-600">—</span>
+                              )}
+                            </td>
                             <td className="px-6 py-4">
                               {pendingRequest ? (
                                 <span className="flex items-center gap-1.5 text-amber-500 text-xs font-semibold">
@@ -312,14 +317,15 @@ export default function UserTimeclockPage() {
                               )}
                             </td>
                           </tr>
+                          {/* Inactivity shown inline in the Inactivity column on md+; on mobile show as a collapsed row */}
                           {entry.inactivityPeriods && Array.isArray(entry.inactivityPeriods) && entry.inactivityPeriods.length > 0 && (
-                            <tr className="bg-red-500/5">
-                               <td colSpan={5} className="px-6 py-2">
+                            <tr className="bg-red-500/5 md:hidden">
+                               <td colSpan={6} className="px-6 py-2">
                                   <div className="flex flex-col gap-1">
                                     {entry.inactivityPeriods.map((lapse: any, idx: number) => (
                                       <div key={lapse.id || idx} className="flex items-center gap-2 text-xs text-red-400">
                                          <FiAlertCircle /> 
-                                         <span>Idle: {formatTime(lapse.start)} - {formatTime(lapse.end)} ({lapse.durationMinutes} min)</span>
+                                         <span>Idle: {formatTime(lapse.start)} – {formatTime(lapse.end)} ({lapse.durationMinutes} min)</span>
                                       </div>
                                     ))}
                                   </div>
@@ -356,8 +362,7 @@ export default function UserTimeclockPage() {
                   type="datetime-local" 
                   value={newClockIn}
                   onChange={e => setNewClockIn(e.target.value)}
-                  className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 invert-[1] hue-rotate-180"
-                  style={{ colorScheme: "dark" }}
+                  className="w-full bg-neutral-800 text-white border border-white/10 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500 [color-scheme:dark]"
                 />
               </div>
               
@@ -367,8 +372,7 @@ export default function UserTimeclockPage() {
                   type="datetime-local" 
                   value={newClockOut}
                   onChange={e => setNewClockOut(e.target.value)}
-                  className="w-full bg-[#111214] border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 invert-[1] hue-rotate-180"
-                  style={{ colorScheme: "dark" }}
+                  className="w-full bg-neutral-800 text-white border border-white/10 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500 [color-scheme:dark]"
                 />
               </div>
 

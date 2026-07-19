@@ -16,6 +16,7 @@ import Link from "next/link"
 import { QualityPicker } from "@/components/QualityPicker"
 import { TimezonePicker } from "@/components/TimezonePicker"
 import { Pagination, usePagination } from "@/components/Pagination"
+import { PhoneLink } from "@/components/PhoneLink"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { SalesBoard } from "@/components/SalesBoard"
 import { DashboardView } from "@/components/DashboardView"
@@ -1710,12 +1711,12 @@ export default function Dashboard() {
                                   <span className="text-[10px] text-neutral-400 font-medium shrink-0">
                                     {contactDisplayName || "Primary"}
                                   </span>
-                                  <a
-                                    href={`tel:${primaryPhone}`}
+                                  <PhoneLink
+                                    phone={primaryPhone}
                                     className="text-[11px] text-sky-400 hover:text-sky-300 font-mono font-bold truncate"
                                   >
                                     {primaryContact?.phone || primaryPhone}
-                                  </a>
+                                  </PhoneLink>
                                 </div>
                               ) : top2Contacts.length > 0 ? (
                                 <div className="flex flex-col gap-0.5">
@@ -1729,9 +1730,9 @@ export default function Dashboard() {
                                         )}
                                         <span className="text-[10px] text-neutral-400 font-medium shrink-0 truncate max-w-[80px]">{cName}</span>
                                         {cPhone ? (
-                                          <a href={`tel:${cPhone}`} className="text-[11px] text-sky-400 hover:text-sky-300 font-mono font-bold truncate">
+                                          <PhoneLink phone={cPhone} className="text-[11px] text-sky-400 hover:text-sky-300 font-mono font-bold truncate">
                                             {cPhone}
-                                          </a>
+                                          </PhoneLink>
                                         ) : c.email ? (
                                           <span className="text-[10px] text-neutral-500 italic truncate">{c.email}</span>
                                         ) : (
@@ -1782,13 +1783,12 @@ export default function Dashboard() {
                             {/* Right: action buttons */}
                             <div className="flex items-center gap-1.5 pl-3 shrink-0">
                               {hasPhone ? (
-                                <a
-                                  href={`tel:${primaryPhone}`}
+                                <PhoneLink
+                                  phone={primaryPhone}
                                   className="flex items-center justify-center w-8 h-8 bg-sky-600 hover:bg-sky-500 rounded-full text-white transition-colors"
-                                  title="Call"
                                 >
                                   <FiPhoneCall size={13} />
-                                </a>
+                                </PhoneLink>
                               ) : (
                                 <div
                                   className="flex items-center justify-center w-8 h-8 bg-red-900/30 border border-red-700/40 rounded-full cursor-not-allowed"
@@ -1872,9 +1872,9 @@ export default function Dashboard() {
                                   <div className="flex items-center gap-1.5 mt-1">
                                     <span className="text-[10px] text-neutral-500 truncate">{contactDisplayName}</span>
                                     {primaryPhone && (
-                                      <a href={`tel:${primaryPhone}`} className="text-[10px] text-blue-400/70 font-mono truncate hover:text-blue-300">
+                                      <PhoneLink phone={primaryPhone} className="text-[10px] text-blue-400/70 font-mono truncate hover:text-blue-300">
                                         {primaryContact?.phone || primaryPhone}
-                                      </a>
+                                      </PhoneLink>
                                     )}
                                   </div>
                                 )}
@@ -1922,9 +1922,9 @@ export default function Dashboard() {
                                   <FiDollarSign size={12} />
                                 </Link>
                                 {primaryPhone ? (
-                                  <a href={`tel:${primaryPhone}`} className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
+                                  <PhoneLink phone={primaryPhone} className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors">
                                     <FiPhoneCall size={12} />
-                                  </a>
+                                  </PhoneLink>
                                 ) : (
                                   <button className="p-1.5 bg-neutral-800 rounded-full text-neutral-400 opacity-30 cursor-not-allowed" disabled>
                                     <FiPhoneCall size={12} />

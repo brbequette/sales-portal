@@ -11,6 +11,7 @@ import {
 } from "react-icons/fi"
 import Link from "next/link"
 import { OrderBuilder, type OrderLine } from "@/components/OrderBuilder"
+import { PhoneLink } from "@/components/PhoneLink"
 
 interface AccountDialerProps {
   accountId: string
@@ -458,10 +459,14 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
 
                 <div className="px-5 mt-1.5 flex flex-wrap items-center gap-3">
                   {displayPhone && (
-                    <div className="flex items-center gap-1" title="Phone number for ZDialer">
+                    <PhoneLink
+                      phone={cleanPhone}
+                      className="flex items-center gap-1"
+                      onBeforeCall={(ph) => navigator.clipboard?.writeText(ph).catch(() => {})}
+                    >
                       <FiPhoneCall size={10} className="text-cyan-500" />
-                      <span className="text-xs font-mono font-bold text-cyan-300 select-all">{formatPhoneNumber(displayPhone)}</span>
-                    </div>
+                      <span className="text-xs font-mono font-bold text-cyan-300 select-all" title="Phone number for ZDialer">{formatPhoneNumber(displayPhone)}</span>
+                    </PhoneLink>
                   )}
                   {displayEmail && (
                     <div className="flex items-center gap-1 text-xs text-blue-400">

@@ -5,7 +5,7 @@ import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import {
   FiHome, FiPhoneCall, FiDollarSign, FiTool, FiUser,
-  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare, FiArrowLeft, FiCheckSquare
+  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare, FiArrowLeft, FiCheckSquare, FiClock, FiGrid
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 import { UserSettingsModal } from "@/components/UserSettingsModal"
@@ -17,6 +17,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { zohoContext: user } = useZoho()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
 
   // Show back button on sub-pages (not main nav destinations)
   const mainPages = ["/", "/login", "/sales", "/messages", "/collections", "/commissions", "/stats", "/tools", "/training", "/catalog", "/timeclock", "/tasks"]
@@ -209,6 +210,52 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           )
         })}
+
+        {/* More Button */}
+        <button
+          onClick={() => setShowMoreMenu(!showMoreMenu)}
+          className={`flex-1 flex flex-col items-center py-3 text-[11px] font-semibold transition-colors ${
+            showMoreMenu ? "text-white" : "text-neutral-600"
+          }`}
+        >
+          <FiGrid size={18} className={showMoreMenu ? "text-[var(--primary)]" : ""} />
+          <span className="mt-0.5">More</span>
+        </button>
+
+        {/* More Menu Popup */}
+        {showMoreMenu && (
+          <>
+            <div className="fixed inset-0 z-20" onClick={() => setShowMoreMenu(false)} />
+            <div className="absolute bottom-full right-2 mb-2 z-30 bg-neutral-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_-8px_40px_rgba(0,0,0,0.5)] p-2 min-w-[200px]">
+              {[
+                { href: "/timeclock",   icon: FiClock,         label: "Timeclock",    color: "text-emerald-400" },
+                { href: "/commissions", icon: FiDollarSign,    label: "Commissions",  color: "text-[var(--success)]" },
+                { href: "/stats",       icon: FiBarChart2,     label: "Rep Stats",    color: "text-neutral-100" },
+                { href: "/sales",       icon: FiFileText,      label: "Sales Docs",   color: "text-[var(--accent)]" },
+                { href: "/tools",       icon: FiTool,          label: "Tools & Media",color: "text-[var(--accent)]" },
+                { href: "/training",    icon: FiBookOpen,      label: "Training Hub", color: "text-[var(--primary)]" },
+              ].map(item => {
+                const Icon = item.icon
+                const active = pathname === item.href
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setShowMoreMenu(false)}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                      active
+                        ? "bg-white/10 text-white"
+                        : "text-neutral-400 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <Icon size={16} className={active ? item.color : ""} />
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── Main Content ── */}

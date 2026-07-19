@@ -670,7 +670,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
   useEffect(() => {
     let t: ReturnType<typeof setInterval>
     if (timerRunning) {
-      t = setInterval(() => setTimerSeconds(s => s + 1), 1005)
+      t = setInterval(() => setTimerSeconds(s => s + 1), 1000)
     }
     return () => clearInterval(t)
   }, [timerRunning])
@@ -1362,8 +1362,26 @@ export default function CollectionsPage() {
           </label>
         </div>
 
-        {/* Filters Button */}
+        {/* Search + Filters */}
         <div className="flex items-center gap-2">
+          <div className="relative">
+            <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" size={13} />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search invoices..."
+              className="w-44 sm:w-56 bg-neutral-800 border border-neutral-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 transition-colors"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white"
+              >
+                <FiX size={12} />
+              </button>
+            )}
+          </div>
           {activeFiltersCount > 0 && (
             <button 
               onClick={() => {

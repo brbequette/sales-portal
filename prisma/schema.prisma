@@ -326,6 +326,15 @@ model TimeEntry {
   manualClockOut  DateTime?
   ipAddress         String?
   inactivityPeriods Json?    @default("[]")
+  clockInLat        Float?
+  clockInLng        Float?
+  clockInAccuracy   Float?
+  clockOutLat       Float?
+  clockOutLng       Float?
+  clockOutAccuracy  Float?
+  clockInLocation   String?
+  clockOutLocation  String?
+  locationStatus    String?    // VERIFIED | OUT_OF_RANGE | DENIED | UNAVAILABLE
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -353,6 +362,18 @@ model TimeChangeRequest {
 
   @@index([timeEntryId])
   @@index([userId])
+}
+
+model GeofenceLocation {
+  id            String   @id @default(cuid())
+  name          String
+  address       String?
+  latitude      Float
+  longitude     Float
+  radiusMeters  Int      @default(150)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model CampaignTemplate {

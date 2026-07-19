@@ -32,6 +32,7 @@ import {
   EMPTY_FACT_FINDING, type FactFindingValues
 } from "@/components/FactFindingPanel"
 import { OrderBuilder, type OrderLine } from "@/components/OrderBuilder"
+import { PhoneLink } from "@/components/PhoneLink"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -536,7 +537,7 @@ export function CommunicationCenter({
             <div className="text-xs text-neutral-500 font-mono mt-0.5">
               {activeTab === "EMAIL" ? primaryContact.email : (
                 cleanPhone
-                  ? <a href={`tel:${cleanPhone}`} className="hover:text-[var(--primary)] underline">{displayPhone}</a>
+                  ? <PhoneLink phone={cleanPhone} className="hover:text-[var(--primary)] underline">{displayPhone}</PhoneLink>
                   : displayPhone || "No phone on file"
               )}
             </div>
@@ -596,12 +597,12 @@ export function CommunicationCenter({
               {/* Click to Dial */}
               {cleanPhone ? (
                 <div className="text-center py-2">
-                  <a
-                    href={`tel:${cleanPhone}`}
+                  <PhoneLink
+                    phone={cleanPhone}
                     className="inline-flex items-center gap-2 px-8 py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] font-bold rounded-lg transition-colors shadow-lg text-sm"
                   >
                     <FiPhoneCall /> Click to Dial — {displayPhone}
-                  </a>
+                  </PhoneLink>
                 </div>
               ) : (
                 <div className="text-center py-3 text-neutral-500 text-sm">No phone number on file</div>

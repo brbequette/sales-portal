@@ -97,6 +97,12 @@ export function CommandPalette() {
                              router.push(`/?search=${encodeURIComponent(r.title)}`)
                          } else if (r.type === 'invoice') {
                              router.push(`/collections?search=${encodeURIComponent(r.title)}`)
+                         } else if (r.type === 'deal') {
+                             // Navigate to the account that owns this deal
+                             const accountId = r.accountId || r.id
+                             if (accountId) router.push(`/account?id=${accountId}`)
+                         } else if (r.type === 'product') {
+                             router.push(`/catalog?search=${encodeURIComponent(r.title)}`)
                          }
                          setOpen(false)
                       }}
