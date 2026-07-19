@@ -89,6 +89,7 @@ export default function StatsPage() {
   const [sortField, setSortField] = useState<SortField>("revenue")
   const [sortAsc, setSortAsc] = useState(false)
   const [trackerPeriod, setTrackerPeriod] = useState<"week" | "month">("month")
+  const [selectedDataMonth, setSelectedDataMonth] = useState<string>("")
 
   useEffect(() => {
     if (!isInitialized) return
@@ -99,8 +100,10 @@ export default function StatsPage() {
 
     const fetchStats = async () => {
       try {
+        setLoading(true)
         const hiddenParam = preferences.showHiddenReps ? "?includeHidden=true" : ""
-        const res = await fetch(`/api/get-rep-stats${hiddenParam}`)
+        const monthParam = selectedDataMonth ? (hiddenParam ? `&month=${selectedDataMonth}` : `?month=${selectedDataMonth}`) : ""
+        const res = await fetch(`/api/get-rep-stats${hiddenParam}${monthParam}`)
         const data = await res.json()
         if (data.success) {
           setReps(data.reps || [])
@@ -117,7 +120,7 @@ export default function StatsPage() {
       }
     }
     fetchStats()
-  }, [isInitialized, currentUser, router])
+  }, [isInitialized, currentUser, router, selectedDataMonth])
 
   const sortedReps = useMemo(() => {
     return [...reps].sort((a, b) => {
@@ -227,24 +230,36 @@ export default function StatsPage() {
             </div>
           </div>
 
-          {/* Timeframe Filter Selector */}
-          <div className="flex bg-neutral-950 border border-neutral-850 p-0.5 rounded-xl gap-0.5 shrink-0 self-start sm:self-auto w-full sm:w-auto sm:min-w-[240px]">
-            {(["daily", "weekly", "monthly"] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => {
-                  setSelectedPeriod(p)
-                  setSelectedRep(null) // Reset detail panel on timeframe switch
-                }}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg uppercase tracking-wider transition-all ${
-                  selectedPeriod === p
-                    ? "bg-sky-600 text-white shadow-md shadow-sky-650/20"
-                    : "text-neutral-400 hover:text-white"
-                }`}
-              >
-                {p}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <select 
+               className="bg-neutral-950 border border-neutral-850 text-neutral-400 text-xs font-bold rounded-lg p-2 uppercase tracking-wider focus:outline-none"
+               value={selectedDataMonth}
+               onChange={(e) => setSelectedDataMonth(e.target.value)}
+            >
+               <option value="">Current Month</option>
+               {historicalVigRates.map(h => (
+                  <option key={h.monthKey} value={h.monthKey}>{h.monthName}</option>
+               ))}
+            </select>
+            {/* Timeframe Filter Selector */}
+            <div className="flex bg-neutral-950 border border-neutral-850 p-0.5 rounded-xl gap-0.5 shrink-0 self-start sm:self-auto w-full sm:w-auto sm:min-w-[240px]">
+              {(["daily", "weekly", "monthly"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => {
+                    setSelectedPeriod(p)
+                    setSelectedRep(null) // Reset detail panel on timeframe switch
+                  }}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg uppercase tracking-wider transition-all ${
+                    selectedPeriod === p
+                      ? "bg-sky-600 text-white shadow-md shadow-sky-650/20"
+                      : "text-neutral-400 hover:text-white"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

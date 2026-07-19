@@ -422,10 +422,10 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
           orderLines: orderLines.length > 0 ? orderLines.map(l => ({
             name: l.name,
             sku: l.sku,
-            paidQty: l.paidQty,
-            freeQty: l.freeQty,
+            quantity: l.quantity,
+            isPromo: l.isPromo,
             unitPrice: l.unitPrice,
-            lineTotal: l.paidQty * l.unitPrice
+            lineTotal: l.quantity * l.unitPrice
           })) : undefined
         })
       })

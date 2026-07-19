@@ -33,6 +33,7 @@ export const handler: Handler = async (event) => {
         role: true,
         zohoId: true,
         showOnSalesBoard: true,
+        monthlyVigGoals: true,
       },
       orderBy: { name: "asc" }
     })

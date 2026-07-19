@@ -88,17 +88,26 @@ export function SalesBoard() {
         
         // Build reps from users with showOnSalesBoard
         const boardUsers = (usersPayload.users || []).filter((u: any) => u.showOnSalesBoard)
-        const dynamicReps = boardUsers.map((u: any, i: number) => ({
-          id: u.id,
-          name: u.name || u.email,
-          role: u.role || "Sales Representative",
-          expectedVig: 1.5,
-          gradient: REP_GRADIENTS[i % REP_GRADIENTS.length]
-        }))
-
         const today = new Date()
         const currentYear = today.getFullYear()
         const currentMonth = today.getMonth()
+        
+        const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`
+
+        const dynamicReps = boardUsers.map((u: any, i: number) => {
+          const currentGoal = u.monthlyVigGoals?.find((g: any) => g.monthKey === monthKey)
+          const monthlyTarget = currentGoal?.profitGoal || 20000
+          
+          return {
+            id: u.id,
+            name: u.name || u.email,
+            role: u.role || "Sales Representative",
+            expectedVig: 1.5,
+            weeklyTarget: monthlyTarget / 4,
+            monthlyTarget: monthlyTarget,
+            gradient: REP_GRADIENTS[i % REP_GRADIENTS.length]
+          }
+        })
 
         const day = today.getDay()
         const diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1)
@@ -124,7 +133,7 @@ export function SalesBoard() {
           }
         })
 
-        let teamWeekly = { sales: 0, profit: 0, commission: 0, target: dynamicReps.length * DEFAULT_WEEKLY_TARGET }
+        let teamWeekly = { sales: 0, profit: 0, commission: 0, target: dynamicReps.reduce((sum: number, r: any) => sum + r.weeklyTarget, 0) }
         const overdueInvoices: any[] = []
         
         let totalOverdueBalance = 0
@@ -371,6 +380,23 @@ export function SalesBoard() {
                            ))}
                            <td className="p-4 text-sm font-bold text-emerald-400/70 text-right border-b border-white/5 bg-emerald-500/5">{formatCurrency(rep.weekly.totalProfit)}</td>
                         </tr>
+                        {/* Commission Row */}
+                        <tr className="group hover:bg-white/[0.02] cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
+                           <td className="p-4 text-xs font-medium text-blue-500/70 border-b border-white/5">Commission</td>
+                           {rep.weekly.profit.map((val: number, i: number) => (
+                              <td key={i} className="p-4 text-sm font-medium text-blue-400/70 text-right border-b border-white/5">{rep.weekly.invoices?.filter((inv:any) => inv.date === data.weekDays[i]).reduce((sum:number, inv:any) => sum + inv.commission, 0) > 0 ? formatCurrency(rep.weekly.invoices?.filter((inv:any) => inv.date === data.weekDays[i]).reduce((sum:number, inv:any) => sum + inv.commission, 0)) : '-'}</td>
+                           ))}
+                           <td className="p-4 text-sm font-bold text-blue-400 text-right border-b border-white/5 bg-blue-500/5">{formatCurrency(rep.weekly.commission)}</td>
+                        </tr>
+                        {/* Deals Row */}
+                        <tr className="group hover:bg-white/[0.02] cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
+                           <td className="p-4 text-xs font-medium text-purple-500/70 border-b border-white/5">Deals Closed</td>
+                           {rep.weekly.profit.map((val: number, i: number) => {
+                              const count = rep.weekly.invoices?.filter((inv:any) => inv.date === data.weekDays[i]).length || 0;
+                              return <td key={i} className="p-4 text-sm font-medium text-purple-400/70 text-right border-b border-white/5">{count > 0 ? count : '-'}</td>
+                           })}
+                           <td className="p-4 text-sm font-bold text-purple-400 text-right border-b border-white/5 bg-purple-500/5">{rep.weekly.dealsClosed}</td>
+                        </tr>
                         {isExpanded && rep.weekly.invoices?.length > 0 && (
                            <tr className="bg-black/40">
                               <td colSpan={8} className="p-4 border-b border-white/5">
@@ -417,8 +443,8 @@ export function SalesBoard() {
             <FiStar className="text-amber-400" /> Weekly Top Performers
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 auto-rows-max">
-            {data.reps.sort((a:any, b:any) => b.weekly.totalSales - a.weekly.totalSales).map((rep: any, idx: number) => {
-              const quota = Math.min(100, Math.round((rep.weekly.totalSales / DEFAULT_WEEKLY_TARGET) * 100))
+            {data.reps.sort((a:any, b:any) => b.weekly.totalProfit - a.weekly.totalProfit).map((rep: any, idx: number) => {
+              const quota = Math.min(100, Math.round((rep.weekly.totalProfit / rep.weeklyTarget) * 100))
               const profitMargin = rep.weekly.totalSales > 0 ? (rep.weekly.totalProfit / rep.weekly.totalSales) * 100 : 0
               return (
                 <div key={rep.id} className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 relative overflow-hidden group">
@@ -436,12 +462,25 @@ export function SalesBoard() {
                   </div>
                   
                   <div className="space-y-5">
-                    <div>
-                      <div className="text-3xl font-black tracking-tight text-white">{formatCurrency(rep.weekly.totalSales)}</div>
-                      <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mt-1">Weekly Subtotal</div>
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <div className="text-3xl font-black tracking-tight text-white">{formatCurrency(rep.weekly.totalProfit)}</div>
+                        <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mt-1">Weekly Dead Profit</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xl font-bold tracking-tight text-neutral-400">{formatCurrency(rep.weekly.totalSales)}</div>
+                        <div className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest mt-1">Gross Sales</div>
+                      </div>
                     </div>
-                    <div className="w-full bg-white/5 h-2.5 rounded-full overflow-hidden border border-white/5">
-                      <div className={`h-full bg-gradient-to-r ${rep.gradient} transition-all duration-1000`} style={{ width: `${quota}%` }}></div>
+                    <div className="w-full bg-white/5 h-2.5 rounded-full overflow-hidden border border-white/5 relative">
+                      <div className="absolute inset-y-0 bg-white/10" style={{ left: '0', width: '100%' }}></div>
+                      <div className={`absolute inset-y-0 bg-gradient-to-r ${rep.gradient} transition-all duration-1000`} style={{ left: '0', width: `${quota}%` }}></div>
+                      {/* Target Indicator */}
+                      <div className="absolute top-0 bottom-0 w-0.5 bg-white z-10" style={{ left: '100%' }}></div>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] text-neutral-500 uppercase tracking-widest font-bold">
+                       <span>{quota}% of Goal</span>
+                       <span>Target: {formatCurrency(rep.weeklyTarget)}</span>
                     </div>
                     <div className="grid grid-cols-3 gap-4 pt-2 border-t border-white/5">
                       <div>
@@ -483,7 +522,7 @@ export function SalesBoard() {
                   </tr>
                </thead>
                <tbody>
-                  {data.reps.sort((a:any, b:any) => b.mtd.sales - a.mtd.sales).map((rep: any) => {
+                  {data.reps.sort((a:any, b:any) => b.mtd.profit - a.mtd.profit).map((rep: any) => {
                      const avgDeal = rep.mtd.dealsClosed > 0 ? rep.mtd.sales / rep.mtd.dealsClosed : 0
                      const profitMargin = rep.mtd.sales > 0 ? (rep.mtd.profit / rep.mtd.sales) * 100 : 0
                      const isExpanded = expandedRows.has(`mtd-${rep.id}`)
@@ -562,7 +601,7 @@ export function SalesBoard() {
                   </tr>
                </thead>
                <tbody>
-                  {data.reps.sort((a:any, b:any) => b.ytd.sales - a.ytd.sales).map((rep: any) => {
+                  {data.reps.sort((a:any, b:any) => b.ytd.profit - a.ytd.profit).map((rep: any) => {
                      const avgDeal = rep.ytd.dealsClosed > 0 ? rep.ytd.sales / rep.ytd.dealsClosed : 0
                      const profitMargin = rep.ytd.sales > 0 ? (rep.ytd.profit / rep.ytd.sales) * 100 : 0
                      const isExpanded = expandedRows.has(`ytd-${rep.id}`)

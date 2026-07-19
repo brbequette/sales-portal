@@ -466,13 +466,100 @@ function StatsTab({ data }: { data: CommData }) {
   )
 }
 
+function ReimbursementsTab({ userId }: { userId?: string }) {
+  const [reims, setReims] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [desc, setDesc] = useState("")
+  const [amount, setAmount] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+
+  const fetchReims = async () => {
+    if (!userId) return
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/manage-reimbursements?userId=${userId}`)
+      const json = await res.json()
+      if (json.success) setReims(json.data.sort((a: any, b: any) => new Date(b.dateSubmitted).getTime() - new Date(a.dateSubmitted).getTime()))
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  useEffect(() => { fetchReims() }, [userId])
+
+  const onSubmit = async (e: any) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      const res = await fetch("/api/manage-reimbursements", {
+        method: "POST", body: JSON.stringify({ userId, description: desc, amount: parseFloat(amount) })
+      })
+      const json = await res.json()
+      if (json.success) {
+        setReims([json.data, ...reims])
+        setDesc("")
+        setAmount("")
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!userId) return <div className="p-4 text-neutral-500">Log in to view reimbursements.</div>
+
+  return (
+    <div className="bg-neutral-900 border border-neutral-800 rounded-xl mt-4 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-neutral-800">
+       <div className="flex-1 p-6">
+          <h2 className="text-lg font-bold text-white mb-4">Your Reimbursements</h2>
+          {loading ? (
+             <p className="text-neutral-500 text-sm">Loading...</p>
+          ) : reims.length === 0 ? (
+             <p className="text-neutral-500 text-sm">You have no reimbursement history.</p>
+          ) : (
+             <div className="space-y-4">
+                {reims.map(r => (
+                   <div key={r.id} className="bg-neutral-800 p-4 rounded-lg flex justify-between items-center">
+                      <div>
+                         <p className="font-bold text-white">{r.description}</p>
+                         <p className="text-xs text-neutral-400 mt-1">{new Date(r.dateSubmitted).toLocaleDateString()}</p>
+                      </div>
+                      <div className="text-right flex flex-col items-end gap-1">
+                         <p className="font-bold text-emerald-400">${r.amount.toFixed(2)}</p>
+                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${r.status === 'APPROVED' ? 'bg-emerald-900/50 text-emerald-400' : r.status === 'REJECTED' ? 'bg-red-900/50 text-red-400' : 'bg-amber-900/50 text-amber-400'}`}>{r.status}</span>
+                      </div>
+                   </div>
+                ))}
+             </div>
+          )}
+       </div>
+       <div className="md:w-80 p-6 bg-neutral-800/20 shrink-0">
+          <h3 className="font-bold text-white mb-4">Submit Receipt</h3>
+          <form onSubmit={onSubmit} className="space-y-4">
+             <div>
+                <label className="block text-xs font-bold text-neutral-400 mb-1">Description</label>
+                <input required type="text" value={desc} onChange={e => setDesc(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm text-white" placeholder="e.g. Client Lunch" />
+             </div>
+             <div>
+                <label className="block text-xs font-bold text-neutral-400 mb-1">Amount ($)</label>
+                <input required type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm text-white" placeholder="0.00" />
+             </div>
+             <p className="text-[10px] text-neutral-500 leading-tight">By submitting, you confirm this expense is valid and incurred on behalf of Titan Diamond.</p>
+             <button disabled={submitting} type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold py-2 rounded text-sm transition-colors">
+                {submitting ? "Submitting..." : "Submit Receipt"}
+             </button>
+          </form>
+       </div>
+    </div>
+  )
+}
+
 // ── Main Commissions Page ──────────────────────────────────────────────
 export default function CommissionsPage() {
   const { zohoContext: user } = useZoho()
   const { preferences } = usePreferences()
   const [data, setData] = useState<CommData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<"ledger" | "stats">("ledger")
+  const [activeTab, setActiveTab] = useState<"ledger" | "stats" | "reimbursements">("ledger")
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()))
   const [selectedRep, setSelectedRep] = useState<string>("")
   const [search, setSearch] = useState("")
@@ -733,6 +820,9 @@ export default function CommissionsPage() {
           <button onClick={() => setActiveTab("stats")} className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${activeTab === "stats" ? "bg-blue-600 text-white" : "text-neutral-400 hover:text-white"}`}>
             Performance
           </button>
+          <button onClick={() => setActiveTab("reimbursements")} className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${activeTab === "reimbursements" ? "bg-emerald-600 text-white" : "text-neutral-400 hover:text-white"}`}>
+            Reimbursements
+          </button>
         </div>
 
         {/* Filters Button */}
@@ -885,8 +975,10 @@ export default function CommissionsPage() {
                 ))
             )}
           </div>
-        ) : (
+        ) : activeTab === "stats" ? (
           <StatsTab data={data} />
+        ) : (
+          <ReimbursementsTab userId={user?.id} />
         )}
       </div>
 

@@ -61,8 +61,9 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const { includeHidden } = event.queryStringParameters || {}
-    const showHidden = includeHidden === 'true'
+    const params = event.queryStringParameters || {}
+    const showHidden = params.includeHidden === 'true'
+    const monthParam = params.month // e.g. "2026-07"
 
     // 1. Fetch settings (holidays, sales targets)
     const settings = await prisma.systemSetting.findMany()
@@ -143,7 +144,12 @@ export const handler: Handler = async (event) => {
     const unassignedId = "unassigned"
 
     // Time ranges
-    const now = new Date()
+    let now = new Date()
+    if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+      const [yyyy, mm] = monthParam.split("-")
+      now = new Date(parseInt(yyyy), parseInt(mm) - 1, 15) // Middle of selected month
+    }
+    
     // Daily range
     const todayStart = new Date(now)
     todayStart.setHours(0,0,0,0)

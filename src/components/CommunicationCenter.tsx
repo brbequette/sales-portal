@@ -223,9 +223,9 @@ export function CommunicationCenter({
 
   const orderFinancials = (() => {
     if (orderLines.length === 0) return null
-    const subTotal = orderLines.reduce((s, l) => s + (l.paidQty * l.unitPrice), 0)
-    const deadCostSubjectToVig = orderLines.reduce((s, l) => s + (l.cost * l.paidQty), 0)
-    const deadCostNoVig = orderLines.reduce((s, l) => s + (l.cost * l.freeQty), 0)
+    const subTotal = orderLines.reduce((s, l) => s + (!l.isPromo ? l.quantity * l.unitPrice : 0), 0)
+    const deadCostSubjectToVig = orderLines.reduce((s, l) => s + (!l.isPromo ? l.cost * l.quantity : 0), 0)
+    const deadCostNoVig = orderLines.reduce((s, l) => s + (l.isPromo ? l.cost * l.quantity : 0), 0)
     const deadCostTotal = deadCostSubjectToVig + deadCostNoVig
     const deadCostPlusVig = (deadCostSubjectToVig * DEFAULT_VIG_RATE) + deadCostNoVig
     const profitAfterVig = subTotal - deadCostPlusVig
@@ -466,10 +466,10 @@ export function CommunicationCenter({
       id: String(Date.now()),
       name: p.name,
       sku: p.sku || "",
-      paidQty: 1,
-      freeQty: 0,
+      quantity: 1,
       unitPrice: p.price || 0,
       cost: desc.cost || 0,
+      isPromo: false,
     }])
     setProductSearch("")
     setShowProductDropdown(false)

@@ -32,10 +32,10 @@ export type OrderLine = {
   id: string
   name: string
   sku: string
-  paidQty: number
-  freeQty: number
+  quantity: number
   unitPrice: number
   cost: number
+  isPromo: boolean
 }
 
 export interface OrderBuilderProps {
@@ -228,6 +228,12 @@ export function OrderBuilder({
 
   // Mock order preview
   const [showMockOrder, setShowMockOrder] = useState(false)
+  
+  // Pending Add Item State
+  const [pendingItem, setPendingItem] = useState<{name: string, sku: string, cost: number, defaultPrice: number} | null>(null)
+  const [addPaidQty, setAddPaidQty] = useState(1)
+  const [addFreeQty, setAddFreeQty] = useState(0)
+  const [addPrice, setAddPrice] = useState(0)
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -300,9 +306,9 @@ export function OrderBuilder({
 
   const financials = useMemo(() => {
     if (orderLines.length === 0) return null
-    const subTotal = orderLines.reduce((s, l) => s + l.paidQty * l.unitPrice, 0)
-    const deadCostSubjectToVig = orderLines.reduce((s, l) => s + l.cost * l.paidQty, 0)
-    const deadCostNoVig = orderLines.reduce((s, l) => s + l.cost * l.freeQty, 0)
+    const subTotal = orderLines.reduce((s, l) => s + (!l.isPromo ? l.quantity * l.unitPrice : 0), 0)
+    const deadCostSubjectToVig = orderLines.reduce((s, l) => s + (!l.isPromo ? l.cost * l.quantity : 0), 0)
+    const deadCostNoVig = orderLines.reduce((s, l) => s + (l.isPromo ? l.cost * l.quantity : 0), 0)
     const deadCostTotal = deadCostSubjectToVig + deadCostNoVig
     const deadCostPlusVig = deadCostSubjectToVig * vigRate + deadCostNoVig
     const deadProfit = subTotal - deadCostTotal
@@ -314,19 +320,49 @@ export function OrderBuilder({
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  const addProduct = (p: { id?: string; name: string; sku: string; price: number; cost: number }) => {
-    if (orderLines.some(l => l.sku === p.sku)) return
-    setOrderLines(prev => [...prev, {
-      id: Date.now().toString() + p.sku,
-      name: p.name,
-      sku: p.sku,
-      paidQty: 1,
-      freeQty: 0,
-      unitPrice: p.price,
-      cost: p.cost,
-    }])
+  const openAddItemModal = (p: { name: string; sku: string; price: number; cost: number }) => {
+    setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost })
+    setAddPaidQty(1)
+    setAddFreeQty(0)
+    setAddPrice(p.price)
     setProductSearch("")
     setShowProductDropdown(false)
+  }
+
+  const confirmAddItem = () => {
+    if (!pendingItem) return
+    const newLines: OrderLine[] = []
+    
+    // Create paid line if qty > 0
+    if (addPaidQty > 0) {
+      newLines.push({
+        id: Date.now().toString() + pendingItem.sku + '-paid',
+        name: pendingItem.name,
+        sku: pendingItem.sku,
+        quantity: addPaidQty,
+        unitPrice: addPrice,
+        cost: pendingItem.cost,
+        isPromo: false
+      })
+    }
+    
+    // Create free line if qty > 0
+    if (addFreeQty > 0) {
+      newLines.push({
+        id: Date.now().toString() + pendingItem.sku + '-free',
+        name: pendingItem.name,
+        sku: pendingItem.sku,
+        quantity: addFreeQty,
+        unitPrice: 0,
+        cost: pendingItem.cost,
+        isPromo: true
+      })
+    }
+
+    if (newLines.length > 0) {
+      setOrderLines(prev => [...prev, ...newLines])
+    }
+    setPendingItem(null)
   }
 
   const updateLine = (id: string, patch: Partial<OrderLine>) =>
@@ -335,9 +371,9 @@ export function OrderBuilder({
   const removeLine = (id: string) =>
     setOrderLines(prev => prev.filter(l => l.id !== id))
 
-  const paidLines  = orderLines.filter(l => l.paidQty > 0)
-  const promoLines = orderLines.filter(l => l.freeQty > 0)
-  const orderTotal = orderLines.reduce((s, l) => s + l.paidQty * l.unitPrice, 0)
+  const paidLines  = orderLines.filter(l => !l.isPromo)
+  const promoLines = orderLines.filter(l => l.isPromo)
+  const orderTotal = paidLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0)
 
   // ── Filtered search results ───────────────────────────────────────────────
 
@@ -444,15 +480,10 @@ export function OrderBuilder({
                                 <span className={`text-[11px] font-black ${colors.price}`}>${b.price.toFixed(2)}</span>
                                 <button
                                   type="button"
-                                  disabled={already}
-                                  onClick={() => addProduct(b)}
-                                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black transition-all cursor-pointer ${
-                                    already
-                                      ? "bg-violet-500/10 text-violet-400 opacity-50 cursor-not-allowed"
-                                      : "bg-violet-600 hover:bg-violet-500 text-white"
-                                  }`}
+                                  onClick={() => openAddItemModal(b)}
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black transition-all cursor-pointer bg-violet-600 hover:bg-violet-500 text-white"
                                 >
-                                  {already ? "✓" : <><FiPlus size={9} /> Add</>}
+                                  <FiPlus size={9} /> Add
                                 </button>
                               </div>
                             </div>
@@ -491,22 +522,19 @@ export function OrderBuilder({
           <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl max-h-52 overflow-y-auto">
             {searchResults.map(p => {
               const desc = parseDesc(p.description)
-              const already = orderLines.some(l => l.sku === p.sku)
               return (
                 <button
                   key={p.id}
                   type="button"
-                  disabled={already}
-                  onClick={() => addProduct({ name: p.name, sku: p.sku, price: p.price || 0, cost: desc.cost || 0 })}
-                  className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-neutral-800 transition-colors border-b border-neutral-800/50 last:border-0 ${already ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                  onClick={() => openAddItemModal({ name: p.name, sku: p.sku, price: p.price || 0, cost: desc.cost || 0 })}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-neutral-800 transition-colors border-b border-neutral-800/50 last:border-0 cursor-pointer"
                 >
-                  <FiPlus size={12} className={already ? "text-neutral-600" : "text-violet-400"} />
+                  <FiPlus size={12} className="text-violet-400" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] font-bold text-white truncate">{p.name}</p>
                     <p className="text-[9px] text-neutral-500">{p.sku} · {p.category}</p>
                   </div>
                   <span className="text-[10px] font-mono font-bold text-amber-400 shrink-0">${(p.price || 0).toFixed(2)}</span>
-                  {already && <span className="text-[8px] text-violet-400 font-bold">ADDED</span>}
                 </button>
               )
             })}
@@ -520,24 +548,68 @@ export function OrderBuilder({
           <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold mb-1.5">Quick Add — Top Blades</p>
           <div className="flex flex-wrap gap-1.5">
             {topBladeProducts.map(bp => {
-              const already = orderLines.some(l => l.sku === bp.sku)
               return (
                 <button
                   key={bp.sku}
                   type="button"
-                  disabled={already}
-                  onClick={() => addProduct(bp)}
-                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
-                    already
-                      ? "bg-violet-500/10 border-violet-500/30 text-violet-400 opacity-50 cursor-not-allowed"
-                      : "bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-violet-500/50 hover:text-violet-300"
-                  }`}
+                  onClick={() => openAddItemModal(bp)}
+                  className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-violet-500/50 hover:text-violet-300"
                 >
-                  {already ? "✓ " : "⚡ "}{bp.name}
+                  ⚡ {bp.name}
                 </button>
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* ── Add Item Pending Modal ───────────────────────────────────────── */}
+      {pendingItem && (
+        <div className="bg-violet-950/40 border border-violet-500/40 rounded-xl p-3 space-y-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">Add Item</p>
+              <p className="text-sm font-bold text-white truncate">{pendingItem.name}</p>
+              <p className="text-[9px] text-neutral-400">{pendingItem.sku}</p>
+            </div>
+            <button type="button" onClick={() => setPendingItem(null)} className="text-neutral-500 hover:text-white">
+              <FiX size={14} />
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-neutral-900/60 border border-neutral-800 rounded p-2 text-center space-y-1">
+              <p className="text-[8px] font-bold uppercase tracking-wider text-amber-500">Paid Qty</p>
+              <div className="flex justify-center">
+                <QtyInput value={addPaidQty} onChange={setAddPaidQty} colorClass="text-amber-400 border-amber-500/30 focus:border-amber-500" bgClass="bg-neutral-950" />
+              </div>
+            </div>
+            <div className="bg-neutral-900/60 border border-neutral-800 rounded p-2 text-center space-y-1">
+              <p className="text-[8px] font-bold uppercase tracking-wider text-emerald-500">Free Qty</p>
+              <div className="flex justify-center">
+                <QtyInput value={addFreeQty} onChange={setAddFreeQty} colorClass="text-emerald-400 border-emerald-500/30 focus:border-emerald-500" bgClass="bg-neutral-950" />
+              </div>
+            </div>
+            <div className="bg-neutral-900/60 border border-neutral-800 rounded p-2 text-center space-y-1">
+              <p className="text-[8px] font-bold uppercase tracking-wider text-violet-400">Unit Price</p>
+              <input
+                type="number"
+                value={addPrice}
+                onChange={e => setAddPrice(parseFloat(e.target.value) || 0)}
+                className="w-16 mx-auto bg-neutral-950 border border-neutral-700 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-white text-center focus:border-violet-500 outline-none"
+                step="0.01"
+              />
+            </div>
+          </div>
+          
+          <button
+            type="button"
+            onClick={confirmAddItem}
+            disabled={addPaidQty === 0 && addFreeQty === 0}
+            className="w-full py-2 rounded bg-violet-600 hover:bg-violet-500 text-white text-[11px] font-black tracking-widest uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Add to Order
+          </button>
         </div>
       )}
 
@@ -559,7 +631,7 @@ export function OrderBuilder({
             <span />
           </div>
 
-          {orderLines.filter(l => l.paidQty > 0).map(line => (
+          {paidLines.map(line => (
             <div
               key={line.id}
               className="grid grid-cols-[1fr_64px_70px_24px] gap-1.5 items-center bg-neutral-900/50 border border-neutral-800/50 rounded-lg px-2 py-1.5"
@@ -571,8 +643,8 @@ export function OrderBuilder({
 
               <div className="flex justify-center">
                 <QtyInput
-                  value={line.paidQty}
-                  onChange={n => updateLine(line.id, { paidQty: n })}
+                  value={line.quantity}
+                  onChange={n => updateLine(line.id, { quantity: n })}
                   colorClass="text-white"
                   bgClass="bg-neutral-800"
                   btnClass="bg-neutral-800 hover:bg-neutral-700 text-neutral-400"
@@ -588,7 +660,7 @@ export function OrderBuilder({
                   step="0.01"
                 />
                 <span className="text-[10px] font-black text-amber-400 block">
-                  ${(line.paidQty * line.unitPrice).toFixed(2)}
+                  ${(line.quantity * line.unitPrice).toFixed(2)}
                 </span>
               </div>
 
@@ -619,7 +691,7 @@ export function OrderBuilder({
             <span />
           </div>
 
-          {orderLines.filter(l => l.freeQty > 0).map(line => (
+          {promoLines.map(line => (
             <div
               key={`promo-${line.id}`}
               className="grid grid-cols-[1fr_64px_24px] gap-1.5 items-center bg-emerald-950/20 border border-emerald-900/40 rounded-lg px-2 py-1.5"
@@ -631,8 +703,8 @@ export function OrderBuilder({
 
               <div className="flex justify-center">
                 <QtyInput
-                  value={line.freeQty}
-                  onChange={n => updateLine(line.id, { freeQty: n })}
+                  value={line.quantity}
+                  onChange={n => updateLine(line.id, { quantity: n })}
                   colorClass="text-emerald-300"
                   bgClass="bg-emerald-950/40"
                   btnClass="bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-400"
@@ -641,43 +713,12 @@ export function OrderBuilder({
 
               <button
                 type="button"
-                onClick={() => updateLine(line.id, { freeQty: 0 })}
+                onClick={() => removeLine(line.id)}
                 className="w-5 h-5 rounded bg-red-900/20 text-red-400 text-[10px] font-bold flex items-center justify-center hover:bg-red-900/40 cursor-pointer"
-                title="Remove promotional qty"
+                title="Remove promotional item"
               >×</button>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* ── Add Free Qty to existing lines hint ─────────────────────────── */}
-      {paidLines.length > 0 && promoLines.length === 0 && (
-        <p className="text-[9px] text-neutral-600 italic">
-          To add a promotional/gift item, first add it via search, then tap the quantity to set a free qty.
-        </p>
-      )}
-
-      {/* ── Add Promo Qty to sold items ──────────────────────────────────── */}
-      {paidLines.length > 0 && (
-        <div>
-          <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold mb-1.5">Add Promo Qty to Item</p>
-          <div className="space-y-1">
-            {orderLines.map(line => (
-              <div key={`promoAdd-${line.id}`} className="flex items-center justify-between gap-2 px-2 py-1 bg-neutral-900/30 border border-neutral-800/30 rounded-lg">
-                <span className="text-[10px] text-neutral-400 truncate flex-1">{line.name}</span>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-[8px] text-emerald-600 font-bold">FREE:</span>
-                  <QtyInput
-                    value={line.freeQty}
-                    onChange={n => updateLine(line.id, { freeQty: n })}
-                    colorClass="text-emerald-300"
-                    bgClass="bg-emerald-950/40"
-                    btnClass="bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-400"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
@@ -695,14 +736,14 @@ export function OrderBuilder({
           <div className="flex justify-between px-1">
             <span className="text-[10px] text-neutral-400">Sold Items</span>
             <span className="text-[11px] font-bold text-white">
-              {orderLines.reduce((s, l) => s + l.paidQty, 0)} items
+              {paidLines.reduce((s, l) => s + l.quantity, 0)} items
             </span>
           </div>
           {promoLines.length > 0 && (
             <div className="flex justify-between px-1">
               <span className="text-[10px] text-emerald-500">🎁 Promotional</span>
               <span className="text-[11px] font-bold text-emerald-400">
-                {orderLines.reduce((s, l) => s + l.freeQty, 0)} free
+                {promoLines.reduce((s, l) => s + l.quantity, 0)} free
               </span>
             </div>
           )}
@@ -811,15 +852,15 @@ export function OrderBuilder({
                     <div className="grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-1.5 bg-neutral-800/50 text-[8px] font-bold text-neutral-500 uppercase">
                       <span>Item</span><span className="text-center">Qty</span><span className="text-right">Unit</span><span className="text-right">Amount</span>
                     </div>
-                    {orderLines.filter(l => l.paidQty > 0).map((line, i) => (
+                    {paidLines.map((line, i) => (
                       <div key={`so-paid-${line.id}`} className={`grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-2 ${i % 2 === 0 ? "bg-neutral-900/50" : ""}`}>
                         <div className="min-w-0">
                           <p className="text-[11px] font-bold text-white truncate">{line.name}</p>
                           {line.sku && <p className="text-[8px] text-neutral-600">{line.sku}</p>}
                         </div>
-                        <span className="text-[11px] font-black text-white text-center">{line.paidQty}</span>
+                        <span className="text-[11px] font-black text-white text-center">{line.quantity}</span>
                         <span className="text-[10px] font-mono text-neutral-400 text-right">${line.unitPrice.toFixed(2)}</span>
-                        <span className="text-[11px] font-black text-white text-right">${(line.paidQty * line.unitPrice).toFixed(2)}</span>
+                        <span className="text-[11px] font-black text-white text-right">${(line.quantity * line.unitPrice).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -836,13 +877,13 @@ export function OrderBuilder({
                     <div className="grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-1.5 bg-emerald-950/30 text-[8px] font-bold text-emerald-700 uppercase">
                       <span>Item</span><span className="text-center">Free Qty</span><span className="text-right">Unit</span><span className="text-right">Amount</span>
                     </div>
-                    {orderLines.filter(l => l.freeQty > 0).map((line, i) => (
+                    {promoLines.map((line, i) => (
                       <div key={`so-promo-${line.id}`} className={`grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-2 ${i % 2 === 0 ? "bg-emerald-950/10" : ""}`}>
                         <div className="min-w-0">
                           <p className="text-[11px] font-bold text-emerald-300 truncate">{line.name}</p>
                           <p className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL — FREE</p>
                         </div>
-                        <span className="text-[11px] font-black text-emerald-400 text-center">{line.freeQty}</span>
+                        <span className="text-[11px] font-black text-emerald-400 text-center">{line.quantity}</span>
                         <span className="text-[10px] font-mono text-emerald-700 text-right">$0.00</span>
                         <span className="text-[11px] font-black text-emerald-400 text-right">$0.00</span>
                       </div>
@@ -855,7 +896,7 @@ export function OrderBuilder({
               <div className="border-t border-neutral-800 pt-3 space-y-1.5">
                 <div className="flex justify-between px-1">
                   <span className="text-[10px] text-neutral-500">Subtotal (Paid)</span>
-                  <span className="text-xs font-bold text-white">${orderLines.reduce((s, l) => s + l.paidQty * l.unitPrice, 0).toFixed(2)}</span>
+                  <span className="text-xs font-bold text-white">${paidLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0).toFixed(2)}</span>
                 </div>
                 {promoLines.length > 0 && (
                   <div className="flex justify-between px-1">
@@ -865,7 +906,7 @@ export function OrderBuilder({
                 )}
                 <div className="flex justify-between px-1">
                   <span className="text-[10px] text-neutral-500">Total Items Shipping</span>
-                  <span className="text-xs font-bold text-white">{orderLines.reduce((s, l) => s + l.paidQty + l.freeQty, 0)} items</span>
+                  <span className="text-xs font-bold text-white">{orderLines.reduce((s, l) => s + l.quantity, 0)} items</span>
                 </div>
                 <div className="flex justify-between px-1 pt-2 border-t border-neutral-800">
                   <span className="text-sm font-black text-white">ORDER TOTAL</span>
