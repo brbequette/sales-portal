@@ -103,17 +103,19 @@ export const handler: Handler = async (event) => {
       where: { accountId: account.id }
     })
 
-    // 4. Summarize items purchased
     const purchaseSummaryMap = new Map<string, {
       sku: string
       name: string
       quantity: number
       totalSpend: number
+      lastPurchaseDate: string | null
     }>()
 
     for (const inv of updatedInvoices) {
       const items = inv.items as any
       const lineItems = items?.line_items
+      const issueDate = inv.issueDate ? new Date(inv.issueDate).toISOString() : null
+      
       if (Array.isArray(lineItems)) {
         for (const line of lineItems) {
           const sku = line.sku || "N/A"
@@ -126,12 +128,16 @@ export const handler: Handler = async (event) => {
           if (existing) {
             existing.quantity += qty
             existing.totalSpend += total
+            if (issueDate && (!existing.lastPurchaseDate || new Date(issueDate) > new Date(existing.lastPurchaseDate))) {
+              existing.lastPurchaseDate = issueDate
+            }
           } else {
             purchaseSummaryMap.set(key, {
               sku,
               name,
               quantity: qty,
-              totalSpend: total
+              totalSpend: total,
+              lastPurchaseDate: issueDate
             })
           }
         }

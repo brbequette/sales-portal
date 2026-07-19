@@ -886,6 +886,14 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5"><FiUser size={11} /> Profile</span>
             {(() => {
               const addr = accountDetail || activeAccount
+              const allInvoices = activeAccount.invoices || []
+              // Ensure we sort by date descending to find the last one
+              const sortedInvoices = [...allInvoices].sort((a: any, b: any) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime())
+              const lastInvoice = sortedInvoices[0]
+              const lastPurchaseDate = lastInvoice?.issueDate ? new Date(lastInvoice.issueDate).toLocaleDateString() : 'N/A'
+              const items = lastInvoice?.items as any
+              const lastSalesman = items?.salesperson_name || items?.sales_person_details?.[0]?.name || 'N/A'
+
               return (
                 <div className="space-y-1.5">
                   {(addr.billingStreet || addr.billingCity) && (
@@ -900,7 +908,11 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       <p className="text-xs text-neutral-300">{addr.shippingStreet && `${addr.shippingStreet}, `}{addr.shippingCity && `${addr.shippingCity}, `}{addr.shippingState} {addr.shippingZip}</p>
                     </div>
                   )}
-                  {activeAccount.industry && <div className="flex items-center gap-1.5"><span className="text-[9px] font-bold text-neutral-600">Industry:</span><span className="text-xs text-neutral-300">{activeAccount.industry}</span></div>}
+                  <div className="pt-1 mt-1 border-t border-neutral-800/50 space-y-1">
+                    <div className="flex items-center justify-between"><span className="text-[9px] font-bold text-neutral-600 uppercase">Last Purchase:</span><span className="text-xs font-bold text-emerald-400">{lastPurchaseDate}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-[9px] font-bold text-neutral-600 uppercase">Last Rep:</span><span className="text-xs font-bold text-emerald-400">{lastSalesman}</span></div>
+                  </div>
+                  {activeAccount.industry && <div className="flex items-center gap-1.5 mt-1"><span className="text-[9px] font-bold text-neutral-600">Industry:</span><span className="text-xs text-neutral-300">{activeAccount.industry}</span></div>}
                   {activeAccount.tags && <div className="flex items-center gap-1.5"><FiTag size={10} className="text-neutral-600" /><span className="text-xs text-neutral-300">{activeAccount.tags}</span></div>}
                   {activeAccount.owner?.name && <div className="flex items-center gap-1.5"><span className="text-[9px] font-bold text-neutral-600">Owner:</span><span className="text-xs text-neutral-300">{activeAccount.owner.name}</span></div>}
                   {accountDetail?.booksContact?.website && <div className="flex items-center gap-1.5"><span className="text-[9px] font-bold text-neutral-600">Web:</span><a href={accountDetail.booksContact.website.startsWith('http') ? accountDetail.booksContact.website : `https://${accountDetail.booksContact.website}`} target="_blank" rel="noopener" className="text-xs text-blue-400 hover:underline truncate">{accountDetail.booksContact.website}</a></div>}
@@ -920,15 +932,27 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             const renderCard = (p: any, i: number, color: string) => {
               const pct = maxSpend > 0 ? ((p.totalSpend || 0) / maxSpend) * 100 : 0
               const avgOrder = p.quantity > 0 ? (p.totalSpend || 0) / p.quantity : 0
+              // Check if inactive based on catalogProducts
+              const catalogMatch = catalogProducts.find(cp => cp.sku === p.sku)
+              const isInactive = catalogMatch && catalogMatch.description && catalogMatch.description.includes('"status":"inactive"')
+              
               return (
                 <div key={i} className="bg-neutral-900/60 border border-neutral-800/40 rounded-lg p-2">
                   <div className="flex items-start justify-between mb-0.5">
-                    <span className="text-[11px] text-white font-bold leading-tight pr-2 flex-1">{p.name}</span>
+                    <span className="text-[11px] text-white font-bold leading-tight pr-2 flex-1">
+                      {p.name}
+                      {isInactive && <span className="ml-1 inline-block bg-red-500/20 text-red-500 border border-red-500/30 text-[8px] px-1 py-0 rounded font-black tracking-widest uppercase">Inactive</span>}
+                    </span>
                     <span className={`text-[11px] font-black shrink-0 ${color}`}>${(p.totalSpend || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                   </div>
-                  {p.sku && p.sku !== 'N/A' && (
-                    <span className="text-[8px] font-bold text-neutral-600 uppercase">SKU: {p.sku}</span>
-                  )}
+                  <div className="flex items-center justify-between">
+                    {p.sku && p.sku !== 'N/A' ? (
+                      <span className="text-[8px] font-bold text-neutral-600 uppercase">SKU: {p.sku}</span>
+                    ) : <span />}
+                    {p.lastPurchaseDate && (
+                      <span className="text-[8px] font-bold text-neutral-500 uppercase">Last: {new Date(p.lastPurchaseDate).toLocaleDateString()}</span>
+                    )}
+                  </div>
                   <div className="w-full bg-neutral-800/60 rounded-full h-1 mt-1 overflow-hidden">
                     <div className={`h-full rounded-full transition-all duration-500 ${color === 'text-amber-400' ? 'bg-gradient-to-r from-amber-500 to-amber-400' : 'bg-gradient-to-r from-purple-500 to-purple-400'}`} style={{ width: `${pct}%` }} />
                   </div>
@@ -1011,17 +1035,23 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
               <p className="text-xs text-neutral-500 text-center py-2">No invoices</p>
             ) : (
               <div className="space-y-1">
-                {(activeAccount.invoices || []).slice(0, 20).map((inv: any, i: number) => {
+                {[...activeAccount.invoices].sort((a: any, b: any) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime()).slice(0, 20).map((inv: any, i: number) => {
                   const items = inv.items || {}
+                  const salesman = items?.salesperson_name || items?.sales_person_details?.[0]?.name || ''
                   return (
-                    <div key={inv.id || i} className="flex items-center justify-between bg-neutral-900/50 border border-neutral-800/40 rounded-lg px-2.5 py-1.5">
-                      <div>
-                        <span className="text-xs text-white font-bold">{items.invoiceNumber || items.invoice_number || `INV-${i+1}`}</span>
-                        <span className={`ml-1.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${inv.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400' : inv.status === 'overdue' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>{inv.status}</span>
+                    <div key={inv.id || i} className="flex flex-col bg-neutral-900/50 border border-neutral-800/40 rounded-lg px-2.5 py-1.5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-xs text-white font-bold">{items.invoiceNumber || items.invoice_number || `INV-${i+1}`}</span>
+                          <span className={`ml-1.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${inv.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400' : inv.status === 'overdue' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>{inv.status}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-bold text-neutral-300">${(inv.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-xs font-bold text-neutral-300">${(inv.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                        <span className="text-[9px] text-neutral-500 ml-1.5">{inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : ''}</span>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <span className="text-[9px] text-neutral-500">{salesman ? `Rep: ${salesman}` : ''}</span>
+                        <span className="text-[9px] text-neutral-500">{inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : ''}</span>
                       </div>
                     </div>
                   )
@@ -1052,10 +1082,34 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
           )}
 
           {/* NOTES / CALL LOG */}
-          <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
+          <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-3">
             <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5"><FiFileText size={11} /> Notes ({accountNotes.length})</span>
+            
+            {/* New Note Form */}
+            <div className="bg-neutral-900/80 border border-neutral-800/80 rounded-lg p-2 space-y-2">
+              <textarea 
+                className="w-full bg-neutral-950 border border-neutral-800 rounded px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-sky-500 min-h-[50px] resize-none placeholder:text-neutral-600"
+                placeholder="Add a new note..."
+                id="quick-note-input"
+              />
+              <div className="flex justify-end">
+                <button 
+                  onClick={() => {
+                    const el = document.getElementById('quick-note-input') as HTMLTextAreaElement
+                    if (el && el.value.trim()) {
+                      alert('Note saving requires the update-account-details endpoint, but the UI is ready!')
+                      el.value = ''
+                    }
+                  }}
+                  className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-black font-bold text-[9px] rounded transition-colors"
+                >
+                  Save Note
+                </button>
+              </div>
+            </div>
+
             {accountNotes.length === 0 ? (
-              <p className="text-xs text-neutral-500 text-center py-2">No notes</p>
+              <p className="text-xs text-neutral-500 text-center py-2">No existing notes</p>
             ) : (
               <div className="space-y-1.5">
                 {accountNotes.map((note: any, i: number) => (
