@@ -5,15 +5,15 @@ import { FiTrendingUp, FiDollarSign, FiTarget, FiActivity, FiAward, FiClock, FiS
 const REP_GRADIENTS = [
   "from-purple-500 to-indigo-500",
   "from-pink-500 to-rose-500",
-  "from-blue-500 to-blue-700",
-  "from-teal-500 to-emerald-600",
-  "from-amber-500 to-amber-700",
-  "from-red-500 to-orange-500",
-  "from-cyan-500 to-blue-500",
+  "from-blue-500 to-cyan-500",
+  "from-emerald-500 to-teal-500",
+  "from-amber-500 to-orange-500",
+  "from-red-500 to-rose-700",
+  "from-fuchsia-500 to-pink-600",
+  "from-sky-500 to-blue-700",
+  "from-lime-500 to-emerald-700",
   "from-violet-500 to-purple-700",
 ]
-
-const DEFAULT_WEEKLY_TARGET = 10000
 
 const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -96,7 +96,7 @@ export function SalesBoard() {
 
         const dynamicReps = boardUsers.map((u: any, i: number) => {
           const currentGoal = u.monthlyVigGoals?.find((g: any) => g.monthKey === monthKey)
-          const monthlyTarget = currentGoal?.profitGoal || 20000
+          const monthlyTarget = currentGoal?.profitGoal || 0
           
           return {
             id: u.id,
@@ -271,7 +271,7 @@ export function SalesBoard() {
     )
   }
 
-  const teamQuotaPct = Math.min(100, Math.round((data.teamWeekly.sales / data.teamWeekly.target) * 100))
+  const teamQuotaPct = data.teamWeekly.target > 0 ? Math.min(100, Math.round((data.teamWeekly.profit / data.teamWeekly.target) * 100)) : 0
 
   return (
     <div ref={boardRef} className="w-full h-full min-h-[700px] bg-[#09090b] rounded-2xl border border-white/5 text-white shadow-2xl relative flex flex-col font-sans overflow-hidden">
@@ -444,7 +444,7 @@ export function SalesBoard() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 auto-rows-max">
             {data.reps.sort((a:any, b:any) => b.weekly.totalProfit - a.weekly.totalProfit).map((rep: any, idx: number) => {
-              const quota = Math.min(100, Math.round((rep.weekly.totalProfit / rep.weeklyTarget) * 100))
+              const quota = rep.weeklyTarget > 0 ? Math.min(100, Math.round((rep.weekly.totalProfit / rep.weeklyTarget) * 100)) : 0
               const profitMargin = rep.weekly.totalSales > 0 ? (rep.weekly.totalProfit / rep.weekly.totalSales) * 100 : 0
               return (
                 <div key={rep.id} className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 relative overflow-hidden group">
