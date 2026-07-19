@@ -4,10 +4,10 @@ import { getZohoAccessToken } from '../../../../../../netlify/functions/lib/zoho
 
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const body = await req.json()
-    const { id } = params
+    const { id } = await params
     
     // Find the vendor locally to get its zohoId
     const vendor = await prisma.vendor.findUnique({ where: { id } })
