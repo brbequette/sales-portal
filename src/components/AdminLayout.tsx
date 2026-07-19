@@ -20,6 +20,7 @@ const adminLinks = [
     { name: "Payouts", href: "/admin/payouts", icon: FiDollarSign },
   ]},
   { group: "CRM & Operations", items: [
+    { name: "Vendors", href: "/admin/vendors", icon: FiUsers },
     { name: "Update Accounts", href: "/admin/update-accounts", icon: FiTarget },
     { name: "Update Configs", href: "/admin/update-config", icon: FiSettings },
     { name: "VIG Management", href: "/admin/vig", icon: FiAward },

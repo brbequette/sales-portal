@@ -48,9 +48,46 @@ export const handler: Handler = async (event) => {
     }
 
     // Extract the Books ID and number depending on type
-    const booksId = doc.invoice_id || doc.salesorder_id || doc.estimate_id
+    const booksId = doc.invoice_id || doc.salesorder_id || doc.estimate_id || doc.contact_id
     if (!booksId) {
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "No Books ID in payload" }) }
+    }
+
+    if (type === 'Vendor' || type === 'Contact') {
+      if (doc.contact_type !== 'vendor') {
+         return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "Contact is not a vendor" }) }
+      }
+      
+      await prisma.vendor.upsert({
+        where: { zohoId: booksId },
+        update: {
+          contactName: doc.contact_name,
+          companyName: doc.company_name,
+          email: doc.email,
+          phone: doc.phone,
+          currencyId: doc.currency_id,
+          paymentTerms: doc.payment_terms,
+          billingAddress: doc.billing_address,
+          shippingAddress: doc.shipping_address,
+          customFields: doc.custom_fields,
+          status: doc.status
+        },
+        create: {
+          zohoId: booksId,
+          contactName: doc.contact_name,
+          companyName: doc.company_name,
+          email: doc.email,
+          phone: doc.phone,
+          currencyId: doc.currency_id,
+          paymentTerms: doc.payment_terms,
+          billingAddress: doc.billing_address,
+          shippingAddress: doc.shipping_address,
+          customFields: doc.custom_fields,
+          status: doc.status
+        }
+      })
+      console.log(`o. Webhook: Upserted Vendor ${booksId} in local DB`)
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: `Vendor ${booksId} synced` }) }
     }
 
     // Find the local record

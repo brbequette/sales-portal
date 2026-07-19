@@ -6,6 +6,7 @@ import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail
 import { CreatePackageModal } from "./CreatePackageModal"
 import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
 import { RecordPaymentModal } from "./RecordPaymentModal"
+import { DocumentLifecycle } from "./DocumentLifecycle"
 
 interface InvoiceDetailsModalProps {
   invoice: any | string; // Can be an invoice object or just the zohoId string
@@ -601,6 +602,10 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 </div>
               )}
             </div>
+  
+              <div className="pt-3 border-t border-neutral-800">
+                <DocumentLifecycle zohoId={zohoId} type={type} />
+              </div>
 
             {/* ── Cost & Commission Panel + Line Items ── */}
             <div className="pt-3 border-t border-neutral-800 flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
