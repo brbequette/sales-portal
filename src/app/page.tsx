@@ -19,7 +19,8 @@ import { Pagination, usePagination } from "@/components/Pagination"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { SalesBoard } from "@/components/SalesBoard"
 import { DashboardView } from "@/components/DashboardView"
-import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand, FiTarget, FiBox } from "react-icons/fi"
+import { DealPipeline } from "@/components/DealPipeline"
+import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand, FiTarget, FiBox, FiLayers } from "react-icons/fi"
 
 function formatLastCalled(dateStr: string | null) {
   if (!dateStr) return "Never called"
@@ -47,7 +48,7 @@ export default function Dashboard() {
   const [drillTitle, setDrillTitle] = useState("")
   const [drillItems, setDrillItems] = useState<any[] | null>(null)
   const [drillType, setDrillType] = useState<"invoices" | "deals" | "accounts" | null>(null)
-  const [effort, setEffort] = useState<"sales" | "call_list" | "cold_call" | "dashboard">("dashboard")
+  const [effort, setEffort] = useState<"sales" | "call_list" | "cold_call" | "dashboard" | "pipeline">("dashboard")
   const [ownerFilter, setOwnerFilter] = useState("All")
   const [timezoneFilter, setTimezoneFilter] = useState("All")
   const [yearFilter, setYearFilter] = useState("All")
@@ -564,7 +565,7 @@ export default function Dashboard() {
     }
   }, [viewingInvoice?.id])
 
-  const handleEffortChange = (val: "sales" | "call_list" | "cold_call" | "dashboard") => {
+  const handleEffortChange = (val: "sales" | "call_list" | "cold_call" | "dashboard" | "pipeline") => {
     setEffort(val)
   }
 
@@ -1047,7 +1048,7 @@ export default function Dashboard() {
 
 
         {/* ── Workspace / Effort Selector Switcher ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <button
             onClick={() => handleEffortChange("sales")}
             className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
@@ -1134,6 +1135,31 @@ export default function Dashboard() {
               </div>
             </div>
           </button>
+          <button
+            onClick={() => handleEffortChange("pipeline")}
+            className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
+              effort === "pipeline"
+                ? "bg-[#17191a] border-emerald-400/45 text-white"
+                : "bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] text-neutral-400"
+            }`}
+          >
+            {effort === "pipeline" && (
+              <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-emerald-400 "></div>
+            )}
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl border transition-colors ${
+                effort === "pipeline"
+                  ? "bg-emerald-950 border-emerald-500/30 text-emerald-400"
+                  : "bg-white/[0.045] border-[var(--border)] text-neutral-500"
+              }`}>
+                <FiLayers size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold tracking-tight">Deal Pipeline</h3>
+                <p className="text-xs text-neutral-500 mt-0.5">Kanban lifecycle</p>
+              </div>
+            </div>
+          </button>
           {resolvePermissions(dbUser?.permissions, dbUser?.role || currentUser?.role).salesBoard && (
           <button
             onClick={() => handleEffortChange("dashboard")}
@@ -1163,7 +1189,14 @@ export default function Dashboard() {
           )}
         </div>
 
-        {effort === "dashboard" && resolvePermissions(dbUser?.permissions, dbUser?.role || currentUser?.role).salesBoard ? (
+        {effort === "pipeline" ? (
+          <div className="mt-4">
+            <DealPipeline onViewInvoice={(inv) => {
+              setViewingInvoice(inv)
+              setViewingDocType('Invoice')
+            }} />
+          </div>
+        ) : effort === "dashboard" && resolvePermissions(dbUser?.permissions, dbUser?.role || currentUser?.role).salesBoard ? (
           <div className="mt-4">
             <DashboardView />
           </div>

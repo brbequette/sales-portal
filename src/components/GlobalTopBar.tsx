@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox, FiClock, FiBell } from "react-icons/fi"
+import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox, FiClock, FiBell, FiTrendingUp, FiAlertCircle } from "react-icons/fi"
 import { useRouter } from "next/navigation"
 import { useProductModal } from "@/components/ProductModalProvider"
 import { NewCustomerModal } from "@/components/NewCustomerModal"
@@ -26,6 +26,56 @@ export function GlobalTopBar() {
   const searchRef = useRef<HTMLDivElement>(null)
 
   const [timeEntry, setTimeEntry] = useState<any>(null)
+
+  // ── Stats Strip Data ──
+  const [stripStats, setStripStats] = useState<{
+    weeklySales: number; mtdSales: number; mtdProfit: number;
+    mtdCommission: number; pipeline: number; overdue: number;
+  } | null>(null)
+
+  useEffect(() => {
+    fetchStripStats()
+    const interval = setInterval(fetchStripStats, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  async function fetchStripStats() {
+    try {
+      const res = await fetch("/api/zoho-invoices")
+      const json = await res.json()
+      if (!json.invoices) return
+      const now = new Date()
+      const currentMonth = now.getMonth()
+      const currentYear = now.getFullYear()
+      const dow = now.getDay()
+      const mondayOff = dow === 0 ? -6 : 1 - dow
+      const monday = new Date(now)
+      monday.setDate(now.getDate() + mondayOff)
+      monday.setHours(0,0,0,0)
+      const friday = new Date(monday)
+      friday.setDate(monday.getDate() + 4)
+      friday.setHours(23,59,59,999)
+
+      let ws = 0, ms = 0, mp = 0, mc = 0, pv = 0, ov = 0
+      for (const inv of json.invoices) {
+        const rep = (inv.salesorder_salesperson_name || inv.salesperson_name || "").toUpperCase()
+        if (rep.includes("PAUL") && (rep.includes("GENCUSKI") || rep.includes("GENKUSKI"))) continue
+        const amt = parseFloat(inv.sub_total || inv.total || "0")
+        const profit = parseFloat(inv.cf_profit_unformatted || "0")
+        const comm = parseFloat(inv.cf_commision_amount_unformatted || "0")
+        const d = new Date(inv.salesorder_date || inv.date || "")
+        const status = (inv.status || "").toLowerCase()
+        const balance = parseFloat(inv.balance || "0")
+        if (d >= monday && d <= friday) ws += amt
+        if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+          ms += amt; mp += profit; mc += comm
+        }
+        if (status !== "paid" && status !== "void" && status !== "draft" && balance > 0) pv += balance
+        if (status === "overdue" || (inv.due_date && new Date(inv.due_date) < now && balance > 0 && status !== "paid" && status !== "void" && status !== "draft")) ov += balance
+      }
+      setStripStats({ weeklySales: Math.round(ws), mtdSales: Math.round(ms), mtdProfit: Math.round(mp), mtdCommission: Math.round(mc), pipeline: Math.round(pv), overdue: Math.round(ov) })
+    } catch {}
+  }
   
   useEffect(() => {
     if (!currentUser?.id) return
@@ -166,6 +216,7 @@ export function GlobalTopBar() {
   }
 
   return (
+    <>
     <div className="glass-panel border-x-0 border-t-0 px-4 py-3 flex items-center justify-between sticky top-0 z-40 rounded-none shadow-lg">
       
       {/* Left side: Search */}
@@ -408,5 +459,48 @@ export function GlobalTopBar() {
         <NewCustomerModal isOpen={showAddAccount} onClose={() => setShowAddAccount(false)} currentUserId={currentUser?.id} />
       )}
     </div>
+
+    {/* ── Persistent Stats Strip ── */}
+    {stripStats && (
+      <div className="glass-panel border-x-0 border-t-0 px-4 py-1.5 sticky top-[56px] z-[39] rounded-none flex items-center gap-0 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-4 min-w-max mx-auto">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Weekly</span>
+            <span className="text-xs font-black text-white">${stripStats.weeklySales.toLocaleString()}</span>
+          </div>
+          <div className="w-px h-3.5 bg-white/[0.08]"></div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">MTD</span>
+            <span className="text-xs font-black text-white">${stripStats.mtdSales.toLocaleString()}</span>
+          </div>
+          <div className="w-px h-3.5 bg-white/[0.08]"></div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Profit</span>
+            <span className="text-xs font-black text-emerald-400">${stripStats.mtdProfit.toLocaleString()}</span>
+          </div>
+          <div className="w-px h-3.5 bg-white/[0.08]"></div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Comm</span>
+            <span className="text-xs font-black text-purple-400">${stripStats.mtdCommission.toLocaleString()}</span>
+          </div>
+          <div className="w-px h-3.5 bg-white/[0.08]"></div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Pipeline</span>
+            <span className="text-xs font-black text-sky-400">${stripStats.pipeline.toLocaleString()}</span>
+          </div>
+          {stripStats.overdue > 0 && (
+            <>
+              <div className="w-px h-3.5 bg-white/[0.08]"></div>
+              <div className="flex items-center gap-1.5">
+                <FiAlertCircle size={10} className="text-red-400" />
+                <span className="text-[10px] text-red-400/70 font-medium uppercase tracking-wider">Overdue</span>
+                <span className="text-xs font-black text-red-400">${stripStats.overdue.toLocaleString()}</span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   )
 }
