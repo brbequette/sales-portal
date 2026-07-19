@@ -40,8 +40,8 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
 
   const [orderLines, setOrderLines] = useState<OrderLine[]>([])
   const [catalogProducts, setCatalogProducts] = useState<any[]>([])
-  const DEFAULT_VIG_RATE = 1.3
-  const COMMISSION_PCT = 50
+  const [defaultVigRate, setDefaultVigRate] = useState(1.3)
+  const [commissionPct, setCommissionPct] = useState(50)
 
   const [timerSeconds, setTimerSeconds] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -71,6 +71,13 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
   useEffect(() => {
     fetch('/api/get-products').then(r => r.json()).then(d => {
       if (d.success) setCatalogProducts(d.products || [])
+    }).catch(() => {})
+
+    fetch('/api/admin/settings').then(r => r.json()).then(d => {
+      if (d.success && d.settings) {
+        if (d.settings.default_vig_rate) setDefaultVigRate(d.settings.default_vig_rate)
+        if (d.settings.commission_rate_pct) setCommissionPct(d.settings.commission_rate_pct)
+      }
     }).catch(() => {})
   }, [])
 
@@ -686,8 +693,8 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                   orderLines={orderLines}
                   setOrderLines={setOrderLines}
                   catalogProducts={catalogProducts}
-                  vigRate={DEFAULT_VIG_RATE}
-                  commissionPct={COMMISSION_PCT}
+                  vigRate={defaultVigRate}
+                  commissionPct={commissionPct}
                   accountName={account?.name}
                   accountDetail={accountDetail}
                   accent="cyan"

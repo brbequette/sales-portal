@@ -5,17 +5,18 @@
  * and process-salesorder-costs. Single source of truth for:
  *
  *   - Dead cost bucketing (Subject to VIG vs No VIG)
- *   - VIG rate resolution: manual → custom field → user settings → 1.3 fallback
- *   - Profit = Subtotal − DeadCostPlusVIG − CC Fees − Additional Costs
- *   - Insurance is company revenue — NOT deducted from profit
- *   - Commission = Profit × commissionPct  (only when Profit > 0)
+ *   - VIG rate resolution: manual -> custom field -> user settings -> fallback
+ *   - Profit = Subtotal - DeadCostPlusVIG - CC Fees - Additional Costs
+ *   - Insurance is company revenue -> NOT deducted from profit
+ *   - Commission = Profit * commissionPct  (only when Profit > 0)
  */
 
 import { PrismaClient } from "@prisma/client"
+import { getSystemSettings, AppSettings } from "./settings"
 
 const prisma = new PrismaClient()
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface LineItemDetail {
   name: string
@@ -37,12 +38,12 @@ export interface CostCalculationResult {
   deadCostPlusVig: number
   ccFees: number
   additionalCosts: number
-  insurance: number          // retained for logging only — not subtracted from profit
+  insurance: number          // retained for logging only -> not subtracted from profit
   subTotal: number
   totalDeductions: number    // deadCostPlusVig + ccFees + additionalCosts (no insurance)
   profit: number
   marginPercent: number
-  deadProfitActual: number   // subTotal − deadCostTotal (raw margin, no VIG/fees)
+  deadProfitActual: number   // subTotal - deadCostTotal (raw margin, no VIG/fees)
   commissionPct: number
   salesCommission: number
   isPaid: boolean
@@ -50,57 +51,32 @@ export interface CostCalculationResult {
   lineItemBreakdownStrings: string[]
 }
 
-// ─── Item Helpers ─────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-/** True if a line item should be treated as a gift/free item */
 export function isGiftItem(item: any): boolean {
-  if (!item) return false
-  const rate = parseFloat(item.rate || 0)
-  if (rate === 0) return true
-  const desc = (item.description || "").toLowerCase()
-  const name = (item.name || "").toLowerCase()
-  return desc.includes("gift") || name.includes("gift") || desc.includes("free") || name.includes("free")
+  return (item.name?.toLowerCase().includes("gift") || false)
 }
 
-/** True if item belongs in the No VIG bucket */
 export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>): boolean {
   if (isGiftItem(item)) return true
-
-  // Explicit override passed by caller
-  if (noVigOverrides && item.line_item_id && noVigOverrides[item.line_item_id] !== undefined) {
-    return noVigOverrides[item.line_item_id]
+  const itemID = item.item_id
+  if (itemID && noVigOverrides && noVigOverrides[itemID]) {
+    return true
   }
-
-  // Custom field on the line item
-  const cfNoVig = item.custom_fields?.find((f: any) =>
-    f.api_name === "cf_subject_to_vig" || f.label?.toUpperCase().includes("SUBJECT TO VIG")
-  )
-  if (cfNoVig) {
-    const val = cfNoVig.value
-    if (val === false || val === "false" || val === "0" || val === "") return true
-  }
-
   return false
 }
 
-// ─── VIG Rate Resolution ──────────────────────────────────────────────────────
+// ─── VIG Rate Resolution ────────────────────────────────────────────────────
 
-/**
- * Resolves the VIG multiplier for a document.
- * Priority:
- *   1. manualVigRate argument
- *   2. SALESPERSON VIG custom field already on the document
- *   3. User VIG settings in the DB (constant or monthly goal)
- *   4. Fallback: 1.3
- */
 export async function resolveVigRate(
   doc: any,
-  manualVigRate?: number | null
+  settings: AppSettings,
+  manualVig?: number | null
 ): Promise<number> {
-  if (manualVigRate && manualVigRate > 0) return manualVigRate
+  if (manualVig !== undefined && manualVig !== null) return manualVig
 
   const existingVig = doc.custom_fields?.find((f: any) =>
-    f.label?.toUpperCase().includes("SALESPERSON VIG") || f.api_name === "cf_salesperson_vig"
+    f.label?.toUpperCase().includes("VIG")
   )
   if (existingVig?.value && parseFloat(existingVig.value) > 0) {
     return parseFloat(existingVig.value)
@@ -121,8 +97,8 @@ export async function resolveVigRate(
     )
 
     if (user) {
-      const settings = await prisma.systemSetting.findUnique({ where: { key: "vig_settings" } })
-      const allVig = settings ? JSON.parse(settings.value) : {}
+      const vigSettings = await prisma.systemSetting.findUnique({ where: { key: "vig_settings" } })
+      const allVig = vigSettings ? JSON.parse(vigSettings.value) : {}
       const userVig = allVig[user.id]
 
       if (userVig) {
@@ -141,12 +117,16 @@ export async function resolveVigRate(
     }
   }
 
-  return 1.3 // fallback default
+  return settings.default_vig_rate
 }
 
-// ─── Commission % Resolution ──────────────────────────────────────────────────
+// ─── Commission % Resolution ────────────────────────────────────────────────
 
-export function resolveCommissionPct(doc: any, manualCommPct?: number | null): number {
+export function resolveCommissionPct(
+  doc: any,
+  settings: AppSettings,
+  manualCommPct?: number | null
+): number {
   if (manualCommPct && manualCommPct > 0) return manualCommPct
 
   const existingField = doc.custom_fields?.find((f: any) =>
@@ -156,10 +136,10 @@ export function resolveCommissionPct(doc: any, manualCommPct?: number | null): n
     return parseFloat(existingField.value)
   }
 
-  return 50 // default 50%
+  return settings.commission_rate_pct
 }
 
-// ─── Main Entry Point ─────────────────────────────────────────────────────────
+// ─── Main Entry Point ───────────────────────────────────────────────────────
 
 /**
  * Calculates all cost/profit/commission fields for any Zoho Books document
@@ -174,8 +154,10 @@ export async function calculateDocumentCosts(
   } = {}
 ): Promise<CostCalculationResult> {
   const { manualVigRate, manualCommPct, noVigOverrides } = options
+  
+  const settings = await getSystemSettings(prisma)
 
-  // ── 1. Dead cost bucketing ───────────────────────────────────────────
+  // ─── 1. Dead cost bucketing ─────────────────────────────────────────────────
   let deadCostSubjectToVig = 0
   let deadCostNoVig = 0
   const lineItemDetails: LineItemDetail[] = []
@@ -198,13 +180,13 @@ export async function calculateDocumentCosts(
 
   const deadCostTotal = deadCostSubjectToVig + deadCostNoVig
 
-  // ── 2. VIG rate ──────────────────────────────────────────────────────
-  const vigRate = await resolveVigRate(doc, manualVigRate)
+  // ─── 2. VIG rate ────────────────────────────────────────────────────────────
+  const vigRate = await resolveVigRate(doc, settings, manualVigRate)
 
-  // ── 3. Dead Cost Plus VIG ────────────────────────────────────────────
+  // ─── 3. Dead Cost Plus VIG ──────────────────────────────────────────────────
   const deadCostPlusVig = (deadCostSubjectToVig * vigRate) + deadCostNoVig
 
-  // ── 4. Line item breakdown strings ──────────────────────────────────
+  // ─── 4. Line item breakdown strings ─────────────────────────────────────────
   const lineItemBreakdownStrings = lineItemDetails.map(d => {
     const vigDC    = d.noVig ? d.deadCost : d.deadCost * vigRate
     const vigLabel = d.noVig ? "No VIG" : "Subj to VIG"
@@ -215,9 +197,7 @@ export async function calculateDocumentCosts(
     return `${d.quantity}x ${d.sku || d.name} | Cost: $${d.cost.toFixed(2)} | DC: $${d.deadCost.toFixed(2)} | VIG-DC: $${vigDC.toFixed(2)} | ${vigLabel}${flagStr}`
   })
 
-  // ── 5. Profit ────────────────────────────────────────────────────────
-  // Profit = Subtotal − DeadCostPlusVIG − CC Fees − Additional Costs
-  // NOTE: Insurance is company revenue and is NOT deducted from profit.
+  // ─── 5. Profit ──────────────────────────────────────────────────────────────
   const subTotal = parseFloat(doc.sub_total || 0)
 
   const ccFeesField          = doc.custom_fields?.find((f: any) => f.label?.toUpperCase().includes("CREDIT CARD PROCESSING"))
@@ -233,11 +213,11 @@ export async function calculateDocumentCosts(
   const marginPercent    = subTotal > 0 ? (profit / subTotal) * 100 : 0
   const deadProfitActual = subTotal - deadCostTotal
 
-  // ── 6. Commission ────────────────────────────────────────────────────
-  const commissionPct   = resolveCommissionPct(doc, manualCommPct)
+  // ─── 6. Commission ──────────────────────────────────────────────────────────
+  const commissionPct   = resolveCommissionPct(doc, settings, manualCommPct)
   const salesCommission = profit > 0 ? profit * (commissionPct / 100) : 0
 
-  // ── 7. Paid ──────────────────────────────────────────────────────────
+  // ─── 7. Paid ────────────────────────────────────────────────────────────────
   const isPaid = doc.status === "paid" || parseFloat(doc.balance || 0) <= 0
 
   return {

@@ -7,6 +7,7 @@ import { CreatePackageModal } from "./CreatePackageModal"
 import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
 import { RecordPaymentModal } from "./RecordPaymentModal"
 import { DocumentLifecycle } from "./DocumentLifecycle"
+import { SaleCommunications } from "./SaleCommunications"
 
 interface InvoiceDetailsModalProps {
   invoice: any | string; // Can be an invoice object or just the zohoId string
@@ -32,6 +33,9 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
   const [showPackageModal, setShowPackageModal] = useState(false)
   const [showDropshipmentModal, setShowDropshipmentModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  
+  // Tabs state
+  const [activeTab, setActiveTab] = useState<'overview' | 'communications'>('overview')
   
   // Discount state
   const [discountPercentage, setDiscountPercentage] = useState<number>(5)
@@ -534,9 +538,30 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
           </div>
         </div>
 
-        {/* ── Content Split — Stacks vertically on mobile, side-by-side on lg+ ── */}
-        <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
-          {/* Data View Panel */}
+        {/* ── Tabs ── */}
+        <div className="flex border-b border-neutral-800 bg-neutral-900 px-4 pt-2 gap-4">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`pb-2 px-2 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${
+              activeTab === 'overview' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('communications')}
+            className={`pb-2 px-2 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${
+              activeTab === 'communications' ? 'border-blue-500 text-blue-400' : 'border-transparent text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            Communications
+          </button>
+        </div>
+
+        {/* ── Content ── */}
+        {activeTab === 'overview' ? (
+          <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+            {/* Data View Panel */}
           <div className="w-full lg:w-[340px] xl:w-[380px] bg-neutral-950 border-b lg:border-b-0 lg:border-r border-neutral-800 overflow-y-auto p-4 sm:p-5 flex flex-col gap-5 shrink-0 max-h-[40vh] lg:max-h-none">
             <div>
               <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><FiDatabase className="text-sky-400 shrink-0" /> Data View</h3>
@@ -831,6 +856,11 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
             />
           </div>
         </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto p-4 bg-neutral-950">
+            <SaleCommunications zohoId={zohoId} />
+          </div>
+        )}
       </div>
     </div>,
     document.body

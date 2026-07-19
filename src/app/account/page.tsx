@@ -13,6 +13,7 @@ import {
 import { useZoho } from "@/components/ZohoProvider"
 import { AccountHistory } from "@/components/AccountHistory"
 import { AccountDialer } from "@/components/AccountDialer"
+import { PhoneLink } from "@/components/PhoneLink"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { DocumentFlipbook } from "@/components/DocumentFlipbook"
 import { AccountAnalytics } from "@/components/AccountAnalytics"
@@ -22,6 +23,7 @@ import Link from "next/link"
 import { QualityPicker } from "@/components/QualityPicker"
 import { ContactsView } from "@/components/ContactsView"
 import { AccountProductsPurchased } from "@/components/AccountProductsPurchased"
+import { AccountPackages } from "@/components/AccountPackages"
 import { TaskEditor } from "@/components/TaskEditor"
 import { AccountEditModal } from "@/components/AccountEditModal"
 
@@ -105,22 +107,29 @@ function AccountLeftRail({
           : <div className="text-neutral-600 text-xs italic mb-1">No contact on file</div>
         }
         {phone && (
-          <a
-            href={`tel:${cleanPhone}`}
-            className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 text-xs font-mono font-bold mb-1 truncate transition-colors"
-          >
-            <FiPhone size={10} /> {formatPhoneNumber(phone)}
-          </a>
+          <PhoneLink 
+            phone={phone} 
+            className="text-blue-400 text-xs font-mono font-bold mb-1 truncate" 
+            icon 
+          />
         )}
         {email && <div className="text-[10px] text-neutral-500 truncate mb-2">{email}</div>}
         <div className="flex gap-1.5 mt-2">
-          <button
-            onClick={handleDial}
-            disabled={!cleanPhone}
-            className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <FiPhone size={10} /> Call
-          </button>
+          {cleanPhone ? (
+            <PhoneLink
+              phone={phone}
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded-lg transition-colors"
+            >
+              <FiPhone size={10} /> Call
+            </PhoneLink>
+          ) : (
+            <button
+              disabled
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded-lg transition-colors opacity-40 cursor-not-allowed"
+            >
+              <FiPhone size={10} /> Call
+            </button>
+          )}
           <button
             onClick={handleSms}
             className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-[10px] font-bold rounded-lg transition-colors"
@@ -146,8 +155,8 @@ function AccountLeftRail({
         </button>
       )}
 
-      {/* Blade Profile */}
-      <div className="p-3 border-b border-neutral-800">
+      {/* Blade Profile - Hidden on mobile */}
+      <div className="hidden lg:block p-3 border-b border-neutral-800">
         <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mb-2">Blade Profile</div>
         <div className="space-y-1.5">
           {bladeRows.map(({ label, value }) => (
@@ -161,9 +170,9 @@ function AccountLeftRail({
         </div>
       </div>
 
-      {/* Top Products */}
+      {/* Top Products - Hidden on mobile */}
       {account.topProducts && account.topProducts.length > 0 && (
-        <div className="p-3 border-b border-neutral-800">
+        <div className="hidden lg:block p-3 border-b border-neutral-800">
           <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mb-2">Top Products</div>
           <div className="space-y-2">
             {account.topProducts.slice(0, 3).map((p: any, i: number) => (
@@ -493,7 +502,14 @@ function OverviewPanel({
         </div>
       </AccordionSection>
 
-      {/* Products Purchased */}
+        {/* Sales Packages */}
+        <AccordionSection title="Sales Packages (Fulfillment)" icon={<FiPackage size={12} />} defaultOpen={false}>
+          <div className="p-3">
+            <AccountPackages accountId={zohoId} />
+          </div>
+        </AccordionSection>
+  
+        {/* Products Purchased */}
       <AccordionSection title="Products Purchased" icon={<FiPackage size={12} />} defaultOpen={false}>
         <div className="p-3">
           <AccountProductsPurchased accountId={zohoId} />

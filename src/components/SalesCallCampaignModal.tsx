@@ -47,8 +47,8 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   // Order Builder States
   const [orderLines, setOrderLines] = useState<OrderLine[]>([])
   const [catalogProducts, setCatalogProducts] = useState<any[]>([])
-  const DEFAULT_VIG_RATE = 1.3
-  const COMMISSION_PCT = 50
+  const [defaultVigRate, setDefaultVigRate] = useState(1.3)
+  const [commissionPct, setCommissionPct] = useState(50)
 
 
   // Power Dialer States
@@ -102,6 +102,13 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   useEffect(() => {
     fetch('/api/get-products').then(r => r.json()).then(d => {
       if (d.success) setCatalogProducts(d.products || [])
+    }).catch(() => {})
+
+    fetch('/api/admin/settings').then(r => r.json()).then(d => {
+      if (d.success && d.settings) {
+        if (d.settings.default_vig_rate) setDefaultVigRate(d.settings.default_vig_rate)
+        if (d.settings.commission_rate_pct) setCommissionPct(d.settings.commission_rate_pct)
+      }
     }).catch(() => {})
   }, [])
 
@@ -785,8 +792,8 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
               orderLines={orderLines}
               setOrderLines={setOrderLines}
               catalogProducts={catalogProducts}
-              vigRate={DEFAULT_VIG_RATE}
-              commissionPct={COMMISSION_PCT}
+              vigRate={defaultVigRate}
+              commissionPct={commissionPct}
               accountName={activeAccount?.name}
               accountDetail={accountDetail}
             />

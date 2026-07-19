@@ -11,8 +11,8 @@ export async function GET(req: Request) {
   }
 
   try {
-    let quote = null
-    let salesOrder = null
+    let quote: any = null
+    let salesOrder: any = null
     let purchaseOrders: any[] = []
     let packages: any[] = []
     let invoices: any[] = []

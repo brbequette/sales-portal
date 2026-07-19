@@ -1,6 +1,7 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient } from "@prisma/client"
 import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getSystemSettings } from "./lib/settings"
 
 const prisma = new PrismaClient()
 const EASYSHIP_API_KEY = process.env.EASYSHIP_API_KEY;
@@ -26,6 +27,8 @@ export const handler: Handler = async (event) => {
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
+
+  const settings = await getSystemSettings(prisma)
 
   if (!EASYSHIP_API_KEY) {
     return {
@@ -113,7 +116,7 @@ export const handler: Handler = async (event) => {
       category: "returns",
       sku: item.sku || "RETURN",
       quantity: item.quantity || 1,
-      actual_weight: 0.5,
+      actual_weight: settings.default_shipping_weight,
       declared_currency: invoice.currency_code || "USD",
       declared_customs_value: item.rate || 0
     }))

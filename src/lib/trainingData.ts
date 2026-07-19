@@ -1537,6 +1537,24 @@ All documents get these fields populated in Zoho Books custom fields:
     `,
   },
   {
+    id: "comms-zdialer-setup",
+    title: "ZDialer Mobile Extension Setup",
+    category: "Communication",
+    content: `
+  The **ZDialer** extension seamlessly connects the Sales Portal on your mobile device to Zoho Voice, ensuring call 
+  recordings, sentiment analysis, and AI summaries are captured correctly.
+
+  ### Setup Instructions
+  1. Download the **ZDialer App** from your device's app store (iOS/Android).
+  2. Log in using your Zoho credentials.
+  3. Go to **Settings** in the app and ensure it is set as your default calling application if prompted.
+  4. In the Sales Portal, when browsing an Account or the Sales Hub on your mobile device, clicking any phone number will now automatically open ZDialer.
+
+  ### Desktop Usage
+  On desktop, clicking a phone number will use your computer's default calling application (like FaceTime or a softphone) using standard \`tel:\` links, but you can also install the ZDialer Chrome extension for web integration.
+      `,
+    },
+  {
     id: "comms-account-center",
     title: "AI & Communications Center (Account Page)",
     category: "Communication",

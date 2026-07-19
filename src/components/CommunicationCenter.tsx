@@ -42,8 +42,7 @@ type Message = {
   timestamp: string
 }
 
-const DEFAULT_VIG_RATE = 1.3
-const COMMISSION_PCT = 50
+
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
@@ -91,6 +90,10 @@ export function CommunicationCenter({
   const [isGeneratingAi, setIsGeneratingAi] = useState(false)
 
   // ── Order builder ─────────────────────────────────────────────────────────
+  const [defaultVigRate, setDefaultVigRate] = useState(1.3)
+  const [commissionPct, setCommissionPct] = useState(50)
+
+  // Order Builder States
   const [orderLines, setOrderLines] = useState<OrderLine[]>([])
   const [catalogProducts, setCatalogProducts] = useState<any[]>([])
   const [productSearch, setProductSearch] = useState("")
@@ -139,6 +142,13 @@ export function CommunicationCenter({
       .then(r => r.json())
       .then(d => { if (d.success) setCatalogProducts(d.products || []) })
       .catch(() => {})
+
+    fetch('/api/admin/settings').then(r => r.json()).then(d => {
+      if (d.success && d.settings) {
+        if (d.settings.default_vig_rate) setDefaultVigRate(d.settings.default_vig_rate)
+        if (d.settings.commission_rate_pct) setCommissionPct(d.settings.commission_rate_pct)
+      }
+    }).catch(() => {})
   }, [])
 
   // Pre-fill fact-finding from account data
@@ -227,9 +237,9 @@ export function CommunicationCenter({
     const deadCostSubjectToVig = orderLines.reduce((s, l) => s + (!l.isPromo ? l.cost * l.quantity : 0), 0)
     const deadCostNoVig = orderLines.reduce((s, l) => s + (l.isPromo ? l.cost * l.quantity : 0), 0)
     const deadCostTotal = deadCostSubjectToVig + deadCostNoVig
-    const deadCostPlusVig = (deadCostSubjectToVig * DEFAULT_VIG_RATE) + deadCostNoVig
+    const deadCostPlusVig = (deadCostSubjectToVig * defaultVigRate) + deadCostNoVig
     const profitAfterVig = subTotal - deadCostPlusVig
-    const salesCommission = profitAfterVig > 0 ? profitAfterVig * (COMMISSION_PCT / 100) : 0
+    const salesCommission = profitAfterVig > 0 ? profitAfterVig * (commissionPct / 100) : 0
     const marginPct = subTotal > 0 ? (profitAfterVig / subTotal) * 100 : 0
     return { subTotal, deadCostTotal, deadCostPlusVig, profitAfterVig, salesCommission, marginPct }
   })()
@@ -870,8 +880,8 @@ export function CommunicationCenter({
                 orderLines={orderLines}
                 setOrderLines={setOrderLines}
                 catalogProducts={catalogProducts}
-                vigRate={DEFAULT_VIG_RATE}
-                commissionPct={COMMISSION_PCT}
+                vigRate={defaultVigRate}
+                commissionPct={commissionPct}
                 accountName={account?.name}
                 accountDetail={accountDetail}
               />

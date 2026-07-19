@@ -1,5 +1,6 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient } from "@prisma/client"
+import { getSystemSettings } from "./lib/settings"
 
 const prisma = new PrismaClient()
 
@@ -64,6 +65,8 @@ export const handler: Handler = async (event) => {
     const params = event.queryStringParameters || {}
     const showHidden = params.includeHidden === 'true'
     const monthParam = params.month // e.g. "2026-07"
+
+    const appSettings = await getSystemSettings(prisma)
 
     // 1. Fetch settings (holidays, sales targets)
     const settings = await prisma.systemSetting.findMany()
@@ -232,7 +235,7 @@ export const handler: Handler = async (event) => {
       email: "",
       role: "",
       constantVigEnabled: false,
-      constantVigValue: 1.3,
+      constantVigValue: appSettings.default_vig_rate,
       monthlyVigGoals: [],
       revenue: 0,
       profit: 0,
@@ -433,7 +436,7 @@ export const handler: Handler = async (event) => {
       }
 
       if (now.getFullYear() < 2025) {
-        rep.monthly.vigRate = 1.3;
+        rep.monthly.vigRate = appSettings.default_vig_rate;
       } else if (rep.constantVigEnabled && rep.constantVigValue !== null) {
         rep.monthly.vigRate = rep.constantVigValue;
       } else if (vigGoal.manualVigRate !== null) {
@@ -444,7 +447,7 @@ export const handler: Handler = async (event) => {
         const metGoal = actual >= target;
         // Keep Montgomery hardcode fallback if constantVig is not enabled yet
         const isMontgomery = rep.repName && rep.repName.toLowerCase().includes("montgomery") && rep.repName.toLowerCase().includes("morgan");
-        rep.monthly.vigRate = isMontgomery ? 1.0 : (metGoal ? 1.3 : 1.3);
+        rep.monthly.vigRate = isMontgomery ? 1.0 : (metGoal ? appSettings.default_vig_rate : appSettings.default_vig_rate);
       }
     })
 
@@ -563,10 +566,10 @@ export const handler: Handler = async (event) => {
         const target = vigGoal.metric === 'SUBTOTAL' ? vigGoal.subtotalGoal : vigGoal.profitGoal;
         const actual = vigGoal.metric === 'SUBTOTAL' ? subtotal : profit;
         
-        let vigRate = 1.3;
+        let vigRate = appSettings.default_vig_rate;
         
         if (year < 2025) {
-          vigRate = 1.3;
+          vigRate = appSettings.default_vig_rate;
         } else if ((u as any).constantVigEnabled && (u as any).constantVigValue !== null) {
           vigRate = (u as any).constantVigValue;
         } else if (vigGoal.manualVigRate !== null) {
@@ -574,7 +577,7 @@ export const handler: Handler = async (event) => {
         } else {
           const met = actual >= target;
           const isMontgomery = u.name && u.name.toLowerCase().includes("montgomery") && u.name.toLowerCase().includes("morgan");
-          vigRate = isMontgomery ? 1.0 : (met ? 1.3 : 1.3);
+          vigRate = isMontgomery ? 1.0 : (met ? appSettings.default_vig_rate : appSettings.default_vig_rate);
         }
         
         repVigs[u.id] = { 

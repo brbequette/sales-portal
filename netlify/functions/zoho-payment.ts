@@ -5,7 +5,7 @@ import { getZohoAccessToken as getAccessToken } from "./lib/zoho-auth"
 const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
-const CC_FEE_RATE = parseFloat(process.env.CC_FEE_RATE || '0.035'); // 3.5% default
+import { getSystemSettings } from "./lib/settings"
 
 export const handler: Handler = async (event) => {
   const cors = {
@@ -30,6 +30,9 @@ export const handler: Handler = async (event) => {
   if (!customerId || !invoiceId || !amount) {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing required fields" }) }
   }
+
+  const settings = await getSystemSettings(prisma)
+  const CC_FEE_RATE = settings.cc_fee_rate / 100;
 
   try {
     let booksInvoiceId = invoiceId

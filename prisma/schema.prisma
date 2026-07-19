@@ -442,8 +442,13 @@ model CallLog {
   duration    Int      @default(0) // Duration in seconds
   status      String   // "completed", "missed", "voicemail", etc.
   notes       String?
-  zohoCallId  String?  @unique
-  createdAt   DateTime @default(now())
+  zohoCallId   String?  @unique
+  recordingUrl String?
+  zohoSentiment String?
+  aiSentiment  String?
+  aiSummary    String?
+  salesOrderId String?
+  createdAt    DateTime @default(now())
   updatedAt   DateTime @updatedAt
   editedAt    DateTime?
 
