@@ -1815,7 +1815,7 @@ export default function Dashboard() {
                             </div>
                           </div>
                         ) : (
-                          /* ═══════════════ SALES LIST CARD ═══════════════ */
+                          /* ═══════════════ SALES LIST CARD (Enhanced) ═══════════════ */
                           <div className="flex items-center justify-between px-4 py-3.5 gap-4">
                             {/* Checkbox */}
                             <div className="flex items-center shrink-0">
@@ -1885,15 +1885,26 @@ export default function Dashboard() {
                                   </span>
                                   <span className="w-0.5 h-0.5 rounded-full bg-neutral-600"></span>
                                   <span className={`font-semibold ${activityColor}`}>{activityLabel}</span>
+                                  {(account.overdueBalance || 0) > 0 && (
+                                    <>
+                                      <span className="w-0.5 h-0.5 rounded-full bg-neutral-600"></span>
+                                      <span className="font-bold text-red-400">${(account.overdueBalance / 1000).toFixed(1)}k overdue</span>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             </div>
-                            {/* Middle: LTV */}
+                            {/* Middle: LTV + Overdue */}
                             <div className="hidden sm:flex flex-col text-right shrink-0 min-w-[110px]">
                               <p className="text-sm font-bold text-emerald-400">
                                 ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)}
                               </p>
                               <p className="text-[10px] text-neutral-500 mt-0.5">Total Sales</p>
+                              {(account.overdueBalance || 0) > 0 && (
+                                <p className="text-[10px] font-bold text-red-400 mt-0.5 flex items-center gap-1 justify-end">
+                                  <FiAlertCircle size={9} />${(account.overdueBalance).toLocaleString()} overdue
+                                </p>
+                              )}
                             </div>
                             {/* Right: activity + actions */}
                             <div className="flex items-center gap-3 shrink-0">
@@ -1902,6 +1913,14 @@ export default function Dashboard() {
                                 <p className="text-[10px] text-neutral-500 mt-0.5">{account.industry || "Unknown Industry"}</p>
                               </div>
                               <div className="flex items-center gap-1.5">
+                                {/* Quick Create Sale */}
+                                <Link
+                                  href={`/account?id=${account.zohoId}&tab=pos`}
+                                  className="p-1.5 bg-[var(--primary)]/10 hover:bg-[var(--primary)]/25 rounded-full text-[var(--primary)] hover:text-white transition-colors hidden md:flex"
+                                  title="Create Sale"
+                                >
+                                  <FiDollarSign size={12} />
+                                </Link>
                                 {primaryPhone ? (
                                   <a href={`tel:${primaryPhone}`} className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded-full text-neutral-400 hover:text-white transition-colors" title="Call">
                                     <FiPhoneCall size={12} />
