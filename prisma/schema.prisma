@@ -35,6 +35,10 @@ model User {
   callLogs           CallLog[]
   pushSubscriptions  PushSubscription[]
   notifications      Notification[]
+  advances           Advance[]
+  reimbursements     Reimbursement[]
+
+  @@index([role])
 }
 
 model Account {
@@ -477,3 +481,43 @@ model Notification {
   @@index([userId])
   @@index([read])
 }
+
+model Advance {
+  id              String   @id @default(cuid())
+  userId          String
+  amount          Float
+  reason          String?
+  issueDate       DateTime @default(now())
+  
+  // Payback Schedule configuration
+  splitOverWeeks  Int?     // Deduct amount / splitOverWeeks each week
+  deductionRate   Float?   // Or deduct a flat rate each week
+  
+  // Tracking
+  amountPaidBack  Float    @default(0)
+  isFullyPaid     Boolean  @default(false)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Reimbursement {
+  id              String   @id @default(cuid())
+  userId          String
+  amount          Float
+  description     String
+  receiptUrl      String?  // Optional uploaded image/PDF
+  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED, PAID
+  dateSubmitted   DateTime @default(now())
+  dateProcessed   DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
