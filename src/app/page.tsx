@@ -18,6 +18,7 @@ import { TimezonePicker } from "@/components/TimezonePicker"
 import { Pagination, usePagination } from "@/components/Pagination"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { SalesBoard } from "@/components/SalesBoard"
+import { DashboardView } from "@/components/DashboardView"
 import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand, FiTarget, FiBox } from "react-icons/fi"
 
 function formatLastCalled(dateStr: string | null) {
@@ -46,7 +47,7 @@ export default function Dashboard() {
   const [drillTitle, setDrillTitle] = useState("")
   const [drillItems, setDrillItems] = useState<any[] | null>(null)
   const [drillType, setDrillType] = useState<"invoices" | "deals" | "accounts" | null>(null)
-  const [effort, setEffort] = useState<"sales" | "call_list" | "cold_call" | "dashboard">("sales")
+  const [effort, setEffort] = useState<"sales" | "call_list" | "cold_call" | "dashboard">("dashboard")
   const [ownerFilter, setOwnerFilter] = useState("All")
   const [timezoneFilter, setTimezoneFilter] = useState("All")
   const [yearFilter, setYearFilter] = useState("All")
@@ -1154,8 +1155,8 @@ export default function Dashboard() {
                 <FiTarget size={20} />
               </div>
               <div>
-                <h3 className="text-sm font-bold tracking-tight">Sales Board</h3>
-                <p className="text-xs text-neutral-500 mt-0.5">Live metrics</p>
+                <h3 className="text-sm font-bold tracking-tight">Dashboard</h3>
+                <p className="text-xs text-neutral-500 mt-0.5">KPIs & Charts</p>
               </div>
             </div>
           </button>
@@ -1164,7 +1165,7 @@ export default function Dashboard() {
 
         {effort === "dashboard" && resolvePermissions(dbUser?.permissions, dbUser?.role || currentUser?.role).salesBoard ? (
           <div className="mt-4">
-            <SalesBoard />
+            <DashboardView />
           </div>
         ) : effort === "dashboard" ? (
           <></>

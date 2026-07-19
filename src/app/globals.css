@@ -301,3 +301,83 @@ p, span, a, h1, h2, h3, h4, h5, h6, li, td, th, label, div {
   color: var(--foreground);
   font-weight: 600;
 }
+
+/*
+  ──────────────────────────────────────────────────────────────
+  ENHANCED GLASSMORPHISM — Dashboard & Pipeline Components
+  ──────────────────────────────────────────────────────────────
+*/
+
+/* ── Stronger Glass Panel (for dashboards, modals) ── */
+.glass-panel-strong {
+  background: rgba(18, 19, 22, 0.75);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ── Glow Accents ── */
+.glow-orange { box-shadow: 0 0 20px rgba(249, 115, 22, 0.15); }
+.glow-emerald { box-shadow: 0 0 20px rgba(16, 185, 129, 0.15); }
+.glow-purple { box-shadow: 0 0 20px rgba(168, 85, 247, 0.15); }
+.glow-rose { box-shadow: 0 0 20px rgba(244, 63, 94, 0.15); }
+.glow-sky { box-shadow: 0 0 20px rgba(56, 189, 248, 0.15); }
+
+/* ── Dashboard Card Hover ── */
+.glass-panel:hover,
+.glass-panel-strong:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Pulse Animation (for live indicators) ── */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+.pulse-live {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ── Quota Ring Animation ── */
+@keyframes ring-fill {
+  from { stroke-dashoffset: 226.2; }
+}
+.animate-ring {
+  animation: ring-fill 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Chart Container ── */
+.chart-container {
+  background: var(--card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  transition: border-color 0.3s ease;
+}
+.chart-container:hover {
+  border-color: var(--border-strong);
+}
+
+/* ── Status Pills ── */
+.status-pill {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid;
+}
+.status-paid { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: #10b981; }
+.status-overdue { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: #ef4444; }
+.status-draft { background: rgba(161, 161, 170, 0.1); border-color: rgba(161, 161, 170, 0.3); color: #a1a1aa; }
+.status-sent { background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.3); color: #38bdf8; }
+.status-partial { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #f59e0b; }
+
