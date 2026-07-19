@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { getZohoAccessToken } from './netlify/functions/lib/zoho-auth'
+import { getZohoAccessToken } from '../../netlify/functions/lib/zoho-auth'
 
 const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
