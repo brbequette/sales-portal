@@ -521,3 +521,31 @@ model Reimbursement {
   @@index([userId])
 }
 
+
+
+model PurchaseOrder {
+  id String @id @default(cuid())
+  zohoId String @unique
+  vendorName String?
+  date DateTime?
+  total Float @default(0)
+  status String?
+  items Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Payment {
+  id String @id @default(cuid())
+  zohoId String @unique
+  invoiceId String?
+  invoiceNumber String?
+  amount Float @default(0)
+  date DateTime?
+  mode String?
+  status String?
+  referenceNumber String?
+  bankCharges Float @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
