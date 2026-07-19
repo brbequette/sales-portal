@@ -181,6 +181,14 @@ model Product {
   stock        Int      @default(0)
   subjectToVig Boolean  @default(true)
   giftItem     Boolean  @default(false)
+  
+  // Custom Classifications
+  size         String?
+  application  String?
+  manufacturer String?
+  vendor       String?
+  qualityTier  String?
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
