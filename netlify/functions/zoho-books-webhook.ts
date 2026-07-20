@@ -48,9 +48,71 @@ export const handler: Handler = async (event) => {
     }
 
     // Extract the Books ID and number depending on type
-    const booksId = doc.invoice_id || doc.salesorder_id || doc.estimate_id || doc.contact_id
+    const booksId = doc.invoice_id || doc.salesorder_id || doc.estimate_id || doc.contact_id || doc.payment_id
     if (!booksId) {
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "No Books ID in payload" }) }
+    }
+
+    // ── Payment webhook ──
+    if (type === 'Payment') {
+      const paymentId = doc.payment_id
+      const invoicePayments = doc.invoices || []
+      
+      // Upsert the payment record
+      await prisma.payment.upsert({
+        where: { zohoId: paymentId },
+        update: {
+          amount: parseFloat(doc.amount || 0),
+          date: doc.date ? new Date(doc.date) : null,
+          mode: doc.payment_mode || null,
+          status: doc.status || null,
+          referenceNumber: doc.reference_number || null,
+          bankCharges: parseFloat(doc.bank_charges || 0),
+          invoiceId: invoicePayments[0]?.invoice_id || null,
+          invoiceNumber: invoicePayments[0]?.invoice_number || null,
+        },
+        create: {
+          zohoId: paymentId,
+          amount: parseFloat(doc.amount || 0),
+          date: doc.date ? new Date(doc.date) : null,
+          mode: doc.payment_mode || null,
+          status: doc.status || null,
+          referenceNumber: doc.reference_number || null,
+          bankCharges: parseFloat(doc.bank_charges || 0),
+          invoiceId: invoicePayments[0]?.invoice_id || null,
+          invoiceNumber: invoicePayments[0]?.invoice_number || null,
+        }
+      })
+
+      // Update related invoice(s) balance and status
+      for (const invPayment of invoicePayments) {
+        const invId = invPayment.invoice_id
+        if (!invId) continue
+        
+        const localInv = await prisma.invoice.findFirst({ where: { zohoId: invId } })
+        if (!localInv) continue
+        
+        const currentItems = (localInv.items as any) || {}
+        const newBalance = parseFloat(invPayment.balance_after_amount ?? invPayment.balance ?? currentItems.balance ?? 0)
+        const isPaid = newBalance <= 0
+        
+        await prisma.invoice.update({
+          where: { id: localInv.id },
+          data: {
+            status: isPaid ? 'Paid' : localInv.status,
+            items: {
+              ...currentItems,
+              balance: newBalance,
+              paymentDate: isPaid ? (doc.date || new Date().toISOString().split('T')[0]) : currentItems.paymentDate,
+              lastSyncedAt: new Date().toISOString(),
+            }
+          }
+        })
+        console.log(`✅ Webhook: Updated invoice ${invId} balance=$${newBalance} ${isPaid ? '(PAID)' : ''}`)
+      }
+
+      console.log(`✅ Webhook: Upserted Payment ${paymentId} ($${doc.amount})`)
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: `Payment ${paymentId} synced, ${invoicePayments.length} invoice(s) updated` }) }
     }
 
     if (type === 'Vendor' || type === 'Contact') {
