@@ -5,7 +5,8 @@ import { parse } from 'csv-parse/sync'
 
 export async function POST() {
   try {
-    const csvPath = 'C:\\Users\\titan\\Documents\\Titan Diamond\\invoices\\Item (13).csv'
+    const basePath = 'C:\\Users\\titan\\Documents';
+    const csvPath = basePath + '\\Titan Diamond\\invoices\\Item (13).csv';
     if (!fs.existsSync(csvPath)) {
       return NextResponse.json({ error: 'CSV file not found at ' + csvPath }, { status: 404 })
     }
