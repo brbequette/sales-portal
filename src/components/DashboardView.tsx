@@ -27,6 +27,13 @@ interface DashboardData {
   dealsByStatus: { name: string; value: number; color: string }[]
   commissionByMonth: { month: string; commission: number }[]
   topReps: { name: string; sales: number; profit: number; deals: number; quota: number }[]
+  allRepData: { name: string; weeklySales: number; mtdSales: number; mtdProfit: number; mtdCommission: number; deals: number }[]
+}
+
+interface DashboardViewProps {
+  repName?: string | null    // The current rep's salesperson name (from Zoho/DB)
+  isAdmin?: boolean          // Whether the current user is an admin
+  repEmail?: string | null   // For matching user to invoices
 }
 
 // ─── Chart Colors ───
@@ -116,11 +123,17 @@ function QuotaRing({ current, target, color }: { current: number; target: number
 }
 
 // ─── Main Dashboard Component ───
-export function DashboardView() {
+export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps) {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [clockedIn, setClockedIn] = useState(false)
   const [clockHours, setClockHours] = useState("0h 0m")
+
+  // Determine if we're showing company-wide or filtered rep data
+  const showCompanyWide = isAdmin === true && !repName
+  const filterRepName = repName || null
+  const showTopPerformers = isAdmin === true
+  const showCompanyBreakdown = isAdmin === true
 
   useEffect(() => {
     fetchDashboardData()
@@ -128,7 +141,8 @@ export function DashboardView() {
     const handleVisibility = () => { if (document.visibilityState === 'visible') fetchDashboardData() }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repName, isAdmin, repEmail])
 
   async function fetchDashboardData() {
     try {
@@ -188,8 +202,11 @@ export function DashboardView() {
         commData[key] = 0
       }
 
-      // Rep aggregation
-      const repData: Record<string, { sales: number; profit: number; deals: number }> = {}
+      // Rep aggregation (for top performers and company breakdown)
+      const repData: Record<string, { sales: number; profit: number; deals: number; commission: number; weeklySales: number }> = {}
+
+      // Determine filter — case-insensitive
+      const filterUpper = filterRepName ? filterRepName.toUpperCase() : null
 
       for (const inv of invoices) {
         const amount = parseFloat(inv.sub_total || inv.total || "0")
@@ -204,8 +221,11 @@ export function DashboardView() {
         const repUpper = rep.toUpperCase()
         if (repUpper.includes("PAUL") && (repUpper.includes("GENCUSKI") || repUpper.includes("GENKUSKI"))) continue
 
-        // Rep aggregation
-        if (!repData[rep]) repData[rep] = { sales: 0, profit: 0, deals: 0 }
+        // Per-rep filtering: if a rep filter is active, skip invoices that don't match
+        if (filterUpper && !repUpper.includes(filterUpper)) continue
+
+        // Rep aggregation (always track for company breakdown, even when filtered)
+        if (!repData[rep]) repData[rep] = { sales: 0, profit: 0, deals: 0, commission: 0, weeklySales: 0 }
 
         // Status counts
         const statusKey = status === "paid" ? "Paid" :
@@ -228,6 +248,8 @@ export function DashboardView() {
             dailySales[dayKey] += amount
             dailyProfit[dayKey] += profit
           }
+          // Track weekly sales per rep
+          repData[rep].weeklySales += amount
         }
 
         // Monthly totals (current month)
@@ -239,6 +261,7 @@ export function DashboardView() {
           repData[rep].sales += amount
           repData[rep].profit += profit
           repData[rep].deals++
+          repData[rep].commission += commission
         }
 
         // Pipeline (unpaid, non-draft)
@@ -297,6 +320,18 @@ export function DashboardView() {
         .sort((a, b) => b.sales - a.sales)
         .slice(0, 5)
 
+      // All rep data for company breakdown (sorted by MTD sales desc)
+      const allRepData = Object.entries(repData)
+        .map(([name, d]) => ({
+          name,
+          weeklySales: Math.round(d.weeklySales),
+          mtdSales: Math.round(d.sales),
+          mtdProfit: Math.round(d.profit),
+          mtdCommission: Math.round(d.commission),
+          deals: d.deals,
+        }))
+        .sort((a, b) => b.mtdSales - a.mtdSales)
+
       setData({
         weeklyTotal: Math.round(weeklyTotal),
         weeklyTarget: 64000,
@@ -312,7 +347,8 @@ export function DashboardView() {
         weeklyTrend,
         dealsByStatus,
         commissionByMonth,
-        topReps
+        topReps,
+        allRepData,
       })
     } catch (err) {
       console.error("Dashboard fetch error:", err)
@@ -321,7 +357,7 @@ export function DashboardView() {
         weeklyTotal: 0, weeklyTarget: 64000, monthlyTotal: 0, monthlyProfit: 0,
         monthlyCommission: 0, monthlyDeals: 0, pipelineValue: 0, pipelineCount: 0,
         overdueCount: 0, overdueBalance: 0, revenueByMonth: [], weeklyTrend: [],
-        dealsByStatus: [], commissionByMonth: [], topReps: []
+        dealsByStatus: [], commissionByMonth: [], topReps: [], allRepData: [],
       })
     } finally {
       setLoading(false)
@@ -355,7 +391,7 @@ export function DashboardView() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {/* Goal Progress */}
         <KPICard icon={FiTarget} title="Weekly Goal" value={`$${data.weeklyTotal.toLocaleString()}`}
-          subtitle={`of $${data.weeklyTarget.toLocaleString()} target`} color={CHART_COLORS.primary}
+          subtitle={showCompanyWide ? `of $${data.weeklyTarget.toLocaleString()} target` : `This week's sales`} color={CHART_COLORS.primary}
           trend={`${goalPct}%`} trendUp={goalPct >= 50}>
           <QuotaRing current={data.weeklyTotal} target={data.weeklyTarget} color={CHART_COLORS.primary} />
         </KPICard>
@@ -512,8 +548,8 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* ─── Top Performers ─── */}
-      {data.topReps.length > 0 && (
+      {/* ─── Top Performers (admin only) ─── */}
+      {showTopPerformers && data.topReps.length > 0 && (
         <div className="glass-panel rounded-2xl p-5 border border-white/[0.06]">
           <h3 className="text-sm font-bold text-white mb-4">Top Performers — This Month</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -548,6 +584,58 @@ export function DashboardView() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Company Breakdown (admin only) ─── */}
+      {showCompanyBreakdown && data.allRepData.length > 0 && (
+        <div className="glass-panel rounded-2xl p-5 border border-white/[0.06]">
+          <h3 className="text-sm font-bold text-white mb-4">Company Breakdown</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-white/[0.06]">
+                  <th className="text-left text-neutral-500 font-semibold uppercase tracking-wider py-2 pr-4">Rep Name</th>
+                  <th className="text-right text-neutral-500 font-semibold uppercase tracking-wider py-2 px-4">Weekly Sales</th>
+                  <th className="text-right text-neutral-500 font-semibold uppercase tracking-wider py-2 px-4">MTD Sales</th>
+                  <th className="text-right text-neutral-500 font-semibold uppercase tracking-wider py-2 px-4">MTD Profit</th>
+                  <th className="text-right text-neutral-500 font-semibold uppercase tracking-wider py-2 px-4">MTD Commission</th>
+                  <th className="text-right text-neutral-500 font-semibold uppercase tracking-wider py-2 pl-4">Deals</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.allRepData.map((row, i) => (
+                  <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                    <td className="py-2.5 pr-4 font-semibold text-white">{row.name}</td>
+                    <td className="py-2.5 px-4 text-right text-neutral-300">${row.weeklySales.toLocaleString()}</td>
+                    <td className="py-2.5 px-4 text-right text-neutral-300">${row.mtdSales.toLocaleString()}</td>
+                    <td className="py-2.5 px-4 text-right text-neutral-300">${row.mtdProfit.toLocaleString()}</td>
+                    <td className="py-2.5 px-4 text-right text-neutral-300">${row.mtdCommission.toLocaleString()}</td>
+                    <td className="py-2.5 pl-4 text-right text-neutral-300">{row.deals}</td>
+                  </tr>
+                ))}
+                {/* Company Totals */}
+                <tr className="border-t border-white/[0.1]">
+                  <td className="py-2.5 pr-4 font-black text-white uppercase tracking-wider">Total</td>
+                  <td className="py-2.5 px-4 text-right font-bold text-white">
+                    ${data.allRepData.reduce((sum, r) => sum + r.weeklySales, 0).toLocaleString()}
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-bold text-white">
+                    ${data.allRepData.reduce((sum, r) => sum + r.mtdSales, 0).toLocaleString()}
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-bold text-white">
+                    ${data.allRepData.reduce((sum, r) => sum + r.mtdProfit, 0).toLocaleString()}
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-bold text-white">
+                    ${data.allRepData.reduce((sum, r) => sum + r.mtdCommission, 0).toLocaleString()}
+                  </td>
+                  <td className="py-2.5 pl-4 text-right font-bold text-white">
+                    {data.allRepData.reduce((sum, r) => sum + r.deals, 0)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       )}

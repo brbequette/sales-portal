@@ -1257,7 +1257,17 @@ export default function Dashboard() {
           </div>
         ) : effort === "dashboard" && resolvePermissions(dbUser?.permissions, dbUser?.role || currentUser?.role).salesBoard ? (
           <div className="mt-4">
-            <DashboardView />
+            <DashboardView
+              repName={viewAsRepId
+                ? allDbUsers.find(u => u.id === viewAsRepId)?.name || null
+                : isAdminUser ? null : (currentUser?.name || null)
+              }
+              isAdmin={isAdminUser}
+              repEmail={viewAsRepId
+                ? allDbUsers.find(u => u.id === viewAsRepId)?.email || null
+                : currentUser?.email || null
+              }
+            />
           </div>
         ) : effort === "dashboard" ? (
           <></>

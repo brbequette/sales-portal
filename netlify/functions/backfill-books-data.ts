@@ -438,8 +438,171 @@ export const handler: Handler = async (event) => {
     }
   }
 
+  // ── PHASE 3: Calculate profit & push to Zoho ──
+  // For all invoices/SOs that have line_items (cached) but are missing profit data
+  if (phase === '3') {
+    const cp = await readCheckpoint()
+
+    // Reset
+    if (reset === '1') {
+      await saveCheckpoint({ ...cp, phase3Offset: 0, phase3Processed: 0, phase3Errors: 0, phase3Done: false })
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: 'Phase 3 checkpoint reset.' }) }
+    }
+
+    const token = await getZohoAccessToken()
+    const authHeaders = { Authorization: `Zoho-oauthtoken ${token}` }
+
+    const offset = parseInt(cp.phase3Offset || '0', 10)
+
+    // Find records that have line_items cached but profit is missing or zero
+    // We need to fetch from Zoho detail to get custom_field_hash for cost calculations
+    const invoicesNeedingProfit = await prisma.invoice.findMany({
+      where: {
+        OR: [
+          { NOT: { items: { path: ['profit'], not: 0 } } },
+          { items: { path: ['profit'], equals: 0 } },
+        ],
+        items: { path: ['booksInvoiceId'], not: '' },
+        status: { notIn: ['Void', 'Draft'] },
+      },
+      select: { id: true, items: true, zohoId: true },
+      skip: offset,
+      take: BATCH_SIZE,
+      orderBy: { issueDate: 'desc' },
+    }).catch(() => [] as any[])
+
+    // Also get sales orders
+    const sosNeedingProfit = offset === 0 ? await prisma.salesOrder.findMany({
+      where: {
+        OR: [
+          { NOT: { items: { path: ['profit'], not: 0 } } },
+          { items: { path: ['profit'], equals: 0 } },
+        ],
+        items: { path: ['booksSalesOrderId'], not: '' },
+        status: { notIn: ['Void'] },
+      },
+      select: { id: true, items: true, zohoId: true },
+      orderBy: { orderDate: 'desc' },
+    }).catch(() => [] as any[]) : []
+
+    const batch = [...invoicesNeedingProfit.map((r: any) => ({ ...r, docType: 'Invoice' })), ...sosNeedingProfit.map((r: any) => ({ ...r, docType: 'SalesOrder' }))]
+
+    if (batch.length === 0) {
+      await saveCheckpoint({ ...cp, phase3Done: true })
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, phase: 3, done: true, message: 'All records have profit data!' }) }
+    }
+
+    let processed = 0
+    let errors = 0
+    const results: any[] = []
+
+    for (const record of batch) {
+      try {
+        const items = (record.items as any) || {}
+        const booksId = items.booksInvoiceId || items.booksSalesOrderId
+        if (!booksId) { errors++; continue }
+
+        // Fetch full detail from Zoho to get custom_field_hash
+        const module = record.docType === 'Invoice' ? 'invoices' : 'salesorders'
+        const docKey = record.docType === 'Invoice' ? 'invoice' : 'salesorder'
+        
+        await sleep(RATE_DELAY_MS)
+        
+        const detailRes = await fetch(`${BASE_URL}/${module}/${booksId}?organization_id=${ORG_ID}`, { headers: authHeaders })
+        if (!detailRes.ok) { errors++; continue }
+        
+        const detailData: any = await detailRes.json()
+        if (detailData.code !== 0) { errors++; continue }
+        
+        const doc = detailData[docKey]
+        if (!doc) { errors++; continue }
+
+        // Extract profit from custom_field_hash
+        const cfh = doc.custom_field_hash || {}
+        let profit = 0
+        let commission = 0
+        let vig = 1.3
+        let deadCostTotal = 0
+
+        if (cfh.cf_estimated_profit_unformatted !== undefined) {
+          profit = parseFloat(cfh.cf_estimated_profit_unformatted) || 0
+        } else if (cfh.cf_dead_cost_total_unformatted !== undefined) {
+          deadCostTotal = parseFloat(cfh.cf_dead_cost_total_unformatted) || 0
+          profit = parseFloat(doc.sub_total || 0) - deadCostTotal
+        }
+
+        if (cfh.cf_commission_amount_unformatted !== undefined) {
+          commission = parseFloat(cfh.cf_commission_amount_unformatted) || 0
+        } else if (cfh.cf_commision_amount_unformatted !== undefined) {
+          commission = parseFloat(cfh.cf_commision_amount_unformatted) || 0
+        }
+
+        if (cfh.cf_salesperson_vig_unformatted !== undefined) {
+          vig = parseFloat(cfh.cf_salesperson_vig_unformatted) || 1.3
+        }
+
+        if (cfh.cf_dead_cost_total_unformatted !== undefined) {
+          deadCostTotal = parseFloat(cfh.cf_dead_cost_total_unformatted) || 0
+        }
+
+        // Update local DB
+        const updatedItems = {
+          ...items,
+          profit,
+          commission,
+          vig,
+          deadCostTotal,
+          sub_total: parseFloat(doc.sub_total || items.sub_total || 0),
+          balance: doc.balance ?? items.balance ?? 0,
+          salesperson: doc.salesperson_name ? doc.salesperson_name.toUpperCase().trim() : items.salesperson,
+          customer_name: doc.customer_name || items.customer_name,
+          custom_fields: doc.custom_fields || items.custom_fields || [],
+          lastSyncedAt: new Date().toISOString(),
+        }
+
+        if (record.docType === 'Invoice') {
+          await prisma.invoice.update({ where: { id: record.id }, data: { items: updatedItems } })
+        } else {
+          await prisma.salesOrder.update({ where: { id: record.id }, data: { items: updatedItems } })
+        }
+
+        processed++
+        results.push({
+          id: booksId,
+          type: record.docType,
+          number: items.invoiceNumber || items.salesOrderNumber,
+          profit: profit.toFixed(2),
+          commission: commission.toFixed(2),
+        })
+      } catch (e: any) {
+        errors++
+        console.error(`Phase 3 error:`, e.message)
+      }
+    }
+
+    const newOffset = offset + BATCH_SIZE
+    await saveCheckpoint({ ...cp, phase3Offset: newOffset, phase3Processed: (cp.phase3Processed || 0) + processed, phase3Errors: (cp.phase3Errors || 0) + errors })
+
+    return {
+      statusCode: 200, headers: cors,
+      body: JSON.stringify({
+        success: true,
+        phase: 3,
+        done: batch.length < BATCH_SIZE,
+        batchProcessed: processed,
+        batchErrors: errors,
+        remaining: batch.length >= BATCH_SIZE ? 'more' : 0,
+        callAgain: batch.length >= BATCH_SIZE,
+        results,
+        message: batch.length < BATCH_SIZE
+          ? `Done! Processed ${processed} records in this batch.`
+          : `Processed ${processed} records — call phase=3 again to continue.`
+      })
+    }
+  }
+
   return {
     statusCode: 400, headers: cors,
-    body: JSON.stringify({ error: 'Missing required param: phase=1, phase=2, or status=1' })
+    body: JSON.stringify({ error: 'Missing required param: phase=1, phase=2, phase=3, or status=1' })
   }
 }
