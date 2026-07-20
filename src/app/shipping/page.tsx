@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect, useCallback } from "react"
-import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw } from "react-icons/fi"
+import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud } from "react-icons/fi"
 import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
 
@@ -21,6 +21,7 @@ interface ShippingOrder {
   lineItemNames: string[]
   salesperson: string
   packages: PackageInfo[]
+  dropshipments: DropshipInfo[]
 }
 
 interface PackageInfo {
@@ -33,6 +34,16 @@ interface PackageInfo {
   trackingNumber: string
   shippingCharge: number
   items: any
+}
+
+interface DropshipInfo {
+  id: string
+  zohoId: string
+  vendorName: string
+  date: string
+  total: number
+  status: string
+  trackingNumber: string
 }
 
 const STATUS_TABS: { key: ShipStatus; label: string; icon: any; color: string; bg: string }[] = [
@@ -79,6 +90,8 @@ export default function ShippingPage() {
   const [packageModal, setPackageModal] = useState<{ salesOrderId: string; lineItems: any[] } | null>(null)
   const [dropshipModal, setDropshipModal] = useState<{ salesOrderId: string; lineItems: any[] } | null>(null)
   const [fetchingLineItems, setFetchingLineItems] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<string | null>(null)
 
   const fetchOrders = useCallback(async () => {
     setLoading(true)
@@ -98,6 +111,26 @@ export default function ShippingPage() {
   }, [activeTab, search])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
+
+  // Sync packages from Zoho
+  const handleSyncPackages = async () => {
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      const res = await fetch("/api/admin/books/sync-packages", { method: "POST" })
+      const data = await res.json()
+      if (data.success) {
+        setSyncResult(`✅ ${data.message}`)
+        fetchOrders()
+      } else {
+        setSyncResult(`❌ ${data.error}`)
+      }
+    } catch (e: any) {
+      setSyncResult(`❌ ${e.message}`)
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   // Fetch SO line items from Zoho for package creation
   const fetchLineItems = async (zohoId: string, action: "package" | "dropship") => {
@@ -183,13 +216,33 @@ export default function ShippingPage() {
             <p className="text-xs text-neutral-500">Manage packages, tracking & shipments</p>
           </div>
         </div>
-        <button
-          onClick={fetchOrders}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-sm font-bold transition-all"
-        >
-          <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncPackages}
+            disabled={syncing}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-800/50 text-sm font-bold transition-all disabled:opacity-50"
+          >
+            <FiDownloadCloud className={syncing ? "animate-pulse" : ""} />
+            {syncing ? "Syncing..." : "Sync from Zoho"}
+          </button>
+          <button
+            onClick={fetchOrders}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-sm font-bold transition-all"
+          >
+            <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
+          </button>
+        </div>
       </div>
+
+      {/* Sync Result Banner */}
+      {syncResult && (
+        <div className={`mb-4 px-4 py-2.5 rounded-xl text-sm font-bold border ${
+          syncResult.startsWith("✅") ? "bg-emerald-950/30 text-emerald-400 border-emerald-800/50" : "bg-red-950/30 text-red-400 border-red-800/50"
+        }`}>
+          {syncResult}
+          <button onClick={() => setSyncResult(null)} className="ml-3 text-neutral-500 hover:text-white">✕</button>
+        </div>
+      )}
 
       {/* Status Tabs */}
       <div className="flex gap-2 mb-4 overflow-x-auto pb-2 -mx-1 px-1">
@@ -306,6 +359,13 @@ export default function ShippingPage() {
                     </span>
                   )}
 
+                  {/* Dropshipments count */}
+                  {order.dropshipments?.length > 0 && (
+                    <span className="flex items-center gap-1 text-xs text-orange-400 bg-orange-950/30 px-2 py-1 rounded-lg">
+                      <FiTruck className="text-[10px]" /> {order.dropshipments.length} DS
+                    </span>
+                  )}
+
                   {/* Expand chevron */}
                   {isExpanded ? <FiChevronUp className="text-neutral-500" /> : <FiChevronDown className="text-neutral-500" />}
                 </div>
@@ -402,6 +462,38 @@ export default function ShippingPage() {
                                   >
                                     Mark Delivered
                                   </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Dropshipments List */}
+                    {order.dropshipments?.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Dropshipments</div>
+                        <div className="space-y-2">
+                          {order.dropshipments.map(ds => (
+                            <div key={ds.id} className="bg-orange-950/20 border border-orange-800/30 rounded-xl p-3 flex flex-col md:flex-row md:items-center gap-3">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <FiTruck className="text-orange-400 text-xs" />
+                                  <span className="text-sm font-bold text-white">{ds.vendorName || "Vendor"}</span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                    ds.status === "received" || ds.status === "billed" ? "text-emerald-400 bg-emerald-950/50" :
+                                    ds.status === "issued" ? "text-purple-400 bg-purple-950/50" :
+                                    "text-orange-400 bg-orange-950/50"
+                                  }`}>
+                                    {ds.status || "draft"}
+                                  </span>
+                                  <span className="text-[10px] text-neutral-500 font-mono">${ds.total?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                {ds.trackingNumber && (
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs text-neutral-300 font-mono">{ds.trackingNumber}</span>
+                                  </div>
                                 )}
                               </div>
                             </div>

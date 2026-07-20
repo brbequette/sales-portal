@@ -558,6 +558,10 @@ model PurchaseOrder {
   total Float @default(0)
   status String?
   items Json?
+  salesOrderId String?
+  salesOrderNumber String?
+  isDropshipment Boolean @default(false)
+  trackingNumber String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

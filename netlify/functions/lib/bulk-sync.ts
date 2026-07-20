@@ -40,11 +40,16 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
     else if (entity === 'salesorders') { endpoint = 'salesorders'; arrayKey = 'salesorders' }
     else if (entity === 'estimates') { endpoint = 'estimates'; arrayKey = 'estimates' }
     else if (entity === 'contacts') { endpoint = 'contacts'; arrayKey = 'contacts' }
+    else if (entity === 'packages') { endpoint = 'packages'; arrayKey = 'packages' }
+    else if (entity === 'purchaseorders') { endpoint = 'purchaseorders'; arrayKey = 'purchaseorders' }
+    else if (entity === 'payments') { endpoint = 'customerpayments'; arrayKey = 'customerpayments' }
+    else if (entity === 'vendors') { endpoint = 'contacts'; arrayKey = 'contacts' }  // vendors are contacts with contact_type=vendor
     else throw new Error(`Unknown entity: ${entity}`)
 
     // Fetch one page
-    const sortParam = entity === 'contacts' ? '' : '&sort_column=date&sort_order=D'
-    const url = `${BOOKS_BASE}/${endpoint}?organization_id=${ORG_ID}&page=${page}&per_page=200${sortParam}`
+    const sortParam = (entity === 'contacts' || entity === 'vendors') ? '' : '&sort_column=date&sort_order=D'
+    const vendorFilter = entity === 'vendors' ? '&contact_type=vendor' : ''
+    const url = `${BOOKS_BASE}/${endpoint}?organization_id=${ORG_ID}&page=${page}&per_page=200${sortParam}${vendorFilter}`
     const res = await fetch(url, { headers })
     result.apiCalls = 1
 
@@ -91,8 +96,6 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
 
     // Upsert records
     // Guard: Only accept records from the correct Zoho Books organization (664670946).
-    // This org generates IDs starting with '1254360'. Reject anything else
-    // to prevent cross-org duplicates.
     const VALID_ORG_PREFIX = '1254360'
 
     const ops = []
@@ -120,7 +123,6 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
         // Check if this account already has a different zohoId
         const currentAccount = await prisma.account.findUnique({ where: { id: dbAccountId }, select: { zohoId: true } })
         if (currentAccount && currentAccount.zohoId && currentAccount.zohoId !== contactId && currentAccount.zohoId.startsWith(VALID_ORG_PREFIX)) {
-          // Account already has a valid Books zohoId — don't overwrite
           result.skipped++
           continue
         }
@@ -132,6 +134,108 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
         continue
       }
 
+      // ── Vendors ──
+      if (entity === 'vendors') {
+        const vendorId = item.contact_id || ''
+        if (!vendorId) { result.skipped++; continue }
+        ops.push(prisma.vendor.upsert({
+          where: { zohoId: vendorId },
+          update: {
+            contactName: item.contact_name || null,
+            companyName: item.company_name || item.contact_name || null,
+            email: item.email || null,
+            phone: item.phone || null,
+            status: item.status || 'active',
+          },
+          create: {
+            zohoId: vendorId,
+            contactName: item.contact_name || null,
+            companyName: item.company_name || item.contact_name || null,
+            email: item.email || null,
+            phone: item.phone || null,
+            status: item.status || 'active',
+          }
+        }))
+        continue
+      }
+
+      // ── Packages ──
+      if (entity === 'packages') {
+        const pkgId = item.package_id || ''
+        if (!pkgId) { result.skipped++; continue }
+        const pkgData = {
+          packageNumber: item.package_number || null,
+          salesOrderId: item.salesorder_id || null,
+          salesOrderNumber: item.salesorder_number || null,
+          date: item.date ? new Date(item.date) : null,
+          status: item.status || null,
+          carrier: item.delivery_method || item.shipping_carrier || null,
+          trackingNumber: item.tracking_number || null,
+          shippingCharge: parseFloat(item.shipping_charge || 0),
+          items: item.line_items ? { lineItems: item.line_items } : undefined,
+        }
+        ops.push(prisma.package.upsert({
+          where: { zohoId: pkgId },
+          update: pkgData,
+          create: { zohoId: pkgId, ...pkgData }
+        }))
+        continue
+      }
+
+      // ── Purchase Orders ──
+      if (entity === 'purchaseorders') {
+        const poId = item.purchaseorder_id || ''
+        if (!poId) { result.skipped++; continue }
+        const isDropshipment = !!(item.delivery_customer_id || item.salesorder_id)
+        const poData = {
+          vendorName: item.vendor_name || null,
+          date: item.date ? new Date(item.date) : null,
+          total: parseFloat(item.total || 0),
+          status: item.status || null,
+          salesOrderId: item.salesorder_id || null,
+          salesOrderNumber: item.salesorder_number || null,
+          isDropshipment,
+          trackingNumber: item.tracking_number || null,
+          items: item.line_items ? { lineItems: item.line_items } : undefined,
+        }
+        ops.push(prisma.purchaseOrder.upsert({
+          where: { zohoId: poId },
+          update: poData,
+          create: { zohoId: poId, ...poData }
+        }))
+        continue
+      }
+
+      // ── Payments ──
+      if (entity === 'payments') {
+        const payId = item.payment_id || ''
+        if (!payId) { result.skipped++; continue }
+        ops.push(prisma.payment.upsert({
+          where: { zohoId: payId },
+          update: {
+            invoiceNumber: item.invoice_numbers?.[0]?.invoice_number || item.reference_number || null,
+            amount: parseFloat(item.amount || 0),
+            date: item.date ? new Date(item.date) : null,
+            mode: item.payment_mode || null,
+            status: item.status || null,
+            referenceNumber: item.reference_number || null,
+            bankCharges: parseFloat(item.bank_charges || 0),
+          },
+          create: {
+            zohoId: payId,
+            invoiceNumber: item.invoice_numbers?.[0]?.invoice_number || item.reference_number || null,
+            amount: parseFloat(item.amount || 0),
+            date: item.date ? new Date(item.date) : null,
+            mode: item.payment_mode || null,
+            status: item.status || null,
+            referenceNumber: item.reference_number || null,
+            bankCharges: parseFloat(item.bank_charges || 0),
+          }
+        }))
+        continue
+      }
+
+      // ── For invoices/salesorders/estimates: need account matching ──
       const custName = (item.customer_name || '').toLowerCase().trim()
       const dbAccountId = nameMap.get(custName)
       if (!dbAccountId) { result.skipped++; continue }
@@ -145,6 +249,20 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
 
       if (entity === 'invoices') {
         if (!item.invoice_id) { result.skipped++; continue }
+        const invoiceItems = {
+          invoiceNumber: item.invoice_number,
+          booksInvoiceId: item.invoice_id,
+          balance: parseFloat(item.balance || 0),
+          salesperson: item.salesperson_name || null,
+          customer_name: item.customer_name || null,
+          reference_number: item.reference_number || null,
+          shipping_charge: parseFloat(item.shipping_charge || 0),
+          payment_terms: item.payment_terms,
+          payment_terms_label: item.payment_terms_label,
+          salesorder_number: item.salesorder_number || null,
+          shipping_address: item.shipping_address || null,
+          billing_address: item.billing_address || null,
+        }
         ops.push(prisma.invoice.upsert({
           where: { zohoId: item.invoice_id },
           update: {
@@ -153,12 +271,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
             issueDate: new Date(item.date || item.created_time),
             dueDate: item.due_date ? new Date(item.due_date) : null,
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
-            items: {
-              invoiceNumber: item.invoice_number,
-              booksInvoiceId: item.invoice_id,
-              balance: parseFloat(item.balance || 0),
-              salesperson: item.salesperson_name || null,
-            }
+            items: invoiceItems,
           },
           create: {
             zohoId: item.invoice_id,
@@ -168,16 +281,21 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
             issueDate: new Date(item.date || item.created_time),
             dueDate: item.due_date ? new Date(item.due_date) : null,
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
-            items: {
-              invoiceNumber: item.invoice_number,
-              booksInvoiceId: item.invoice_id,
-              balance: parseFloat(item.balance || 0),
-              salesperson: item.salesperson_name || null,
-            }
+            items: invoiceItems,
           }
         }))
       } else if (entity === 'salesorders') {
         if (!item.salesorder_id) { result.skipped++; continue }
+        const soItems = {
+          salesOrderNumber: item.salesorder_number,
+          salesperson: item.salesperson_name || null,
+          customer_name: item.customer_name || null,
+          reference_number: item.reference_number || null,
+          shipping_charge: parseFloat(item.shipping_charge || 0),
+          shipping_address: item.shipping_address || null,
+          billing_address: item.billing_address || null,
+          delivery_method: item.delivery_method || null,
+        }
         ops.push(prisma.salesOrder.upsert({
           where: { zohoId: item.salesorder_id },
           update: {
@@ -185,7 +303,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
             status: item.order_status || item.status || 'Pending',
             orderDate: new Date(item.date || item.created_time),
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
-            items: { salesOrderNumber: item.salesorder_number, salesperson: item.salesperson_name || null }
+            items: soItems,
           },
           create: {
             zohoId: item.salesorder_id,
@@ -194,7 +312,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
             status: item.order_status || item.status || 'Pending',
             orderDate: new Date(item.date || item.created_time),
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
-            items: { salesOrderNumber: item.salesorder_number, salesperson: item.salesperson_name || null }
+            items: soItems,
           }
         }))
       } else if (entity === 'estimates') {

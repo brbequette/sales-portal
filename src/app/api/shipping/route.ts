@@ -26,15 +26,19 @@ export async function GET(req: NextRequest) {
       orderBy: { date: "desc" },
     })
 
-    // Build a map of packages by salesOrderId (zohoId)
+    // Fetch all dropshipment POs
+    const dropshipPOs = await prisma.purchaseOrder.findMany({
+      where: { isDropshipment: true },
+      orderBy: { date: "desc" },
+    })
+
+    // Build maps of packages by salesOrderId
     const packagesBySOId = new Map<string, any[]>()
     for (const pkg of packages) {
       const soId = pkg.salesOrderId || ""
       if (!packagesBySOId.has(soId)) packagesBySOId.set(soId, [])
       packagesBySOId.get(soId)!.push(pkg)
     }
-
-    // Also build by salesOrderNumber for fallback matching
     const packagesBySONumber = new Map<string, any[]>()
     for (const pkg of packages) {
       const soNum = pkg.salesOrderNumber || ""
@@ -44,23 +48,58 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Build maps of dropshipment POs by salesOrderId
+    const dropshipsBySOId = new Map<string, any[]>()
+    for (const po of dropshipPOs) {
+      const soId = po.salesOrderId || ""
+      if (soId) {
+        if (!dropshipsBySOId.has(soId)) dropshipsBySOId.set(soId, [])
+        dropshipsBySOId.get(soId)!.push(po)
+      }
+    }
+    const dropshipsBySONumber = new Map<string, any[]>()
+    for (const po of dropshipPOs) {
+      const soNum = po.salesOrderNumber || ""
+      if (soNum) {
+        if (!dropshipsBySONumber.has(soNum)) dropshipsBySONumber.set(soNum, [])
+        dropshipsBySONumber.get(soNum)!.push(po)
+      }
+    }
+
     // Enrich each SO with shipping status
     let results = salesOrders.map(so => {
       const items = (so.items as any) || {}
       const soNumber = items.salesOrderNumber || items.salesorder_number || so.zohoId || ""
       const soZohoId = so.zohoId || ""
 
-      // Find packages for this SO
+      // Find packages and dropshipments for this SO
       const soPkgs = packagesBySOId.get(soZohoId) || packagesBySONumber.get(soNumber) || []
+      const soDropships = dropshipsBySOId.get(soZohoId) || dropshipsBySONumber.get(soNumber) || []
 
-      // Derive shipping status
+      const hasFulfillment = soPkgs.length > 0 || soDropships.length > 0
+
+      // Derive shipping status considering both packages AND dropshipments
       let shipStatus: "needs_packaging" | "packaged" | "shipped" | "delivered" = "needs_packaging"
-      if (soPkgs.length > 0) {
-        const allDelivered = soPkgs.every((p: any) => p.status?.toLowerCase() === "delivered")
-        const anyShipped = soPkgs.some((p: any) =>
+      if (hasFulfillment) {
+        // Check packages
+        const allPkgDelivered = soPkgs.length === 0 || soPkgs.every((p: any) => p.status?.toLowerCase() === "delivered")
+        const anyPkgShipped = soPkgs.some((p: any) =>
           p.trackingNumber || p.status?.toLowerCase() === "shipped" || p.status?.toLowerCase() === "delivered"
         )
-        if (allDelivered) shipStatus = "delivered"
+
+        // Check dropshipments — PO statuses: draft, issued, received, billed, cancelled
+        const allDropDelivered = soDropships.length === 0 || soDropships.every((po: any) =>
+          po.status?.toLowerCase() === "received" || po.status?.toLowerCase() === "delivered" || po.status?.toLowerCase() === "billed"
+        )
+        const anyDropShipped = soDropships.some((po: any) =>
+          po.status?.toLowerCase() === "issued" || po.status?.toLowerCase() === "received" ||
+          po.status?.toLowerCase() === "billed" || po.trackingNumber
+        )
+
+        const allDelivered = allPkgDelivered && allDropDelivered
+        const anyShipped = anyPkgShipped || anyDropShipped
+
+        if (allDelivered && hasFulfillment) shipStatus = "delivered"
         else if (anyShipped) shipStatus = "shipped"
         else shipStatus = "packaged"
       }
@@ -100,6 +139,15 @@ export async function GET(req: NextRequest) {
           shippingCharge: p.shippingCharge,
           items: p.items,
         })),
+        dropshipments: soDropships.map((po: any) => ({
+          id: po.id,
+          zohoId: po.zohoId,
+          vendorName: po.vendorName,
+          date: po.date,
+          total: po.total,
+          status: po.status,
+          trackingNumber: po.trackingNumber,
+        })),
       }
     })
 
@@ -137,14 +185,16 @@ export async function GET(req: NextRequest) {
       const items = (so.items as any) || {}
       const soNumber = items.salesOrderNumber || items.salesorder_number || so.zohoId || ""
       const soPkgs = packagesBySOId.get(soZohoId) || packagesBySONumber.get(soNumber) || []
+      const soDrops = dropshipsBySOId.get(soZohoId) || dropshipsBySONumber.get(soNumber) || []
+      const hasFulfillment = soPkgs.length > 0 || soDrops.length > 0
       let shipStatus: string = "needs_packaging"
-      if (soPkgs.length > 0) {
-        const allDelivered = soPkgs.every((p: any) => p.status?.toLowerCase() === "delivered")
-        const anyShipped = soPkgs.some((p: any) =>
-          p.trackingNumber || p.status?.toLowerCase() === "shipped" || p.status?.toLowerCase() === "delivered"
-        )
-        if (allDelivered) shipStatus = "delivered"
-        else if (anyShipped) shipStatus = "shipped"
+      if (hasFulfillment) {
+        const allPkgDel = soPkgs.length === 0 || soPkgs.every((p: any) => p.status?.toLowerCase() === "delivered")
+        const anyPkgShip = soPkgs.some((p: any) => p.trackingNumber || p.status?.toLowerCase() === "shipped" || p.status?.toLowerCase() === "delivered")
+        const allDropDel = soDrops.length === 0 || soDrops.every((po: any) => ["received","delivered","billed"].includes(po.status?.toLowerCase()))
+        const anyDropShip = soDrops.some((po: any) => ["issued","received","billed"].includes(po.status?.toLowerCase()) || po.trackingNumber)
+        if (allPkgDel && allDropDel) shipStatus = "delivered"
+        else if (anyPkgShip || anyDropShip) shipStatus = "shipped"
         else shipStatus = "packaged"
       }
       return { shipStatus }

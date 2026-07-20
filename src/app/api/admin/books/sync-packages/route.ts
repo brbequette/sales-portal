@@ -1,0 +1,128 @@
+import { NextRequest, NextResponse } from "next/server"
+import { PrismaClient, Prisma } from "@prisma/client"
+
+const prisma = new PrismaClient()
+
+const ZOHO_DC = process.env.ZOHO_DC || "com"
+const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
+
+async function getToken(): Promise<string> {
+  const { getZohoAccessToken } = await import("../../../../../../netlify/functions/lib/zoho-auth")
+  const token = await getZohoAccessToken()
+  if (!token) throw new Error("Failed to get Zoho access token")
+  return token
+}
+
+async function fetchAllPages(baseUrl: string, token: string, endpoint: string): Promise<any[]> {
+  let all: any[] = []
+  let page = 1
+  let hasMore = true
+
+  while (hasMore) {
+    const url = `${baseUrl}/${endpoint}?organization_id=${ORG_ID}&page=${page}&per_page=200`
+    const res = await fetch(url, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    })
+    const data = await res.json()
+    if (data.code !== 0) throw new Error(`Zoho API error on ${endpoint}: ${data.message}`)
+
+    const key = endpoint.replace(/s$/, '') // packages -> package, purchaseorders -> purchaseorder
+    const items = data[endpoint] || data[key + 's'] || []
+    all = all.concat(items)
+
+    hasMore = data.page_context?.has_more_page || false
+    page++
+    if (page > 50) break
+  }
+
+  return all
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const token = await getToken()
+    const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
+
+    // ── Sync Packages ──
+    const allPackages = await fetchAllPages(baseUrl, token, "packages")
+
+    let pkgCreated = 0, pkgUpdated = 0, pkgErrors = 0
+
+    for (const pkg of allPackages) {
+      try {
+        const zohoId = pkg.package_id
+        if (!zohoId) continue
+
+        const packageData: any = {
+          zohoId,
+          packageNumber: pkg.package_number || null,
+          salesOrderId: pkg.salesorder_id || null,
+          salesOrderNumber: pkg.salesorder_number || null,
+          date: pkg.date ? new Date(pkg.date) : null,
+          status: pkg.status || null,
+          carrier: pkg.delivery_method || pkg.shipping_carrier || null,
+          trackingNumber: pkg.tracking_number || null,
+          shippingCharge: pkg.shipping_charge || 0,
+          items: pkg.line_items ? { lineItems: pkg.line_items } : Prisma.JsonNull,
+        }
+
+        const existing = await prisma.package.findUnique({ where: { zohoId } })
+        if (existing) {
+          await prisma.package.update({ where: { zohoId }, data: packageData })
+          pkgUpdated++
+        } else {
+          await prisma.package.create({ data: packageData })
+          pkgCreated++
+        }
+      } catch (e: any) { pkgErrors++ }
+    }
+
+    // ── Sync Dropshipment POs ──
+    const allPOs = await fetchAllPages(baseUrl, token, "purchaseorders")
+
+    let poCreated = 0, poUpdated = 0, poErrors = 0, dropshipCount = 0
+
+    for (const po of allPOs) {
+      try {
+        const zohoId = po.purchaseorder_id
+        if (!zohoId) continue
+
+        // Check if this PO is a dropshipment (has delivery_customer_id or salesorder_id)
+        const isDropshipment = !!(po.delivery_customer_id || po.salesorder_id)
+        if (isDropshipment) dropshipCount++
+
+        const poData: any = {
+          zohoId,
+          vendorName: po.vendor_name || null,
+          date: po.date ? new Date(po.date) : null,
+          total: po.total || 0,
+          status: po.status || null,
+          salesOrderId: po.salesorder_id || null,
+          salesOrderNumber: po.salesorder_number || null,
+          isDropshipment,
+          trackingNumber: po.tracking_number || null,
+          items: po.line_items ? { lineItems: po.line_items } : Prisma.JsonNull,
+        }
+
+        const existing = await prisma.purchaseOrder.findUnique({ where: { zohoId } })
+        if (existing) {
+          await prisma.purchaseOrder.update({ where: { zohoId }, data: poData })
+          poUpdated++
+        } else {
+          await prisma.purchaseOrder.create({ data: poData })
+          poCreated++
+        }
+      } catch (e: any) { poErrors++ }
+    }
+
+    return NextResponse.json({
+      success: true,
+      packages: { total: allPackages.length, created: pkgCreated, updated: pkgUpdated, errors: pkgErrors },
+      purchaseOrders: { total: allPOs.length, dropshipments: dropshipCount, created: poCreated, updated: poUpdated, errors: poErrors },
+      message: `Synced ${allPackages.length} packages (${pkgCreated} new) and ${allPOs.length} POs (${dropshipCount} dropshipments, ${poCreated} new).`,
+    })
+  } catch (err: any) {
+    console.error("sync-packages error:", err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
