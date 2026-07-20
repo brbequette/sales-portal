@@ -423,7 +423,10 @@ function CsvImportSection() {
   const [csvType, setCsvType] = useState<'Invoice' | 'SalesOrder' | 'Quote'>('Invoice')
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<any>(null)
+  const [progress, setProgress] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const CHUNK_SIZE = 300 // rows per batch
 
   const handleImport = async () => {
     const file = fileRef.current?.files?.[0]
@@ -431,24 +434,79 @@ function CsvImportSection() {
     
     setImporting(true)
     setResult(null)
+    setProgress('Reading file...')
+
     try {
-      const csvData = await file.text()
-      const res = await fetch('/api/import-books-csv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: csvType, csvData }),
-      })
-      const text = await res.text()
-      try {
-        const data = JSON.parse(text)
-        setResult(data)
-      } catch {
-        setResult({ error: `Server error (${res.status}): ${text.substring(0, 200)}` })
+      const csvText = await file.text()
+      const lines = csvText.split(/\r?\n/).filter(l => l.trim())
+      if (lines.length < 2) { setResult({ error: 'CSV has no data rows' }); return }
+
+      const headerLine = lines[0]
+      const dataLines = lines.slice(1)
+      const totalRows = dataLines.length
+      const totalChunks = Math.ceil(totalRows / CHUNK_SIZE)
+
+      let totalUpdated = 0, totalNotFound = 0, totalSkipped = 0, totalErrors = 0
+      let columnsMatched = 0, columnsTotal = 0
+      const allNotFound: string[] = []
+
+      setProgress(`${totalRows} rows → ${totalChunks} batch${totalChunks > 1 ? 'es' : ''} of ${CHUNK_SIZE}`)
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE
+        const end = Math.min(start + CHUNK_SIZE, totalRows)
+        const chunkLines = dataLines.slice(start, end)
+        const chunkCsv = headerLine + '\n' + chunkLines.join('\n')
+
+        setProgress(`Batch ${i + 1}/${totalChunks} (rows ${start + 1}-${end})...`)
+
+        const res = await fetch('/api/import-books-csv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: csvType, csvData: chunkCsv }),
+        })
+
+        const text = await res.text()
+        let data: any
+        try { data = JSON.parse(text) } catch {
+          setResult({ error: `Batch ${i + 1} error (${res.status}): ${text.substring(0, 200)}` })
+          return
+        }
+
+        if (data.error && !data.success) {
+          setResult({ error: `Batch ${i + 1}: ${data.error}` })
+          return
+        }
+
+        totalUpdated += data.updated || 0
+        totalNotFound += data.notFound || 0
+        totalSkipped += data.skipped || 0
+        totalErrors += data.errors || 0
+        columnsMatched = data.columnsMatched || columnsMatched
+        columnsTotal = data.columnsTotal || columnsTotal
+        if (data.notFoundSample) allNotFound.push(...data.notFoundSample)
+
+        setProgress(`Batch ${i + 1}/${totalChunks} done — ${totalUpdated} updated so far`)
       }
+
+      setResult({
+        success: true,
+        totalRows,
+        updated: totalUpdated,
+        notFound: totalNotFound,
+        skipped: totalSkipped,
+        errors: totalErrors,
+        columnsMatched,
+        columnsTotal,
+        batches: totalChunks,
+        notFoundSample: allNotFound.slice(0, 20),
+        message: `Imported ${totalUpdated} ${csvType}s across ${totalChunks} batches. ${totalNotFound} not found, ${totalSkipped} skipped, ${totalErrors} errors.`
+      })
     } catch (e: any) {
       setResult({ error: e.message })
     } finally {
       setImporting(false)
+      setProgress('')
     }
   }
 
@@ -459,11 +517,11 @@ function CsvImportSection() {
           <FiDatabase size={14} /> CSV Import from Zoho Books Export
         </h3>
         <p className="text-xs text-neutral-500 mt-1">
-          Export from Zoho Books → Upload CSV → All custom fields filled instantly
+          Export from Zoho Books → Upload CSV → All custom fields filled instantly (auto-chunked for large files)
         </p>
       </div>
       <div className="p-4 space-y-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <select
             value={csvType}
             onChange={e => setCsvType(e.target.value as any)}
@@ -488,6 +546,12 @@ function CsvImportSection() {
           </button>
         </div>
 
+        {progress && (
+          <div className="rounded-lg p-2 bg-blue-900/30 border border-blue-800 text-xs text-blue-300 font-mono flex items-center gap-2">
+            <FiRefreshCw className="animate-spin" size={12} /> {progress}
+          </div>
+        )}
+
         {result && (
           <div className={`rounded-lg p-3 text-xs font-mono ${result.error ? 'bg-rose-900/30 border border-rose-800' : 'bg-emerald-900/30 border border-emerald-800'}`}>
             {result.error ? (
@@ -496,9 +560,9 @@ function CsvImportSection() {
               <div className="space-y-1">
                 <p className="text-emerald-400 font-bold">✅ {result.message}</p>
                 <p className="text-neutral-400">Rows: {result.totalRows} | Updated: {result.updated} | Not found: {result.notFound} | Skipped: {result.skipped}</p>
-                <p className="text-neutral-400">Columns matched: {result.columnsMatched} / {result.columnsTotal}</p>
+                <p className="text-neutral-400">Columns matched: {result.columnsMatched} / {result.columnsTotal} | Batches: {result.batches}</p>
                 {result.notFoundSample?.length > 0 && (
-                  <p className="text-amber-400">Not found: {result.notFoundSample.join(', ')}</p>
+                  <p className="text-amber-400">Not found sample: {result.notFoundSample.join(', ')}</p>
                 )}
               </div>
             )}
