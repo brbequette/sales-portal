@@ -46,42 +46,64 @@ function mapColumnValue(columnName: string, value: string): { field: string, par
   const upper = columnName.toUpperCase().trim()
   const numVal = parseFloat(value.replace(/[,$]/g, '')) || 0
 
+  // ── Document identifiers ──
   if (upper === 'INVOICE NUMBER' || upper === 'INVOICE#') return { field: 'invoiceNumber', parsed: value }
-  if (upper === 'SALES ORDER NUMBER' || upper === 'SALESORDER NUMBER' || upper === 'SALES ORDER#') return { field: 'salesOrderNumber', parsed: value }
+  if (upper === 'SALESORDER NUMBER' || upper === 'SALES ORDER NUMBER' || upper === 'SALES ORDER#') return { field: 'salesOrderNumber', parsed: value }
   if (upper === 'ESTIMATE NUMBER' || upper === 'ESTIMATE#') return { field: 'estimateNumber', parsed: value }
+  if (upper === 'SALESORDER ID' || upper === 'INVOICE ID' || upper === 'ESTIMATE ID') return { field: '_zohoDocId', parsed: value }
   if (upper === 'CUSTOMER NAME') return { field: 'customer_name', parsed: value }
   if (upper === 'SALESPERSON' || upper === 'SALESPERSON NAME' || upper === 'SALES PERSON') return { field: 'salesperson', parsed: value.toUpperCase().trim() }
-  if (upper === 'STATUS') return { field: '_status', parsed: value }
+  if (upper === 'STATUS' || upper === 'CUSTOM STATUS') return { field: '_status', parsed: value }
+
+  // ── Core amounts ──
   if (upper === 'SUBTOTAL' || upper === 'SUB TOTAL') return { field: 'sub_total', parsed: numVal }
   if (upper === 'TOTAL') return { field: 'total', parsed: numVal }
   if (upper === 'BALANCE' || upper === 'BALANCE DUE') return { field: 'balance', parsed: numVal }
-  if (upper === 'DATE' || upper === 'INVOICE DATE') return { field: 'date', parsed: value }
+  if (upper === 'DATE' || upper === 'INVOICE DATE' || upper === 'ORDER DATE') return { field: 'date', parsed: value }
   if (upper === 'DUE DATE') return { field: 'due_date', parsed: value }
   if (upper === 'SHIPPING CHARGE' || upper === 'SHIPPING CHARGES') return { field: 'shippingCharge', parsed: numVal }
   if (upper === 'REFERENCE NUMBER' || upper === 'REFERENCE#') return { field: 'reference_number', parsed: value }
+  if (upper === 'ADJUSTMENT') return { field: 'adjustment', parsed: numVal }
+  if (upper === 'PAYMENT TERMS' || upper === 'PAYMENT TERMS LABEL') return { field: 'paymentTerms', parsed: value }
+  if (upper === 'NOTES') return { field: 'notes', parsed: value || null }
 
+  // ── Dead Cost fields (Invoice & SO & Quote naming variations) ──
   if (upper === 'DEAD COST TOTAL' || upper === 'CF.DEAD COST TOTAL') return { field: 'deadCostTotal', parsed: numVal }
   if (upper === 'DEAD COST SUBJECT TO VIG' || upper === 'CF.DEAD COST SUBJECT TO VIG') return { field: 'deadCostSubjectToVig', parsed: numVal }
   if (upper === 'DEAD COST NO VIG' || upper === 'CF.DEAD COST NO VIG') return { field: 'deadCostNoVig', parsed: numVal }
   if (upper === 'SALESPERSON VIG' || upper === 'CF.SALESPERSON VIG') return { field: 'vig', parsed: numVal || 1.3 }
-  if (upper === 'DEAD COST PLUS VIG' || upper === 'CF.DEAD COST PLUS VIG') return { field: 'deadCostPlusVig', parsed: numVal }
-  if (upper === 'PROFIT' || upper === 'CF.PROFIT' || upper === 'ESTIMATED PROFIT') return { field: 'profit', parsed: numVal }
-  if (upper === 'COMMISSION FROM PROFIT %' || upper === 'CF.COMMISSION FROM PROFIT %') return { field: 'commissionPercent', parsed: numVal }
+  // SO uses "TOTAL DEAD COST WITH VIG", Invoice uses "DEAD COST PLUS VIG"
+  if (upper === 'DEAD COST PLUS VIG' || upper === 'CF.DEAD COST PLUS VIG' || upper === 'CF.TOTAL DEAD COST WITH VIG' || upper === 'TOTAL DEAD COST WITH VIG') return { field: 'deadCostPlusVig', parsed: numVal }
+
+  // ── Profit (SO uses "ESTIMATED PROFIT", Invoice uses "PROFIT") ──
+  if (upper === 'PROFIT' || upper === 'CF.PROFIT' || upper === 'ESTIMATED PROFIT' || upper === 'CF.ESTIMATED PROFIT') return { field: 'profit', parsed: numVal }
+  // SO uses "DEAD PROFIT (ACTUAL)", Invoice uses "DEAD PROFIT ACTUAL"
+  if (upper === 'DEAD PROFIT ACTUAL' || upper === 'CF.DEAD PROFIT ACTUAL' || upper === 'CF.DEAD PROFIT (ACTUAL)' || upper === 'DEAD PROFIT (ACTUAL)') return { field: 'deadProfitActual', parsed: numVal }
+
+  // ── Commission (SO uses "SALES COMMISSION % OF PROFIT", Invoice uses "COMMISSION FROM PROFIT %") ──
+  if (upper === 'COMMISSION FROM PROFIT %' || upper === 'CF.COMMISSION FROM PROFIT %' || upper === 'CF.SALES COMMISSION % OF PROFIT' || upper === 'SALES COMMISSION % OF PROFIT') return { field: 'commissionPercent', parsed: numVal }
   if (upper === 'SALES COMMISSION' || upper === 'CF.SALES COMMISSION') return { field: 'commission', parsed: numVal }
-  if (upper === 'CREDIT CARD PROCESSING FEES' || upper === 'CF.CREDIT CARD PROCESSING FEES' || upper === 'CREDIT CARD PROCESSING') return { field: 'ccFees', parsed: numVal }
+
+  // ── CC / Additional costs / Insurance ──
+  if (upper === 'CREDIT CARD PROCESSING FEES' || upper === 'CF.CREDIT CARD PROCESSING FEES' || upper === 'CREDIT CARD PROCESSING' || upper === 'CF.CREDIT CARD PROCESSING') return { field: 'ccFees', parsed: numVal }
   if (upper === 'ADDITIONAL COSTS SEE NOTES' || upper === 'CF.ADDITIONAL COSTS SEE NOTES') return { field: 'additionalCosts', parsed: numVal }
   if (upper === 'INSURANCE' || upper === 'CF.INSURANCE') return { field: 'insurance', parsed: numVal }
+
+  // ── Breakdown strings ──
   if (upper === 'ITEMS DC BREAKDOWN' || upper === 'CF.ITEMS DC BREAKDOWN') return { field: 'itemsDcBreakdown', parsed: value ? [value] : null }
-  if (upper === 'CF.ESTIMATE NUMBER') return { field: 'estimateNumberRef', parsed: value || null }
+  if (upper.includes('CC CHARGE') && upper.includes('BREAKDOWN')) return { field: 'ccBreakdown', parsed: value || null }
+
+  // ── Reference fields ──
+  if (upper === 'CF.ESTIMATE NUMBER' || upper === 'CF.ESTIMATE NUMBER') return { field: 'estimateNumberRef', parsed: value || null }
   if (upper === 'CF.ESTIMATE DATE' || upper === 'ESTIMATE DATE') return { field: 'estimateDate', parsed: value || null }
   if (upper === 'PAID IN FULL DATE' || upper === 'CF.PAID IN FULL DATE') return { field: 'paidInFullDate', parsed: value || null }
   if (upper === 'COMMISSION STATUS' || upper === 'CF.COMMISSION STATUS') return { field: 'commissionStatus', parsed: value || null }
   if (upper.includes('WRITTEN OFF')) return { field: 'writtenOff', parsed: value.toLowerCase() === 'true' || value.toLowerCase() === 'yes' }
   if (upper.includes('REMOVE TARIFF')) return { field: 'removeTariffSurcharge', parsed: value.toLowerCase() === 'true' || value.toLowerCase() === 'yes' }
+  if (upper.includes('AUTOMATION REQUIRED')) return { field: 'automationRequired', parsed: value || null }
+  if (upper === 'CF.NOTES FOR PROCESSING' || upper === 'NOTES FOR PROCESSING') return { field: 'notesForProcessing', parsed: value || null }
   if (upper === 'ADDITIONAL COSTS NOTES' || upper === 'CF.ADDITIONAL COSTS NOTES' || upper.includes('ADDITIONAL COST EXPLANATION')) return { field: 'additionalCostNotes', parsed: value || null }
-  if (upper.includes('CC CHARGE') && upper.includes('BREAKDOWN')) return { field: 'ccBreakdown', parsed: value || null }
   if (upper.includes('PURCHASE ORDER NUMBER')) return { field: 'purchaseOrderNumbers', parsed: value || null }
-  if (upper === 'DEAD PROFIT ACTUAL' || upper === 'CF.DEAD PROFIT ACTUAL') return { field: 'deadProfitActual', parsed: numVal }
 
   return null
 }
