@@ -438,14 +438,17 @@ export const handler: Handler = async (event) => {
     }
   }
 
-  // ── PHASE 3: Calculate profit & push to Zoho ──
-  // For all invoices/SOs that have line_items (cached) but are missing profit data
+  // ── PHASE 3: Full recalculate & fill ALL custom fields ──
+  // Fetches detail from Zoho, runs calculateDocumentCosts, stores everything locally,
+  // and pushes calculated values back to Zoho for any empty fields.
+  // Processes invoices, SOs, and quotes.
   if (phase === '3') {
+    const { calculateDocumentCosts } = await import('./lib/cost-calculations')
     const cp = await readCheckpoint()
 
     // Reset
     if (reset === '1') {
-      await saveCheckpoint({ ...cp, phase3Offset: 0, phase3Processed: 0, phase3Errors: 0, phase3Done: false })
+      await saveCheckpoint({ ...cp, phase3Offset: 0, phase3Processed: 0, phase3Errors: 0, phase3Pushed: 0, phase3Done: false, phase3DocType: 'Invoice' })
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: 'Phase 3 checkpoint reset.' }) }
     }
 
@@ -453,126 +456,210 @@ export const handler: Handler = async (event) => {
     const authHeaders = { Authorization: `Zoho-oauthtoken ${token}` }
 
     const offset = parseInt(cp.phase3Offset || '0', 10)
+    // Cycle through doc types: Invoice → SalesOrder → Quote
+    const currentDocType: string = cp.phase3DocType || 'Invoice'
 
-    // Find records that have line_items cached but profit is missing or zero
-    // We need to fetch from Zoho detail to get custom_field_hash for cost calculations
-    const invoicesNeedingProfit = await prisma.invoice.findMany({
-      where: {
-        OR: [
-          { NOT: { items: { path: ['profit'], not: 0 } } },
-          { items: { path: ['profit'], equals: 0 } },
-        ],
-        items: { path: ['booksInvoiceId'], not: '' },
-        status: { notIn: ['Void', 'Draft'] },
-      },
-      select: { id: true, items: true, zohoId: true },
-      skip: offset,
-      take: BATCH_SIZE,
-      orderBy: { issueDate: 'desc' },
-    }).catch(() => [] as any[])
+    // Find records with a Books ID (so we can fetch detail)
+    let batch: any[] = []
+    const booksIdPath = currentDocType === 'Invoice' ? 'booksInvoiceId'
+      : currentDocType === 'SalesOrder' ? 'booksSalesOrderId'
+      : 'booksEstimateId'
+    const model = currentDocType === 'Invoice' ? prisma.invoice
+      : currentDocType === 'SalesOrder' ? prisma.salesOrder
+      : prisma.quote
+    const orderField = currentDocType === 'Invoice' ? 'issueDate'
+      : currentDocType === 'SalesOrder' ? 'orderDate'
+      : 'issueDate'
 
-    // Also get sales orders
-    const sosNeedingProfit = offset === 0 ? await prisma.salesOrder.findMany({
-      where: {
-        OR: [
-          { NOT: { items: { path: ['profit'], not: 0 } } },
-          { items: { path: ['profit'], equals: 0 } },
-        ],
-        items: { path: ['booksSalesOrderId'], not: '' },
-        status: { notIn: ['Void'] },
-      },
-      select: { id: true, items: true, zohoId: true },
-      orderBy: { orderDate: 'desc' },
-    }).catch(() => [] as any[]) : []
+    try {
+      batch = await (model as any).findMany({
+        where: {
+          items: { path: [booksIdPath], not: '' },
+          status: { notIn: ['Void', 'void'] },
+        },
+        select: { id: true, items: true, zohoId: true },
+        skip: offset,
+        take: BATCH_SIZE,
+        orderBy: { [orderField]: 'desc' },
+      })
+    } catch { batch = [] }
 
-    const batch = [...invoicesNeedingProfit.map((r: any) => ({ ...r, docType: 'Invoice' })), ...sosNeedingProfit.map((r: any) => ({ ...r, docType: 'SalesOrder' }))]
+    // If no records left for this doc type, move to next
+    if (batch.length === 0 && currentDocType !== 'Quote') {
+      const nextType = currentDocType === 'Invoice' ? 'SalesOrder' : 'Quote'
+      await saveCheckpoint({ ...cp, phase3DocType: nextType, phase3Offset: 0 })
+      return { statusCode: 200, headers: cors, body: JSON.stringify({
+        success: true, phase: 3, done: false,
+        message: `Finished ${currentDocType}s. Moving to ${nextType}s — call phase=3 again.`,
+        callAgain: true,
+      }) }
+    }
 
     if (batch.length === 0) {
       await saveCheckpoint({ ...cp, phase3Done: true })
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, phase: 3, done: true, message: 'All records have profit data!' }) }
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, phase: 3, done: true, message: 'All records fully processed!' }) }
     }
 
-    let processed = 0
-    let errors = 0
+    let processed = 0, errors = 0, pushed = 0
     const results: any[] = []
+
+    const zohoModule = currentDocType === 'Invoice' ? 'invoices'
+      : currentDocType === 'SalesOrder' ? 'salesorders'
+      : 'estimates'
+    const zohoDocKey = currentDocType === 'Invoice' ? 'invoice'
+      : currentDocType === 'SalesOrder' ? 'salesorder'
+      : 'estimate'
 
     for (const record of batch) {
       try {
         const items = (record.items as any) || {}
-        const booksId = items.booksInvoiceId || items.booksSalesOrderId
+        const booksId = items[booksIdPath]
         if (!booksId) { errors++; continue }
 
-        // Fetch full detail from Zoho to get custom_field_hash
-        const module = record.docType === 'Invoice' ? 'invoices' : 'salesorders'
-        const docKey = record.docType === 'Invoice' ? 'invoice' : 'salesorder'
-        
         await sleep(RATE_DELAY_MS)
-        
-        const detailRes = await fetch(`${BASE_URL}/${module}/${booksId}?organization_id=${ORG_ID}`, { headers: authHeaders })
+
+        // 1. Fetch full detail from Zoho
+        const detailRes = await fetch(`${BASE_URL}/${zohoModule}/${booksId}?organization_id=${ORG_ID}`, { headers: authHeaders })
         if (!detailRes.ok) { errors++; continue }
-        
         const detailData: any = await detailRes.json()
         if (detailData.code !== 0) { errors++; continue }
-        
-        const doc = detailData[docKey]
+        const doc = detailData[zohoDocKey]
         if (!doc) { errors++; continue }
 
-        // Extract profit from custom_field_hash
+        // 2. Run the full cost calculation engine
+        let calc: any = null
+        try {
+          calc = await calculateDocumentCosts(doc)
+        } catch (calcErr: any) {
+          console.error(`Phase 3 calc error for ${booksId}:`, calcErr.message)
+          // Fall back to raw extraction
+        }
+
+        // 3. Extract ALL custom field values from custom_field_hash
         const cfh = doc.custom_field_hash || {}
-        let profit = 0
-        let commission = 0
-        let vig = 1.3
-        let deadCostTotal = 0
-
-        if (cfh.cf_estimated_profit_unformatted !== undefined) {
-          profit = parseFloat(cfh.cf_estimated_profit_unformatted) || 0
-        } else if (cfh.cf_dead_cost_total_unformatted !== undefined) {
-          deadCostTotal = parseFloat(cfh.cf_dead_cost_total_unformatted) || 0
-          profit = parseFloat(doc.sub_total || 0) - deadCostTotal
+        const rawFields: Record<string, any> = {}
+        for (const [key, val] of Object.entries(cfh)) {
+          rawFields[key] = val
         }
 
-        if (cfh.cf_commission_amount_unformatted !== undefined) {
-          commission = parseFloat(cfh.cf_commission_amount_unformatted) || 0
-        } else if (cfh.cf_commision_amount_unformatted !== undefined) {
-          commission = parseFloat(cfh.cf_commision_amount_unformatted) || 0
-        }
-
-        if (cfh.cf_salesperson_vig_unformatted !== undefined) {
-          vig = parseFloat(cfh.cf_salesperson_vig_unformatted) || 1.3
-        }
-
-        if (cfh.cf_dead_cost_total_unformatted !== undefined) {
-          deadCostTotal = parseFloat(cfh.cf_dead_cost_total_unformatted) || 0
-        }
-
-        // Update local DB
-        const updatedItems = {
+        // 4. Build comprehensive items update
+        const updatedItems: any = {
           ...items,
-          profit,
-          commission,
-          vig,
-          deadCostTotal,
+          // Core doc fields
           sub_total: parseFloat(doc.sub_total || items.sub_total || 0),
+          total: parseFloat(doc.total || items.total || 0),
           balance: doc.balance ?? items.balance ?? 0,
           salesperson: doc.salesperson_name ? doc.salesperson_name.toUpperCase().trim() : items.salesperson,
           customer_name: doc.customer_name || items.customer_name,
+          status: doc.status || items.status,
+          date: doc.date || items.date,
+          line_items: doc.line_items || items.line_items || [],
           custom_fields: doc.custom_fields || items.custom_fields || [],
+          custom_field_hash: rawFields,
           lastSyncedAt: new Date().toISOString(),
         }
 
-        if (record.docType === 'Invoice') {
-          await prisma.invoice.update({ where: { id: record.id }, data: { items: updatedItems } })
+        // Calculated fields (from engine or raw extraction)
+        if (calc) {
+          updatedItems.deadCostSubjectToVig = calc.deadCostSubjectToVig
+          updatedItems.deadCostNoVig = calc.deadCostNoVig
+          updatedItems.deadCostTotal = calc.deadCostTotal
+          updatedItems.vig = calc.vigRate
+          updatedItems.deadCostPlusVig = calc.deadCostPlusVig
+          updatedItems.profit = calc.profit
+          updatedItems.deadProfitActual = calc.deadProfitActual
+          updatedItems.commissionPercent = calc.commissionPct
+          updatedItems.commission = calc.salesCommission
+          updatedItems.marginPercent = calc.marginPercent
+          updatedItems.ccFees = calc.ccFees
+          updatedItems.additionalCosts = calc.additionalCosts
+          updatedItems.insurance = calc.insurance
+          updatedItems.lineItemDetails = calc.lineItemDetails
+          updatedItems.itemsDcBreakdown = calc.lineItemBreakdownStrings
+          updatedItems.isPaid = calc.isPaid
         } else {
+          // Fallback: extract from custom_field_hash
+          updatedItems.profit = parseFloat(cfh.cf_estimated_profit_unformatted ?? cfh.cf_profit_unformatted ?? 0) || 0
+          updatedItems.commission = parseFloat(cfh.cf_commission_amount_unformatted ?? cfh.cf_commision_amount_unformatted ?? 0) || 0
+          updatedItems.vig = parseFloat(cfh.cf_salesperson_vig_unformatted ?? 0) || 1.3
+          updatedItems.deadCostTotal = parseFloat(cfh.cf_dead_cost_total_unformatted ?? 0) || 0
+          updatedItems.deadCostSubjectToVig = parseFloat(cfh.cf_dead_cost_subject_to_vig_unformatted ?? 0) || 0
+          updatedItems.deadCostNoVig = parseFloat(cfh.cf_dead_cost_no_vig_unformatted ?? 0) || 0
+          updatedItems.deadCostPlusVig = parseFloat(cfh.cf_dead_cost_with_vig_unformatted ?? 0) || 0
+          updatedItems.ccFees = parseFloat(cfh.cf_credit_card_processing_fees_unformatted ?? 0) || 0
+          updatedItems.additionalCosts = parseFloat(cfh.cf_additional_costs_to_order_unformatted ?? 0) || 0
+          updatedItems.insurance = parseFloat(cfh.cf_insurance_unformatted ?? 0) || 0
+        }
+
+        // Non-calculated custom fields (user-input, preserve as-is)
+        updatedItems.estimateNumber = cfh.cf_estimate_number ?? items.estimateNumber ?? null
+        updatedItems.estimateDate = cfh.cf_estimate_date ?? items.estimateDate ?? null
+        updatedItems.paidInFullDate = cfh.cf_paid_in_full_date ?? items.paidInFullDate ?? null
+        updatedItems.commissionStatus = cfh.cf_commission_status ?? items.commissionStatus ?? null
+        updatedItems.writtenOff = cfh.cf_written_off ?? items.writtenOff ?? false
+        updatedItems.removeTariffSurcharge = cfh.cf_remove_tariff_surcharge ?? items.removeTariffSurcharge ?? false
+        updatedItems.additionalCostNotes = cfh.cf_additional_cost_explanation ?? items.additionalCostNotes ?? null
+        updatedItems.ccBreakdown = cfh.cf_cc_charge_s_breakdown ?? items.ccBreakdown ?? null
+        updatedItems.purchaseOrderNumbers = cfh.cf_purchase_order_number_s ?? items.purchaseOrderNumbers ?? null
+        updatedItems.reference = cfh.cf_reference ?? items.reference ?? null
+
+        // 5. Update local DB
+        if (currentDocType === 'Invoice') {
+          await prisma.invoice.update({ where: { id: record.id }, data: { items: updatedItems } })
+        } else if (currentDocType === 'SalesOrder') {
           await prisma.salesOrder.update({ where: { id: record.id }, data: { items: updatedItems } })
+        } else {
+          await prisma.quote.update({ where: { id: record.id }, data: { items: updatedItems } })
+        }
+
+        // 6. Push empty calculated fields back to Zoho (only if we have calc results)
+        if (calc && doc.custom_fields?.length) {
+          const existingFields = doc.custom_fields || []
+          const fieldMap: Record<string, any> = {
+            "DEAD COST TOTAL": calc.deadCostTotal.toFixed(2),
+            "DEAD COST SUBJECT TO VIG": calc.deadCostSubjectToVig.toFixed(2),
+            "DEAD COST NO VIG": calc.deadCostNoVig.toFixed(2),
+            "SALESPERSON VIG": calc.vigRate,
+            "DEAD COST PLUS VIG": calc.deadCostPlusVig.toFixed(2),
+            "PROFIT": calc.profit.toFixed(2),
+            "COMMISSION FROM PROFIT %": calc.commissionPct,
+            "SALES COMMISSION": calc.salesCommission.toFixed(2),
+            "ITEMS DC BREAKDOWN": calc.lineItemBreakdownStrings.join("\n"),
+          }
+          if (calc.isPaid) {
+            const paidField = existingFields.find((f: any) => f.label?.toUpperCase().includes("PAID IN FULL DATE"))
+            if (paidField && !paidField.value) {
+              fieldMap["PAID IN FULL DATE"] = doc.date || new Date().toISOString().split("T")[0]
+            }
+          }
+
+          // Only push fields that are currently EMPTY in Zoho
+          const fieldsToUpdate: any[] = []
+          for (const [label, value] of Object.entries(fieldMap)) {
+            const field = existingFields.find((f: any) => f.label?.toUpperCase().trim() === label)
+            if (field && (!field.value || String(field.value).trim() === '' || String(field.value).trim() === '0' || String(field.value).trim() === '0.00')) {
+              fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
+            }
+          }
+
+          if (fieldsToUpdate.length > 0) {
+            await sleep(RATE_DELAY_MS)
+            const putRes = await fetch(`${BASE_URL}/${zohoModule}/${booksId}?organization_id=${ORG_ID}`, {
+              method: 'PUT',
+              headers: { ...authHeaders, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ custom_fields: fieldsToUpdate }),
+            })
+            if (putRes.ok) pushed++
+          }
         }
 
         processed++
         results.push({
-          id: booksId,
-          type: record.docType,
-          number: items.invoiceNumber || items.salesOrderNumber,
-          profit: profit.toFixed(2),
-          commission: commission.toFixed(2),
+          id: booksId, type: currentDocType,
+          number: items.invoiceNumber || items.salesOrderNumber || items.estimateNumber,
+          profit: (updatedItems.profit ?? 0).toFixed?.(2) ?? '0',
+          commission: (updatedItems.commission ?? 0).toFixed?.(2) ?? '0',
+          fieldsPushed: pushed > 0 ? 'yes' : 'no',
         })
       } catch (e: any) {
         errors++
@@ -581,22 +668,25 @@ export const handler: Handler = async (event) => {
     }
 
     const newOffset = offset + BATCH_SIZE
-    await saveCheckpoint({ ...cp, phase3Offset: newOffset, phase3Processed: (cp.phase3Processed || 0) + processed, phase3Errors: (cp.phase3Errors || 0) + errors })
+    await saveCheckpoint({
+      ...cp, phase3Offset: newOffset, phase3DocType: currentDocType,
+      phase3Processed: (cp.phase3Processed || 0) + processed,
+      phase3Errors: (cp.phase3Errors || 0) + errors,
+      phase3Pushed: (cp.phase3Pushed || 0) + pushed,
+    })
 
     return {
       statusCode: 200, headers: cors,
       body: JSON.stringify({
-        success: true,
-        phase: 3,
-        done: batch.length < BATCH_SIZE,
+        success: true, phase: 3,
+        docType: currentDocType,
+        done: batch.length < BATCH_SIZE && currentDocType === 'Quote',
         batchProcessed: processed,
         batchErrors: errors,
-        remaining: batch.length >= BATCH_SIZE ? 'more' : 0,
-        callAgain: batch.length >= BATCH_SIZE,
+        batchPushedToZoho: pushed,
+        callAgain: true,
         results,
-        message: batch.length < BATCH_SIZE
-          ? `Done! Processed ${processed} records in this batch.`
-          : `Processed ${processed} records — call phase=3 again to continue.`
+        message: `${currentDocType}: Processed ${processed}, pushed ${pushed} to Zoho — call again to continue.`
       })
     }
   }
