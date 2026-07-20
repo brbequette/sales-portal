@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useCallback } from "react"
@@ -356,7 +357,7 @@ export default function AdminHolidaysPage() {
                           }}
                           className="text-red-400/50 hover:text-red-400 font-bold ml-0.5 px-1 rounded hover:bg-red-500/10"
                         >
-                          ×
+                          Ã—
                         </button>
                       </span>
                     ))}
@@ -371,3 +372,4 @@ export default function AdminHolidaysPage() {
     </div>
   )
 }
+

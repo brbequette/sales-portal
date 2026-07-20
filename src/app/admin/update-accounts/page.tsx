@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -266,7 +267,7 @@ export default function AdminUpdateAccountsPage() {
   }
 
   const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <span className="text-neutral-700 ml-1">↕</span>
+    if (sortKey !== col) return <span className="text-neutral-700 ml-1">â†•</span>
     return sortDir === "asc"
       ? <FiArrowUp size={11} className="ml-1 text-purple-400 inline" />
       : <FiArrowDown size={11} className="ml-1 text-purple-400 inline" />
@@ -446,7 +447,7 @@ export default function AdminUpdateAccountsPage() {
                 placeholder="Min"
                 className="w-20 bg-neutral-950 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none focus:border-purple-500"
               />
-              <span className="text-neutral-600 text-xs">–</span>
+              <span className="text-neutral-600 text-xs">â€“</span>
               <input
                 type="number"
                 value={ltvMax}
@@ -553,7 +554,7 @@ export default function AdminUpdateAccountsPage() {
                                 ))}
                               </select>
                               <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500">
-                                ▼
+                                â–¼
                               </div>
                             </div>
                             {pendingOwners[acc.id] !== undefined && pendingOwners[acc.id] !== acc.ownerId && (
@@ -589,3 +590,4 @@ export default function AdminUpdateAccountsPage() {
     </div>
   )
 }
+

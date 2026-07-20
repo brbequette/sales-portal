@@ -1,8 +1,10 @@
 "use client"
+
 import { useState, useEffect, useCallback } from "react"
 import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud } from "react-icons/fi"
 import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
+import { toast } from 'react-hot-toast';
 
 type ShipStatus = "all" | "needs_packaging" | "packaged" | "shipped" | "delivered"
 
@@ -68,10 +70,10 @@ function getTrackingUrl(carrier: string, tracking: string): string | null {
 }
 
 function formatAddress(addr: any): string {
-  if (!addr) return "—"
+  if (!addr) return "â€”"
   if (typeof addr === "string") return addr
   const parts = [addr.address, addr.street2, addr.city, addr.state, addr.zip || addr.code, addr.country].filter(Boolean)
-  return parts.join(", ") || "—"
+  return parts.join(", ") || "â€”"
 }
 
 export default function ShippingPage() {
@@ -120,13 +122,13 @@ export default function ShippingPage() {
       const res = await fetch("/api/admin/books/sync-packages", { method: "POST" })
       const data = await res.json()
       if (data.success) {
-        setSyncResult(`✅ ${data.message}`)
+        setSyncResult(`âœ… ${data.message}`)
         fetchOrders()
       } else {
-        setSyncResult(`❌ ${data.error}`)
+        setSyncResult(`âŒ ${data.error}`)
       }
     } catch (e: any) {
-      setSyncResult(`❌ ${e.message}`)
+      setSyncResult(`âŒ ${e.message}`)
     } finally {
       setSyncing(false)
     }
@@ -149,10 +151,10 @@ export default function ShippingPage() {
           setDropshipModal({ salesOrderId: zohoId, lineItems: data.lineItems })
         }
       } else {
-        alert("Failed to load line items: " + (data.error || data.message || "Unknown error"))
+        toast.error("Failed to load line items: " + (data.error || data.message || "Unknown error"))
       }
     } catch (e: any) {
-      alert("Error: " + e.message)
+      toast.error("Error: " + e.message)
     } finally {
       setFetchingLineItems(null)
     }
@@ -178,10 +180,10 @@ export default function ShippingPage() {
         setTrackingModal(null)
         fetchOrders()
       } else {
-        alert("Failed: " + data.error)
+        toast.error("Failed: " + data.error)
       }
     } catch (e: any) {
-      alert("Error: " + e.message)
+      toast.error("Error: " + e.message)
     } finally {
       setTrackingSubmitting(false)
     }
@@ -197,9 +199,9 @@ export default function ShippingPage() {
       })
       const data = await res.json()
       if (data.success) fetchOrders()
-      else alert("Failed: " + data.error)
+      else toast.error("Failed: " + data.error)
     } catch (e: any) {
-      alert("Error: " + e.message)
+      toast.error("Error: " + e.message)
     }
   }
 
@@ -237,10 +239,10 @@ export default function ShippingPage() {
       {/* Sync Result Banner */}
       {syncResult && (
         <div className={`mb-4 px-4 py-2.5 rounded-xl text-sm font-bold border ${
-          syncResult.startsWith("✅") ? "bg-emerald-950/30 text-emerald-400 border-emerald-800/50" : "bg-red-950/30 text-red-400 border-red-800/50"
+          syncResult.startsWith("âœ…") ? "bg-emerald-950/30 text-emerald-400 border-emerald-800/50" : "bg-red-950/30 text-red-400 border-red-800/50"
         }`}>
           {syncResult}
-          <button onClick={() => setSyncResult(null)} className="ml-3 text-neutral-500 hover:text-white">✕</button>
+          <button onClick={() => setSyncResult(null)} className="ml-3 text-neutral-500 hover:text-white">âœ•</button>
         </div>
       )}
 
@@ -330,13 +332,13 @@ export default function ShippingPage() {
                   {/* SO Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-bold text-sm">{order.soNumber || "—"}</span>
-                      <span className="text-neutral-600 text-xs">•</span>
+                      <span className="text-white font-bold text-sm">{order.soNumber || "â€”"}</span>
+                      <span className="text-neutral-600 text-xs">â€¢</span>
                       <span className="text-neutral-400 text-sm truncate">{order.customerName}</span>
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
                       <span className="text-[10px] text-neutral-600">
-                        {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "—"}
+                        {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "â€”"}
                       </span>
                       <span className="text-[10px] text-neutral-600">
                         {order.lineItemCount} item{order.lineItemCount !== 1 ? "s" : ""}
@@ -601,3 +603,4 @@ export default function ShippingPage() {
     </div>
   )
 }
+

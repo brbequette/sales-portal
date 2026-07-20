@@ -1,10 +1,13 @@
 "use client"
+
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import Link from "next/link"
 import { FiSearch, FiFilter, FiFileText, FiCheckCircle, FiAlertCircle, FiX, FiChevronRight, FiChevronDown, FiCheck } from "react-icons/fi"
 import { createPortal } from "react-dom"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
+import { toast } from 'react-hot-toast';
+import { toastConfirm } from "@/lib/toastConfirm";
 
 type SalesDoc = {
   id: string
@@ -87,24 +90,24 @@ export default function SalesListPage() {
   useEffect(() => { fetchAccounts() }, [fetchAccounts])
 
   const handleDeleteTransaction = async (type: string, id: string) => {
-    if (!confirm(`Are you sure you want to delete this ${type}? This action cannot be undone in the hub.`)) return
-    
-    try {
-      const res = await fetch("/api/delete-transaction", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, id })
-      })
-      const data = await res.json()
-      if (data.success) {
-        setViewingSalesDoc(null)
-        fetchAccounts()
-      } else {
-        alert(data.error || "Failed to delete transaction")
+    toastConfirm(`Are you sure you want to delete this ${type}? This action cannot be undone in the hub.`, async () => {
+      try {
+        const res = await fetch("/api/delete-transaction", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type, id })
+        })
+        const data = await res.json()
+        if (data.success) {
+          setViewingSalesDoc(null)
+          fetchAccounts()
+        } else {
+          toast.error(data.error || "Failed to delete transaction")
+        }
+      } catch (e: any) {
+        toast.error("Network error: " + e.message)
       }
-    } catch (e: any) {
-      alert("Network error: " + e.message)
-    }
+    });
   }
 
   // Aggregate all docs
@@ -441,7 +444,7 @@ export default function SalesListPage() {
         </div>
       </div>
 
-      {/* ── Filters Popout Drawer ── */}
+      {/* â”€â”€ Filters Popout Drawer â”€â”€ */}
       {showFiltersDrawer && createPortal(
         <div className="fixed inset-0 z-[9999]">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFiltersDrawer(false)} />
@@ -491,7 +494,7 @@ export default function SalesListPage() {
         </div>, document.body
       )}
 
-      {/* ── Sales Document (Quote / Sales Order / Invoice) Details Modal ── */}
+      {/* â”€â”€ Sales Document (Quote / Sales Order / Invoice) Details Modal â”€â”€ */}
       {viewingSalesDoc && (
         <InvoiceDetailsModal 
           invoice={viewingSalesDoc.doc} 
@@ -502,3 +505,4 @@ export default function SalesListPage() {
     </div>
   )
 }
+

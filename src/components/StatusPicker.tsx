@@ -1,4 +1,5 @@
 "use client"
+
 import { useState } from "react"
 import { FiChevronDown, FiCheck, FiLoader } from "react-icons/fi"
 
@@ -95,3 +96,4 @@ export function StatusPicker({ accountId, zohoId, currentStatus, onUpdated, comp
     </div>
   )
 }
+

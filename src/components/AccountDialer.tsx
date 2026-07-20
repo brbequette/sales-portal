@@ -1,4 +1,5 @@
 "use client"
+
 import { useState, useEffect, useRef, useMemo } from "react"
 import { formatPhoneNumber } from "@/lib/formatters"
 import { useZoho } from "@/components/ZohoProvider"
@@ -12,6 +13,7 @@ import {
 import Link from "next/link"
 import { OrderBuilder, type OrderLine } from "@/components/OrderBuilder"
 import { PhoneLink } from "@/components/PhoneLink"
+import { toast } from 'react-hot-toast';
 
 interface AccountDialerProps {
   accountId: string
@@ -293,10 +295,10 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
       if (data.success) {
         setAiResult(data.result);
       } else {
-        alert("Failed to generate AI content: " + data.message);
+        toast.error("Failed to generate AI content: " + data.message);
       }
     } catch (err: any) {
-      alert("Error: " + err.message);
+      toast.error("Error: " + err.message);
     } finally {
       setIsGeneratingAi(false);
     }
@@ -342,15 +344,15 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
       })
       const data = await response.json()
       if (data.success) {
-        alert("Call logged successfully!")
+        toast.success("Call logged successfully!")
         setNotes("")
         setFollowUpDate("")
         setOrderLines([])
       } else {
-        alert(data.error || "Failed to log call outcome.")
+        toast.error(data.error || "Failed to log call outcome.")
       }
     } catch (e: any) {
-      alert("Error logging call: " + e.message)
+      toast.error("Error logging call: " + e.message)
     }
   }
 
@@ -889,3 +891,4 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
     </div>
   )
 }
+

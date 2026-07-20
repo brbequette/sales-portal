@@ -1,4 +1,5 @@
 "use client"
+
 import React, { useEffect, useState, useMemo, useRef } from "react"
 import { FiTrendingUp, FiDollarSign, FiTarget, FiActivity, FiAward, FiClock, FiStar, FiMaximize, FiMinimize, FiPlay, FiPause, FiChevronLeft, FiChevronRight, FiAlertCircle } from "react-icons/fi"
 
@@ -148,7 +149,7 @@ export function SalesBoard() {
 
           const invDateObj = new Date(saleDate)
           const amount = Number(inv.sub_total !== undefined ? inv.sub_total : (inv.total || 0))
-          const profit = Number(inv.cf_profit_unformatted || inv.custom_field_hash?.cf_profit_unformatted || 0)
+          const profit = Number(inv.deadProfit || 0)
           const commission = Number(inv.cf_commision_amount_unformatted || inv.custom_field_hash?.cf_commision_amount_unformatted || 0)
           const balance = Number(inv.balance !== undefined ? inv.balance : 0)
 
@@ -752,7 +753,7 @@ export function SalesBoard() {
           </div>
           <div className="w-[1px] h-8 bg-white/10"></div>
           <div className="flex flex-col items-end">
-            <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-0.5">Total Profit</div>
+            <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-0.5">Total Dead Profit</div>
             <div className="text-2xl font-black text-white">{formatCurrency(data.teamWeekly.profit)}</div>
           </div>
           <div className="w-[1px] h-8 bg-white/10"></div>
@@ -775,3 +776,4 @@ export function SalesBoard() {
     </div>
   )
 }
+

@@ -1,11 +1,15 @@
 "use client"
 
-import { formatPhoneNumber } from "@/lib/formatters"
 
+import { formatPhoneNumber } from "@/lib/formatters"
 import { useState, useEffect } from "react"
-import { FiX, FiUser, FiPhone, FiMail, FiDollarSign, FiClock, FiShoppingBag, FiInfo, FiMapPin, FiExternalLink, FiRefreshCw, FiAlertTriangle } from "react-icons/fi"
-import { PointOfSale } from "@/components/PointOfSale"
+import { FiX, FiUser, FiPhone, FiMail, FiDollarSign, FiClock, FiShoppingBag, FiInfo, FiMapPin, FiExternalLink, FiRefreshCw, FiAlertTriangle, FiFileText, FiSettings } from "react-icons/fi"
+import { OrderBuilder } from "@/components/OrderBuilder"
 import Link from "next/link"
+import { CommunicationsHub } from "@/components/CommunicationsHub"
+import { DocumentFlipbook } from "@/components/DocumentFlipbook"
+import { QualityPicker } from "@/components/QualityPicker"
+import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 
 // Build a billing address from the account record, falling back to the live
 // Zoho CRM details so an address is shown whenever one exists on either source.
@@ -22,10 +26,13 @@ function resolveAddress(account: any) {
 }
 
 export function AccountSlideout({ accountId, onClose }: { accountId: string, onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<"overview" | "pos">("overview")
+  const [activeTab, setActiveTab] = useState<"profile" | "communications" | "documents" | "financials" | "settings">("profile")
   const [account, setAccount] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  const [viewingDocType, setViewingDocType] = useState<"Invoice" | "SalesOrder" | "Quote" | null>(null)
+  const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)
 
   useEffect(() => {
     if (!accountId) return
@@ -42,7 +49,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
         }
       } catch (e) {
         console.error("Failed to load account details", e)
-        setError("Network error — could not load account")
+        setError("Network error â€” could not load account")
       } finally {
         setLoading(false)
       }
@@ -60,10 +67,18 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address.lines.join(", "))}`
     : null
 
+  const tabs = [
+    { id: "profile", label: "Profile" },
+    { id: "communications", label: "Communications" },
+    { id: "documents", label: "Documents" },
+    { id: "financials", label: "Financials" },
+    { id: "settings", label: "Settings" }
+  ] as const
+
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose}></div>
-      <div className="fixed top-0 right-0 h-full w-full max-w-2xl bg-[#0a0a0a] z-50 shadow-2xl border-l border-white/10 flex flex-col transform transition-transform duration-300">
+      <div className="fixed top-0 right-0 h-full w-full max-w-4xl bg-[#0a0a0a] z-50 shadow-2xl border-l border-white/10 flex flex-col transform transition-transform duration-300">
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#0f1013] shrink-0">
@@ -87,19 +102,16 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
         </div>
 
         {/* Tabs */}
-        <div className="flex px-4 border-b border-white/10 shrink-0 bg-[#0f1013]">
-          <button 
-            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'overview' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-neutral-400 hover:text-white'}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            Overview & Metrics
-          </button>
-          <button 
-            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'pos' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-neutral-400 hover:text-white'}`}
-            onClick={() => setActiveTab('pos')}
-          >
-            Create Quote / Order
-          </button>
+        <div className="flex px-4 border-b border-white/10 shrink-0 bg-[#0f1013] overflow-x-auto hide-scrollbar">
+          {tabs.map(tab => (
+            <button 
+              key={tab.id}
+              className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-neutral-400 hover:text-white'}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Content */}
@@ -115,19 +127,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
                     <div className="h-4 w-36 bg-neutral-800 rounded animate-pulse" />
                     <div className="h-3 w-28 bg-neutral-800 rounded animate-pulse" />
                   </div>
-                  <div className="space-y-2 p-4 bg-neutral-900/60 rounded-xl border border-white/5">
-                    <div className="h-3 w-20 bg-neutral-800 rounded animate-pulse" />
-                    <div className="h-4 w-32 bg-neutral-800 rounded animate-pulse" />
-                    <div className="h-3 w-24 bg-neutral-800 rounded animate-pulse" />
-                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="h-20 bg-neutral-900/60 rounded-xl border border-white/5 animate-pulse" />
-                <div className="h-20 bg-neutral-900/60 rounded-xl border border-white/5 animate-pulse" />
-              </div>
-              <div className="space-y-2">
-                {[1,2,3].map(i => <div key={i} className="h-12 bg-neutral-900/60 rounded-lg border border-white/5 animate-pulse" />)}
               </div>
             </div>
           ) : error ? (
@@ -151,9 +151,8 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
             </div>
           ) : (
             <div className="h-full">
-              {activeTab === 'overview' && (
+              {activeTab === 'profile' && (
                 <div className="p-6 space-y-8">
-                  
                   {/* Contact Info */}
                   <section>
                     <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -179,7 +178,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
                         </div>
                       </div>
 
-                      {/* Billing Address — always shown alongside the account */}
+                      {/* Billing Address */}
                       <div className="bg-neutral-900/50 p-4 rounded-xl border border-white/5 min-w-0">
                         <div className="flex items-center justify-between gap-3 text-white mb-2 min-w-0">
                           <div className="flex items-center gap-3 min-w-0">
@@ -204,7 +203,39 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
                       </div>
                     </div>
                   </section>
+                </div>
+              )}
 
+              {activeTab === 'communications' && (
+                <div className="h-full flex flex-col p-4 bg-[#0a0a0a]">
+                  <CommunicationsHub
+                    accountId={account?.zohoId || accountId}
+                    account={account}
+                  />
+                </div>
+              )}
+
+              {activeTab === 'documents' && (
+                <div className="h-full p-4 bg-[#0a0a0a]">
+                  <DocumentFlipbook
+                    invoices={account?.invoices || []}
+                    quotes={account?.quotes || []}
+                    salesOrders={account?.salesOrders || []}
+                    onViewInvoice={(zohoId) => {
+                      const inv = account?.invoices?.find((i: any) => i.zohoId === zohoId || i.id === zohoId) || { zohoId, id: zohoId };
+                      setViewingInvoice(inv);
+                      setViewingDocType("Invoice");
+                    }}
+                    onViewSalesDoc={(type, doc) => {
+                      setViewingInvoice(doc);
+                      setViewingDocType(type);
+                    }}
+                  />
+                </div>
+              )}
+
+              {activeTab === 'financials' && (
+                <div className="p-6 space-y-8">
                   {/* Metrics */}
                   <section>
                     <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -224,44 +255,55 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
                     </div>
                   </section>
 
-                  {/* Recent Activity Summary */}
+                  {/* Order Builder */}
                   <section>
                     <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                      <FiClock /> Recent Invoices
+                      <FiFileText /> Create Quote / Order
                     </h3>
-                    <div className="space-y-2">
-                      {account?.invoices?.slice(0, 5).map((inv: any) => (
-                        <div key={inv.id} className="flex items-center justify-between p-3 bg-neutral-900/30 rounded-lg border border-white/5">
-                          <div>
-                            <div className="text-sm font-bold text-white">{new Date(inv.issueDate).toLocaleDateString()}</div>
-                            <div className="text-xs text-neutral-500">{inv.status}</div>
-                          </div>
-                          <div className="text-sm font-bold text-white">
-                            ${(inv.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </div>
-                        </div>
-                      ))}
-                      {(!account?.invoices || account.invoices.length === 0) && (
-                        <div className="text-sm text-neutral-500 italic">No recent invoices found.</div>
-                      )}
+                    <div className="bg-[#0f1013] border border-white/10 rounded-xl overflow-hidden min-h-[400px]">
+                      <OrderBuilder 
+                        accountId={account?.zohoId || accountId} 
+                        accountName={account?.name}
+                        accountDetail={account}
+                        onCancel={() => {}} 
+                        onSuccess={() => {}}
+                      />
                     </div>
                   </section>
-
                 </div>
               )}
 
-              {activeTab === 'pos' && (
-                <div className="h-full bg-[#0a0a0a]">
-                  <PointOfSale 
-                    accountId={account?.zohoId || accountId} 
-                    onCancel={() => setActiveTab('overview')} 
-                  />
+              {activeTab === 'settings' && (
+                <div className="p-6 space-y-8">
+                  <section>
+                    <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <FiSettings /> Account Settings
+                    </h3>
+                    <div className="bg-neutral-900/50 p-4 rounded-xl border border-white/5 space-y-4">
+                      <QualityPicker
+                        zohoId={account?.zohoId || accountId}
+                        accountId={account?.id || accountId}
+                        currentQuality={account?.quality || "NEVER_STATUSED"}
+                        onUpdated={(q) => setAccount((a: any) => ({ ...a, quality: q }))}
+                      />
+                    </div>
+                  </section>
                 </div>
               )}
             </div>
           )}
         </div>
       </div>
+
+      {viewingInvoice && viewingDocType && (
+        <InvoiceDetailsModal
+          invoice={viewingInvoice}
+          type={viewingDocType}
+          onClose={() => { setViewingInvoice(null); setViewingDocType(null); }}
+        />
+      )}
     </>
   )
 }
+
+

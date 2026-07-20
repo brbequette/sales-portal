@@ -1,9 +1,12 @@
 "use client"
 
+import { toastConfirm } from '@/lib/toastConfirm'
+
 import { useState, useEffect } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
 import { FiMessageSquare, FiPlus, FiEdit2, FiTrash2, FiArrowLeft, FiX, FiCheck, FiSave } from "react-icons/fi"
+import { toast } from 'react-hot-toast';
 
 type CallScript = {
   id: string
@@ -98,29 +101,29 @@ export default function ScriptManagerPage() {
         setIsModalOpen(false)
         fetchScripts()
       } else {
-        alert("Failed to save: " + data.error)
+        toast.error("Failed to save: " + data.error)
       }
     } catch (e) {
-      alert("Error saving script.")
+      toast.error("Error saving script.")
     } finally {
       setSaving(false)
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this script?")) return
+    toastConfirm("Are you sure you want to delete this script?", async () => {
     try {
       const res = await fetch(`/api/admin/scripts/${id}`, { method: "DELETE" })
       const data = await res.json()
       if (data.success) {
         fetchScripts()
       } else {
-        alert("Failed to delete: " + data.error)
+        toast.error("Failed to delete: " + data.error)
       }
     } catch (e) {
-      alert("Error deleting script.")
+      toast.error("Error deleting script.")
     }
-  }
+  });}
 
   const insertMergeField = (field: string) => {
     setFormData(prev => ({ ...prev, content: prev.content + field }))
@@ -281,3 +284,5 @@ export default function ScriptManagerPage() {
     </div>
   )
 }
+
+

@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useState, useEffect } from "react"
 import { FiSearch, FiPackage, FiShoppingBag, FiArrowRight } from "react-icons/fi"
 import { useProductModal } from "@/components/ProductModalProvider"
@@ -122,3 +123,4 @@ export function AccountProductsPurchased({ accountId }: AccountProductsPurchased
     </div>
   )
 }
+

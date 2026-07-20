@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight } from "react-icons/fi"
@@ -13,7 +14,7 @@ interface InvoiceDetailsModalProps {
   invoice: any | string; // Can be an invoice object or just the zohoId string
   type?: "Quote" | "SalesOrder" | "Invoice";
   onClose: () => void;
-  // Optional navigation — pass the full list and current index to enable prev/next
+  // Optional navigation â€” pass the full list and current index to enable prev/next
   invoiceList?: any[];
   currentIndex?: number;
   onNavigate?: (index: number) => void;
@@ -146,7 +147,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
     }
   }
 
-  // ── New Action Handlers ──
+  // â”€â”€ New Action Handlers â”€â”€
 
   const handleSendEmail = async () => {
     const docLabel = type === 'Quote' ? 'quote' : type === 'SalesOrder' ? 'sales order' : 'invoice'
@@ -165,7 +166,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
       })
       const data = await res.json()
       if (data.success) {
-        alert(`✅ ${type === 'Quote' ? 'Quote' : type === 'SalesOrder' ? 'Sales Order' : 'Invoice'} sent to customer!`)
+        alert(`âœ… ${type === 'Quote' ? 'Quote' : type === 'SalesOrder' ? 'Sales Order' : 'Invoice'} sent to customer!`)
       } else {
         alert(`Failed to send: ${data.error || data.message}`)
       }
@@ -178,7 +179,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
   const handleVoid = async () => {
     const docLabel = type === 'Quote' ? 'quote' : type === 'SalesOrder' ? 'sales order' : 'invoice'
-    if (!confirm(`⚠️ Are you sure you want to VOID this ${docLabel}? This action cannot be easily undone.`)) return
+    if (!confirm(`âš ï¸ Are you sure you want to VOID this ${docLabel}? This action cannot be easily undone.`)) return
     setActionLoading("void")
     try {
       const res = await fetch("/api/zoho-void", {
@@ -188,7 +189,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
       })
       const data = await res.json()
       if (data.success) {
-        alert(`✅ ${type} voided successfully.`)
+        alert(`âœ… ${type} voided successfully.`)
         onClose()
       } else {
         alert(`Failed to void: ${data.error || data.message}`)
@@ -216,7 +217,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
       })
       const data = await res.json()
       if (data.success) {
-        alert(`✅ Status updated!`)
+        alert(`âœ… Status updated!`)
         onClose()
       } else {
         alert(`Failed: ${data.error || data.message}`)
@@ -314,14 +315,14 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
             customerName={displayData?.customer_name || ""}
             onClose={() => setShowPaymentModal(false)}
             onSuccess={() => {
-              alert("✅ Payment recorded successfully!")
+              alert("âœ… Payment recorded successfully!")
               setShowPaymentModal(false)
               onClose()
             }}
           />
         )}
 
-        {/* ── Header ── */}
+        {/* â”€â”€ Header â”€â”€ */}
         <div className="bg-neutral-850 px-3 sm:px-6 py-3 sm:py-4 border-b border-neutral-800 flex justify-between items-center shrink-0 gap-2">
           <div className="min-w-0 flex items-center gap-3">
             <div className="min-w-0">
@@ -332,12 +333,12 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 <p className="text-[10px] text-neutral-400 font-mono truncate">Zoho ID: {zohoId}</p>
                 {dataSource === 'local_db' && (
                   <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-sky-400 bg-sky-900/20 border border-sky-800/40 rounded px-1.5 py-0.5">
-                    ⚡ Cached{cachedAt ? ` · ${(() => { const mins = Math.round((Date.now() - new Date(cachedAt).getTime()) / 60000); return mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago` })()}` : ''}
+                    âš¡ Cached{cachedAt ? ` Â· ${(() => { const mins = Math.round((Date.now() - new Date(cachedAt).getTime()) / 60000); return mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago` })()}` : ''}
                   </span>
                 )}
                 {dataSource === 'zoho_live' && (
                   <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-900/20 border border-emerald-800/40 rounded px-1.5 py-0.5">
-                    🔴 Live
+                    ðŸ”´ Live
                   </span>
                 )}
                 {!isLoading && (
@@ -357,7 +358,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 <button
                   onClick={() => onNavigate!(currentIndex! - 1)}
                   disabled={currentIndex === 0}
-                  title="Previous invoice (←)"
+                  title="Previous invoice (â†)"
                   className="p-1.5 rounded text-neutral-400 hover:text-white hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   <FiChevronLeft size={14} />
@@ -368,7 +369,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 <button
                   onClick={() => onNavigate!(currentIndex! + 1)}
                   disabled={currentIndex === invoiceList!.length - 1}
-                  title="Next invoice (→)"
+                  title="Next invoice (â†’)"
                   className="p-1.5 rounded text-neutral-400 hover:text-white hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   <FiChevronRight size={14} />
@@ -379,7 +380,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
           
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end shrink-0">
             
-            {/* ── QUOTE ACTIONS ── */}
+            {/* â”€â”€ QUOTE ACTIONS â”€â”€ */}
             {type === "Quote" && !isVoided && (
               <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-lg p-0.5 sm:p-1">
                 <button 
@@ -407,7 +408,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               </div>
             )}
             
-            {/* ── SALES ORDER ACTIONS ── */}
+            {/* â”€â”€ SALES ORDER ACTIONS â”€â”€ */}
             {type === "SalesOrder" && !isVoided && (
               <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-lg p-0.5 sm:p-1">
                 {statusLower !== 'confirmed' && statusLower !== 'shipped' && (
@@ -442,7 +443,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               </div>
             )}
 
-            {/* ── INVOICE ACTIONS ── */}
+            {/* â”€â”€ INVOICE ACTIONS â”€â”€ */}
             {type === "Invoice" && !isVoided && (
               <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-lg p-0.5 sm:p-1">
                 {/* Record Payment (only if not fully paid) */}
@@ -480,9 +481,9 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               </div>
             )}
 
-            {/* ── SHARED ACTIONS (all document types) ── */}
+            {/* â”€â”€ SHARED ACTIONS (all document types) â”€â”€ */}
             <div className="flex items-center gap-1">
-              {/* Process Costs — all document types */}
+              {/* Process Costs â€” all document types */}
               {!isVoided && (
                 <button
                   onClick={handleProcessCosts}
@@ -538,7 +539,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
           </div>
         </div>
 
-        {/* ── Tabs ── */}
+        {/* â”€â”€ Tabs â”€â”€ */}
         <div className="flex border-b border-neutral-800 bg-neutral-900 px-4 pt-2 gap-4">
           <button
             onClick={() => setActiveTab('overview')}
@@ -558,7 +559,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
           </button>
         </div>
 
-        {/* ── Content ── */}
+        {/* â”€â”€ Content â”€â”€ */}
         {activeTab === 'overview' ? (
           <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
             {/* Data View Panel */}
@@ -568,7 +569,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">{type === 'Quote' ? 'Quote' : type === 'SalesOrder' ? 'SO' : 'Invoice'} #</label>
-                  <div className="text-sm text-white font-mono truncate">{displayData.items?.invoiceNumber || displayData.items?.invoice_number || displayData.items?.salesOrderNumber || displayData.items?.salesorder_number || displayData.items?.estimateNumber || displayData.items?.estimate_number || displayData.invoiceNumber || displayData.invoice_number || displayData.salesorder_number || displayData.estimate_number || displayData.zohoId || "—"}</div>
+                  <div className="text-sm text-white font-mono truncate">{displayData.items?.invoiceNumber || displayData.items?.invoice_number || displayData.items?.salesOrderNumber || displayData.items?.salesorder_number || displayData.items?.estimateNumber || displayData.items?.estimate_number || displayData.invoiceNumber || displayData.invoice_number || displayData.salesorder_number || displayData.estimate_number || displayData.zohoId || "â€”"}</div>
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Amount</label>
@@ -576,11 +577,11 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Status</label>
-                  <div className={`text-sm font-bold ${displayData.status === 'Paid' || displayData.status === 'paid' ? 'text-blue-400' : displayData.status === 'Overdue' || displayData.status === 'overdue' ? 'text-red-400' : isVoided ? 'text-neutral-500' : 'text-amber-400'}`}>{displayData.status || "—"}</div>
+                  <div className={`text-sm font-bold ${displayData.status === 'Paid' || displayData.status === 'paid' ? 'text-blue-400' : displayData.status === 'Overdue' || displayData.status === 'overdue' ? 'text-red-400' : isVoided ? 'text-neutral-500' : 'text-amber-400'}`}>{displayData.status || "â€”"}</div>
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Issue Date</label>
-                  <div className="text-sm text-white">{displayData.issueDate || displayData.date ? new Date(displayData.issueDate || displayData.date).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "—"}</div>
+                  <div className="text-sm text-white">{displayData.issueDate || displayData.date ? new Date(displayData.issueDate || displayData.date).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "â€”"}</div>
                 </div>
                 {displayData.due_date && (
                   <div>
@@ -616,13 +617,13 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 )}
               </div>
 
-              {/* ── Shipping Cost Flag ── */}
+              {/* â”€â”€ Shipping Cost Flag â”€â”€ */}
               {type === "Invoice" && !isVoided && displayData?.shipping_charge !== undefined && parseFloat(displayData.shipping_charge || 0) === 0 && statusLower !== 'draft' && (
                 <div className="mt-3 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 animate-pulse">
-                  <span className="text-amber-400 text-lg">⚠</span>
+                  <span className="text-amber-400 text-lg">âš </span>
                   <div>
                     <div className="text-[10px] uppercase font-black text-amber-400 tracking-wider">Needs Shipping Costs</div>
-                    <div className="text-[10px] text-amber-300/70">Shipping charge is $0.00 — update in Zoho Books</div>
+                    <div className="text-[10px] text-amber-300/70">Shipping charge is $0.00 â€” update in Zoho Books</div>
                   </div>
                 </div>
               )}
@@ -632,7 +633,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 <DocumentLifecycle zohoId={zohoId} type={type} />
               </div>
 
-            {/* ── Cost & Commission Panel + Line Items ── */}
+            {/* â”€â”€ Cost & Commission Panel + Line Items â”€â”€ */}
             <div className="pt-3 border-t border-neutral-800 flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
 
               {isLoading ? (
@@ -642,7 +643,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 </div>
               ) : (
                 <>
-                  {/* ── Cost & Commission Summary Card ── */}
+                  {/* â”€â”€ Cost & Commission Summary Card â”€â”€ */}
                   {(() => {
                     // Prefer fresh costResult from just-processed data; fall back to stored items blob
                     const src = costResult || displayData?.items || {}
@@ -711,7 +712,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                     )
                   })()}
 
-                  {/* ── Per-Item Cost Breakdown Table ── */}
+                  {/* â”€â”€ Per-Item Cost Breakdown Table â”€â”€ */}
                   {(() => {
                     const lineItems: any[] = costResult?.lineItems ||
                       (displayData?.items as any)?.lineItemDetails ||
@@ -740,21 +741,21 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                                     <div className="font-semibold text-white truncate">{li.name || li.sku || `Item ${idx+1}`}</div>
                                     {li.sku && <div className="text-[9px] text-neutral-500 font-mono">{li.sku}</div>}
                                   </div>
-                                  <div className="text-right text-neutral-300 self-center">{li.quantity ?? '—'}</div>
+                                  <div className="text-right text-neutral-300 self-center">{li.quantity ?? 'â€”'}</div>
                                   <div className="text-right text-neutral-300 self-center">
-                                    {li.rate != null ? `$${parseFloat(li.rate).toFixed(2)}` : '—'}
+                                    {li.rate != null ? `$${parseFloat(li.rate).toFixed(2)}` : 'â€”'}
                                   </div>
                                   <div className="text-right self-center">
                                     {li.deadCost != null ? (
                                       <span className="text-amber-300 font-bold">${parseFloat(li.deadCost).toFixed(2)}</span>
-                                    ) : '—'}
+                                    ) : 'â€”'}
                                   </div>
                                   <div className="text-right self-center">
                                     {li.deadCost != null && !li.noVig ? (
                                       <span className="text-emerald-400 font-bold">${(parseFloat(li.deadCost) * (parseFloat((displayData?.items as any)?.vigRate || costResult?.vigRate || 1.3))).toFixed(2)}</span>
                                     ) : li.noVig ? (
                                       <span className="text-neutral-400 text-[9px]">No VIG</span>
-                                    ) : '—'}
+                                    ) : 'â€”'}
                                   </div>
                                   <div className="text-right self-center flex justify-end gap-0.5 flex-wrap">
                                     {li.noVig && <span className="text-[8px] bg-blue-500/20 text-blue-300 px-1 rounded font-bold">NV</span>}
@@ -785,7 +786,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                     )
                   })()}
 
-                  {/* ── Zoho Line Items (from live fetch) ── */}
+                  {/* â”€â”€ Zoho Line Items (from live fetch) â”€â”€ */}
                   {displayData?.line_items && displayData.line_items.length > 0 && (
                     <div>
                       <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2">Line Items</h4>
@@ -811,7 +812,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                     </div>
                   )}
 
-                  {/* ── Custom Fields (Zoho Books) ── */}
+                  {/* â”€â”€ Custom Fields (Zoho Books) â”€â”€ */}
                   {displayData?.custom_fields && displayData.custom_fields.filter((f: any) => f.value && f.value !== "" && f.value !== false && f.value !== "false").length > 0 && (
                     <div>
                       <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2">Zoho Custom Fields</h4>
@@ -834,7 +835,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                     </div>
                   )}
 
-                  {/* ── Raw fallback (no custom fields AND no cost data) ── */}
+                  {/* â”€â”€ Raw fallback (no custom fields AND no cost data) â”€â”€ */}
                   {!displayData?.custom_fields && !(displayData?.items as any)?.deadCostTotal && !costResult && (
                     <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 overflow-x-auto">
                       <pre className="text-[10px] text-neutral-300 font-mono whitespace-pre-wrap break-all">
@@ -866,3 +867,4 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
     document.body
   )
 }
+

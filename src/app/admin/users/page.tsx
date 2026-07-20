@@ -1,8 +1,10 @@
 "use client"
 
+
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { FiCheckSquare, FiSquare, FiUser, FiShield, FiChevronDown, FiChevronUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSave, FiUserPlus, FiEdit3, FiSearch, FiArrowUp, FiArrowDown, FiRefreshCw, FiUsers, FiZap, FiEye, FiEyeOff } from "react-icons/fi"
 import { PERMISSION_GROUPS, ALL_PERMISSIONS, DEFAULT_REP_PERMISSIONS, resolvePermissions, type UserPermissions } from "@/lib/permissions"
+import { toast } from 'react-hot-toast';
 
 type SortField = "name" | "email" | "role" | "accountCount"
 type SortDir = "asc" | "desc"
@@ -76,12 +78,12 @@ export default function AdminUsersPage() {
       if (data.success) {
         // Refresh the user list
         await fetchUsers()
-        setSyncMessage(`✅ Synced! ${users.length} users loaded from Zoho.`)
+        setSyncMessage(`âœ… Synced! ${users.length} users loaded from Zoho.`)
       } else {
-        setSyncMessage(`❌ Sync failed: ${data.error || 'Unknown error'}`)
+        setSyncMessage(`âŒ Sync failed: ${data.error || 'Unknown error'}`)
       }
     } catch (e: any) {
-      setSyncMessage(`❌ Sync error: ${e.message}`)
+      setSyncMessage(`âŒ Sync error: ${e.message}`)
     } finally {
       setSyncing(false)
       setTimeout(() => setSyncMessage(""), 5000)
@@ -172,10 +174,10 @@ export default function AdminUsersPage() {
       if (data.success) {
         setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: perms, canSendCampaigns: perms.sendCampaigns, ...(info || {}) } : u))
       } else {
-        alert("Failed to save: " + data.error)
+        toast.error("Failed to save: " + data.error)
       }
     } catch (e: any) {
-      alert("Error saving permissions")
+      toast.error("Error saving permissions")
     } finally {
       setSavingUser(null)
     }
@@ -424,7 +426,7 @@ export default function AdminUsersPage() {
           </div>
         </header>
         {syncMessage && (
-          <div className={`text-xs font-semibold px-3 py-2 rounded-lg ${syncMessage.startsWith('✅') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+          <div className={`text-xs font-semibold px-3 py-2 rounded-lg ${syncMessage.startsWith('âœ…') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
             {syncMessage}
           </div>
         )}
@@ -438,7 +440,7 @@ export default function AdminUsersPage() {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search by name or email…"
+              placeholder="Search by name or emailâ€¦"
               className="w-full bg-neutral-900/60 border border-neutral-800 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-emerald-500/50 transition-colors"
             />
             {searchQuery && (
@@ -504,7 +506,7 @@ export default function AdminUsersPage() {
                       <h3 className="font-bold text-white text-sm flex items-center gap-2">
                         {user.name || "Unnamed User"}
                         {user.zohoId ? (
-                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" title={`Zoho ID: ${user.zohoId}`}>ZOHO ✓</span>
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" title={`Zoho ID: ${user.zohoId}`}>ZOHO âœ“</span>
                         ) : (
                           <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20" title="No Zoho ID linked">NO ZOHO</span>
                         )}
@@ -784,7 +786,7 @@ export default function AdminUsersPage() {
                   placeholder="e.g. 4912873000000275001"
                   className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                 />
-                <p className="text-[10px] text-neutral-600 mt-1">Found in Zoho CRM → Settings → Users → click user → URL contains the ID</p>
+                <p className="text-[10px] text-neutral-600 mt-1">Found in Zoho CRM â†’ Settings â†’ Users â†’ click user â†’ URL contains the ID</p>
               </div>
             </div>
 
@@ -851,7 +853,7 @@ export default function AdminUsersPage() {
                   type="text"
                   value={accountSearchQuery}
                   onChange={e => setAccountSearchQuery(e.target.value)}
-                  placeholder="Search accounts…"
+                  placeholder="Search accountsâ€¦"
                   className="w-full bg-neutral-800 border border-neutral-700 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-violet-500/50 transition-colors"
                 />
               </div>
@@ -872,7 +874,7 @@ export default function AdminUsersPage() {
             <div className="flex-1 overflow-y-auto px-5 py-2 min-h-0">
               {loadingAccounts ? (
                 <div className="flex items-center justify-center py-12 gap-2 text-neutral-400 text-sm">
-                  <FiRefreshCw size={14} className="animate-spin" /> Loading accounts…
+                  <FiRefreshCw size={14} className="animate-spin" /> Loading accountsâ€¦
                 </div>
               ) : filteredAccounts.length === 0 ? (
                 <div className="text-center py-12 text-neutral-500 text-sm">
@@ -918,7 +920,7 @@ export default function AdminUsersPage() {
             {assigning && assignProgress.total > 0 && (
               <div className="px-5 py-3 border-t border-neutral-800 shrink-0">
                 <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1.5">
-                  <span>Reassigning {assignProgress.done}/{assignProgress.total}…</span>
+                  <span>Reassigning {assignProgress.done}/{assignProgress.total}â€¦</span>
                   <span>{Math.round((assignProgress.done / assignProgress.total) * 100)}%</span>
                 </div>
                 <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
@@ -952,7 +954,7 @@ export default function AdminUsersPage() {
                 className="flex-1 py-2 text-xs font-bold rounded-lg bg-violet-600 text-white hover:bg-violet-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
               >
                 {assigning ? (
-                  <><FiRefreshCw size={12} className="animate-spin" /> Reassigning…</>
+                  <><FiRefreshCw size={12} className="animate-spin" /> Reassigningâ€¦</>
                 ) : (
                   <>Reassign {selectedAccountIds.size > 0 ? `${selectedAccountIds.size} ` : ""}to {assignUser.name || "User"}</>
                 )}
@@ -964,3 +966,4 @@ export default function AdminUsersPage() {
     </div>
   )
 }
+

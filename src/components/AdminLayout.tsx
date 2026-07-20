@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter, usePathname } from "next/navigation"
 import { useEffect } from "react"
@@ -7,7 +8,7 @@ import Link from "next/link"
 import { 
   FiShield, FiGrid, FiUsers, FiClock, FiDollarSign, 
   FiTarget, FiAward, FiCalendar, FiMessageSquare, 
-  FiFileText, FiActivity, FiSettings, FiChevronLeft
+  FiFileText, FiActivity, FiSettings, FiChevronLeft, FiMapPin, FiTruck
 } from "react-icons/fi"
 
 const adminLinks = [
@@ -17,10 +18,11 @@ const adminLinks = [
   { group: "Users & Teams", items: [
     { name: "Users", href: "/admin/users", icon: FiUsers },
     { name: "Timeclock", href: "/admin/timeclock", icon: FiClock },
+    { name: "Geofences", href: "/admin/geofences", icon: FiMapPin },
     { name: "Payouts", href: "/admin/payouts", icon: FiDollarSign },
   ]},
   { group: "CRM & Operations", items: [
-    { name: "Vendors", href: "/admin/vendors", icon: FiUsers },
+    { name: "Vendors", href: "/admin/vendors", icon: FiTruck },
     { name: "Update Accounts", href: "/admin/update-accounts", icon: FiTarget },
     { name: "Update Configs", href: "/admin/update-config", icon: FiSettings },
     { name: "VIG Management", href: "/admin/vig", icon: FiAward },
@@ -145,3 +147,4 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     </div>
   )
 }
+

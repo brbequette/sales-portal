@@ -1,5 +1,6 @@
 "use client"
 
+
 import { createContext, useContext, useState, useEffect } from "react"
 import { FiX, FiBox, FiDollarSign, FiTag, FiInfo } from "react-icons/fi"
 
@@ -213,7 +214,7 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
             <div className="bg-neutral-950/40 border border-neutral-800/80 p-3.5 rounded-xl flex flex-col justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Vendor Cost</span>
               <span className="text-base font-extrabold text-neutral-300 mt-1">
-                {costVal !== null ? `$${costVal.toFixed(2)}` : "—"}
+                {costVal !== null ? `$${costVal.toFixed(2)}` : "â€”"}
               </span>
             </div>
 
@@ -226,7 +227,7 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
                   <span className="text-[9px] font-bold text-emerald-500/90">({profitMargin.toFixed(1)}% margin)</span>
                 </div>
               ) : (
-                <span className="text-base font-extrabold text-neutral-500 mt-1">—</span>
+                <span className="text-base font-extrabold text-neutral-500 mt-1">â€”</span>
               )}
             </div>
           </div>
@@ -313,3 +314,4 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
     </div>
   )
 }
+

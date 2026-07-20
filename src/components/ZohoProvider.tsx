@@ -1,5 +1,6 @@
 "use client"
 
+
 import { createContext, useContext, useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 
@@ -25,7 +26,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
 
     const currentPath = window.location.pathname
 
-    // ── LOGIN PAGE: Never run SDK init, only handle incoming zoho_auth ──
+    // â”€â”€ LOGIN PAGE: Never run SDK init, only handle incoming zoho_auth â”€â”€
     // The login page handles its own zoho_auth param decoding.
     // We just need to check if there's already a session to redirect away.
     if (currentPath.includes("/login")) {
@@ -42,7 +43,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
       return // No SDK init needed on login page
     }
 
-    // ── STEP 1: NextAuth Session ──
+    // â”€â”€ STEP 1: NextAuth Session â”€â”€
     if (status === "loading") return
     if (status === "authenticated" && session?.user) {
       console.log("Restored session from NextAuth:", session.user.email)
@@ -54,7 +55,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // ── STEP 2: URL params (Zoho Web Tab with Append Params or merge fields) ──
+    // â”€â”€ STEP 2: URL params (Zoho Web Tab with Append Params or merge fields) â”€â”€
     const params = new URLSearchParams(window.location.search)
     const email = params.get("email") || params.get("userEmail") || params.get("user_email") || params.get("Email")
     const name = params.get("name") || params.get("userName") || params.get("user_name") || params.get("fullName") || params.get("Name")
@@ -92,7 +93,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // ── STEP 2: Existing saved session (standalone / mobile) ──
+    // â”€â”€ STEP 2: Existing saved session (standalone / mobile) â”€â”€
     try {
       const saved = localStorage.getItem("sales_portal_user")
       if (saved) {
@@ -114,16 +115,16 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
             })
             .catch(() => {})
 
-          return // ← CRITICAL: Skip SDK init entirely when localStorage session exists
+          return // â† CRITICAL: Skip SDK init entirely when localStorage session exists
         }
       }
     } catch {}
 
-    // ── STEP 3: Check for Zoho SDK (embedded CRM widget) ──
+    // â”€â”€ STEP 3: Check for Zoho SDK (embedded CRM widget) â”€â”€
     // Only reached when there's NO localStorage session and NO URL params.
     // This means we're either:
     //   a) Running inside a Zoho CRM iframe (widget)
-    //   b) A new user with no session → will fall through to login redirect
+    //   b) A new user with no session â†’ will fall through to login redirect
     const checkZoho = setInterval(() => {
       if ((window as any).ZOHO) {
         clearInterval(checkZoho)
@@ -132,7 +133,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
 
         // Failsafe: if init() hangs (running standalone but SDK script loaded), give up after 3s
         const initFallback = setTimeout(() => {
-          console.warn("Zoho embeddedApp.init timed out. Standalone mode — redirecting to login.")
+          console.warn("Zoho embeddedApp.init timed out. Standalone mode â€” redirecting to login.")
           setIsInitialized(true) // Let AuthWrapper redirect to /login
         }, 3000)
 
@@ -185,7 +186,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
       }
     }, 100)
 
-    // ── STEP 4: No SDK after 2 seconds → standalone mode, go to login ──
+    // â”€â”€ STEP 4: No SDK after 2 seconds â†’ standalone mode, go to login â”€â”€
     const timeout = setTimeout(() => {
       clearInterval(checkZoho)
       console.log("No Zoho SDK and no session. Standalone mode.")
@@ -204,3 +205,4 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
     </ZohoContext.Provider>
   )
 }
+

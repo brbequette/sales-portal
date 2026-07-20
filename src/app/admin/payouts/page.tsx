@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useMemo } from "react"
@@ -400,22 +401,22 @@ export default function PayoutsPage() {
               <thead>
                 <tr className="bg-neutral-950/50 border-b border-neutral-800 text-neutral-400 uppercase tracking-wider text-xs select-none">
                   <th className="px-6 py-4 font-bold cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("repName")}>
-                    Rep Name {sortField === "repName" && (sortDir === "asc" ? "↑" : "↓")}
+                    Rep Name {sortField === "repName" && (sortDir === "asc" ? "â†‘" : "â†“")}
                   </th>
                   <th className="px-6 py-4 font-bold text-right text-emerald-400 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("totalEarned")}>
-                    Total Earned {sortField === "totalEarned" && (sortDir === "asc" ? "↑" : "↓")}
+                    Total Earned {sortField === "totalEarned" && (sortDir === "asc" ? "â†‘" : "â†“")}
                   </th>
                   <th className="px-6 py-4 font-bold text-right text-neutral-500 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("totalPaid")}>
-                    Total Paid {sortField === "totalPaid" && (sortDir === "asc" ? "↑" : "↓")}
+                    Total Paid {sortField === "totalPaid" && (sortDir === "asc" ? "â†‘" : "â†“")}
                   </th>
                   <th className="px-6 py-4 font-bold text-right text-purple-400 text-base cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("balance")}>
-                    Balance {sortField === "balance" && (sortDir === "asc" ? "↑" : "↓")}
+                    Balance {sortField === "balance" && (sortDir === "asc" ? "â†‘" : "â†“")}
                   </th>
                   <th className="px-6 py-4 font-bold text-right text-amber-500 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("totalFutures")}>
-                    Futures {sortField === "totalFutures" && (sortDir === "asc" ? "↑" : "↓")}
+                    Futures {sortField === "totalFutures" && (sortDir === "asc" ? "â†‘" : "â†“")}
                   </th>
                   <th className="px-6 py-4 font-bold text-right text-red-400 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("totalAtRisk")}>
-                    At Risk (90d+) {sortField === "totalAtRisk" && (sortDir === "asc" ? "↑" : "↓")}
+                    At Risk (90d+) {sortField === "totalAtRisk" && (sortDir === "asc" ? "â†‘" : "â†“")}
                   </th>
                 </tr>
               </thead>
@@ -711,3 +712,4 @@ export default function PayoutsPage() {
     </div>
   )
 }
+

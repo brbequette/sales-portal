@@ -1,4 +1,5 @@
-"use client";
+"use client"
+
 
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -163,3 +164,4 @@ export default function PayoutModal({ isOpen, onClose, repId, repName, onSuccess
     </Dialog>
   );
 }
+

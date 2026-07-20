@@ -1,7 +1,10 @@
 "use client"
 
+import { toastConfirm } from '@/lib/toastConfirm'
+
 import React, { useState, useEffect } from "react"
 import { FiClock, FiCheckCircle, FiXCircle, FiEdit2, FiAlertCircle, FiMapPin, FiPlus, FiTrash2, FiToggleLeft, FiToggleRight } from "react-icons/fi"
+import { toast } from 'react-hot-toast';
 
 interface TimeChangeRequest {
   id: string
@@ -150,7 +153,7 @@ export default function AdminTimeclockPage() {
       }
     } catch (err) {
       console.error(err)
-      alert("Error saving override")
+      toast.error("Error saving override")
     } finally {
       setSaving(false)
     }
@@ -176,11 +179,11 @@ export default function AdminTimeclockPage() {
         setAddIn("")
         setAddOut("")
       } else {
-        alert("Failed to add entry")
+        toast.error("Failed to add entry")
       }
     } catch (err) {
       console.error(err)
-      alert("Error saving manual time entry")
+      toast.error("Error saving manual time entry")
     } finally {
       setSaving(false)
     }
@@ -205,7 +208,7 @@ export default function AdminTimeclockPage() {
       }
     } catch (err) {
       console.error(err)
-      alert("Error handling request")
+      toast.error("Error handling request")
     }
   }
 
@@ -330,7 +333,7 @@ export default function AdminTimeclockPage() {
         </div>
 
       {activeAdminTab === 'geofences' ? (
-        /* ══════════ Geofence Management Tab ══════════ */
+        /* â•â•â•â•â•â•â•â•â•â• Geofence Management Tab â•â•â•â•â•â•â•â•â•â• */
         <div className="space-y-4">
           {/* Add/Edit Geofence Form */}
           {showGeoForm && (
@@ -399,7 +402,7 @@ export default function AdminTimeclockPage() {
                   </button>
                 </div>
               </form>
-              <p className="text-[10px] text-neutral-500 mt-3">💡 Tip: Right-click a location on Google Maps and copy the coordinates (lat, lng).</p>
+              <p className="text-[10px] text-neutral-500 mt-3">ðŸ’¡ Tip: Right-click a location on Google Maps and copy the coordinates (lat, lng).</p>
             </div>
           )}
 
@@ -409,7 +412,7 @@ export default function AdminTimeclockPage() {
               <FiMapPin size={32} className="mx-auto text-neutral-600 mb-3" />
               <p className="text-neutral-400 text-sm font-semibold">No geofence locations configured</p>
               <p className="text-neutral-500 text-xs mt-1">Add your office or warehouse locations to verify employee clock-in/out positions.</p>
-              <p className="text-neutral-500 text-xs mt-1">GPS will still be captured without geofences — it just won't be validated.</p>
+              <p className="text-neutral-500 text-xs mt-1">GPS will still be captured without geofences â€” it just won't be validated.</p>
             </div>
           ) : (
             <div className="grid gap-3">
@@ -430,7 +433,7 @@ export default function AdminTimeclockPage() {
                       </div>
                       {geo.address && <div className="text-xs text-neutral-400 truncate">{geo.address}</div>}
                       <div className="text-[10px] text-neutral-500 font-mono mt-0.5">
-                        {geo.latitude.toFixed(6)}, {geo.longitude.toFixed(6)} · {geo.radiusMeters}m radius
+                        {geo.latitude.toFixed(6)}, {geo.longitude.toFixed(6)} Â· {geo.radiusMeters}m radius
                       </div>
                     </div>
                   </div>
@@ -468,14 +471,14 @@ export default function AdminTimeclockPage() {
                     </button>
                     <button
                       onClick={async () => {
-                        if (!confirm(`Delete geofence "${geo.name}"?`)) return
+                        toastConfirm(`Delete geofence "${geo.name}"?`, async () => {
                         await fetch('/api/timeclock/admin', {
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ type: 'GEOFENCE_DELETE', id: geo.id })
                         })
                         fetchEntries()
-                      }}
+                      });}}
                       className="p-2 text-red-400/50 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                       title="Delete"
                     >
@@ -489,15 +492,15 @@ export default function AdminTimeclockPage() {
 
           {/* How it works info */}
           <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 text-xs text-blue-300/80 space-y-1">
-            <p className="font-bold text-blue-300">📍 How Geolocation Timeclock Works</p>
-            <p>• GPS is captured <strong>only</strong> at clock-in and clock-out — not continuously tracked.</p>
-            <p>• If geofence locations are configured, clock-in position is validated against the nearest location.</p>
-            <p>• Status shows as VERIFIED (within radius), OUT_OF_RANGE, DENIED (no GPS permission), or UNAVAILABLE.</p>
-            <p>• Without any geofences, GPS is still captured for audit trail but always shows as VERIFIED.</p>
+            <p className="font-bold text-blue-300">ðŸ“ How Geolocation Timeclock Works</p>
+            <p>â€¢ GPS is captured <strong>only</strong> at clock-in and clock-out â€” not continuously tracked.</p>
+            <p>â€¢ If geofence locations are configured, clock-in position is validated against the nearest location.</p>
+            <p>â€¢ Status shows as VERIFIED (within radius), OUT_OF_RANGE, DENIED (no GPS permission), or UNAVAILABLE.</p>
+            <p>â€¢ Without any geofences, GPS is still captured for audit trail but always shows as VERIFIED.</p>
           </div>
         </div>
       ) : (
-      /* ══════════ Entries Tab ══════════ */
+      /* â•â•â•â•â•â•â•â•â•â• Entries Tab â•â•â•â•â•â•â•â•â•â• */
       <>
       {Object.values(userGroups).length === 0 ? (
         <div className="text-neutral-500">No time entries found for this month.</div>
@@ -547,29 +550,29 @@ export default function AdminTimeclockPage() {
                                 </td>
                                 <td className="px-4 py-2">
                                   {formatTime(entry.manualClockIn || entry.clockIn)}
-                                  {entry.manualClockIn && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">●</span>}
+                                  {entry.manualClockIn && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">â—</span>}
                                 </td>
                                 <td className="px-4 py-2">
                                   {formatTime(entry.manualClockOut || entry.clockOut || entry.lastActivity)}
-                                  {entry.manualClockOut && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">●</span>}
+                                  {entry.manualClockOut && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">â—</span>}
                                 </td>
                                 <td className="px-4 py-2">
                                   {(entry as any).locationStatus === 'VERIFIED' && (
                                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold whitespace-nowrap">
-                                      📍 {(entry as any).clockInLocation || 'On-Site'}
+                                      ðŸ“ {(entry as any).clockInLocation || 'On-Site'}
                                     </span>
                                   )}
                                   {(entry as any).locationStatus === 'OUT_OF_RANGE' && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">⚠️ Off-Site</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">âš ï¸ Off-Site</span>
                                   )}
                                   {(entry as any).locationStatus === 'DENIED' && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-500/20 text-neutral-400 font-bold">🔒 No GPS</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-500/20 text-neutral-400 font-bold">ðŸ”’ No GPS</span>
                                   )}
                                   {(entry as any).locationStatus === 'UNAVAILABLE' && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-800 text-neutral-500 font-bold">—</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-800 text-neutral-500 font-bold">â€”</span>
                                   )}
                                   {!(entry as any).locationStatus && (
-                                    <span className="text-[10px] text-neutral-600">—</span>
+                                    <span className="text-[10px] text-neutral-600">â€”</span>
                                   )}
                                 </td>
                                 <td className="px-4 py-2">
@@ -615,7 +618,7 @@ export default function AdminTimeclockPage() {
                                              <span>Idle: {formatTime(lapse.start)} - {formatTime(lapse.end)} ({lapse.durationMinutes} min)</span>
                                              <button 
                                                 onClick={async () => {
-                                                  if (!confirm("Remove this idle period? The hours will be added back to the shift.")) return;
+                                                  toastConfirm("Remove this idle period? The hours will be added back to the shift.", async () => {
                                                   const updatedLapses = (entry.inactivityPeriods || []).filter((l: any) => l.id !== lapse.id)
                                                   try {
                                                     await fetch("/api/timeclock/admin", {
@@ -629,7 +632,7 @@ export default function AdminTimeclockPage() {
                                                     })
                                                     fetchEntries()
                                                   } catch(e) {}
-                                                }}
+                                                });}}
                                                 className="text-red-500 hover:text-white ml-2 px-2 py-0.5 bg-red-500/10 hover:bg-red-500/30 rounded transition-colors"
                                              >
                                                Remove
@@ -775,3 +778,5 @@ export default function AdminTimeclockPage() {
     </div>
   )
 }
+
+

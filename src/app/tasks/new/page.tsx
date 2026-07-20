@@ -1,8 +1,10 @@
 "use client"
 
+
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useZoho } from "@/components/ZohoProvider"
+import { toast } from 'react-hot-toast';
 
 export default function NewTaskPage() {
   const router = useRouter()
@@ -197,10 +199,10 @@ export default function NewTaskPage() {
       if (data.success) {
         router.push('/')
       } else {
-        alert("Failed to create task: " + data.error)
+        toast.error("Failed to create task: " + data.error)
       }
     } catch (err: any) {
-      alert("Error saving task: " + err.message)
+      toast.error("Error saving task: " + err.message)
     } finally {
       setTaskSaving(false)
     }
@@ -311,7 +313,7 @@ export default function NewTaskPage() {
               >
                 <option value="">-- No Linked Account (Company Task) --</option>
                 {preselectedAccountName && !accounts.some(a => a.zohoId === taskWhatId) && (
-                  <option value={taskWhatId}>{preselectedAccountName} ✓</option>
+                  <option value={taskWhatId}>{preselectedAccountName} âœ“</option>
                 )}
                 {accounts.map(a => (
                   <option key={a.id} value={a.zohoId}>{a.name}</option>
@@ -388,7 +390,7 @@ export default function NewTaskPage() {
             </div>
             
             <div className="border-t border-white/10 pt-6">
-              <h4 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4">🔔 Reminder (Optional)</h4>
+              <h4 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4">ðŸ”” Reminder (Optional)</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Reminder Date</label>
@@ -426,7 +428,7 @@ export default function NewTaskPage() {
                           }}
                           className="w-4 h-4 rounded border-white/20 bg-[#111214] text-emerald-500 focus:ring-emerald-500"
                         />
-                        <span className="text-sm text-neutral-300 font-semibold capitalize">{method === 'push' ? '🔔 Push' : method === 'sms' ? '💬 SMS' : '📧 Email'}</span>
+                        <span className="text-sm text-neutral-300 font-semibold capitalize">{method === 'push' ? 'ðŸ”” Push' : method === 'sms' ? 'ðŸ’¬ SMS' : 'ðŸ“§ Email'}</span>
                       </label>
                     ))}
                   </div>
@@ -456,3 +458,4 @@ export default function NewTaskPage() {
     </div>
   )
 }
+

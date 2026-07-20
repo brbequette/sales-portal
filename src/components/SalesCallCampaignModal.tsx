@@ -1,5 +1,6 @@
 "use client"
 
+
 import { formatPhoneNumber } from "@/lib/formatters"
 
 
@@ -16,6 +17,7 @@ import { useZoho } from "@/components/ZohoProvider"
 import { FactFindingPanel, FactFindingSummary, EMPTY_FACT_FINDING, type FactFindingValues } from "@/components/FactFindingPanel"
 import { OrderBuilder, type OrderLine } from "@/components/OrderBuilder"
 import { PhoneLink } from "@/components/PhoneLink"
+import { toast } from 'react-hot-toast';
 
 interface SalesCallCampaignModalProps {
   accounts: any[]
@@ -33,7 +35,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const [followUpDate, setFollowUpDate] = useState("")
   const [contactReached, setContactReached] = useState(true)
   
-  // Fact-Finding — single unified object (replaces 11 individual ff* states)
+  // Fact-Finding â€” single unified object (replaces 11 individual ff* states)
   const [factFinding, setFactFinding] = useState<FactFindingValues>(EMPTY_FACT_FINDING)
   const [callType, setCallType] = useState<"cold" | "update">("cold")
 
@@ -94,7 +96,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
         return () => clearTimeout(t)
       } else {
         setIsPowerDialerActive(false)
-        alert(`Power Dialer paused: No valid phone number for ${activeAccount.name}`)
+        toast.error(`Power Dialer paused: No valid phone number for ${activeAccount.name}`)
       }
     }
   }, [currentIndex, isPowerDialerActive, activeAccount])
@@ -239,7 +241,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                   : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400'
               }`}
             >
-              {isChecked ? '✓ ' : ''}{opt}
+              {isChecked ? 'âœ“ ' : ''}{opt}
             </button>
           )
         })}
@@ -366,7 +368,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     if (currentIndex < accounts.length - 1) {
       setCurrentIndex(prev => prev + 1)
     } else {
-      alert("Campaign completed!")
+      toast.success("Campaign completed!")
       onRefresh()
       onClose()
     }
@@ -390,10 +392,10 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
       if (data.success) {
         setAiResult(data.result);
       } else {
-        alert("Failed to generate AI content: " + data.message);
+        toast.error("Failed to generate AI content: " + data.message);
       }
     } catch (err: any) {
-      alert("Error: " + err.message);
+      toast.error("Error: " + err.message);
     } finally {
       setIsGeneratingAi(false);
     }
@@ -441,10 +443,10 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
       if (data.success) {
         handleNext()
       } else {
-        alert(data.error || "Failed to log call outcome.")
+        toast.error(data.error || "Failed to log call outcome.")
       }
     } catch (e: any) {
-      alert("Error logging call: " + e.message)
+      toast.error("Error logging call: " + e.message)
     }
   }
 
@@ -487,7 +489,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
       </header>
 
       {/* --- MAIN 2-PANEL BODY (center + intel) --- */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex flex-col md:flex-row min-h-0">
 
         {/* === CENTER PANEL: DIALER + SCRIPT + CLOSE + LOG === */}
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-thin">
@@ -738,7 +740,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       <div className="bg-neutral-950/60 border border-neutral-800 p-4 rounded-xl text-sm text-neutral-300 leading-relaxed whitespace-pre-line select-text">
                         {`Hey, ${contactName} this is ${repName} over at Titan Diamond USA. I'm giving you a call today because we have an early release on our brand new 2026 line-up of blades that we featured at the The World of Concrete and ConExpo shows in Las Vegas this year and what's great is with this new release, our manufacturer wants us to give away free blades to our new customers to build new relationships... I just have a quick couple questions to see which blade will work best for you and what you're cutting...`}
                       </div>
-                      {/* Fact-Finding Questions — shared FactFindingPanel component */}
+                      {/* Fact-Finding Questions â€” shared FactFindingPanel component */}
                       <FactFindingPanel
                         values={factFinding}
                         onChange={setFactFinding}
@@ -759,7 +761,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       {generateScript()}
                     </div>
 
-                    {/* Fact-finding for follow-ups — shared FactFindingPanel component */}
+                    {/* Fact-finding for follow-ups â€” shared FactFindingPanel component */}
                     <FactFindingPanel
                       values={factFinding}
                       onChange={setFactFinding}
@@ -847,10 +849,10 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 If card: "Perfect, go ahead and read the number from left to right, 4 digits at a time."
               </p>
               <div className="pl-7 mt-2 grid grid-cols-2 gap-2">
-                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">💳 Full card number</div>
-                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">📅 Expiration date</div>
-                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">🔒 CVV code</div>
-                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">📍 Billing ZIP code</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ’³ Full card number</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ“… Expiration date</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ”’ CVV code</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ“Â Billing ZIP code</div>
               </div>
               <p className="text-xs text-neutral-500 pl-7 mt-2 italic">
                 Or Net 30: "Great  --  I'll get everything rolling and email your invoice with Net 30 terms. Who's the best contact for billing on your end?"
@@ -873,7 +875,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             {/* Step 4: Final Close */}
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black flex items-center justify-center">✓</span>
+                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black flex items-center justify-center">âœ“</span>
                 <h4 className="text-white font-bold text-sm">Final Close</h4>
               </div>
               <p className="text-xs text-sky-100/70 leading-relaxed pl-7">
@@ -884,7 +886,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
         </div>
 
         {/* === RIGHT PANEL: ACCOUNT INTEL === */}
-        <div className="w-[340px] bg-[#080b12] border-l border-neutral-800/50 overflow-y-auto scrollbar-thin p-4 space-y-4 shrink-0">
+        <div className="w-full md:w-[340px] bg-[#080b12] border-t md:border-t-0 md:border-l border-neutral-800/50 overflow-y-auto scrollbar-thin p-4 space-y-4 shrink-0">
 
           {isLoadingIntel && (
             <div className="flex items-center justify-center py-10 text-neutral-500">
@@ -1109,7 +1111,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                   onClick={() => {
                     const el = document.getElementById('quick-note-input') as HTMLTextAreaElement
                     if (el && el.value.trim()) {
-                      alert('Note saving requires the update-account-details endpoint, but the UI is ready!')
+                      toast.success('Note saving requires the update-account-details endpoint, but the UI is ready!')
                       el.value = ''
                     }
                   }}
@@ -1147,4 +1149,5 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
     </div>
   )
 }
+
 

@@ -1,4 +1,5 @@
 "use client"
+
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { useZoho } from "./ZohoProvider"
 
@@ -75,3 +76,4 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     </PreferencesContext.Provider>
   )
 }
+

@@ -1,5 +1,6 @@
 "use client"
 
+
 import { formatPhoneNumber } from "@/lib/formatters"
 
 import { useState } from "react"
@@ -148,3 +149,4 @@ export function SalesAssistant({ accountId, accountData }: { accountId: string, 
     </div>
   )
 }
+

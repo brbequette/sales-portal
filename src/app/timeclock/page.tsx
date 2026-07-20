@@ -1,9 +1,11 @@
 "use client"
 
+
 import React, { useState, useEffect, useMemo } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { FiClock, FiAlertCircle, FiCheckCircle, FiXCircle } from "react-icons/fi"
 import { calculateHours, formatHours } from "@/lib/timeclock-utils"
+import { toast } from 'react-hot-toast';
 
 interface TimeEntry {
   id: string
@@ -83,7 +85,7 @@ export default function UserTimeclockPage() {
     e.preventDefault()
     if (!currentUser?.id) return
     if (!selectedEntry && (!newClockIn || !newClockOut)) {
-      alert("Clock In and Clock Out are required to report a missing shift")
+      toast.error("Clock In and Clock Out are required to report a missing shift")
       return
     }
     
@@ -110,11 +112,11 @@ export default function UserTimeclockPage() {
         if (d.success) setEntries(d.entries)
         setShowChangeModal(false)
       } else {
-        alert("Failed to submit request: " + data.error)
+        toast.error("Failed to submit request: " + data.error)
       }
     } catch (err) {
       console.error(err)
-      alert("Error submitting change request")
+      toast.error("Error submitting change request")
     } finally {
       setSubmitting(false)
     }
@@ -263,21 +265,21 @@ export default function UserTimeclockPage() {
                               {entry.manualClockOut && <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">Edited</span>}
                             </td>
                             <td className="px-6 py-4 font-bold text-emerald-400">
-                              <span className="md:hidden text-[10px] text-neutral-500 block mb-0.5">{formatTime(effectiveIn)} – {formatTime(effectiveOut)}</span>
+                              <span className="md:hidden text-[10px] text-neutral-500 block mb-0.5">{formatTime(effectiveIn)} â€“ {formatTime(effectiveOut)}</span>
                               {calculateHours(entry).toFixed(2)}h
                               {entry.locationStatus === 'VERIFIED' && (
                                 <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
-                                  📍 {entry.clockInLocation || 'On-Site'}
+                                  ðŸ“ {entry.clockInLocation || 'On-Site'}
                                 </span>
                               )}
                               {entry.locationStatus === 'OUT_OF_RANGE' && (
                                 <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">
-                                  ⚠️ Off-Site
+                                  âš ï¸ Off-Site
                                 </span>
                               )}
                               {entry.locationStatus === 'DENIED' && (
                                 <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-500/20 text-neutral-400 font-bold">
-                                  🔒 No GPS
+                                  ðŸ”’ No GPS
                                 </span>
                               )}
                             </td>
@@ -287,12 +289,12 @@ export default function UserTimeclockPage() {
                                   {entry.inactivityPeriods.map((lapse: any, idx: number) => (
                                     <div key={lapse.id || idx} className="flex items-center gap-1.5 text-xs text-red-400">
                                       <FiAlertCircle className="shrink-0" />
-                                      <span>{formatTime(lapse.start)} – {formatTime(lapse.end)} ({lapse.durationMinutes}m)</span>
+                                      <span>{formatTime(lapse.start)} â€“ {formatTime(lapse.end)} ({lapse.durationMinutes}m)</span>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <span className="text-xs text-neutral-600">—</span>
+                                <span className="text-xs text-neutral-600">â€”</span>
                               )}
                             </td>
                             <td className="px-6 py-4">
@@ -325,7 +327,7 @@ export default function UserTimeclockPage() {
                                     {entry.inactivityPeriods.map((lapse: any, idx: number) => (
                                       <div key={lapse.id || idx} className="flex items-center gap-2 text-xs text-red-400">
                                          <FiAlertCircle /> 
-                                         <span>Idle: {formatTime(lapse.start)} – {formatTime(lapse.end)} ({lapse.durationMinutes} min)</span>
+                                         <span>Idle: {formatTime(lapse.start)} â€“ {formatTime(lapse.end)} ({lapse.durationMinutes} min)</span>
                                       </div>
                                     ))}
                                   </div>
@@ -425,3 +427,4 @@ export default function UserTimeclockPage() {
     </div>
   )
 }
+

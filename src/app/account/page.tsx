@@ -1,5 +1,7 @@
 "use client"
 
+import { StandaloneOrderBuilder } from '@/components/StandaloneOrderBuilder'
+
 import { formatPhoneNumber } from "@/lib/formatters"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Suspense, useState, useEffect } from "react"
@@ -12,13 +14,13 @@ import {
 } from "react-icons/fi"
 import { useZoho } from "@/components/ZohoProvider"
 import { AccountHistory } from "@/components/AccountHistory"
-import { AccountDialer } from "@/components/AccountDialer"
+import { CommunicationsHub } from "@/components/CommunicationsHub"
 import { PhoneLink } from "@/components/PhoneLink"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { DocumentFlipbook } from "@/components/DocumentFlipbook"
 import { AccountAnalytics } from "@/components/AccountAnalytics"
 import { DealsHistory } from "@/components/DealsHistory"
-import { InlinePointOfSale, type InlineCartItem } from "@/components/PointOfSale"
+import { OrderBuilder, OrderLine } from "@/components/OrderBuilder"
 import Link from "next/link"
 import { QualityPicker } from "@/components/QualityPicker"
 import { ContactsView } from "@/components/ContactsView"
@@ -26,6 +28,7 @@ import { AccountProductsPurchased } from "@/components/AccountProductsPurchased"
 import { AccountPackages } from "@/components/AccountPackages"
 import { TaskEditor } from "@/components/TaskEditor"
 import { AccountEditModal } from "@/components/AccountEditModal"
+import { toast } from 'react-hot-toast';
 
 type ActiveTab = "comms" | "overview" | "quicksale"
 
@@ -61,7 +64,7 @@ function AccountLeftRail({
 }: {
   account: any
   onTabSwitch: (tab: ActiveTab) => void
-  onReorder: (cart: InlineCartItem[]) => void
+  onReorder: (cart: any[]) => void
 }) {
   const primaryContact = account.contacts?.find((c: any) => c.isPrimary) || account.contacts?.[0]
   const phone = primaryContact?.phone || primaryContact?.mobilePhone || account.booksContact?.phone || ""
@@ -183,7 +186,7 @@ function AccountLeftRail({
                 </div>
                 <button
                   onClick={() => {
-                    const item: InlineCartItem = {
+                    const item: any = {
                       product: {
                         id: p.id || p.zohoId || String(i),
                         name: p.name,
@@ -229,7 +232,7 @@ function AccountLeftRail({
   )
 }
 
-// OverviewPanel — full accordion dashboard for the Overview tab
+// OverviewPanel â€” full accordion dashboard for the Overview tab
 function AccordionSection({
   title, icon, badge, defaultOpen = true, children,
 }: {
@@ -553,7 +556,7 @@ function AccountHubContent() {
   const [viewingSalesDoc, setViewingSalesDoc] = useState<{ type: "SalesOrder" | "Quote"; doc: any } | null>(null)
   const [historyViewMode, setHistoryViewMode] = useState<"data" | "pdf">("data")
   const [isEditingAccount, setIsEditingAccount] = useState(false)
-  const [reorderCart, setReorderCart] = useState<InlineCartItem[]>([])
+  const [reorderCart, setReorderCart] = useState<any[]>([])
   const [leftRailOpen, setLeftRailOpen] = useState(true)
 
   const localTime = useLocalTime(account?.timeZone)
@@ -712,9 +715,9 @@ function AccountHubContent() {
                     body: JSON.stringify({ accountId: account.zohoId }),
                   })
                   const data = await res.json()
-                  alert(data.success ? (data.message || "Added to Zoho Books!") : "Error: " + data.error)
+                  toast.error(data.success ? (data.message || "Added to Zoho Books!") : "Error: " + data.error)
                 } catch (e: any) {
-                  alert("Error: " + e.message)
+                  toast.error("Error: " + e.message)
                 }
               }}
               className="hidden sm:flex shrink-0 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-3 py-1.5 text-xs rounded-full font-bold transition-colors border border-neutral-700"
@@ -756,7 +759,7 @@ function AccountHubContent() {
       {/* 2-Column Body */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
 
-        {/* Left Rail — always visible on desktop, toggled on mobile */}
+        {/* Left Rail â€” always visible on desktop, toggled on mobile */}
         {leftRailOpen && (
           <>
             {/* Desktop */}
@@ -781,25 +784,36 @@ function AccountHubContent() {
         {/* Main content area */}
         <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-y-auto scrollbar-thin">
 
-          {/* COMM CENTER */}
-          {activeTab === "comms" && (
-            <div className="flex-1 min-h-0 flex flex-col">
-              <AccountDialer
-                accountId={id}
-                account={account}
-                contacts={account.contacts || []}
-              />
-            </div>
-          )}
+        {/* COMM CENTER */}
+        {activeTab === "comms" && (
+          <div className="flex-1 min-h-0 flex flex-col p-2">
+            <CommunicationsHub
+              accountId={id}
+              account={account}
+              contacts={account.contacts || []}
+            />
+          </div>
+        )}
 
           {/* QUICK SALE */}
           {activeTab === "quicksale" && (
-            <InlinePointOfSale
-              accountId={id}
-              account={account}
-              initialCart={reorderCart}
-              onSuccess={() => { setReorderCart([]); fetchAccountData(false) }}
-            />
+            <div className="p-4 bg-neutral-900/50 rounded-xl">
+              <OrderBuilder
+                accountId={id}
+                accountName={account.name}
+                accountDetail={account}
+                orderLines={reorderCart.map((i: any) => ({
+                  id: Date.now().toString() + "-" + i.product.sku,
+                  name: i.product.name,
+                  sku: i.product.sku,
+                  quantity: i.quantity,
+                  unitPrice: i.customPrice,
+                  cost: i.product.cost || 0,
+                  isPromo: false
+                }))}
+                onSuccess={() => { setReorderCart([]); fetchAccountData(false) }}
+              />
+            </div>
           )}
 
           {/* OVERVIEW */}
@@ -933,3 +947,6 @@ export default function AccountHub() {
     </Suspense>
   )
 }
+
+
+

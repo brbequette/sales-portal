@@ -1,5 +1,7 @@
 "use client"
 
+import { toastConfirm } from '@/lib/toastConfirm'
+
 import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { FiDatabase, FiRefreshCw, FiAlertTriangle, FiCheckCircle } from "react-icons/fi"
@@ -14,7 +16,7 @@ export default function InvoiceManagementPage() {
   const [error, setError] = useState("")
 
   const handleRunBulkFix = async () => {
-    if (!confirm("Are you sure you want to recalculate invoice costs? This will query Zoho for live invoice data and update the database.")) return
+    toastConfirm("Are you sure you want to recalculate invoice costs? This will query Zoho for live invoice data and update the database.", async () => {
     
     setRunning(true)
     setResults(null)
@@ -43,7 +45,7 @@ export default function InvoiceManagementPage() {
     } finally {
       setRunning(false)
     }
-  }
+  });}
 
   if (!isInitialized) return <div className="p-8 text-white">Loading...</div>
 
@@ -159,3 +161,5 @@ export default function InvoiceManagementPage() {
     </div>
   )
 }
+
+

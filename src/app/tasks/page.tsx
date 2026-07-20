@@ -1,4 +1,5 @@
 "use client"
+
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useZoho } from "@/components/ZohoProvider"
@@ -13,7 +14,7 @@ import {
 } from "react-icons/fi"
 import { PhoneLink } from "@/components/PhoneLink"
 
-// ─── Types ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type TaskType     = "Task" | "Call" | "Email" | "Text" | "Processing"
 type TaskStatus   = "Not Started" | "In Progress" | "Deferred" | "Completed" | "Waiting on someone else"
 type TaskPriority = "High" | "Normal" | "Low"
@@ -47,7 +48,7 @@ interface Task {
   actionUrl?: string
 }
 
-// ─── Category classification ────────────────────────────────────────────────
+// â”€â”€â”€ Category classification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function classifyTask(t: Task): Category {
   const type = (t.type || "Task").toLowerCase()
   if (["call", "email", "text"].includes(type)) return "communication"
@@ -85,7 +86,7 @@ const PRIORITY_COLORS: Record<string, string> = {
   Low:    "text-blue-400",
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function fmtDate(d: string | null) {
   if (!d) return ""
   const dt = new Date(d)
@@ -110,7 +111,7 @@ function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
-// ─── STATUS LABEL ───────────────────────────────────────────────────────────
+// â”€â”€â”€ STATUS LABEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function StatusChip({ status }: { status: string }) {
   return (
     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${STATUS_COLORS[status] || STATUS_COLORS["Not Started"]}`}>
@@ -119,14 +120,14 @@ function StatusChip({ status }: { status: string }) {
   )
 }
 
-// ─── PRIORITY ICON ──────────────────────────────────────────────────────────
+// â”€â”€â”€ PRIORITY ICON â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PriorityIcon({ priority }: { priority: string }) {
   if (priority === "High")   return <FiArrowUp size={13} className="text-red-400 shrink-0" />
   if (priority === "Low")    return <FiArrowDown size={13} className="text-blue-400 shrink-0" />
   return <FiMinus size={13} className="text-neutral-600 shrink-0" />
 }
 
-// ─── TASK CARD (mobile-first) ────────────────────────────────────────────────
+// â”€â”€â”€ TASK CARD (mobile-first) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function TaskCard({ task, onTap, onComplete, onStatusChange }: {
   task: Task
   onTap: () => void
@@ -179,7 +180,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
           {task.dueDate && (
             <span className={`ml-auto text-[11px] font-semibold shrink-0 ${overdue && !completed ? "text-red-400" : "text-neutral-500"}`}>
               <FiClock size={9} className="inline mr-0.5 -mt-0.5" />
-              {fmtDate(task.dueDate)}{fmtTime(task.dueDate) ? ` · ${fmtTime(task.dueDate)}` : ""}
+              {fmtDate(task.dueDate)}{fmtTime(task.dueDate) ? ` Â· ${fmtTime(task.dueDate)}` : ""}
             </span>
           )}
         </div>
@@ -189,7 +190,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
           {task.title}
         </p>
 
-        {/* Description preview — plain notes only, no outcome timestamps */}
+        {/* Description preview â€” plain notes only, no outcome timestamps */}
         {task.description && (() => {
           const plain = task.description.split("\n").filter((l: string) => !/^\[.+\]/.test(l.trim())).join(" ").trim()
           return plain ? (
@@ -207,7 +208,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
           </p>
         )}
 
-        {/* Deal chip — separate from account */}
+        {/* Deal chip â€” separate from account */}
         {task.dealName && (
           <p className="text-xs text-violet-400 flex items-center gap-1 mt-1">
             <FiShare2 size={10} className="shrink-0" />
@@ -290,7 +291,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
                   className={`w-full text-left text-sm px-4 py-3 transition-colors flex items-center gap-3 ${task.status === s ? "text-white font-bold bg-white/5" : "text-neutral-400 hover:bg-white/5 hover:text-white"}`}
                 >
                   <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[s]?.includes("emerald") ? "bg-emerald-400" : STATUS_COLORS[s]?.includes("sky") ? "bg-sky-400" : STATUS_COLORS[s]?.includes("yellow") ? "bg-yellow-400" : "bg-neutral-500"}`} />
-                  {s === "Waiting on someone else" ? "Waiting…" : s}
+                  {s === "Waiting on someone else" ? "Waitingâ€¦" : s}
                 </button>
               ))}
             </div>
@@ -301,7 +302,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
   )
 }
 
-// ─── TASK DETAIL SHEET (full-screen on mobile) ──────────────────────────────
+// â”€â”€â”€ TASK DETAIL SHEET (full-screen on mobile) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function TaskDetail({ task, onClose, onUpdate, onComplete }: {
   task: Task
   onClose: () => void
@@ -364,7 +365,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
             <button onClick={handleSave} disabled={saving}
               className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-4 py-2 rounded-xl transition-all disabled:opacity-50"
             >
-              <FiSave size={13} /> {saving ? "…" : "Save"}
+              <FiSave size={13} /> {saving ? "â€¦" : "Save"}
             </button>
           </div>
         </div>
@@ -410,7 +411,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
                       editStatus === s ? STATUS_COLORS[s] + " border-opacity-100" : "bg-white/3 text-neutral-500 border-white/8 hover:bg-white/5"
                     }`}
                   >
-                    {s === "Waiting on someone else" ? "Waiting…" : s}
+                    {s === "Waiting on someone else" ? "Waitingâ€¦" : s}
                   </button>
                 ))}
               </div>
@@ -497,7 +498,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
                   setEditDesc(existing ? `${e.target.value}\n\n${existing}` : e.target.value)
                 }}
                 rows={5}
-                placeholder="Add notes…"
+                placeholder="Add notesâ€¦"
                 className="w-full bg-white/3 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-600 resize-none focus:outline-none focus:border-violet-500/50"
               />
             </div>
@@ -516,14 +517,14 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
                 <textarea
                   value={outcome}
                   onChange={e => setOutcome(e.target.value)}
-                  placeholder="Add outcome or update…"
+                  placeholder="Add outcome or updateâ€¦"
                   rows={2}
                   className="flex-1 bg-white/3 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-600 resize-none focus:outline-none focus:border-violet-500/50"
                 />
                 <button onClick={handleAddOutcome} disabled={!outcome.trim() || addingOutcome}
                   className="px-4 self-end py-3 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold rounded-xl disabled:opacity-40 transition-all"
                 >
-                  {addingOutcome ? "…" : "Add"}
+                  {addingOutcome ? "â€¦" : "Add"}
                 </button>
               </div>
             </div>
@@ -603,7 +604,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
   )
 }
 
-// ─── MINI CALENDAR ──────────────────────────────────────────────────────────
+// â”€â”€â”€ MINI CALENDAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t: Task) => void }) {
   const [view, setView]         = useState<CalView>("month")
   const [cur,  setCur]          = useState(new Date())
@@ -631,7 +632,7 @@ function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t
     if (view === "year")  return cur.getFullYear().toString()
     const start = new Date(cur); start.setDate(start.getDate() - start.getDay())
     const end   = new Date(start); end.setDate(end.getDate() + 6)
-    return `${start.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${end.toLocaleDateString("en-US",{month:"short",day:"numeric"})}`
+    return `${start.toLocaleDateString("en-US",{month:"short",day:"numeric"})} â€“ ${end.toLocaleDateString("en-US",{month:"short",day:"numeric"})}`
   }
 
   const renderMonth = () => {
@@ -820,7 +821,7 @@ function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t
   )
 }
 
-// ─── FILTER DRAWER ──────────────────────────────────────────────────────────
+// â”€â”€â”€ FILTER DRAWER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function FilterDrawer({ open, onClose, filters, setFilters }: {
   open: boolean
   onClose: () => void
@@ -893,7 +894,7 @@ function FilterDrawer({ open, onClose, filters, setFilters }: {
   )
 }
 
-// ─── MAIN PAGE ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ MAIN PAGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function TasksPage() {
   const { zohoContext: user } = useZoho()
 
@@ -909,7 +910,7 @@ export default function TasksPage() {
   const [filters, setFilters] = useState({ status: "open", type: "all", priority: "all", sort: "dueDate" })
   const [showCompleted, setShowCompleted] = useState(false)
 
-  // ── Load tasks ─────────────────────────────────────────────────────────────
+  // â”€â”€ Load tasks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const loadTasks = useCallback(async (forceRefresh = false) => {
     if (!user) return
     if (forceRefresh) setRefreshing(true)
@@ -938,7 +939,7 @@ export default function TasksPage() {
 
   useEffect(() => { loadTasks() }, [loadTasks])
 
-  // ── Update task ────────────────────────────────────────────────────────────
+  // â”€â”€ Update task â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleUpdate = useCallback(async (zohoId: string, data: Partial<Task>) => {
     try {
       await fetch("/api/update-task", {
@@ -955,7 +956,7 @@ export default function TasksPage() {
     await handleUpdate(zohoId, { status: "Completed" })
   }, [handleUpdate])
 
-  // ── Filtered tasks ─────────────────────────────────────────────────────────
+  // â”€â”€ Filtered tasks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const filteredTasks = useMemo(() => {
     let list = tasks
 
@@ -999,14 +1000,14 @@ export default function TasksPage() {
     })
   }, [tasks, category, filters, searchQuery, showCompleted])
 
-  // ── Group by category ──────────────────────────────────────────────────────
+  // â”€â”€ Group by category â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const groups = useMemo(() => ({
     communication: filteredTasks.filter(t => classifyTask(t) === "communication"),
     sales:         filteredTasks.filter(t => classifyTask(t) === "sales"),
     process:       filteredTasks.filter(t => classifyTask(t) === "process"),
   }), [filteredTasks])
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
+  // â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const stats = useMemo(() => ({
     open:     tasks.filter(t => t.status !== "Completed").length,
     overdue:  tasks.filter(t => isOverdue(t)).length,
@@ -1022,7 +1023,7 @@ export default function TasksPage() {
       <div className="flex items-center justify-center h-full bg-[#0a0b0d]">
         <div className="text-center">
           <div className="w-12 h-12 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-sm text-neutral-500">Loading your tasks…</p>
+          <p className="text-sm text-neutral-500">Loading your tasksâ€¦</p>
         </div>
       </div>
     )
@@ -1043,7 +1044,7 @@ export default function TasksPage() {
   return (
     <div className="flex flex-col h-full bg-[#0a0b0d]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
 
-      {/* ── Header ── */}
+      {/* â”€â”€ Header â”€â”€ */}
       <div className="shrink-0 px-4 pt-4 pb-2 border-b border-white/8">
         <div className="flex items-center gap-3 mb-3">
           <div className="flex-1">
@@ -1051,8 +1052,8 @@ export default function TasksPage() {
             {/* Stats pills */}
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-sky-400 font-bold">{stats.open} open</span>
-              {stats.overdue > 0  && <span className="text-xs text-red-400 font-bold">· {stats.overdue} overdue</span>}
-              {stats.dueToday > 0 && <span className="text-xs text-amber-400 font-bold">· {stats.dueToday} due today</span>}
+              {stats.overdue > 0  && <span className="text-xs text-red-400 font-bold">Â· {stats.overdue} overdue</span>}
+              {stats.dueToday > 0 && <span className="text-xs text-amber-400 font-bold">Â· {stats.dueToday} due today</span>}
             </div>
           </div>
 
@@ -1091,7 +1092,7 @@ export default function TasksPage() {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search tasks, accounts…"
+              placeholder="Search tasks, accountsâ€¦"
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-violet-500/50"
             />
           </div>
@@ -1128,13 +1129,13 @@ export default function TasksPage() {
           <span className="text-xs text-neutral-600">{filteredTasks.length} task{filteredTasks.length !== 1 ? "s" : ""}</span>
           {showCompleted && (
             <span className="ml-2 text-xs text-emerald-500/70">
-              · {filteredTasks.filter(t => t.status === "Completed").length} completed
+              Â· {filteredTasks.filter(t => t.status === "Completed").length} completed
             </span>
           )}
         </div>
       </div>
 
-      {/* ── Category Tabs ── */}
+      {/* â”€â”€ Category Tabs â”€â”€ */}
       {mainView === "list" && (
         <div className="shrink-0 flex overflow-x-auto px-4 py-2 gap-2 border-b border-white/5 hide-scroll">
           {(Object.keys(CAT) as Category[]).map(c => {
@@ -1155,7 +1156,7 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* ── Content ── */}
+      {/* â”€â”€ Content â”€â”€ */}
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {mainView === "calendar" ? (
           <MiniCalendar tasks={tasks} onSelectTask={setSelectedTask} />
@@ -1180,8 +1181,8 @@ export default function TasksPage() {
                   if (catTasks.length === 0) return null
                   const cfg = CAT[cat]
                   const catLabels: Record<string, string> = {
-                    communication: "Communication — Calls, Emails & Texts",
-                    sales: "Sales — Account & Deal Tasks",
+                    communication: "Communication â€” Calls, Emails & Texts",
+                    sales: "Sales â€” Account & Deal Tasks",
                     process: "Office & Process"
                   }
                   return (
@@ -1224,7 +1225,7 @@ export default function TasksPage() {
         )}
       </div>
 
-      {/* ── Filter Drawer ── */}
+      {/* â”€â”€ Filter Drawer â”€â”€ */}
       <FilterDrawer
         open={showFilter}
         onClose={() => setShowFilter(false)}
@@ -1244,3 +1245,4 @@ export default function TasksPage() {
     </div>
   )
 }
+

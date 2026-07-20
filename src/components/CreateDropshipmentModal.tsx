@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { FiTruck } from "react-icons/fi"
+import { toast } from 'react-hot-toast';
 
 interface CreateDropshipmentModalProps {
   salesOrderId: string;
@@ -42,7 +43,7 @@ export function CreateDropshipmentModal({ salesOrderId, lineItems, onClose, onSu
 
   const handleSubmit = async () => {
     if (!vendorId) {
-      alert("Please select a Vendor.")
+      toast.error("Please select a Vendor.")
       return
     }
 
@@ -51,7 +52,7 @@ export function CreateDropshipmentModal({ salesOrderId, lineItems, onClose, onSu
       .map(([id, qty]) => ({ lineItemId: id, quantity: qty }))
 
     if (itemsToShip.length === 0) {
-      alert("Please select at least one item to dropship.")
+      toast.error("Please select at least one item to dropship.")
       return
     }
 
@@ -71,7 +72,7 @@ export function CreateDropshipmentModal({ salesOrderId, lineItems, onClose, onSu
       if (!data.success) throw new Error(data.message || data.error)
       onSuccess(data.purchaseOrderId)
     } catch (err: any) {
-      alert(`Failed to create dropshipment: ${err.message}`)
+      toast.error(`Failed to create dropshipment: ${err.message}`)
     } finally {
       setIsSubmitting(false)
     }

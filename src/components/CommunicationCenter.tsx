@@ -1,20 +1,21 @@
 "use client"
 
+
 /**
  * CommunicationCenter.tsx
  *
  * Unified communication & sales hub for the Account page.
  * Full feature parity with SalesCallCampaignModal:
- *   ✅ Click-to-Dial / outbound call logging
- *   ✅ SMS chat interface
- *   ✅ Email & WhatsApp logging
- *   ✅ Dynamic script generator (cold / follow-up / overdue)
- *   ✅ Fact-Finding panel (shared FactFindingPanel component)
- *   ✅ Blade recommendations with full product pitches
- *   ✅ Purchase history with per-product details
- *   ✅ Account intel tabs (purchases / notes / invoices)
- *   ✅ Order builder with live financials (VIG, profit, commission)
- *   ✅ AI message generator
+ *   âœ… Click-to-Dial / outbound call logging
+ *   âœ… SMS chat interface
+ *   âœ… Email & WhatsApp logging
+ *   âœ… Dynamic script generator (cold / follow-up / overdue)
+ *   âœ… Fact-Finding panel (shared FactFindingPanel component)
+ *   âœ… Blade recommendations with full product pitches
+ *   âœ… Purchase history with per-product details
+ *   âœ… Account intel tabs (purchases / notes / invoices)
+ *   âœ… Order builder with live financials (VIG, profit, commission)
+ *   âœ… AI message generator
  */
 
 import { useState, useEffect, useRef, useMemo } from "react"
@@ -34,7 +35,7 @@ import {
 import { OrderBuilder, type OrderLine } from "@/components/OrderBuilder"
 import { PhoneLink } from "@/components/PhoneLink"
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type Message = {
   id: string
@@ -45,7 +46,7 @@ type Message = {
 
 
 
-// ─── Main Component ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function CommunicationCenter({
   accountId,
@@ -59,38 +60,38 @@ export function CommunicationCenter({
   const { zohoContext: currentUser } = useZoho()
   const repName = currentUser?.name || "your sales rep"
 
-  // ── Tab state ──────────────────────────────────────────────────────────────
+  // â”€â”€ Tab state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [activeTab, setActiveTab] = useState<"CALL" | "SMS" | "EMAIL" | "WHATSAPP">("CALL")
   const [callSubTab, setCallSubTab] = useState<"LOG" | "SCRIPT" | "FACT" | "PRODUCTS" | "INTEL" | "ORDER" | "AI">("LOG")
 
-  // ── Call / log states ──────────────────────────────────────────────────────
+  // â”€â”€ Call / log states â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [callOutcome, setCallOutcome] = useState("Connected")
   const [callNote, setCallNote] = useState("")
   const [spokeTo, setSpokeTo] = useState("")
   const [reminderDate, setReminderDate] = useState("")
   const [callType, setCallType] = useState<"cold" | "update">("cold")
 
-  // ── Fact-finding ──────────────────────────────────────────────────────────
+  // â”€â”€ Fact-finding â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [factFinding, setFactFinding] = useState<FactFindingValues>(EMPTY_FACT_FINDING)
 
-  // ── SMS ───────────────────────────────────────────────────────────────────
+  // â”€â”€ SMS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [smsText, setSmsText] = useState("")
   const [chatMessages, setChatMessages] = useState<Message[]>([])
   const [outboundNumbers, setOutboundNumbers] = useState<any[]>([])
   const [selectedOutboundNumber, setSelectedOutboundNumber] = useState("")
 
-  // ── Email / WhatsApp ──────────────────────────────────────────────────────
+  // â”€â”€ Email / WhatsApp â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [emailText, setEmailText] = useState("")
   const [whatsappText, setWhatsappText] = useState("")
 
-  // ── AI generator ──────────────────────────────────────────────────────────
+  // â”€â”€ AI generator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [aiPrompt, setAiPrompt] = useState("")
   const [aiType, setAiType] = useState<"text" | "image">("text")
   const [aiChannel, setAiChannel] = useState("SMS")
   const [aiResult, setAiResult] = useState<string | null>(null)
   const [isGeneratingAi, setIsGeneratingAi] = useState(false)
 
-  // ── Order builder ─────────────────────────────────────────────────────────
+  // â”€â”€ Order builder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [defaultVigRate, setDefaultVigRate] = useState(1.3)
   const [commissionPct, setCommissionPct] = useState(50)
 
@@ -101,17 +102,17 @@ export function CommunicationCenter({
   const [showProductDropdown, setShowProductDropdown] = useState(false)
   const productSearchRef = useRef<HTMLDivElement>(null)
 
-  // ── Account intel ─────────────────────────────────────────────────────────
+  // â”€â”€ Account intel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [accountPurchases, setAccountPurchases] = useState<any[]>([])
   const [accountNotes, setAccountNotes] = useState<any[]>([])
   const [accountDetail, setAccountDetail] = useState<any>(null)
   const [isLoadingIntel, setIsLoadingIntel] = useState(false)
   const [intelTab, setIntelTab] = useState<"purchases" | "notes" | "invoices">("purchases")
 
-  // ── Product recommendations ───────────────────────────────────────────────
+  // â”€â”€ Product recommendations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [expandedPitch, setExpandedPitch] = useState<string | null>(null)
 
-  // ── UI state ──────────────────────────────────────────────────────────────
+  // â”€â”€ UI state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [isSaving, setIsSaving] = useState(false)
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
   const [scriptText, setScriptText] = useState("")
@@ -123,7 +124,7 @@ export function CommunicationCenter({
   const cleanPhone = displayPhone ? displayPhone.replace(/[^0-9+]/g, "") : ""
   const contactName = spokeTo || (primaryContact ? `${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim() : "there")
 
-  // ── Effects ────────────────────────────────────────────────────────────────
+  // â”€â”€ Effects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     fetch("/api/manage-zoho-numbers")
@@ -214,7 +215,7 @@ export function CommunicationCenter({
     return () => document.removeEventListener("mousedown", handler)
   }, [])
 
-  // ── Top blade products ─────────────────────────────────────────────────────
+  // â”€â”€ Top blade products â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const topBladeProducts = useMemo(() => {
     return catalogProducts
@@ -230,7 +231,7 @@ export function CommunicationCenter({
       .slice(0, 10)
   }, [catalogProducts])
 
-  // ── Order financials ───────────────────────────────────────────────────────
+  // â”€â”€ Order financials â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const orderFinancials = (() => {
     if (orderLines.length === 0) return null
@@ -245,7 +246,7 @@ export function CommunicationCenter({
     return { subTotal, deadCostTotal, deadCostPlusVig, profitAfterVig, salesCommission, marginPct }
   })()
 
-  // ── Script generator ──────────────────────────────────────────────────────
+  // â”€â”€ Script generator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const generateScript = () => {
     const timeOfDay = new Date().getHours() < 12 ? "morning" : "afternoon"
@@ -274,14 +275,14 @@ export function CommunicationCenter({
       const top = accountPurchases.slice(0, 3)
       const totalSpent = accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0)
       const totalQty = accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0)
-      text += `I was looking at your account and saw that you've picked up ${totalQty} items from us totaling about $${totalSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })} — including ${top.map((p: any) => p.name).join(", ")}. `
+      text += `I was looking at your account and saw that you've picked up ${totalQty} items from us totaling about $${totalSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })} â€” including ${top.map((p: any) => p.name).join(", ")}. `
       text += totalQty >= 10
         ? `You're one of our valued repeat customers, so I wanted to make sure you're taken care of first on our latest deals.\n\n`
         : `I appreciate the business! I wanted to reach out and see how those are working out for you.\n\n`
       const hasBlades = accountPurchases.some((p: any) => (p.name || "").toLowerCase().includes("blade"))
       const hasCupWheels = accountPurchases.some((p: any) => ["cup", "wheel", "grind"].some(k => (p.name || "").toLowerCase().includes(k)))
       const hasCoredrills = accountPurchases.some((p: any) => ["core", "drill"].some(k => (p.name || "").toLowerCase().includes(k)))
-      if (hasBlades && !hasCupWheels) text += `I also noticed you've been running our diamond blades — have you had a chance to try our cup wheels and grinding products? A lot of our blade customers end up loving them for surface prep.\n\n`
+      if (hasBlades && !hasCupWheels) text += `I also noticed you've been running our diamond blades â€” have you had a chance to try our cup wheels and grinding products? A lot of our blade customers end up loving them for surface prep.\n\n`
       else if (hasBlades && !hasCoredrills) text += `Since you're running our blades, I wanted to let you know we also carry core drill bits if you ever need them on the job.\n\n`
       else text += `Are you getting close to needing a restock on any of those? I can get a quote together for you right now.\n\n`
     } else {
@@ -293,25 +294,25 @@ export function CommunicationCenter({
     if (!factFinding.materialsCut) missing.push("what materials you guys are cutting most right now")
     if (!factFinding.crewCount) missing.push("how many crews you have out in the field")
     if (missing.length > 0) {
-      text += `By the way, I was just updating your account profile — could you remind me ${missing[0]}?\n\n`
+      text += `By the way, I was just updating your account profile â€” could you remind me ${missing[0]}?\n\n`
     }
 
     text += `Is there anything we can quote or ship out for you today?`
     return text
   }
 
-  // ── Blade recommendations ─────────────────────────────────────────────────
+  // â”€â”€ Blade recommendations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const getBladeRecommendations = () => {
     const mat = (factFinding.materialsCut || "").toLowerCase()
     const prio = (factFinding.improvementPriority || "").toLowerCase()
 
     const pitches: Record<string, string> = {
-      medusa: `Let me tell you about one of my best selling blades for the kind of work you are doing. It's called "The Medusa". What my customers all love about this blade is that it has a 12mm jumbo segment compared to most blades on the market that are just 10mm giving you longer blade life. This new blade is perfect for Cured Concrete, Brick, Block, Stone & Pavers. The segments are made under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed. Each one of the segments are laser welded for reliability and safety and the core is speed tensioned to eliminate warping and wobbling.\n\nNow ${contactName}, retail stores in your city would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $100 bucks! Right now we are giving this blade away for FREE! The way the promotion works is I send 6 blades out there — the first blade you pull out of the box is absolutely FREE! The other 5 blades are only $68 bucks each! If you do the math, you're getting 6 blades for $340 bucks! That's less than $57 bucks per blade! And at that price you're stealing them!`,
-      kingTurbo: `Let me tell you about one of my best blades for what you are doing... it's called "THE KING TURBO BLADE". What my customers all love about this blade is that it has 24 serrated turbo segments which makes the blade cut super fast and super smooth through Hard Re-enforced Concrete and other hard materials. This premium soft bond blade will actually pull itself through the cut, so you don't have to put a lot of pressure on the saw — you just let the blade do the work for you.\n\nNow ${contactName}, retail stores will sell a blade of this quality for $250 bucks all day long! I normally wholesale it for $175 bucks! Right now we are giving this blade away for FREE! The way the promotion works is I send three blades out there — the first blade you pull out of the box is absolutely FREE! The other two are only $175 each! If you do the math you're getting three blades for $350 bucks! That's $116 bucks per blade! And at that price you're stealing them!`,
-      titan: `I want to tell you about one of my best blades for what you're doing. It's called "THE TITAN". This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from Re-enforced Concrete, Asphalt, Ductile Iron, Re-enforced Concrete Pipe and even Rebar!\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used, hands down! I don't expect you to take my word for it — I'll prove it to you! I normally wholesale these blades for $299 each! Like I said, right now I am giving you one absolutely free of charge. The first blade you pull out of the box is absolutely free! The other two blades in the box are only $250 each! You're getting three blades for $500 bucks — that's only $166 bucks per blade! And at that price you're stealing them!`,
-      darkKnight: `I want to tell you about one of my best blades for what you're doing. It's called my "Dark Knight Blade". It's versatile enough to cut everything from re-enforced concrete to asphalt, to brick, block & stone. The major improvement over other blades is that they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed.\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used! If you were able to find a blade of this quality at your local supplier it would cost $250 or more! I normally wholesale these blades for $175 each! Right now I am giving you one absolutely free of charge. The first blade you pull out of the box is absolutely free! The other 3 blades in the box are only $150 each! You're getting 4 blades for $450 bucks — that's less than $113 bucks per blade! And at that price you're stealing them!`,
-      razor: `This blade is ideal for cutting Ceramic Tile, Marble, Granite & even Porcelain and it cuts through it like a hot knife through butter! The new "Razor Blade" has a reinforced core to prevent warping, wobbling and walking and runs super quiet. This blade cuts really clean & fast & the manufacturer claims 100% chip free cutting.\n\nNow ${contactName}, retail stores would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $120 bucks! Right now we are giving this blade away for FREE! The way the promotion works is I send four blades out there — the first blade you pull out of the box is absolutely FREE! The next three are only $100 each!`,
+      medusa: `Let me tell you about one of my best selling blades for the kind of work you are doing. It's called "The Medusa". What my customers all love about this blade is that it has a 12mm jumbo segment compared to most blades on the market that are just 10mm giving you longer blade life. This new blade is perfect for Cured Concrete, Brick, Block, Stone & Pavers. The segments are made under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed. Each one of the segments are laser welded for reliability and safety and the core is speed tensioned to eliminate warping and wobbling.\n\nNow ${contactName}, retail stores in your city would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $100 bucks! Right now we are giving this blade away for FREE! The way the promotion works is I send 6 blades out there â€” the first blade you pull out of the box is absolutely FREE! The other 5 blades are only $68 bucks each! If you do the math, you're getting 6 blades for $340 bucks! That's less than $57 bucks per blade! And at that price you're stealing them!`,
+      kingTurbo: `Let me tell you about one of my best blades for what you are doing... it's called "THE KING TURBO BLADE". What my customers all love about this blade is that it has 24 serrated turbo segments which makes the blade cut super fast and super smooth through Hard Re-enforced Concrete and other hard materials. This premium soft bond blade will actually pull itself through the cut, so you don't have to put a lot of pressure on the saw â€” you just let the blade do the work for you.\n\nNow ${contactName}, retail stores will sell a blade of this quality for $250 bucks all day long! I normally wholesale it for $175 bucks! Right now we are giving this blade away for FREE! The way the promotion works is I send three blades out there â€” the first blade you pull out of the box is absolutely FREE! The other two are only $175 each! If you do the math you're getting three blades for $350 bucks! That's $116 bucks per blade! And at that price you're stealing them!`,
+      titan: `I want to tell you about one of my best blades for what you're doing. It's called "THE TITAN". This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from Re-enforced Concrete, Asphalt, Ductile Iron, Re-enforced Concrete Pipe and even Rebar!\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used, hands down! I don't expect you to take my word for it â€” I'll prove it to you! I normally wholesale these blades for $299 each! Like I said, right now I am giving you one absolutely free of charge. The first blade you pull out of the box is absolutely free! The other two blades in the box are only $250 each! You're getting three blades for $500 bucks â€” that's only $166 bucks per blade! And at that price you're stealing them!`,
+      darkKnight: `I want to tell you about one of my best blades for what you're doing. It's called my "Dark Knight Blade". It's versatile enough to cut everything from re-enforced concrete to asphalt, to brick, block & stone. The major improvement over other blades is that they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed.\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used! If you were able to find a blade of this quality at your local supplier it would cost $250 or more! I normally wholesale these blades for $175 each! Right now I am giving you one absolutely free of charge. The first blade you pull out of the box is absolutely free! The other 3 blades in the box are only $150 each! You're getting 4 blades for $450 bucks â€” that's less than $113 bucks per blade! And at that price you're stealing them!`,
+      razor: `This blade is ideal for cutting Ceramic Tile, Marble, Granite & even Porcelain and it cuts through it like a hot knife through butter! The new "Razor Blade" has a reinforced core to prevent warping, wobbling and walking and runs super quiet. This blade cuts really clean & fast & the manufacturer claims 100% chip free cutting.\n\nNow ${contactName}, retail stores would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $120 bucks! Right now we are giving this blade away for FREE! The way the promotion works is I send four blades out there â€” the first blade you pull out of the box is absolutely FREE! The next three are only $100 each!`,
     }
 
     let priorityAddon = ""
@@ -333,14 +334,14 @@ export function CommunicationCenter({
     return recs
   }
 
-  // ── Notify helper ─────────────────────────────────────────────────────────
+  // â”€â”€ Notify helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const notify = (message: string, type: "success" | "error") => {
     setNotification({ message, type })
     setTimeout(() => setNotification(null), 4000)
   }
 
-  // ── Log call ──────────────────────────────────────────────────────────────
+  // â”€â”€ Log call â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const saveCallLog = async () => {
     setIsSaving(true)
@@ -388,7 +389,7 @@ export function CommunicationCenter({
     }
   }
 
-  // ── SMS ───────────────────────────────────────────────────────────────────
+  // â”€â”€ SMS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const sendSMS = async () => {
     if (!smsText.trim()) return
@@ -417,7 +418,7 @@ export function CommunicationCenter({
     } catch (err) { console.error("SMS sync error:", err) }
   }
 
-  // ── Email / WhatsApp ──────────────────────────────────────────────────────
+  // â”€â”€ Email / WhatsApp â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const sendEmailLog = async () => {
     setIsSaving(true)
@@ -443,7 +444,7 @@ export function CommunicationCenter({
     } catch { notify("Failed.", "error") } finally { setIsSaving(false) }
   }
 
-  // ── AI generator ──────────────────────────────────────────────────────────
+  // â”€â”€ AI generator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleGenerateAi = async () => {
     if (!aiPrompt) return
@@ -461,7 +462,7 @@ export function CommunicationCenter({
     } catch (err: any) { notify("Error: " + err.message, "error") } finally { setIsGeneratingAi(false) }
   }
 
-  // ── Order builder helpers ─────────────────────────────────────────────────
+  // â”€â”€ Order builder helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return catalogProducts.slice(0, 20)
@@ -486,7 +487,7 @@ export function CommunicationCenter({
     setShowProductDropdown(false)
   }
 
-  // ── Sub-tabs for the Call panel ────────────────────────────────────────────
+  // â”€â”€ Sub-tabs for the Call panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const CALL_SUB_TABS = [
     { key: "LOG", icon: <FiPhoneCall size={11} />, label: "Log" },
@@ -505,7 +506,7 @@ export function CommunicationCenter({
     Best: "bg-cyan-500/10 border-cyan-500/20 text-cyan-400",
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   return (
     <div className="space-y-4 h-full flex flex-col relative">
@@ -550,7 +551,7 @@ export function CommunicationCenter({
         </div>
       )}
 
-      {/* ── Channel Tabs ──────────────────────────────────────────────────── */}
+      {/* â”€â”€ Channel Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex space-x-1.5 border-b border-neutral-800 pb-0 overflow-x-auto flex-nowrap scrollbar-none">
         {([
           { key: "CALL", icon: <FiPhoneCall size={12} />, label: "Call", color: "bg-[var(--primary)] text-white", inactive: "text-neutral-400 hover:text-white hover:bg-neutral-800" },
@@ -568,9 +569,9 @@ export function CommunicationCenter({
         ))}
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          CALL TAB — with all 7 sub-panels
-      ══════════════════════════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+          CALL TAB â€” with all 7 sub-panels
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {activeTab === "CALL" && (
         <div className="flex-1 flex flex-col min-h-0 gap-3">
 
@@ -591,7 +592,7 @@ export function CommunicationCenter({
             ))}
           </div>
 
-          {/* ── LOG sub-tab ─────────────────────────────────────────────── */}
+          {/* â”€â”€ LOG sub-tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {callSubTab === "LOG" && (
             <div className="flex-1 flex flex-col gap-3">
               {/* Click to Dial */}
@@ -601,7 +602,7 @@ export function CommunicationCenter({
                     phone={cleanPhone}
                     className="inline-flex items-center gap-2 px-8 py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] font-bold rounded-lg transition-colors shadow-lg text-sm"
                   >
-                    <FiPhoneCall /> Click to Dial — {displayPhone}
+                    <FiPhoneCall /> Click to Dial â€” {displayPhone}
                   </PhoneLink>
                 </div>
               ) : (
@@ -657,7 +658,7 @@ export function CommunicationCenter({
             </div>
           )}
 
-          {/* ── SCRIPT sub-tab ──────────────────────────────────────────── */}
+          {/* â”€â”€ SCRIPT sub-tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {callSubTab === "SCRIPT" && (
             <div className="flex-1 flex flex-col gap-3">
               <div className="flex items-center justify-between">
@@ -668,7 +669,7 @@ export function CommunicationCenter({
                       onClick={() => setCallType(t)}
                       className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${callType === t ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400" : "bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-neutral-600"}`}
                     >
-                      {t === "cold" ? "⚡ Cold Call" : "🔄 Follow-Up"}
+                      {t === "cold" ? "âš¡ Cold Call" : "ðŸ”„ Follow-Up"}
                     </button>
                   ))}
                 </div>
@@ -703,7 +704,7 @@ export function CommunicationCenter({
             </div>
           )}
 
-          {/* ── FACT-FINDING sub-tab ─────────────────────────────────── */}
+          {/* â”€â”€ FACT-FINDING sub-tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {callSubTab === "FACT" && (
             <div className="flex-1 overflow-y-auto scrollbar-thin">
               <FactFindingPanel
@@ -718,7 +719,7 @@ export function CommunicationCenter({
             </div>
           )}
 
-          {/* ── PRODUCTS sub-tab ─────────────────────────────────────── */}
+          {/* â”€â”€ PRODUCTS sub-tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {callSubTab === "PRODUCTS" && (
             <div className="flex-1 flex flex-col gap-3 overflow-y-auto scrollbar-thin">
               {!factFinding.materialsCut && (
@@ -768,7 +769,7 @@ export function CommunicationCenter({
               {/* Quick-add top blades */}
               {topBladeProducts.length > 0 && (
                 <div className="mt-2">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mb-2">Top Selling Blades — Quick Add to Order</div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mb-2">Top Selling Blades â€” Quick Add to Order</div>
                   <div className="flex flex-wrap gap-2">
                     {topBladeProducts.map((p, i) => (
                       <button
@@ -788,7 +789,7 @@ export function CommunicationCenter({
             </div>
           )}
 
-          {/* ── INTEL sub-tab ────────────────────────────────────────── */}
+          {/* â”€â”€ INTEL sub-tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {callSubTab === "INTEL" && (
             <div className="flex-1 flex flex-col gap-3">
               <div className="flex gap-1.5">
@@ -824,7 +825,7 @@ export function CommunicationCenter({
                               <div className="text-[10px] text-neutral-500">{p.sku || ""}</div>
                             </div>
                             <div className="text-right shrink-0">
-                              <div className="font-black text-xs text-emerald-400">×{p.quantity || 0}</div>
+                              <div className="font-black text-xs text-emerald-400">Ã—{p.quantity || 0}</div>
                               {p.totalSpend > 0 && <div className="text-[10px] text-neutral-400">${(p.totalSpend || 0).toLocaleString()}</div>}
                             </div>
                           </div>
@@ -874,7 +875,7 @@ export function CommunicationCenter({
             </div>
           )}
 
-          {/* ── ORDER sub-tab ────────────────────────────────────────── */}
+          {/* â”€â”€ ORDER sub-tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {callSubTab === "ORDER" && (
             <div className="flex-1 flex flex-col gap-3">
               <OrderBuilder
@@ -889,7 +890,7 @@ export function CommunicationCenter({
             </div>
           )}
 
-          {/* ── AI sub-tab ───────────────────────────────────────────── */}
+          {/* â”€â”€ AI sub-tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {callSubTab === "AI" && (
             <div className="flex-1 flex flex-col gap-3">
               <div className="grid grid-cols-2 gap-3">
@@ -944,13 +945,13 @@ export function CommunicationCenter({
                       onClick={() => { setEmailText(aiResult); setActiveTab("EMAIL") }}
                       className="px-3 py-1.5 bg-purple-600/20 border border-purple-500/30 text-purple-400 rounded-lg text-xs font-bold hover:bg-purple-600/30 transition-colors"
                     >
-                      → Send as Email
+                      â†’ Send as Email
                     </button>
                     <button
                       onClick={() => { setSmsText(aiResult); setActiveTab("SMS") }}
                       className="px-3 py-1.5 bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 rounded-lg text-xs font-bold hover:bg-emerald-600/30 transition-colors"
                     >
-                      → Send as SMS
+                      â†’ Send as SMS
                     </button>
                   </div>
                 </div>
@@ -960,9 +961,9 @@ export function CommunicationCenter({
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           SMS TAB
-      ══════════════════════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {activeTab === "SMS" && (
         <div className="flex-1 flex flex-col bg-neutral-950 border border-neutral-800 rounded-xl p-4 min-h-[320px] justify-between overflow-hidden">
           {outboundNumbers.length > 0 && (
@@ -982,7 +983,7 @@ export function CommunicationCenter({
 
           <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-4 scrollbar-thin max-h-[280px]">
             {chatMessages.length === 0 && (
-              <div className="text-center text-neutral-600 text-xs py-8">No messages yet — start the conversation below</div>
+              <div className="text-center text-neutral-600 text-xs py-8">No messages yet â€” start the conversation below</div>
             )}
             {chatMessages.map(msg => {
               const isRep = msg.sender === "rep"
@@ -1018,9 +1019,9 @@ export function CommunicationCenter({
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           EMAIL TAB
-      ══════════════════════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {activeTab === "EMAIL" && (
         <div className="flex-1 flex flex-col gap-3">
           <div className="flex justify-between items-end">
@@ -1050,15 +1051,15 @@ export function CommunicationCenter({
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════════════════════════════
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
           WHATSAPP TAB
-      ══════════════════════════════════════════════════════════════════════ */}
+      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {activeTab === "WHATSAPP" && (
         <div className="flex-1 flex flex-col gap-3">
           <div className="flex justify-between items-end">
             <label className="text-xs font-semibold text-neutral-400">Compose WhatsApp Message</label>
             <button
-              onClick={() => setWhatsappText(`Hello ${primaryContact?.firstName}! 🚀 We have a new promotion running this week. Please let me know if you are interested!`)}
+              onClick={() => setWhatsappText(`Hello ${primaryContact?.firstName}! ðŸš€ We have a new promotion running this week. Please let me know if you are interested!`)}
               className="text-xs text-green-400 hover:text-green-300"
             >
               Load Template
@@ -1084,3 +1085,4 @@ export function CommunicationCenter({
     </div>
   )
 }
+

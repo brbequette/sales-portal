@@ -1,4 +1,5 @@
 "use client"
+
 import React from 'react'
 import { FiPhone } from 'react-icons/fi'
 
@@ -14,8 +15,8 @@ interface PhoneLinkProps {
 /**
  * Unified click-to-dial component.
  * 
- * Desktop: tel: link → ZDialer Chrome extension intercepts automatically.
- * Mobile:  tel: link → OS app chooser lets user pick ZDialer app or native Phone.
+ * Desktop: tel: link â†’ ZDialer Chrome extension intercepts automatically.
+ * Mobile:  tel: link â†’ OS app chooser lets user pick ZDialer app or native Phone.
  * 
  * The `data-zohovoice="true"` attribute gives the ZDialer extension
  * a stronger signal to intercept the link.
@@ -41,3 +42,4 @@ export function PhoneLink({ phone, className = "", icon = false, children, onBef
     </a>
   )
 }
+

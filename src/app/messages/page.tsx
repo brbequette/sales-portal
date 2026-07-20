@@ -1,7 +1,9 @@
 "use client"
+
 import { useState, useEffect, useRef } from "react"
 import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap, FiExternalLink, FiChevronDown, FiChevronRight } from "react-icons/fi"
 import { AccountSlideout } from "@/components/AccountSlideout"
+import { toast } from 'react-hot-toast';
 
 export default function MessagesPage() {
   const [accounts, setAccounts] = useState<any[]>([])
@@ -39,7 +41,7 @@ export default function MessagesPage() {
       const data = await res.json()
       if (!data.success) {
         console.error('Zoho Sync API Error:', data.error)
-        alert('Could not sync Zoho SMS: ' + data.error)
+        toast.error('Could not sync Zoho SMS: ' + data.error)
       }
     } catch (e) {
       console.error('Failed to sync Zoho SMS', e)
@@ -106,7 +108,7 @@ export default function MessagesPage() {
     const fromNumber = lastOurMsg?.fromNumber || ''
     
     if (!fromNumber) {
-      alert('Could not determine which number to send from. Please use the campaign sender first.')
+      toast.success('Could not determine which number to send from. Please use the campaign sender first.')
       return
     }
 
@@ -123,11 +125,11 @@ export default function MessagesPage() {
         setSuggestions([])
         fetchMessages(selectedAccountId)
       } else {
-        alert('Error sending message: ' + data.error)
+        toast.error('Error sending message: ' + data.error)
       }
     } catch (e) {
       console.error(e)
-      alert('Error sending message.')
+      toast.error('Error sending message.')
     } finally {
       setSending(false)
     }
@@ -146,7 +148,7 @@ export default function MessagesPage() {
       if (data.success) {
         setSuggestions(data.suggestions)
       } else {
-        alert('AI Suggestion failed: ' + data.error)
+        toast.error('AI Suggestion failed: ' + data.error)
       }
     } catch (e) {
       console.error(e)
@@ -385,3 +387,4 @@ export default function MessagesPage() {
     </div>
   )
 }
+

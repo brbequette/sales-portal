@@ -1,12 +1,13 @@
 "use client"
 
+
 import { useState, useEffect, useRef, useCallback } from "react"
-import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox, FiClock, FiBell, FiTrendingUp, FiAlertCircle } from "react-icons/fi"
+import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox, FiClock, FiTrendingUp, FiAlertCircle } from "react-icons/fi"
 import { useRouter } from "next/navigation"
 import { useProductModal } from "@/components/ProductModalProvider"
 import { NewCustomerModal } from "@/components/NewCustomerModal"
 import { useZoho } from "@/components/ZohoProvider"
-import { useNotifications } from "@/components/NotificationProvider"
+import { NotificationCenter } from "@/components/NotificationCenter"
 import { GeofenceMonitor, type MonitorStatus } from "@/lib/geofence-monitor"
 
 export function GlobalTopBar() {
@@ -20,9 +21,6 @@ export function GlobalTopBar() {
   const [showResults, setShowResults] = useState(false)
   
   const [showAddAccount, setShowAddAccount] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
-
-  const { notifications, unreadCount, markAsRead, markAllAsRead, requestPermission, permission } = useNotifications()
 
   const searchRef = useRef<HTMLDivElement>(null)
 
@@ -35,7 +33,7 @@ export function GlobalTopBar() {
   const clockPromptDismissed = useRef(false)
   const timeEntryLoaded = useRef(false)
 
-  // ── Stats Strip Data ──
+  // â”€â”€ Stats Strip Data â”€â”€
   const [stripStats, setStripStats] = useState<{
     weeklySales: number; mtdSales: number; mtdProfit: number;
     mtdCommission: number; pipeline: number; overdue: number;
@@ -111,8 +109,8 @@ export function GlobalTopBar() {
     return () => clearInterval(interval)
   }, [currentUser?.id])
 
-  // ── Activity-based Clock-In Prompt ──
-  // If user is logged in, data has loaded, and they're NOT clocked in — show prompt on first interaction
+  // â”€â”€ Activity-based Clock-In Prompt â”€â”€
+  // If user is logged in, data has loaded, and they're NOT clocked in â€” show prompt on first interaction
   useEffect(() => {
     if (!currentUser?.id) return
     // Wait for timeclock data to load before deciding
@@ -152,7 +150,7 @@ export function GlobalTopBar() {
     await handleToggleClock()
   }
 
-  // ── Auto-start Geofence Monitor ──
+  // â”€â”€ Auto-start Geofence Monitor â”€â”€
   useEffect(() => {
     if (!currentUser?.id) return
 
@@ -166,8 +164,8 @@ export function GlobalTopBar() {
 
       // Show auto-clock toast
       const msg = event.action === 'clockIn'
-        ? `📍 Auto clocked in — ${event.fenceName || 'On-Site'}`
-        : `👋 Auto clocked out — ${event.fenceName || 'Off-Site'}`
+        ? `ðŸ“ Auto clocked in â€” ${event.fenceName || 'On-Site'}`
+        : `ðŸ‘‹ Auto clocked out â€” ${event.fenceName || 'Off-Site'}`
       setAutoClockToast(msg)
       setTimeout(() => setAutoClockToast(null), 5000)
     })
@@ -182,7 +180,7 @@ export function GlobalTopBar() {
     return () => {
       unsubStatus()
       unsubEvent()
-      // Don't stop the monitor on unmount — it persists as singleton
+      // Don't stop the monitor on unmount â€” it persists as singleton
     }
   }, [currentUser?.id])
 
@@ -240,7 +238,7 @@ export function GlobalTopBar() {
         longitude = pos.coords.longitude
         accuracy = pos.coords.accuracy
       } catch {
-        // Permission denied or unavailable — proceed without GPS
+        // Permission denied or unavailable â€” proceed without GPS
         latitude = null
       }
     }
@@ -401,7 +399,7 @@ export function GlobalTopBar() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-bold text-white truncate">{i.invoiceNumber || i.items?.invoiceNumber || i.items?.invoice_number || i.items?.estimate_number || i.items?.salesorder_number || "Draft"}</div>
-                          <div className="text-xs text-neutral-500 truncate">{i.docType ? `${i.docType} · ` : ""}{i.status}{i.accountName ? ` · ${i.accountName}` : ""}</div>
+                          <div className="text-xs text-neutral-500 truncate">{i.docType ? `${i.docType} Â· ` : ""}{i.status}{i.accountName ? ` Â· ${i.accountName}` : ""}</div>
                         </div>
                         <div className="text-sm font-bold text-emerald-400">${parseFloat(i.amount).toFixed(2)}</div>
                       </div>
@@ -465,12 +463,12 @@ export function GlobalTopBar() {
         <div className="relative flex items-center rounded-lg border border-white/10 bg-white/[0.045] overflow-hidden text-xs lg:text-sm h-10 lg:h-9">
           {/* Geofence monitor indicator */}
           {monitorStatus === 'monitoring' && (
-            <div className="flex items-center px-2 h-full border-r border-white/10 bg-blue-500/10" title="📍 Auto-tracking active — GPS monitoring for clock-in/out">
+            <div className="flex items-center px-2 h-full border-r border-white/10 bg-blue-500/10" title="ðŸ“ Auto-tracking active â€” GPS monitoring for clock-in/out">
               <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,0.6)]" />
             </div>
           )}
           {monitorStatus === 'denied' && (
-            <div className="flex items-center px-2 h-full border-r border-white/10 bg-red-500/5" title="GPS permission denied — auto-tracking disabled">
+            <div className="flex items-center px-2 h-full border-r border-white/10 bg-red-500/5" title="GPS permission denied â€” auto-tracking disabled">
               <div className="w-2 h-2 rounded-full bg-red-500/60" />
             </div>
           )}
@@ -517,10 +515,10 @@ export function GlobalTopBar() {
                   ? 'bg-amber-900/90 text-amber-300 border-amber-500/30'
                   : 'bg-neutral-800/90 text-neutral-400 border-neutral-600/30'
             }`}>
-              {geoStatus.status === 'VERIFIED' && `📍 ${geoStatus.location || 'On-Site'}`}
-              {geoStatus.status === 'OUT_OF_RANGE' && '⚠️ Out of Range'}
-              {geoStatus.status === 'DENIED' && '🔒 GPS Denied'}
-              {geoStatus.status === 'UNAVAILABLE' && '📡 GPS Unavailable'}
+              {geoStatus.status === 'VERIFIED' && `ðŸ“ ${geoStatus.location || 'On-Site'}`}
+              {geoStatus.status === 'OUT_OF_RANGE' && 'âš ï¸ Out of Range'}
+              {geoStatus.status === 'DENIED' && 'ðŸ”’ GPS Denied'}
+              {geoStatus.status === 'UNAVAILABLE' && 'ðŸ“¡ GPS Unavailable'}
             </div>
           )}
 
@@ -533,68 +531,7 @@ export function GlobalTopBar() {
         </div>
         
         {/* Notifications Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              if (permission === 'default') {
-                requestPermission()
-              }
-              setShowNotifications(!showNotifications)
-            }}
-            className="relative bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold p-2 lg:px-3 lg:py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center justify-center border border-white/10"
-          >
-            <FiBell size={16} />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] flex items-center justify-center rounded-full font-bold shadow-sm">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </button>
-
-          {showNotifications && (
-            <div className="absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-1rem)] bg-[#151618] border border-white/10 rounded-xl shadow-[0_22px_70px_rgba(0,0,0,0.45)] overflow-hidden z-50 flex flex-col max-h-[70vh]">
-              <div className="flex items-center justify-between p-3 border-b border-white/10 bg-white/[0.02]">
-                <h3 className="text-sm font-bold text-white">Notifications</h3>
-                {unreadCount > 0 && (
-                  <button onClick={markAllAsRead} className="text-xs text-[var(--primary)] hover:underline font-bold">
-                    Mark all read
-                  </button>
-                )}
-              </div>
-              <div className="overflow-y-auto flex-1">
-                {notifications.length === 0 ? (
-                  <div className="p-6 text-center text-sm text-neutral-500">
-                    No notifications yet.
-                  </div>
-                ) : (
-                  <div className="divide-y divide-white/5">
-                    {notifications.map((n) => (
-                      <div 
-                        key={n.id} 
-                        className={`p-3 text-sm cursor-pointer transition-colors ${n.read ? 'bg-transparent hover:bg-white/[0.02]' : 'bg-blue-500/10 hover:bg-blue-500/20'}`}
-                        onClick={() => {
-                          if (!n.read) markAsRead(n.id)
-                          if (n.url) router.push(n.url)
-                          setShowNotifications(false)
-                        }}
-                      >
-                        <div className="flex justify-between items-start mb-1 gap-2">
-                          <span className={`font-bold truncate ${n.read ? 'text-neutral-300' : 'text-white'}`}>{n.title}</span>
-                          <span className="text-[10px] text-neutral-500 shrink-0 mt-0.5">
-                            {new Date(n.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div className={`text-xs line-clamp-2 ${n.read ? 'text-neutral-500' : 'text-neutral-300'}`}>
-                          {n.body}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        <NotificationCenter />
 
         <button
           onClick={() => router.push("/catalog")}
@@ -622,7 +559,7 @@ export function GlobalTopBar() {
       )}
     </div>
 
-    {/* ── Persistent Stats Strip ── */}
+    {/* â”€â”€ Persistent Stats Strip â”€â”€ */}
     {stripStats && (
       <div className="glass-panel border-x-0 border-t-0 px-4 py-1.5 sticky top-[56px] z-[39] rounded-none flex items-center gap-0 overflow-x-auto scrollbar-none">
         <div className="flex items-center gap-4 min-w-max mx-auto">
@@ -663,7 +600,7 @@ export function GlobalTopBar() {
         </div>
       </div>
     )}
-    {/* ── Clock-In Prompt Banner ── */}
+    {/* â”€â”€ Clock-In Prompt Banner â”€â”€ */}
     {showClockInPrompt && currentUser?.id && (
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] animate-[slideUp_0.3s_ease-out]">
         <div className="flex items-center gap-3 bg-gradient-to-r from-blue-900/95 to-indigo-900/95 backdrop-blur-xl border border-blue-500/30 rounded-2xl px-5 py-3 shadow-[0_8px_32px_rgba(59,130,246,0.3)] text-white">
@@ -685,7 +622,7 @@ export function GlobalTopBar() {
             className="text-blue-400/50 hover:text-white text-lg leading-none transition-colors px-1"
             title="Dismiss"
           >
-            ×
+            Ã—
           </button>
         </div>
       </div>
@@ -693,3 +630,4 @@ export function GlobalTopBar() {
     </>
   )
 }
+

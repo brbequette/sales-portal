@@ -1,8 +1,10 @@
 "use client"
+
 import React, { useEffect, useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
 import { FiPhoneCall, FiMessageSquare, FiSettings, FiChevronDown, FiChevronUp, FiSearch, FiFilter, FiUser, FiClock, FiCheck, FiX, FiCornerUpRight, FiCornerDownLeft, FiDatabase } from "react-icons/fi"
+import { toast } from 'react-hot-toast';
 
 export default function CommunicationsDashboard() {
   const { isInitialized, zohoContext: currentUser } = useZoho()
@@ -59,13 +61,13 @@ export default function CommunicationsDashboard() {
       const numData = await numRes.json()
 
       if (numData.success) {
-        alert('Numbers saved successfully!')
+        toast.success('Numbers saved successfully!')
       } else {
-        alert('Error saving numbers: ' + numData.error)
+        toast.error('Error saving numbers: ' + numData.error)
       }
     } catch (e) {
       console.error(e)
-      alert('Error saving numbers.')
+      toast.error('Error saving numbers.')
     } finally {
       setSavingNumbers(false)
     }
@@ -111,13 +113,13 @@ export default function CommunicationsDashboard() {
                   const res = await fetch('/api/admin/communications/sync-voice', { method: 'POST' })
                   const data = await res.json()
                   if (data.success) {
-                    alert(`Synced ${data.syncedCount} calls!`)
+                    toast.success(`Synced ${data.syncedCount} calls!`)
                     window.location.reload()
                   } else {
-                    alert('Sync error: ' + data.error)
+                    toast.error('Sync error: ' + data.error)
                   }
                 } catch (e: any) {
-                  alert('Sync failed: ' + e.message)
+                  toast.error('Sync failed: ' + e.message)
                 }
                 setSyncingVoice(false)
               }}
@@ -327,7 +329,7 @@ export default function CommunicationsDashboard() {
                         </div>
                         {log.author?.name || log.author?.email || "System"}
                       </span>
-                      <span className="text-neutral-600">•</span>
+                      <span className="text-neutral-600">â€¢</span>
                       <span className="font-mono text-xs opacity-75">{log.fromNumber} &rarr; {log.toNumber}</span>
                     </div>
 
@@ -368,3 +370,4 @@ export default function CommunicationsDashboard() {
     </div>
   )
 }
+

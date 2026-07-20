@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { FiDollarSign, FiX, FiCreditCard, FiCheck, FiLock } from "react-icons/fi"
@@ -23,12 +24,12 @@ interface RecordPaymentModalProps {
 }
 
 const PAYMENT_METHODS = [
-  { value: "Check", label: "Check", icon: "📄" },
-  { value: "ACH", label: "ACH / Bank Transfer", icon: "🏦" },
-  { value: "Wire Transfer", label: "Wire Transfer", icon: "🔗" },
-  { value: "Cash", label: "Cash", icon: "💵" },
-  { value: "PayPal", label: "PayPal", icon: "🅿️" },
-  { value: "Other", label: "Other", icon: "📋" },
+  { value: "Check", label: "Check", icon: "ðŸ“„" },
+  { value: "ACH", label: "ACH / Bank Transfer", icon: "ðŸ¦" },
+  { value: "Wire Transfer", label: "Wire Transfer", icon: "ðŸ”—" },
+  { value: "Cash", label: "Cash", icon: "ðŸ’µ" },
+  { value: "PayPal", label: "PayPal", icon: "ðŸ…¿ï¸" },
+  { value: "Other", label: "Other", icon: "ðŸ“‹" },
 ]
 
 export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumber, customerName, onClose, onSuccess }: RecordPaymentModalProps) {
@@ -157,14 +158,14 @@ export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumb
 
       const payData = await payRes.json()
       if (!payData.success) {
-        // Card was charged but Zoho failed — warn but don't fail
+        // Card was charged but Zoho failed â€” warn but don't fail
         console.error("Zoho payment recording failed:", payData.error)
-        setStatus(`⚠️ Card charged $${amt.toFixed(2)} (Auth: ${chargeData.authCode}) but Zoho recording failed. Record manually.`)
+        setStatus(`âš ï¸ Card charged $${amt.toFixed(2)} (Auth: ${chargeData.authCode}) but Zoho recording failed. Record manually.`)
         setTimeout(() => onSuccess(), 3000)
         return
       }
 
-      setStatus(`✅ Payment of $${amt.toFixed(2)} processed! (Auth: ${chargeData.authCode}, Last 4: ${chargeData.last4})`)
+      setStatus(`âœ… Payment of $${amt.toFixed(2)} processed! (Auth: ${chargeData.authCode}, Last 4: ${chargeData.last4})`)
       setTimeout(() => onSuccess(), 1500)
     } catch (e: any) {
       setError(e.message || "Payment failed")
@@ -346,7 +347,7 @@ export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumb
                     type="password"
                     value={cvv}
                     onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                    placeholder="•••"
+                    placeholder="â€¢â€¢â€¢"
                     maxLength={4}
                     className="w-full bg-neutral-800 border border-neutral-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-neutral-600 text-center tracking-widest"
                   />
@@ -414,11 +415,11 @@ export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumb
           {/* Status */}
           {status && (
             <div className={`rounded-lg p-3 text-xs font-bold border ${
-              status.includes("✅") ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" :
-              status.includes("⚠️") ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
+              status.includes("âœ…") ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" :
+              status.includes("âš ï¸") ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
               "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
             }`}>
-              {!status.includes("✅") && !status.includes("⚠️") && (
+              {!status.includes("âœ…") && !status.includes("âš ï¸") && (
                 <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block mr-2" />
               )}
               {status}
@@ -472,3 +473,4 @@ export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumb
     document.body
   )
 }
+

@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useMemo } from "react"
 import { FiTrendingUp, FiPackage, FiClock, FiBarChart2 } from "react-icons/fi"
 
@@ -151,7 +152,7 @@ export function AccountAnalytics({
         >
           <div className="text-[10px] uppercase text-neutral-500 font-semibold mb-1">Order Freq.</div>
           <div className="text-lg font-bold text-purple-400">
-            {analytics.avgDaysBetween !== null ? `${analytics.avgDaysBetween}d` : "—"}
+            {analytics.avgDaysBetween !== null ? `${analytics.avgDaysBetween}d` : "â€”"}
           </div>
           <div className="text-[10px] text-neutral-500 mt-0.5">avg between orders</div>
         </div>
@@ -228,3 +229,4 @@ export function AccountAnalytics({
     </div>
   )
 }
+

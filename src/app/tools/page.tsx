@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
@@ -36,12 +37,12 @@ export default function ToolsRepository() {
   const [productCategory, setProductCategory] = useState("All")
 
   const parseProductDescription = (desc: string | null) => {
-    if (!desc) return { text: "—", cost: null, vendor: null, retail: null, pertinentInfo: null, image: null }
+    if (!desc) return { text: "â€”", cost: null, vendor: null, retail: null, pertinentInfo: null, image: null }
     try {
       const parsed = JSON.parse(desc)
       if (parsed && typeof parsed === "object") {
         return {
-          text: parsed.text || "—",
+          text: parsed.text || "â€”",
           cost: parsed.cost !== undefined ? parsed.cost : null,
           vendor: parsed.vendor || null,
           retail: parsed.retail !== undefined ? parsed.retail : null,
@@ -261,7 +262,7 @@ export default function ToolsRepository() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans pb-12">
-      {/* ── Header ── */}
+      {/* â”€â”€ Header â”€â”€ */}
       <header className="bg-neutral-900 border-b border-neutral-800 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -270,7 +271,7 @@ export default function ToolsRepository() {
             </Link>
             <div className="h-6 w-px bg-neutral-800"></div>
             <h1 className="text-lg font-bold text-white flex items-center gap-2">
-              📂 Tools & Media Repository
+              ðŸ“‚ Tools & Media Repository
             </h1>
           </div>
           {isAdmin && (
@@ -284,7 +285,7 @@ export default function ToolsRepository() {
         </div>
       </header>
 
-      {/* ── Main Container ── */}
+      {/* â”€â”€ Main Container â”€â”€ */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
         {/* Search, Layout Selector, and Roles */}
@@ -475,14 +476,14 @@ export default function ToolsRepository() {
             )}
       </main>
 
-      {/* ── Add / Edit Asset Modal (Admin Only) ── */}
+      {/* â”€â”€ Add / Edit Asset Modal (Admin Only) â”€â”€ */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-neutral-900 border border-neutral-800 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl">
             {/* Modal Header */}
             <div className="bg-neutral-800 px-6 py-4 border-b border-neutral-800 flex justify-between items-center">
               <h2 className="font-bold text-white text-base">
-                {editingAsset ? "✏️ Edit Media Asset" : "✨ Add New Media Asset"}
+                {editingAsset ? "âœï¸ Edit Media Asset" : "âœ¨ Add New Media Asset"}
               </h2>
               <button 
                 onClick={() => setShowModal(false)}
@@ -585,3 +586,4 @@ export default function ToolsRepository() {
     </div>
   )
 }
+

@@ -1,8 +1,10 @@
 "use client"
 
+
 import { useState, useEffect } from "react"
 import { FiX } from "react-icons/fi"
 import { useZoho } from "@/components/ZohoProvider"
+import { toast } from 'react-hot-toast';
 
 export function TaskModal({ 
   onClose, 
@@ -183,10 +185,10 @@ export function TaskModal({
         if (onSaved) onSaved()
         onClose()
       } else {
-        alert("Failed to create task: " + data.error)
+        toast.error("Failed to create task: " + data.error)
       }
     } catch (err: any) {
-      alert("Error saving task: " + err.message)
+      toast.error("Error saving task: " + err.message)
     } finally {
       setTaskSaving(false)
     }
@@ -224,7 +226,7 @@ export function TaskModal({
               className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1">Type</label>
               <select 
@@ -311,7 +313,7 @@ export function TaskModal({
           )}
           <div className="border-t border-neutral-800 pt-3">
             <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Linked Documents (Optional)</h4>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Estimate ID</label>
                 <input 
@@ -375,3 +377,4 @@ export function TaskModal({
     </div>
   )
 }
+

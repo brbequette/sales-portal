@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
@@ -83,12 +84,12 @@ export default function ProductCatalogPage() {
   }, [isInitialized])
 
   const parseProductDescription = (desc: string | null) => {
-    if (!desc) return { text: "—", cost: null, vendor: null, retail: null, pertinentInfo: null, image: null, status: "active" }
+    if (!desc) return { text: "â€”", cost: null, vendor: null, retail: null, pertinentInfo: null, image: null, status: "active" }
     try {
       const parsed = JSON.parse(desc)
       if (parsed && typeof parsed === "object") {
         return {
-          text: parsed.text || "—",
+          text: parsed.text || "â€”",
           cost: parsed.cost !== undefined ? parsed.cost : null,
           vendor: parsed.vendor || null,
           retail: parsed.retail !== undefined ? parsed.retail : null,
@@ -266,7 +267,7 @@ export default function ProductCatalogPage() {
                   </div>
                 </td>
                 <td className="p-4 text-neutral-400 font-semibold">
-                  <div>{p.vendor || parsed.vendor || "—"}</div>
+                  <div>{p.vendor || parsed.vendor || "â€”"}</div>
                   <div className="text-[9px] text-neutral-500 uppercase mt-0.5">{p.manufacturer || ""}</div>
                 </td>
                 <td className="p-4 text-neutral-400">
@@ -326,7 +327,7 @@ export default function ProductCatalogPage() {
             </Link>
             <div className="h-6 w-px bg-neutral-800"></div>
             <h1 className="text-lg font-bold text-white flex items-center gap-2">
-              💎 Product Catalog Lookup
+              ðŸ’Ž Product Catalog Lookup
             </h1>
           </div>
 
@@ -506,3 +507,4 @@ export default function ProductCatalogPage() {
     </div>
   )
 }
+

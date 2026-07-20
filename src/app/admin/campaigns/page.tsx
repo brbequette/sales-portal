@@ -1,8 +1,11 @@
 "use client"
 
+import { toastConfirm } from '@/lib/toastConfirm'
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { FiTrash2, FiPlus, FiTarget, FiActivity, FiImage, FiPhone } from "react-icons/fi"
+import { toast } from 'react-hot-toast';
 
 export default function AdminCampaignsPage() {
   const router = useRouter()
@@ -36,7 +39,7 @@ export default function AdminCampaignsPage() {
   }
 
   const handleCreate = async () => {
-    if (!name || !content) return alert("Name and Content are required")
+    if (!name || !content) return toast.error("Name and Content are required")
     try {
       const res = await fetch('/api/admin/campaigns', {
         method: 'POST',
@@ -50,21 +53,21 @@ export default function AdminCampaignsPage() {
         setName('')
         setContent('')
         setImageUrl('')
-      } else alert("Error: " + data.error)
+      } else toast.error("Error: " + data.error)
     } catch (e: any) {
-      alert("Error creating template")
+      toast.error("Error creating template")
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this template?")) return
+    toastConfirm("Delete this template?", async () => {
     try {
       const res = await fetch(`/api/admin/campaigns?id=${id}`, { method: 'DELETE' })
       if (res.ok) setTemplates(templates.filter(t => t.id !== id))
     } catch (e) {
-      alert("Error deleting")
+      toast.error("Error deleting")
     }
-  }
+  });}
 
   if (loading) return <div className="p-8 text-neutral-400">Loading...</div>
 
@@ -162,7 +165,7 @@ export default function AdminCampaignsPage() {
                       <div key={log.id} className="flex items-center justify-between py-1 border-b border-neutral-900 last:border-0">
                         <div className="flex items-center gap-2 text-neutral-300">
                           <span className={log.status === 'SUCCESS' ? 'text-emerald-500' : 'text-red-500'}>
-                            {log.status === 'SUCCESS' ? '✓' : '✗'}
+                            {log.status === 'SUCCESS' ? 'âœ“' : 'âœ—'}
                           </span>
                           <span className="font-medium text-white">{log.account?.name}</span>
                           <span className="text-neutral-600">via</span>
@@ -182,3 +185,5 @@ export default function AdminCampaignsPage() {
     </div>
   )
 }
+
+

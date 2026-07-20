@@ -1,7 +1,9 @@
 "use client"
 
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from 'react-hot-toast';
 
 export default function VigManagementPage() {
   const router = useRouter()
@@ -109,12 +111,12 @@ export default function VigManagementPage() {
       })
       const data = await res.json()
       if (data.success) {
-        alert(data.message)
+        toast.success(data.message)
       } else {
-        alert("Error: " + data.error)
+        toast.error("Error: " + data.error)
       }
     } catch (err: any) {
-      alert("Failed to sync: " + err.message)
+      toast.error("Failed to sync: " + err.message)
     } finally {
       setSyncing(prev => ({ ...prev, [monthKey]: false }))
     }
@@ -304,3 +306,4 @@ export default function VigManagementPage() {
     </div>
   )
 }
+

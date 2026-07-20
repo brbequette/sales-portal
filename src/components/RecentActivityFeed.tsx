@@ -1,4 +1,5 @@
 "use client"
+
 import React, { useEffect, useState } from "react"
 import Link from "next/link"
 import { FiActivity, FiUserPlus, FiFileText, FiCheckSquare, FiAlertCircle } from "react-icons/fi"
@@ -103,3 +104,4 @@ function formatTimeAgo(dateInput: Date | string) {
   if (interval > 1) return Math.floor(interval) + " minutes ago"
   return Math.floor(seconds) + " seconds ago"
 }
+

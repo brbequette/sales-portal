@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { createPortal } from "react-dom"
 import { FiBox, FiCheck } from "react-icons/fi"
+import { toast } from 'react-hot-toast';
 
 interface CreatePackageModalProps {
   salesOrderId: string;
@@ -26,7 +27,7 @@ export function CreatePackageModal({ salesOrderId, lineItems, onClose, onSuccess
       .map(([id, qty]) => ({ lineItemId: id, quantity: qty }))
 
     if (itemsToPack.length === 0) {
-      alert("Please select at least one item to pack.")
+      toast.error("Please select at least one item to pack.")
       return
     }
 
@@ -45,7 +46,7 @@ export function CreatePackageModal({ salesOrderId, lineItems, onClose, onSuccess
       if (!data.success) throw new Error(data.message || data.error)
       onSuccess(data.packageId)
     } catch (err: any) {
-      alert(`Failed to create package: ${err.message}`)
+      toast.error(`Failed to create package: ${err.message}`)
     } finally {
       setIsSubmitting(false)
     }

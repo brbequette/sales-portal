@@ -1,5 +1,6 @@
 "use client"
 
+
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react"
 
 export type Notification = {
@@ -138,3 +139,4 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     </NotificationContext.Provider>
   )
 }
+

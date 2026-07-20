@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useMemo } from "react"
@@ -513,7 +514,7 @@ export default function StatsPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">{selectedRep.repName}</h3>
-                  <p className="text-[10px] text-neutral-500">{selectedRep.email} • Margin: {formatPercent(selectedRep.margin / 100)}</p>
+                  <p className="text-[10px] text-neutral-500">{selectedRep.email} â€¢ Margin: {formatPercent(selectedRep.margin / 100)}</p>
                 </div>
               </div>
               <button
@@ -544,7 +545,7 @@ export default function StatsPage() {
                 if (periodStats.target === 0) {
                   statusMsg = "No target configured for this period."
                 } else if (periodStats.profit >= periodStats.target) {
-                  statusMsg = `🏆 Goal Hit! ${formatPreciseCurrency(periodStats.profit - periodStats.target)} over target.`
+                  statusMsg = `ðŸ† Goal Hit! ${formatPreciseCurrency(periodStats.profit - periodStats.target)} over target.`
                 } else {
                   statusMsg = `Needs ${formatPreciseCurrency(diff)} more to hit the period profit target.`
                 }
@@ -636,3 +637,4 @@ export default function StatsPage() {
     </div>
   )
 }
+

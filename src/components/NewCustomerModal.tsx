@@ -1,6 +1,8 @@
 "use client"
+
 import React, { useState } from 'react'
 import { FiX, FiUserPlus, FiMapPin, FiBriefcase } from 'react-icons/fi'
+import { toast } from 'react-hot-toast';
 
 type NewCustomerModalProps = {
   isOpen: boolean
@@ -60,12 +62,12 @@ export function NewCustomerModal({ isOpen, onClose, currentUserId }: NewCustomer
       if (data.success) {
         window.location.href = `/account?id=${data.zohoId}`
       } else {
-        alert("Failed to create customer: " + data.error)
+        toast.error("Failed to create customer: " + data.error)
         setLoading(false)
       }
     } catch (err) {
       console.error(err)
-      alert("An error occurred")
+      toast.error("An error occurred")
       setLoading(false)
     }
   }
@@ -231,3 +233,4 @@ export function NewCustomerModal({ isOpen, onClose, currentUserId }: NewCustomer
     </div>
   )
 }
+

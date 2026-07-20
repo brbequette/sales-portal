@@ -1,6 +1,8 @@
 "use client"
+
 import { useState, useEffect } from "react"
 import { FiFileText, FiShoppingBag, FiTruck, FiBox, FiDollarSign, FiCheckCircle } from "react-icons/fi"
+import { toast } from 'react-hot-toast';
 
 interface DocumentLifecycleProps {
   zohoId: string
@@ -59,7 +61,7 @@ export function DocumentLifecycle({ zohoId, type }: DocumentLifecycleProps) {
 
   const openDoc = (docType: string, data: any) => {
     if (!data) return
-    alert(`Document Type: ${docType}\nNumber: ${data.items?.estimateNumber || data.items?.salesOrderNumber || data.items?.invoiceNumber || data.packageNumber || data.paymentNumber}\nZoho ID: ${data.zohoId}`)
+    toast.success(`Document Type: ${docType}\nNumber: ${data.items?.estimateNumber || data.items?.salesOrderNumber || data.items?.invoiceNumber || data.packageNumber || data.paymentNumber}\nZoho ID: ${data.zohoId}`)
   }
 
   return (
@@ -139,3 +141,4 @@ export function DocumentLifecycle({ zohoId, type }: DocumentLifecycleProps) {
     </div>
   )
 }
+

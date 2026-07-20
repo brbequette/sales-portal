@@ -1,7 +1,9 @@
 "use client"
 
+
 import { useState, useEffect } from "react"
 import { FiPhone, FiMessageSquare, FiClock, FiPlay, FiCpu, FiRefreshCw } from "react-icons/fi"
+import { toast } from 'react-hot-toast';
 
 interface SaleCommunicationsProps {
   zohoId: string
@@ -41,11 +43,11 @@ export function SaleCommunications({ zohoId }: SaleCommunicationsProps) {
         // Refresh comms to show new sentiment
         await fetchComms()
       } else {
-        alert(data.error || "Failed to analyze call")
+        toast.error(data.error || "Failed to analyze call")
       }
     } catch (err) {
       console.error(err)
-      alert("Error triggering analysis")
+      toast.error("Error triggering analysis")
     } finally {
       setAnalyzingId(null)
     }
@@ -167,3 +169,4 @@ export function SaleCommunications({ zohoId }: SaleCommunicationsProps) {
     </div>
   )
 }
+

@@ -1,22 +1,23 @@
 "use client"
 
+
 /**
  * OrderBuilder.tsx
  *
- * Universal Order Builder — shared by all POS transaction spots:
- *   • SalesCallCampaignModal (Titan Dialer campaign view)
- *   • AccountDialer (account page dialer)
- *   • CommunicationCenter (account page comm hub)
+ * Universal Order Builder â€” shared by all POS transaction spots:
+ *   â€¢ SalesCallCampaignModal (Titan Dialer campaign view)
+ *   â€¢ AccountDialer (account page dialer)
+ *   â€¢ CommunicationCenter (account page comm hub)
  *
  * Features:
- *   ✅ Blade Lookup — filter by Application, Size, Type → Good/Better/Best cards
- *   ✅ Product search (full catalog)
- *   ✅ Quick-Add top 10 blades
- *   ✅ Sold Items section (paidQty > 0) — editable qty input + +/- buttons
- *   ✅ Promotional Items section (freeQty > 0) — separated, green, gift items
- *   ✅ Editable unit price per line
- *   ✅ Live financials (Dead Cost, Profit, VIG, Commission, Margin)
- *   ✅ Sales Order preview modal
+ *   âœ… Blade Lookup â€” filter by Application, Size, Type â†’ Good/Better/Best cards
+ *   âœ… Product search (full catalog)
+ *   âœ… Quick-Add top 10 blades
+ *   âœ… Sold Items section (paidQty > 0) â€” editable qty input + +/- buttons
+ *   âœ… Promotional Items section (freeQty > 0) â€” separated, green, gift items
+ *   âœ… Editable unit price per line
+ *   âœ… Live financials (Dead Cost, Profit, VIG, Commission, Margin)
+ *   âœ… Sales Order preview modal
  */
 
 import { useState, useRef, useMemo, useEffect } from "react"
@@ -26,7 +27,7 @@ import {
   FiPackage, FiChevronDown,
 } from "react-icons/fi"
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type OrderLine = {
   id: string
@@ -39,20 +40,24 @@ export type OrderLine = {
 }
 
 export interface OrderBuilderProps {
-  orderLines: OrderLine[]
-  setOrderLines: (lines: OrderLine[] | ((prev: OrderLine[]) => OrderLine[])) => void
-  catalogProducts: any[]
+  orderLines?: OrderLine[]
+  setOrderLines?: (lines: OrderLine[] | ((prev: OrderLine[]) => OrderLine[])) => void
+  catalogProducts?: any[]
   vigRate?: number
   commissionPct?: number
   /** Optional: customer name shown in mock Sales Order */
   accountName?: string
   /** Optional: full account/address object for Sales Order */
   accountDetail?: any
-  /** Accent colour class prefix (e.g. "violet", "cyan") — defaults to "violet" */
+  /** Accent colour class prefix (e.g. "violet", "cyan") â€” defaults to "violet" */
   accent?: "violet" | "cyan" | "emerald" | "sky"
+  accountId?: string
+  dealId?: string
+  onCancel?: () => void
+  onSuccess?: () => void
 }
 
-// ─── Blade lookup config ──────────────────────────────────────────────────────
+// â”€â”€â”€ Blade lookup config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const APPLICATIONS = [
   "All",
@@ -97,7 +102,7 @@ const TYPE_KEYWORDS: Record<string, string[]> = {
   "Abrasive":       ["abrasive", "abra", "cup", "wheel"],
 }
 
-/** Extract inch size from product name (e.g. "MEDUSA 14" → "14\"") */
+/** Extract inch size from product name (e.g. "MEDUSA 14" â†’ "14\"") */
 function extractSize(name: string): string | null {
   const m = name.match(/\b(4\.5|4-1\/2|7|9|10|12|14|16|18|20|24)\b/)
   if (!m) return null
@@ -126,7 +131,7 @@ function matchType(name: string, category: string): string {
   return "Segmented"
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function parseDesc(raw: string | null | undefined): Record<string, any> {
   try { return JSON.parse(raw || "{}") } catch { return {} }
@@ -139,7 +144,7 @@ const TIER_COLORS = {
   Best:   { bg: "bg-amber-950/40",border: "border-amber-600/50",badge: "bg-amber-700/60 text-amber-300", price: "text-amber-300" },
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function QtyInput({
   value,
@@ -203,18 +208,96 @@ function QtyInput({
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function OrderBuilder({
-  orderLines,
-  setOrderLines,
-  catalogProducts,
+  orderLines: externalOrderLines,
+  setOrderLines: externalSetOrderLines,
+  catalogProducts: externalCatalogProducts,
   vigRate = 1.3,
   commissionPct = 50,
   accountName = "",
   accountDetail,
   accent = "violet",
+  accountId,
+  dealId,
+  onCancel,
+  onSuccess,
 }: OrderBuilderProps) {
+  const isControlled = externalSetOrderLines !== undefined
+  const [internalOrderLines, setInternalOrderLines] = useState<OrderLine[]>(externalOrderLines || [])
+  const [internalCatalogProducts, setInternalCatalogProducts] = useState<any[]>([])
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const orderLines = isControlled ? (externalOrderLines as OrderLine[]) : internalOrderLines
+  const setOrderLines = isControlled ? (externalSetOrderLines as any) : setInternalOrderLines
+  const catalogProducts = externalCatalogProducts ?? internalCatalogProducts
+
+  useEffect(() => {
+    if (!externalCatalogProducts) {
+      setIsLoadingCatalog(true)
+      fetch("/api/get-products")
+        .then(r => r.json())
+        .then(d => { if (d.success) setInternalCatalogProducts(d.products) })
+        .catch(e => console.error("Failed to load catalog", e))
+        .finally(() => setIsLoadingCatalog(false))
+    }
+  }, [externalCatalogProducts])
+
+  const handleConfirmOrder = async () => {
+    if (!accountId) {
+      setShowMockOrder(false)
+      return
+    }
+    
+    setIsSubmitting(true)
+    try {
+      const paidLines = orderLines.filter(l => !l.isPromo)
+      const orderTotal = paidLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0)
+      
+      const itemsFormatted = orderLines.map(
+        (i) => `${i.quantity}x ${i.name} (${i.sku}) - $${i.unitPrice.toFixed(2)} ea` + (i.isPromo ? " [PROMO FREE]" : "")
+      )
+
+      const lineItems = orderLines.map((i) => ({
+        name: i.name,
+        itemId: null,
+        rate: i.unitPrice,
+        discount: 0,
+        quantity: i.quantity,
+        description: `SKU: ${i.sku}` + (i.isPromo ? " (PROMO FREE)" : "")
+      }))
+
+      const res = await fetch("/api/create-transaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId,
+          dealId,
+          type: "SalesOrder",
+          amount: orderTotal,
+          items: itemsFormatted,
+          lineItems: lineItems,
+          processingNotes: "Order created via Standalone OrderBuilder",
+        }),
+      })
+
+      if (res.ok) {
+        alert("SalesOrder created successfully!")
+        if (onSuccess) onSuccess()
+        setShowMockOrder(false)
+        if (!externalOrderLines) setInternalOrderLines([])
+      } else {
+        const data = await res.json()
+        alert(data.error || data.message || "Failed to create order")
+      }
+    } catch (e: any) {
+      alert("Error: " + e.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
   // Product search
   const [productSearch, setProductSearch] = useState("")
   const [showProductDropdown, setShowProductDropdown] = useState(false)
@@ -246,7 +329,7 @@ export function OrderBuilder({
     return () => document.removeEventListener("mousedown", handler)
   }, [])
 
-  // ── Derived product lists ──────────────────────────────────────────────────
+  // â”€â”€ Derived product lists â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const activeBlades = useMemo(() => {
     return catalogProducts
@@ -283,7 +366,7 @@ export function OrderBuilder({
   }, [activeBlades, filterApp, filterSize, filterType])
 
   /**
-   * Assign Good/Better/Best tiers by price (ascending = Good → Best).
+   * Assign Good/Better/Best tiers by price (ascending = Good â†’ Best).
    * If only 1 or 2 results, label them accordingly.
    */
   const tieredBlades = useMemo(() => {
@@ -302,7 +385,7 @@ export function OrderBuilder({
     }))
   }, [filteredBlades])
 
-  // ── Financials ────────────────────────────────────────────────────────────
+  // â”€â”€ Financials â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const financials = useMemo(() => {
     if (orderLines.length === 0) return null
@@ -318,7 +401,7 @@ export function OrderBuilder({
     return { subTotal, deadCostTotal, deadCostPlusVig, deadProfit, profitAfterVig, salesCommission, marginPct }
   }, [orderLines, vigRate, commissionPct])
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const openAddItemModal = (p: { name: string; sku: string; price: number; cost: number }) => {
     setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost })
@@ -360,22 +443,22 @@ export function OrderBuilder({
     }
 
     if (newLines.length > 0) {
-      setOrderLines(prev => [...prev, ...newLines])
+      setOrderLines((prev: OrderLine[]) => [...prev, ...newLines])
     }
     setPendingItem(null)
   }
 
   const updateLine = (id: string, patch: Partial<OrderLine>) =>
-    setOrderLines(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l))
+    setOrderLines((prev: OrderLine[]) => prev.map(l => l.id === id ? { ...l, ...patch } : l))
 
   const removeLine = (id: string) =>
-    setOrderLines(prev => prev.filter(l => l.id !== id))
+    setOrderLines((prev: OrderLine[]) => prev.filter((l: OrderLine) => l.id !== id))
 
   const paidLines  = orderLines.filter(l => !l.isPromo)
   const promoLines = orderLines.filter(l => l.isPromo)
   const orderTotal = paidLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0)
 
-  // ── Filtered search results ───────────────────────────────────────────────
+  // â”€â”€ Filtered search results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const searchResults = useMemo(() => {
     if (productSearch.length < 2) return []
@@ -392,23 +475,23 @@ export function OrderBuilder({
       .slice(0, 8)
   }, [productSearch, catalogProducts])
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <div className="space-y-3">
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
+      {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
           <FiShoppingCart size={11} /> Build Order
         </span>
         {orderLines.length > 0 && (
           <span className="text-[10px] font-black text-violet-300">
-            {orderLines.length} item{orderLines.length !== 1 ? "s" : ""} · ${orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {orderLines.length} item{orderLines.length !== 1 ? "s" : ""} Â· ${orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </span>
         )}
       </div>
 
-      {/* ── Blade Lookup ─────────────────────────────────────────────────── */}
+      {/* â”€â”€ Blade Lookup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="border border-neutral-800 rounded-xl overflow-hidden">
         <button
           type="button"
@@ -417,7 +500,7 @@ export function OrderBuilder({
         >
           <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
             <FiFilter size={11} />
-            Blade Lookup — Application · Size · Type
+            Blade Lookup â€” Application Â· Size Â· Type
           </span>
           <FiChevronDown
             size={12}
@@ -473,7 +556,7 @@ export function OrderBuilder({
                                 <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${colors.badge} shrink-0`}>{tier}</span>
                                 <div className="min-w-0">
                                   <p className="text-[11px] font-bold text-white truncate">{b.name}</p>
-                                  <p className="text-[8px] text-neutral-500">{b.sku} · {b.size ?? "?"} · {b.type}</p>
+                                  <p className="text-[8px] text-neutral-500">{b.sku} Â· {b.size ?? "?"} Â· {b.type}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
@@ -499,7 +582,7 @@ export function OrderBuilder({
         )}
       </div>
 
-      {/* ── Product Search ───────────────────────────────────────────────── */}
+      {/* â”€â”€ Product Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div ref={productSearchRef} className="relative">
         <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 focus-within:border-violet-500 transition-colors">
           <FiSearch size={12} className="text-neutral-500 shrink-0" />
@@ -532,7 +615,7 @@ export function OrderBuilder({
                   <FiPlus size={12} className="text-violet-400" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] font-bold text-white truncate">{p.name}</p>
-                    <p className="text-[9px] text-neutral-500">{p.sku} · {p.category}</p>
+                    <p className="text-[9px] text-neutral-500">{p.sku} Â· {p.category}</p>
                   </div>
                   <span className="text-[10px] font-mono font-bold text-amber-400 shrink-0">${(p.price || 0).toFixed(2)}</span>
                 </button>
@@ -542,10 +625,10 @@ export function OrderBuilder({
         )}
       </div>
 
-      {/* ── Quick Add — Top Blades ────────────────────────────────────────── */}
+      {/* â”€â”€ Quick Add â€” Top Blades â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {topBladeProducts.length > 0 && (
         <div>
-          <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold mb-1.5">Quick Add — Top Blades</p>
+          <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold mb-1.5">Quick Add â€” Top Blades</p>
           <div className="flex flex-wrap gap-1.5">
             {topBladeProducts.map(bp => {
               return (
@@ -555,7 +638,7 @@ export function OrderBuilder({
                   onClick={() => openAddItemModal(bp)}
                   className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-violet-500/50 hover:text-violet-300"
                 >
-                  ⚡ {bp.name}
+                  âš¡ {bp.name}
                 </button>
               )
             })}
@@ -563,7 +646,7 @@ export function OrderBuilder({
         </div>
       )}
 
-      {/* ── Add Item Pending Modal ───────────────────────────────────────── */}
+      {/* â”€â”€ Add Item Pending Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {pendingItem && (
         <div className="bg-violet-950/40 border border-violet-500/40 rounded-xl p-3 space-y-3">
           <div className="flex items-start justify-between">
@@ -613,7 +696,7 @@ export function OrderBuilder({
         </div>
       )}
 
-      {/* ── Sold Items ───────────────────────────────────────────────────── */}
+      {/* â”€â”€ Sold Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {paidLines.length > 0 && (
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
@@ -668,19 +751,19 @@ export function OrderBuilder({
                 type="button"
                 onClick={() => removeLine(line.id)}
                 className="w-5 h-5 rounded bg-red-900/20 text-red-400 text-[10px] font-bold flex items-center justify-center hover:bg-red-900/40 cursor-pointer"
-              >×</button>
+              >Ã—</button>
             </div>
           ))}
         </div>
       )}
 
-      {/* ── Promotional / Gift Items ─────────────────────────────────────── */}
+      {/* â”€â”€ Promotional / Gift Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {promoLines.length > 0 && (
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
             <FiTag size={11} className="text-emerald-400" />
             <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-400">
-              🎁 Promotional Items ({promoLines.length})
+              ðŸŽ Promotional Items ({promoLines.length})
             </p>
           </div>
 
@@ -698,7 +781,7 @@ export function OrderBuilder({
             >
               <div className="min-w-0">
                 <span className="text-[11px] font-bold text-emerald-300 truncate block">{line.name}</span>
-                <span className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL — FREE · {line.sku}</span>
+                <span className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL â€” FREE Â· {line.sku}</span>
               </div>
 
               <div className="flex justify-center">
@@ -716,13 +799,13 @@ export function OrderBuilder({
                 onClick={() => removeLine(line.id)}
                 className="w-5 h-5 rounded bg-red-900/20 text-red-400 text-[10px] font-bold flex items-center justify-center hover:bg-red-900/40 cursor-pointer"
                 title="Remove promotional item"
-              >×</button>
+              >Ã—</button>
             </div>
           ))}
         </div>
       )}
 
-      {/* ── Empty State ──────────────────────────────────────────────────── */}
+      {/* â”€â”€ Empty State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {orderLines.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-2 py-6 text-neutral-600">
           <FiShoppingCart size={22} />
@@ -730,7 +813,7 @@ export function OrderBuilder({
         </div>
       )}
 
-      {/* ── Order Summary ────────────────────────────────────────────────── */}
+      {/* â”€â”€ Order Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {orderLines.length > 0 && (
         <div className="border-t border-violet-500/20 pt-2 space-y-1">
           <div className="flex justify-between px-1">
@@ -741,7 +824,7 @@ export function OrderBuilder({
           </div>
           {promoLines.length > 0 && (
             <div className="flex justify-between px-1">
-              <span className="text-[10px] text-emerald-500">🎁 Promotional</span>
+              <span className="text-[10px] text-emerald-500">ðŸŽ Promotional</span>
               <span className="text-[11px] font-bold text-emerald-400">
                 {promoLines.reduce((s, l) => s + l.quantity, 0)} free
               </span>
@@ -756,14 +839,14 @@ export function OrderBuilder({
         </div>
       )}
 
-      {/* ── Financials ───────────────────────────────────────────────────── */}
+      {/* â”€â”€ Financials â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {financials && (
         <div className="border-t border-amber-500/20 pt-2 space-y-1">
-          <p className="text-[8px] font-bold uppercase tracking-wider text-amber-500/60 px-1 mb-1">💰 Profit Estimates</p>
+          <p className="text-[8px] font-bold uppercase tracking-wider text-amber-500/60 px-1 mb-1">ðŸ’° Profit Estimates</p>
           {[
             ["Dead Cost", `-$${financials.deadCostTotal.toFixed(2)}`, "text-red-400"],
             ["Dead Profit", `$${financials.deadProfit.toFixed(2)}`, financials.deadProfit >= 0 ? "text-emerald-400" : "text-red-400"],
-            [`VIG (${vigRate}×)`, `-$${financials.deadCostPlusVig.toFixed(2)}`, "text-red-400"],
+            [`VIG (${vigRate}Ã—)`, `-$${financials.deadCostPlusVig.toFixed(2)}`, "text-red-400"],
           ].map(([label, val, color]) => (
             <div key={label as string} className="flex justify-between px-1">
               <span className="text-[10px] text-neutral-500">{label}</span>
@@ -789,7 +872,7 @@ export function OrderBuilder({
         </div>
       )}
 
-      {/* ── Preview Button ───────────────────────────────────────────────── */}
+      {/* â”€â”€ Preview Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {orderLines.length > 0 && (
         <button
           type="button"
@@ -800,7 +883,7 @@ export function OrderBuilder({
         </button>
       )}
 
-      {/* ── Sales Order Preview Modal ────────────────────────────────────── */}
+      {/* â”€â”€ Sales Order Preview Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {showMockOrder && orderLines.length > 0 && (
         <div
           className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4"
@@ -815,7 +898,7 @@ export function OrderBuilder({
               <div>
                 <h3 className="text-white font-black text-base">Sales Order Preview</h3>
                 <p className="text-[10px] text-neutral-500 mt-0.5">
-                  {accountName || "Customer"} · {new Date().toLocaleDateString()}
+                  {accountName || "Customer"} Â· {new Date().toLocaleDateString()}
                 </p>
               </div>
               <button type="button" onClick={() => setShowMockOrder(false)} className="text-neutral-500 hover:text-white cursor-pointer">
@@ -871,7 +954,7 @@ export function OrderBuilder({
               {promoLines.length > 0 && (
                 <div>
                   <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-500 mb-2 flex items-center gap-1.5">
-                    <FiTag size={10} /> 🎁 Promotional Items
+                    <FiTag size={10} /> ðŸŽ Promotional Items
                   </p>
                   <div className="border border-emerald-900/50 rounded-lg overflow-hidden">
                     <div className="grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-1.5 bg-emerald-950/30 text-[8px] font-bold text-emerald-700 uppercase">
@@ -881,7 +964,7 @@ export function OrderBuilder({
                       <div key={`so-promo-${line.id}`} className={`grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-2 ${i % 2 === 0 ? "bg-emerald-950/10" : ""}`}>
                         <div className="min-w-0">
                           <p className="text-[11px] font-bold text-emerald-300 truncate">{line.name}</p>
-                          <p className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL — FREE</p>
+                          <p className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL â€” FREE</p>
                         </div>
                         <span className="text-[11px] font-black text-emerald-400 text-center">{line.quantity}</span>
                         <span className="text-[10px] font-mono text-emerald-700 text-right">$0.00</span>
@@ -900,7 +983,7 @@ export function OrderBuilder({
                 </div>
                 {promoLines.length > 0 && (
                   <div className="flex justify-between px-1">
-                    <span className="text-[10px] text-emerald-500">🎁 Promotional Value</span>
+                    <span className="text-[10px] text-emerald-500">ðŸŽ Promotional Value</span>
                     <span className="text-xs font-bold text-emerald-400">$0.00</span>
                   </div>
                 )}
@@ -924,7 +1007,7 @@ export function OrderBuilder({
                     {[
                       ["Dead Cost (All Items)", `-$${financials.deadCostTotal.toFixed(2)}`, "text-red-400"],
                       ["Dead Profit", `$${financials.deadProfit.toFixed(2)}`, financials.deadProfit >= 0 ? "text-emerald-400" : "text-red-400"],
-                      [`Cost + VIG (${vigRate}× paid, 1× free)`, `-$${financials.deadCostPlusVig.toFixed(2)}`, "text-red-400"],
+                      [`Cost + VIG (${vigRate}Ã— paid, 1Ã— free)`, `-$${financials.deadCostPlusVig.toFixed(2)}`, "text-red-400"],
                     ].map(([label, val, color]) => (
                       <div key={label as string} className="flex justify-between">
                         <span className="text-[10px] text-neutral-500">{label}</span>
@@ -964,3 +1047,5 @@ export function OrderBuilder({
     </div>
   )
 }
+
+

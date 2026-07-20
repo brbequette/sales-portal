@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
@@ -14,7 +15,7 @@ function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0)
 }
 
-// ── Types ──────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type InvoiceRecord = {
   id: string
   zohoId: string
@@ -89,7 +90,7 @@ type CommData = {
 
 
 function fmtDate(s: string | null) {
-  if (!s) return "—"
+  if (!s) return "â€”"
   return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
@@ -110,7 +111,7 @@ function stageColor(stage: string) {
   return "text-neutral-400 bg-neutral-800"
 }
 
-// ── Rep Card ───────────────────────────────────────────────────────────
+// â”€â”€ Rep Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, onStartCampaign }: {
   rep: RepSummary,
   isAdmin: boolean,
@@ -145,7 +146,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
       }
     })
 
-    // Group events into year → week buckets
+    // Group events into year â†’ week buckets
     const groups: Record<number, Record<string, { events: CommEvent[], totalCommission: number, startOfWeek: string }>> = {}
     events.forEach(ev => {
       const d = new Date(ev.eventDate)
@@ -183,7 +184,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
           </div>
           <div className="min-w-0 text-left">
             <div className="text-sm font-bold text-white truncate">{rep.repName}</div>
-            <div className="text-[10px] text-neutral-500">{rep.invoices.length} invoices · {rep.deals.length} pipeline deals</div>
+            <div className="text-[10px] text-neutral-500">{rep.invoices.length} invoices Â· {rep.deals.length} pipeline deals</div>
           </div>
         </div>
         <div className="flex items-center gap-6 shrink-0 ml-4">
@@ -311,22 +312,22 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                                             ? 'bg-amber-900/30 text-amber-400'
                                             : 'bg-emerald-900/30 text-emerald-400'
                                         }`}>
-                                          {isUpfront ? '½ Upfront' : '½ Final'}
+                                          {isUpfront ? 'Â½ Upfront' : 'Â½ Final'}
                                         </span>
                                       </div>
                                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
                                         {inv.accountZohoId ? (
                                           <Link href={`/account?id=${inv.accountZohoId}`} className="text-[10px] text-blue-400 hover:underline font-bold" onClick={(e) => e.stopPropagation()}>
-                                            🏢 {inv.accountName}
+                                            ðŸ¢ {inv.accountName}
                                           </Link>
                                         ) : (
-                                          <span className="text-[10px] text-neutral-400">🏢 {inv.accountName}</span>
+                                          <span className="text-[10px] text-neutral-400">ðŸ¢ {inv.accountName}</span>
                                         )}
-                                        <span className="text-[10px] text-neutral-600">•</span>
+                                        <span className="text-[10px] text-neutral-600">â€¢</span>
                                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${
                                           inv.isPaid ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/20 text-amber-400'
                                         } font-bold`}>{inv.status}</span>
-                                        <span className="text-[10px] text-neutral-600">•</span>
+                                        <span className="text-[10px] text-neutral-600">â€¢</span>
                                         <span className="text-[10px] text-neutral-500">{fmtDate(eventDate)}</span>
                                       </div>
                                     </div>
@@ -376,14 +377,14 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
                       {deal.accountZohoId ? (
                         <Link href={`/account?id=${deal.accountZohoId}`} className="text-[10px] text-blue-400 hover:underline font-bold">
-                          🏢 {deal.accountName}
+                          ðŸ¢ {deal.accountName}
                         </Link>
                       ) : (
-                        <span className="text-[10px] text-neutral-400">🏢 {deal.accountName}</span>
+                        <span className="text-[10px] text-neutral-400">ðŸ¢ {deal.accountName}</span>
                       )}
-                      <span className="text-[10px] text-neutral-600">•</span>
+                      <span className="text-[10px] text-neutral-600">â€¢</span>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${stageColor(deal.stage)}`}>{deal.stage}</span>
-                      <span className="text-[10px] text-neutral-600">•</span>
+                      <span className="text-[10px] text-neutral-600">â€¢</span>
                       <span className="text-[10px] text-neutral-500">{fmtDate(deal.closeDate)}</span>
                     </div>
                   </div>
@@ -401,7 +402,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
   )
 }
 
-// ── Performance Stats ──────────────────────────────────────────────────
+// â”€â”€ Performance Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function StatsTab({ data }: { data: CommData }) {
   // Top reps by commission earned
   const topReps = Object.values(data.byRep)
@@ -553,7 +554,7 @@ function ReimbursementsTab({ userId }: { userId?: string }) {
   )
 }
 
-// ── Main Commissions Page ──────────────────────────────────────────────
+// â”€â”€ Main Commissions Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function CommissionsPage() {
   const { zohoContext: user } = useZoho()
   const { preferences } = usePreferences()
@@ -856,7 +857,7 @@ export default function CommissionsPage() {
         </div>
       </div>
 
-      {/* ── Filters Popout Drawer ── */}
+      {/* â”€â”€ Filters Popout Drawer â”€â”€ */}
       {showFiltersDrawer && createPortal(
         <div className="fixed inset-0 z-[9999]">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFiltersDrawer(false)} />
@@ -990,7 +991,7 @@ export default function CommissionsPage() {
         />
       )}
 
-      {/* ── Manage Payouts Modal ── */}
+      {/* â”€â”€ Manage Payouts Modal â”€â”€ */}
       {managingPayoutsFor && createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setManagingPayoutsFor(null)} />
@@ -1239,3 +1240,4 @@ export default function CommissionsPage() {
     </div>
   )
 }
+

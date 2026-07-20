@@ -201,6 +201,7 @@ export const handler: Handler = async (event) => {
         // All-time totals
         revenue: 0,
         profit: 0,
+        deadProfit: 0,
         margin: 0,
         activeAccounts: 0,
         updateAccounts: 0,
@@ -223,9 +224,9 @@ export const handler: Handler = async (event) => {
         },
 
         // Periodic breakdowns
-        daily: { revenue: 0, profit: 0, dealsWon: 0, target: dailyGoal },
-        weekly: { revenue: 0, profit: 0, dealsWon: 0, target: weeklyGoal },
-        monthly: { revenue: 0, profit: 0, dealsWon: 0, target: monthlyGoal }
+        daily: { revenue: 0, profit: 0, deadProfit: 0, dealsWon: 0, target: dailyGoal },
+        weekly: { revenue: 0, profit: 0, deadProfit: 0, dealsWon: 0, target: weeklyGoal },
+        monthly: { revenue: 0, profit: 0, deadProfit: 0, dealsWon: 0, target: monthlyGoal }
       }
     })
 
@@ -239,6 +240,7 @@ export const handler: Handler = async (event) => {
       monthlyVigGoals: [],
       revenue: 0,
       profit: 0,
+      deadProfit: 0,
       margin: 0,
       activeAccounts: 0,
       updateAccounts: 0,
@@ -250,9 +252,9 @@ export const handler: Handler = async (event) => {
       invoices: [],
       deals: [],
       salesTargets: { daily: 0, weekly: 0, monthly: 0, dailySubtotal: 0, weeklySubtotal: 0, monthlySubtotal: 0 },
-      daily: { revenue: 0, profit: 0, dealsWon: 0, target: 0 },
-      weekly: { revenue: 0, profit: 0, dealsWon: 0, target: 0 },
-      monthly: { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
+      daily: { revenue: 0, profit: 0, deadProfit: 0, dealsWon: 0, target: 0 },
+      weekly: { revenue: 0, profit: 0, deadProfit: 0, dealsWon: 0, target: 0 },
+      monthly: { revenue: 0, profit: 0, deadProfit: 0, dealsWon: 0, target: 0 }
     }
 
     // Process accounts (account owner attributes counts)
@@ -304,12 +306,14 @@ export const handler: Handler = async (event) => {
           if (isValidInvoice) {
             repStatsMap[repId].revenue += amount
             repStatsMap[repId].profit += profit
+            repStatsMap[repId].deadProfit += deadProfit
             repStatsMap[repId].commissions += zohoCommission
             repStatsMap[repId].invoices.push({
               id: inv.id,
               date: issueDate,
               amount: amount,
               profit: profit,
+              deadProfit: deadProfit,
               commission: zohoCommission,
               status: inv.status,
               invoiceNumber: items.invoiceNumber || items.invoice_number || inv.zohoId
@@ -330,14 +334,17 @@ export const handler: Handler = async (event) => {
             if (issueDate >= todayStart && issueDate <= todayEnd) {
               repStatsMap[repId].daily.revenue += amount
               repStatsMap[repId].daily.profit += profit
+              repStatsMap[repId].daily.deadProfit += deadProfit
             }
             if (issueDate >= monday && issueDate <= sunday) {
               repStatsMap[repId].weekly.revenue += amount
               repStatsMap[repId].weekly.profit += profit
+              repStatsMap[repId].weekly.deadProfit += deadProfit
             }
             if (issueDate >= firstOfMonth && issueDate <= lastOfMonth) {
               repStatsMap[repId].monthly.revenue += amount
               repStatsMap[repId].monthly.profit += profit
+              repStatsMap[repId].monthly.deadProfit += deadProfit
             }
           }
         }
@@ -622,6 +629,7 @@ export const handler: Handler = async (event) => {
     const companyTotals = {
       revenue: 0,
       profit: 0,
+      deadProfit: 0,
       activeAccounts: 0,
       updateAccounts: 0,
       totalDeals: 0,
@@ -636,6 +644,7 @@ export const handler: Handler = async (event) => {
       if (rep.repId !== unassignedId) {
         companyTotals.revenue += rep.revenue
         companyTotals.profit += rep.profit
+        companyTotals.deadProfit += rep.deadProfit
         companyTotals.activeAccounts += rep.activeAccounts
         companyTotals.updateAccounts += rep.updateAccounts
         companyTotals.totalDeals += rep.totalDeals
@@ -650,6 +659,7 @@ export const handler: Handler = async (event) => {
     const companyAverages = {
       revenue: repCountForAvg > 0 ? companyTotals.revenue / repCountForAvg : 0,
       profit: repCountForAvg > 0 ? companyTotals.profit / repCountForAvg : 0,
+      deadProfit: repCountForAvg > 0 ? companyTotals.deadProfit / repCountForAvg : 0,
       margin: companyTotals.revenue > 0 ? (companyTotals.profit / companyTotals.revenue) * 100 : 0,
       activeAccounts: repCountForAvg > 0 ? companyTotals.activeAccounts / repCountForAvg : 0,
       updateAccounts: repCountForAvg > 0 ? companyTotals.updateAccounts / repCountForAvg : 0,

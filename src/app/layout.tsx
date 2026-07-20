@@ -8,6 +8,7 @@ import Script from "next/script";
 import { ProductModalProvider } from "@/components/ProductModalProvider";
 import { TimeclockTracker } from "@/components/TimeclockTracker";
 import { NotificationProvider } from "@/components/NotificationProvider";
+import { Toaster } from "react-hot-toast";
 import "./globals.css";
 
 import { PreferencesProvider } from "@/components/PreferencesProvider";
@@ -58,6 +59,7 @@ export default function RootLayout({
                   <NotificationProvider>
                     <AppShell>
                       <TimeclockTracker />
+                      <Toaster position="bottom-right" />
                       {children}
                     </AppShell>
                   </NotificationProvider>

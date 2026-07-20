@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { FiX, FiSave } from "react-icons/fi"
+import { toast } from 'react-hot-toast';
 
 interface ContactEditModalProps {
   accountId: string
@@ -38,11 +39,11 @@ export function ContactEditModal({ accountId, contact, onClose, onSaved }: Conta
       if (data.success) {
         onSaved()
       } else {
-        alert(data.error || "Failed to save contact")
+        toast.error(data.error || "Failed to save contact")
       }
     } catch (e: any) {
       console.error(e)
-      alert("Network error: " + e.message)
+      toast.error("Network error: " + e.message)
     } finally {
       setLoading(false)
     }

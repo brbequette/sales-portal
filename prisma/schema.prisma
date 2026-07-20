@@ -118,6 +118,7 @@ model Deal {
   name          String
   amount        Float
   stage         String    @default("Open")
+  salesStageId  String?
   closingDate   DateTime?
   invoicedItems String?
   ownerId       String
@@ -131,6 +132,7 @@ model Deal {
 
   @@index([ownerId])
   @@index([accountId])
+  @@index([salesStageId])
 }
 
 model SalesOrder {
@@ -612,4 +614,30 @@ model Vendor {
   status String? @default("active")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model SalesStage {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  order           Int
+  color           String   @default("#6b7280")
+  description     String?
+  isDefault       Boolean  @default(false)
+  autoActions     Json?
+  notifications   Json?
+  transitionRule  Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model NotificationTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  channel     String
+  subject     String?
+  body        String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { FiEdit2, FiCheck, FiX } from "react-icons/fi"
+import { toast } from 'react-hot-toast';
 
 export function TaskEditor({ task, onSave }: { task: any, onSave: () => void }) {
   const [isEditing, setIsEditing] = useState(false)
@@ -40,10 +41,10 @@ export function TaskEditor({ task, onSave }: { task: any, onSave: () => void }) 
         onSave()
       } else {
         const err = await res.json()
-        alert("Failed to save task: " + (err.error || err.message))
+        toast.error("Failed to save task: " + (err.error || err.message))
       }
     } catch (e: any) {
-      alert("Error: " + e.message)
+      toast.error("Error: " + e.message)
     } finally {
       setSaving(false)
     }

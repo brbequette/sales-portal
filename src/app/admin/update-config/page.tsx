@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useCallback } from "react"
@@ -318,7 +319,7 @@ export default function AdminSettingsPage() {
                       }
                       className="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-purple-500 transition-colors appearance-none cursor-pointer pr-8"
                     >
-                      <option value="">— Select Rep —</option>
+                      <option value="">â€” Select Rep â€”</option>
                       {users.map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.name} ({u.email})
@@ -695,7 +696,7 @@ export default function AdminSettingsPage() {
                   {detailsPagination.paginatedItems.map((detail: any, idx: number) => (
                     <div key={idx} className="px-4 py-2.5 flex items-center justify-between text-xs">
                       <span className="text-white font-medium truncate mr-2">{detail.accountName || detail.accountId}</span>
-                      <span className="text-purple-400 font-bold whitespace-nowrap">→ {detail.newRepName || detail.newRepId}</span>
+                      <span className="text-purple-400 font-bold whitespace-nowrap">â†’ {detail.newRepName || detail.newRepId}</span>
                     </div>
                   ))}
                 </div>
@@ -757,3 +758,4 @@ export default function AdminSettingsPage() {
     </div>
   )
 }
+

@@ -1,5 +1,6 @@
 "use client"
 
+
 import { formatPhoneNumber } from "@/lib/formatters"
 
 
@@ -7,6 +8,7 @@ import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { FiUser, FiMail, FiPhone, FiSmartphone, FiPlus, FiMessageSquare, FiCheck, FiFileText, FiEdit2 } from "react-icons/fi"
 import { ContactEditModal } from "@/components/ContactEditModal"
+import { toast } from 'react-hot-toast';
 
 export interface Contact {
   id: string
@@ -97,11 +99,11 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
         setNewNoteText("")
         setShowNoteFormId(null)
       } else {
-        alert("Failed to save note. Please try again.")
+        toast.error("Failed to save note. Please try again.")
       }
     } catch (e) {
       console.error(e)
-      alert("An error occurred while saving the note.")
+      toast.error("An error occurred while saving the note.")
     } finally {
       setSavingNoteId(null)
     }
@@ -318,7 +320,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     <p className="text-neutral-500 text-xs italic py-4 text-center">No logged notes for this account.</p>
                   ) : (
                     contactNotes.map(note => {
-                      const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString() : "—"
+                      const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString() : "â€”"
                       const display = getNoteDisplay(note.content)
                       
                       return (
@@ -467,7 +469,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                       <p className="text-neutral-500 text-xs italic py-4 text-center">No logged notes for this contact.</p>
                     ) : (
                       contactNotes.map(note => {
-                        const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString() : "—"
+                        const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString() : "â€”"
                         const display = getNoteDisplay(note.content)
                         
                         return (
@@ -498,3 +500,4 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
     </div>
   )
 }
+

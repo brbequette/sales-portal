@@ -72,6 +72,7 @@ export async function GET(request: Request) {
         reference_number: items.reference_number || null,
         // Profit/commission from items JSON or rawData
         cf_profit_unformatted: items.profit ?? items.cf_profit_unformatted ?? extractCustomField(items, 'cf_estimated_profit_unformatted') ?? 0,
+        deadProfit: (items.sub_total ?? inv.amount ?? 0) - (items.deadCostTotal ?? 0),
         cf_commision_amount_unformatted: items.commission ?? items.cf_commision_amount_unformatted ?? extractCustomField(items, 'cf_commission_amount_unformatted') ?? 0,
         cf_salesperson_vig_unformatted: items.vig ?? items.cf_salesperson_vig_unformatted ?? extractCustomField(items, 'cf_salesperson_vig_unformatted') ?? 1.3,
         // Additional fields components may use
@@ -101,6 +102,7 @@ export async function GET(request: Request) {
         salesorder_salesperson_name: items.salesperson || null,
         reference_number: items.reference_number || null,
         cf_profit_unformatted: items.profit ?? items.cf_profit_unformatted ?? extractCustomField(items, 'cf_estimated_profit_unformatted') ?? 0,
+        deadProfit: (items.sub_total ?? so.amount ?? 0) - (items.deadCostTotal ?? 0),
         cf_commision_amount_unformatted: items.commission ?? items.cf_commision_amount_unformatted ?? extractCustomField(items, 'cf_commission_amount_unformatted') ?? 0,
         cf_salesperson_vig_unformatted: items.vig ?? items.cf_salesperson_vig_unformatted ?? extractCustomField(items, 'cf_salesperson_vig_unformatted') ?? 1.3,
         line_items: items.line_items || [],

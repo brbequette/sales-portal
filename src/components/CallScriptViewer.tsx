@@ -1,4 +1,5 @@
 "use client"
+
 import { useState, useEffect } from "react"
 import { useZoho } from "./ZohoProvider"
 import { FiX, FiMessageCircle, FiChevronDown } from "react-icons/fi"
@@ -89,3 +90,4 @@ export function CallScriptViewer({ accountId, accountProp, contact }: { accountI
     </div>
   )
 }
+

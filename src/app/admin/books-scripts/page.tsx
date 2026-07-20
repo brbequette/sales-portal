@@ -1,4 +1,6 @@
 "use client"
+
+import { toastConfirm } from '@/lib/toastConfirm'
 import React, { useState } from "react"
 import { FiPlay, FiCheck, FiAlertCircle, FiLoader, FiCpu } from "react-icons/fi"
 
@@ -13,7 +15,7 @@ export default function BooksScriptsPage() {
   const [bulkRunning, setBulkRunning] = useState(false)
 
   const runScript = async (scriptName: string, endpoint: string) => {
-    if (!confirm(`Are you sure you want to run ${scriptName}? This may modify live Zoho Books data.`)) return
+    toastConfirm(`Are you sure you want to run ${scriptName}? This may modify live Zoho Books data.`, async () => {
     
     setLoading(scriptName)
     try {
@@ -25,11 +27,11 @@ export default function BooksScriptsPage() {
     } finally {
       setLoading(null)
     }
-  }
+  });}
 
   const runBulkProcessCosts = async () => {
     const entityLabel = bulkEntity === 'invoices' ? 'invoices' : bulkEntity === 'salesorders' ? 'sales orders' : 'quotes'
-    if (!confirm(`Process costs for ${bulkFilter === 'all' ? 'ALL' : bulkFilter} ${entityLabel}? This will recalculate dead costs, dead profit, VIG, profit, and commissions.`)) return
+    toastConfirm(`Process costs for ${bulkFilter === 'all' ? 'ALL' : bulkFilter} ${entityLabel}? This will recalculate dead costs, dead profit, VIG, profit, and commissions.`, async () => {
     
     setBulkRunning(true)
     setBulkProgress("Starting...")
@@ -63,7 +65,7 @@ export default function BooksScriptsPage() {
         }
 
         if (!data.hasMore) {
-          setResults(prev => ({ ...prev, 'bulk-costs': `✅ Complete! ${totalProcessed} processed, ${totalSkipped} skipped, ${totalErrors} errors across ${page} pages.` }))
+          setResults(prev => ({ ...prev, 'bulk-costs': `âœ… Complete! ${totalProcessed} processed, ${totalSkipped} skipped, ${totalErrors} errors across ${page} pages.` }))
           break
         }
 
@@ -76,14 +78,14 @@ export default function BooksScriptsPage() {
       setBulkRunning(false)
       setBulkProgress("")
     }
-  }
+  });}
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-8">
       <h1 className="text-2xl font-bold text-white">Zoho Books Maintenance Scripts</h1>
       <p className="text-neutral-400">Run manual backend scripts to fix or sync Zoho Books data.</p>
       
-      {/* ── Bulk Process Costs — Full Width ── */}
+      {/* â”€â”€ Bulk Process Costs â€” Full Width â”€â”€ */}
       <div className="glass-panel border border-indigo-500/30 p-6 rounded-2xl space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -125,7 +127,7 @@ export default function BooksScriptsPage() {
         )}
 
         {results['bulk-costs'] && (
-          <div className={`text-xs font-bold p-3 rounded-lg border ${results['bulk-costs'].includes('✅') ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+          <div className={`text-xs font-bold p-3 rounded-lg border ${results['bulk-costs'].includes('âœ…') ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
             {results['bulk-costs']}
           </div>
         )}
@@ -200,7 +202,7 @@ export default function BooksScriptsPage() {
         <div className="glass-panel border border-amber-500/30 p-6 rounded-2xl flex flex-col justify-between space-y-4">
           <div>
             <h2 className="text-lg font-bold text-amber-400">Batch Tariff Update (Dry Run)</h2>
-            <p className="text-sm text-neutral-400 mt-2">Preview which 2026 unpaid invoices will get a 12.5% tariff surcharge. No changes are made — shows what <em>would</em> happen.</p>
+            <p className="text-sm text-neutral-400 mt-2">Preview which 2026 unpaid invoices will get a 12.5% tariff surcharge. No changes are made â€” shows what <em>would</em> happen.</p>
           </div>
           <div>
             {results['tariff-dry'] && <div className="mb-3 text-xs text-amber-400 flex items-center gap-2 bg-amber-500/10 p-2 rounded max-h-40 overflow-y-auto whitespace-pre-wrap"><FiCheck /> {results['tariff-dry']}</div>}
@@ -217,7 +219,7 @@ export default function BooksScriptsPage() {
                   const data = await res.json()
                   if (data.success) {
                     const s = data.summary
-                    const invoiceList = (data.invoices || []).map((inv: any) => `  ${inv.invoiceNumber} — ${inv.customerName}: DC=$${inv.nonGiftDeadCost?.toFixed(2)}, Tariff=$${inv.tariffAmount?.toFixed(2)}`).join('\n')
+                    const invoiceList = (data.invoices || []).map((inv: any) => `  ${inv.invoiceNumber} â€” ${inv.customerName}: DC=$${inv.nonGiftDeadCost?.toFixed(2)}, Tariff=$${inv.tariffAmount?.toFixed(2)}`).join('\n')
                     setResults(prev => ({ ...prev, ['tariff-dry']: `Found ${s.totalUnpaid2026} unpaid, ${s.zeroAdjustment} with $0 adj, ${s.processed} eligible, ${s.skipped} skipped.\n${invoiceList}` }))
                   } else {
                     setResults(prev => ({ ...prev, ['tariff-dry']: `Error: ${data.error}` }))
@@ -246,7 +248,7 @@ export default function BooksScriptsPage() {
             <button 
               disabled={loading !== null}
               onClick={async () => {
-                if (!confirm('⚠️ This will MODIFY live Zoho Books invoices by adding tariff surcharges. Are you absolutely sure?')) return
+                toastConfirm('âš ï¸ This will MODIFY live Zoho Books invoices by adding tariff surcharges. Are you absolutely sure?', async () => {
                 setLoading('tariff-live')
                 try {
                   const res = await fetch('/api/batch-tariff-update', {
@@ -268,7 +270,7 @@ export default function BooksScriptsPage() {
                 } finally {
                   setLoading(null)
                 }
-              }}
+              });}}
               className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
               {loading === 'tariff-live' ? <FiLoader className="animate-spin" /> : <FiAlertCircle />}
               Run LIVE Update
@@ -280,3 +282,5 @@ export default function BooksScriptsPage() {
     </div>
   )
 }
+
+

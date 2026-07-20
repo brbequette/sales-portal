@@ -1,4 +1,5 @@
 "use client"
+
 import React, { useState, useEffect } from "react"
 import { FiSearch, FiFileText, FiUser, FiActivity } from "react-icons/fi"
 import { useRouter } from "next/navigation"
@@ -126,3 +127,4 @@ export function CommandPalette() {
     </div>
   )
 }
+
