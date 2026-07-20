@@ -449,6 +449,8 @@ function CsvImportSection() {
       let totalUpdated = 0, totalNotFound = 0, totalSkipped = 0, totalErrors = 0
       let columnsMatched = 0, columnsTotal = 0
       const allNotFound: string[] = []
+      let unmatchedCols: string[] = []
+      let matchedCols: string[] = []
 
       setProgress(`${totalRows} rows → ${totalChunks} batch${totalChunks > 1 ? 'es' : ''} of ${CHUNK_SIZE}`)
 
@@ -485,6 +487,8 @@ function CsvImportSection() {
         columnsMatched = data.columnsMatched || columnsMatched
         columnsTotal = data.columnsTotal || columnsTotal
         if (data.notFoundSample) allNotFound.push(...data.notFoundSample)
+        if (data.unmatchedColumns && unmatchedCols.length === 0) unmatchedCols = data.unmatchedColumns
+        if (data.matchedColumns && matchedCols.length === 0) matchedCols = data.matchedColumns
 
         setProgress(`Batch ${i + 1}/${totalChunks} done — ${totalUpdated} updated so far`)
       }
@@ -500,6 +504,8 @@ function CsvImportSection() {
         columnsTotal,
         batches: totalChunks,
         notFoundSample: allNotFound.slice(0, 20),
+        unmatchedColumns: unmatchedCols,
+        matchedColumns: matchedCols,
         message: `Imported ${totalUpdated} ${csvType}s across ${totalChunks} batches. ${totalNotFound} not found, ${totalSkipped} skipped, ${totalErrors} errors.`
       })
     } catch (e: any) {
@@ -561,8 +567,20 @@ function CsvImportSection() {
                 <p className="text-emerald-400 font-bold">✅ {result.message}</p>
                 <p className="text-neutral-400">Rows: {result.totalRows} | Updated: {result.updated} | Not found: {result.notFound} | Skipped: {result.skipped}</p>
                 <p className="text-neutral-400">Columns matched: {result.columnsMatched} / {result.columnsTotal} | Batches: {result.batches}</p>
+                {result.matchedColumns?.length > 0 && (
+                  <details className="mt-2">
+                    <summary className="text-emerald-500 cursor-pointer">✅ Matched columns ({result.matchedColumns.length})</summary>
+                    <p className="text-neutral-500 mt-1">{result.matchedColumns.join(', ')}</p>
+                  </details>
+                )}
+                {result.unmatchedColumns?.length > 0 && (
+                  <details className="mt-2">
+                    <summary className="text-amber-400 cursor-pointer">⚠️ Unmatched columns ({result.unmatchedColumns.length})</summary>
+                    <p className="text-neutral-500 mt-1">{result.unmatchedColumns.join(', ')}</p>
+                  </details>
+                )}
                 {result.notFoundSample?.length > 0 && (
-                  <p className="text-amber-400">Not found sample: {result.notFoundSample.join(', ')}</p>
+                  <p className="text-amber-400 mt-1">Not found sample: {result.notFoundSample.join(', ')}</p>
                 )}
               </div>
             )}

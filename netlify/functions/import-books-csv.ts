@@ -198,6 +198,8 @@ export const handler: Handler = async (event) => {
         updated, notFound, skipped, errors,
         columnsMatched: headers.filter(h => mapColumnValue(h, 'test') !== null).length,
         columnsTotal: headers.length,
+        unmatchedColumns: headers.filter(h => mapColumnValue(h, 'test') === null),
+        matchedColumns: headers.filter(h => mapColumnValue(h, 'test') !== null),
         notFoundSample: notFoundNumbers,
         message: `Imported ${updated} ${type}s. ${notFound} not found, ${skipped} skipped, ${errors} errors.`
       })
