@@ -412,6 +412,94 @@ export default function BackfillPage() {
           }
         </div>
       </div>
+
+      {/* ── CSV Import ── */}
+      <CsvImportSection />
+    </div>
+  )
+}
+
+function CsvImportSection() {
+  const [csvType, setCsvType] = useState<'Invoice' | 'SalesOrder' | 'Quote'>('Invoice')
+  const [importing, setImporting] = useState(false)
+  const [result, setResult] = useState<any>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const handleImport = async () => {
+    const file = fileRef.current?.files?.[0]
+    if (!file) return alert('Select a CSV file first')
+    
+    setImporting(true)
+    setResult(null)
+    try {
+      const csvData = await file.text()
+      const res = await fetch('/api/import-books-csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: csvType, csvData }),
+      })
+      const data = await res.json()
+      setResult(data)
+    } catch (e: any) {
+      setResult({ error: e.message })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <div className="bg-neutral-900/60 border border-neutral-800 rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-neutral-800">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+          <FiDatabase size={14} /> CSV Import from Zoho Books Export
+        </h3>
+        <p className="text-xs text-neutral-500 mt-1">
+          Export from Zoho Books → Upload CSV → All custom fields filled instantly
+        </p>
+      </div>
+      <div className="p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <select
+            value={csvType}
+            onChange={e => setCsvType(e.target.value as any)}
+            className="bg-neutral-800 border border-neutral-700 rounded px-3 py-1.5 text-sm text-white"
+          >
+            <option value="Invoice">Invoices</option>
+            <option value="SalesOrder">Sales Orders</option>
+            <option value="Quote">Quotes / Estimates</option>
+          </select>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv"
+            className="text-xs text-neutral-400 file:mr-3 file:px-3 file:py-1.5 file:rounded file:border-0 file:bg-orange-600 file:text-white file:text-xs file:font-medium file:cursor-pointer hover:file:bg-orange-500"
+          />
+          <button
+            onClick={handleImport}
+            disabled={importing}
+            className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-neutral-700 text-white text-xs font-bold rounded transition-colors"
+          >
+            {importing ? 'Importing...' : 'Import'}
+          </button>
+        </div>
+
+        {result && (
+          <div className={`rounded-lg p-3 text-xs font-mono ${result.error ? 'bg-rose-900/30 border border-rose-800' : 'bg-emerald-900/30 border border-emerald-800'}`}>
+            {result.error ? (
+              <p className="text-rose-400">❌ {result.error}</p>
+            ) : (
+              <div className="space-y-1">
+                <p className="text-emerald-400 font-bold">✅ {result.message}</p>
+                <p className="text-neutral-400">Rows: {result.totalRows} | Updated: {result.updated} | Not found: {result.notFound} | Skipped: {result.skipped}</p>
+                <p className="text-neutral-400">Columns matched: {result.columnsMatched} / {result.columnsTotal}</p>
+                {result.notFoundSample?.length > 0 && (
+                  <p className="text-amber-400">Not found: {result.notFoundSample.join(', ')}</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
