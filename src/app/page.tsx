@@ -21,7 +21,7 @@ import { usePreferences } from "@/components/PreferencesProvider"
 import { SalesBoard } from "@/components/SalesBoard"
 import { DashboardView } from "@/components/DashboardView"
 import { DealPipeline } from "@/components/DealPipeline"
-import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand, FiTarget, FiBox, FiLayers } from "react-icons/fi"
+import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand, FiTarget, FiBox, FiLayers, FiMonitor, FiEye } from "react-icons/fi"
 
 function formatLastCalled(dateStr: string | null) {
   if (!dateStr) return "Never called"
@@ -49,7 +49,9 @@ export default function Dashboard() {
   const [drillTitle, setDrillTitle] = useState("")
   const [drillItems, setDrillItems] = useState<any[] | null>(null)
   const [drillType, setDrillType] = useState<"invoices" | "deals" | "accounts" | null>(null)
-  const [effort, setEffort] = useState<"sales" | "call_list" | "cold_call" | "dashboard" | "pipeline">("dashboard")
+  const [effort, setEffort] = useState<"sales" | "call_list" | "cold_call" | "dashboard" | "pipeline" | "tv">("dashboard")
+  const [viewAsRepId, setViewAsRepId] = useState<string | null>(null)
+  const [allDbUsers, setAllDbUsers] = useState<any[]>([])
   const [ownerFilter, setOwnerFilter] = useState("All")
   const [timezoneFilter, setTimezoneFilter] = useState("All")
   const [yearFilter, setYearFilter] = useState("All")
@@ -531,6 +533,7 @@ export default function Dashboard() {
       if (data?.success) {
         const user = data.users.find((u: any) => u.email === currentUser?.email || u.id === currentUser?.id)
         if (user) setDbUser(user)
+        setAllDbUsers(data.users || [])
       }
     }).catch(() => {})
   }, [currentUser?.email, currentUser?.id])
@@ -567,7 +570,7 @@ export default function Dashboard() {
     }
   }, [viewingInvoice?.id])
 
-  const handleEffortChange = (val: "sales" | "call_list" | "cold_call" | "dashboard" | "pipeline") => {
+  const handleEffortChange = (val: "sales" | "call_list" | "cold_call" | "dashboard" | "pipeline" | "tv") => {
     setEffort(val)
   }
 
@@ -1189,9 +1192,63 @@ export default function Dashboard() {
             </div>
           </button>
           )}
+          {isAdminUser && (
+          <button
+            onClick={() => handleEffortChange("tv")}
+            className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
+              effort === "tv"
+                ? "bg-[#17191a] border-amber-400/45 text-white"
+                : "bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] text-neutral-400"
+            }`}
+          >
+            {effort === "tv" && (
+              <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-amber-400 "></div>
+            )}
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl border transition-colors ${
+                effort === "tv"
+                  ? "bg-amber-950 border-amber-500/30 text-amber-400"
+                  : "bg-white/[0.045] border-[var(--border)] text-neutral-500"
+              }`}>
+                <FiMonitor size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold tracking-tight">TV Board</h3>
+                <p className="text-xs text-neutral-500 mt-0.5">Sales leaderboard</p>
+              </div>
+            </div>
+          </button>
+          )}
         </div>
 
-        {effort === "pipeline" ? (
+        {/* ── View as Rep (Admin Only) ── */}
+        {isAdminUser && allDbUsers.length > 0 && (
+          <div className="flex items-center gap-2 mt-2">
+            <FiEye size={14} className="text-neutral-500" />
+            <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">View as Rep</span>
+            <select
+              value={viewAsRepId || ""}
+              onChange={e => setViewAsRepId(e.target.value || null)}
+              className="bg-neutral-800/80 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer min-w-[160px]"
+            >
+              <option value="">Myself (Admin)</option>
+              {allDbUsers.filter(u => u.role !== 'ADMIN' && u.name).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')).map((u: any) => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+            {viewAsRepId && (
+              <span className="text-[10px] text-amber-400/70 font-medium flex items-center gap-1">
+                <FiEye size={10} /> Viewing as {allDbUsers.find(u => u.id === viewAsRepId)?.name}
+              </span>
+            )}
+          </div>
+        )}
+
+        {effort === "tv" && isAdminUser ? (
+          <div className="mt-4">
+            <SalesBoard />
+          </div>
+        ) : effort === "pipeline" ? (
           <div className="mt-4">
             <DealPipeline onViewInvoice={(inv) => {
               setViewingInvoice(inv)
