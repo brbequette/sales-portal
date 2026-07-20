@@ -105,6 +105,16 @@ function mapColumnValue(columnName: string, value: string): { field: string, par
   if (upper === 'ADDITIONAL COSTS NOTES' || upper === 'CF.ADDITIONAL COSTS NOTES' || upper.includes('ADDITIONAL COST EXPLANATION')) return { field: 'additionalCostNotes', parsed: value || null }
   if (upper.includes('PURCHASE ORDER NUMBER')) return { field: 'purchaseOrderNumbers', parsed: value || null }
 
+  // ── Invoice-specific fields ──
+  if (upper === 'CF.REFERENCE' || upper === 'REFERENCE') return { field: 'cfReference', parsed: value || null }
+  if (upper === 'CF.LAST OVERDUE CALL DATE' || upper === 'LAST OVERDUE CALL DATE') return { field: 'lastOverdueCallDate', parsed: value || null }
+  if (upper === 'INVOICE STATUS') return { field: '_status', parsed: value }
+  if (upper === 'LAST PAYMENT DATE') return { field: 'lastPaymentDate', parsed: value || null }
+  if (upper === 'EXPECTED PAYMENT DATE') return { field: 'expectedPaymentDate', parsed: value || null }
+  if (upper === 'INVOICE ID') return { field: '_zohoDocId', parsed: value }
+  if (upper === 'ISSUED DATE') return { field: 'issuedDate', parsed: value || null }
+  if (upper === 'PURCHASEORDER') return { field: 'purchaseOrder', parsed: value || null }
+
   return null
 }
 
