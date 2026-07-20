@@ -24,6 +24,14 @@ export async function GET(req: Request) {
       }
     })
 
+    // Fetch geofence locations
+    let geofences: any[] = []
+    try {
+      geofences = await (prisma as any).geofenceLocation.findMany({
+        orderBy: { createdAt: 'desc' }
+      })
+    } catch { /* Table may not exist yet */ }
+
     const now = new Date()
     const processedEntries = entries.map((entry: any) => {
       const isInactive = now.getTime() - new Date(entry.lastActivity).getTime() > 20 * 60000;
@@ -54,7 +62,7 @@ export async function GET(req: Request) {
       }
     })
 
-    return NextResponse.json({ success: true, entries: processedEntries })
+    return NextResponse.json({ success: true, entries: processedEntries, geofences })
   } catch (error: any) {
     console.error("Error fetching admin time entries:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -145,6 +153,39 @@ export async function PATCH(req: Request) {
         data: { inactivityPeriods: JSON.stringify(inactivityPeriods) }
       })
       return NextResponse.json({ success: true, entry })
+    }
+
+    if (type === "GEOFENCE_CREATE") {
+      const { name, address, latitude, longitude, radiusMeters } = body
+      if (!name || latitude == null || longitude == null) {
+        return NextResponse.json({ success: false, error: "Name, latitude, and longitude required" }, { status: 400 })
+      }
+      const location = await (prisma as any).geofenceLocation.create({
+        data: { name, address: address || null, latitude, longitude, radiusMeters: radiusMeters || 150 }
+      })
+      return NextResponse.json({ success: true, location })
+    }
+
+    if (type === "GEOFENCE_UPDATE") {
+      const { id, name, address, latitude, longitude, radiusMeters, isActive } = body
+      const location = await (prisma as any).geofenceLocation.update({
+        where: { id },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(address !== undefined && { address }),
+          ...(latitude !== undefined && { latitude }),
+          ...(longitude !== undefined && { longitude }),
+          ...(radiusMeters !== undefined && { radiusMeters }),
+          ...(isActive !== undefined && { isActive }),
+        }
+      })
+      return NextResponse.json({ success: true, location })
+    }
+
+    if (type === "GEOFENCE_DELETE") {
+      const { id } = body
+      await (prisma as any).geofenceLocation.delete({ where: { id } })
+      return NextResponse.json({ success: true })
     }
 
     return NextResponse.json({ success: false, error: "Invalid type" }, { status: 400 })
