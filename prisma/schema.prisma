@@ -335,6 +335,7 @@ model TimeEntry {
   clockInLocation   String?
   clockOutLocation  String?
   locationStatus    String?    // VERIFIED | OUT_OF_RANGE | DENIED | UNAVAILABLE
+  clockSource       String?    @default("manual") // 'manual' | 'geofence'
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

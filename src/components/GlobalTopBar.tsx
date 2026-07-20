@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox, FiClock, FiBell, FiTrendingUp, FiAlertCircle } from "react-icons/fi"
 import { useRouter } from "next/navigation"
 import { useProductModal } from "@/components/ProductModalProvider"
 import { NewCustomerModal } from "@/components/NewCustomerModal"
 import { useZoho } from "@/components/ZohoProvider"
 import { useNotifications } from "@/components/NotificationProvider"
+import { GeofenceMonitor, type MonitorStatus } from "@/lib/geofence-monitor"
 
 export function GlobalTopBar() {
   const router = useRouter()
@@ -28,6 +29,8 @@ export function GlobalTopBar() {
   const [timeEntry, setTimeEntry] = useState<any>(null)
   const [geoStatus, setGeoStatus] = useState<{ status: string; location?: string } | null>(null)
   const [clockLoading, setClockLoading] = useState(false)
+  const [monitorStatus, setMonitorStatus] = useState<MonitorStatus>('idle')
+  const [autoClockToast, setAutoClockToast] = useState<string | null>(null)
 
   // ── Stats Strip Data ──
   const [stripStats, setStripStats] = useState<{
@@ -103,6 +106,40 @@ export function GlobalTopBar() {
     return () => clearInterval(interval)
   }, [currentUser?.id])
 
+  // ── Auto-start Geofence Monitor ──
+  useEffect(() => {
+    if (!currentUser?.id) return
+
+    // Subscribe to status changes
+    const unsubStatus = GeofenceMonitor.onStatusChange(setMonitorStatus)
+
+    // Subscribe to auto-clock events
+    const unsubEvent = GeofenceMonitor.onEvent((event) => {
+      // Update the timeclock widget state
+      if (event.entry) setTimeEntry(event.entry)
+
+      // Show auto-clock toast
+      const msg = event.action === 'clockIn'
+        ? `📍 Auto clocked in — ${event.fenceName || 'On-Site'}`
+        : `👋 Auto clocked out — ${event.fenceName || 'Off-Site'}`
+      setAutoClockToast(msg)
+      setTimeout(() => setAutoClockToast(null), 5000)
+    })
+
+    // Start the monitor
+    GeofenceMonitor.start(
+      currentUser.id,
+      currentUser.email || '',
+      currentUser.name || currentUser.fullName || 'Zoho User'
+    )
+
+    return () => {
+      unsubStatus()
+      unsubEvent()
+      // Don't stop the monitor on unmount — it persists as singleton
+    }
+  }, [currentUser?.id])
+
   const calculateHours = (entry: any) => {
     if (!entry) return "0.0"
     const start = new Date(entry.manualClockIn || entry.clockIn)
@@ -170,6 +207,7 @@ export function GlobalTopBar() {
           userId: currentUser.id,
           email: currentUser.email,
           action,
+          source: 'manual',
           name: currentUser.name || currentUser.fullName || "Zoho User",
           latitude,
           longitude,
@@ -189,6 +227,8 @@ export function GlobalTopBar() {
       console.error("Timeclock toggle error:", e)
     } finally {
       setClockLoading(false)
+      // Reset geofence monitor state so it won't conflict with manual action
+      GeofenceMonitor.resetTodayState()
     }
   }
 
@@ -377,6 +417,17 @@ export function GlobalTopBar() {
         
         {/* Timeclock Toggle Widget */}
         <div className="relative flex items-center rounded-lg border border-white/10 bg-white/[0.045] overflow-hidden text-xs lg:text-sm h-10 lg:h-9">
+          {/* Geofence monitor indicator */}
+          {monitorStatus === 'monitoring' && (
+            <div className="flex items-center px-2 h-full border-r border-white/10 bg-blue-500/10" title="📍 Auto-tracking active — GPS monitoring for clock-in/out">
+              <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,0.6)]" />
+            </div>
+          )}
+          {monitorStatus === 'denied' && (
+            <div className="flex items-center px-2 h-full border-r border-white/10 bg-red-500/5" title="GPS permission denied — auto-tracking disabled">
+              <div className="w-2 h-2 rounded-full bg-red-500/60" />
+            </div>
+          )}
           <button
             onClick={handleToggleClock}
             disabled={clockLoading}
@@ -424,6 +475,13 @@ export function GlobalTopBar() {
               {geoStatus.status === 'OUT_OF_RANGE' && '⚠️ Out of Range'}
               {geoStatus.status === 'DENIED' && '🔒 GPS Denied'}
               {geoStatus.status === 'UNAVAILABLE' && '📡 GPS Unavailable'}
+            </div>
+          )}
+
+          {/* Auto-clock toast */}
+          {autoClockToast && (
+            <div className="absolute -bottom-9 left-0 right-0 mx-auto w-max px-3 py-1.5 rounded-md text-[10px] font-bold shadow-lg border z-50 bg-blue-900/90 text-blue-300 border-blue-500/30 animate-pulse">
+              {autoClockToast}
             </div>
           )}
         </div>

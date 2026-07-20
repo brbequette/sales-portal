@@ -539,7 +539,12 @@ export default function AdminTimeclockPage() {
                             return (
                               <React.Fragment key={entry.id}>
                               <tr className="hover:bg-white/[0.02] transition-colors">
-                                <td className="px-4 py-2 font-medium">{entry.date}</td>
+                                <td className="px-4 py-2 font-medium">
+                                  {entry.date}
+                                  {(entry as any).clockSource === 'geofence' && (
+                                    <span className="ml-1.5 text-[8px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400 font-bold uppercase">Auto</span>
+                                  )}
+                                </td>
                                 <td className="px-4 py-2">
                                   {formatTime(entry.manualClockIn || entry.clockIn)}
                                   {entry.manualClockIn && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">●</span>}

@@ -22,7 +22,8 @@ function haversineDistance(
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { userId, action, email, name, latitude, longitude, accuracy } = body
+    const { userId, action, email, name, latitude, longitude, accuracy, source } = body
+    const clockSource = source || 'manual' // 'geofence' or 'manual'
 
     if ((!userId && !email) || !action) {
       return NextResponse.json({ success: false, error: "Missing userId, email, or action" }, { status: 400 })
@@ -101,11 +102,13 @@ export async function POST(req: Request) {
       geoData.clockInAccuracy = accuracy ?? null
       geoData.clockInLocation = locationName
       geoData.locationStatus = locationStatus
+      geoData.clockSource = clockSource
     } else {
       geoData.clockOutLat = latitude ?? null
       geoData.clockOutLng = longitude ?? null
       geoData.clockOutAccuracy = accuracy ?? null
       geoData.clockOutLocation = locationName
+      geoData.clockSource = clockSource
     }
 
     const existing = await prisma.timeEntry.findUnique({
@@ -115,6 +118,10 @@ export async function POST(req: Request) {
     })
 
     if (!existing) {
+      // Geofence clock-out without an existing entry is invalid — skip
+      if (action === 'clockOut' && clockSource === 'geofence') {
+        return NextResponse.json({ success: true, skipped: true, reason: 'No active entry to clock out' })
+      }
       const entry = await prisma.timeEntry.create({
         data: {
           userId: finalUserId,
@@ -128,6 +135,18 @@ export async function POST(req: Request) {
         }
       })
       return NextResponse.json({ success: true, entry, locationStatus, locationName, distanceMeters })
+    }
+
+    // Geofence duplicate prevention:
+    // - Don't re-clock-in if already clocked in today
+    // - Don't re-clock-out if already manually clocked out
+    if (clockSource === 'geofence') {
+      if (action === 'clockIn' && !existing.manualClockOut && !existing.clockOut) {
+        return NextResponse.json({ success: true, skipped: true, reason: 'Already clocked in today' })
+      }
+      if (action === 'clockOut' && (existing.manualClockOut || existing.clockOut)) {
+        return NextResponse.json({ success: true, skipped: true, reason: 'Already clocked out today' })
+      }
     }
 
     // Toggle existing entry
