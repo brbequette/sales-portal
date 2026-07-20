@@ -182,6 +182,10 @@ async function syncDocumentToDb(
       booksInvoiceId: type === 'Invoice' ? booksId : currentItems.booksInvoiceId,
       booksSalesOrderId: type === 'SalesOrder' ? booksId : currentItems.booksSalesOrderId,
       booksEstimateId: type === 'Quote' ? booksId : currentItems.booksEstimateId,
+      // Profit & commission from custom_field_hash (Zoho's detail API returns these separately)
+      profit: extractProfit(doc, currentItems),
+      commission: extractCommission(doc, currentItems),
+      vig: extractVig(doc, currentItems),
       // Cache stamp
       lastSyncedAt: new Date().toISOString(),
     }
@@ -206,4 +210,40 @@ async function syncDocumentToDb(
   } catch (e: any) {
     console.error(`syncDocumentToDb error for ${type} ${booksId}:`, e.message)
   }
+}
+
+/**
+ * Extract profit from a Zoho Books detail document.
+ * Zoho stores calculated fields in custom_field_hash (not in custom_fields array).
+ * Profit = sub_total - dead_cost_total, or use cf_estimated_profit_unformatted directly.
+ */
+function extractProfit(doc: any, fallback: any): number {
+  const cfh = doc.custom_field_hash || {}
+  // Method 1: Direct profit field
+  if (cfh.cf_estimated_profit_unformatted !== undefined) {
+    return parseFloat(cfh.cf_estimated_profit_unformatted) || 0
+  }
+  // Method 2: Calculate from dead cost
+  if (cfh.cf_dead_cost_total_unformatted !== undefined) {
+    const subTotal = parseFloat(doc.sub_total || 0)
+    return subTotal - parseFloat(cfh.cf_dead_cost_total_unformatted)
+  }
+  // Fallback to previously stored value
+  return fallback.profit ?? 0
+}
+
+function extractCommission(doc: any, fallback: any): number {
+  const cfh = doc.custom_field_hash || {}
+  if (cfh.cf_commission_amount_unformatted !== undefined) {
+    return parseFloat(cfh.cf_commission_amount_unformatted) || 0
+  }
+  return fallback.commission ?? 0
+}
+
+function extractVig(doc: any, fallback: any): number {
+  const cfh = doc.custom_field_hash || {}
+  if (cfh.cf_salesperson_vig_unformatted !== undefined) {
+    return parseFloat(cfh.cf_salesperson_vig_unformatted) || 1.3
+  }
+  return fallback.vig ?? 1.3
 }

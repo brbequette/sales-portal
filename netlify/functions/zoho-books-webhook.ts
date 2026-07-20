@@ -116,6 +116,7 @@ export const handler: Handler = async (event) => {
 
     // Build the updated items JSON from webhook payload
     const currentItems = (dbDoc.items as any) || {}
+    const cfh = doc.custom_field_hash || {}
     const updatedItems = {
       ...currentItems,
       invoiceNumber: doc.invoice_number || currentItems.invoiceNumber,
@@ -132,6 +133,18 @@ export const handler: Handler = async (event) => {
       booksInvoiceId: type === 'Invoice' ? booksId : currentItems.booksInvoiceId,
       booksSalesOrderId: type === 'SalesOrder' ? booksId : currentItems.booksSalesOrderId,
       booksEstimateId: type === 'Quote' ? booksId : currentItems.booksEstimateId,
+      // Profit & commission from custom_field_hash
+      profit: cfh.cf_estimated_profit_unformatted !== undefined
+        ? parseFloat(cfh.cf_estimated_profit_unformatted) || 0
+        : cfh.cf_dead_cost_total_unformatted !== undefined
+          ? parseFloat(doc.sub_total || 0) - parseFloat(cfh.cf_dead_cost_total_unformatted)
+          : currentItems.profit ?? 0,
+      commission: cfh.cf_commission_amount_unformatted !== undefined
+        ? parseFloat(cfh.cf_commission_amount_unformatted) || 0
+        : currentItems.commission ?? 0,
+      vig: cfh.cf_salesperson_vig_unformatted !== undefined
+        ? parseFloat(cfh.cf_salesperson_vig_unformatted) || 1.3
+        : currentItems.vig ?? 1.3,
       lastSyncedAt: new Date().toISOString(),
     }
 
