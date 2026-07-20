@@ -33,8 +33,8 @@ export function RecentActivityFeed() {
 
     fetchActivities()
     
-    // Poll every 15 seconds for live updates
-    const interval = setInterval(fetchActivities, 15000)
+    // Poll every 60 seconds for updates (reduced from 15s)
+    const interval = setInterval(fetchActivities, 60000)
     return () => clearInterval(interval)
   }, [])
 

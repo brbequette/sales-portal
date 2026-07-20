@@ -43,8 +43,10 @@ export function GlobalTopBar() {
 
   useEffect(() => {
     fetchStripStats()
-    const interval = setInterval(fetchStripStats, 5 * 60 * 1000)
-    return () => clearInterval(interval)
+    // Refresh when tab becomes visible (instead of polling every 5 min)
+    const handleVisibility = () => { if (document.visibilityState === 'visible') fetchStripStats() }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
   async function fetchStripStats() {

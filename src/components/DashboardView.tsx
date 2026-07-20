@@ -124,8 +124,10 @@ export function DashboardView() {
 
   useEffect(() => {
     fetchDashboardData()
-    const interval = setInterval(fetchDashboardData, 5 * 60 * 1000) // 5 min refresh
-    return () => clearInterval(interval)
+    // Refresh when tab becomes visible (instead of polling every 5 min)
+    const handleVisibility = () => { if (document.visibilityState === 'visible') fetchDashboardData() }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
   async function fetchDashboardData() {

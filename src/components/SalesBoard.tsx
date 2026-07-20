@@ -225,8 +225,10 @@ export function SalesBoard() {
     }
     
     fetchData()
-    const interval = setInterval(fetchData, 300000)
-    return () => clearInterval(interval)
+    // Refresh when tab becomes visible (instead of polling every 5 min)
+    const handleVisibility = () => { if (document.visibilityState === 'visible') fetchData() }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
   // Auto-rotate screens

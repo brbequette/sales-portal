@@ -1,181 +1,140 @@
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-const ZOHO_DC = process.env.ZOHO_DC || 'com';
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
-
-let _cachedToken: string | null = null;
-let _tokenExpiresAt = 0;
-
-// In-memory response cache (survives across requests in the same server process)
-let cachedData: any = null;
-let cacheTime = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-async function getAccessToken() {
-  const now = Date.now();
-  if (_cachedToken && now < _tokenExpiresAt - 5 * 60 * 1000) {
-    return _cachedToken;
-  }
-  if (process.env.ZOHO_REFRESH_TOKEN && process.env.ZOHO_CLIENT_ID && process.env.ZOHO_CLIENT_SECRET) {
-    try {
-      const params = new URLSearchParams({
-        refresh_token: process.env.ZOHO_REFRESH_TOKEN,
-        client_id: process.env.ZOHO_CLIENT_ID,
-        client_secret: process.env.ZOHO_CLIENT_SECRET,
-        grant_type: 'refresh_token',
-      });
-      const res = await fetch(`https://accounts.zoho.${ZOHO_DC}/oauth/v2/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString(),
-      });
-      const data = await res.json();
-      if (data.access_token) {
-        _cachedToken = data.access_token;
-        _tokenExpiresAt = now + (data.expires_in || 3600) * 1000;
-        return _cachedToken;
-      }
-    } catch (e: any) {}
-  }
-  if (process.env.ZOHO_ACCESS_TOKEN) {
-    _cachedToken = process.env.ZOHO_ACCESS_TOKEN;
-    _tokenExpiresAt = now + 50 * 60 * 1000;
-    return _cachedToken;
-  }
-  throw new Error('No Zoho OAuth credentials or Access Token configured.');
-}
-
+/**
+ * GET /api/zoho-invoices
+ * 
+ * Returns all invoices + active sales orders from the LOCAL database.
+ * No Zoho API calls — data is kept current via:
+ *   1. Daily sync (daily-books-sync scheduled function)
+ *   2. Zoho webhooks (zoho-books-webhook)
+ *   3. Portal saves (push to Zoho + update DB)
+ * 
+ * Query params:
+ *   ?force=true  — Reserved for future force-refresh from Zoho
+ *   ?status=paid — Filter by status
+ */
 export async function GET(request: Request) {
   try {
-    // Check cache (bypass with ?bust=true)
     const { searchParams } = new URL(request.url);
-    const bustCache = searchParams.get('bust') === 'true';
-    if (!bustCache && cachedData && Date.now() - cacheTime < CACHE_TTL) {
-      return NextResponse.json(cachedData);
+    const statusFilter = searchParams.get('status');
+
+    // Fetch all invoices from local DB
+    const invoiceWhere: any = {};
+    if (statusFilter) {
+      // Map common status filters
+      const statusMap: Record<string, string[]> = {
+        'paid': ['Paid'],
+        'unpaid': ['Sent', 'Overdue', 'Partially_Paid', 'Unpaid'],
+        'draft': ['Draft'],
+        'overdue': ['Overdue'],
+      };
+      const statuses = statusMap[statusFilter.toLowerCase()];
+      if (statuses) {
+        invoiceWhere.status = { in: statuses };
+      }
     }
 
-    const token = await getAccessToken();
-    const authHeader = `Zoho-oauthtoken ${token}`;
-    const invoiceBaseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices`;
-    const soBaseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders`;
+    const [invoices, salesOrders] = await Promise.all([
+      prisma.invoice.findMany({
+        where: invoiceWhere,
+        include: { account: { select: { name: true } } },
+        orderBy: { issueDate: 'desc' },
+        take: 1000,
+      }),
+      prisma.salesOrder.findMany({
+        where: {
+          status: { in: ['open', 'draft', 'partially_invoiced', 'Open', 'Draft', 'Partially_Invoiced', 'Pending'] }
+        },
+        include: { account: { select: { name: true } } },
+        orderBy: { orderDate: 'desc' },
+        take: 500,
+      }),
+    ]);
 
-    const urls = [
-      `${invoiceBaseUrl}?organization_id=${ORG_ID}&status=paid&per_page=200&page=1&sort_column=date&sort_order=D`,
-      `${invoiceBaseUrl}?organization_id=${ORG_ID}&status=paid&per_page=200&page=2&sort_column=date&sort_order=D`,
-      `${invoiceBaseUrl}?organization_id=${ORG_ID}&status=paid&per_page=200&page=3&sort_column=date&sort_order=D`,
-      `${invoiceBaseUrl}?organization_id=${ORG_ID}&status=unpaid&per_page=200&page=1&sort_column=date&sort_order=D`,
-      `${invoiceBaseUrl}?organization_id=${ORG_ID}&status=unpaid&per_page=200&page=2&sort_column=date&sort_order=D`,
-      `${invoiceBaseUrl}?organization_id=${ORG_ID}&status=draft&per_page=200&page=1&sort_column=date&sort_order=D`,
-      `${soBaseUrl}?organization_id=${ORG_ID}&per_page=200&page=1&sort_column=date&sort_order=D`,
-      `${soBaseUrl}?organization_id=${ORG_ID}&per_page=200&page=2&sort_column=date&sort_order=D`
-    ];
-
-    const fetchPromises = urls.map(url =>
-      fetch(url, { headers: { Authorization: authHeader } }).then(res => res.json())
-    );
-
-    const [paid1, paid2, paid3, unpaid1, unpaid2, draftData, soDataPage1, soDataPage2] = await Promise.all(fetchPromises);
-
-    const paidInvoices = [...(paid1.invoices || []), ...(paid2.invoices || []), ...(paid3.invoices || [])];
-    const unpaidInvoices = [...(unpaid1.invoices || []), ...(unpaid2.invoices || [])];
-    const draftInvoices = draftData.invoices || [];
-    const sos1 = soDataPage1.salesorders || [];
-    const sos2 = soDataPage2.salesorders || [];
-    const allSos = [...sos1, ...sos2];
-
-    const salesOrderDates: any = {};
-    const salesOrderSalespersons: any = {};
-    allSos.forEach(so => {
-      if (so.salesorder_number) {
-        salesOrderDates[so.salesorder_number.toString()] = so.date;
-        salesOrderSalespersons[so.salesorder_number.toString()] = so.salesperson_name || null;
-      }
+    // Transform invoices to match the format components expect
+    const invoicesMapped = invoices.map(inv => {
+      const items = (inv.items as any) || {};
+      return {
+        invoice_id: inv.zohoId,
+        invoice_number: items.invoiceNumber || `INV-${inv.zohoId?.slice(-6)}`,
+        customer_name: items.customer_name || inv.account?.name || 'Unknown',
+        salesperson_name: items.salesperson || null,
+        sub_total: items.sub_total ?? inv.amount ?? 0,
+        total: items.sub_total ?? inv.amount ?? 0,
+        balance: items.balance ?? 0,
+        date: inv.issueDate?.toISOString().split('T')[0] || '',
+        due_date: inv.dueDate?.toISOString().split('T')[0] || '',
+        status: mapStatusForClient(inv.status),
+        is_sales_order: false,
+        salesorder_date: items.salesorder_date || null,
+        salesorder_salesperson_name: items.salesorder_salesperson_name || null,
+        reference_number: items.reference_number || null,
+        // Profit/commission from items JSON or rawData
+        cf_profit_unformatted: items.profit ?? items.cf_profit_unformatted ?? extractCustomField(items, 'cf_estimated_profit_unformatted') ?? 0,
+        cf_commision_amount_unformatted: items.commission ?? items.cf_commision_amount_unformatted ?? extractCustomField(items, 'cf_commission_amount_unformatted') ?? 0,
+        cf_salesperson_vig_unformatted: items.vig ?? items.cf_salesperson_vig_unformatted ?? extractCustomField(items, 'cf_salesperson_vig_unformatted') ?? 1.3,
+        // Additional fields components may use
+        line_items: items.line_items || [],
+        custom_fields: items.custom_fields || [],
+        shipping_charge: items.shippingCharge ?? 0,
+        payment_date: items.paymentDate || null,
+      };
     });
 
-    const addSalesOrderDate = (inv: any) => {
-      const parentSoNumber = inv.reference_number;
-      const soDate = parentSoNumber ? salesOrderDates[parentSoNumber.toString()] : null;
-      const soSalesperson = parentSoNumber ? salesOrderSalespersons[parentSoNumber.toString()] : null;
+    // Transform sales orders to look like invoice-shaped objects (as the old route did)
+    const sosMapped = salesOrders.map(so => {
+      const items = (so.items as any) || {};
       return {
-        ...inv,
-        salesorder_date: soDate || null,
-        salesorder_salesperson_name: soSalesperson || null
-      };
-    };
-
-    const paidInvoicesMapped = paidInvoices.map(addSalesOrderDate);
-    const unpaidInvoicesMapped = unpaidInvoices.map(addSalesOrderDate);
-    const draftInvoicesMapped = draftInvoices.map(addSalesOrderDate);
-
-    const rawActiveSos = allSos.filter(so => 
-      so.status === 'open' || so.status === 'draft' || so.status === 'partially_invoiced'
-    );
-    const seenSoIds = new Set();
-    const uniqueActiveSos = [];
-    for (const so of rawActiveSos) {
-      if (!seenSoIds.has(so.salesorder_id)) {
-        seenSoIds.add(so.salesorder_id);
-        uniqueActiveSos.push(so);
-      }
-    }
-
-    const detailPromises = uniqueActiveSos.map(async (so) => {
-      try {
-        const detailUrl = `${soBaseUrl}/${so.salesorder_id}?organization_id=${ORG_ID}`;
-        const detailRes = await fetch(detailUrl, { headers: { Authorization: authHeader } });
-        const detailData = await detailRes.json();
-        if (detailData.code === 0 && detailData.salesorder) {
-          const detailedSo = detailData.salesorder;
-          return {
-            invoice_id: detailedSo.salesorder_id,
-            invoice_number: `SO-${detailedSo.salesorder_number}`,
-            customer_name: detailedSo.customer_name,
-            salesperson_name: detailedSo.salesperson_name,
-            sub_total: Number(detailedSo.sub_total !== undefined ? detailedSo.sub_total : (detailedSo.total || 0)),
-            total: Number(detailedSo.total || 0),
-            date: detailedSo.date,
-            status: detailedSo.status,
-            is_sales_order: true,
-            cf_profit_unformatted: (() => {
-              const deadCost = detailedSo.custom_field_hash?.cf_dead_cost_total_unformatted;
-              const sub = Number(detailedSo.sub_total !== undefined ? detailedSo.sub_total : (detailedSo.total || 0));
-              return deadCost !== undefined ? (sub - Number(deadCost)) : Number(detailedSo.custom_field_hash?.cf_estimated_profit_unformatted || 0);
-            })(),
-            cf_commision_amount_unformatted: Number(detailedSo.custom_field_hash?.cf_commission_amount_unformatted || 0),
-            cf_salesperson_vig_unformatted: Number(detailedSo.custom_field_hash?.cf_salesperson_vig_unformatted || 1.3)
-          };
-        }
-      } catch (err) {}
-
-      return {
-        invoice_id: so.salesorder_id,
-        invoice_number: `SO-${so.salesorder_number}`,
-        customer_name: so.customer_name,
-        salesperson_name: so.salesperson_name,
-        sub_total: Number(so.sub_total !== undefined ? so.sub_total : (so.total || 0)),
-        total: Number(so.total || 0),
-        date: so.date,
-        status: so.status,
+        invoice_id: so.zohoId || so.id,
+        invoice_number: `SO-${items.salesOrderNumber || so.zohoId?.slice(-6) || so.id.slice(-6)}`,
+        customer_name: items.customer_name || so.account?.name || 'Unknown',
+        salesperson_name: items.salesperson || null,
+        sub_total: items.sub_total ?? so.amount ?? 0,
+        total: items.sub_total ?? so.amount ?? 0,
+        balance: items.balance ?? so.amount ?? 0,
+        date: so.orderDate?.toISOString().split('T')[0] || '',
+        status: so.status?.toLowerCase() || 'open',
         is_sales_order: true,
-        cf_profit_unformatted: 0,
-        cf_commision_amount_unformatted: 0,
-        cf_salesperson_vig_unformatted: Number(so.cf_salesperson_vig_unformatted || 1.3)
+        cf_profit_unformatted: items.profit ?? items.cf_profit_unformatted ?? extractCustomField(items, 'cf_estimated_profit_unformatted') ?? 0,
+        cf_commision_amount_unformatted: items.commission ?? items.cf_commision_amount_unformatted ?? extractCustomField(items, 'cf_commission_amount_unformatted') ?? 0,
+        cf_salesperson_vig_unformatted: items.vig ?? items.cf_salesperson_vig_unformatted ?? extractCustomField(items, 'cf_salesperson_vig_unformatted') ?? 1.3,
+        line_items: items.line_items || [],
+        custom_fields: items.custom_fields || [],
+        shipping_charge: items.shippingCharge ?? 0,
       };
     });
 
-    const activeSosMapped = await Promise.all(detailPromises);
-
-    const combined = [...paidInvoicesMapped, ...unpaidInvoicesMapped, ...draftInvoicesMapped, ...activeSosMapped].sort((a, b) => {
+    // Combine and sort by date descending (same as old route)
+    const combined = [...invoicesMapped, ...sosMapped].sort((a: any, b: any) => {
       const dateA = a.salesorder_date || a.date;
       const dateB = b.salesorder_date || b.date;
       return new Date(dateB).getTime() - new Date(dateA).getTime();
     });
 
-    const responseData = { invoices: combined };
-    cachedData = responseData;
-    cacheTime = Date.now();
-    return NextResponse.json(responseData);
+    return NextResponse.json({ invoices: combined });
   } catch (err: any) {
+    console.error('zoho-invoices DB error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
+}
+
+/** Map internal DB status to the format the client expects */
+function mapStatusForClient(status: string): string {
+  const lower = status?.toLowerCase() || '';
+  if (lower === 'paid' || lower === 'closed') return 'paid';
+  if (lower === 'sent' || lower === 'unpaid' || lower === 'partially_paid' || lower === 'overdue') return lower;
+  if (lower === 'draft') return 'draft';
+  if (lower === 'void' || lower === 'voided') return 'void';
+  return lower || 'draft';
+}
+
+/** Extract a value from the custom_fields array in the items JSON */
+function extractCustomField(items: any, fieldName: string): number | null {
+  if (!items.custom_fields || !Array.isArray(items.custom_fields)) return null;
+  const field = items.custom_fields.find((f: any) => f.api_name === fieldName || f.label === fieldName);
+  if (field && field.value !== undefined && field.value !== '') {
+    return parseFloat(field.value) || 0;
+  }
+  return null;
 }

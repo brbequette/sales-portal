@@ -170,7 +170,7 @@ export default function Dashboard() {
     })
   }, [ownerFilter, sortBy, searchQuery, timezoneFilter, qualityFilter, yearFilter, statusFilter, industryFilter, onlyWithSales, showDoNotCall, taskFilterTab, taskTypeFilter, productSearch, prefsLoaded])
 
-  // --- Task Reminder Polling: Check every 60s ---
+  // --- Task Reminder Check: on load + tab focus (instead of 60s polling) ---
   useEffect(() => {
     const checkReminders = async () => {
       try {
@@ -183,12 +183,13 @@ export default function Dashboard() {
           if (taskData.success) setTasks(taskData.tasks)
         }
       } catch (e) {
-        // Silent fail for polling
+        // Silent fail
       }
     }
     checkReminders()
-    const interval = setInterval(checkReminders, 60000)
-    return () => clearInterval(interval)
+    const handleVisibility = () => { if (document.visibilityState === 'visible') checkReminders() }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [currentUser?.id])
 
   // Fetch Media Assets
