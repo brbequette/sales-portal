@@ -11,7 +11,6 @@ ALTER TABLE "TimeEntry" ADD COLUMN "clockOutAccuracy" DOUBLE PRECISION;
 ALTER TABLE "TimeEntry" ADD COLUMN "clockInLocation" TEXT;
 ALTER TABLE "TimeEntry" ADD COLUMN "clockOutLocation" TEXT;
 ALTER TABLE "TimeEntry" ADD COLUMN "locationStatus" TEXT;
-ALTER TABLE "TimeEntry" ADD COLUMN "clockSource" TEXT DEFAULT 'manual';
 
 -- Create GeofenceLocation table
 CREATE TABLE "GeofenceLocation" (
