@@ -438,8 +438,13 @@ function CsvImportSection() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: csvType, csvData }),
       })
-      const data = await res.json()
-      setResult(data)
+      const text = await res.text()
+      try {
+        const data = JSON.parse(text)
+        setResult(data)
+      } catch {
+        setResult({ error: `Server error (${res.status}): ${text.substring(0, 200)}` })
+      }
     } catch (e: any) {
       setResult({ error: e.message })
     } finally {
