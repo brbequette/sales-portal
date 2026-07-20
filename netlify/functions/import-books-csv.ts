@@ -118,6 +118,58 @@ function mapColumnValue(columnName: string, value: string): { field: string, par
   return null
 }
 
+// Line-item columns to extract from each row
+const LINE_ITEM_COLS: Record<string, string> = {
+  'ITEM NAME': 'itemName',
+  'ITEM DESC': 'description',
+  'QUANTITY': 'quantity',
+  'QUANTITYORDERED': 'quantity',
+  'ITEM PRICE': 'rate',
+  'USAGE UNIT': 'unit',
+  'DISCOUNT': 'discount',
+  'DISCOUNT AMOUNT': 'discountAmount',
+  'ITEM TOTAL': 'itemTotal',
+  'SKU': 'sku',
+  'UPC': 'upc',
+  'MPN': 'mpn',
+  'EAN': 'ean',
+  'ISBN': 'isbn',
+  'BRAND': 'brand',
+  'PRODUCT ID': 'productId',
+  'ACCOUNT': 'account',
+  'ACCOUNT CODE': 'accountCode',
+  'TAX ID': 'taxId',
+  'ITEM TAX': 'taxName',
+  'ITEM TAX %': 'taxPercent',
+  'ITEM TAX AMOUNT': 'taxAmount',
+  'ITEM TAX TYPE': 'taxType',
+  'ITEM.CF.6% COST INCREASE COMPLETED': 'costIncreaseCompleted',
+  'KIT COMBO ITEM NAME': 'kitComboItemName',
+}
+
+function extractLineItem(row: Record<string, string>, headers: string[]): Record<string, any> | null {
+  const item: Record<string, any> = {}
+  let hasData = false
+
+  for (const h of headers) {
+    const val = row[h]?.trim()
+    if (!val) continue
+    const upper = h.toUpperCase().trim()
+    const fieldName = LINE_ITEM_COLS[upper]
+    if (fieldName) {
+      // Parse numeric fields
+      if (['quantity', 'rate', 'discount', 'discountAmount', 'itemTotal', 'taxPercent', 'taxAmount'].includes(fieldName)) {
+        item[fieldName] = parseFloat(val.replace(/[,$]/g, '')) || 0
+      } else {
+        item[fieldName] = val
+      }
+      hasData = true
+    }
+  }
+
+  return hasData && item.itemName ? item : null
+}
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "POST only" }) }
@@ -149,28 +201,50 @@ export const handler: Handler = async (event) => {
       }) }
     }
 
+    // ── Step 1: Group rows by document number ──
+    const docGroups = new Map<string, Record<string, string>[]>()
+    for (const row of rows) {
+      const docNumber = row[numberCol]?.trim()
+      if (!docNumber) continue
+      if (!docGroups.has(docNumber)) docGroups.set(docNumber, [])
+      docGroups.get(docNumber)!.push(row)
+    }
+
     let updated = 0, notFound = 0, skipped = 0, errors = 0
+    let totalLineItems = 0
     const notFoundNumbers: string[] = []
 
-    for (const row of rows) {
+    // ── Step 2: Process each document group ──
+    for (const [docNumber, docRows] of docGroups) {
       try {
-        const docNumber = row[numberCol]?.trim()
-        if (!docNumber) { skipped++; continue }
-
+        // Extract document-level fields from the first row
+        const firstRow = docRows[0]
         const fieldsToUpdate: Record<string, any> = {}
         let statusVal: string | null = null
 
-        for (const [col, val] of Object.entries(row)) {
+        for (const [col, val] of Object.entries(firstRow)) {
           if (!val || val.trim() === '') continue
           const mapped = mapColumnValue(col, val)
           if (mapped) {
             if (mapped.field === '_status') statusVal = mapped.parsed
-            else fieldsToUpdate[mapped.field] = mapped.parsed
+            else if (mapped.field !== '_zohoDocId') fieldsToUpdate[mapped.field] = mapped.parsed
           }
+        }
+
+        // Extract line items from ALL rows for this document
+        const lineItems: Record<string, any>[] = []
+        for (const row of docRows) {
+          const item = extractLineItem(row, headers)
+          if (item) lineItems.push(item)
+        }
+        if (lineItems.length > 0) {
+          fieldsToUpdate.lineItems = lineItems
+          totalLineItems += lineItems.length
         }
 
         if (Object.keys(fieldsToUpdate).length === 0) { skipped++; continue }
 
+        // Find the local record
         let dbRecord: any = null
         if (type === 'Invoice') {
           dbRecord = await prisma.invoice.findFirst({
@@ -227,13 +301,14 @@ export const handler: Handler = async (event) => {
       statusCode: 200, headers: cors,
       body: JSON.stringify({
         success: true, type, totalRows: rows.length,
-        updated, notFound, skipped, errors,
-        columnsMatched: headers.filter(h => mapColumnValue(h, 'test') !== null).length,
+        uniqueDocuments: docGroups.size,
+        updated, notFound, skipped, errors, totalLineItems,
+        columnsMatched: headers.filter(h => mapColumnValue(h, 'test') !== null || LINE_ITEM_COLS[h.toUpperCase().trim()]).length,
         columnsTotal: headers.length,
-        unmatchedColumns: headers.filter(h => mapColumnValue(h, 'test') === null),
-        matchedColumns: headers.filter(h => mapColumnValue(h, 'test') !== null),
+        unmatchedColumns: headers.filter(h => mapColumnValue(h, 'test') === null && !LINE_ITEM_COLS[h.toUpperCase().trim()]),
+        matchedColumns: headers.filter(h => mapColumnValue(h, 'test') !== null || LINE_ITEM_COLS[h.toUpperCase().trim()]),
         notFoundSample: notFoundNumbers,
-        message: `Imported ${updated} ${type}s. ${notFound} not found, ${skipped} skipped, ${errors} errors.`
+        message: `Imported ${updated} ${type}s (${totalLineItems} line items). ${notFound} not found, ${skipped} skipped, ${errors} errors.`
       })
     }
   } catch (err: any) {
