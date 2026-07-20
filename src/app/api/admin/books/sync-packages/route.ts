@@ -23,11 +23,32 @@ async function fetchAllPages(baseUrl: string, token: string, endpoint: string): 
     const res = await fetch(url, {
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
     })
-    const data = await res.json()
-    if (data.code !== 0) throw new Error(`Zoho API error on ${endpoint}: ${data.message}`)
 
-    const key = endpoint.replace(/s$/, '') // packages -> package, purchaseorders -> purchaseorder
-    const items = data[endpoint] || data[key + 's'] || []
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(`Zoho auth failed (${res.status}) — token may be expired. Try again in a minute.`)
+      }
+      if (res.status === 429) {
+        throw new Error(`Zoho rate limit hit — wait a minute and try again.`)
+      }
+      throw new Error(`Zoho API returned ${res.status} for ${endpoint}`)
+    }
+
+    const rawText = await res.text()
+    if (rawText.trim().startsWith('<')) {
+      throw new Error(`Zoho returned HTML instead of JSON for ${endpoint} — token likely expired. Try again in a minute.`)
+    }
+
+    let data: any
+    try { data = JSON.parse(rawText) } catch {
+      throw new Error(`Invalid JSON from Zoho for ${endpoint}: ${rawText.substring(0, 80)}`)
+    }
+
+    if (data.code !== undefined && data.code !== 0) {
+      throw new Error(`Zoho API error on ${endpoint}: ${data.message}`)
+    }
+
+    const items = data[endpoint] || []
     all = all.concat(items)
 
     hasMore = data.page_context?.has_more_page || false
@@ -37,6 +58,8 @@ async function fetchAllPages(baseUrl: string, token: string, endpoint: string): 
 
   return all
 }
+
+export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   try {
