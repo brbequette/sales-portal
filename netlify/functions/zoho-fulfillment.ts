@@ -28,6 +28,21 @@ export const handler: Handler = async (event, context) => {
     if (soData.code !== 0) throw new Error(`Zoho Books Error fetching SO: ${soData.message}`)
     const so = soData.salesorder
 
+    if (action === "GetSalesOrder") {
+      // Return the SO line items and shipping address for the Shipping Center
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          success: true,
+          lineItems: so.line_items || [],
+          shippingAddress: so.shipping_address || null,
+          customerName: so.customer_name,
+          salesorderNumber: so.salesorder_number,
+          packages: so.packages || [],
+        })
+      }
+    }
+
     if (action === "CreatePackage") {
       // Create a Package
       const payload = {

@@ -5,7 +5,7 @@ import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import {
   FiHome, FiPhoneCall, FiDollarSign, FiTool, FiUser,
-  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare, FiArrowLeft, FiCheckSquare, FiClock, FiGrid
+  FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare, FiArrowLeft, FiCheckSquare, FiClock, FiGrid, FiTruck
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 import { UserSettingsModal } from "@/components/UserSettingsModal"
@@ -20,7 +20,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [showMoreMenu, setShowMoreMenu] = useState(false)
 
   // Show back button on sub-pages (not main nav destinations)
-  const mainPages = ["/", "/login", "/sales", "/messages", "/collections", "/commissions", "/stats", "/tools", "/training", "/catalog", "/timeclock", "/tasks"]
+  const mainPages = ["/", "/login", "/sales", "/shipping", "/messages", "/collections", "/commissions", "/stats", "/tools", "/training", "/catalog", "/timeclock", "/tasks"]
   const showBackButton = !mainPages.includes(pathname)
 
   const normalizedRole = user?.role?.toLowerCase() || ""
@@ -30,6 +30,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/",            icon: FiHome,        label: "Sales Hub",    color: "text-[var(--primary)]" },
     { href: "/tasks",       icon: FiCheckSquare, label: "Task Hub",     color: "text-violet-400" },
     { href: "/sales",       icon: FiFileText,    label: "Sales Docs",   color: "text-[var(--accent)]" },
+    { href: "/shipping",    icon: FiTruck,       label: "Shipping",     color: "text-orange-400" },
     { href: "/messages",    icon: FiMessageSquare, label: "Messages", color: "text-[var(--info)]" },
     { href: "/collections", icon: FiPhoneCall,   label: "Collections",  color: "text-[var(--danger)]" },
     { href: "/commissions", icon: FiDollarSign,  label: "Commissions",  color: "text-[var(--success)]" },
