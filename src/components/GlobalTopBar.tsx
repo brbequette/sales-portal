@@ -31,6 +31,9 @@ export function GlobalTopBar() {
   const [clockLoading, setClockLoading] = useState(false)
   const [monitorStatus, setMonitorStatus] = useState<MonitorStatus>('idle')
   const [autoClockToast, setAutoClockToast] = useState<string | null>(null)
+  const [showClockInPrompt, setShowClockInPrompt] = useState(false)
+  const clockPromptDismissed = useRef(false)
+  const timeEntryLoaded = useRef(false)
 
   // ── Stats Strip Data ──
   const [stripStats, setStripStats] = useState<{
@@ -105,6 +108,47 @@ export function GlobalTopBar() {
     const interval = setInterval(fetchTime, 60000)
     return () => clearInterval(interval)
   }, [currentUser?.id])
+
+  // ── Activity-based Clock-In Prompt ──
+  // If user is logged in, data has loaded, and they're NOT clocked in — show prompt on first interaction
+  useEffect(() => {
+    if (!currentUser?.id) return
+    // Wait for timeclock data to load before deciding
+    const timer = setTimeout(() => {
+      timeEntryLoaded.current = true
+      checkClockInPrompt()
+    }, 3000) // Give 3s for timeclock fetch to complete
+    return () => clearTimeout(timer)
+  }, [currentUser?.id])
+
+  // Re-check when timeEntry changes
+  useEffect(() => {
+    if (timeEntryLoaded.current) checkClockInPrompt()
+  }, [timeEntry])
+
+  function checkClockInPrompt() {
+    if (clockPromptDismissed.current) return
+    // Check sessionStorage for dismissal
+    if (typeof window !== 'undefined' && sessionStorage.getItem('clockInPromptDismissed')) {
+      clockPromptDismissed.current = true
+      return
+    }
+    const notClockedIn = !timeEntry || timeEntry.manualClockOut
+    setShowClockInPrompt(notClockedIn)
+  }
+
+  function dismissClockInPrompt() {
+    setShowClockInPrompt(false)
+    clockPromptDismissed.current = true
+    if (typeof window !== 'undefined') sessionStorage.setItem('clockInPromptDismissed', '1')
+  }
+
+  async function handlePromptClockIn() {
+    setShowClockInPrompt(false)
+    clockPromptDismissed.current = true
+    if (typeof window !== 'undefined') sessionStorage.setItem('clockInPromptDismissed', '1')
+    await handleToggleClock()
+  }
 
   // ── Auto-start Geofence Monitor ──
   useEffect(() => {
@@ -614,6 +658,33 @@ export function GlobalTopBar() {
               </div>
             </>
           )}
+        </div>
+      </div>
+    )}
+    {/* ── Clock-In Prompt Banner ── */}
+    {showClockInPrompt && currentUser?.id && (
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] animate-[slideUp_0.3s_ease-out]">
+        <div className="flex items-center gap-3 bg-gradient-to-r from-blue-900/95 to-indigo-900/95 backdrop-blur-xl border border-blue-500/30 rounded-2xl px-5 py-3 shadow-[0_8px_32px_rgba(59,130,246,0.3)] text-white">
+          <div className="w-9 h-9 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+            <FiClock size={18} className="text-blue-400" />
+          </div>
+          <div className="text-sm">
+            <div className="font-bold">You&apos;re not clocked in</div>
+            <div className="text-blue-300/70 text-xs">Clock in to track your hours?</div>
+          </div>
+          <button
+            onClick={handlePromptClockIn}
+            className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold rounded-lg transition-colors shadow-lg shadow-emerald-500/20 whitespace-nowrap"
+          >
+            Clock In
+          </button>
+          <button
+            onClick={dismissClockInPrompt}
+            className="text-blue-400/50 hover:text-white text-lg leading-none transition-colors px-1"
+            title="Dismiss"
+          >
+            ×
+          </button>
         </div>
       </div>
     )}
