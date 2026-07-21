@@ -15,20 +15,23 @@ export async function GET(req: NextRequest) {
     // Fetch SOs that are not void/draft (active orders)
     const salesOrders = await prisma.salesOrder.findMany({
       where: {
-        status: { notIn: ["Void", "Draft", "Cancelled"] },
+        status: { notIn: ["Void", "Draft", "Cancelled", "Closed"] },
       },
+      take: 500,
       include: { account: { select: { id: true, name: true } } },
       orderBy: { orderDate: "desc" },
     })
 
     // Fetch all packages
     const packages = await prisma.package.findMany({
+      take: 1000,
       orderBy: { date: "desc" },
     })
 
     // Fetch all dropshipment POs
     const dropshipPOs = await prisma.purchaseOrder.findMany({
       where: { isDropshipment: true },
+      take: 1500,
       orderBy: { date: "desc" },
     })
 
