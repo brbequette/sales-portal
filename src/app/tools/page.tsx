@@ -271,7 +271,7 @@ export default function ToolsRepository() {
             </Link>
             <div className="h-6 w-px bg-neutral-800"></div>
             <h1 className="text-lg font-bold text-white flex items-center gap-2">
-              ðŸ“‚ Tools & Media Repository
+              ✨“‚ Tools & Media Repository
             </h1>
           </div>
           {isAdmin && (
@@ -483,7 +483,7 @@ export default function ToolsRepository() {
             {/* Modal Header */}
             <div className="bg-neutral-800 px-6 py-4 border-b border-white/10 flex justify-between items-center">
               <h2 className="font-bold text-white text-base">
-                {editingAsset ? "âœï¸ Edit Media Asset" : "âœ¨ Add New Media Asset"}
+                {editingAsset ? "✍️ Edit Media Asset" : "✨ Add New Media Asset"}
               </h2>
               <button 
                 onClick={() => setShowModal(false)}

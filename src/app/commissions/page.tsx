@@ -318,10 +318,10 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
                                         {inv.accountZohoId ? (
                                           <Link href={`/account?id=${inv.accountZohoId}`} className="text-[10px] text-blue-400 hover:underline font-bold" onClick={(e) => e.stopPropagation()}>
-                                            ðŸ¢ {inv.accountName}
+                                            🏢 {inv.accountName}
                                           </Link>
                                         ) : (
-                                          <span className="text-[10px] text-neutral-400">ðŸ¢ {inv.accountName}</span>
+                                          <span className="text-[10px] text-neutral-400">🏢 {inv.accountName}</span>
                                         )}
                                         <span className="text-[10px] text-neutral-600">”¢</span>
                                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${
@@ -377,10 +377,10 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
                       {deal.accountZohoId ? (
                         <Link href={`/account?id=${deal.accountZohoId}`} className="text-[10px] text-blue-400 hover:underline font-bold">
-                          ðŸ¢ {deal.accountName}
+                          🏢 {deal.accountName}
                         </Link>
                       ) : (
-                        <span className="text-[10px] text-neutral-400">ðŸ¢ {deal.accountName}</span>
+                        <span className="text-[10px] text-neutral-400">🏢 {deal.accountName}</span>
                       )}
                       <span className="text-[10px] text-neutral-600">”¢</span>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${stageColor(deal.stage)}`}>{deal.stage}</span>

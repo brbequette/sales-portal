@@ -4,12 +4,12 @@ import { useState } from "react"
 import { FiChevronDown, FiCheck, FiLoader } from "react-icons/fi"
 
 export const CUSTOMER_QUALITIES = [
-  { value: "HOT",         label: "ðŸ”¥ HOT",         color: "bg-red-900/40 text-red-400 border-red-500/30" },
+  { value: "HOT",         label: "✨”¥ HOT",         color: "bg-red-900/40 text-red-400 border-red-500/30" },
   { value: "WARM",        label: "â˜€ï¸ WARM",        color: "bg-amber-900/40 text-amber-400 border-amber-500/30" },
-  { value: "COLD",        label: "â„ï¸ COLD",        color: "bg-sky-900/40 text-sky-400 border-sky-500/30" },
-  { value: "ON_HOLD",     label: "â¸ï¸ ON HOLD",     color: "bg-neutral-800 text-neutral-400 border-neutral-700" },
-  { value: "DO_NOT_CALL", label: "ðŸš« DO NOT CALL", color: "bg-red-950 text-red-600 border-red-900/50" },
-  { value: "NEVER_STATUSED", label: "â“ NEVER STATUSED", color: "bg-neutral-800 text-neutral-400 border-neutral-700" },
+  { value: "COLD",        label: "❌„ï¸ COLD",        color: "bg-sky-900/40 text-sky-400 border-sky-500/30" },
+  { value: "ON_HOLD",     label: "⏸️ ON HOLD",     color: "bg-neutral-800 text-neutral-400 border-neutral-700" },
+  { value: "DO_NOT_CALL", label: "🚫 DO NOT CALL", color: "bg-red-950 text-red-600 border-red-900/50" },
+  { value: "NEVER_STATUSED", label: "❌“ NEVER STATUSED", color: "bg-neutral-800 text-neutral-400 border-neutral-700" },
 ]
 
 export function qualityStyle(quality: string) {

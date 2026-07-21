@@ -241,7 +241,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                   : 'glass-panel border-neutral-700 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400'
               }`}
             >
-              {isChecked ? 'âœ“ ' : ''}{opt}
+              {isChecked ? '✍“ ' : ''}{opt}
             </button>
           )
         })}
@@ -849,10 +849,10 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 If card: "Perfect, go ahead and read the number from left to right, 4 digits at a time."
               </p>
               <div className="pl-7 mt-2 grid grid-cols-2 gap-2">
-                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ’³ Full card number</div>
-                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ“… Expiration date</div>
-                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ”’ CVV code</div>
-                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ“ Billing ZIP code</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">💳 Full card number</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">📅 Expiration date</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">🔒 CVV code</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">✨“ Billing ZIP code</div>
               </div>
               <p className="text-xs text-neutral-500 pl-7 mt-2 italic">
                 Or Net 30: "Great  --  I'll get everything rolling and email your invoice with Net 30 terms. Who's the best contact for billing on your end?"
@@ -875,7 +875,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
             {/* Step 4: Final Close */}
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black flex items-center justify-center">âœ“</span>
+                <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black flex items-center justify-center">✍“</span>
                 <h4 className="text-white font-bold text-sm">Final Close</h4>
               </div>
               <p className="text-xs text-sky-100/70 leading-relaxed pl-7">

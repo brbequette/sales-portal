@@ -220,7 +220,7 @@ function CallModal({ invoice, onClose, onSaved }: { invoice: Invoice, onClose: (
                 timerRunning ? "bg-red-600 hover:bg-red-500 text-white" : "bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700"
               }`}
             >
-              {timerRunning ? `â± ${mm}:${ss}` : "Start Timer"}
+              {timerRunning ? `⏱ ${mm}:${ss}` : "Start Timer"}
             </button>
           </div>
 
@@ -587,7 +587,7 @@ function RequestReturnModal({ invoice, onClose, onSuccess }: RequestReturnProps)
         {labelResult ? (
           <div className="p-6 text-center space-y-4">
             <div className="w-12 h-12 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded-full flex items-center justify-center mx-auto text-xl">
-              âœ“
+              ✍“
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Return Label Generated!</h3>
@@ -947,7 +947,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                           />
                           <div>
                             <span className="font-mono font-bold text-emerald-400">#{inv.invoice_number}</span>
-                            {inv.shipping_charge === 0 && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400 ml-2">âš  No Ship $</span>}
+                            {inv.shipping_charge === 0 && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400 ml-2">⚠ No Ship $</span>}
                             <span className="text-neutral-505 ml-2">Due: {inv.due_date || "—"}</span>
                           </div>
                         </div>
@@ -1027,7 +1027,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                       timerRunning ? "bg-red-600 hover:bg-red-550 text-white" : "glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-white border border-neutral-750"
                     }`}
                   >
-                    {timerRunning ? `â± Stop` : "Start Timer"}
+                    {timerRunning ? `⏱ Stop` : "Start Timer"}
                   </button>
                 </div>
 
@@ -1578,7 +1578,7 @@ export default function CollectionsPage() {
                           <span className="font-mono text-xs text-emerald-400 font-bold">
                             #{inv.invoice_number}
                           </span>
-                          {inv.shipping_charge === 0 && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400 ml-1.5">âš  No Ship $</span>}
+                          {inv.shipping_charge === 0 && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400 ml-1.5">⚠ No Ship $</span>}
                         </td>
                         <td className="px-4 py-3">
                           <span className="font-semibold text-white text-xs truncate max-w-[200px] block">{inv.customer_name}</span>

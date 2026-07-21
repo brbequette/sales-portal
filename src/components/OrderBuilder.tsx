@@ -10,14 +10,14 @@
  *   ”¢ CommunicationCenter (account page comm hub)
  *
  * Features:
- *   âœ… Blade Lookup — filter by Application, Size, Type â†’ Good/Better/Best cards
- *   âœ… Product search (full catalog)
- *   âœ… Quick-Add top 10 blades
- *   âœ… Sold Items section (paidQty > 0) — editable qty input + +/- buttons
- *   âœ… Promotional Items section (freeQty > 0) — separated, green, gift items
- *   âœ… Editable unit price per line
- *   âœ… Live financials (Dead Cost, Profit, VIG, Commission, Margin)
- *   âœ… Sales Order preview modal
+ *   ✅ Blade Lookup — filter by Application, Size, Type â†’ Good/Better/Best cards
+ *   ✅ Product search (full catalog)
+ *   ✅ Quick-Add top 10 blades
+ *   ✅ Sold Items section (paidQty > 0) — editable qty input + +/- buttons
+ *   ✅ Promotional Items section (freeQty > 0) — separated, green, gift items
+ *   ✅ Editable unit price per line
+ *   ✅ Live financials (Dead Cost, Profit, VIG, Commission, Margin)
+ *   ✅ Sales Order preview modal
  */
 
 import { useState, useRef, useMemo, useEffect } from "react"
@@ -638,7 +638,7 @@ export function OrderBuilder({
                   onClick={() => openAddItemModal(bp)}
                   className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer glass-panel border-neutral-700 text-neutral-400 hover:border-violet-500/50 hover:text-violet-300"
                 >
-                  âš¡ {bp.name}
+                  ⚡ {bp.name}
                 </button>
               )
             })}
@@ -751,7 +751,7 @@ export function OrderBuilder({
                 type="button"
                 onClick={() => removeLine(line.id)}
                 className="w-5 h-5 rounded bg-red-900/20 text-red-400 text-[10px] font-bold flex items-center justify-center hover:bg-red-900/40 cursor-pointer"
-              >Ã—</button>
+              >×</button>
             </div>
           ))}
         </div>
@@ -763,7 +763,7 @@ export function OrderBuilder({
           <div className="flex items-center gap-1.5">
             <FiTag size={11} className="text-emerald-400" />
             <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-400">
-              ðŸŽ Promotional Items ({promoLines.length})
+              🎁 Promotional Items ({promoLines.length})
             </p>
           </div>
 
@@ -799,7 +799,7 @@ export function OrderBuilder({
                 onClick={() => removeLine(line.id)}
                 className="w-5 h-5 rounded bg-red-900/20 text-red-400 text-[10px] font-bold flex items-center justify-center hover:bg-red-900/40 cursor-pointer"
                 title="Remove promotional item"
-              >Ã—</button>
+              >×</button>
             </div>
           ))}
         </div>
@@ -824,7 +824,7 @@ export function OrderBuilder({
           </div>
           {promoLines.length > 0 && (
             <div className="flex justify-between px-1">
-              <span className="text-[10px] text-emerald-500">ðŸŽ Promotional</span>
+              <span className="text-[10px] text-emerald-500">🎁 Promotional</span>
               <span className="text-[11px] font-bold text-emerald-400">
                 {promoLines.reduce((s, l) => s + l.quantity, 0)} free
               </span>
@@ -842,11 +842,11 @@ export function OrderBuilder({
       {/* â”€â”€ Financials â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {financials && (
         <div className="border-t border-amber-500/20 pt-2 space-y-1">
-          <p className="text-[8px] font-bold uppercase tracking-wider text-amber-500/60 px-1 mb-1">ðŸ’° Profit Estimates</p>
+          <p className="text-[8px] font-bold uppercase tracking-wider text-amber-500/60 px-1 mb-1">💰 Profit Estimates</p>
           {[
             ["Dead Cost", `-$${financials.deadCostTotal.toFixed(2)}`, "text-red-400"],
             ["Dead Profit", `$${financials.deadProfit.toFixed(2)}`, financials.deadProfit >= 0 ? "text-emerald-400" : "text-red-400"],
-            [`VIG (${vigRate}Ã—)`, `-$${financials.deadCostPlusVig.toFixed(2)}`, "text-red-400"],
+            [`VIG (${vigRate}×)`, `-$${financials.deadCostPlusVig.toFixed(2)}`, "text-red-400"],
           ].map(([label, val, color]) => (
             <div key={label as string} className="flex justify-between px-1">
               <span className="text-[10px] text-neutral-500">{label}</span>
@@ -954,7 +954,7 @@ export function OrderBuilder({
               {promoLines.length > 0 && (
                 <div>
                   <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-500 mb-2 flex items-center gap-1.5">
-                    <FiTag size={10} /> ðŸŽ Promotional Items
+                    <FiTag size={10} /> 🎁 Promotional Items
                   </p>
                   <div className="border border-emerald-900/50 rounded-lg overflow-hidden">
                     <div className="grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-1.5 bg-emerald-950/30 text-[8px] font-bold text-emerald-700 uppercase">
@@ -983,7 +983,7 @@ export function OrderBuilder({
                 </div>
                 {promoLines.length > 0 && (
                   <div className="flex justify-between px-1">
-                    <span className="text-[10px] text-emerald-500">ðŸŽ Promotional Value</span>
+                    <span className="text-[10px] text-emerald-500">🎁 Promotional Value</span>
                     <span className="text-xs font-bold text-emerald-400">$0.00</span>
                   </div>
                 )}
@@ -1007,7 +1007,7 @@ export function OrderBuilder({
                     {[
                       ["Dead Cost (All Items)", `-$${financials.deadCostTotal.toFixed(2)}`, "text-red-400"],
                       ["Dead Profit", `$${financials.deadProfit.toFixed(2)}`, financials.deadProfit >= 0 ? "text-emerald-400" : "text-red-400"],
-                      [`Cost + VIG (${vigRate}Ã— paid, 1Ã— free)`, `-$${financials.deadCostPlusVig.toFixed(2)}`, "text-red-400"],
+                      [`Cost + VIG (${vigRate}× paid, 1× free)`, `-$${financials.deadCostPlusVig.toFixed(2)}`, "text-red-400"],
                     ].map(([label, val, color]) => (
                       <div key={label as string} className="flex justify-between">
                         <span className="text-[10px] text-neutral-500">{label}</span>

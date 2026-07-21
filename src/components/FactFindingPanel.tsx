@@ -183,7 +183,7 @@ function PillRow({ options, value, onChange, accentColor = "cyan", readOnly = fa
                 : "glass-panel border-neutral-700/60 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400"
           }`}
         >
-          {value === opt ? "âœ“ " : ""}{opt}
+          {value === opt ? "✍“ " : ""}{opt}
         </button>
       ))}
     </div>
@@ -306,7 +306,7 @@ export function FactFindingPanel({
                 </label>
                 {isAnswered && (
                   <span className="text-[8px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
-                    âœ“ {value}
+                    ✍“ {value}
                   </span>
                 )}
               </div>
@@ -355,7 +355,7 @@ export function FactFindingPanel({
               {/* Question header */}
               <div className="flex items-start gap-2">
                 <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5 ${numColor(isAnswered)}`}>
-                  {isAnswered ? "âœ“" : q.num}
+                  {isAnswered ? "✍“" : q.num}
                 </span>
                 <p className={`text-xs leading-relaxed italic flex-1 ${isAnswered ? "text-neutral-500" : questionTextColor}`}>
                   {getQuestion(q)}
@@ -366,7 +366,7 @@ export function FactFindingPanel({
               {isAnswered && (
                 <div className="pl-7">
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/25 px-2 py-1 rounded-lg">
-                    âœ“ {value}
+                    ✍“ {value}
                   </span>
                   <AuditRow updatedAt={updatedAt} updatedBy={updatedBy} />
                 </div>

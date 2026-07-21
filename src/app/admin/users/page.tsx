@@ -78,12 +78,12 @@ export default function AdminUsersPage() {
       if (data.success) {
         // Refresh the user list
         await fetchUsers()
-        setSyncMessage(`âœ… Synced! ${users.length} users loaded from Zoho.`)
+        setSyncMessage(`✅ Synced! ${users.length} users loaded from Zoho.`)
       } else {
-        setSyncMessage(`âŒ Sync failed: ${data.error || 'Unknown error'}`)
+        setSyncMessage(`❌ Sync failed: ${data.error || 'Unknown error'}`)
       }
     } catch (e: any) {
-      setSyncMessage(`âŒ Sync error: ${e.message}`)
+      setSyncMessage(`❌ Sync error: ${e.message}`)
     } finally {
       setSyncing(false)
       setTimeout(() => setSyncMessage(""), 5000)
@@ -426,7 +426,7 @@ export default function AdminUsersPage() {
           </div>
         </header>
         {syncMessage && (
-          <div className={`text-xs font-semibold px-3 py-2 rounded-lg ${syncMessage.startsWith('âœ…') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+          <div className={`text-xs font-semibold px-3 py-2 rounded-lg ${syncMessage.startsWith('✅') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
             {syncMessage}
           </div>
         )}
@@ -506,7 +506,7 @@ export default function AdminUsersPage() {
                       <h3 className="font-bold text-white text-sm flex items-center gap-2">
                         {user.name || "Unnamed User"}
                         {user.zohoId ? (
-                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" title={`Zoho ID: ${user.zohoId}`}>ZOHO âœ“</span>
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" title={`Zoho ID: ${user.zohoId}`}>ZOHO ✍“</span>
                         ) : (
                           <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20" title="No Zoho ID linked">NO ZOHO</span>
                         )}

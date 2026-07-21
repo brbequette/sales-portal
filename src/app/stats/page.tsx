@@ -545,7 +545,7 @@ export default function StatsPage() {
                 if (periodStats.target === 0) {
                   statusMsg = "No target configured for this period."
                 } else if (periodStats.profit >= periodStats.target) {
-                  statusMsg = `ðŸ† Goal Hit! ${formatPreciseCurrency(periodStats.profit - periodStats.target)} over target.`
+                  statusMsg = `🏢† Goal Hit! ${formatPreciseCurrency(periodStats.profit - periodStats.target)} over target.`
                 } else {
                   statusMsg = `Needs ${formatPreciseCurrency(diff)} more to hit the period profit target.`
                 }

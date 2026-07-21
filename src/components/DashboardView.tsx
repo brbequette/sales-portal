@@ -679,7 +679,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
                           : "rgba(255,255,255,0.06)",
                         color: i < 2 ? "#000" : CHART_COLORS.text
                       }}>
-                      {i === 0 ? "ðŸ¥‡" : i === 1 ? "ðŸ¥ˆ" : i + 1}
+                      {i === 0 ? "🥈‡" : i === 1 ? "🥈" : i + 1}
                     </div>
                     <span className="text-xs font-bold text-white truncate">{rep.name}</span>
                   </div>

@@ -6,16 +6,16 @@
  *
  * Unified communication & sales hub for the Account page.
  * Full feature parity with SalesCallCampaignModal:
- *   âœ… Click-to-Dial / outbound call logging
- *   âœ… SMS chat interface
- *   âœ… Email & WhatsApp logging
- *   âœ… Dynamic script generator (cold / follow-up / overdue)
- *   âœ… Fact-Finding panel (shared FactFindingPanel component)
- *   âœ… Blade recommendations with full product pitches
- *   âœ… Purchase history with per-product details
- *   âœ… Account intel tabs (purchases / notes / invoices)
- *   âœ… Order builder with live financials (VIG, profit, commission)
- *   âœ… AI message generator
+ *   ✅ Click-to-Dial / outbound call logging
+ *   ✅ SMS chat interface
+ *   ✅ Email & WhatsApp logging
+ *   ✅ Dynamic script generator (cold / follow-up / overdue)
+ *   ✅ Fact-Finding panel (shared FactFindingPanel component)
+ *   ✅ Blade recommendations with full product pitches
+ *   ✅ Purchase history with per-product details
+ *   ✅ Account intel tabs (purchases / notes / invoices)
+ *   ✅ Order builder with live financials (VIG, profit, commission)
+ *   ✅ AI message generator
  */
 
 import { useState, useEffect, useRef, useMemo } from "react"
@@ -669,7 +669,7 @@ export function CommunicationCenter({
                       onClick={() => setCallType(t)}
                       className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${callType === t ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400" : "glass-panel border-neutral-700 text-neutral-400 hover:border-neutral-600"}`}
                     >
-                      {t === "cold" ? "âš¡ Cold Call" : "ðŸ”„ Follow-Up"}
+                      {t === "cold" ? "⚡ Cold Call" : "🔄 Follow-Up"}
                     </button>
                   ))}
                 </div>
@@ -825,7 +825,7 @@ export function CommunicationCenter({
                               <div className="text-[10px] text-neutral-500">{p.sku || ""}</div>
                             </div>
                             <div className="text-right shrink-0">
-                              <div className="font-black text-xs text-emerald-400">Ã—{p.quantity || 0}</div>
+                              <div className="font-black text-xs text-emerald-400">×{p.quantity || 0}</div>
                               {p.totalSpend > 0 && <div className="text-[10px] text-neutral-400">${(p.totalSpend || 0).toLocaleString()}</div>}
                             </div>
                           </div>
@@ -1059,7 +1059,7 @@ export function CommunicationCenter({
           <div className="flex justify-between items-end">
             <label className="text-xs font-semibold text-neutral-400">Compose WhatsApp Message</label>
             <button
-              onClick={() => setWhatsappText(`Hello ${primaryContact?.firstName}! ðŸš€ We have a new promotion running this week. Please let me know if you are interested!`)}
+              onClick={() => setWhatsappText(`Hello ${primaryContact?.firstName}! 🚀 We have a new promotion running this week. Please let me know if you are interested!`)}
               className="text-xs text-green-400 hover:text-green-300"
             >
               Load Template

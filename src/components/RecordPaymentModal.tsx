@@ -24,12 +24,12 @@ interface RecordPaymentModalProps {
 }
 
 const PAYMENT_METHODS = [
-  { value: "Check", label: "Check", icon: "ðŸ“„" },
-  { value: "ACH", label: "ACH / Bank Transfer", icon: "ðŸ¦" },
-  { value: "Wire Transfer", label: "Wire Transfer", icon: "ðŸ”—" },
-  { value: "Cash", label: "Cash", icon: "ðŸ’µ" },
-  { value: "PayPal", label: "PayPal", icon: "ðŸ…¿ï¸" },
-  { value: "Other", label: "Other", icon: "ðŸ“‹" },
+  { value: "Check", label: "Check", icon: "📄" },
+  { value: "ACH", label: "ACH / Bank Transfer", icon: "🏦" },
+  { value: "Wire Transfer", label: "Wire Transfer", icon: "🔗" },
+  { value: "Cash", label: "Cash", icon: "💵" },
+  { value: "PayPal", label: "PayPal", icon: "✨…¿ï¸" },
+  { value: "Other", label: "Other", icon: "📋" },
 ]
 
 export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumber, customerName, onClose, onSuccess }: RecordPaymentModalProps) {
@@ -160,12 +160,12 @@ export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumb
       if (!payData.success) {
         // Card was charged but Zoho failed — warn but don't fail
         console.error("Zoho payment recording failed:", payData.error)
-        setStatus(`âš ï¸ Card charged $${amt.toFixed(2)} (Auth: ${chargeData.authCode}) but Zoho recording failed. Record manually.`)
+        setStatus(`⚠ï¸ Card charged $${amt.toFixed(2)} (Auth: ${chargeData.authCode}) but Zoho recording failed. Record manually.`)
         setTimeout(() => onSuccess(), 3000)
         return
       }
 
-      setStatus(`âœ… Payment of $${amt.toFixed(2)} processed! (Auth: ${chargeData.authCode}, Last 4: ${chargeData.last4})`)
+      setStatus(`✅ Payment of $${amt.toFixed(2)} processed! (Auth: ${chargeData.authCode}, Last 4: ${chargeData.last4})`)
       setTimeout(() => onSuccess(), 1500)
     } catch (e: any) {
       setError(e.message || "Payment failed")
@@ -415,11 +415,11 @@ export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumb
           {/* Status */}
           {status && (
             <div className={`rounded-lg p-3 text-xs font-bold border ${
-              status.includes("âœ…") ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" :
-              status.includes("âš ï¸") ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
+              status.includes("✅") ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" :
+              status.includes("⚠ï¸") ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
               "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
             }`}>
-              {!status.includes("âœ…") && !status.includes("âš ï¸") && (
+              {!status.includes("✅") && !status.includes("⚠ï¸") && (
                 <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block mr-2" />
               )}
               {status}

@@ -145,7 +145,7 @@ export default function AdminGeofencesPage() {
           longitude: pos.coords.longitude.toFixed(6),
         }))
         setLocating(false)
-        setToast({ message: `ðŸ“ Location captured (±${Math.round(pos.coords.accuracy)}m accuracy)`, type: "success" })
+        setToast({ message: `✨“ Location captured (±${Math.round(pos.coords.accuracy)}m accuracy)`, type: "success" })
       },
       (err) => {
         setLocating(false)
@@ -404,7 +404,7 @@ export default function AdminGeofencesPage() {
               : "bg-red-900/90 text-red-300 border-red-500/30"
           }`}
         >
-          {toast.type === "success" ? "âœ…" : "âŒ"} {toast.message}
+          {toast.type === "success" ? "✅" : "❌"} {toast.message}
         </div>
       )}
     </div>

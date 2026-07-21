@@ -195,7 +195,7 @@ export default function AdminDashboardPage() {
                     disabled={!!syncing}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {syncing ? "Syncing..." : "âš¡ Sync All"}
+                    {syncing ? "Syncing..." : "⚡ Sync All"}
                   </button>
                 </div>
               </div>

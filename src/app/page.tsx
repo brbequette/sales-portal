@@ -2158,7 +2158,7 @@ export default function Dashboard() {
                                     ? "bg-amber-950/40 text-amber-400 border border-amber-500/20 animate-pulse"
                                     : "bg-neutral-800 text-neutral-400 border border-[var(--border)]"
                                 }`}>
-                                  ðŸ”” {reminderFiredFlag ? "REMINDER!" : "Reminder Set"}
+                                  ✨”” {reminderFiredFlag ? "REMINDER!" : "Reminder Set"}
                                 </span>
                               )}
                             </div>
@@ -2556,7 +2556,7 @@ export default function Dashboard() {
                 {/* Missing Info Filter */}
                 <div className="space-y-2 pt-1">
                   <label className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                    âš  Missing Vital Info
+                    ⚠ Missing Vital Info
                   </label>
                   <p className="text-[10px] text-neutral-500">Show accounts missing key data — use to clean up your CRM</p>
                   {[
@@ -2784,7 +2784,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="border-t border-[var(--border)] pt-3 mt-2">
-                <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">ðŸ”” Reminder</h4>
+                <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">✨”” Reminder</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                   <div>
                     <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Reminder Date</label>
@@ -2822,7 +2822,7 @@ export default function Dashboard() {
                             }}
                             className="w-3.5 h-3.5 rounded border-white/20 bg-[#111214] text-emerald-500 focus:ring-emerald-500"
                           />
-                          <span className="text-xs text-neutral-300 font-semibold">{method === 'push' ? 'ðŸ”” Push' : method === 'sms' ? 'ðŸ’¬ SMS' : 'ðŸ“§ Email'}</span>
+                          <span className="text-xs text-neutral-300 font-semibold">{method === 'push' ? '✨”” Push' : method === 'sms' ? '✨’¬ SMS' : '✨“§ Email'}</span>
                         </label>
                       ))}
                     </div>

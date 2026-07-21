@@ -166,7 +166,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
       })
       const data = await res.json()
       if (data.success) {
-        alert(`âœ… ${type === 'Quote' ? 'Quote' : type === 'SalesOrder' ? 'Sales Order' : 'Invoice'} sent to customer!`)
+        alert(`✅ ${type === 'Quote' ? 'Quote' : type === 'SalesOrder' ? 'Sales Order' : 'Invoice'} sent to customer!`)
       } else {
         alert(`Failed to send: ${data.error || data.message}`)
       }
@@ -179,7 +179,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
   const handleVoid = async () => {
     const docLabel = type === 'Quote' ? 'quote' : type === 'SalesOrder' ? 'sales order' : 'invoice'
-    if (!confirm(`âš ï¸ Are you sure you want to VOID this ${docLabel}? This action cannot be easily undone.`)) return
+    if (!confirm(`⚠ï¸ Are you sure you want to VOID this ${docLabel}? This action cannot be easily undone.`)) return
     setActionLoading("void")
     try {
       const res = await fetch("/api/zoho-void", {
@@ -189,7 +189,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
       })
       const data = await res.json()
       if (data.success) {
-        alert(`âœ… ${type} voided successfully.`)
+        alert(`✅ ${type} voided successfully.`)
         onClose()
       } else {
         alert(`Failed to void: ${data.error || data.message}`)
@@ -217,7 +217,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
       })
       const data = await res.json()
       if (data.success) {
-        alert(`âœ… Status updated!`)
+        alert(`✅ Status updated!`)
         onClose()
       } else {
         alert(`Failed: ${data.error || data.message}`)
@@ -315,7 +315,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
             customerName={displayData?.customer_name || ""}
             onClose={() => setShowPaymentModal(false)}
             onSuccess={() => {
-              alert("âœ… Payment recorded successfully!")
+              alert("✅ Payment recorded successfully!")
               setShowPaymentModal(false)
               onClose()
             }}
@@ -333,12 +333,12 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 <p className="text-[10px] text-neutral-400 font-mono truncate">Zoho ID: {zohoId}</p>
                 {dataSource === 'local_db' && (
                   <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-sky-400 bg-sky-900/20 border border-sky-800/40 rounded px-1.5 py-0.5">
-                    âš¡ Cached{cachedAt ? ` · ${(() => { const mins = Math.round((Date.now() - new Date(cachedAt).getTime()) / 60000); return mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago` })()}` : ''}
+                    ⚡ Cached{cachedAt ? ` · ${(() => { const mins = Math.round((Date.now() - new Date(cachedAt).getTime()) / 60000); return mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago` })()}` : ''}
                   </span>
                 )}
                 {dataSource === 'zoho_live' && (
                   <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-900/20 border border-emerald-800/40 rounded px-1.5 py-0.5">
-                    ðŸ”´ Live
+                    ✨”´ Live
                   </span>
                 )}
                 {!isLoading && (
@@ -620,7 +620,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               {/* â”€â”€ Shipping Cost Flag â”€â”€ */}
               {type === "Invoice" && !isVoided && displayData?.shipping_charge !== undefined && parseFloat(displayData.shipping_charge || 0) === 0 && statusLower !== 'draft' && (
                 <div className="mt-3 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 animate-pulse">
-                  <span className="text-amber-400 text-lg">âš </span>
+                  <span className="text-amber-400 text-lg">⚠</span>
                   <div>
                     <div className="text-[10px] uppercase font-black text-amber-400 tracking-wider">Needs Shipping Costs</div>
                     <div className="text-[10px] text-amber-300/70">Shipping charge is $0.00 — update in Zoho Books</div>

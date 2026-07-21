@@ -402,7 +402,7 @@ export default function AdminTimeclockPage() {
                   </button>
                 </div>
               </form>
-              <p className="text-[10px] text-neutral-500 mt-3">ðŸ’¡ Tip: Right-click a location on Google Maps and copy the coordinates (lat, lng).</p>
+              <p className="text-[10px] text-neutral-500 mt-3">💡 Tip: Right-click a location on Google Maps and copy the coordinates (lat, lng).</p>
             </div>
           )}
 
@@ -492,7 +492,7 @@ export default function AdminTimeclockPage() {
 
           {/* How it works info */}
           <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 text-xs text-blue-300/80 space-y-1">
-            <p className="font-bold text-blue-300">ðŸ“ How Geolocation Timeclock Works</p>
+            <p className="font-bold text-blue-300">✨“ How Geolocation Timeclock Works</p>
             <p>”¢ GPS is captured <strong>only</strong> at clock-in and clock-out — not continuously tracked.</p>
             <p>”¢ If geofence locations are configured, clock-in position is validated against the nearest location.</p>
             <p>”¢ Status shows as VERIFIED (within radius), OUT_OF_RANGE, DENIED (no GPS permission), or UNAVAILABLE.</p>
@@ -559,14 +559,14 @@ export default function AdminTimeclockPage() {
                                 <td className="px-4 py-2">
                                   {(entry as any).locationStatus === 'VERIFIED' && (
                                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold whitespace-nowrap">
-                                      ðŸ“ {(entry as any).clockInLocation || 'On-Site'}
+                                      ✨“ {(entry as any).clockInLocation || 'On-Site'}
                                     </span>
                                   )}
                                   {(entry as any).locationStatus === 'OUT_OF_RANGE' && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">âš ï¸ Off-Site</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">⚠ï¸ Off-Site</span>
                                   )}
                                   {(entry as any).locationStatus === 'DENIED' && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-500/20 text-neutral-400 font-bold">ðŸ”’ No GPS</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-500/20 text-neutral-400 font-bold">🔒 No GPS</span>
                                   )}
                                   {(entry as any).locationStatus === 'UNAVAILABLE' && (
                                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-800 text-neutral-500 font-bold">—</span>

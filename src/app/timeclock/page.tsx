@@ -269,17 +269,17 @@ export default function UserTimeclockPage() {
                               {calculateHours(entry).toFixed(2)}h
                               {entry.locationStatus === 'VERIFIED' && (
                                 <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
-                                  ðŸ“ {entry.clockInLocation || 'On-Site'}
+                                  ✨“ {entry.clockInLocation || 'On-Site'}
                                 </span>
                               )}
                               {entry.locationStatus === 'OUT_OF_RANGE' && (
                                 <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">
-                                  âš ï¸ Off-Site
+                                  ⚠ï¸ Off-Site
                                 </span>
                               )}
                               {entry.locationStatus === 'DENIED' && (
                                 <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-500/20 text-neutral-400 font-bold">
-                                  ðŸ”’ No GPS
+                                  🔒 No GPS
                                 </span>
                               )}
                             </td>

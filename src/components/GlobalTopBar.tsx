@@ -167,8 +167,8 @@ export function GlobalTopBar() {
 
       // Show auto-clock toast
       const msg = event.action === 'clockIn'
-        ? `ðŸ“ Auto clocked in — ${event.fenceName || 'On-Site'}`
-        : `ðŸ‘‹ Auto clocked out — ${event.fenceName || 'Off-Site'}`
+        ? `✨“ Auto clocked in — ${event.fenceName || 'On-Site'}`
+        : `👋 Auto clocked out — ${event.fenceName || 'Off-Site'}`
       setAutoClockToast(msg)
       setTimeout(() => setAutoClockToast(null), 5000)
     })
@@ -466,7 +466,7 @@ export function GlobalTopBar() {
         <div className="relative flex items-center rounded-lg border border-white/10 bg-white/[0.045] overflow-hidden text-xs lg:text-sm h-10 lg:h-9">
           {/* Geofence monitor indicator */}
           {monitorStatus === 'monitoring' && (
-            <div className="flex items-center px-2 h-full border-r border-white/10 bg-blue-500/10" title="ðŸ“ Auto-tracking active — GPS monitoring for clock-in/out">
+            <div className="flex items-center px-2 h-full border-r border-white/10 bg-blue-500/10" title="✨“ Auto-tracking active — GPS monitoring for clock-in/out">
               <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,0.6)]" />
             </div>
           )}
@@ -518,10 +518,10 @@ export function GlobalTopBar() {
                   ? 'bg-amber-900/90 text-amber-300 border-amber-500/30'
                   : 'bg-neutral-800/90 text-neutral-400 border-neutral-600/30'
             }`}>
-              {geoStatus.status === 'VERIFIED' && `ðŸ“ ${geoStatus.location || 'On-Site'}`}
-              {geoStatus.status === 'OUT_OF_RANGE' && 'âš ï¸ Out of Range'}
-              {geoStatus.status === 'DENIED' && 'ðŸ”’ GPS Denied'}
-              {geoStatus.status === 'UNAVAILABLE' && 'ðŸ“¡ GPS Unavailable'}
+              {geoStatus.status === 'VERIFIED' && `✨“ ${geoStatus.location || 'On-Site'}`}
+              {geoStatus.status === 'OUT_OF_RANGE' && '⚠ï¸ Out of Range'}
+              {geoStatus.status === 'DENIED' && '🔒 GPS Denied'}
+              {geoStatus.status === 'UNAVAILABLE' && '📡 GPS Unavailable'}
             </div>
           )}
 
@@ -625,7 +625,7 @@ export function GlobalTopBar() {
             className="text-blue-400/50 hover:text-white text-lg leading-none transition-colors px-1"
             title="Dismiss"
           >
-            Ã—
+            ×
           </button>
         </div>
       </div>

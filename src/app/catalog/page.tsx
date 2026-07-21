@@ -327,7 +327,7 @@ export default function ProductCatalogPage() {
             </Link>
             <div className="h-6 w-px bg-neutral-800"></div>
             <h1 className="text-lg font-bold text-white flex items-center gap-2">
-              ðŸ’Ž Product Catalog Lookup
+              💎 Product Catalog Lookup
             </h1>
           </div>
 

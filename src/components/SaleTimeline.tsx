@@ -63,7 +63,7 @@ export function SaleTimeline({ dealId, currentStage }: SaleTimelineProps) {
   const handleTrainingClick = (stageName: string, e: React.MouseEvent) => {
     e.stopPropagation()
     toast(`Opening training materials for: ${stageName}`, {
-      icon: 'ðŸ“š'
+      icon: '✨“š'
     })
   }
 

@@ -65,7 +65,7 @@ export default function BooksScriptsPage() {
         }
 
         if (!data.hasMore) {
-          setResults(prev => ({ ...prev, 'bulk-costs': `âœ… Complete! ${totalProcessed} processed, ${totalSkipped} skipped, ${totalErrors} errors across ${page} pages.` }))
+          setResults(prev => ({ ...prev, 'bulk-costs': `✅ Complete! ${totalProcessed} processed, ${totalSkipped} skipped, ${totalErrors} errors across ${page} pages.` }))
           break
         }
 
@@ -127,7 +127,7 @@ export default function BooksScriptsPage() {
         )}
 
         {results['bulk-costs'] && (
-          <div className={`text-xs font-bold p-3 rounded-lg border ${results['bulk-costs'].includes('âœ…') ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+          <div className={`text-xs font-bold p-3 rounded-lg border ${results['bulk-costs'].includes('✅') ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
             {results['bulk-costs']}
           </div>
         )}
@@ -248,7 +248,7 @@ export default function BooksScriptsPage() {
             <button 
               disabled={loading !== null}
               onClick={async () => {
-                toastConfirm('âš ï¸ This will MODIFY live Zoho Books invoices by adding tariff surcharges. Are you absolutely sure?', async () => {
+                toastConfirm('⚠ï¸ This will MODIFY live Zoho Books invoices by adding tariff surcharges. Are you absolutely sure?', async () => {
                 setLoading('tariff-live')
                 try {
                   const res = await fetch('/api/batch-tariff-update', {

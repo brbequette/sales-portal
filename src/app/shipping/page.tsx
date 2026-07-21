@@ -122,13 +122,13 @@ export default function ShippingPage() {
       const res = await fetch("/api/admin/books/sync-packages", { method: "POST" })
       const data = await res.json()
       if (data.success) {
-        setSyncResult(`âœ… ${data.message}`)
+        setSyncResult(`✅ ${data.message}`)
         fetchOrders()
       } else {
-        setSyncResult(`âŒ ${data.error}`)
+        setSyncResult(`❌ ${data.error}`)
       }
     } catch (e: any) {
-      setSyncResult(`âŒ ${e.message}`)
+      setSyncResult(`❌ ${e.message}`)
     } finally {
       setSyncing(false)
     }
@@ -239,10 +239,10 @@ export default function ShippingPage() {
       {/* Sync Result Banner */}
       {syncResult && (
         <div className={`mb-4 px-4 py-2.5 rounded-xl text-sm font-bold border ${
-          syncResult.startsWith("âœ…") ? "bg-emerald-950/30 text-emerald-400 border-emerald-800/50" : "bg-red-950/30 text-red-400 border-red-800/50"
+          syncResult.startsWith("✅") ? "bg-emerald-950/30 text-emerald-400 border-emerald-800/50" : "bg-red-950/30 text-red-400 border-red-800/50"
         }`}>
           {syncResult}
-          <button onClick={() => setSyncResult(null)} className="ml-3 text-neutral-500 hover:text-white">âœ•</button>
+          <button onClick={() => setSyncResult(null)} className="ml-3 text-neutral-500 hover:text-white">✍•</button>
         </div>
       )}
 

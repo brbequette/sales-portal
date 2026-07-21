@@ -67,7 +67,7 @@ export default function BackfillPage() {
       const data = await safeJson(res)
       setStatus(data)
     } catch (e) {
-      addLog("âŒ Failed to fetch status")
+      addLog("❌ Failed to fetch status")
     } finally {
       setLoadingStatus(false)
     }
@@ -89,21 +89,21 @@ export default function BackfillPage() {
         setLastResult(data)
 
         if (data.error) {
-          addLog(`âŒ Phase 1 error: ${data.error}`)
+          addLog(`❌ Phase 1 error: ${data.error}`)
           break
         }
 
         addLog(
           data.done
-            ? `ðŸŽ‰ Phase 1 complete! ${data.totalMapped} IDs mapped.`
-            : `ðŸ“„ ${data.module} pg ${data.page}: +${data.pageMapped} mapped · ${data.percentComplete}% done`
+            ? `🎁‰ Phase 1 complete! ${data.totalMapped} IDs mapped.`
+            : `📄 ${data.module} pg ${data.page}: +${data.pageMapped} mapped · ${data.percentComplete}% done`
         )
 
         if (data.done || !data.callAgain) break
         // Small pause between calls
         await new Promise(r => setTimeout(r, 300))
       } catch (e: any) {
-        addLog(`âŒ Phase 1 error: ${e.message}`)
+        addLog(`❌ Phase 1 error: ${e.message}`)
         break
       }
     }
@@ -115,7 +115,7 @@ export default function BackfillPage() {
 
   const stopPhase1 = () => {
     phase1AutoRef.current = false
-    addLog("â¹ Phase 1 stopping after current page...")
+    addLog("⏹ Phase 1 stopping after current page...")
   }
 
   const runPhase2Batch = async (): Promise<BatchResult | null> => {
@@ -125,12 +125,12 @@ export default function BackfillPage() {
       setLastResult(data)
       addLog(
         data.done
-          ? `ðŸŽ‰ DONE! All records backfilled.`
-          : `âœ… Batch: +${data.batchProcessed} cached (${data.batchErrors || 0} errors) · ${data.percentComplete}% · ${data.remaining} left · ~${data.etaMinutesRemaining}m remaining`
+          ? `🎁‰ DONE! All records backfilled.`
+          : `✅ Batch: +${data.batchProcessed} cached (${data.batchErrors || 0} errors) · ${data.percentComplete}% · ${data.remaining} left · ~${data.etaMinutesRemaining}m remaining`
       )
       return data
     } catch (e: any) {
-      addLog(`âŒ Phase 2 batch error: ${e.message}`)
+      addLog(`❌ Phase 2 batch error: ${e.message}`)
       return null
     }
   }
@@ -153,7 +153,7 @@ export default function BackfillPage() {
 
         if (data.error) {
           consecutiveErrors++
-          addLog(`âŒ Batch error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${data.error}`)
+          addLog(`❌ Batch error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${data.error}`)
           if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
             addLog(`â›” ${MAX_CONSECUTIVE_ERRORS} consecutive errors — stopping. Click Resume to try again.`)
             break
@@ -167,12 +167,12 @@ export default function BackfillPage() {
 
         addLog(
           data.done
-            ? `ðŸŽ‰ DONE! All records backfilled.`
-            : `âœ… Batch: +${data.batchProcessed} cached (${data.batchErrors || 0} errors) · ${data.percentComplete}% · ${data.remaining?.toLocaleString()} left · ~${data.etaMinutesRemaining}m remaining`
+            ? `🎁‰ DONE! All records backfilled.`
+            : `✅ Batch: +${data.batchProcessed} cached (${data.batchErrors || 0} errors) · ${data.percentComplete}% · ${data.remaining?.toLocaleString()} left · ~${data.etaMinutesRemaining}m remaining`
         )
 
         if (data.done || !data.callAgain) {
-          addLog("ðŸŽ‰ Backfill complete!")
+          addLog("🎁‰ Backfill complete!")
           break
         }
 
@@ -181,7 +181,7 @@ export default function BackfillPage() {
 
       } catch (e: any) {
         consecutiveErrors++
-        addLog(`âŒ Network error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${e.message}`)
+        addLog(`❌ Network error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${e.message}`)
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
           addLog(`â›” ${MAX_CONSECUTIVE_ERRORS} consecutive errors — stopping. Click Resume to try again.`)
           break
@@ -199,13 +199,13 @@ export default function BackfillPage() {
 
   const stopPhase2 = () => {
     autoRunRef.current = false
-    addLog("â¹ Stopping after current batch completes...")
+    addLog("⏹ Stopping after current batch completes...")
   }
 
   const resetPhase2 = async () => {
     toastConfirm("Reset Phase 2 checkpoint to 0? This will restart from the beginning.", async () => {
     await fetch("/api/backfill-books-data?phase=2&reset=1")
-    addLog("ðŸ”„ Phase 2 checkpoint reset to 0.")
+    addLog("🔄 Phase 2 checkpoint reset to 0.")
     await fetchStatus()
   });}
 
@@ -408,7 +408,7 @@ export default function BackfillPage() {
           {log.length === 0
             ? <p className="text-neutral-600">No activity yet. Run Phase 1 to start.</p>
             : log.map((line, i) => (
-              <p key={i} className={line.includes('âŒ') ? 'text-rose-400' : line.includes('âœ…') || line.includes('ðŸŽ‰') ? 'text-emerald-400' : 'text-neutral-400'}>
+              <p key={i} className={line.includes('❌') ? 'text-rose-400' : line.includes('✅') || line.includes('🎁‰') ? 'text-emerald-400' : 'text-neutral-400'}>
                 {line}
               </p>
             ))
@@ -564,21 +564,21 @@ function CsvImportSection() {
         {result && (
           <div className={`rounded-lg p-3 text-xs font-mono ${result.error ? 'bg-rose-900/30 border border-rose-800' : 'bg-emerald-900/30 border border-emerald-800'}`}>
             {result.error ? (
-              <p className="text-rose-400">âŒ {result.error}</p>
+              <p className="text-rose-400">❌ {result.error}</p>
             ) : (
               <div className="space-y-1">
-                <p className="text-emerald-400 font-bold">âœ… {result.message}</p>
+                <p className="text-emerald-400 font-bold">✅ {result.message}</p>
                 <p className="text-neutral-400">Rows: {result.totalRows} | Updated: {result.updated} | Not found: {result.notFound} | Skipped: {result.skipped}</p>
                 <p className="text-neutral-400">Columns matched: {result.columnsMatched} / {result.columnsTotal} | Batches: {result.batches}</p>
                 {result.matchedColumns?.length > 0 && (
                   <details className="mt-2">
-                    <summary className="text-emerald-500 cursor-pointer">âœ… Matched columns ({result.matchedColumns.length})</summary>
+                    <summary className="text-emerald-500 cursor-pointer">✅ Matched columns ({result.matchedColumns.length})</summary>
                     <p className="text-neutral-500 mt-1">{result.matchedColumns.join(', ')}</p>
                   </details>
                 )}
                 {result.unmatchedColumns?.length > 0 && (
                   <details className="mt-2">
-                    <summary className="text-amber-400 cursor-pointer">âš ï¸ Unmatched columns ({result.unmatchedColumns.length})</summary>
+                    <summary className="text-amber-400 cursor-pointer">⚠ï¸ Unmatched columns ({result.unmatchedColumns.length})</summary>
                     <p className="text-neutral-500 mt-1">{result.unmatchedColumns.join(', ')}</p>
                   </details>
                 )}

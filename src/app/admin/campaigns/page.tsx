@@ -165,7 +165,7 @@ export default function AdminCampaignsPage() {
                       <div key={log.id} className="flex items-center justify-between py-1 border-b border-neutral-900 last:border-0">
                         <div className="flex items-center gap-2 text-neutral-300">
                           <span className={log.status === 'SUCCESS' ? 'text-emerald-500' : 'text-red-500'}>
-                            {log.status === 'SUCCESS' ? 'âœ“' : 'âœ—'}
+                            {log.status === 'SUCCESS' ? '✍“' : '✍—'}
                           </span>
                           <span className="font-medium text-white">{log.account?.name}</span>
                           <span className="text-neutral-600">via</span>
