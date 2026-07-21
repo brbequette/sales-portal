@@ -163,6 +163,9 @@ export async function calculateDocumentCosts(
   const lineItemDetails: LineItemDetail[] = []
 
   for (const item of (doc.line_items || [])) {
+    // Zoho Books API now supports "header" rows. Skip them in cost calculations.
+    if (item.line_item_category === "header") continue;
+
     const qty          = parseFloat(item.quantity || 1)
     const rate         = parseFloat(item.rate || 0)
     const cost         = parseFloat(item.purchase_rate || item.pricebook_rate || 0)

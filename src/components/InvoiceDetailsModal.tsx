@@ -944,64 +944,84 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                       <div className="space-y-2">
                         {isEditingLineItems ? (
                           <>
-                            {editableLineItems.map((item: any, i: number) => (
-                              <div key={item.line_item_id || i} className="glass-panel border border-sky-500/30 rounded-lg p-3 shadow-sm bg-sky-900/10">
-                                <div className="flex justify-between gap-2 font-bold text-white text-sm mb-2">
-                                  <input 
-                                    type="text" 
-                                    className="bg-black/50 border border-neutral-700 rounded px-2 py-1 text-sm w-full focus:border-sky-500 focus:outline-none"
-                                    value={item.name}
-                                    onChange={(e) => {
-                                      const newItems = [...editableLineItems]
-                                      newItems[i].name = e.target.value
-                                      setEditableLineItems(newItems)
-                                    }}
-                                  />
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-neutral-400">Qty:</span>
+                            {editableLineItems.map((item: any, i: number) => {
+                              if (item.line_item_category === 'header') {
+                                return (
+                                  <div key={item.line_item_id || i} className="glass-panel border border-sky-500/30 rounded-lg p-3 shadow-sm bg-sky-900/10">
+                                    <div className="text-xs text-sky-400 font-bold mb-1 uppercase tracking-wider">Header Row</div>
                                     <input 
-                                      type="number"
-                                      className="bg-black/50 border border-neutral-700 rounded px-2 py-1 w-16 focus:border-sky-500 focus:outline-none"
-                                      value={item.quantity}
+                                      type="text" 
+                                      className="bg-black/50 border border-neutral-700 rounded px-2 py-1 text-sm w-full focus:border-sky-500 focus:outline-none font-bold text-white"
+                                      value={item.description || item.name || ''}
+                                      placeholder="Header description..."
                                       onChange={(e) => {
                                         const newItems = [...editableLineItems]
-                                        newItems[i].quantity = Number(e.target.value)
+                                        newItems[i].description = e.target.value
                                         setEditableLineItems(newItems)
                                       }}
                                     />
                                   </div>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-neutral-400">Price: $</span>
+                                )
+                              }
+                              return (
+                                <div key={item.line_item_id || i} className="glass-panel border border-sky-500/30 rounded-lg p-3 shadow-sm bg-sky-900/10">
+                                  <div className="flex justify-between gap-2 font-bold text-white text-sm mb-2">
                                     <input 
-                                      type="number"
-                                      step="0.01"
-                                      className="bg-black/50 border border-neutral-700 rounded px-2 py-1 w-24 focus:border-sky-500 focus:outline-none"
-                                      value={item.rate}
+                                      type="text" 
+                                      className="bg-black/50 border border-neutral-700 rounded px-2 py-1 text-sm w-full focus:border-sky-500 focus:outline-none"
+                                      value={item.name}
                                       onChange={(e) => {
                                         const newItems = [...editableLineItems]
-                                        newItems[i].rate = Number(e.target.value)
+                                        newItems[i].name = e.target.value
+                                        setEditableLineItems(newItems)
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-neutral-400">Qty:</span>
+                                      <input 
+                                        type="number"
+                                        className="bg-black/50 border border-neutral-700 rounded px-2 py-1 w-16 focus:border-sky-500 focus:outline-none"
+                                        value={item.quantity}
+                                        onChange={(e) => {
+                                          const newItems = [...editableLineItems]
+                                          newItems[i].quantity = Number(e.target.value)
+                                          setEditableLineItems(newItems)
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-neutral-400">Price: $</span>
+                                      <input 
+                                        type="number"
+                                        step="0.01"
+                                        className="bg-black/50 border border-neutral-700 rounded px-2 py-1 w-24 focus:border-sky-500 focus:outline-none"
+                                        value={item.rate}
+                                        onChange={(e) => {
+                                          const newItems = [...editableLineItems]
+                                          newItems[i].rate = Number(e.target.value)
+                                          setEditableLineItems(newItems)
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="mt-2">
+                                    <textarea 
+                                      className="bg-black/50 border border-neutral-700 rounded px-2 py-1 text-xs w-full focus:border-sky-500 focus:outline-none text-neutral-300"
+                                      rows={2}
+                                      value={item.description || ''}
+                                      placeholder="Item description..."
+                                      onChange={(e) => {
+                                        const newItems = [...editableLineItems]
+                                        newItems[i].description = e.target.value
                                         setEditableLineItems(newItems)
                                       }}
                                     />
                                   </div>
                                 </div>
-                                <div className="mt-2">
-                                  <textarea 
-                                    className="bg-black/50 border border-neutral-700 rounded px-2 py-1 text-xs w-full focus:border-sky-500 focus:outline-none text-neutral-300"
-                                    rows={2}
-                                    value={item.description || ''}
-                                    placeholder="Item description..."
-                                    onChange={(e) => {
-                                      const newItems = [...editableLineItems]
-                                      newItems[i].description = e.target.value
-                                      setEditableLineItems(newItems)
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            ))}
+                              )
+                            })}
                             <button
                               onClick={handleSaveLineItems}
                               disabled={isSavingLineItems}
@@ -1012,23 +1032,32 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                             </button>
                           </>
                         ) : (
-                          displayData.line_items.filter((li: any) => !(li.name || "").toUpperCase().includes("TRACKING")).map((item: any, i: number) => (
-                            <div key={item.line_item_id || i} className="glass-panel border border-white/10 rounded-lg p-3 shadow-sm">
-                              <div className="flex justify-between gap-2 font-bold text-white text-sm">
-                                <span className="truncate min-w-0">{item.name}</span>
-                                <span className="text-emerald-400 shrink-0">${parseFloat(item.item_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          displayData.line_items.filter((li: any) => !(li.name || "").toUpperCase().includes("TRACKING")).map((item: any, i: number) => {
+                            if (item.line_item_category === 'header') {
+                              return (
+                                <div key={item.line_item_id || i} className="bg-sky-900/30 border-l-2 border-sky-500 rounded-r-lg p-2.5 mt-2">
+                                  <div className="font-black text-sky-400 text-xs uppercase tracking-widest">{item.name || item.description}</div>
+                                </div>
+                              )
+                            }
+                            return (
+                              <div key={item.line_item_id || i} className="glass-panel border border-white/10 rounded-lg p-3 shadow-sm">
+                                <div className="flex justify-between gap-2 font-bold text-white text-sm">
+                                  <span className="truncate min-w-0">{item.name}</span>
+                                  <span className="text-emerald-400 shrink-0">${parseFloat(item.item_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-[10px] text-neutral-400">
+                                  {item.sku && <span>SKU: <span className="font-mono text-neutral-300">{item.sku}</span></span>}
+                                  {item.sku && item.rate && <span>|</span>}
+                                  {item.rate && <span>Price: ${parseFloat(item.rate).toLocaleString()}</span>}
+                                  {item.purchase_rate != null && <span>| Cost: <span className="text-amber-300 font-bold">${parseFloat(item.purchase_rate).toFixed(2)}</span></span>}
+                                  <span>|</span>
+                                  <span>Qty: {item.quantity}</span>
+                                </div>
+                                {item.description && <div className="text-xs text-neutral-500 mt-1 whitespace-pre-wrap line-clamp-3">{item.description}</div>}
                               </div>
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-[10px] text-neutral-400">
-                                {item.sku && <span>SKU: <span className="font-mono text-neutral-300">{item.sku}</span></span>}
-                                {item.sku && item.rate && <span>|</span>}
-                                {item.rate && <span>Price: ${parseFloat(item.rate).toLocaleString()}</span>}
-                                {item.purchase_rate != null && <span>| Cost: <span className="text-amber-300 font-bold">${parseFloat(item.purchase_rate).toFixed(2)}</span></span>}
-                                <span>|</span>
-                                <span>Qty: {item.quantity}</span>
-                              </div>
-                              {item.description && <div className="text-xs text-neutral-500 mt-1 whitespace-pre-wrap line-clamp-3">{item.description}</div>}
-                            </div>
-                          ))
+                            )
+                          })
                         )}
                       </div>
                     </div>
