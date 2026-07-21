@@ -41,6 +41,8 @@ function buildLocalResponse(dbDoc: any, type: string, vigRate: number) {
     ...items._zohoRaw,
     _source: 'local_db',
     _cachedAt: items.lastSyncedAt,
+    packages: dbDoc.packages || [],
+    dropshipments: dbDoc.dropshipments || [],
   }
 }
 
@@ -68,7 +70,9 @@ export const handler: Handler = async (event) => {
     if (type === "Invoice") {
       dbDoc = await prisma.invoice.findFirst({ where: { OR: [{ id: targetId }, { zohoId: targetId }] } })
     } else if (type === "SalesOrder") {
-      dbDoc = await prisma.salesOrder.findFirst({ where: { OR: [{ id: targetId }, { zohoId: targetId }] } })
+      dbDoc = await prisma.salesOrder.findFirst({ 
+        where: { OR: [{ id: targetId }, { zohoId: targetId }] }
+      })
     } else if (type === "Quote") {
       dbDoc = await prisma.quote.findFirst({ where: { OR: [{ id: targetId }, { zohoId: targetId }] } })
     }
@@ -221,10 +225,34 @@ export const handler: Handler = async (event) => {
     // ── Step 6: Vig rate ──
     const vigRate = await getVigRate(prisma, returnedDoc.salesperson_name || '')
 
+    // ── Step 7: Fetch related packages & dropshipments ──
+    let packages = dbDoc?.packages || []
+    let dropshipments = dbDoc?.dropshipments || []
+    
+    if (type !== "SalesOrder") {
+      const soZohoId = returnedDoc.salesorder_id || (dbDoc?.items as any)?.booksSalesOrderId || (dbDoc?.items as any)?.salesOrderNumber
+      if (soZohoId) {
+        const localSo = await prisma.salesOrder.findFirst({
+          where: { OR: [{ zohoId: soZohoId }, { zohoId: { contains: soZohoId } }] }
+        })
+        if (localSo) {
+          packages = await prisma.package.findMany({ where: { salesOrderId: localSo.id } })
+          dropshipments = await prisma.purchaseOrder.findMany({ where: { salesOrderId: localSo.id, isDropshipment: true } })
+        }
+      }
+    }
+
     return {
       statusCode: 200,
       headers: cors,
-      body: JSON.stringify({ success: true, invoice: returnedDoc, salesorder: type === "SalesOrder" ? returnedDoc : undefined, estimate: type === "Quote" ? returnedDoc : undefined, vigRate, _source: 'zoho_live' })
+      body: JSON.stringify({ 
+        success: true, 
+        invoice: { ...returnedDoc, packages, dropshipments }, 
+        salesorder: type === "SalesOrder" ? { ...returnedDoc, packages, dropshipments } : undefined, 
+        estimate: type === "Quote" ? { ...returnedDoc, packages, dropshipments } : undefined, 
+        vigRate, 
+        _source: 'zoho_live' 
+      })
     }
   } catch (err: any) {
     console.error("get-invoice-details error:", err)

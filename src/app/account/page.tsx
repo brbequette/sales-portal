@@ -61,10 +61,12 @@ function AccountLeftRail({
   account,
   onTabSwitch,
   onReorder,
+  onEditRequest,
 }: {
   account: any
   onTabSwitch: (tab: ActiveTab) => void
   onReorder: (cart: any[]) => void
+  onEditRequest: () => void
 }) {
   const primaryContact = account.contacts?.find((c: any) => c.isPrimary) || account.contacts?.[0]
   const phone = primaryContact?.phone || primaryContact?.mobilePhone || account.booksContact?.phone || ""
@@ -160,7 +162,10 @@ function AccountLeftRail({
 
       {/* Blade Profile - Hidden on mobile */}
       <div className="hidden lg:block p-3 border-b border-white/10">
-        <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mb-2">Blade Profile</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold">Blade Profile</div>
+          <button onClick={onEditRequest} className="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold uppercase tracking-wider">Edit</button>
+        </div>
         <div className="space-y-1.5">
           {bladeRows.map(({ label, value }) => (
             <div key={label} className="flex justify-between items-baseline gap-2">
@@ -214,8 +219,11 @@ function AccountLeftRail({
       {/* Notes */}
       {notes && (
         <div className="p-3 border-b border-white/10">
-          <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mb-1.5">Notes</div>
-          <p className="text-[10px] text-neutral-400 leading-relaxed line-clamp-4 italic">{notes}</p>
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold">Notes</div>
+            <button onClick={onEditRequest} className="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold uppercase tracking-wider">Edit</button>
+          </div>
+          <p className="text-[10px] text-neutral-400 leading-relaxed line-clamp-4 italic break-words whitespace-pre-wrap">{notes}</p>
         </div>
       )}
 
@@ -624,6 +632,21 @@ function AccountHubContent() {
     ? Math.floor((Date.now() - new Date(account.lastPurchaseAt).getTime()) / 86400000)
     : null
 
+  const primaryContact = account?.contacts?.find((c: any) => c.isPrimary) || account?.contacts?.[0]
+  const phone = primaryContact?.phone || primaryContact?.mobilePhone || account?.booksContact?.phone || ""
+  const cleanPhone = phone.replace(/[^0-9+]/g, "")
+
+  const handleHeaderDial = () => {
+    if (cleanPhone) {
+      window.dispatchEvent(new CustomEvent("inAppDial", { detail: { phone: cleanPhone } }))
+      setActiveTab("comms")
+    }
+  }
+  const handleHeaderSms = () => {
+    window.dispatchEvent(new CustomEvent("inAppSms"))
+    setActiveTab("comms")
+  }
+
   const tabs: { id: ActiveTab; Icon: React.ElementType; label: string }[] = [
     { id: "overview",  Icon: FiBarChart2,   label: "Overview" },
     { id: "comms",     Icon: FiPhone,       label: "Comm Center" },
@@ -700,6 +723,22 @@ function AccountHubContent() {
                 </div>
               </div>
             </div>
+            
+            {cleanPhone ? (
+              <button
+                onClick={handleHeaderDial}
+                className="hidden sm:flex shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 text-xs rounded-full font-bold transition-colors flex items-center gap-1.5"
+              >
+                <FiPhone size={12} /> Call
+              </button>
+            ) : null}
+            <button
+              onClick={handleHeaderSms}
+              className="hidden sm:flex shrink-0 bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-1.5 text-xs rounded-full font-bold transition-colors flex items-center gap-1.5"
+            >
+              <FiMessageSquare size={12} /> SMS
+            </button>
+
             <button
               onClick={() => router.push(`/tasks/new?accountId=${account.zohoId}&accountName=${encodeURIComponent(account.name)}`)}
               className="shrink-0 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-3 py-1.5 text-xs rounded-full font-bold transition-colors border border-neutral-700"
@@ -765,17 +804,21 @@ function AccountHubContent() {
             {/* Desktop */}
             <div className="hidden lg:flex flex-col shrink-0">
               <AccountLeftRail
-                account={account}
-                onTabSwitch={(tab) => setActiveTab(tab)}
-                onReorder={(cart) => { setReorderCart(cart); setActiveTab("quicksale") }}
-              />
-            </div>
+            account={account}
+            onTabSwitch={setActiveTab}
+            onReorder={(cart) => {
+              setReorderCart(cart)
+              setActiveTab("quicksale")
+            }}
+            onEditRequest={() => setIsEditingAccount(true)}
+          />  </div>
             {/* Mobile */}
             <div className="flex lg:hidden flex-col shrink-0">
               <AccountLeftRail
                 account={account}
                 onTabSwitch={(tab) => { setActiveTab(tab); setLeftRailOpen(false) }}
                 onReorder={(cart) => { setReorderCart(cart); setActiveTab("quicksale"); setLeftRailOpen(false) }}
+                onEditRequest={() => setIsEditingAccount(true)}
               />
             </div>
           </>

@@ -22,6 +22,7 @@ import { usePreferences } from "@/components/PreferencesProvider"
 import { SalesBoard } from "@/components/SalesBoard"
 import { DashboardView } from "@/components/DashboardView"
 import { DealPipeline } from "@/components/DealPipeline"
+import { ClockInModal } from "@/components/ClockInModal"
 import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand, FiTarget, FiBox, FiLayers, FiMonitor, FiEye } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
 
@@ -3049,7 +3050,6 @@ export default function Dashboard() {
                           </span>
                         </div>
                       )}
-                      {/* Delete overlay */}
                       <button 
                         type="button"
                         onClick={handleClearImage}
@@ -3183,6 +3183,7 @@ export default function Dashboard() {
           onClose={() => setViewingInvoice(null)} 
         />
       )}
+      <ClockInModal />
     </div>
   )
 }

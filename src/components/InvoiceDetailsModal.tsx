@@ -3,12 +3,13 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight } from "react-icons/fi"
+import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight, FiCheckSquare } from "react-icons/fi"
 import { CreatePackageModal } from "./CreatePackageModal"
 import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
 import { RecordPaymentModal } from "./RecordPaymentModal"
 import { DocumentLifecycle } from "./DocumentLifecycle"
 import { SaleCommunications } from "./SaleCommunications"
+import { DocumentTasks } from "./DocumentTasks"
 
 interface InvoiceDetailsModalProps {
   invoice: any | string; // Can be an invoice object or just the zohoId string
@@ -21,6 +22,8 @@ interface InvoiceDetailsModalProps {
 }
 
 export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoiceList, currentIndex, onNavigate }: InvoiceDetailsModalProps) {
+  const [internalInvoiceOverride, setInternalInvoiceOverride] = useState<any | null>(null)
+  const [internalTypeOverride, setInternalTypeOverride] = useState<"Quote" | "SalesOrder" | "Invoice" | null>(null)
   const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [dataSource, setDataSource] = useState<'zoho_live' | 'local_db' | null>(null)
@@ -36,25 +39,33 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   
   // Tabs state
-  const [activeTab, setActiveTab] = useState<'overview' | 'communications' | 'pdf_preview'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'communications' | 'notes_tasks' | 'pdf_preview'>('overview')
   
   // Discount state
   const [discountPercentage, setDiscountPercentage] = useState<number>(5)
 
+  // Line item editing state
+  const [isEditingLineItems, setIsEditingLineItems] = useState(false)
+  const [editableLineItems, setEditableLineItems] = useState<any[]>([])
+  const [isSavingLineItems, setIsSavingLineItems] = useState(false)
+
   // Determine the base zoho ID and any existing data
-  const isString = typeof invoice === "string"
-  const zohoId = isString ? invoice : (invoice?.zohoId || invoice?.id)
-  const initialData = isString ? { id: zohoId, zohoId } : invoice
+  const currentInvoice = internalInvoiceOverride || invoice
+  const currentType = internalTypeOverride || type
+
+  const isString = typeof currentInvoice === "string"
+  const zohoId = isString ? currentInvoice : (currentInvoice?.zohoId || currentInvoice?.id)
+  const initialData = isString ? { id: zohoId, zohoId } : currentInvoice
 
   const fetchDetails = async (force = false) => {
     if (!zohoId) return
     setIsLoading(true)
     try {
-      const url = `/api/get-invoice-details?targetId=${zohoId}&type=${type}${force ? '&force=true' : ''}`
+      const url = `/api/get-invoice-details?targetId=${zohoId}&type=${currentType}${force ? '&force=true' : ''}`
       const res = await fetch(url)
       const data = await res.json()
-      if (data.success && (data.invoice || data.document)) {
-        const doc = data.invoice || data.document
+      if (data.success && (data.invoice || data.document || data.salesorder || data.estimate)) {
+        const doc = data.invoice || data.document || data.salesorder || data.estimate
         setFullInvoiceDetails(doc)
         setDataSource(data._source === 'local_db' ? 'local_db' : 'zoho_live')
         setCachedAt(doc._cachedAt || null)
@@ -70,13 +81,16 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
     if (!zohoId) return;
 
     // If it already has custom fields, seed it immediately (no spinner)
-    if (!isString && invoice?.items?.custom_fields) {
-      setFullInvoiceDetails({ custom_fields: invoice.items.custom_fields, ...invoice })
+    if (!isString && currentInvoice?.items?.custom_fields) {
+      setFullInvoiceDetails({ custom_fields: currentInvoice.items.custom_fields, ...currentInvoice })
+    } else {
+      // Clear old details while fetching new
+      setFullInvoiceDetails(null)
     }
 
     fetchDetails(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zohoId, type])
+  }, [zohoId, currentType])
 
   // Keyboard navigation: left/right arrows when a list is provided
   const hasList = invoiceList && invoiceList.length > 1 && onNavigate !== undefined && currentIndex !== undefined
@@ -120,6 +134,31 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
     }
   }
 
+  const handleSaveLineItems = async () => {
+    setIsSavingLineItems(true)
+    try {
+      const res = await fetch("/api/zoho-update-line-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          zohoId: zohoId,
+          type: type,
+          lineItems: editableLineItems
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setIsEditingLineItems(false)
+        fetchDetails(true) // Refresh list
+      } else {
+        alert("Failed to save line items: " + (data.error || "Unknown error"))
+      }
+    } catch (e: any) {
+      alert("Error saving line items: " + e.message)
+    } finally {
+      setIsSavingLineItems(false)
+    }
+  }
   const handleApplyDiscount = async () => {
     if (!confirm(`Are you sure you want to apply a ${discountPercentage}% early payment discount?`)) return
     setIsConverting(true)
@@ -147,10 +186,10 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
     }
   }
 
-  // â”€â”€ New Action Handlers â”€â”€
+  // ——— New Action Handlers ———
 
   const handleSendEmail = async () => {
-    const docLabel = type === 'Quote' ? 'quote' : type === 'SalesOrder' ? 'sales order' : 'invoice'
+    const docLabel = currentType === 'Quote' ? 'quote' : currentType === 'SalesOrder' ? 'sales order' : 'invoice'
     if (!confirm(`Send this ${docLabel} via email to the customer?`)) return
     setActionLoading("email")
     try {
@@ -179,7 +218,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
   const handleVoid = async () => {
     const docLabel = type === 'Quote' ? 'quote' : type === 'SalesOrder' ? 'sales order' : 'invoice'
-    if (!confirm(`⚠ï¸ Are you sure you want to VOID this ${docLabel}? This action cannot be easily undone.`)) return
+    if (!confirm(`⚠ï¸  Are you sure you want to VOID this ${docLabel}? This action cannot be easily undone.`)) return
     setActionLoading("void")
     try {
       const res = await fetch("/api/zoho-void", {
@@ -271,8 +310,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
     }
   }
 
-  const typeColor = type === 'Quote' ? 'text-purple-400' : type === 'SalesOrder' ? 'text-blue-400' : 'text-amber-500'
-  const typeLabel = type === 'Quote' ? 'Quote/Estimate' : type === 'SalesOrder' ? 'Sales Order' : 'Invoice'
+  const typeColor = currentType === 'Quote' ? 'text-purple-400' : currentType === 'SalesOrder' ? 'text-blue-400' : 'text-amber-500'
+  const typeLabel = currentType === 'Quote' ? 'Quote/Estimate' : currentType === 'SalesOrder' ? 'Sales Order' : 'Invoice'
   const statusLower = (displayData?.status || '').toLowerCase()
   const isVoided = statusLower === 'void' || statusLower === 'voided'
   const isPaid = statusLower === 'paid'
@@ -322,7 +361,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
           />
         )}
 
-        {/* â”€â”€ Header â”€â”€ */}
+        {/* ——— Header ——— */}
         <div className="glass-panel px-3 sm:px-6 py-3 sm:py-4 border-b border-white/10 flex justify-between items-center shrink-0 gap-2">
           <div className="min-w-0 flex items-center gap-3">
             <div className="min-w-0">
@@ -338,7 +377,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 )}
                 {dataSource === 'zoho_live' && (
                   <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-900/20 border border-emerald-800/40 rounded px-1.5 py-0.5">
-                    ✨”´ Live
+                    ✨ Live
                   </span>
                 )}
                 {!isLoading && (
@@ -358,7 +397,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 <button
                   onClick={() => onNavigate!(currentIndex! - 1)}
                   disabled={currentIndex === 0}
-                  title="Previous invoice (â†)"
+                  title="Previous invoice (←)"
                   className="p-1.5 rounded text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   <FiChevronLeft size={14} />
@@ -369,7 +408,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 <button
                   onClick={() => onNavigate!(currentIndex! + 1)}
                   disabled={currentIndex === invoiceList!.length - 1}
-                  title="Next invoice (â†’)"
+                  title="Next invoice (→)"
                   className="p-1.5 rounded text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   <FiChevronRight size={14} />
@@ -380,8 +419,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
           
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end shrink-0">
             
-            {/* â”€â”€ QUOTE ACTIONS â”€â”€ */}
-            {type === "Quote" && !isVoided && (
+            {/* ——— QUOTE ACTIONS ——— */}
+            {currentType === "Quote" && !isVoided && (
               <div className="flex items-center gap-1 glass-panel border border-white/10 rounded-lg p-0.5 sm:p-1">
                 <button 
                   onClick={() => handleUpdateStatus("accepted")}
@@ -408,8 +447,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               </div>
             )}
             
-            {/* â”€â”€ SALES ORDER ACTIONS â”€â”€ */}
-            {type === "SalesOrder" && !isVoided && (
+            {/* ——— SALES ORDER ACTIONS ——— */}
+            {currentType === "SalesOrder" && !isVoided && (
               <div className="flex items-center gap-1 glass-panel border border-white/10 rounded-lg p-0.5 sm:p-1">
                 {statusLower !== 'confirmed' && statusLower !== 'shipped' && (
                   <button 
@@ -443,8 +482,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               </div>
             )}
 
-            {/* â”€â”€ INVOICE ACTIONS â”€â”€ */}
-            {type === "Invoice" && !isVoided && (
+            {/* ——— INVOICE ACTIONS ——— */}
+            {currentType === "Invoice" && !isVoided && (
               <div className="flex items-center gap-1 glass-panel border border-white/10 rounded-lg p-0.5 sm:p-1">
                 {/* Record Payment (only if not fully paid) */}
                 {!isPaid && balanceDue > 0 && (
@@ -481,7 +520,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               </div>
             )}
 
-            {/* â”€â”€ SHARED ACTIONS (all document types) â”€â”€ */}
+            {/* ——— SHARED ACTIONS (all document types) ——— */}
             <div className="flex items-center gap-1">
               {/* Process Costs — all document types */}
               {!isVoided && (
@@ -539,7 +578,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
           </div>
         </div>
 
-        {/* â”€â”€ Tabs â”€â”€ */}
+        {/* ——— Tabs ——— */}
         <div className="flex border-b border-white/10 glass-panel px-4 pt-2 gap-4">
           <button
             onClick={() => setActiveTab('overview')}
@@ -558,6 +597,14 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
             Communications
           </button>
           <button
+            onClick={() => setActiveTab('notes_tasks')}
+            className={`pb-2 px-2 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${
+              activeTab === 'notes_tasks' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            Notes &amp; Tasks
+          </button>
+          <button
             onClick={() => setActiveTab('pdf_preview')}
             className={`pb-2 px-2 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${
               activeTab === 'pdf_preview' ? 'border-blue-500 text-blue-400' : 'border-transparent text-neutral-500 hover:text-neutral-300'
@@ -574,7 +621,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><FiDatabase className="text-sky-400 shrink-0" /> Data View</h3>
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">{type === 'Quote' ? 'Quote' : type === 'SalesOrder' ? 'SO' : 'Invoice'} #</label>
+                  <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">{currentType === 'Quote' ? 'Quote' : currentType === 'SalesOrder' ? 'SO' : 'Invoice'} #</label>
                   <div className="text-sm text-white font-mono truncate">{displayData.items?.invoiceNumber || displayData.items?.invoice_number || displayData.items?.salesOrderNumber || displayData.items?.salesorder_number || displayData.items?.estimateNumber || displayData.items?.estimate_number || displayData.invoiceNumber || displayData.invoice_number || displayData.salesorder_number || displayData.estimate_number || displayData.zohoId || "—"}</div>
                 </div>
                 <div>
@@ -623,8 +670,34 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 )}
               </div>
 
+              {/* â”€â”€ Payments Made (Zoho Books) â”€â”€ */}
+              {displayData?.payments && displayData.payments.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-white/10">
+                  <h4 className="text-[10px] text-emerald-400 uppercase font-bold tracking-wider mb-2">Payments Applied</h4>
+                  <div className="flex flex-col gap-1.5">
+                    {displayData.payments.map((pmt: any) => (
+                      <div key={pmt.payment_id} className="flex justify-between items-center bg-black/20 p-2 rounded-lg border border-white/5">
+                        <div>
+                          <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                            ${parseFloat(pmt.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            {pmt.payment_mode && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 uppercase tracking-wider">
+                                {pmt.payment_mode}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-neutral-400 mt-0.5">
+                            {pmt.date} {pmt.reference_number ? `| Ref: ${pmt.reference_number}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* â”€â”€ Shipping Cost Flag â”€â”€ */}
-              {type === "Invoice" && !isVoided && displayData?.shipping_charge !== undefined && parseFloat(displayData.shipping_charge || 0) === 0 && statusLower !== 'draft' && (
+              {currentType === "Invoice" && !isVoided && displayData?.shipping_charge !== undefined && parseFloat(displayData.shipping_charge || 0) === 0 && statusLower !== 'draft' && (
                 <div className="mt-3 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 animate-pulse">
                   <span className="text-amber-400 text-lg">⚠</span>
                   <div>
@@ -634,13 +707,60 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 </div>
               )}
             </div>
+
+            {/* â”€â”€ Tracking & Fulfillment â”€â”€ */}
+            {((displayData.packages && displayData.packages.length > 0) || (displayData.dropshipments && displayData.dropshipments.length > 0)) && (
+              <div className="pt-3 border-t border-white/10">
+                <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><FiTruck className="text-sky-400 shrink-0" /> Tracking &amp; Fulfillment</h3>
+                <div className="flex flex-col gap-2">
+                  {displayData.packages?.map((pkg: any) => (
+                    <div key={pkg.id || pkg.packageNumber} className="glass-panel border border-white/10 rounded-lg p-3 flex justify-between items-center">
+                      <div>
+                        <div className="text-sm font-bold text-white flex items-center gap-2">
+                          PKG: {pkg.packageNumber || pkg.trackingNumber || 'Pending'}
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${pkg.status?.toLowerCase() === 'shipped' || pkg.status?.toLowerCase() === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                            {pkg.status || 'Packaged'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-neutral-400 mt-1">
+                          Carrier: <span className="text-neutral-200">{pkg.carrier || '—'}</span> | 
+                          Tracking: <span className="font-mono text-neutral-300">{pkg.trackingNumber || '—'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {displayData.dropshipments?.map((ds: any) => (
+                    <div key={ds.id || ds.trackingNumber} className="glass-panel border border-white/10 rounded-lg p-3 flex justify-between items-center">
+                      <div>
+                        <div className="text-sm font-bold text-white flex items-center gap-2">
+                          DROPSHIP: {ds.vendorName || 'Vendor'}
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${ds.status?.toLowerCase() === 'shipped' || ds.status?.toLowerCase() === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                            {ds.status || 'Ordered'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-neutral-400 mt-1">
+                          Tracking: <span className="font-mono text-neutral-300">{ds.trackingNumber || '—'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
   
               <div className="pt-3 border-t border-white/10">
-                <DocumentLifecycle zohoId={zohoId} type={type} />
+                <DocumentLifecycle 
+                  zohoId={zohoId} 
+                  type={currentType} 
+                  onNavigateDoc={(navType, navId) => {
+                    setInternalInvoiceOverride(navId)
+                    setInternalTypeOverride(navType)
+                  }}
+                />
               </div>
 
             {/* â”€â”€ Cost & Commission Panel + Line Items â”€â”€ */}
-            <div className="pt-3 border-t border-white/10 flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
+            <div className="pt-3 border-t border-white/10 flex flex-col gap-4">
 
               {isLoading ? (
                 <div className="flex justify-center items-center py-8 gap-2 text-sm font-semibold text-neutral-400">
@@ -720,9 +840,16 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
                   {/* â”€â”€ Per-Item Cost Breakdown Table â”€â”€ */}
                   {(() => {
-                    const lineItems: any[] = costResult?.lineItems ||
+                    let lineItems: any[] = costResult?.lineItems ||
                       (displayData?.items as any)?.lineItemDetails ||
                       []
+                    
+                    // Filter out manual TRACKING INFORMATION line items
+                    lineItems = lineItems.filter(li => {
+                      const name = (li.name || li.sku || "").toUpperCase();
+                      return !name.includes("TRACKING");
+                    })
+
                     if (!lineItems.length) return null
                     return (
                       <div>
@@ -793,27 +920,116 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                   })()}
 
                   {/* â”€â”€ Zoho Line Items (from live fetch) â”€â”€ */}
-                  {displayData?.line_items && displayData.line_items.length > 0 && (
+                  {displayData?.line_items && displayData.line_items.filter((li: any) => !(li.name || "").toUpperCase().includes("TRACKING")).length > 0 && (
                     <div>
-                      <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2">Line Items</h4>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Line Items</h4>
+                        {!isVoided && statusLower !== 'paid' && (
+                          <button
+                            onClick={() => {
+                              if (isEditingLineItems) {
+                                setIsEditingLineItems(false)
+                              } else {
+                                setEditableLineItems(displayData.line_items.filter((li: any) => !(li.name || "").toUpperCase().includes("TRACKING")))
+                                setIsEditingLineItems(true)
+                              }
+                            }}
+                            className="text-[10px] bg-neutral-800 hover:bg-neutral-700 text-neutral-300 px-2 py-1 rounded font-bold uppercase tracking-wider transition-colors"
+                          >
+                            {isEditingLineItems ? "Cancel Edit" : "Edit Items"}
+                          </button>
+                        )}
+                      </div>
+                      
                       <div className="space-y-2">
-                        {displayData.line_items.map((item: any, i: number) => (
-                          <div key={item.line_item_id || i} className="glass-panel border border-white/10 rounded-lg p-3 shadow-sm">
-                            <div className="flex justify-between gap-2 font-bold text-white text-sm">
-                              <span className="truncate min-w-0">{item.name}</span>
-                              <span className="text-emerald-400 shrink-0">${parseFloat(item.item_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        {isEditingLineItems ? (
+                          <>
+                            {editableLineItems.map((item: any, i: number) => (
+                              <div key={item.line_item_id || i} className="glass-panel border border-sky-500/30 rounded-lg p-3 shadow-sm bg-sky-900/10">
+                                <div className="flex justify-between gap-2 font-bold text-white text-sm mb-2">
+                                  <input 
+                                    type="text" 
+                                    className="bg-black/50 border border-neutral-700 rounded px-2 py-1 text-sm w-full focus:border-sky-500 focus:outline-none"
+                                    value={item.name}
+                                    onChange={(e) => {
+                                      const newItems = [...editableLineItems]
+                                      newItems[i].name = e.target.value
+                                      setEditableLineItems(newItems)
+                                    }}
+                                  />
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-neutral-400">Qty:</span>
+                                    <input 
+                                      type="number"
+                                      className="bg-black/50 border border-neutral-700 rounded px-2 py-1 w-16 focus:border-sky-500 focus:outline-none"
+                                      value={item.quantity}
+                                      onChange={(e) => {
+                                        const newItems = [...editableLineItems]
+                                        newItems[i].quantity = Number(e.target.value)
+                                        setEditableLineItems(newItems)
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-neutral-400">Price: $</span>
+                                    <input 
+                                      type="number"
+                                      step="0.01"
+                                      className="bg-black/50 border border-neutral-700 rounded px-2 py-1 w-24 focus:border-sky-500 focus:outline-none"
+                                      value={item.rate}
+                                      onChange={(e) => {
+                                        const newItems = [...editableLineItems]
+                                        newItems[i].rate = Number(e.target.value)
+                                        setEditableLineItems(newItems)
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                                <div className="mt-2">
+                                  <textarea 
+                                    className="bg-black/50 border border-neutral-700 rounded px-2 py-1 text-xs w-full focus:border-sky-500 focus:outline-none text-neutral-300"
+                                    rows={2}
+                                    value={item.description || ''}
+                                    placeholder="Item description..."
+                                    onChange={(e) => {
+                                      const newItems = [...editableLineItems]
+                                      newItems[i].description = e.target.value
+                                      setEditableLineItems(newItems)
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                            <button
+                              onClick={handleSaveLineItems}
+                              disabled={isSavingLineItems}
+                              className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 rounded shadow flex items-center justify-center gap-2 transition-colors disabled:opacity-50 mt-2"
+                            >
+                              {isSavingLineItems ? <FiRefreshCw className="animate-spin" /> : <FiDatabase />}
+                              Save Line Items
+                            </button>
+                          </>
+                        ) : (
+                          displayData.line_items.filter((li: any) => !(li.name || "").toUpperCase().includes("TRACKING")).map((item: any, i: number) => (
+                            <div key={item.line_item_id || i} className="glass-panel border border-white/10 rounded-lg p-3 shadow-sm">
+                              <div className="flex justify-between gap-2 font-bold text-white text-sm">
+                                <span className="truncate min-w-0">{item.name}</span>
+                                <span className="text-emerald-400 shrink-0">${parseFloat(item.item_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-[10px] text-neutral-400">
+                                {item.sku && <span>SKU: <span className="font-mono text-neutral-300">{item.sku}</span></span>}
+                                {item.sku && item.rate && <span>|</span>}
+                                {item.rate && <span>Price: ${parseFloat(item.rate).toLocaleString()}</span>}
+                                {item.purchase_rate != null && <span>| Cost: <span className="text-amber-300 font-bold">${parseFloat(item.purchase_rate).toFixed(2)}</span></span>}
+                                <span>|</span>
+                                <span>Qty: {item.quantity}</span>
+                              </div>
+                              {item.description && <div className="text-xs text-neutral-500 mt-1 whitespace-pre-wrap line-clamp-3">{item.description}</div>}
                             </div>
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-[10px] text-neutral-400">
-                              {item.sku && <span>SKU: <span className="font-mono text-neutral-300">{item.sku}</span></span>}
-                              {item.sku && item.rate && <span>|</span>}
-                              {item.rate && <span>Price: ${parseFloat(item.rate).toLocaleString()}</span>}
-                              {item.purchase_rate != null && <span>| Cost: <span className="text-amber-300 font-bold">${parseFloat(item.purchase_rate).toFixed(2)}</span></span>}
-                              <span>|</span>
-                              <span>Qty: {item.quantity}</span>
-                            </div>
-                            {item.description && <div className="text-xs text-neutral-500 mt-1 whitespace-pre-wrap line-clamp-3">{item.description}</div>}
-                          </div>
-                        ))}
+                          ))
+                        )}
                       </div>
                     </div>
                   )}
@@ -860,6 +1076,10 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               className="w-full h-full border-0 rounded-xl bg-black/20 flex-1 shadow-inner"
               title={`${typeLabel} PDF Preview`}
             />
+          </div>
+        ) : activeTab === 'notes_tasks' ? (
+          <div className="flex-1 overflow-y-auto p-4 bg-black/20 min-h-[400px]">
+            <DocumentTasks zohoId={zohoId} type={currentType} accountId={displayData.customer_id} />
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-4 bg-black/20">

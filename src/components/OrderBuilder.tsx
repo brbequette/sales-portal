@@ -83,6 +83,21 @@ const TYPES = [
   "Abrasive",
 ]
 
+const EQUIPMENT_LIST = [
+  "None",
+  "Stihl TS400/410/420 (14\")",
+  "Stihl TS700/800 (16\")",
+  "Husqvarna K760/770/970 (14\")",
+  "Husqvarna K1270 (16\")",
+  "Makita EK7651H (14\")",
+  "Hilti DSH 700/900 (14\")",
+  "iQ360 (14\")",
+  "iQ228 (7\")",
+  "4.5\" Angle Grinder (4.5\")",
+  "7\" Angle Grinder (7\")",
+  "9\" Angle Grinder (9\")",
+]
+
 /** Keywords used to match product names to Application categories */
 const APPLICATION_KEYWORDS: Record<string, string[]> = {
   "Asphalt":              ["asphalt", "asp", "pavement", "road"],
@@ -308,6 +323,17 @@ export function OrderBuilder({
   const [filterApp, setFilterApp] = useState("All")
   const [filterSize, setFilterSize] = useState("All")
   const [filterType, setFilterType] = useState("All")
+  const [filterEquipment, setFilterEquipment] = useState("None")
+
+  const handleEquipmentChange = (val: string) => {
+    setFilterEquipment(val)
+    if (val !== "None") {
+      const match = val.match(/\((.*?)\)/)
+      if (match) {
+        setFilterSize(match[1])
+      }
+    }
+  }
 
   // Mock order preview
   const [showMockOrder, setShowMockOrder] = useState(false)
@@ -500,7 +526,7 @@ export function OrderBuilder({
         >
           <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
             <FiFilter size={11} />
-            Blade Lookup — Application · Size · Type
+            Blade Lookup — Equipment · Application · Size · Type
           </span>
           <FiChevronDown
             size={12}
@@ -511,7 +537,17 @@ export function OrderBuilder({
         {showBladeLookup && (
           <div className="px-3 pb-3 pt-2 glass-panel/60 space-y-3 border-t border-white/10">
             {/* Filter dropdowns */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+              <div>
+                <p className="text-[8px] font-bold uppercase tracking-wider text-neutral-600 mb-1">Equipment</p>
+                <select
+                  value={filterEquipment}
+                  onChange={e => handleEquipmentChange(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-violet-500 cursor-pointer"
+                >
+                  {EQUIPMENT_LIST.map(o => <option key={o}>{o}</option>)}
+                </select>
+              </div>
               {([
                 ["Application", APPLICATIONS, filterApp, setFilterApp],
                 ["Size", SIZES, filterSize, setFilterSize],
@@ -521,7 +557,10 @@ export function OrderBuilder({
                   <p className="text-[8px] font-bold uppercase tracking-wider text-neutral-600 mb-1">{label}</p>
                   <select
                     value={val}
-                    onChange={e => setter(e.target.value)}
+                    onChange={e => {
+                      setter(e.target.value)
+                      if (label === "Size") setFilterEquipment("None")
+                    }}
                     className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-violet-500 cursor-pointer"
                   >
                     {opts.map(o => <option key={o}>{o}</option>)}
