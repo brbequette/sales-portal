@@ -18,7 +18,18 @@ export async function GET(req: NextRequest) {
         status: { notIn: ["Void", "Draft", "Cancelled", "Closed"] },
       },
       take: 500,
-      include: { account: { select: { id: true, name: true } } },
+      include: { 
+        account: { 
+          select: { 
+            id: true, 
+            name: true,
+            shippingStreet: true,
+            shippingCity: true,
+            shippingState: true,
+            shippingZip: true
+          } 
+        } 
+      },
       orderBy: { orderDate: "desc" },
     })
 
@@ -107,15 +118,28 @@ export async function GET(req: NextRequest) {
         else shipStatus = "packaged"
       }
 
-      // Extract shipping address from SO items
-      const shippingAddress = items.shipping_address || items.shippingAddress || null
+      // Extract shipping address from SO items or Account fallback
+      const shippingAddress = items.shipping_address || items.shippingAddress || (so.account?.shippingStreet ? {
+        address: so.account.shippingStreet,
+        city: so.account.shippingCity,
+        state: so.account.shippingState,
+        zip: so.account.shippingZip
+      } : null)
 
       // Line items
       const lineItems = items.line_items || items.lineItems || []
-      const lineItemCount = Array.isArray(lineItems) ? lineItems.length : 0
-      const lineItemNames = Array.isArray(lineItems)
-        ? lineItems.slice(0, 3).map((li: any) => li.name || li.itemName || "").filter(Boolean)
-        : []
+      const dcBreakdown = items.itemsDcBreakdown || []
+      
+      let lineItemCount = 0
+      let lineItemNames: string[] = []
+      
+      if (Array.isArray(lineItems) && lineItems.length > 0) {
+        lineItemCount = lineItems.length
+        lineItemNames = lineItems.slice(0, 3).map((li: any) => li.name || li.itemName || "").filter(Boolean)
+      } else if (Array.isArray(dcBreakdown) && dcBreakdown.length > 0) {
+        lineItemCount = dcBreakdown.length
+        lineItemNames = dcBreakdown.slice(0, 3).map((str: string) => str.split('|')[0].trim())
+      }
 
       return {
         id: so.id,
