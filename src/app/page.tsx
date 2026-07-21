@@ -1195,22 +1195,11 @@ export default function Dashboard() {
           )}
           {isAdminUser && (
           <button
-            onClick={() => handleEffortChange("tv")}
-            className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
-              effort === "tv"
-                ? "bg-[#17191a] border-amber-400/45 text-white"
-                : "bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] text-neutral-400"
-            }`}
+            onClick={() => window.open('/tv', '_blank')}
+            className="relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] hover:bg-white/[0.05] text-neutral-400 group"
           >
-            {effort === "tv" && (
-              <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-amber-400 "></div>
-            )}
             <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl border transition-colors ${
-                effort === "tv"
-                  ? "bg-amber-950 border-amber-500/30 text-amber-400"
-                  : "bg-white/[0.045] border-[var(--border)] text-neutral-500"
-              }`}>
+              <div className="p-2.5 rounded-xl border transition-colors bg-white/[0.045] border-[var(--border)] text-neutral-500 group-hover:text-amber-400 group-hover:border-amber-500/30">
                 <FiMonitor size={20} />
               </div>
               <div>
@@ -1250,11 +1239,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {effort === "tv" && isAdminUser ? (
-          <div className="mt-4">
-            <SalesBoard />
-          </div>
-        ) : effort === "pipeline" ? (
+        {effort === "pipeline" ? (
           <div className="mt-4">
             <DealPipeline onViewInvoice={(inv) => {
               setViewingInvoice(inv)

@@ -10,9 +10,12 @@ import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts"
+import { useZoho } from "@/components/ZohoProvider"
 
 // â”€â”€â”€ Types â”€â”€â”€
 interface DashboardData {
+  companyWeeklyTotal: number
+  companyMonthlyTotal: number
   weeklyTotal: number
   weeklyTarget: number
   monthlyTotal: number
@@ -128,12 +131,13 @@ function QuotaRing({ current, target, color }: { current: number; target: number
   )
 }
 
-// â”€â”€â”€ Main Dashboard Component â”€â”€â”€
+// ——— Main Dashboard Component ———
 export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps) {
+  const { zohoContext: currentUser } = useZoho()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [clockedIn, setClockedIn] = useState(false)
-  const [clockHours, setClockHours] = useState("0h 0m")
+  const [timeEntry, setTimeEntry] = useState<any>(null)
+  const [clockLoading, setClockLoading] = useState(false)
 
   // Determine if we're showing company-wide or filtered rep data
   const showCompanyWide = isAdmin === true && !repName
@@ -149,6 +153,86 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repName, isAdmin, repEmail])
+
+  useEffect(() => {
+    if (!currentUser?.id) return
+    const fetchTime = async () => {
+      try {
+        const res = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id}&email=${encodeURIComponent(currentUser.email || '')}`, { cache: 'no-store' })
+        const tdata = await res.json()
+        if (tdata.success && tdata.entries && tdata.entries.length > 0) {
+          const now = new Date()
+          const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Phoenix', year: 'numeric', month: '2-digit', day: '2-digit' })
+          const parts = formatter.formatToParts(now)
+          const phoenixDate = `${parts.find(p => p.type === 'year')?.value}-${parts.find(p => p.type === 'month')?.value}-${parts.find(p => p.type === 'day')?.value}`
+          if (tdata.entries[0].date === phoenixDate) {
+            setTimeEntry(tdata.entries[0])
+          }
+        }
+      } catch (e) {}
+    }
+    fetchTime()
+    const interval = setInterval(fetchTime, 60000)
+    return () => clearInterval(interval)
+  }, [currentUser?.id])
+
+  const calculateHours = (entry: any) => {
+    if (!entry) return "0.0"
+    const start = new Date(entry.manualClockIn || entry.clockIn)
+    let end: Date
+    if (entry.manualClockOut) {
+      end = new Date(entry.manualClockOut)
+    } else if (entry.clockOut) {
+      end = new Date(entry.clockOut)
+    } else {
+      end = new Date(entry.lastActivity || new Date())
+    }
+    const now = new Date()
+    if (end > now) end = now
+
+    let inactivityMs = 0
+    if (entry.inactivityPeriods && Array.isArray(entry.inactivityPeriods)) {
+      entry.inactivityPeriods.forEach((p: any) => {
+        const pStart = new Date(p.start)
+        const pEnd = new Date(p.end)
+        const overlapStart = new Date(Math.max(start.getTime(), pStart.getTime()))
+        const overlapEnd = new Date(Math.min(end.getTime(), pEnd.getTime()))
+        if (overlapEnd > overlapStart) {
+          inactivityMs += overlapEnd.getTime() - overlapStart.getTime()
+        }
+      })
+    }
+
+    const diffHours = ((end.getTime() - start.getTime()) - inactivityMs) / (1000 * 60 * 60)
+    return Math.max(0, diffHours).toFixed(1)
+  }
+
+  const handleToggleClock = async () => {
+    if (!currentUser?.id || clockLoading) return
+    setClockLoading(true)
+    const action = (!timeEntry || timeEntry.manualClockOut) ? "clockIn" : "clockOut"
+    try {
+      const res = await fetch("/api/timeclock/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          userId: currentUser.id,
+          email: currentUser.email,
+          action,
+          source: 'manual',
+          name: currentUser.name || currentUser.fullName || "Zoho User"
+        })
+      })
+      const tdata = await res.json()
+      if (tdata.success) {
+        setTimeEntry(tdata.entry)
+      }
+    } catch (e) {
+      console.error("Timeclock toggle error:", e)
+    } finally {
+      setClockLoading(false)
+    }
+  }
 
   async function fetchDashboardData() {
     try {
@@ -175,6 +259,9 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
       let weeklyTotal = 0, monthlyTotal = 0, monthlyProfit = 0, monthlyCommission = 0
       let monthlyDeals = 0, pipelineValue = 0, pipelineCount = 0
       let overdueCount = 0, overdueBalance = 0
+      
+      let companyWeeklyTotal = 0
+      let companyMonthlyTotal = 0
       
       let totalDealsWon = 0
       let totalDealsLost = 0
@@ -232,6 +319,14 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         // Skip Paul Gencuski
         const repUpper = rep.toUpperCase()
         if (repUpper.includes("PAUL") && (repUpper.includes("GENCUSKI") || repUpper.includes("GENKUSKI"))) continue
+
+        // Company Totals (calculated before rep filtering)
+        if (invDate >= monday && invDate <= friday) {
+          companyWeeklyTotal += amount
+        }
+        if (invDate.getMonth() === currentMonth && invDate.getFullYear() === currentYear) {
+          companyMonthlyTotal += amount
+        }
 
         // Per-rep filtering: if a rep filter is active, skip invoices that don't match
         if (filterUpper && !repUpper.includes(filterUpper)) continue
@@ -379,6 +474,8 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
       const avgDealSize = totalDealsWon > 0 ? Math.round(totalDealsRevenue / totalDealsWon) : 0
 
       setData({
+        companyWeeklyTotal: Math.round(companyWeeklyTotal),
+        companyMonthlyTotal: Math.round(companyMonthlyTotal),
         weeklyTotal: Math.round(weeklyTotal),
         weeklyTarget: 64000,
         monthlyTotal: Math.round(monthlyTotal),
@@ -405,6 +502,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
       console.error("Dashboard fetch error:", err)
       // Set fallback empty data
       setData({
+        companyWeeklyTotal: 0, companyMonthlyTotal: 0,
         weeklyTotal: 0, weeklyTarget: 64000, monthlyTotal: 0, monthlyProfit: 0,
         monthlyCommission: 0, monthlyDeals: 0, pipelineValue: 0, pipelineCount: 0,
         overdueCount: 0, overdueBalance: 0, revenueByMonth: [], weeklyTrend: [],
@@ -439,6 +537,38 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
   return (
     <div className="space-y-4 animate-fade-in">
+      {/* ─── Company Totals Banner (For Reps Only) ─── */}
+      {!showCompanyWide && (
+        <div className="glass-panel p-4 rounded-2xl border border-white/[0.06] flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <FiTarget size={18} />
+            </div>
+            <div>
+              <p className="text-xs text-neutral-500 font-medium tracking-wider uppercase">Company Weekly Sales</p>
+              <p className="text-xl font-bold text-white">${data.companyWeeklyTotal.toLocaleString()} <span className="text-sm font-normal text-neutral-400">/ ${data.weeklyTarget.toLocaleString()}</span></p>
+            </div>
+          </div>
+          <div className="flex-1 w-full max-w-sm hidden md:block">
+            <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-emerald-500" 
+                style={{ width: `${Math.min(100, (data.companyWeeklyTotal / data.weeklyTarget) * 100)}%` }} 
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <FiDollarSign size={18} />
+            </div>
+            <div>
+              <p className="text-xs text-neutral-500 font-medium tracking-wider uppercase">Company MTD Sales</p>
+              <p className="text-xl font-bold text-white">${data.companyMonthlyTotal.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── KPI Cards ─── */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3">
         {/* Weekly Goal Progress */}
@@ -458,17 +588,18 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           subtitle={`Commission: $${data.monthlyCommission.toLocaleString()}`} color={CHART_COLORS.purple} />
           
         {/* Timeclock */}
-        <KPICard icon={FiClock} title="Timeclock" value={clockedIn ? clockHours : "Off Clock"}
-          color={clockedIn ? CHART_COLORS.accent : CHART_COLORS.text}>
+        <KPICard icon={FiClock} title="Timeclock" value={(!timeEntry || timeEntry.manualClockOut) ? "Off Clock" : `${calculateHours(timeEntry)}h`}
+          color={(!timeEntry || timeEntry.manualClockOut) ? CHART_COLORS.text : CHART_COLORS.accent}>
           <button
-            onClick={() => setClockedIn(!clockedIn)}
+            onClick={handleToggleClock}
+            disabled={clockLoading}
             className={`mt-3 w-full text-xs font-bold py-2 rounded-xl border transition-all duration-300 ${
-              clockedIn
-                ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
-                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
-            }`}
+              (!timeEntry || timeEntry.manualClockOut)
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                : "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
+            } disabled:opacity-50`}
           >
-            {clockedIn ? "Clock Out" : "Clock In"}
+            {clockLoading ? "..." : (!timeEntry || timeEntry.manualClockOut) ? "Clock In" : "Clock Out"}
           </button>
         </KPICard>
 
