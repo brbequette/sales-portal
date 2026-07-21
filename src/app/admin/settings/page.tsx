@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
-import { FiSave, FiSettings, FiDollarSign, FiMessageSquare, FiTruck, FiTool } from "react-icons/fi"
+import { FiSave, FiSettings, FiDollarSign, FiMessageSquare, FiTruck, FiTool, FiMonitor } from "react-icons/fi"
 
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState<'financial'|'communications'|'shipping'|'developer'>('financial')
@@ -149,6 +149,14 @@ export default function AdminSettingsPage() {
             className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors ${activeTab === 'developer' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 hover:text-white hover:glass-panel border border-transparent'}`}
           >
             <FiTool /> Developer Tools
+          </button>
+
+          <div className="mt-8"></div>
+          <button 
+            onClick={() => window.open('/tv', '_blank')}
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-black tracking-wide uppercase transition-all duration-300 text-amber-400 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 hover:scale-[1.02] active:scale-95 shadow-[0_0_15px_rgba(245,158,11,0.2)] mt-auto"
+          >
+            <FiMonitor size={16} /> Launch TV Board
           </button>
         </div>
 

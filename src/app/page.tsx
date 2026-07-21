@@ -1193,22 +1193,7 @@ export default function Dashboard() {
             </div>
           </button>
           )}
-          {isAdminUser && (
-          <button
-            onClick={() => window.open('/tv', '_blank')}
-            className="relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] hover:bg-white/[0.05] text-neutral-400 group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl border transition-colors bg-white/[0.045] border-[var(--border)] text-neutral-500 group-hover:text-amber-400 group-hover:border-amber-500/30">
-                <FiMonitor size={20} />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold tracking-tight">TV Board</h3>
-                <p className="text-xs text-neutral-500 mt-0.5">Sales leaderboard</p>
-              </div>
-            </div>
-          </button>
-          )}
+
         </div>
 
         {/* â”€â”€ View as Rep (Admin Only) â”€â”€ */}
