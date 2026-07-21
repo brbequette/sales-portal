@@ -267,7 +267,7 @@ export function SalesBoard() {
 
   if (loading || !data) {
     return (
-      <div className="w-full h-full min-h-[600px] flex flex-col items-center justify-center bg-[#0d0e12] rounded-2xl border border-white/10 text-white shadow-2xl relative overflow-hidden">
+      <div className="w-full h-full min-h-[600px] flex flex-col items-center justify-center glass-panel-strong rounded-2xl border border-white/10 text-white shadow-2xl relative overflow-hidden">
         <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
         <p className="mt-4 text-neutral-400 font-medium tracking-widest uppercase text-sm animate-pulse">Loading Live Metrics</p>
       </div>
@@ -277,10 +277,10 @@ export function SalesBoard() {
   const teamQuotaPct = data.teamWeekly.target > 0 ? Math.min(100, Math.round((data.teamWeekly.profit / data.teamWeekly.target) * 100)) : 0
 
   return (
-    <div ref={boardRef} className="w-full h-full min-h-[700px] bg-[#09090b] rounded-2xl border border-white/5 text-white shadow-2xl relative flex flex-col font-sans overflow-hidden">
+    <div ref={boardRef} className="w-full h-full min-h-[700px] bg-black/20 rounded-2xl border border-white/10 text-white shadow-2xl relative flex flex-col font-sans overflow-hidden">
       
       {/* Top Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-black/40 backdrop-blur-md z-20">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-black/40 backdrop-blur-md z-20">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
             <FiActivity size={16} className="text-white" />
@@ -339,21 +339,21 @@ export function SalesBoard() {
              </div>
           </div>
 
-          <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/5 rounded-2xl p-1">
+          <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/10 rounded-2xl p-1">
             <table className="w-full text-left border-collapse">
                <thead>
                   <tr className="bg-white/[0.03]">
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5">Sales Rep</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5">Metric</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Sales Rep</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Metric</th>
                      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, idx) => {
                         const dateParts = data.weekDays[idx].split('-')
                         return (
-                           <th key={idx} className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">
+                           <th key={idx} className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">
                               {day} {dateParts[1]}/{dateParts[2]}
                            </th>
                         )
                      })}
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-emerald-400 border-b border-white/5 text-right bg-emerald-500/5 rounded-tr-xl">Week Total</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-emerald-400 border-b border-white/10 text-right bg-emerald-500/5 rounded-tr-xl">Week Total</th>
                   </tr>
                </thead>
                <tbody>
@@ -362,49 +362,49 @@ export function SalesBoard() {
                      return (
                      <React.Fragment key={rep.id}>
                         {/* Sales Row */}
-                        <tr className="group hover:bg-white/[0.02] cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
-                           <td className="p-4 text-sm font-bold border-b border-white/5 text-white align-middle" rowSpan={2}>
+                        <tr className="group hover:bg-white/10 hover:shadow-lg transition-all duration-300 cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
+                           <td className="p-4 text-sm font-bold border-b border-white/10 text-white align-middle" rowSpan={2}>
                               <div className="flex items-center gap-3">
                                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-xs shadow-lg`}>{rep.name.charAt(0)}</div>
                                  {rep.name}
                               </div>
                            </td>
-                           <td className="p-4 text-xs font-medium text-neutral-400 border-b border-white/5">Gross Sales</td>
+                           <td className="p-4 text-xs font-medium text-neutral-400 border-b border-white/10">Gross Sales</td>
                            {rep.weekly.sales.map((val: number, i: number) => (
-                              <td key={i} className="p-4 text-sm font-medium text-white text-right border-b border-white/5">{val > 0 ? formatCurrency(val) : '-'}</td>
+                              <td key={i} className="p-4 text-sm font-medium text-white text-right border-b border-white/10">{val > 0 ? formatCurrency(val) : '-'}</td>
                            ))}
-                           <td className="p-4 text-sm font-black text-emerald-400 text-right border-b border-white/5 bg-emerald-500/5">{formatCurrency(rep.weekly.totalSales)}</td>
+                           <td className="p-4 text-sm font-black text-emerald-400 text-right border-b border-white/10 bg-emerald-500/5">{formatCurrency(rep.weekly.totalSales)}</td>
                         </tr>
                         {/* Profit Row */}
-                        <tr className="group hover:bg-white/[0.02] cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
-                           <td className="p-4 text-xs font-medium text-neutral-500 border-b border-white/5">Dead Profit</td>
+                        <tr className="group hover:bg-white/10 hover:shadow-lg transition-all duration-300 cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
+                           <td className="p-4 text-xs font-medium text-neutral-500 border-b border-white/10">Dead Profit</td>
                            {rep.weekly.profit.map((val: number, i: number) => (
-                              <td key={i} className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{val > 0 ? formatCurrency(val) : '-'}</td>
+                              <td key={i} className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{val > 0 ? formatCurrency(val) : '-'}</td>
                            ))}
-                           <td className="p-4 text-sm font-bold text-emerald-400/70 text-right border-b border-white/5 bg-emerald-500/5">{formatCurrency(rep.weekly.totalProfit)}</td>
+                           <td className="p-4 text-sm font-bold text-emerald-400/70 text-right border-b border-white/10 bg-emerald-500/5">{formatCurrency(rep.weekly.totalProfit)}</td>
                         </tr>
                         {/* Commission Row */}
-                        <tr className="group hover:bg-white/[0.02] cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
-                           <td className="p-4 text-xs font-medium text-blue-500/70 border-b border-white/5">Commission</td>
+                        <tr className="group hover:bg-white/10 hover:shadow-lg transition-all duration-300 cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
+                           <td className="p-4 text-xs font-medium text-blue-500/70 border-b border-white/10">Commission</td>
                            {rep.weekly.profit.map((val: number, i: number) => (
-                              <td key={i} className="p-4 text-sm font-medium text-blue-400/70 text-right border-b border-white/5">{rep.weekly.invoices?.filter((inv:any) => inv.date === data.weekDays[i]).reduce((sum:number, inv:any) => sum + inv.commission, 0) > 0 ? formatCurrency(rep.weekly.invoices?.filter((inv:any) => inv.date === data.weekDays[i]).reduce((sum:number, inv:any) => sum + inv.commission, 0)) : '-'}</td>
+                              <td key={i} className="p-4 text-sm font-medium text-blue-400/70 text-right border-b border-white/10">{rep.weekly.invoices?.filter((inv:any) => inv.date === data.weekDays[i]).reduce((sum:number, inv:any) => sum + inv.commission, 0) > 0 ? formatCurrency(rep.weekly.invoices?.filter((inv:any) => inv.date === data.weekDays[i]).reduce((sum:number, inv:any) => sum + inv.commission, 0)) : '-'}</td>
                            ))}
-                           <td className="p-4 text-sm font-bold text-blue-400 text-right border-b border-white/5 bg-blue-500/5">{formatCurrency(rep.weekly.commission)}</td>
+                           <td className="p-4 text-sm font-bold text-blue-400 text-right border-b border-white/10 bg-blue-500/5">{formatCurrency(rep.weekly.commission)}</td>
                         </tr>
                         {/* Deals Row */}
-                        <tr className="group hover:bg-white/[0.02] cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
-                           <td className="p-4 text-xs font-medium text-purple-500/70 border-b border-white/5">Deals Closed</td>
+                        <tr className="group hover:bg-white/10 hover:shadow-lg transition-all duration-300 cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
+                           <td className="p-4 text-xs font-medium text-purple-500/70 border-b border-white/10">Deals Closed</td>
                            {rep.weekly.profit.map((val: number, i: number) => {
                               const count = rep.weekly.invoices?.filter((inv:any) => inv.date === data.weekDays[i]).length || 0;
-                              return <td key={i} className="p-4 text-sm font-medium text-purple-400/70 text-right border-b border-white/5">{count > 0 ? count : '-'}</td>
+                              return <td key={i} className="p-4 text-sm font-medium text-purple-400/70 text-right border-b border-white/10">{count > 0 ? count : '-'}</td>
                            })}
-                           <td className="p-4 text-sm font-bold text-purple-400 text-right border-b border-white/5 bg-purple-500/5">{rep.weekly.dealsClosed}</td>
+                           <td className="p-4 text-sm font-bold text-purple-400 text-right border-b border-white/10 bg-purple-500/5">{rep.weekly.dealsClosed}</td>
                         </tr>
                         {isExpanded && rep.weekly.invoices?.length > 0 && (
                            <tr className="bg-black/40">
-                              <td colSpan={8} className="p-4 border-b border-white/5">
+                              <td colSpan={8} className="p-4 border-b border-white/10">
                                  <div className="pl-12">
-                                   <table className="w-full text-left border-collapse bg-[#0d0e12] rounded-lg overflow-hidden border border-white/5">
+                                   <table className="w-full text-left border-collapse glass-panel-strong rounded-lg overflow-hidden border border-white/10">
                                      <thead>
                                        <tr className="bg-white/[0.02]">
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
@@ -416,7 +416,7 @@ export function SalesBoard() {
                                      </thead>
                                      <tbody>
                                        {rep.weekly.invoices.map((inv:any) => (
-                                         <tr key={inv.id} className="border-t border-white/5 hover:bg-white/[0.02] transition-colors">
+                                         <tr key={inv.id} className="border-t border-white/10 hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                                            <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                            <td className="p-2">
                                               <div className="text-xs font-bold text-white">{inv.customer}</div>
@@ -450,7 +450,7 @@ export function SalesBoard() {
               const quota = rep.weeklyTarget > 0 ? Math.min(100, Math.round((rep.weekly.totalProfit / rep.weeklyTarget) * 100)) : 0
               const profitMargin = rep.weekly.totalSales > 0 ? (rep.weekly.totalProfit / rep.weekly.totalSales) * 100 : 0
               return (
-                <div key={rep.id} className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 relative overflow-hidden group">
+                <div key={rep.id} className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 relative overflow-hidden group">
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${rep.gradient} flex items-center justify-center text-white font-black text-xl shadow-lg`}>
@@ -475,7 +475,7 @@ export function SalesBoard() {
                         <div className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest mt-1">Gross Sales</div>
                       </div>
                     </div>
-                    <div className="w-full bg-white/5 h-2.5 rounded-full overflow-hidden border border-white/5 relative">
+                    <div className="w-full bg-white/5 h-2.5 rounded-full overflow-hidden border border-white/10 relative">
                       <div className="absolute inset-y-0 bg-white/10" style={{ left: '0', width: '100%' }}></div>
                       <div className={`absolute inset-y-0 bg-gradient-to-r ${rep.gradient} transition-all duration-1000`} style={{ left: '0', width: `${quota}%` }}></div>
                       {/* Target Indicator */}
@@ -485,7 +485,7 @@ export function SalesBoard() {
                        <span>{quota}% of Goal</span>
                        <span>Target: {formatCurrency(rep.weeklyTarget)}</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-4 pt-2 border-t border-white/5">
+                    <div className="grid grid-cols-3 gap-4 pt-2 border-t border-white/10">
                       <div>
                          <div className="text-lg font-bold text-white">{rep.weekly.dealsClosed}</div>
                          <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Deals</div>
@@ -511,17 +511,17 @@ export function SalesBoard() {
            <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase mb-8 flex items-center gap-3">
             <FiTarget className="text-blue-400" /> Month-To-Date Performance
           </h3>
-          <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/5 rounded-2xl p-1">
+          <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/10 rounded-2xl p-1">
             <table className="w-full text-left border-collapse">
                <thead>
                   <tr className="bg-white/[0.03]">
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5">Sales Rep</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Gross Sales</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Dead Profit</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Commission</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Deals</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Avg Deal</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Dead Profit %</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Sales Rep</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Gross Sales</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Dead Profit</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Commission</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Deals</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Avg Deal</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Dead Profit %</th>
                   </tr>
                </thead>
                <tbody>
@@ -531,25 +531,25 @@ export function SalesBoard() {
                      const isExpanded = expandedRows.has(`mtd-${rep.id}`)
                      return (
                      <React.Fragment key={rep.id}>
-                     <tr onClick={() => toggleRow(`mtd-${rep.id}`)} className="hover:bg-white/[0.05] transition-colors cursor-pointer group">
-                        <td className="p-4 text-sm font-bold border-b border-white/5 text-white">
+                     <tr onClick={() => toggleRow(`mtd-${rep.id}`)} className="hover:bg-white/15 hover:shadow-lg transition-all duration-300 transition-colors cursor-pointer group">
+                        <td className="p-4 text-sm font-bold border-b border-white/10 text-white">
                            <div className="flex items-center gap-3">
                               <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-[10px] shadow-lg`}>{rep.name.charAt(0)}</div>
                               {rep.name}
                            </div>
                         </td>
-                        <td className="p-4 text-sm font-black text-white text-right border-b border-white/5">{formatCurrency(rep.mtd.sales)}</td>
-                        <td className="p-4 text-sm font-medium text-neutral-300 text-right border-b border-white/5">{formatCurrency(rep.mtd.profit)}</td>
-                        <td className="p-4 text-sm font-bold text-emerald-400 text-right border-b border-white/5">{formatCurrency(rep.mtd.commission)}</td>
-                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{rep.mtd.dealsClosed}</td>
-                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{formatCurrency(avgDeal)}</td>
-                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{formatPercent(profitMargin)}</td>
+                        <td className="p-4 text-sm font-black text-white text-right border-b border-white/10">{formatCurrency(rep.mtd.sales)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-300 text-right border-b border-white/10">{formatCurrency(rep.mtd.profit)}</td>
+                        <td className="p-4 text-sm font-bold text-emerald-400 text-right border-b border-white/10">{formatCurrency(rep.mtd.commission)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{rep.mtd.dealsClosed}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{formatCurrency(avgDeal)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{formatPercent(profitMargin)}</td>
                      </tr>
                      {isExpanded && rep.mtd.invoices?.length > 0 && (
                         <tr className="bg-black/40">
-                           <td colSpan={7} className="p-4 border-b border-white/5">
+                           <td colSpan={7} className="p-4 border-b border-white/10">
                               <div className="pl-12">
-                                <table className="w-full text-left border-collapse bg-[#0d0e12] rounded-lg overflow-hidden border border-white/5">
+                                <table className="w-full text-left border-collapse glass-panel-strong rounded-lg overflow-hidden border border-white/10">
                                   <thead>
                                     <tr className="bg-white/[0.02]">
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
@@ -561,7 +561,7 @@ export function SalesBoard() {
                                   </thead>
                                   <tbody>
                                     {rep.mtd.invoices.map((inv:any) => (
-                                      <tr key={inv.id} className="border-t border-white/5 hover:bg-white/[0.02] transition-colors">
+                                      <tr key={inv.id} className="border-t border-white/10 hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                                         <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                         <td className="p-2">
                                            <div className="text-xs font-bold text-white">{inv.customer}</div>
@@ -590,17 +590,17 @@ export function SalesBoard() {
            <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase mb-8 flex items-center gap-3">
             <FiTrendingUp className="text-purple-400" /> Year-To-Date Performance
           </h3>
-          <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/5 rounded-2xl p-1">
+          <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/10 rounded-2xl p-1">
             <table className="w-full text-left border-collapse">
                <thead>
                   <tr className="bg-white/[0.03]">
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5">Sales Rep</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Gross Sales</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Dead Profit</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Commission</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Deals</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Avg Deal</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Dead Profit %</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Sales Rep</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Gross Sales</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Dead Profit</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Commission</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Deals</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Avg Deal</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Dead Profit %</th>
                   </tr>
                </thead>
                <tbody>
@@ -610,25 +610,25 @@ export function SalesBoard() {
                      const isExpanded = expandedRows.has(`ytd-${rep.id}`)
                      return (
                      <React.Fragment key={rep.id}>
-                     <tr onClick={() => toggleRow(`ytd-${rep.id}`)} className="hover:bg-white/[0.05] transition-colors cursor-pointer group">
-                        <td className="p-4 text-sm font-bold border-b border-white/5 text-white">
+                     <tr onClick={() => toggleRow(`ytd-${rep.id}`)} className="hover:bg-white/15 hover:shadow-lg transition-all duration-300 transition-colors cursor-pointer group">
+                        <td className="p-4 text-sm font-bold border-b border-white/10 text-white">
                            <div className="flex items-center gap-3">
                               <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-[10px] shadow-lg`}>{rep.name.charAt(0)}</div>
                               {rep.name}
                            </div>
                         </td>
-                        <td className="p-4 text-sm font-black text-white text-right border-b border-white/5">{formatCurrency(rep.ytd.sales)}</td>
-                        <td className="p-4 text-sm font-medium text-neutral-300 text-right border-b border-white/5">{formatCurrency(rep.ytd.profit)}</td>
-                        <td className="p-4 text-sm font-bold text-emerald-400 text-right border-b border-white/5">{formatCurrency(rep.ytd.commission)}</td>
-                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{rep.ytd.dealsClosed}</td>
-                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{formatCurrency(avgDeal)}</td>
-                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{formatPercent(profitMargin)}</td>
+                        <td className="p-4 text-sm font-black text-white text-right border-b border-white/10">{formatCurrency(rep.ytd.sales)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-300 text-right border-b border-white/10">{formatCurrency(rep.ytd.profit)}</td>
+                        <td className="p-4 text-sm font-bold text-emerald-400 text-right border-b border-white/10">{formatCurrency(rep.ytd.commission)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{rep.ytd.dealsClosed}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{formatCurrency(avgDeal)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{formatPercent(profitMargin)}</td>
                      </tr>
                      {isExpanded && rep.ytd.invoices?.length > 0 && (
                         <tr className="bg-black/40">
-                           <td colSpan={7} className="p-4 border-b border-white/5">
+                           <td colSpan={7} className="p-4 border-b border-white/10">
                               <div className="pl-12">
-                                <table className="w-full text-left border-collapse bg-[#0d0e12] rounded-lg overflow-hidden border border-white/5">
+                                <table className="w-full text-left border-collapse glass-panel-strong rounded-lg overflow-hidden border border-white/10">
                                   <thead>
                                     <tr className="bg-white/[0.02]">
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
@@ -640,7 +640,7 @@ export function SalesBoard() {
                                   </thead>
                                   <tbody>
                                     {rep.ytd.invoices.map((inv:any) => (
-                                      <tr key={inv.id} className="border-t border-white/5 hover:bg-white/[0.02] transition-colors">
+                                      <tr key={inv.id} className="border-t border-white/10 hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                                         <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                         <td className="p-2">
                                            <div className="text-xs font-bold text-white">{inv.customer}</div>
@@ -673,11 +673,11 @@ export function SalesBoard() {
                <div className="text-[10px] font-bold text-red-400 tracking-widest uppercase mb-2">Total Overdue Balance</div>
                <div className="text-3xl font-black text-red-500">{formatCurrency(data.totalOverdueBalance)}</div>
             </div>
-            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 relative overflow-hidden">
+            <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5 relative overflow-hidden">
                <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-2">Overdue Invoices</div>
                <div className="text-3xl font-black text-white">{data.overdueInvoices.length} <span className="text-sm font-medium text-neutral-500">Invoices</span></div>
             </div>
-            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 relative overflow-hidden">
+            <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5 relative overflow-hidden">
                <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-2">Oldest Aging Invoice</div>
                <div className="text-3xl font-black text-white">
                   {data.overdueInvoices.length > 0 ? `${data.overdueInvoices[0].daysOverdue} ` : '0 '}
@@ -686,35 +686,35 @@ export function SalesBoard() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/5 rounded-2xl p-1">
+          <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/10 rounded-2xl p-1">
             <table className="w-full text-left border-collapse">
                <thead>
                   <tr className="bg-white/[0.03]">
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5">Sales Rep</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5">Customer | Invoice</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Overdue Balance</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/5 text-right">Sale Date</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-red-400 border-b border-white/5 text-right bg-red-500/5 rounded-tr-xl">Days Overdue</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Sales Rep</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Customer | Invoice</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Overdue Balance</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Sale Date</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-red-400 border-b border-white/10 text-right bg-red-500/5 rounded-tr-xl">Days Overdue</th>
                   </tr>
                </thead>
                <tbody>
                   {data.overdueInvoices.map((inv: any, idx: number) => {
                      const rep = data.reps.find((r:any) => r.name.toUpperCase() === inv.repName) || { name: inv.repName, gradient: 'from-neutral-600 to-neutral-800' }
                      return (
-                     <tr key={idx} className="hover:bg-white/[0.02] transition-colors group">
-                        <td className="p-4 text-sm font-bold border-b border-white/5 text-white">
+                     <tr key={idx} className="hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors group">
+                        <td className="p-4 text-sm font-bold border-b border-white/10 text-white">
                            <div className="flex items-center gap-3">
                               <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-[10px] shadow-lg`}>{rep.name.charAt(0) || '?'}</div>
                               {rep.name}
                            </div>
                         </td>
-                        <td className="p-4 border-b border-white/5">
+                        <td className="p-4 border-b border-white/10">
                            <div className="text-sm font-bold text-white">{inv.customer}</div>
                            <div className="text-xs font-medium text-neutral-500">{inv.invoiceNumber}</div>
                         </td>
-                        <td className="p-4 text-sm font-black text-white text-right border-b border-white/5">{formatCurrency(inv.balance)}</td>
-                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/5">{inv.saleDate}</td>
-                        <td className="p-4 text-sm font-bold text-red-400 text-right border-b border-white/5 bg-red-500/5">{inv.daysOverdue} Days</td>
+                        <td className="p-4 text-sm font-black text-white text-right border-b border-white/10">{formatCurrency(inv.balance)}</td>
+                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{inv.saleDate}</td>
+                        <td className="p-4 text-sm font-bold text-red-400 text-right border-b border-white/10 bg-red-500/5">{inv.daysOverdue} Days</td>
                      </tr>
                   )})}
                   {data.overdueInvoices.length === 0 && (

@@ -8,13 +8,13 @@
 */
 
 :root {
-  /* ── Deep Obsidian Theme ── */
-  --background: #09090b;   /* Almost black app canvas */
-  --surface: #121316;      /* Base surface / card */
-  --surface-2: #1a1b21;    /* Raised panels */
-  --surface-3: #272a31;    /* Hovers, borders */
-  --card: rgba(18, 19, 22, 0.6); /* Glassmorphic card */
-  --card-foreground: #fafafa;
+  /* ── Harley Davidson Theme ── */
+  --background: #000000;   /* Pure black app canvas */
+  --surface: #0a0a0a;      /* Base surface / card */
+  --surface-2: #141414;    /* Raised panels */
+  --surface-3: #1f1f1f;    /* Hovers, borders */
+  --card: rgba(10, 10, 10, 0.75); /* Glassmorphic card */
+  --card-foreground: #ffffff;
 
   /* ── Extended Neutrals (for components that need them) ── */
   --neutral-755: #2e3038;
@@ -34,7 +34,7 @@
   --primary-hover: #ea580c;
   --primary-foreground: #fff;
   
-  --accent: #10b981;           /* Emerald / Success variant */
+  --accent: #ffffff;           /* White accent variant */
   --accent-foreground: #000;
 
   /* ── Status ── */
@@ -88,8 +88,8 @@ html {
 body {
   background: var(--background);
   background-image: 
-    radial-gradient(circle at 15% 50%, rgba(249, 115, 22, 0.08), transparent 25%),
-    radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.08), transparent 25%);
+    radial-gradient(circle at 15% 50%, rgba(249, 115, 22, 0.15), transparent 35%),
+    radial-gradient(circle at 85% 30%, rgba(255, 255, 255, 0.10), transparent 35%);
   /* Fixed attachment only on non-touch — iOS Safari has paint artifacts with fixed */
   background-attachment: scroll;
   color: var(--foreground);
@@ -321,7 +321,7 @@ p, span, a, h1, h2, h3, h4, h5, h6, li, td, th, label, div {
 
 /* ── Glow Accents ── */
 .glow-orange { box-shadow: 0 0 20px rgba(249, 115, 22, 0.15); }
-.glow-emerald { box-shadow: 0 0 20px rgba(16, 185, 129, 0.15); }
+.glow-white { box-shadow: 0 0 20px rgba(255, 255, 255, 0.15); }
 .glow-purple { box-shadow: 0 0 20px rgba(168, 85, 247, 0.15); }
 .glow-rose { box-shadow: 0 0 20px rgba(244, 63, 94, 0.15); }
 .glow-sky { box-shadow: 0 0 20px rgba(56, 189, 248, 0.15); }

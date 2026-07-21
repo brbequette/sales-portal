@@ -154,7 +154,7 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[200] animate-fadeIn">
-      <div className="bg-neutral-900 border border-neutral-800 w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+      <div className="glass-panel border border-white/10 w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="bg-neutral-800 px-6 py-4 border-b border-neutral-750 flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -174,7 +174,7 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
         {/* Body */}
         <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
            {image && (
-             <div className="w-full h-44 rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800 flex items-center justify-center relative shadow-inner">
+             <div className="w-full h-44 rounded-xl overflow-hidden bg-black/20 border border-white/10 flex items-center justify-center relative shadow-inner">
                {/* eslint-disable-next-line @next/next/no-img-element */}
                <img 
                  src={image} 
@@ -196,7 +196,7 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
               {name}
             </h3>
             {text && (
-              <p className="text-xs text-neutral-400 leading-relaxed bg-neutral-950/45 border border-neutral-800/60 p-3 rounded-lg">
+              <p className="text-xs text-neutral-400 leading-relaxed bg-black/20/45 border border-white/10/60 p-3 rounded-lg">
                 {text}
               </p>
             )}
@@ -205,13 +205,13 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
           {/* Key Metrics Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {/* Retail Price */}
-            <div className="bg-neutral-950/40 border border-neutral-800/80 p-3.5 rounded-xl flex flex-col justify-between">
+            <div className="bg-black/20/40 border border-white/10/80 p-3.5 rounded-xl flex flex-col justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Retail Price</span>
               <span className="text-base font-extrabold text-white mt-1">${retailVal.toFixed(2)}</span>
             </div>
 
             {/* Cost Price */}
-            <div className="bg-neutral-950/40 border border-neutral-800/80 p-3.5 rounded-xl flex flex-col justify-between">
+            <div className="bg-black/20/40 border border-white/10/80 p-3.5 rounded-xl flex flex-col justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Vendor Cost</span>
               <span className="text-base font-extrabold text-neutral-300 mt-1">
                 {costVal !== null ? `$${costVal.toFixed(2)}` : "â€”"}
@@ -219,7 +219,7 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
             </div>
 
             {/* Profit Margin */}
-            <div className="bg-neutral-950/40 border border-neutral-800/80 p-3.5 rounded-xl flex flex-col justify-between col-span-2 sm:col-span-1">
+            <div className="bg-black/20/40 border border-white/10/80 p-3.5 rounded-xl flex flex-col justify-between col-span-2 sm:col-span-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Markup Margin</span>
               {profit !== null && profitMargin !== null ? (
                 <div className="mt-1 flex flex-col">
@@ -234,11 +234,11 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
 
           {/* Vendor & Stock Info */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-neutral-950/20 border border-neutral-800/60 p-4 rounded-xl space-y-1">
+            <div className="bg-black/20/20 border border-white/10/60 p-4 rounded-xl space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">Preferred Vendor</span>
               <span className="text-xs font-semibold text-neutral-300 block">{vendor || "Not Configured"}</span>
             </div>
-            <div className="bg-neutral-950/20 border border-neutral-800/60 p-4 rounded-xl space-y-1.5">
+            <div className="bg-black/20/20 border border-white/10/60 p-4 rounded-xl space-y-1.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">Inventory Stock</span>
               <div className="flex items-center gap-2">
                 <span className={`w-2.5 h-2.5 rounded-full ${
@@ -255,14 +255,14 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
           {pertinentInfo && (
             <div className="space-y-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">Pertinent Info & Technical Specs</span>
-              <div className="bg-neutral-950/50 border border-neutral-800 p-4 rounded-xl text-xs text-neutral-300 leading-relaxed font-sans whitespace-pre-line">
+              <div className="bg-black/20/50 border border-white/10 p-4 rounded-xl text-xs text-neutral-300 leading-relaxed font-sans whitespace-pre-line">
                 {pertinentInfo}
               </div>
             </div>
           )}
 
           {/* Purchase History */}
-          <div className="space-y-2 border-t border-neutral-800/40 pt-4">
+          <div className="space-y-2 border-t border-white/10/40 pt-4">
             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">Purchase History</span>
             {loadingPurchases ? (
               <div className="flex justify-center py-6">
@@ -271,9 +271,9 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
             ) : purchases.length === 0 ? (
               <p className="text-xs text-neutral-500 italic py-2">No purchase history recorded for this item.</p>
             ) : (
-              <div className="border border-neutral-800 rounded-xl overflow-hidden overflow-x-auto bg-neutral-950/20 max-h-48 scrollbar-thin">
+              <div className="border border-white/10 rounded-xl overflow-hidden overflow-x-auto bg-black/20/20 max-h-48 scrollbar-thin">
                 <table className="w-full text-left text-[11px] min-w-[400px]">
-                  <thead className="bg-neutral-900/60 text-neutral-400 border-b border-neutral-800 uppercase text-[9px] font-bold">
+                  <thead className="glass-panel/60 text-neutral-400 border-b border-white/10 uppercase text-[9px] font-bold">
                     <tr>
                       <th className="px-3 py-2">Date</th>
                       <th className="px-3 py-2">Account</th>
@@ -285,7 +285,7 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
                   </thead>
                   <tbody className="divide-y divide-neutral-850">
                     {purchases.map((p, idx) => (
-                      <tr key={idx} className="hover:bg-neutral-800/20 text-neutral-300">
+                      <tr key={idx} className="hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/20 text-neutral-300">
                         <td className="px-3 py-2 whitespace-nowrap">{p.date}</td>
                         <td className="px-3 py-2 font-semibold text-white truncate max-w-[120px]">{p.accountName}</td>
                         <td className="px-3 py-2 text-right text-neutral-400 font-mono">#{p.invoiceNumber}</td>
@@ -302,10 +302,10 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
         </div>
 
         {/* Footer */}
-        <div className="bg-neutral-900/60 px-6 py-4 border-t border-neutral-800 flex justify-end">
+        <div className="glass-panel/60 px-6 py-4 border-t border-white/10 flex justify-end">
           <button
             onClick={onClose}
-            className="bg-neutral-850 hover:bg-neutral-800 text-white font-bold px-4 py-2 text-xs rounded-lg transition-colors cursor-pointer border border-neutral-800"
+            className="glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-white font-bold px-4 py-2 text-xs rounded-lg transition-colors cursor-pointer border border-white/10"
           >
             Close
           </button>

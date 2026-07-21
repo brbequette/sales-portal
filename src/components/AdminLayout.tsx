@@ -89,8 +89,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col md:flex-row h-full overflow-hidden bg-[#0f1013]">
       {/* Sidebar */}
-      <div className="w-full md:w-64 shrink-0 bg-neutral-900 border-r border-white/5 flex flex-col h-auto md:h-full overflow-y-auto">
-        <div className="p-4 flex items-center gap-2 border-b border-white/5">
+      <div className="w-full md:w-64 shrink-0 glass-panel border-r border-white/10 flex flex-col h-auto md:h-full overflow-y-auto">
+        <div className="p-4 flex items-center gap-2 border-b border-white/10">
           <div className="w-8 h-8 rounded bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
             <FiShield size={16} />
           </div>
@@ -133,7 +133,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden relative flex flex-col bg-[#0f1013]">
         {/* Mobile quick return */}
-        <div className="md:hidden p-3 border-b border-white/5 bg-neutral-900 flex items-center justify-between">
+        <div className="md:hidden p-3 border-b border-white/10 glass-panel flex items-center justify-between">
           <span className="text-sm font-bold text-white">Admin Panel</span>
           <Link href="/" className="text-xs text-emerald-400 flex items-center gap-1">
             <FiChevronLeft /> Back to Hub

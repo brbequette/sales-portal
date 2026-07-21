@@ -261,9 +261,9 @@ export default function ToolsRepository() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans pb-12">
+    <div className="min-h-screen bg-black/20 text-neutral-100 font-sans pb-12">
       {/* â”€â”€ Header â”€â”€ */}
-      <header className="bg-neutral-900 border-b border-neutral-800 sticky top-0 z-10">
+      <header className="glass-panel border-b border-white/10 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Link href="/" className="text-neutral-400 hover:text-emerald-400 font-medium transition-colors text-sm">
@@ -296,7 +296,7 @@ export default function ToolsRepository() {
                 <div className="text-[10px] uppercase font-bold tracking-widest text-neutral-500">
                   User Level: <span className={isAdmin ? "text-emerald-400 font-extrabold" : "text-neutral-400"}>{currentUser?.role || "Sales Rep"}</span>
                 </div>
-                <div className="bg-neutral-900 rounded-lg p-0.5 flex border border-neutral-800">
+                <div className="glass-panel rounded-lg p-0.5 flex border border-white/10">
                   <button 
                     onClick={() => setViewMode("grid")} 
                     className={`p-2 rounded ${viewMode === 'grid' ? 'bg-neutral-800 text-emerald-400' : 'text-neutral-500 hover:text-white'}`}
@@ -324,7 +324,7 @@ export default function ToolsRepository() {
                   className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
                     activeCategory === cat 
                       ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                      : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white border border-neutral-800'
+                      : 'glass-panel text-neutral-400 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 hover:text-white border border-white/10'
                   }`}
                 >
                   {cat}
@@ -343,8 +343,8 @@ export default function ToolsRepository() {
                 {viewMode === 'grid' ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {filteredAssets.map(asset => (
-                      <div key={asset.id} className="bg-neutral-900/60 border border-neutral-800 hover:border-neutral-700 rounded-xl overflow-hidden transition-all group flex flex-col shadow-xl">
-                        <div className="h-28 bg-neutral-900 flex items-center justify-center text-3xl group-hover:scale-105 transition-transform duration-300 relative border-b border-neutral-800">
+                      <div key={asset.id} className="glass-panel/60 border border-white/10 hover:border-neutral-700 rounded-xl overflow-hidden transition-all group flex flex-col shadow-xl">
+                        <div className="h-28 glass-panel flex items-center justify-center text-3xl group-hover:scale-105 transition-transform duration-300 relative border-b border-white/10">
                           {getIcon(asset.type)}
                           <div className="absolute top-2 right-2 bg-neutral-800 text-[9px] font-bold px-2 py-0.5 rounded text-neutral-400 border border-neutral-700">
                             {asset.type}
@@ -359,7 +359,7 @@ export default function ToolsRepository() {
                               {asset.title}
                             </h3>
                           </div>
-                          <div className="pt-3 border-t border-neutral-800/50 flex items-center justify-between">
+                          <div className="pt-3 border-t border-white/10/50 flex items-center justify-between">
                             <span className="text-[10px] text-neutral-500">{asset.size}</span>
                             <div className="flex gap-1">
                               <button 
@@ -402,9 +402,9 @@ export default function ToolsRepository() {
                   </div>
                 ) : (
                   /* List View */
-                  <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-x-auto shadow-2xl">
+                  <div className="glass-panel border border-white/10 rounded-xl overflow-x-auto shadow-2xl">
                     <table className="w-full text-left text-xs min-w-[600px]">
-                      <thead className="bg-neutral-800/80 text-neutral-400 border-b border-neutral-800 uppercase tracking-wider text-[9px] font-bold">
+                      <thead className="bg-neutral-800/80 text-neutral-400 border-b border-white/10 uppercase tracking-wider text-[9px] font-bold">
                         <tr>
                           <th className="p-4">Name</th>
                           <th className="p-4">Category</th>
@@ -415,7 +415,7 @@ export default function ToolsRepository() {
                       </thead>
                       <tbody className="divide-y divide-neutral-800">
                         {filteredAssets.map(asset => (
-                          <tr key={asset.id} className="hover:bg-neutral-800/30 transition-colors">
+                          <tr key={asset.id} className="hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30 transition-colors">
                             <td className="p-4 flex items-center gap-3">
                               <div className="text-base shrink-0">{getIcon(asset.type)}</div>
                               <span className="font-semibold text-white truncate max-w-xs sm:max-w-md">{asset.title}</span>
@@ -467,7 +467,7 @@ export default function ToolsRepository() {
                 )}
 
                 {filteredAssets.length === 0 && (
-                  <div className="p-16 text-center border border-dashed border-neutral-800 rounded-xl bg-neutral-900/10">
+                  <div className="p-16 text-center border border-dashed border-white/10 rounded-xl glass-panel/10">
                     <FiSearch className="mx-auto text-4xl text-neutral-600 mb-3" />
                     <p className="text-neutral-400 font-medium text-sm">No assets found matching your criteria.</p>
                   </div>
@@ -479,9 +479,9 @@ export default function ToolsRepository() {
       {/* â”€â”€ Add / Edit Asset Modal (Admin Only) â”€â”€ */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-neutral-900 border border-neutral-800 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl">
+          <div className="glass-panel border border-white/10 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl">
             {/* Modal Header */}
-            <div className="bg-neutral-800 px-6 py-4 border-b border-neutral-800 flex justify-between items-center">
+            <div className="bg-neutral-800 px-6 py-4 border-b border-white/10 flex justify-between items-center">
               <h2 className="font-bold text-white text-base">
                 {editingAsset ? "âœï¸ Edit Media Asset" : "âœ¨ Add New Media Asset"}
               </h2>
@@ -509,7 +509,7 @@ export default function ToolsRepository() {
                   placeholder="e.g. Wet Core Drill Bit Guide"
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
 
@@ -519,7 +519,7 @@ export default function ToolsRepository() {
                   <select 
                     value={formType}
                     onChange={(e) => setFormType(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
                   >
                     {assetTypes.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
@@ -529,7 +529,7 @@ export default function ToolsRepository() {
                   <select 
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
                   >
                     {categories.filter(c => c !== "All").map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -545,7 +545,7 @@ export default function ToolsRepository() {
                     placeholder="https://example.com/asset.pdf"
                     value={formUrl}
                     onChange={(e) => setFormUrl(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
                 <div>
@@ -555,13 +555,13 @@ export default function ToolsRepository() {
                     placeholder="e.g. 2.4 MB, 125 MB, Link"
                     value={formSize}
                     onChange={(e) => setFormSize(e.target.value)}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-4 border-t border-neutral-800 flex justify-end gap-3">
+              <div className="pt-4 border-t border-white/10 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}

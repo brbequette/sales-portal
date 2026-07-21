@@ -217,7 +217,7 @@ export default function BackfillPage() {
   const needsPhase1 = status && status.hasBookId.total < status.totals.invoices
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white p-6 space-y-6">
+    <div className="min-h-screen bg-black/20 text-white p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -248,7 +248,7 @@ export default function BackfillPage() {
             { label: "Fully Cached", value: status.cached.total.toLocaleString(), sub: `${pct}% complete`, color: "border-emerald-700" },
             { label: "Still Needed", value: Math.max(0, status.totals.total - status.cached.total).toLocaleString(), sub: `${status.totals.total - status.hasBookId.total} missing Books ID`, color: "border-amber-700" },
           ].map(stat => (
-            <div key={stat.label} className={`bg-neutral-900 border ${stat.color} rounded-xl p-4`}>
+            <div key={stat.label} className={`glass-panel border ${stat.color} rounded-xl p-4`}>
               <p className="text-xs text-neutral-500 font-medium uppercase tracking-wider">{stat.label}</p>
               <p className="text-2xl font-black text-white mt-1">{stat.value}</p>
               <p className="text-xs text-neutral-400 mt-0.5">{stat.sub}</p>
@@ -259,7 +259,7 @@ export default function BackfillPage() {
 
       {/* Progress Bar */}
       {status && (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 space-y-2">
+        <div className="glass-panel border border-white/10 rounded-xl p-4 space-y-2">
           <div className="flex justify-between text-xs text-neutral-400">
             <span>Overall Progress</span>
             <span className="font-bold text-white">{pct}%</span>
@@ -280,7 +280,7 @@ export default function BackfillPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Phase 1 */}
-        <div className={`bg-neutral-900 border rounded-xl p-5 space-y-3 ${phase1Done ? 'border-emerald-800' : 'border-neutral-700'}`}>
+        <div className={`glass-panel border rounded-xl p-5 space-y-3 ${phase1Done ? 'border-emerald-800' : 'border-neutral-700'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${phase1Done ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>1</span>
@@ -323,7 +323,7 @@ export default function BackfillPage() {
         </div>
 
         {/* Phase 2 */}
-        <div className={`bg-neutral-900 border rounded-xl p-5 space-y-3 ${status?.checkpoint?.phase2Done ? 'border-emerald-800' : 'border-neutral-700'}`}>
+        <div className={`glass-panel border rounded-xl p-5 space-y-3 ${status?.checkpoint?.phase2Done ? 'border-emerald-800' : 'border-neutral-700'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${status?.checkpoint?.phase2Done ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/20 text-sky-400'}`}>2</span>
@@ -399,8 +399,8 @@ export default function BackfillPage() {
       </div>
 
       {/* Log */}
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
+      <div className="glass-panel border border-white/10 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
           <h3 className="text-sm font-bold text-white">Activity Log</h3>
           <button onClick={() => setLog([])} className="text-xs text-neutral-500 hover:text-neutral-300">Clear</button>
         </div>
@@ -520,8 +520,8 @@ function CsvImportSection() {
   }
 
   return (
-    <div className="bg-neutral-900/60 border border-neutral-800 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-neutral-800">
+    <div className="glass-panel/60 border border-white/10 rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-white/10">
         <h3 className="text-sm font-bold text-white flex items-center gap-2">
           <FiDatabase size={14} /> CSV Import from Zoho Books Export
         </h3>

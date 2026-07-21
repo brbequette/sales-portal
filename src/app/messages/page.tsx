@@ -190,7 +190,7 @@ export default function MessagesPage() {
             <input 
               type="text"
               placeholder="Search accounts..."
-              className="w-full pl-9 pr-4 py-2 bg-neutral-900 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full pl-9 pr-4 py-2 glass-panel border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -199,7 +199,7 @@ export default function MessagesPage() {
               id="incomingFilter"
               checked={showIncomingOnly}
               onChange={(e) => setShowIncomingOnly(e.target.checked)}
-              className="rounded border-white/10 bg-neutral-900 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-neutral-900"
+              className="rounded border-white/10 glass-panel text-emerald-500 focus:ring-emerald-500 focus:ring-offset-neutral-900"
             />
             <label htmlFor="incomingFilter" className="text-sm text-neutral-400 cursor-pointer">
               Only show incoming messages
@@ -216,7 +216,7 @@ export default function MessagesPage() {
             (Object.entries(groupedByCampaign) as [string, any[]][]).map(([campaignName, campaignAccounts]) => (
               <div key={campaignName} className="mb-4">
                 <div 
-                  className="px-4 py-2 bg-neutral-900/80 text-[10px] font-bold text-neutral-500 uppercase tracking-wider sticky top-0 backdrop-blur z-10 border-y border-white/5 flex justify-between items-center cursor-pointer hover:text-neutral-300 transition-colors"
+                  className="px-4 py-2 glass-panel/80 text-[10px] font-bold text-neutral-500 uppercase tracking-wider sticky top-0 backdrop-blur z-10 border-y border-white/10 flex justify-between items-center cursor-pointer hover:text-neutral-300 transition-colors"
                   onClick={() => setExpandedCampaigns(prev => ({ ...prev, [campaignName]: prev[campaignName] === false ? true : false }))}
                 >
                   <span>{campaignName} ({campaignAccounts.length})</span>
@@ -228,7 +228,7 @@ export default function MessagesPage() {
                     <div 
                       key={account.id}
                       onClick={() => setSelectedAccountId(account.id)}
-                      className={`p-4 border-b border-white/5 cursor-pointer hover:bg-neutral-800/50 transition-colors ${selectedAccountId === account.id ? 'bg-neutral-800' : ''}`}
+                      className={`p-4 border-b border-white/10 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors ${selectedAccountId === account.id ? 'bg-neutral-800' : ''}`}
                     >
                       <div className="flex justify-between items-start mb-1">
                         <h3 className="font-bold text-white text-sm truncate">{account.name}</h3>
@@ -252,7 +252,7 @@ export default function MessagesPage() {
           
           {/* Load Back Data Button */}
           {!loadingAccounts && (
-            <div className="p-4 border-t border-white/5 flex justify-center">
+            <div className="p-4 border-t border-white/10 flex justify-center">
               <button 
                 onClick={handleLoadOlder}
                 disabled={syncing}
@@ -307,7 +307,7 @@ export default function MessagesPage() {
                   const isMine = msg.direction === 'OUTBOUND'
                   return (
                     <div key={msg.id || idx} className={`flex flex-col max-w-[80%] ${isMine ? 'self-end items-end' : 'self-start items-start'}`}>
-                      <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMine ? 'bg-emerald-600 text-white rounded-br-sm' : 'bg-neutral-800 text-neutral-200 rounded-bl-sm border border-white/5'}`}>
+                      <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMine ? 'bg-emerald-600 text-white rounded-br-sm' : 'bg-neutral-800 text-neutral-200 rounded-bl-sm border border-white/10'}`}>
                         {msg.mediaUrl && (
                           <img src={msg.mediaUrl} alt="Attachment" className="max-w-full rounded-lg mb-2 max-h-48 object-cover" />
                         )}
@@ -325,7 +325,7 @@ export default function MessagesPage() {
 
             {/* AI Suggestions Box */}
             {suggestions.length > 0 && (
-              <div className="px-4 py-3 bg-neutral-900 border-t border-white/10">
+              <div className="px-4 py-3 glass-panel border-t border-white/10">
                 <div className="text-xs font-bold text-emerald-400 mb-2 flex items-center gap-1.5">
                   <FiZap /> AI Suggestions
                 </div>
@@ -357,7 +357,7 @@ export default function MessagesPage() {
                 value={textInput}
                 onChange={e => setTextInput(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 bg-neutral-900 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 resize-none"
+                className="flex-1 glass-panel border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 resize-none"
                 rows={1}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) {

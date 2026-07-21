@@ -173,10 +173,10 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
   const balance = rep.totalEarned - rep.totalPaid
 
   return (
-    <div className="bg-neutral-800/40 border border-neutral-800 rounded-xl overflow-hidden">
+    <div className="bg-neutral-800/40 border border-white/10 rounded-xl overflow-hidden">
       {/* Header */}
       <button onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-neutral-800/60 transition-colors"
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/60 transition-colors"
       >
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-full bg-blue-900/40 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold text-sm shrink-0">
@@ -209,9 +209,9 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
       </button>
 
       {open && (
-        <div className="border-t border-neutral-800">
+        <div className="border-t border-white/10">
           {/* Mini stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-neutral-800 border-b border-neutral-800">
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-neutral-800 border-b border-white/10">
             {[
               { label: "Total Sales", value: fmt(rep.totalSales || 0), color: "text-white" },
               { label: "Total Profit", value: fmt(rep.totalProfit || 0), color: "text-sky-400" },
@@ -228,7 +228,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
             </div>
           </div>
 
-          <div className="px-5 py-3 border-b border-neutral-800 bg-neutral-900/50 flex justify-end gap-2">
+          <div className="px-5 py-3 border-b border-white/10 glass-panel/50 flex justify-end gap-2">
             {onStartCampaign && (
               <button
                 onClick={(e) => { e.stopPropagation(); onStartCampaign(rep); }}
@@ -246,7 +246,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
           </div>
 
           {/* Tab switcher */}
-          <div className="flex border-b border-neutral-800">
+          <div className="flex border-b border-white/10">
             <button
               onClick={() => setActiveTab("invoices")}
               className={`px-5 py-2.5 text-xs font-bold transition-colors ${
@@ -273,13 +273,13 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
               )}
               {groupedInvoices.map(({ year, weeks }) => (
                 <div key={year} className="mb-4">
-                  <div className="px-5 py-2 bg-neutral-900 text-sm font-bold text-neutral-300 border-y border-neutral-800">{year}</div>
+                  <div className="px-5 py-2 glass-panel text-sm font-bold text-neutral-300 border-y border-white/10">{year}</div>
                   {weeks.map((week) => {
                     const isExpanded = expandedWeeks[`${year}-${week.startOfWeek}`]
                     return (
-                      <div key={week.startOfWeek} className="border-b border-neutral-800/40">
+                      <div key={week.startOfWeek} className="border-b border-white/10/40">
                         <div
-                          className="px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-neutral-800/50 transition-colors"
+                          className="px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors"
                           onClick={() => setExpandedWeeks(prev => ({ ...prev, [`${year}-${week.startOfWeek}`]: !prev[`${year}-${week.startOfWeek}`] }))}
                         >
                           <div className="flex items-center gap-2">
@@ -290,7 +290,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                           <div className="text-sm font-bold text-emerald-400">{fmt(week.totalCommission)}</div>
                         </div>
                         {isExpanded && (
-                          <div className="bg-neutral-900/20 pl-4 border-t border-neutral-800/30">
+                          <div className="glass-panel/20 pl-4 border-t border-white/10/30">
                             {week.events.map((ev, ei) => {
                               const { inv, commissionAmount, eventType, eventDate } = ev
                               const isUpfront = eventType === 'upfront'
@@ -298,7 +298,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                                 <div
                                   key={`${inv.id}-${eventType}`}
                                   onClick={() => onViewInvoice && onViewInvoice(inv.zohoId)}
-                                  className="flex items-center justify-between px-5 py-3 transition-colors border-b border-neutral-800/30 last:border-0 hover:bg-neutral-800 cursor-pointer"
+                                  className="flex items-center justify-between px-5 py-3 transition-colors border-b border-white/10/30 last:border-0 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-pointer"
                                 >
                                   <div className="min-w-0 flex-1 flex items-center gap-2.5">
                                     <FiFileText className={`shrink-0 text-sm ${isUpfront ? 'text-amber-400' : 'text-emerald-500'}`} />
@@ -369,7 +369,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                 <div className="px-5 py-8 text-center text-neutral-500 text-sm">No pipeline activity this period</div>
               )}
               {rep.deals.map(deal => (
-                <div key={deal.id} className={`flex items-center justify-between px-5 py-3 hover:bg-neutral-800/50 transition-colors ${
+                <div key={deal.id} className={`flex items-center justify-between px-5 py-3 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors ${
                   deal.status === "lost" ? "opacity-40" : ""
                 }`}>
                   <div className="min-w-0 flex-1">
@@ -423,8 +423,8 @@ function StatsTab({ data }: { data: CommData }) {
     <div className="space-y-4 p-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Top Reps */}
-        <div className="bg-neutral-800/40 border border-neutral-800 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-neutral-800 flex items-center gap-2">
+        <div className="bg-neutral-800/40 border border-white/10 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
             <FiAward className="text-amber-400" size={15} />
             <h3 className="text-sm font-bold text-white">Top Reps by Commission</h3>
           </div>
@@ -445,8 +445,8 @@ function StatsTab({ data }: { data: CommData }) {
         </div>
 
         {/* Top Accounts */}
-        <div className="bg-neutral-800/40 border border-neutral-800 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-neutral-800 flex items-center gap-2">
+        <div className="bg-neutral-800/40 border border-white/10 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
             <FiTrendingUp className="text-blue-400" size={15} />
             <h3 className="text-sm font-bold text-white">Top Accounts by Revenue</h3>
           </div>
@@ -509,7 +509,7 @@ function ReimbursementsTab({ userId }: { userId?: string }) {
   if (!userId) return <div className="p-4 text-neutral-500">Log in to view reimbursements.</div>
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-xl mt-4 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-neutral-800">
+    <div className="glass-panel border border-white/10 rounded-xl mt-4 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-neutral-800">
        <div className="flex-1 p-6">
           <h2 className="text-lg font-bold text-white mb-4">Your Reimbursements</h2>
           {loading ? (
@@ -538,11 +538,11 @@ function ReimbursementsTab({ userId }: { userId?: string }) {
           <form onSubmit={onSubmit} className="space-y-4">
              <div>
                 <label className="block text-xs font-bold text-neutral-400 mb-1">Description</label>
-                <input required type="text" value={desc} onChange={e => setDesc(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm text-white" placeholder="e.g. Client Lunch" />
+                <input required type="text" value={desc} onChange={e => setDesc(e.target.value)} className="w-full glass-panel border border-neutral-700 rounded p-2 text-sm text-white" placeholder="e.g. Client Lunch" />
              </div>
              <div>
                 <label className="block text-xs font-bold text-neutral-400 mb-1">Amount ($)</label>
-                <input required type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm text-white" placeholder="0.00" />
+                <input required type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className="w-full glass-panel border border-neutral-700 rounded p-2 text-sm text-white" placeholder="0.00" />
              </div>
              <p className="text-[10px] text-neutral-500 leading-tight">By submitting, you confirm this expense is valid and incurred on behalf of Titan Diamond.</p>
              <button disabled={submitting} type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold py-2 rounded text-sm transition-colors">
@@ -770,7 +770,7 @@ export default function CommissionsPage() {
     <div className="flex flex-col overflow-hidden" style={{ height: "100%" }}>
 
       {/* Header */}
-      <div className="flex-none px-5 py-3 border-b border-neutral-800 bg-neutral-950">
+      <div className="flex-none px-5 py-3 border-b border-white/10 bg-black/20">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-lg font-bold text-white flex items-center gap-2">
@@ -813,8 +813,8 @@ export default function CommissionsPage() {
       </div>
 
       {/* Sub-nav */}
-      <div className="flex-none px-5 py-2 border-b border-neutral-800 bg-neutral-900 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex bg-neutral-800 border border-neutral-800 rounded-lg p-0.5 gap-0.5">
+      <div className="flex-none px-5 py-2 border-b border-white/10 glass-panel flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex bg-neutral-800 border border-white/10 rounded-lg p-0.5 gap-0.5">
           <button onClick={() => setActiveTab("ledger")} className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${activeTab === "ledger" ? "bg-amber-600 text-white" : "text-neutral-400 hover:text-white"}`}>
             Ledger
           </button>
@@ -842,7 +842,7 @@ export default function CommissionsPage() {
           )}
           <button
             onClick={() => setShowFiltersDrawer(true)}
-            className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 bg-neutral-800 hover:bg-neutral-800 border rounded-lg transition-colors ${
+            className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 bg-neutral-800 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 border rounded-lg transition-colors ${
               activeFiltersCount > 0 ? "text-amber-400 border-amber-500/40 bg-amber-950/10" : "text-neutral-300 border-neutral-700/60"
             }`}
           >
@@ -861,9 +861,9 @@ export default function CommissionsPage() {
       {showFiltersDrawer && createPortal(
         <div className="fixed inset-0 z-[9999]">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFiltersDrawer(false)} />
-          <div className="fixed top-0 right-0 h-full w-full max-w-sm bg-neutral-900 border-l border-neutral-800 p-6 flex flex-col shadow-2xl text-white z-[9999]">
+          <div className="fixed top-0 right-0 h-full w-full max-w-sm glass-panel border-l border-white/10 p-6 flex flex-col shadow-2xl text-white z-[9999]">
               {/* Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
+              <div className="flex items-center justify-between pb-4 border-b border-white/10">
                 <h2 className="text-sm font-bold flex items-center gap-2 uppercase tracking-wider text-neutral-300">
                   <FiFilter className="text-amber-400" /> Filters
                 </h2>
@@ -909,7 +909,7 @@ export default function CommissionsPage() {
                 {/* Hide Fulfilled */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Status Filter</label>
-                  <label className="flex items-center gap-2 text-xs text-neutral-300 cursor-pointer bg-neutral-800/40 border border-neutral-800 p-3 rounded-lg hover:bg-neutral-800/50">
+                  <label className="flex items-center gap-2 text-xs text-neutral-300 cursor-pointer bg-neutral-800/40 border border-white/10 p-3 rounded-lg hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50">
                     <input 
                       type="checkbox" 
                       checked={hideFulfilled} 
@@ -922,7 +922,7 @@ export default function CommissionsPage() {
               </div>
 
               {/* Footer */}
-              <div className="pt-4 border-t border-neutral-800 flex gap-3">
+              <div className="pt-4 border-t border-white/10 flex gap-3">
                 <button 
                   onClick={() => {
                     setSearch("")
@@ -931,7 +931,7 @@ export default function CommissionsPage() {
                     setHideFulfilled(false)
                     setShowFiltersDrawer(false)
                   }}
-                  className="flex-1 bg-neutral-800 hover:bg-neutral-800 border border-neutral-700/60 text-white font-bold py-2 px-4 rounded-lg text-xs transition-colors"
+                  className="flex-1 bg-neutral-800 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 border border-neutral-700/60 text-white font-bold py-2 px-4 rounded-lg text-xs transition-colors"
                 >
                   Clear All
                 </button>
@@ -995,8 +995,8 @@ export default function CommissionsPage() {
       {managingPayoutsFor && createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setManagingPayoutsFor(null)} />
-          <div className="relative bg-neutral-900 border border-neutral-850 w-full max-w-2xl h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10001]">
-            <div className="bg-neutral-850 px-6 py-4 border-b border-neutral-800 flex justify-between items-center shrink-0">
+          <div className="relative glass-panel border border-neutral-850 w-full max-w-2xl h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10001]">
+            <div className="glass-panel px-6 py-4 border-b border-white/10 flex justify-between items-center shrink-0">
               <div>
                 <h2 className="text-sm font-bold text-white flex items-center gap-2">
                   <FiDollarSign className="text-amber-500" /> Manage Payouts
@@ -1010,7 +1010,7 @@ export default function CommissionsPage() {
 
             <div className="flex flex-1 overflow-hidden">
               {/* Form Side */}
-              <div className="w-1/2 p-5 border-r border-neutral-800 bg-neutral-950 flex flex-col relative">
+              <div className="w-1/2 p-5 border-r border-white/10 bg-black/20 flex flex-col relative">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-4">
                   {editingPayoutId ? "Edit Payout" : "Add New Payout"}
                 </h3>
@@ -1018,12 +1018,12 @@ export default function CommissionsPage() {
                   <button 
                     onClick={handleCancelEdit}
                     type="button"
-                    className="absolute top-5 right-5 text-[10px] uppercase font-bold text-neutral-500 hover:text-white transition-colors bg-neutral-900 px-2 py-1 rounded"
+                    className="absolute top-5 right-5 text-[10px] uppercase font-bold text-neutral-500 hover:text-white transition-colors glass-panel px-2 py-1 rounded"
                   >
                     Cancel
                   </button>
                 )}
-                <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl mb-4">
+                <div className="glass-panel border border-white/10 p-4 rounded-xl mb-4">
                   <div className="flex justify-between mb-2">
                     <span className="text-xs text-neutral-400">Total Earned</span>
                     <span className="text-xs font-bold text-emerald-400">{fmt(managingPayoutsFor.totalEarned)}</span>
@@ -1032,7 +1032,7 @@ export default function CommissionsPage() {
                     <span className="text-xs text-neutral-400">Total Paid</span>
                     <span className="text-xs font-bold text-blue-400">{fmt(managingPayoutsFor.totalPaid)}</span>
                   </div>
-                  <div className="flex justify-between border-t border-neutral-800 pt-2 mt-2">
+                  <div className="flex justify-between border-t border-white/10 pt-2 mt-2">
                     <span className="text-xs font-bold text-neutral-300">Balance Owed</span>
                     <span className={`text-xs font-bold ${managingPayoutsFor.balance > 0 ? 'text-amber-400' : 'text-neutral-400'}`}>
                       {fmt(managingPayoutsFor.balance)}
@@ -1058,7 +1058,7 @@ export default function CommissionsPage() {
                     <select
                       value={payoutMethod}
                       onChange={e => setPayoutMethod(e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-xs text-white outline-none focus:border-amber-500/50 transition-colors"
+                      className="w-full bg-black/20 border border-white/10 rounded p-2 text-xs text-white outline-none focus:border-amber-500/50 transition-colors"
                     >
                       <option value="Check">Check</option>
                       <option value="Zelle">Zelle</option>
@@ -1070,7 +1070,7 @@ export default function CommissionsPage() {
                       rows={3}
                       value={payoutNotes}
                       onChange={e => setPayoutNotes(e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-xs text-white outline-none focus:border-amber-500/50 transition-colors resize-none placeholder:text-neutral-600"
+                      className="w-full bg-black/20 border border-white/10 rounded p-2 text-xs text-white outline-none focus:border-amber-500/50 transition-colors resize-none placeholder:text-neutral-600"
                       placeholder="Check #1042..."
                     />
                   </div>
@@ -1085,8 +1085,8 @@ export default function CommissionsPage() {
               </div>
 
               {/* History Side */}
-              <div className="w-1/2 p-0 flex flex-col bg-neutral-900">
-                <div className="p-4 border-b border-neutral-800 bg-neutral-850">
+              <div className="w-1/2 p-0 flex flex-col glass-panel">
+                <div className="p-4 border-b border-white/10 glass-panel">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400">Payout History</h3>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin">
@@ -1094,13 +1094,13 @@ export default function CommissionsPage() {
                     <div className="text-center text-neutral-500 italic mt-10 text-sm">No payouts recorded yet.</div>
                   ) : (
                     managingPayoutsFor.payouts.map(p => (
-                      <div key={p.id} className="group bg-neutral-800/60 border border-neutral-800 rounded-lg p-3 hover:border-neutral-700 transition-colors flex flex-col gap-2">
+                      <div key={p.id} className="group bg-neutral-800/60 border border-white/10 rounded-lg p-3 hover:border-neutral-700 transition-colors flex flex-col gap-2">
                         <div className="flex justify-between items-start">
                           <div className="flex flex-col">
                             <div className="text-sm font-bold text-emerald-400">{fmt(p.amount)}</div>
                             <div className="text-[10px] text-neutral-500 flex items-center gap-1.5 mt-0.5">
-                              <span className="bg-neutral-900 px-1 py-0.5 rounded border border-neutral-800">{new Date(p.date).toLocaleDateString()}</span>
-                              {p.method && <span className="bg-neutral-900 px-1 py-0.5 rounded border border-neutral-800">{p.method}</span>}
+                              <span className="glass-panel px-1 py-0.5 rounded border border-white/10">{new Date(p.date).toLocaleDateString()}</span>
+                              {p.method && <span className="glass-panel px-1 py-0.5 rounded border border-white/10">{p.method}</span>}
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-2">
@@ -1112,7 +1112,7 @@ export default function CommissionsPage() {
                         </div>
                         
                         {p.notes && (
-                          <div className="bg-neutral-900/50 rounded p-2 border border-neutral-800/50 flex flex-col gap-1 mt-1">
+                          <div className="glass-panel/50 rounded p-2 border border-white/10/50 flex flex-col gap-1 mt-1">
                             <div className="text-xs text-neutral-300">
                               <span className="text-neutral-500 uppercase font-bold tracking-wider text-[9px]">Notes: </span>
                               {p.notes}
@@ -1134,8 +1134,8 @@ export default function CommissionsPage() {
       {viewingLedgerFor && createPortal(
         <div className="fixed inset-0 z-[10000] flex flex-col items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setViewingLedgerFor(null)} />
-          <div className="relative bg-neutral-900 border border-neutral-800 w-full max-w-3xl max-h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10001]">
-            <div className="px-6 py-4 border-b border-neutral-800 flex justify-between items-center bg-neutral-800/30">
+          <div className="relative glass-panel border border-white/10 w-full max-w-3xl max-h-[85vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10001]">
+            <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-neutral-800/30">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold">
                   {viewingLedgerFor.repName.charAt(0)}
@@ -1196,7 +1196,7 @@ export default function CommissionsPage() {
                     return txs.map((tx, idx) => {
                       runningBalance += tx.amount
                       return (
-                        <tr key={idx} className="hover:bg-white/[0.02] transition-colors">
+                        <tr key={idx} className="hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                           <td className="px-4 py-3 text-neutral-300">{new Date(tx.date).toLocaleDateString()}</td>
                           <td className="px-4 py-3 text-neutral-300">
                             {tx.isPayout ? <span className="text-amber-500 font-medium">{tx.desc}</span> : tx.desc}
@@ -1215,7 +1215,7 @@ export default function CommissionsPage() {
               </table>
             </div>
             
-            <div className="px-6 py-4 border-t border-neutral-800 bg-neutral-900 flex justify-between items-center">
+            <div className="px-6 py-4 border-t border-white/10 glass-panel flex justify-between items-center">
               <span className="text-sm text-neutral-400">Total Balance</span>
               <span className="text-xl font-bold text-amber-400">
                 {fmt(

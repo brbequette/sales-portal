@@ -191,7 +191,7 @@ export default function ProductCatalogPage() {
 
   if (!isInitialized || (loading && products.length === 0)) {
     return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-neutral-950 text-white">
+      <div className="flex items-center justify-center min-h-[100dvh] bg-black/20 text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-neutral-400 text-sm">Loading Product Catalog...</p>
@@ -201,15 +201,15 @@ export default function ProductCatalogPage() {
   }
 
   const renderTable = (items: any[], title?: string) => (
-    <div key={title} className="mb-8 bg-neutral-900 border border-neutral-800 rounded-xl overflow-x-auto shadow-2xl">
+    <div key={title} className="mb-8 glass-panel border border-white/10 rounded-xl overflow-x-auto shadow-2xl">
       {title && title !== "All Products" && (
-        <div className="bg-neutral-850 px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
+        <div className="glass-panel px-4 py-3 border-b border-white/10 flex items-center justify-between">
           <h2 className="text-sm font-bold text-white uppercase tracking-wider">{title}</h2>
           <span className="text-xs text-neutral-500 font-semibold">{items.length} items</span>
         </div>
       )}
       <table className="w-full text-left text-xs min-w-[800px]">
-        <thead className="bg-neutral-800/80 text-neutral-400 border-b border-neutral-800 uppercase tracking-wider text-[9px] font-bold">
+        <thead className="bg-neutral-800/80 text-neutral-400 border-b border-white/10 uppercase tracking-wider text-[9px] font-bold">
           <tr>
             <th className="p-4 w-28">SKU</th>
             <th className="p-4">Product Name</th>
@@ -228,7 +228,7 @@ export default function ProductCatalogPage() {
               <tr 
                 key={p.id} 
                 onClick={() => showProduct(p.sku, { name: p.name, sku: p.sku })}
-                className="hover:bg-neutral-800/30 transition-colors cursor-pointer"
+                className="hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30 transition-colors cursor-pointer"
               >
                 <td className="p-4 font-mono font-bold text-neutral-300">
                   {p.sku}
@@ -240,7 +240,7 @@ export default function ProductCatalogPage() {
                 </td>
                 <td className="p-4 font-semibold text-white">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-neutral-850 border border-neutral-700/50 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg glass-panel border border-neutral-700/50 flex-shrink-0 overflow-hidden flex items-center justify-center">
                       {parsed.image || getProductImage(p.name, p.sku) ? (
                         <img 
                           src={parsed.image || getProductImage(p.name, p.sku) || undefined} 
@@ -317,9 +317,9 @@ export default function ProductCatalogPage() {
   )
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans pb-12">
+    <div className="min-h-screen bg-black/20 text-neutral-100 font-sans pb-12">
       {/* Header */}
-      <header className="bg-neutral-900 border-b border-neutral-800 sticky top-0 z-10">
+      <header className="glass-panel border-b border-white/10 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Link href="/" className="text-neutral-400 hover:text-emerald-400 font-medium transition-colors text-sm">
@@ -361,7 +361,7 @@ export default function ProductCatalogPage() {
               placeholder="Search products by SKU, name, description..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-11 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
+              className="w-full glass-panel border border-white/10 rounded-xl pl-11 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
             />
           </div>
 
@@ -372,7 +372,7 @@ export default function ProductCatalogPage() {
                 id="showInactive" 
                 checked={showInactive} 
                 onChange={e => setShowInactive(e.target.checked)} 
-                className="rounded border-neutral-700 bg-neutral-900 text-emerald-500 focus:ring-emerald-500"
+                className="rounded border-neutral-700 glass-panel text-emerald-500 focus:ring-emerald-500"
               />
               <label htmlFor="showInactive" className="cursor-pointer select-none text-xs font-bold uppercase tracking-wide">Show Inactive</label>
             </div>
@@ -391,7 +391,7 @@ export default function ProductCatalogPage() {
               className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
                 category === cat 
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                  : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white border border-neutral-800'
+                  : 'glass-panel text-neutral-400 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 hover:text-white border border-white/10'
               }`}
             >
               {cat}
@@ -400,7 +400,7 @@ export default function ProductCatalogPage() {
         </div>
 
         {/* Advanced Filters */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-wrap gap-4">
+        <div className="glass-panel border border-white/10 rounded-xl p-4 flex flex-wrap gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Application</label>
             <select value={filterApp} onChange={e => setFilterApp(e.target.value)} className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:border-emerald-500 outline-none">
@@ -461,33 +461,33 @@ export default function ProductCatalogPage() {
       {/* Edit Modal */}
       {editingProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-neutral-800 flex items-center justify-between bg-neutral-850">
+          <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between glass-panel">
               <h2 className="text-sm font-bold text-white">Edit Classifications: {editingProduct.sku}</h2>
               <button onClick={() => setEditingProduct(null)} className="text-neutral-400 hover:text-white"><FiX /></button>
             </div>
             <form onSubmit={handleSaveProduct} className="p-6 space-y-4">
               <div>
                 <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Application</label>
-                <input type="text" value={editingProduct.application || ""} onChange={e => setEditingProduct({...editingProduct, application: e.target.value})} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none" placeholder="e.g. Concrete, Asphalt, Polishing" />
+                <input type="text" value={editingProduct.application || ""} onChange={e => setEditingProduct({...editingProduct, application: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none" placeholder="e.g. Concrete, Asphalt, Polishing" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Size</label>
-                <input type="text" value={editingProduct.size || ""} onChange={e => setEditingProduct({...editingProduct, size: e.target.value})} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none" placeholder="e.g. 14, 4, 5-step" />
+                <input type="text" value={editingProduct.size || ""} onChange={e => setEditingProduct({...editingProduct, size: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none" placeholder="e.g. 14, 4, 5-step" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Manufacturer</label>
-                  <input type="text" value={editingProduct.manufacturer || ""} onChange={e => setEditingProduct({...editingProduct, manufacturer: e.target.value})} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none" />
+                  <input type="text" value={editingProduct.manufacturer || ""} onChange={e => setEditingProduct({...editingProduct, manufacturer: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Vendor</label>
-                  <input type="text" value={editingProduct.vendor || ""} onChange={e => setEditingProduct({...editingProduct, vendor: e.target.value})} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none" />
+                  <input type="text" value={editingProduct.vendor || ""} onChange={e => setEditingProduct({...editingProduct, vendor: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none" />
                 </div>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Quality Tier</label>
-                <select value={editingProduct.qualityTier || ""} onChange={e => setEditingProduct({...editingProduct, qualityTier: e.target.value})} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none">
+                <select value={editingProduct.qualityTier || ""} onChange={e => setEditingProduct({...editingProduct, qualityTier: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none">
                   <option value="">None</option>
                   <option value="Good">Good</option>
                   <option value="Better">Better</option>

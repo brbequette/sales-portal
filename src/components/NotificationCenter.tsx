@@ -69,9 +69,9 @@ export function NotificationCenter() {
 
       {/* Dropdown Panel */}
       {open && (
-        <div className="absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-1rem)] bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-50 flex flex-col max-h-[70vh] animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-1rem)] glass-panel border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 flex flex-col max-h-[70vh] animate-in fade-in slide-in-from-top-2 duration-200">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800 bg-neutral-900/80">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 glass-panel/80">
             <h3 className="text-sm font-bold text-white">Notifications</h3>
             {unreadCount > 0 && (
               <button
@@ -99,7 +99,7 @@ export function NotificationCenter() {
                     key={n.id}
                     className={`relative px-4 py-3 cursor-pointer transition-colors group ${
                       n.read
-                        ? "bg-transparent hover:bg-neutral-800/30"
+                        ? "bg-transparent hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30"
                         : "bg-emerald-500/5 hover:bg-emerald-500/10 border-l-2 border-emerald-500"
                     }`}
                     onClick={() => {

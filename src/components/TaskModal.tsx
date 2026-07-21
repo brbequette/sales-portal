@@ -197,10 +197,10 @@ export function TaskModal({
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl flex flex-col shadow-2xl text-white z-[9999] p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center pb-4 border-b border-neutral-800 mb-4">
+      <div className="relative w-full max-w-md glass-panel border border-white/10 rounded-2xl flex flex-col shadow-2xl text-white z-[9999] p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center pb-4 border-b border-white/10 mb-4">
           <h3 className="font-bold text-lg text-white">Create New Task</h3>
-          <button onClick={onClose} className="text-neutral-400 hover:text-white bg-neutral-850 p-1 rounded-full">
+          <button onClick={onClose} className="text-neutral-400 hover:text-white glass-panel p-1 rounded-full">
             <FiX size={16} />
           </button>
         </div>
@@ -213,7 +213,7 @@ export function TaskModal({
               onChange={e => setTaskSubject(e.target.value)} 
               required
               placeholder="Task subject..."
-              className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full glass-panel border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
           <div>
@@ -223,7 +223,7 @@ export function TaskModal({
               onChange={e => setTaskDescription(e.target.value)} 
               placeholder="Task details..."
               rows={3}
-              className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full glass-panel border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -232,7 +232,7 @@ export function TaskModal({
               <select 
                 value={taskType} 
                 onChange={e => setTaskType(e.target.value)}
-                className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                className="w-full glass-panel border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
                 <option value="Task">Task</option>
                 <option value="Call">Call</option>
@@ -246,7 +246,7 @@ export function TaskModal({
               <select 
                 value={taskPriority} 
                 onChange={e => setTaskPriority(e.target.value)}
-                className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                className="w-full glass-panel border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
                 <option value="Normal">Normal</option>
                 <option value="High">High</option>
@@ -259,7 +259,7 @@ export function TaskModal({
                 type="date" 
                 value={taskDueDate} 
                 onChange={e => setTaskDueDate(e.target.value)} 
-                className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 text-white invert-[1] hue-rotate-180"
+                className="w-full glass-panel border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 text-white invert-[1] hue-rotate-180"
                 style={{ colorScheme: "dark" }}
               />
             </div>
@@ -269,7 +269,7 @@ export function TaskModal({
             <select 
               value={taskOwnerId} 
               onChange={e => setTaskOwnerId(e.target.value)}
-              className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+              className="w-full glass-panel border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
               <option value={currentUser?.id || ""}>Me ({currentUser?.name || "Loading..."})</option>
               {repsList.map(r => (
@@ -282,7 +282,7 @@ export function TaskModal({
             <select 
               value={taskWhatId} 
               onChange={e => setTaskWhatId(e.target.value)}
-              className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+              className="w-full glass-panel border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
               <option value="">-- No Linked Account (Company Task) --</option>
               {accounts.map(a => (
@@ -299,7 +299,7 @@ export function TaskModal({
                 <select
                   value={selectedTransaction}
                   onChange={e => handleTransactionChange(e.target.value)}
-                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  className="w-full glass-panel border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                 >
                   <option value="">-- No Linked Document --</option>
                   {transactions.map(t => (
@@ -311,7 +311,7 @@ export function TaskModal({
               )}
             </div>
           )}
-          <div className="border-t border-neutral-800 pt-3">
+          <div className="border-t border-white/10 pt-3">
             <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Linked Documents (Optional)</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
@@ -321,7 +321,7 @@ export function TaskModal({
                   value={taskEstimateId} 
                   onChange={e => setTaskEstimateId(e.target.value)} 
                   placeholder="e.g. EST-12345"
-                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full glass-panel border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div>
@@ -331,7 +331,7 @@ export function TaskModal({
                   value={taskSalesOrderId} 
                   onChange={e => setTaskSalesOrderId(e.target.value)} 
                   placeholder="e.g. SO-12345"
-                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full glass-panel border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div>
@@ -341,7 +341,7 @@ export function TaskModal({
                   value={taskQuoteId} 
                   onChange={e => setTaskQuoteId(e.target.value)} 
                   placeholder="e.g. Q-12345"
-                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full glass-panel border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div>
@@ -351,12 +351,12 @@ export function TaskModal({
                   value={taskInvoiceId} 
                   onChange={e => setTaskInvoiceId(e.target.value)} 
                   placeholder="e.g. INV-12345"
-                  className="w-full bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full glass-panel border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
           </div>
-          <div className="pt-4 flex justify-end gap-2 border-t border-neutral-800">
+          <div className="pt-4 flex justify-end gap-2 border-t border-white/10">
             <button 
               type="button" 
               onClick={onClose}

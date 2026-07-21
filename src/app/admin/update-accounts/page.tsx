@@ -356,7 +356,7 @@ export default function AdminUpdateAccountsPage() {
             <select
               value={bulkOwnerId}
               onChange={e => setBulkOwnerId(e.target.value)}
-              className="bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 appearance-none cursor-pointer"
+              className="glass-panel border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 appearance-none cursor-pointer"
             >
               <option value="">Assign to...</option>
               {reps.map(rep => (
@@ -387,10 +387,10 @@ export default function AdminUpdateAccountsPage() {
           </div>
         )}
 
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-lg overflow-hidden flex flex-col min-h-[500px]">
+        <div className="glass-panel border border-white/10 rounded-2xl shadow-lg overflow-hidden flex flex-col min-h-[500px]">
           
           {/* Toolbar: Count + Search + Filter */}
-          <div className="p-4 border-b border-neutral-800 flex flex-col gap-3">
+          <div className="p-4 border-b border-white/10 flex flex-col gap-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h2 className="text-sm font-bold text-white">
                 {sorted.length}{sorted.length !== accountsWithStats.length ? ` of ${accountsWithStats.length}` : ""} Update Accounts
@@ -404,7 +404,7 @@ export default function AdminUpdateAccountsPage() {
                     value={localSearch}
                     onChange={e => setLocalSearch(e.target.value)}
                     placeholder="Filter by name..."
-                    className="w-full bg-neutral-950 border border-neutral-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors"
+                    className="w-full bg-black/20 border border-neutral-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors"
                   />
                   {localSearch && (
                     <button onClick={() => setLocalSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white">
@@ -445,7 +445,7 @@ export default function AdminUpdateAccountsPage() {
                 value={ltvMin}
                 onChange={e => setLtvMin(e.target.value)}
                 placeholder="Min"
-                className="w-20 bg-neutral-950 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none focus:border-purple-500"
+                className="w-20 bg-black/20 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none focus:border-purple-500"
               />
               <span className="text-neutral-600 text-xs">â€“</span>
               <input
@@ -453,7 +453,7 @@ export default function AdminUpdateAccountsPage() {
                 value={ltvMax}
                 onChange={e => setLtvMax(e.target.value)}
                 placeholder="Max"
-                className="w-20 bg-neutral-950 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none focus:border-purple-500"
+                className="w-20 bg-black/20 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none focus:border-purple-500"
               />
               {(ltvMin || ltvMax) && (
                 <button onClick={() => { setLtvMin(""); setLtvMax("") }} className="text-neutral-500 hover:text-white">
@@ -476,25 +476,25 @@ export default function AdminUpdateAccountsPage() {
           <div className="overflow-x-auto flex-1">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-neutral-950 text-[10px] uppercase tracking-wider text-neutral-500 font-bold border-b border-neutral-800">
-                  <th className="px-3 py-3 sticky top-0 bg-neutral-950 z-10 w-10">
+                <tr className="bg-black/20 text-[10px] uppercase tracking-wider text-neutral-500 font-bold border-b border-white/10">
+                  <th className="px-3 py-3 sticky top-0 bg-black/20 z-10 w-10">
                     <button onClick={toggleSelectAll} className="text-neutral-400 hover:text-white transition-colors">
                       {allVisibleSelected && sorted.length > 0 ? <FiCheckSquare size={14} className="text-purple-400" /> : <FiSquare size={14} />}
                     </button>
                   </th>
-                  <th className="px-3 py-3 sticky top-0 bg-neutral-950 z-10 cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("name")}>
+                  <th className="px-3 py-3 sticky top-0 bg-black/20 z-10 cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("name")}>
                     Account Name <SortIcon col="name" />
                   </th>
-                  <th className="px-3 py-3 sticky top-0 bg-neutral-950 z-10 text-right cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("lastPurchaseAt")}>
+                  <th className="px-3 py-3 sticky top-0 bg-black/20 z-10 text-right cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("lastPurchaseAt")}>
                     Last Purchase <SortIcon col="lastPurchaseAt" />
                   </th>
-                  <th className="px-3 py-3 sticky top-0 bg-neutral-950 z-10 text-right cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("totalRev")}>
+                  <th className="px-3 py-3 sticky top-0 bg-black/20 z-10 text-right cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("totalRev")}>
                     Revenue <SortIcon col="totalRev" />
                   </th>
-                  <th className="px-3 py-3 sticky top-0 bg-neutral-950 z-10 text-right cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("totalProf")}>
+                  <th className="px-3 py-3 sticky top-0 bg-black/20 z-10 text-right cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("totalProf")}>
                     Profit <SortIcon col="totalProf" />
                   </th>
-                  <th className="px-3 py-3 sticky top-0 bg-neutral-950 z-10 w-1/3 cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("owner")}>
+                  <th className="px-3 py-3 sticky top-0 bg-black/20 z-10 w-1/3 cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("owner")}>
                     Assign To <SortIcon col="owner" />
                   </th>
                 </tr>
@@ -510,7 +510,7 @@ export default function AdminUpdateAccountsPage() {
                 ) : sorted.map(acc => {
                   const isSelected = selectedIds.has(acc.id)
                   return (
-                  <tr key={acc.id} className={`transition-colors ${isSelected ? "bg-purple-950/20" : "hover:bg-neutral-800/50"}`}>
+                  <tr key={acc.id} className={`transition-colors ${isSelected ? "bg-purple-950/20" : "hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50"}`}>
                     <td className="px-3 py-3">
                       <button onClick={() => toggleSelect(acc.id)} className="text-neutral-400 hover:text-white transition-colors">
                         {isSelected ? <FiCheckSquare size={14} className="text-purple-400" /> : <FiSquare size={14} />}
@@ -546,7 +546,7 @@ export default function AdminUpdateAccountsPage() {
                                 onChange={(e) => {
                                   setPendingOwners({ ...pendingOwners, [acc.id]: e.target.value })
                                 }}
-                                className="w-full bg-neutral-950 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-purple-500 transition-colors appearance-none cursor-pointer hover:border-neutral-600 pr-8"
+                                className="w-full bg-black/20 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-purple-500 transition-colors appearance-none cursor-pointer hover:border-neutral-600 pr-8"
                               >
                                 <option value="" disabled>Select Owner</option>
                                 {reps.map(rep => (

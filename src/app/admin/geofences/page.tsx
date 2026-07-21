@@ -167,7 +167,7 @@ export default function AdminGeofencesPage() {
   if (loading) {
     return (
       <div className="flex flex-col text-neutral-100 font-sans h-full">
-        <header className="px-6 py-5 border-b border-neutral-800 shrink-0">
+        <header className="px-6 py-5 border-b border-white/10 shrink-0">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <FiMapPin className="text-neutral-400" /> Geofence Location
           </h1>
@@ -185,7 +185,7 @@ export default function AdminGeofencesPage() {
   return (
     <div className="flex flex-col text-neutral-100 font-sans h-full">
       {/* Header */}
-      <header className="px-6 py-5 border-b border-neutral-800 flex justify-between items-center shrink-0">
+      <header className="px-6 py-5 border-b border-white/10 flex justify-between items-center shrink-0">
         <h1 className="text-xl font-bold text-white flex items-center gap-2">
           <FiMapPin className="text-neutral-400" /> Geofence Location
         </h1>
@@ -226,7 +226,7 @@ export default function AdminGeofencesPage() {
           </p>
 
           {/* Main Card */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-6 shadow-xl">
+          <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-6 shadow-xl">
             {/* Status Toggle */}
             <div className="flex items-center justify-between">
               <div>
@@ -250,7 +250,7 @@ export default function AdminGeofencesPage() {
               </button>
             </div>
 
-            <hr className="border-neutral-800" />
+            <hr className="border-white/10" />
 
             {/* Name */}
             <div>
@@ -265,11 +265,11 @@ export default function AdminGeofencesPage() {
                 value={geofence.name}
                 onChange={(e) => updateField("name", e.target.value)}
                 placeholder="Titan Diamond Office"
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors"
               />
             </div>
 
-            <hr className="border-neutral-800" />
+            <hr className="border-white/10" />
 
             {/* Address */}
             <div>
@@ -284,11 +284,11 @@ export default function AdminGeofencesPage() {
                 value={geofence.address}
                 onChange={(e) => updateField("address", e.target.value)}
                 placeholder="123 Diamond Blvd, Phoenix, AZ 85001"
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors"
               />
             </div>
 
-            <hr className="border-neutral-800" />
+            <hr className="border-white/10" />
 
             {/* Coordinates */}
             <div>
@@ -307,7 +307,7 @@ export default function AdminGeofencesPage() {
                     value={geofence.latitude}
                     onChange={(e) => updateField("latitude", e.target.value)}
                     placeholder="33.448376"
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+                    className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
                 <div className="flex-1">
@@ -318,7 +318,7 @@ export default function AdminGeofencesPage() {
                     value={geofence.longitude}
                     onChange={(e) => updateField("longitude", e.target.value)}
                     placeholder="-112.074036"
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+                    className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
               </div>
@@ -341,7 +341,7 @@ export default function AdminGeofencesPage() {
               </button>
             </div>
 
-            <hr className="border-neutral-800" />
+            <hr className="border-white/10" />
 
             {/* Radius */}
             <div>
@@ -360,7 +360,7 @@ export default function AdminGeofencesPage() {
                   step="10"
                   value={geofence.radiusMeters}
                   onChange={(e) => updateField("radiusMeters", e.target.value)}
-                  className="w-32 bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+                  className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
                 />
                 <div className="flex gap-2">
                   {[100, 150, 200, 300].map((r) => (

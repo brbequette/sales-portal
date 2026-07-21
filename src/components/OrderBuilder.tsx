@@ -492,11 +492,11 @@ export function OrderBuilder({
       </div>
 
       {/* â”€â”€ Blade Lookup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <div className="border border-neutral-800 rounded-xl overflow-hidden">
+      <div className="border border-white/10 rounded-xl overflow-hidden">
         <button
           type="button"
           onClick={() => setShowBladeLookup(v => !v)}
-          className="w-full flex items-center justify-between px-3 py-2.5 bg-neutral-900 hover:bg-neutral-800/80 transition-colors cursor-pointer"
+          className="w-full flex items-center justify-between px-3 py-2.5 glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/80 transition-colors cursor-pointer"
         >
           <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
             <FiFilter size={11} />
@@ -509,7 +509,7 @@ export function OrderBuilder({
         </button>
 
         {showBladeLookup && (
-          <div className="px-3 pb-3 pt-2 bg-neutral-900/60 space-y-3 border-t border-neutral-800">
+          <div className="px-3 pb-3 pt-2 glass-panel/60 space-y-3 border-t border-white/10">
             {/* Filter dropdowns */}
             <div className="grid grid-cols-3 gap-2">
               {([
@@ -584,7 +584,7 @@ export function OrderBuilder({
 
       {/* â”€â”€ Product Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div ref={productSearchRef} className="relative">
-        <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 focus-within:border-violet-500 transition-colors">
+        <div className="flex items-center gap-2 glass-panel border border-neutral-700 rounded-lg px-3 py-2 focus-within:border-violet-500 transition-colors">
           <FiSearch size={12} className="text-neutral-500 shrink-0" />
           <input
             type="text"
@@ -602,7 +602,7 @@ export function OrderBuilder({
         </div>
 
         {showProductDropdown && searchResults.length > 0 && (
-          <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl max-h-52 overflow-y-auto">
+          <div className="absolute z-50 top-full mt-1 left-0 right-0 glass-panel border border-neutral-700 rounded-xl shadow-2xl max-h-52 overflow-y-auto">
             {searchResults.map(p => {
               const desc = parseDesc(p.description)
               return (
@@ -610,7 +610,7 @@ export function OrderBuilder({
                   key={p.id}
                   type="button"
                   onClick={() => openAddItemModal({ name: p.name, sku: p.sku, price: p.price || 0, cost: desc.cost || 0 })}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-neutral-800 transition-colors border-b border-neutral-800/50 last:border-0 cursor-pointer"
+                  className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors border-b border-white/10/50 last:border-0 cursor-pointer"
                 >
                   <FiPlus size={12} className="text-violet-400" />
                   <div className="flex-1 min-w-0">
@@ -636,7 +636,7 @@ export function OrderBuilder({
                   key={bp.sku}
                   type="button"
                   onClick={() => openAddItemModal(bp)}
-                  className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-violet-500/50 hover:text-violet-300"
+                  className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer glass-panel border-neutral-700 text-neutral-400 hover:border-violet-500/50 hover:text-violet-300"
                 >
                   âš¡ {bp.name}
                 </button>
@@ -661,25 +661,25 @@ export function OrderBuilder({
           </div>
           
           <div className="grid grid-cols-3 gap-2">
-            <div className="bg-neutral-900/60 border border-neutral-800 rounded p-2 text-center space-y-1">
+            <div className="glass-panel/60 border border-white/10 rounded p-2 text-center space-y-1">
               <p className="text-[8px] font-bold uppercase tracking-wider text-amber-500">Paid Qty</p>
               <div className="flex justify-center">
-                <QtyInput value={addPaidQty} onChange={setAddPaidQty} colorClass="text-amber-400 border-amber-500/30 focus:border-amber-500" bgClass="bg-neutral-950" />
+                <QtyInput value={addPaidQty} onChange={setAddPaidQty} colorClass="text-amber-400 border-amber-500/30 focus:border-amber-500" bgClass="bg-black/20" />
               </div>
             </div>
-            <div className="bg-neutral-900/60 border border-neutral-800 rounded p-2 text-center space-y-1">
+            <div className="glass-panel/60 border border-white/10 rounded p-2 text-center space-y-1">
               <p className="text-[8px] font-bold uppercase tracking-wider text-emerald-500">Free Qty</p>
               <div className="flex justify-center">
-                <QtyInput value={addFreeQty} onChange={setAddFreeQty} colorClass="text-emerald-400 border-emerald-500/30 focus:border-emerald-500" bgClass="bg-neutral-950" />
+                <QtyInput value={addFreeQty} onChange={setAddFreeQty} colorClass="text-emerald-400 border-emerald-500/30 focus:border-emerald-500" bgClass="bg-black/20" />
               </div>
             </div>
-            <div className="bg-neutral-900/60 border border-neutral-800 rounded p-2 text-center space-y-1">
+            <div className="glass-panel/60 border border-white/10 rounded p-2 text-center space-y-1">
               <p className="text-[8px] font-bold uppercase tracking-wider text-violet-400">Unit Price</p>
               <input
                 type="number"
                 value={addPrice}
                 onChange={e => setAddPrice(parseFloat(e.target.value) || 0)}
-                className="w-16 mx-auto bg-neutral-950 border border-neutral-700 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-white text-center focus:border-violet-500 outline-none"
+                className="w-16 mx-auto bg-black/20 border border-neutral-700 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-white text-center focus:border-violet-500 outline-none"
                 step="0.01"
               />
             </div>
@@ -717,7 +717,7 @@ export function OrderBuilder({
           {paidLines.map(line => (
             <div
               key={line.id}
-              className="grid grid-cols-[1fr_64px_70px_24px] gap-1.5 items-center bg-neutral-900/50 border border-neutral-800/50 rounded-lg px-2 py-1.5"
+              className="grid grid-cols-[1fr_64px_70px_24px] gap-1.5 items-center glass-panel/50 border border-white/10/50 rounded-lg px-2 py-1.5"
             >
               <div className="min-w-0">
                 <span className="text-[11px] font-bold text-white truncate block">{line.name}</span>
@@ -830,7 +830,7 @@ export function OrderBuilder({
               </span>
             </div>
           )}
-          <div className="flex justify-between px-1 pt-1 border-t border-neutral-800">
+          <div className="flex justify-between px-1 pt-1 border-t border-white/10">
             <span className="text-xs font-bold text-violet-300">Order Total</span>
             <span className="text-sm font-black text-amber-400">
               ${orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -853,7 +853,7 @@ export function OrderBuilder({
               <span className={`text-[10px] font-bold ${color}`}>{val}</span>
             </div>
           ))}
-          <div className="flex justify-between px-1 pt-1 border-t border-neutral-800">
+          <div className="flex justify-between px-1 pt-1 border-t border-white/10">
             <span className="text-[10px] font-bold text-amber-300">Profit after VIG</span>
             <span className={`text-[11px] font-black ${financials.profitAfterVig >= 0 ? "text-emerald-400" : "text-red-400"}`}>
               ${financials.profitAfterVig.toFixed(2)}
@@ -890,11 +890,11 @@ export function OrderBuilder({
           onClick={() => setShowMockOrder(false)}
         >
           <div
-            className="bg-neutral-900 border border-neutral-700 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-2xl"
+            className="glass-panel border border-neutral-700 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
             {/* Modal header */}
-            <div className="sticky top-0 bg-neutral-900 border-b border-neutral-800 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+            <div className="sticky top-0 glass-panel border-b border-white/10 px-6 py-4 flex items-center justify-between rounded-t-2xl">
               <div>
                 <h3 className="text-white font-black text-base">Sales Order Preview</h3>
                 <p className="text-[10px] text-neutral-500 mt-0.5">
@@ -931,12 +931,12 @@ export function OrderBuilder({
                   <p className="text-[9px] font-bold uppercase tracking-wider text-neutral-500 mb-2 flex items-center gap-1.5">
                     <FiDollarSign size={10} /> Sold Items
                   </p>
-                  <div className="border border-neutral-800 rounded-lg overflow-hidden">
+                  <div className="border border-white/10 rounded-lg overflow-hidden">
                     <div className="grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-1.5 bg-neutral-800/50 text-[8px] font-bold text-neutral-500 uppercase">
                       <span>Item</span><span className="text-center">Qty</span><span className="text-right">Unit</span><span className="text-right">Amount</span>
                     </div>
                     {paidLines.map((line, i) => (
-                      <div key={`so-paid-${line.id}`} className={`grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-2 ${i % 2 === 0 ? "bg-neutral-900/50" : ""}`}>
+                      <div key={`so-paid-${line.id}`} className={`grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-2 ${i % 2 === 0 ? "glass-panel/50" : ""}`}>
                         <div className="min-w-0">
                           <p className="text-[11px] font-bold text-white truncate">{line.name}</p>
                           {line.sku && <p className="text-[8px] text-neutral-600">{line.sku}</p>}
@@ -976,7 +976,7 @@ export function OrderBuilder({
               )}
 
               {/* Order totals */}
-              <div className="border-t border-neutral-800 pt-3 space-y-1.5">
+              <div className="border-t border-white/10 pt-3 space-y-1.5">
                 <div className="flex justify-between px-1">
                   <span className="text-[10px] text-neutral-500">Subtotal (Paid)</span>
                   <span className="text-xs font-bold text-white">${paidLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0).toFixed(2)}</span>
@@ -991,7 +991,7 @@ export function OrderBuilder({
                   <span className="text-[10px] text-neutral-500">Total Items Shipping</span>
                   <span className="text-xs font-bold text-white">{orderLines.reduce((s, l) => s + l.quantity, 0)} items</span>
                 </div>
-                <div className="flex justify-between px-1 pt-2 border-t border-neutral-800">
+                <div className="flex justify-between px-1 pt-2 border-t border-white/10">
                   <span className="text-sm font-black text-white">ORDER TOTAL</span>
                   <span className="text-lg font-black text-amber-400">${orderTotal.toFixed(2)}</span>
                 </div>
@@ -1033,7 +1033,7 @@ export function OrderBuilder({
             </div>
 
             {/* Footer */}
-            <div className="sticky bottom-0 bg-neutral-900 border-t border-neutral-800 px-6 py-3 flex gap-2 rounded-b-2xl">
+            <div className="sticky bottom-0 glass-panel border-t border-white/10 px-6 py-3 flex gap-2 rounded-b-2xl">
               <button type="button" onClick={() => setShowMockOrder(false)} className="flex-1 py-2 rounded-lg bg-neutral-800 text-neutral-400 text-xs font-bold hover:bg-neutral-700 transition-colors cursor-pointer">
                 Edit Order
               </button>

@@ -63,8 +63,8 @@ export function CommandPalette() {
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
       
-      <div className="relative w-full max-w-2xl bg-[#121316] border border-white/10 shadow-2xl rounded-2xl overflow-hidden glass-panel animate-slide-down">
-        <div className="flex items-center px-4 py-4 border-b border-white/5">
+      <div className="relative w-full max-w-2xl glass-panel border border-white/10 shadow-2xl rounded-2xl overflow-hidden glass-panel animate-slide-down">
+        <div className="flex items-center px-4 py-4 border-b border-white/10">
           <FiSearch size={20} className="text-neutral-500 mr-3" />
           <input
             autoFocus
@@ -117,7 +117,7 @@ export function CommandPalette() {
                             <div className="text-xs text-neutral-400">{r.subtitle}</div>
                          </div>
                       </div>
-                      <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-black border border-white/5 px-2 py-0.5 rounded bg-white/5">{r.type}</div>
+                      <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-black border border-white/10 px-2 py-0.5 rounded bg-white/5">{r.type}</div>
                    </button>
                 ))}
              </div>

@@ -132,7 +132,7 @@ export function OrderNextSteps({ accounts, onViewDoc }: { accounts: any[]; onVie
             <button
               key={`${step.id}-${idx}`}
               onClick={() => onViewDoc?.(step.docType, step.raw)}
-              className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-white/[0.025] border border-white/[0.06] hover:bg-white/[0.05] hover:border-white/[0.12] transition-all text-left group"
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-white/[0.025] border border-white/[0.06] hover:bg-white/15 hover:shadow-lg transition-all duration-300 hover:border-white/[0.12] transition-all text-left group"
             >
               {/* Step icon */}
               <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${

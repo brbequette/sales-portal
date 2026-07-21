@@ -68,7 +68,7 @@ export function CallScriptViewer({ accountId, accountProp, contact }: { accountI
       {isOpen && (
         <div className="p-4 space-y-4">
           <select 
-            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm focus:outline-none focus:border-blue-500 text-white"
+            className="w-full glass-panel border border-neutral-700 rounded-lg p-2 text-sm focus:outline-none focus:border-blue-500 text-white"
             onChange={e => setSelectedScript(scripts.find(s => s.id === e.target.value) || null)}
             value={selectedScript?.id || ""}
           >
@@ -79,7 +79,7 @@ export function CallScriptViewer({ accountId, accountProp, contact }: { accountI
           </select>
 
           {selectedScript && (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 shadow-inner max-h-48 overflow-y-auto scrollbar-thin">
+            <div className="glass-panel border border-white/10 rounded-lg p-4 shadow-inner max-h-48 overflow-y-auto scrollbar-thin">
               <p className="text-sm text-neutral-200 whitespace-pre-wrap leading-relaxed">
                 {applyMergeFields(selectedScript.content)}
               </p>

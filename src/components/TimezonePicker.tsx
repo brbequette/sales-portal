@@ -78,15 +78,15 @@ export function TimezonePicker({ accountId, zohoId, currentTimezone, onUpdated, 
           {/* Backdrop */}
           <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpen(false); }} />
           {/* Dropdown */}
-          <div className="absolute left-0 top-full mt-1 z-50 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl overflow-hidden min-w-[150px]">
-            <div className="px-3 py-1.5 border-b border-neutral-800">
+          <div className="absolute left-0 top-full mt-1 z-50 glass-panel border border-neutral-700 rounded-xl shadow-2xl overflow-hidden min-w-[150px]">
+            <div className="px-3 py-1.5 border-b border-white/10">
               <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Set Timezone</span>
             </div>
             {TIMEZONES.map(t => (
               <button
                 key={t.value}
                 onClick={(e) => { e.stopPropagation(); update(t.value); }}
-                className={`w-full flex items-center justify-between px-3 py-2 hover:bg-neutral-800 transition-colors text-left`}
+                className={`w-full flex items-center justify-between px-3 py-2 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors text-left`}
               >
                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${t.color}`}>
                   {t.label}

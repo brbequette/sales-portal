@@ -206,7 +206,7 @@ export default function StatsPage() {
 
   if (!isInitialized || loading) {
     return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-neutral-900 text-white">
+      <div className="flex items-center justify-center min-h-[100dvh] glass-panel text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-neutral-400 font-medium text-sm">Loading Rep Stats...</p>
@@ -233,7 +233,7 @@ export default function StatsPage() {
 
           <div className="flex items-center gap-2">
             <select 
-               className="bg-neutral-950 border border-neutral-850 text-neutral-400 text-xs font-bold rounded-lg p-2 uppercase tracking-wider focus:outline-none"
+               className="bg-black/20 border border-neutral-850 text-neutral-400 text-xs font-bold rounded-lg p-2 uppercase tracking-wider focus:outline-none"
                value={selectedDataMonth}
                onChange={(e) => setSelectedDataMonth(e.target.value)}
             >
@@ -243,7 +243,7 @@ export default function StatsPage() {
                ))}
             </select>
             {/* Timeframe Filter Selector */}
-            <div className="flex bg-neutral-950 border border-neutral-850 p-0.5 rounded-xl gap-0.5 shrink-0 self-start sm:self-auto w-full sm:w-auto sm:min-w-[240px]">
+            <div className="flex bg-black/20 border border-neutral-850 p-0.5 rounded-xl gap-0.5 shrink-0 self-start sm:self-auto w-full sm:w-auto sm:min-w-[240px]">
               {(["daily", "weekly", "monthly"] as const).map((p) => (
                 <button
                   key={p}
@@ -303,8 +303,8 @@ export default function StatsPage() {
         </div>
 
         {/* Leaderboard Table */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-lg overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-neutral-800 flex items-center gap-2">
+        <div className="glass-panel border border-white/10 rounded-2xl shadow-lg overflow-hidden">
+          <div className="px-4 sm:px-5 py-3.5 border-b border-white/10 flex items-center gap-2">
             <FiAward size={16} className="text-sky-400" />
             <h2 className="text-sm font-bold text-white uppercase tracking-wider">Leaderboard ({selectedPeriod})</h2>
             <span className="ml-auto text-[10px] text-neutral-500 font-medium">{reps.length} reps</span>
@@ -314,7 +314,7 @@ export default function StatsPage() {
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-neutral-800 text-neutral-500">
+                <tr className="border-b border-white/10 text-neutral-500">
                   <th className="text-left px-4 py-2.5 font-semibold">#</th>
                   <th className="text-left px-4 py-2.5 font-semibold">Representative</th>
                   <th
@@ -357,7 +357,7 @@ export default function StatsPage() {
                       className={`cursor-pointer transition-colors ${
                         isSelected
                           ? "bg-sky-950/20 border-l-2 border-l-sky-500"
-                          : "hover:bg-neutral-800/50"
+                          : "hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50"
                       }`}
                       onClick={() => setSelectedRep(isSelected ? null : rep)}
                     >
@@ -413,7 +413,7 @@ export default function StatsPage() {
               </tbody>
             </table>
             {pagination.pageSize !== "All" && sortedReps.length > (pagination.pageSize as number) && (
-              <div className="border-t border-neutral-800 bg-neutral-900">
+              <div className="border-t border-white/10 glass-panel">
                 <Pagination
                   currentPage={pagination.currentPage}
                   pageSize={pagination.pageSize}
@@ -439,7 +439,7 @@ export default function StatsPage() {
                 <div
                   key={rep.repId}
                   className={`p-4 cursor-pointer transition-colors ${
-                    isSelected ? "bg-sky-950/20" : "hover:bg-neutral-800/50"
+                    isSelected ? "bg-sky-950/20" : "hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50"
                   }`}
                   onClick={() => setSelectedRep(isSelected ? null : rep)}
                 >
@@ -491,7 +491,7 @@ export default function StatsPage() {
               )
             })}
             {pagination.pageSize !== "All" && sortedReps.length > (pagination.pageSize as number) && (
-              <div className="border-t border-neutral-800 bg-neutral-900">
+              <div className="border-t border-white/10 glass-panel">
                 <Pagination
                   currentPage={pagination.currentPage}
                   pageSize={pagination.pageSize}
@@ -506,8 +506,8 @@ export default function StatsPage() {
 
         {/* Selected Rep Detail Panel */}
         {selectedRep && companyAverages && (
-          <div className="bg-neutral-900 border border-sky-500/20 rounded-2xl shadow-lg overflow-hidden animate-in slide-in-from-bottom-2">
-            <div className="px-4 sm:px-5 py-3.5 border-b border-neutral-800 flex items-center justify-between">
+          <div className="glass-panel border border-sky-500/20 rounded-2xl shadow-lg overflow-hidden animate-in slide-in-from-bottom-2">
+            <div className="px-4 sm:px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-sky-950/40 border border-sky-500/30 flex items-center justify-center text-sm font-bold text-sky-400">
                   {selectedRep.repName?.charAt(0) || "?"}
@@ -551,7 +551,7 @@ export default function StatsPage() {
                 }
 
                 return (
-                  <div className="p-3.5 rounded-xl border border-sky-500/10 bg-neutral-900/60 space-y-2.5">
+                  <div className="p-3.5 rounded-xl border border-sky-500/10 glass-panel/60 space-y-2.5">
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] font-bold text-neutral-450 uppercase tracking-wider">Profit Goal</span>
                       <div className="text-right">
@@ -564,7 +564,7 @@ export default function StatsPage() {
                       </div>
                     </div>
                     {/* Progress Bar */}
-                    <div className="h-2 w-full bg-neutral-850 rounded-full overflow-hidden border border-neutral-800">
+                    <div className="h-2 w-full glass-panel rounded-full overflow-hidden border border-white/10">
                       <div
                         className={`h-full bg-sky-500 shadow-sm shadow-sky-500/30 rounded-full transition-all duration-500 ease-out`}
                         style={{ width: `${Math.min(progressPct, 100)}%` }}
@@ -585,8 +585,8 @@ export default function StatsPage() {
 
         {/* Historical Vig Rates Table */}
         {historicalVigRates.length > 0 && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-lg overflow-hidden">
-            <div className="px-4 sm:px-5 py-3.5 border-b border-neutral-800 flex items-center gap-2">
+          <div className="glass-panel border border-white/10 rounded-2xl shadow-lg overflow-hidden">
+            <div className="px-4 sm:px-5 py-3.5 border-b border-white/10 flex items-center gap-2">
               <FiCalendar size={16} className="text-sky-400" />
               <h2 className="text-sm font-bold text-white uppercase tracking-wider">Historical Vig Rates</h2>
               <span className="ml-auto text-[10px] text-neutral-500 font-medium">Last 6 Months</span>
@@ -594,7 +594,7 @@ export default function StatsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-neutral-800 text-neutral-500">
+                  <tr className="border-b border-white/10 text-neutral-500">
                     <th className="text-left px-4 py-2.5 font-semibold">Representative</th>
                     {historicalVigRates.map((h) => (
                       <th key={h.monthKey} className="text-center px-4 py-2.5 font-semibold">
@@ -605,7 +605,7 @@ export default function StatsPage() {
                 </thead>
                 <tbody className="divide-y divide-neutral-800">
                   {reps.map((rep) => (
-                    <tr key={rep.repId} className="hover:bg-neutral-800/30">
+                    <tr key={rep.repId} className="hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30">
                       <td className="px-4 py-3 font-semibold text-white">{rep.repName}</td>
                       {historicalVigRates.map((h) => {
                         const repData = h.reps[rep.repId]

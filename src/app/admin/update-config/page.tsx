@@ -255,7 +255,7 @@ export default function AdminSettingsPage() {
         )}
 
         {/* Inactivity Timeframe Card */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg">
+        <div className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg">
           <div className="flex items-center gap-2 mb-4">
             <FiActivity size={16} className="text-purple-400" />
             <h2 className="text-sm font-bold text-white uppercase tracking-wider">Inactivity Timeframe</h2>
@@ -276,7 +276,7 @@ export default function AdminSettingsPage() {
                     timeframeMonths: parseInt(e.target.value) || 12,
                   }))
                 }
-                className="w-24 bg-neutral-950 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm text-white font-bold text-center focus:outline-none focus:border-purple-500 transition-colors"
+                className="w-24 bg-black/20 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm text-white font-bold text-center focus:outline-none focus:border-purple-500 transition-colors"
               />
             </div>
             <span className="text-sm text-neutral-400 font-medium">months</span>
@@ -298,7 +298,7 @@ export default function AdminSettingsPage() {
               return (
                 <div
                   key={key}
-                  className={`bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow-lg hover:border-neutral-700 transition-all duration-200`}
+                  className={`glass-panel border border-white/10 rounded-2xl p-4 shadow-lg hover:border-neutral-700 transition-all duration-200`}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <span className={`text-xs font-bold uppercase tracking-wider ${groupColors[idx].text}`}>
@@ -317,7 +317,7 @@ export default function AdminSettingsPage() {
                       onChange={(e) =>
                         setConfig((c) => ({ ...c, [key]: e.target.value }))
                       }
-                      className="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-purple-500 transition-colors appearance-none cursor-pointer pr-8"
+                      className="w-full bg-black/20 border border-neutral-700 rounded-xl px-3 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-purple-500 transition-colors appearance-none cursor-pointer pr-8"
                     >
                       <option value="">â€” Select Rep â€”</option>
                       {users.map((u) => (
@@ -353,7 +353,7 @@ export default function AdminSettingsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           <div 
             onClick={() => router.push('/admin/users')}
-            className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
+            className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2.5 rounded-xl bg-purple-950/40 text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
@@ -368,7 +368,7 @@ export default function AdminSettingsPage() {
 
           <div 
             onClick={() => router.push('/admin/campaigns')}
-            className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
+            className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2.5 rounded-xl bg-purple-950/40 text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
@@ -383,7 +383,7 @@ export default function AdminSettingsPage() {
 
           <div 
             onClick={() => router.push('/admin/scripts')}
-            className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
+            className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2.5 rounded-xl bg-purple-950/40 text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
@@ -398,7 +398,7 @@ export default function AdminSettingsPage() {
 
           <div 
             onClick={() => router.push('/admin/communications')}
-            className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
+            className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2.5 rounded-xl bg-purple-950/40 text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
@@ -413,7 +413,7 @@ export default function AdminSettingsPage() {
 
           <div 
             onClick={() => router.push('/admin/holidays')}
-            className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
+            className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2.5 rounded-xl bg-purple-950/40 text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
@@ -428,7 +428,7 @@ export default function AdminSettingsPage() {
 
           <div 
             onClick={() => router.push('/admin/update-accounts')}
-            className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
+            className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2.5 rounded-xl bg-purple-950/40 text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
@@ -443,7 +443,7 @@ export default function AdminSettingsPage() {
 
           <div 
             onClick={() => router.push('/admin/payouts')}
-            className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
+            className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg hover:border-purple-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2.5 rounded-xl bg-purple-950/40 text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
@@ -458,7 +458,7 @@ export default function AdminSettingsPage() {
 
           <div 
             onClick={() => router.push('/?tab=dashboard')}
-            className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg hover:border-emerald-500/50 cursor-pointer transition-all group"
+            className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg hover:border-emerald-500/50 cursor-pointer transition-all group"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2.5 rounded-xl bg-emerald-950/40 text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
@@ -473,7 +473,7 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* Visible Sales Reps Card */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg">
+        <div className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg">
           <div className="flex items-center gap-2 mb-4">
             <FiUsers size={16} className="text-purple-400" />
             <h2 className="text-sm font-bold text-white uppercase tracking-wider">Visible Sales Reps</h2>
@@ -488,7 +488,7 @@ export default function AdminSettingsPage() {
               return (
                 <label 
                   key={u.id} 
-                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${isVisible ? "bg-purple-900/20 border-purple-500/30" : "bg-neutral-950 border-neutral-800 hover:border-neutral-700"}`}
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${isVisible ? "bg-purple-900/20 border-purple-500/30" : "bg-black/20 border-white/10 hover:border-neutral-700"}`}
                 >
                   <input
                     type="checkbox"
@@ -501,7 +501,7 @@ export default function AdminSettingsPage() {
                         return { ...c, visibleReps: Array.from(newSet) }
                       })
                     }}
-                    className="mt-0.5 w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-purple-600 focus:ring-purple-500"
+                    className="mt-0.5 w-4 h-4 rounded border-neutral-700 glass-panel text-purple-600 focus:ring-purple-500"
                   />
                   <div className="min-w-0">
                     <p className={`text-sm font-bold truncate ${isVisible ? "text-purple-100" : "text-white"}`}>{u.name}</p>
@@ -514,7 +514,7 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* Collections Manager Card */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg">
+        <div className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg">
           <div className="flex items-center gap-2 mb-4">
             <FiDollarSign size={16} className="text-purple-400" />
             <h2 className="text-sm font-bold text-white uppercase tracking-wider">Collections Manager Role</h2>
@@ -526,7 +526,7 @@ export default function AdminSettingsPage() {
             <select
               value={config.collectionsManagerId || ""}
               onChange={(e) => setConfig(c => ({ ...c, collectionsManagerId: e.target.value }))}
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
+              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
             >
               <option value="">-- None --</option>
               {users.map(u => (
@@ -537,7 +537,7 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* Rep Targets Card */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg">
+        <div className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg">
           <div className="flex items-center gap-2 mb-4">
             <FiTarget size={16} className="text-purple-400" />
             <h2 className="text-sm font-bold text-white uppercase tracking-wider">Representative Daily Sales Targets</h2>
@@ -549,7 +549,7 @@ export default function AdminSettingsPage() {
             {users.map((u) => {
               const currentVal = config.salesTargets[u.id] ?? 0
               return (
-                <div key={u.id} className="flex items-center justify-between border-b border-neutral-800 pb-2">
+                <div key={u.id} className="flex items-center justify-between border-b border-white/10 pb-2">
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-white truncate">{u.name}</p>
                     <p className="text-[10px] text-neutral-500 truncate">{u.email}</p>
@@ -570,7 +570,7 @@ export default function AdminSettingsPage() {
                             salesTargets: { ...c.salesTargets, [u.id]: val }
                           }))
                         }}
-                        className="w-24 bg-neutral-950 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 text-right font-mono"
+                        className="w-24 bg-black/20 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 text-right font-mono"
                       />
                     </div>
                     <div className="flex items-center gap-2">
@@ -588,7 +588,7 @@ export default function AdminSettingsPage() {
                             subtotalTargets: { ...(c.subtotalTargets || {}), [u.id]: val }
                           }))
                         }}
-                        className="w-24 bg-neutral-950 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 text-right font-mono"
+                        className="w-24 bg-black/20 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 text-right font-mono"
                       />
                     </div>
                   </div>
@@ -599,7 +599,7 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg">
+        <div className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg">
           <div className="flex flex-col sm:flex-row gap-3">
             {/* Save */}
             <button
@@ -661,25 +661,25 @@ export default function AdminSettingsPage() {
 
         {/* Reassignment Results */}
         {reassignResult && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg animate-in slide-in-from-bottom-2">
+          <div className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg animate-in slide-in-from-bottom-2">
             <div className="flex items-center gap-2 mb-4">
               <FiCheckCircle size={16} className="text-emerald-400" />
               <h2 className="text-sm font-bold text-white uppercase tracking-wider">Reassignment Results</h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-              <div className="bg-neutral-950 rounded-xl p-3 border border-neutral-800 text-center">
+              <div className="bg-black/20 rounded-xl p-3 border border-white/10 text-center">
                 <p className="text-[10px] text-neutral-500 uppercase font-semibold tracking-wider mb-1">Marked Inactive</p>
                 <p className="text-xl font-bold text-amber-400">{reassignResult.markedInactive}</p>
               </div>
-              <div className="bg-neutral-950 rounded-xl p-3 border border-neutral-800 text-center">
+              <div className="bg-black/20 rounded-xl p-3 border border-white/10 text-center">
                 <p className="text-[10px] text-neutral-500 uppercase font-semibold tracking-wider mb-1">Total Update</p>
                 <p className="text-xl font-bold text-purple-400">{reassignResult.totalUpdateAccounts}</p>
               </div>
-              <div className="bg-neutral-950 rounded-xl p-3 border border-neutral-800 text-center">
+              <div className="bg-black/20 rounded-xl p-3 border border-white/10 text-center">
                 <p className="text-[10px] text-neutral-500 uppercase font-semibold tracking-wider mb-1">Reassigned</p>
                 <p className="text-xl font-bold text-emerald-400">{reassignResult.reassignedCount}</p>
               </div>
-              <div className="bg-neutral-950 rounded-xl p-3 border border-neutral-800 text-center">
+              <div className="bg-black/20 rounded-xl p-3 border border-white/10 text-center">
                 <p className="text-[10px] text-neutral-500 uppercase font-semibold tracking-wider mb-1">Unchanged</p>
                 <p className="text-xl font-bold text-neutral-400">
                   {reassignResult.totalUpdateAccounts - reassignResult.reassignedCount}
@@ -688,8 +688,8 @@ export default function AdminSettingsPage() {
             </div>
 
             {reassignResult.reassignedDetails && reassignResult.reassignedDetails.length > 0 && (
-              <div className="bg-neutral-950 rounded-xl border border-neutral-800 overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-neutral-800">
+              <div className="bg-black/20 rounded-xl border border-white/10 overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-white/10">
                   <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Reassignment Details</p>
                 </div>
                 <div className="overflow-y-auto divide-y divide-neutral-800">
@@ -701,7 +701,7 @@ export default function AdminSettingsPage() {
                   ))}
                 </div>
                 {detailsPagination.pageSize !== "All" && reassignResult.reassignedDetails.length > (detailsPagination.pageSize as number) && (
-                  <div className="border-t border-neutral-800">
+                  <div className="border-t border-white/10">
                     <Pagination
                       currentPage={detailsPagination.currentPage}
                       pageSize={detailsPagination.pageSize}
@@ -722,7 +722,7 @@ export default function AdminSettingsPage() {
       {showRebalanceConfirm && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowRebalanceConfirm(false)}>
           <div
-            className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md p-6 shadow-2xl"
+            className="glass-panel border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 mb-4">

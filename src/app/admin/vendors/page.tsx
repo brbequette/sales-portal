@@ -110,9 +110,9 @@ export default function VendorsPage() {
             <p className="text-neutral-400 font-bold uppercase tracking-wider text-sm">Loading vendors...</p>
           </div>
         ) : (
-          <div className="bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden shadow-xl">
+          <div className="glass-panel rounded-xl border border-white/10 overflow-hidden shadow-xl">
             <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-neutral-950 text-neutral-400 border-b border-neutral-800 uppercase text-xs font-black tracking-wider">
+              <thead className="bg-black/20 text-neutral-400 border-b border-white/10 uppercase text-xs font-black tracking-wider">
                 <tr>
                   <th className="px-6 py-4">Vendor Name</th>
                   <th className="px-6 py-4">Company</th>
@@ -123,13 +123,13 @@ export default function VendorsPage() {
               </thead>
               <tbody className="divide-y divide-neutral-800">
                 {vendors.map(v => (
-                  <tr key={v.id} className="hover:bg-white/[0.02] transition-colors">
+                  <tr key={v.id} className="hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                     <td className="px-6 py-4 font-bold text-white">{v.contactName || 'â€”'}</td>
                     <td className="px-6 py-4 text-neutral-400 font-medium">{v.companyName || 'â€”'}</td>
                     <td className="px-6 py-4 text-neutral-400 font-medium">{v.email || 'â€”'}</td>
                     <td className="px-6 py-4 text-neutral-400 font-medium">{v.phone || 'â€”'}</td>
                     <td className="px-6 py-4 text-right">
-                      <button onClick={() => setSelectedVendor(v)} className="p-2 hover:bg-neutral-800 rounded-lg text-emerald-500 transition-colors">
+                      <button onClick={() => setSelectedVendor(v)} className="p-2 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 rounded-lg text-emerald-500 transition-colors">
                         <FiEdit2 />
                       </button>
                     </td>
@@ -144,12 +144,12 @@ export default function VendorsPage() {
       {/* Editor Modal */}
       {selectedVendor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-neutral-950/50 rounded-t-2xl">
+          <div className="glass-panel border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-black/20/50 rounded-t-2xl">
               <h2 className="text-xl font-black text-white uppercase tracking-wider">
                 {selectedVendor.id ? 'Edit Vendor' : 'New Vendor'}
               </h2>
-              <button onClick={() => setSelectedVendor(null)} className="p-2 text-neutral-500 hover:text-white rounded-full hover:bg-neutral-800 transition-colors">
+              <button onClick={() => setSelectedVendor(null)} className="p-2 text-neutral-500 hover:text-white rounded-full hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors">
                 <FiX size={20} />
               </button>
             </div>
@@ -159,27 +159,27 @@ export default function VendorsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-xs font-black text-neutral-400 uppercase tracking-wider mb-2">Contact Name</label>
-                    <input type="text" required value={selectedVendor.contactName || ''} onChange={e => setSelectedVendor({...selectedVendor, contactName: e.target.value})} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500 transition-colors" />
+                    <input type="text" required value={selectedVendor.contactName || ''} onChange={e => setSelectedVendor({...selectedVendor, contactName: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500 transition-colors" />
                   </div>
                   <div>
                     <label className="block text-xs font-black text-neutral-400 uppercase tracking-wider mb-2">Company Name</label>
-                    <input type="text" value={selectedVendor.companyName || ''} onChange={e => setSelectedVendor({...selectedVendor, companyName: e.target.value})} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500 transition-colors" />
+                    <input type="text" value={selectedVendor.companyName || ''} onChange={e => setSelectedVendor({...selectedVendor, companyName: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500 transition-colors" />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-xs font-black text-neutral-400 uppercase tracking-wider mb-2">Email</label>
-                    <input type="email" value={selectedVendor.email || ''} onChange={e => setSelectedVendor({...selectedVendor, email: e.target.value})} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500 transition-colors" />
+                    <input type="email" value={selectedVendor.email || ''} onChange={e => setSelectedVendor({...selectedVendor, email: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500 transition-colors" />
                   </div>
                   <div>
                     <label className="block text-xs font-black text-neutral-400 uppercase tracking-wider mb-2">Phone</label>
-                    <input type="text" value={selectedVendor.phone || ''} onChange={e => setSelectedVendor({...selectedVendor, phone: e.target.value})} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500 transition-colors" />
+                    <input type="text" value={selectedVendor.phone || ''} onChange={e => setSelectedVendor({...selectedVendor, phone: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500 transition-colors" />
                   </div>
                 </div>
               </form>
             </div>
 
-            <div className="p-6 border-t border-neutral-800 flex justify-end gap-3 bg-neutral-950/50 rounded-b-2xl">
+            <div className="p-6 border-t border-white/10 flex justify-end gap-3 bg-black/20/50 rounded-b-2xl">
               <button type="button" onClick={() => setSelectedVendor(null)} className="px-5 py-2.5 font-bold text-neutral-400 hover:text-white transition-colors">
                 CANCEL
               </button>

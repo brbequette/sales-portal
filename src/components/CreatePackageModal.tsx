@@ -55,7 +55,7 @@ export function CreatePackageModal({ salesOrderId, lineItems, onClose, onSuccess
   return createPortal(
     <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-neutral-900 border border-neutral-800 w-full max-w-lg rounded-2xl p-6 shadow-2xl">
+      <div className="relative glass-panel border border-white/10 w-full max-w-lg rounded-2xl p-6 shadow-2xl">
         <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
           <FiBox className="text-blue-400" /> Create Package
         </h3>
@@ -63,7 +63,7 @@ export function CreatePackageModal({ salesOrderId, lineItems, onClose, onSuccess
         
         <div className="space-y-3 max-h-[60vh] overflow-y-auto mb-6 pr-2">
           {lineItems.map(item => (
-            <div key={item.line_item_id} className="bg-neutral-850 p-3 rounded-xl border border-neutral-800 flex justify-between items-center">
+            <div key={item.line_item_id} className="glass-panel p-3 rounded-xl border border-white/10 flex justify-between items-center">
               <div>
                 <div className="text-sm font-bold text-white">{item.name}</div>
                 <div className="text-[10px] text-neutral-500 font-mono mt-1">Available Qty: {item.quantity}</div>
@@ -75,14 +75,14 @@ export function CreatePackageModal({ salesOrderId, lineItems, onClose, onSuccess
                   max={item.quantity} 
                   value={selectedItems[item.line_item_id] || 0}
                   onChange={e => handleQuantityChange(item.line_item_id, parseInt(e.target.value) || 0)}
-                  className="w-16 bg-neutral-950 border border-neutral-800 rounded px-2 py-1 text-white text-center text-sm font-bold"
+                  className="w-16 bg-black/20 border border-white/10 rounded px-2 py-1 text-white text-center text-sm font-bold"
                 />
               </div>
             </div>
           ))}
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-neutral-800">
+        <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
           <button onClick={onClose} className="px-4 py-2 text-neutral-400 hover:text-white font-bold text-sm">Cancel</button>
           <button 
             onClick={handleSubmit} 

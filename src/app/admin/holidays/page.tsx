@@ -227,8 +227,8 @@ export default function AdminHolidaysPage() {
           </div>
         )}
 
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg">
-          <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-4 mb-6">
+        <div className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg">
+          <div className="bg-black/20 border border-white/10 rounded-xl p-4 mb-6">
             <h3 className="text-[10px] uppercase tracking-wider font-bold text-neutral-500 mb-3">Generate Standard Holidays</h3>
             
             <div className="flex items-center gap-3 mb-4">
@@ -237,14 +237,14 @@ export default function AdminHolidaysPage() {
                 type="number" 
                 value={holidayStartYear} 
                 onChange={e => setHolidayStartYear(parseInt(e.target.value) || new Date().getFullYear())}
-                className="w-20 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-purple-500"
+                className="w-20 glass-panel border border-neutral-700 rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-purple-500"
               />
               <span className="text-sm text-neutral-400">to</span>
               <input 
                 type="number" 
                 value={holidayEndYear} 
                 onChange={e => setHolidayEndYear(parseInt(e.target.value) || new Date().getFullYear() + 4)}
-                className="w-20 bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-purple-500"
+                className="w-20 glass-panel border border-neutral-700 rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-purple-500"
               />
             </div>
 
@@ -260,7 +260,7 @@ export default function AdminHolidaysPage() {
                       else newSet.delete(h.id)
                       setSelectedStandardHolidays(newSet)
                     }}
-                    className="w-4 h-4 rounded border-neutral-700 bg-neutral-900 text-purple-600 focus:ring-purple-500 focus:ring-offset-neutral-950"
+                    className="w-4 h-4 rounded border-neutral-700 glass-panel text-purple-600 focus:ring-purple-500 focus:ring-offset-neutral-950"
                   />
                   <span className="text-xs text-neutral-300 group-hover:text-white transition-colors truncate">{h.name}</span>
                 </label>
@@ -296,14 +296,14 @@ export default function AdminHolidaysPage() {
               type="date"
               value={newHolidayDate}
               onChange={(e) => setNewHolidayDate(e.target.value)}
-              className="bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+              className="bg-black/20 border border-neutral-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
             />
             <input
               type="text"
               placeholder="Custom Holiday Name"
               value={newHolidayName}
               onChange={(e) => setNewHolidayName(e.target.value)}
-              className="bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 flex-1"
+              className="bg-black/20 border border-neutral-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 flex-1"
             />
             <button
               onClick={() => {
@@ -334,8 +334,8 @@ export default function AdminHolidaysPage() {
               }, {} as Record<string, {date: string, name: string}[]>))
               .sort(([yearA], [yearB]) => yearB.localeCompare(yearA))
               .map(([year, hols]) => (
-                <div key={year} className="bg-neutral-950 border border-neutral-800 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3 border-b border-neutral-800 pb-2">
+                <div key={year} className="bg-black/20 border border-white/10 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
                     <h3 className="text-sm font-bold text-white">{year} <span className="text-[10px] text-neutral-500 font-normal ml-2">({hols.length} days)</span></h3>
                     <button 
                       onClick={() => {
@@ -348,7 +348,7 @@ export default function AdminHolidaysPage() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {hols.map(h => (
-                      <span key={h.date} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-neutral-900 border border-neutral-800 rounded text-xs text-neutral-300">
+                      <span key={h.date} className="inline-flex items-center gap-1.5 px-2.5 py-1 glass-panel border border-white/10 rounded text-xs text-neutral-300">
                         <span className="font-mono text-[10px] text-neutral-500">{h.date.slice(5)}</span>
                         <span>{h.name}</span>
                         <button

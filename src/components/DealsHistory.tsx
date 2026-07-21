@@ -11,7 +11,7 @@ export function DealsHistory({ deals }: { deals: any[] }) {
   const pagination = usePagination(filteredDeals)
   if (!deals || deals.length === 0) {
     return (
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 text-center text-neutral-500">
+      <div className="glass-panel border border-white/10 rounded-xl p-8 text-center text-neutral-500">
         <p>No sales history found for this account.</p>
       </div>
     )
@@ -83,7 +83,7 @@ export function DealsHistory({ deals }: { deals: any[] }) {
                   <div className="text-xs font-semibold text-neutral-500 flex items-center mb-2">
                     <FiBox className="mr-1" /> Products Included
                   </div>
-                  <p className="text-xs text-neutral-300 leading-relaxed max-h-24 overflow-y-auto bg-neutral-900 p-2 rounded border border-neutral-800" style={{ whiteSpace: 'pre-wrap' }}>{deal.invoicedItems}</p>
+                  <p className="text-xs text-neutral-300 leading-relaxed max-h-24 overflow-y-auto glass-panel p-2 rounded border border-white/10" style={{ whiteSpace: 'pre-wrap' }}>{deal.invoicedItems}</p>
                 </div>
               )}
 

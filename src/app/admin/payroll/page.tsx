@@ -113,7 +113,7 @@ export default function PayrollAdminPage() {
           </button>
         </div>
 
-        <div className="flex border-b border-neutral-800">
+        <div className="flex border-b border-white/10">
           <button
             onClick={() => setActiveTab("advances")}
             className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === "advances" ? "border-amber-500 text-amber-400" : "border-transparent text-neutral-500 hover:text-neutral-300"}`}
@@ -136,7 +136,7 @@ export default function PayrollAdminPage() {
 
         <div className="mt-4">
            {activeTab === "advances" && (
-              <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
+              <div className="glass-panel border border-white/10 rounded-xl p-6">
                  <div className="flex justify-between items-center mb-6">
                     <h2 className="text-lg font-bold text-white">Active Advances</h2>
                     <button onClick={() => setShowAddAdvance(!showAddAdvance)} className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-sm font-bold flex items-center gap-2">
@@ -149,25 +149,25 @@ export default function PayrollAdminPage() {
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                        <div>
                          <label className="block text-xs font-bold text-neutral-400 mb-1">Rep</label>
-                         <select required value={advanceForm.userId} onChange={e => setAdvanceForm({...advanceForm, userId: e.target.value})} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm text-white">
+                         <select required value={advanceForm.userId} onChange={e => setAdvanceForm({...advanceForm, userId: e.target.value})} className="w-full glass-panel border border-neutral-700 rounded p-2 text-sm text-white">
                            <option value="">Select Rep...</option>
                            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                          </select>
                        </div>
                        <div>
                          <label className="block text-xs font-bold text-neutral-400 mb-1">Total Amount ($)</label>
-                         <input required type="number" step="0.01" value={advanceForm.amount} onChange={e => setAdvanceForm({...advanceForm, amount: e.target.value})} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm text-white" />
+                         <input required type="number" step="0.01" value={advanceForm.amount} onChange={e => setAdvanceForm({...advanceForm, amount: e.target.value})} className="w-full glass-panel border border-neutral-700 rounded p-2 text-sm text-white" />
                        </div>
                        <div>
                          <label className="block text-xs font-bold text-neutral-400 mb-1">Reason</label>
-                         <input required type="text" value={advanceForm.reason} onChange={e => setAdvanceForm({...advanceForm, reason: e.target.value})} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm text-white" />
+                         <input required type="text" value={advanceForm.reason} onChange={e => setAdvanceForm({...advanceForm, reason: e.target.value})} className="w-full glass-panel border border-neutral-700 rounded p-2 text-sm text-white" />
                        </div>
                        <div>
                          <label className="block text-xs font-bold text-neutral-400 mb-1">Payback Strategy</label>
                          <div className="flex gap-2">
-                           <input type="number" placeholder="Split over X weeks" value={advanceForm.splitOverWeeks} onChange={e => setAdvanceForm({...advanceForm, splitOverWeeks: e.target.value, deductionRate: ""})} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm text-white" />
+                           <input type="number" placeholder="Split over X weeks" value={advanceForm.splitOverWeeks} onChange={e => setAdvanceForm({...advanceForm, splitOverWeeks: e.target.value, deductionRate: ""})} className="w-full glass-panel border border-neutral-700 rounded p-2 text-sm text-white" />
                            <span className="self-center font-bold text-neutral-500">OR</span>
-                           <input type="number" placeholder="$X per week" value={advanceForm.deductionRate} onChange={e => setAdvanceForm({...advanceForm, deductionRate: e.target.value, splitOverWeeks: ""})} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm text-white" />
+                           <input type="number" placeholder="$X per week" value={advanceForm.deductionRate} onChange={e => setAdvanceForm({...advanceForm, deductionRate: e.target.value, splitOverWeeks: ""})} className="w-full glass-panel border border-neutral-700 rounded p-2 text-sm text-white" />
                          </div>
                        </div>
                      </div>
@@ -196,7 +196,7 @@ export default function PayrollAdminPage() {
            )}
 
            {activeTab === "reimbursements" && (
-              <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
+              <div className="glass-panel border border-white/10 rounded-xl p-6">
                  <h2 className="text-lg font-bold text-white mb-4">Review Reimbursements</h2>
                  <div className="divide-y divide-neutral-800">
                     {reimbursements.length === 0 ? <p className="text-neutral-500 py-4">No pending reimbursements.</p> : reimbursements.map(r => (
@@ -222,13 +222,13 @@ export default function PayrollAdminPage() {
            )}
 
            {activeTab === "vouchers" && (
-              <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
+              <div className="glass-panel border border-white/10 rounded-xl p-6">
                  <h2 className="text-lg font-bold text-white mb-6">Generate Pay Vouchers</h2>
                  
                  <div className="bg-neutral-800 p-6 rounded-lg border border-neutral-700 max-w-xl mx-auto space-y-4">
                    <div>
                      <label className="block text-sm font-bold text-neutral-400 mb-2">Select Rep</label>
-                     <select value={selectedVoucherRep} onChange={e => setSelectedVoucherRep(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-white">
+                     <select value={selectedVoucherRep} onChange={e => setSelectedVoucherRep(e.target.value)} className="w-full glass-panel border border-neutral-700 rounded-lg p-3 text-white">
                        <option value="">Choose Rep...</option>
                        {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                      </select>
@@ -236,7 +236,7 @@ export default function PayrollAdminPage() {
                    
                    <div>
                      <label className="block text-sm font-bold text-neutral-400 mb-2">Select Week (Monday)</label>
-                     <input type="date" value={selectedVoucherWeek} onChange={e => setSelectedVoucherWeek(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-white color-scheme-dark" />
+                     <input type="date" value={selectedVoucherWeek} onChange={e => setSelectedVoucherWeek(e.target.value)} className="w-full glass-panel border border-neutral-700 rounded-lg p-3 text-white color-scheme-dark" />
                      <p className="text-xs text-neutral-500 mt-1">Pick the Monday of the pay week</p>
                    </div>
                    

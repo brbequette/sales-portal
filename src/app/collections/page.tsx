@@ -171,8 +171,8 @@ function CallModal({ invoice, onClose, onSaved }: { invoice: Invoice, onClose: (
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-neutral-900 border border-neutral-700 rounded-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto shadow-2xl flex flex-col">
-        <div className="flex items-start justify-between p-5 border-b border-neutral-800">
+      <div className="glass-panel border border-neutral-700 rounded-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto shadow-2xl flex flex-col">
+        <div className="flex items-start justify-between p-5 border-b border-white/10">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <FiPhoneCall className="text-emerald-400" /> Log Call
@@ -249,7 +249,7 @@ function CallModal({ invoice, onClose, onSaved }: { invoice: Invoice, onClose: (
             className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 resize-none" />
         </div>
 
-        <div className="p-5 border-t border-neutral-800 flex gap-2 justify-end bg-neutral-900/60 rounded-b-2xl">
+        <div className="p-5 border-t border-white/10 flex gap-2 justify-end glass-panel/60 rounded-b-2xl">
           <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-neutral-400 hover:text-white transition-colors">Cancel</button>
           <button onClick={save} disabled={saving}
             className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors">
@@ -432,8 +432,8 @@ function RunCardModal({ invoice, onClose, onSuccess }: RunCardProps) {
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-neutral-900 border border-neutral-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between p-5 border-b border-neutral-800 bg-neutral-950/40">
+      <div className="glass-panel border border-neutral-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between p-5 border-b border-white/10 bg-black/20/40">
           <h2 className="text-base font-bold text-white flex items-center gap-2">
             <FiCreditCard className="text-purple-400" /> Run Credit Card
           </h2>
@@ -443,7 +443,7 @@ function RunCardModal({ invoice, onClose, onSuccess }: RunCardProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="bg-neutral-950/50 border border-neutral-800 rounded-lg p-3 space-y-1">
+          <div className="bg-black/20/50 border border-white/10 rounded-lg p-3 space-y-1">
             <span className="text-[10px] uppercase font-bold text-neutral-500">Invoice Reference</span>
             <div className="text-sm font-semibold text-neutral-300">Inv #{invoice.invoice_number} Â· {invoice.customer_name}</div>
           </div>
@@ -574,8 +574,8 @@ function RequestReturnModal({ invoice, onClose, onSuccess }: RequestReturnProps)
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-neutral-900 border border-neutral-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between p-5 border-b border-neutral-800 bg-neutral-950/40">
+      <div className="glass-panel border border-neutral-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between p-5 border-b border-white/10 bg-black/20/40">
           <h2 className="text-base font-bold text-white flex items-center gap-2">
             <FiTruck className="text-red-400" /> Request Return label
           </h2>
@@ -795,17 +795,17 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-3xl w-full max-w-6xl h-[90vh] shadow-2xl flex flex-col overflow-hidden text-white">
+      <div className="glass-panel border border-white/10 rounded-3xl w-full max-w-6xl h-[90vh] shadow-2xl flex flex-col overflow-hidden text-white">
         
         {/* Header */}
-        <div className="flex-none px-6 py-4 border-b border-neutral-800 bg-neutral-950 flex items-center justify-between">
+        <div className="flex-none px-6 py-4 border-b border-white/10 bg-black/20 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <FiPhoneCall className="text-red-400 animate-pulse" /> Collections Call Campaign
             </h2>
             <p className="text-xs text-neutral-500 mt-0.5">Automated script workflow & batch invoice dispositioning</p>
           </div>
-          <button onClick={onClose} className="text-neutral-500 hover:text-white p-2 rounded-full bg-neutral-905 hover:bg-neutral-800 transition-colors">
+          <button onClick={onClose} className="text-neutral-500 hover:text-white p-2 rounded-full bg-neutral-905 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors">
             <FiX size={18} />
           </button>
         </div>
@@ -814,8 +814,8 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
         <div className="flex-1 flex overflow-hidden min-h-0">
           
           {/* Left panel - Accounts list */}
-          <div className="w-1/3 border-r border-neutral-800 flex flex-col bg-neutral-950/20">
-            <div className="p-4 border-b border-neutral-800 flex items-center gap-2 bg-neutral-950/40">
+          <div className="w-1/3 border-r border-white/10 flex flex-col bg-black/20/20">
+            <div className="p-4 border-b border-white/10 flex items-center gap-2 bg-black/20/40">
               <FiSearch className="text-neutral-500" />
               <input 
                 type="text" 
@@ -839,7 +839,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                       key={acc.customerId}
                       onClick={() => setSelectedAccountIndex(idx)}
                       className={`w-full text-left p-4 transition-colors flex justify-between items-start ${
-                        isActive ? "bg-red-955 border-l-4 border-l-red-500" : "hover:bg-neutral-850/30"
+                        isActive ? "bg-red-955 border-l-4 border-l-red-500" : "hover:glass-panel/30"
                       }`}
                     >
                       <div className="min-w-0 pr-2">
@@ -852,7 +852,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-xs font-black text-red-400">{fmt(acc.totalBalance)}</p>
-                        <span className="inline-block text-[9px] bg-neutral-850 border border-neutral-750 px-1.5 py-0.5 rounded-full text-neutral-400 mt-1">
+                        <span className="inline-block text-[9px] glass-panel border border-neutral-750 px-1.5 py-0.5 rounded-full text-neutral-400 mt-1">
                           {acc.invoices.length} inv
                         </span>
                       </div>
@@ -868,7 +868,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
             <div className="flex-1 flex flex-col overflow-y-auto p-6 space-y-6">
               
               {/* Customer Contact & Summary */}
-              <div className="bg-neutral-950/40 border border-neutral-805 rounded-2xl p-4 flex justify-between items-start gap-4">
+              <div className="bg-black/20/40 border border-neutral-805 rounded-2xl p-4 flex justify-between items-start gap-4">
                 <div className="space-y-1">
                   <h3 className="text-base font-bold text-white uppercase tracking-tight">{activeAccount.customerName}</h3>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-neutral-455">
@@ -927,7 +927,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                   </div>
                 </div>
                 
-                <div className="border border-neutral-800 rounded-xl overflow-hidden divide-y divide-neutral-850">
+                <div className="border border-white/10 rounded-xl overflow-hidden divide-y divide-neutral-850">
                   {activeAccount.invoices.map(inv => {
                     const checked = !!selectedInvoices[inv.id]
                     return (
@@ -935,7 +935,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                         key={inv.id} 
                         onClick={() => setSelectedInvoices(prev => ({ ...prev, [inv.id]: !checked }))}
                         className={`p-3.5 flex items-center justify-between text-xs transition-colors cursor-pointer ${
-                          checked ? "bg-neutral-800/40" : "hover:bg-neutral-850/20"
+                          checked ? "bg-neutral-800/40" : "hover:glass-panel/20"
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
@@ -964,7 +964,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
               </div>
 
               {/* Disposition Form */}
-              <div className="bg-neutral-950/30 border border-neutral-800 rounded-2xl p-5 space-y-4">
+              <div className="bg-black/20/30 border border-white/10 rounded-2xl p-5 space-y-4">
                 <h4 className="text-xs font-bold text-white uppercase tracking-wider">Log Call Outcome (Disposition)</h4>
                 
                 {/* Outcomes Grid */}
@@ -976,7 +976,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                       className={`text-xs font-bold px-3 py-2.5 rounded-xl border transition-all text-left ${
                         outcome === k 
                           ? OUTCOME_COLORS[k] + " border-current" 
-                          : "text-neutral-400 bg-neutral-900 border-transparent hover:border-neutral-850"
+                          : "text-neutral-400 glass-panel border-transparent hover:border-neutral-850"
                       }`}
                     >
                       {OUTCOME_LABELS[k]}
@@ -996,7 +996,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                     </div>
                     {contactReached && (
                       <input value={spokeTo} onChange={e => setSpokeTo(e.target.value)} placeholder="Who did you speak with?"
-                        className="w-full bg-neutral-900 border border-neutral-850 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-red-500 font-medium" />
+                        className="w-full glass-panel border border-neutral-850 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-red-500 font-medium" />
                     )}
                   </div>
 
@@ -1006,25 +1006,25 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                       <div>
                         <label className="text-[10px] uppercase font-bold text-neutral-400 mb-1.5 block">Promise to Pay By</label>
                         <input type="date" value={promiseDate} onChange={e => setPromiseDate(e.target.value)}
-                          className="w-full bg-neutral-900 border border-neutral-850 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500" />
+                          className="w-full glass-panel border border-neutral-850 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500" />
                       </div>
                     )}
                     <div>
                       <label className="text-[10px] uppercase font-bold text-neutral-400 mb-1.5 block">Follow-up Date</label>
                       <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
-                        className="w-full bg-neutral-900 border border-neutral-850 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500" />
+                        className="w-full glass-panel border border-neutral-850 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500" />
                     </div>
                   </div>
                 </div>
 
                 {/* Duration timer */}
-                <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-850 p-2 rounded-xl max-w-sm">
+                <div className="flex items-center gap-2 glass-panel border border-neutral-850 p-2 rounded-xl max-w-sm">
                   <input value={timerRunning ? `${mm}:${ss}` : duration} onChange={e => setDuration(e.target.value)}
                     placeholder="Duration (minutes)" readOnly={timerRunning}
                     className="flex-1 bg-transparent text-xs text-white placeholder-neutral-500 focus:outline-none px-2 font-mono" />
                   <button onClick={toggleTimer}
                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-colors shrink-0 ${
-                      timerRunning ? "bg-red-600 hover:bg-red-550 text-white" : "bg-neutral-850 hover:bg-neutral-800 text-white border border-neutral-750"
+                      timerRunning ? "bg-red-600 hover:bg-red-550 text-white" : "glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-white border border-neutral-750"
                     }`}
                   >
                     {timerRunning ? `â± Stop` : "Start Timer"}
@@ -1037,7 +1037,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                   onChange={e => setNotes(e.target.value)} 
                   placeholder="Summarize the details of the call & next steps..." 
                   rows={3}
-                  className="w-full bg-neutral-900 border border-neutral-850 rounded-xl p-3.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-red-500 font-medium resize-none" 
+                  className="w-full glass-panel border border-neutral-850 rounded-xl p-3.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-red-500 font-medium resize-none" 
                 />
 
                 {/* Save button */}
@@ -1240,7 +1240,7 @@ export default function CollectionsPage() {
     <div className="flex flex-col overflow-hidden" style={{ height: "100%" }}>
 
       {/* Header */}
-      <div className="flex-none px-5 py-3 border-b border-neutral-800 bg-neutral-950">
+      <div className="flex-none px-5 py-3 border-b border-white/10 bg-black/20">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-lg font-bold text-white flex items-center gap-2">
@@ -1298,10 +1298,10 @@ export default function CollectionsPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex-none px-5 py-2 border-b border-neutral-800 bg-neutral-900 flex items-center justify-between gap-2 flex-wrap">
+      <div className="flex-none px-5 py-2 border-b border-white/10 glass-panel flex items-center justify-between gap-2 flex-wrap">
         {/* Tab switcher & Show All Toggle */}
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex bg-neutral-800 border border-neutral-800 rounded-lg p-0.5 gap-0.5">
+          <div className="flex bg-neutral-800 border border-white/10 rounded-lg p-0.5 gap-0.5">
             <button onClick={() => setTab("all")} className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${tab === "all" ? "bg-purple-600 text-white" : "text-neutral-400 hover:text-white"}`}>
               All
             </button>
@@ -1397,7 +1397,7 @@ export default function CollectionsPage() {
           )}
           <button
             onClick={() => setShowFiltersDrawer(true)}
-            className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 bg-neutral-800 hover:bg-neutral-800 border rounded-lg transition-colors ${
+            className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 bg-neutral-800 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 border rounded-lg transition-colors ${
               activeFiltersCount > 0 ? "text-emerald-400 border-emerald-500/40 bg-emerald-950/10" : "text-neutral-300 border-neutral-700/60"
             }`}
           >
@@ -1416,9 +1416,9 @@ export default function CollectionsPage() {
       {showFiltersDrawer && createPortal(
         <div className="fixed inset-0 z-[9999]">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFiltersDrawer(false)} />
-          <div className="fixed top-0 right-0 h-full w-full max-w-sm bg-neutral-900 border-l border-neutral-800 p-6 flex flex-col shadow-2xl text-white z-[9999]">
+          <div className="fixed top-0 right-0 h-full w-full max-w-sm glass-panel border-l border-white/10 p-6 flex flex-col shadow-2xl text-white z-[9999]">
               {/* Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
+              <div className="flex items-center justify-between pb-4 border-b border-white/10">
                 <h2 className="text-sm font-bold flex items-center gap-2 uppercase tracking-wider text-neutral-300">
                   <FiFilter className="text-emerald-400" /> Filters
                 </h2>
@@ -1495,7 +1495,7 @@ export default function CollectionsPage() {
               </div>
 
               {/* Footer */}
-              <div className="pt-4 border-t border-neutral-800 flex gap-3">
+              <div className="pt-4 border-t border-white/10 flex gap-3">
                 <button 
                   onClick={() => {
                     setSearch("")
@@ -1504,7 +1504,7 @@ export default function CollectionsPage() {
                     setSortBy("days_desc")
                     setShowFiltersDrawer(false)
                   }}
-                  className="flex-1 bg-neutral-800 hover:bg-neutral-800 border border-neutral-700/60 text-white font-bold py-2 px-4 rounded-lg text-xs transition-colors"
+                  className="flex-1 bg-neutral-800 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 border border-neutral-700/60 text-white font-bold py-2 px-4 rounded-lg text-xs transition-colors"
                 >
                   Clear All
                 </button>
@@ -1534,7 +1534,7 @@ export default function CollectionsPage() {
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-neutral-900 border-b border-neutral-800 z-10">
+            <thead className="sticky top-0 glass-panel border-b border-white/10 z-10">
               <tr>
                 <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-neutral-500 font-bold">Invoice</th>
                 <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-neutral-500 font-bold">Customer</th>
@@ -1558,7 +1558,7 @@ export default function CollectionsPage() {
                 return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).flatMap(([rep, invs]) => [
                   // Rep header row
                   <tr key={`grp-${rep}`} className="bg-neutral-800/40">
-                    <td colSpan={8} className="px-4 py-1.5 border-b border-neutral-800/40">
+                    <td colSpan={8} className="px-4 py-1.5 border-b border-white/10/40">
                       <div className="flex items-center justify-between">
                         <span className="flex items-center gap-2 text-xs font-bold text-neutral-300">
                           <FiUser size={11} className="text-neutral-500" /> {rep}
@@ -1572,7 +1572,7 @@ export default function CollectionsPage() {
                     return (
                       <tr key={inv.id} 
                         onClick={() => setViewingInvoiceZohoId(inv.id)}
-                        className="border-b border-neutral-800/60 hover:bg-neutral-800/20 transition-all group cursor-pointer"
+                        className="border-b border-white/10/60 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/20 transition-all group cursor-pointer"
                       >
                         <td className="px-4 py-3">
                           <span className="font-mono text-xs text-emerald-400 font-bold">

@@ -84,7 +84,7 @@ export function SaleTimeline({ dealId, currentStage }: SaleTimelineProps) {
               )}
               
               {/* Circle */}
-              <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors bg-neutral-900 ${
+              <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors glass-panel ${
                 isCompleted ? 'bg-emerald-900/40 border-emerald-500 text-emerald-500' :
                 isCurrent ? 'bg-blue-900/40 border-blue-500 text-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]' :
                 'bg-neutral-800 border-neutral-600 text-neutral-500'

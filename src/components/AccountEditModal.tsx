@@ -117,7 +117,7 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
               type="text" 
               value={formData.name}
               onChange={e => setFormData({ ...formData, name: e.target.value })}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
           <div>
@@ -126,7 +126,7 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
               type="text" 
               value={formData.industry}
               onChange={e => setFormData({ ...formData, industry: e.target.value })}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
           <div>
@@ -135,7 +135,7 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
               type="text" 
               value={formData.timeZone}
               onChange={e => setFormData({ ...formData, timeZone: e.target.value })}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
               placeholder="e.g. America/New_York"
             />
           </div>
@@ -145,7 +145,7 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
               type="text" 
               value={formData.tags}
               onChange={e => setFormData({ ...formData, tags: e.target.value })}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
           <div>
@@ -153,7 +153,7 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
             <select 
               value={formData.status}
               onChange={e => setFormData({ ...formData, status: e.target.value })}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
             >
               {["Personal", "Open", "Update Status", "Inactive", "VIP", "New Lead", "Hot Lead", "Do Not Contact"].map(s => (
                 <option key={s} value={s}>{s}</option>
@@ -162,7 +162,7 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
           </div>
 
           {/* ── Fact-Finding Section ── */}
-          <div className="border-t border-neutral-800 pt-4 mt-2">
+          <div className="border-t border-white/10 pt-4 mt-2">
             <h3 className="text-sm font-bold text-orange-400 mb-4">📋 Fact-Finding</h3>
             <div className="space-y-4">
               {FACT_FINDING_FIELDS.map(field => {
@@ -196,13 +196,13 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
           </div>
 
           {/* Billing Address */}
-          <div className="pt-2 border-t border-white/5">
+          <div className="pt-2 border-t border-white/10">
             <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1.5">Billing Street</label>
             <input
               type="text"
               value={formData.billingStreet}
               onChange={e => setFormData({ ...formData, billingStreet: e.target.value })}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
               placeholder="123 Main St"
             />
           </div>
@@ -213,7 +213,7 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
                 type="text"
                 value={formData.billingCity}
                 onChange={e => setFormData({ ...formData, billingCity: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
               />
             </div>
             <div>
@@ -222,7 +222,7 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
                 type="text"
                 value={formData.billingState}
                 onChange={e => setFormData({ ...formData, billingState: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
               />
             </div>
             <div>
@@ -231,7 +231,7 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
                 type="text"
                 value={formData.billingZip}
                 onChange={e => setFormData({ ...formData, billingZip: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
               />
             </div>
           </div>

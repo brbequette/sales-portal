@@ -149,7 +149,7 @@ export default function ScriptManagerPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {scripts.map(script => (
-          <div key={script.id} className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 shadow-lg flex flex-col h-full">
+          <div key={script.id} className="glass-panel border border-white/10 rounded-2xl p-5 shadow-lg flex flex-col h-full">
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h3 className="text-sm font-bold text-white">{script.name}</h3>
@@ -165,7 +165,7 @@ export default function ScriptManagerPage() {
                 </div>
               </div>
               <div className="flex gap-1">
-                <button onClick={() => openModal(script)} className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded">
+                <button onClick={() => openModal(script)} className="p-1.5 text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 rounded">
                   <FiEdit2 size={14} />
                 </button>
                 <button onClick={() => handleDelete(script.id)} className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded">
@@ -179,7 +179,7 @@ export default function ScriptManagerPage() {
           </div>
         ))}
         {scripts.length === 0 && (
-          <div className="col-span-full py-12 text-center border-2 border-dashed border-neutral-800 rounded-2xl">
+          <div className="col-span-full py-12 text-center border-2 border-dashed border-white/10 rounded-2xl">
             <p className="text-neutral-500 mb-2">No scripts found</p>
             <button onClick={() => openModal()} className="text-sm font-bold text-purple-400 hover:underline">
               Create your first script
@@ -190,8 +190,8 @@ export default function ScriptManagerPage() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b border-neutral-800">
+          <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-white/10">
               <h2 className="text-lg font-bold text-white">{editingScript ? "Edit Script" : "New Script"}</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-neutral-400 hover:text-white">
                 <FiX size={20} />
@@ -206,7 +206,7 @@ export default function ScriptManagerPage() {
                     required
                     value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
                     placeholder="e.g. Cold Call Intro"
                   />
                 </div>
@@ -215,7 +215,7 @@ export default function ScriptManagerPage() {
                   <select
                     value={formData.callType}
                     onChange={e => setFormData({ ...formData, callType: e.target.value })}
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
                   >
                     <option value="Intro">Intro / Prospecting</option>
                     <option value="Follow-up">Follow-up</option>
@@ -244,7 +244,7 @@ export default function ScriptManagerPage() {
                   rows={8}
                   value={formData.content}
                   onChange={e => setFormData({ ...formData, content: e.target.value })}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 resize-none font-mono"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 resize-none font-mono"
                   placeholder="Hi {{ContactName}}, this is {{RepName}} from Titan Diamond..."
                 />
               </div>
@@ -255,12 +255,12 @@ export default function ScriptManagerPage() {
                   id="isActive"
                   checked={formData.isActive}
                   onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
-                  className="w-4 h-4 rounded border-neutral-700 bg-neutral-950 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                  className="w-4 h-4 rounded border-neutral-700 bg-black/20 text-purple-600 focus:ring-purple-500 cursor-pointer"
                 />
                 <label htmlFor="isActive" className="text-sm font-semibold text-white cursor-pointer">Script is Active</label>
               </div>
 
-              <div className="flex gap-3 pt-4 border-t border-neutral-800 mt-2">
+              <div className="flex gap-3 pt-4 border-t border-white/10 mt-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}

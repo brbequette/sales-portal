@@ -281,7 +281,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in">
       <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-neutral-900 border border-neutral-800 w-full max-w-6xl h-[85dvh] max-h-[calc(100dvh-2rem)] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[51] animate-scale-in">
+      <div className="relative glass-panel border border-white/10 w-full max-w-6xl h-[85dvh] max-h-[calc(100dvh-2rem)] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[51] animate-scale-in">
         
         {/* Modals */}
         {showPackageModal && displayData?.line_items && (
@@ -323,7 +323,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
         )}
 
         {/* â”€â”€ Header â”€â”€ */}
-        <div className="bg-neutral-850 px-3 sm:px-6 py-3 sm:py-4 border-b border-neutral-800 flex justify-between items-center shrink-0 gap-2">
+        <div className="glass-panel px-3 sm:px-6 py-3 sm:py-4 border-b border-white/10 flex justify-between items-center shrink-0 gap-2">
           <div className="min-w-0 flex items-center gap-3">
             <div className="min-w-0">
               <h2 className={`text-sm font-bold flex items-center gap-2 ${typeColor}`}>
@@ -354,12 +354,12 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
             </div>
             {/* Prev / Next navigation */}
             {hasList && (
-              <div className="flex items-center gap-1 bg-neutral-950 border border-neutral-800 rounded-lg p-0.5 shrink-0">
+              <div className="flex items-center gap-1 bg-black/20 border border-white/10 rounded-lg p-0.5 shrink-0">
                 <button
                   onClick={() => onNavigate!(currentIndex! - 1)}
                   disabled={currentIndex === 0}
                   title="Previous invoice (â†)"
-                  className="p-1.5 rounded text-neutral-400 hover:text-white hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="p-1.5 rounded text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   <FiChevronLeft size={14} />
                 </button>
@@ -370,7 +370,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                   onClick={() => onNavigate!(currentIndex! + 1)}
                   disabled={currentIndex === invoiceList!.length - 1}
                   title="Next invoice (â†’)"
-                  className="p-1.5 rounded text-neutral-400 hover:text-white hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="p-1.5 rounded text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   <FiChevronRight size={14} />
                 </button>
@@ -382,7 +382,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
             
             {/* â”€â”€ QUOTE ACTIONS â”€â”€ */}
             {type === "Quote" && !isVoided && (
-              <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-lg p-0.5 sm:p-1">
+              <div className="flex items-center gap-1 glass-panel border border-white/10 rounded-lg p-0.5 sm:p-1">
                 <button 
                   onClick={() => handleUpdateStatus("accepted")}
                   disabled={!!actionLoading}
@@ -410,7 +410,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
             
             {/* â”€â”€ SALES ORDER ACTIONS â”€â”€ */}
             {type === "SalesOrder" && !isVoided && (
-              <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-lg p-0.5 sm:p-1">
+              <div className="flex items-center gap-1 glass-panel border border-white/10 rounded-lg p-0.5 sm:p-1">
                 {statusLower !== 'confirmed' && statusLower !== 'shipped' && (
                   <button 
                     onClick={() => handleUpdateStatus("confirm")}
@@ -445,7 +445,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
             {/* â”€â”€ INVOICE ACTIONS â”€â”€ */}
             {type === "Invoice" && !isVoided && (
-              <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-lg p-0.5 sm:p-1">
+              <div className="flex items-center gap-1 glass-panel border border-white/10 rounded-lg p-0.5 sm:p-1">
                 {/* Record Payment (only if not fully paid) */}
                 {!isPaid && balanceDue > 0 && (
                   <button
@@ -540,7 +540,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
         </div>
 
         {/* â”€â”€ Tabs â”€â”€ */}
-        <div className="flex border-b border-neutral-800 bg-neutral-900 px-4 pt-2 gap-4">
+        <div className="flex border-b border-white/10 glass-panel px-4 pt-2 gap-4">
           <button
             onClick={() => setActiveTab('overview')}
             className={`pb-2 px-2 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${
@@ -563,7 +563,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
         {activeTab === 'overview' ? (
           <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
             {/* Data View Panel */}
-          <div className="w-full lg:w-[340px] xl:w-[380px] bg-neutral-950 border-b lg:border-b-0 lg:border-r border-neutral-800 overflow-y-auto p-4 sm:p-5 flex flex-col gap-5 shrink-0 max-h-[40vh] lg:max-h-none">
+          <div className="w-full lg:w-[340px] xl:w-[380px] bg-black/20 border-b lg:border-b-0 lg:border-r border-white/10 overflow-y-auto p-4 sm:p-5 flex flex-col gap-5 shrink-0 max-h-[40vh] lg:max-h-none">
             <div>
               <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><FiDatabase className="text-sky-400 shrink-0" /> Data View</h3>
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -629,12 +629,12 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               )}
             </div>
   
-              <div className="pt-3 border-t border-neutral-800">
+              <div className="pt-3 border-t border-white/10">
                 <DocumentLifecycle zohoId={zohoId} type={type} />
               </div>
 
             {/* â”€â”€ Cost & Commission Panel + Line Items â”€â”€ */}
-            <div className="pt-3 border-t border-neutral-800 flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
+            <div className="pt-3 border-t border-white/10 flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
 
               {isLoading ? (
                 <div className="flex justify-center items-center py-8 gap-2 text-sm font-semibold text-neutral-400">
@@ -723,8 +723,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                         <h4 className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                           <FiCpu size={11} className="text-amber-400" /> Itemized Cost Breakdown
                         </h4>
-                        <div className="rounded-xl border border-neutral-800 overflow-hidden">
-                          <div className="grid text-[9px] font-black uppercase tracking-wider text-neutral-500 bg-neutral-900/80 px-3 py-1.5" style={{gridTemplateColumns:'1fr 48px 56px 56px 56px 40px'}}>
+                        <div className="rounded-xl border border-white/10 overflow-hidden">
+                          <div className="grid text-[9px] font-black uppercase tracking-wider text-neutral-500 glass-panel/80 px-3 py-1.5" style={{gridTemplateColumns:'1fr 48px 56px 56px 56px 40px'}}>
                             <span>Item</span>
                             <span className="text-right">Qty</span>
                             <span className="text-right">Rate</span>
@@ -736,7 +736,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                             {lineItems.map((li: any, idx: number) => {
                               const dcPerUnit = li.deadCost != null ? li.deadCost / (li.quantity || 1) : null
                               return (
-                                <div key={idx} className="grid px-3 py-2 text-xs hover:bg-neutral-800/30 transition-colors" style={{gridTemplateColumns:'1fr 48px 56px 56px 56px 40px'}}>
+                                <div key={idx} className="grid px-3 py-2 text-xs hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30 transition-colors" style={{gridTemplateColumns:'1fr 48px 56px 56px 56px 40px'}}>
                                   <div className="min-w-0">
                                     <div className="font-semibold text-white truncate">{li.name || li.sku || `Item ${idx+1}`}</div>
                                     {li.sku && <div className="text-[9px] text-neutral-500 font-mono">{li.sku}</div>}
@@ -772,7 +772,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                             const dcVig   = parseFloat(src.deadCostPlusVig)
                             if (isNaN(dcTotal)) return null
                             return (
-                              <div className="grid px-3 py-2 bg-neutral-900 border-t border-neutral-700 text-xs font-bold" style={{gridTemplateColumns:'1fr 48px 56px 56px 56px 40px'}}>
+                              <div className="grid px-3 py-2 glass-panel border-t border-neutral-700 text-xs font-bold" style={{gridTemplateColumns:'1fr 48px 56px 56px 56px 40px'}}>
                                 <span className="text-neutral-400 uppercase text-[9px] tracking-wider self-center">Totals</span>
                                 <span /><span />
                                 <span className="text-right text-amber-300">${dcTotal.toFixed(2)}</span>
@@ -792,7 +792,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                       <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2">Line Items</h4>
                       <div className="space-y-2">
                         {displayData.line_items.map((item: any, i: number) => (
-                          <div key={item.line_item_id || i} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 shadow-sm">
+                          <div key={item.line_item_id || i} className="glass-panel border border-white/10 rounded-lg p-3 shadow-sm">
                             <div className="flex justify-between gap-2 font-bold text-white text-sm">
                               <span className="truncate min-w-0">{item.name}</span>
                               <span className="text-emerald-400 shrink-0">${parseFloat(item.item_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
@@ -820,10 +820,10 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                         {displayData.custom_fields
                           .filter((f: any) => f.value && f.value !== "" && f.value !== false && f.value !== "false")
                           .map((field: any) => (
-                            <div key={field.customfield_id || field.label} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 shadow-sm">
+                            <div key={field.customfield_id || field.label} className="glass-panel border border-white/10 rounded-lg p-3 shadow-sm">
                               <label className="text-[10px] text-emerald-500/80 uppercase font-bold tracking-wider mb-1 block">{field.label}</label>
                               {field.data_type === "multiline" || String(field.value).includes("\n") ? (
-                                <pre className="text-xs text-neutral-200 font-mono whitespace-pre-wrap break-all bg-neutral-950 p-2.5 rounded border border-neutral-800/50">{field.value_formatted || field.value}</pre>
+                                <pre className="text-xs text-neutral-200 font-mono whitespace-pre-wrap break-all bg-black/20 p-2.5 rounded border border-white/10/50">{field.value_formatted || field.value}</pre>
                               ) : (
                                 <div className={`text-sm font-bold ${field.data_type === "amount" || field.data_type === "percent" || field.label.includes("VIG") || field.label.includes("COST") || field.label.includes("COMMISSION") ? "text-emerald-400" : "text-white"}`}>
                                   {field.value_formatted || field.value}
@@ -837,7 +837,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
                   {/* â”€â”€ Raw fallback (no custom fields AND no cost data) â”€â”€ */}
                   {!displayData?.custom_fields && !(displayData?.items as any)?.deadCostTotal && !costResult && (
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 overflow-x-auto">
+                    <div className="glass-panel border border-white/10 rounded-lg p-3 overflow-x-auto">
                       <pre className="text-[10px] text-neutral-300 font-mono whitespace-pre-wrap break-all">
                         {JSON.stringify(displayData.items || displayData, null, 2)}
                       </pre>
@@ -849,16 +849,16 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
           </div>
 
           {/* PDF Preview Panel */}
-          <div className="flex-1 bg-neutral-900 p-2 sm:p-3 relative flex flex-col min-h-[300px]">
+          <div className="flex-1 glass-panel p-2 sm:p-3 relative flex flex-col min-h-[300px]">
             <iframe
               src={`/api/get-invoice-pdf?id=${zohoId}&type=${type}`}
-              className="w-full h-full border-0 rounded-xl bg-neutral-950 flex-1 shadow-inner"
+              className="w-full h-full border-0 rounded-xl bg-black/20 flex-1 shadow-inner"
               title={`${typeLabel} PDF Preview`}
             />
           </div>
         </div>
         ) : (
-          <div className="flex-1 overflow-y-auto p-4 bg-neutral-950">
+          <div className="flex-1 overflow-y-auto p-4 bg-black/20">
             <SaleCommunications zohoId={zohoId} />
           </div>
         )}

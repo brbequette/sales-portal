@@ -34,12 +34,12 @@ export function Pagination({
   if (totalItems === 0) return null
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-3 px-4 border-t border-neutral-800 bg-neutral-900/50">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-3 px-4 border-t border-white/10 glass-panel/50">
       <div className="flex items-center gap-4 text-xs text-neutral-400">
         <div>
           Showing <span className="font-bold text-white">{startItem}</span> to <span className="font-bold text-white">{endItem}</span> of <span className="font-bold text-white">{totalItems}</span> results
         </div>
-        <div className="flex items-center gap-2 border-l border-neutral-800 pl-4">
+        <div className="flex items-center gap-2 border-l border-white/10 pl-4">
           <span>Rows per page:</span>
           <select
             value={pageSize}

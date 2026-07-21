@@ -350,7 +350,7 @@ export default function PayoutsPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setShowCsvModal(true)}
-              className="px-4 py-2 bg-neutral-900 border border-neutral-700 hover:bg-neutral-800 text-white rounded-lg text-sm font-bold flex items-center gap-2 transition-colors"
+              className="px-4 py-2 glass-panel border border-neutral-700 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-white rounded-lg text-sm font-bold flex items-center gap-2 transition-colors"
             >
               <FiUpload /> Import CSV
             </button>
@@ -369,19 +369,19 @@ export default function PayoutsPage() {
           </div>
         )}
 
-        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between bg-neutral-900 p-4 border border-neutral-800 rounded-2xl">
+        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between glass-panel p-4 border border-white/10 rounded-2xl">
           <div className="flex gap-4 w-full sm:w-auto">
             <input
               type="text"
               placeholder="Search by rep name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full sm:w-64 bg-neutral-950 border border-neutral-800 text-white rounded-xl px-4 py-2 focus:outline-none focus:border-purple-500 transition-colors"
+              className="w-full sm:w-64 bg-black/20 border border-white/10 text-white rounded-xl px-4 py-2 focus:outline-none focus:border-purple-500 transition-colors"
             />
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="bg-neutral-950 border border-neutral-800 text-white rounded-xl px-4 py-2 focus:outline-none focus:border-purple-500 transition-colors"
+              className="bg-black/20 border border-white/10 text-white rounded-xl px-4 py-2 focus:outline-none focus:border-purple-500 transition-colors"
             >
               <option value="all">All Time</option>
               {availableYears.map(y => (
@@ -395,34 +395,34 @@ export default function PayoutsPage() {
         </div>
 
         {/* Ledger Table */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden shadow-lg">
+        <div className="glass-panel border border-white/10 rounded-2xl overflow-hidden shadow-lg">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead>
-                <tr className="bg-neutral-950/50 border-b border-neutral-800 text-neutral-400 uppercase tracking-wider text-xs select-none">
-                  <th className="px-6 py-4 font-bold cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("repName")}>
+                <tr className="bg-black/20/50 border-b border-white/10 text-neutral-400 uppercase tracking-wider text-xs select-none">
+                  <th className="px-6 py-4 font-bold cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("repName")}>
                     Rep Name {sortField === "repName" && (sortDir === "asc" ? "â†‘" : "â†“")}
                   </th>
-                  <th className="px-6 py-4 font-bold text-right text-emerald-400 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("totalEarned")}>
+                  <th className="px-6 py-4 font-bold text-right text-emerald-400 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("totalEarned")}>
                     Total Earned {sortField === "totalEarned" && (sortDir === "asc" ? "â†‘" : "â†“")}
                   </th>
-                  <th className="px-6 py-4 font-bold text-right text-neutral-500 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("totalPaid")}>
+                  <th className="px-6 py-4 font-bold text-right text-neutral-500 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("totalPaid")}>
                     Total Paid {sortField === "totalPaid" && (sortDir === "asc" ? "â†‘" : "â†“")}
                   </th>
-                  <th className="px-6 py-4 font-bold text-right text-purple-400 text-base cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("balance")}>
+                  <th className="px-6 py-4 font-bold text-right text-purple-400 text-base cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("balance")}>
                     Balance {sortField === "balance" && (sortDir === "asc" ? "â†‘" : "â†“")}
                   </th>
-                  <th className="px-6 py-4 font-bold text-right text-amber-500 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("totalFutures")}>
+                  <th className="px-6 py-4 font-bold text-right text-amber-500 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("totalFutures")}>
                     Futures {sortField === "totalFutures" && (sortDir === "asc" ? "â†‘" : "â†“")}
                   </th>
-                  <th className="px-6 py-4 font-bold text-right text-red-400 cursor-pointer hover:bg-neutral-800/50 transition-colors" onClick={() => handleSort("totalAtRisk")}>
+                  <th className="px-6 py-4 font-bold text-right text-red-400 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("totalAtRisk")}>
                     At Risk (90d+) {sortField === "totalAtRisk" && (sortDir === "asc" ? "â†‘" : "â†“")}
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-800/50">
                 {processedLedger.map((rep) => (
-                  <tr key={rep.repId} className="hover:bg-neutral-800/20 transition-colors">
+                  <tr key={rep.repId} className="hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/20 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-bold text-white">{rep.repName}</div>
                       <div className="text-[10px] text-neutral-500 mt-0.5">{rep.payouts?.length || 0} Payouts</div>
@@ -462,8 +462,8 @@ export default function PayoutsPage() {
       {/* Add Payout Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-neutral-800">
+          <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-white/10">
               <h2 className="text-xl font-black text-white">Add Payout</h2>
               <button 
                 onClick={() => setShowModal(false)}
@@ -480,7 +480,7 @@ export default function PayoutsPage() {
                   required
                   value={selectedRepId}
                   onChange={(e) => setSelectedRepId(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
                 >
                   <option value="">-- Select Rep --</option>
                   {ledger.map(r => (
@@ -504,7 +504,7 @@ export default function PayoutsPage() {
                       value={payoutAmount}
                       onChange={(e) => setPayoutAmount(e.target.value)}
                       placeholder="0.00"
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-8 pr-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-purple-500 transition-colors"
+                      className="w-full bg-black/20 border border-white/10 rounded-xl pl-8 pr-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-purple-500 transition-colors"
                     />
                   </div>
                 </div>
@@ -514,7 +514,7 @@ export default function PayoutsPage() {
                     type="date"
                     value={payoutDate}
                     onChange={(e) => setPayoutDate(e.target.value)}
-                    className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 transition-colors"
+                    className="w-full glass-panel border border-white/10 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 transition-colors"
                   />
                 </div>
               </div>
@@ -525,7 +525,7 @@ export default function PayoutsPage() {
                   required
                   value={payoutMethod}
                   onChange={(e) => setPayoutMethod(e.target.value)}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
                 >
                   <option value="Check">Check</option>
                   <option value="Zelle">Zelle</option>
@@ -539,7 +539,7 @@ export default function PayoutsPage() {
                   onChange={(e) => setPayoutNotes(e.target.value)}
                   placeholder="Optional notes about this payout"
                   rows={2}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors resize-none"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors resize-none"
                 />
               </div>
 
@@ -568,8 +568,8 @@ export default function PayoutsPage() {
       {/* Upload CSV Modal */}
       {showCsvModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-neutral-800">
+          <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-white/10">
               <h2 className="text-xl font-black text-white">Upload Payouts via CSV</h2>
               <button 
                 onClick={() => setShowCsvModal(false)}
@@ -582,14 +582,14 @@ export default function PayoutsPage() {
             <div className="p-4 sm:p-6 space-y-6">
               
               {/* Instructions */}
-              <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800">
+              <div className="bg-black/20 p-4 rounded-xl border border-white/10">
                 <h3 className="font-bold text-white mb-2 flex items-center gap-2">
                   Format Instructions
                 </h3>
                 <p className="text-sm text-neutral-400 mb-3">
                   Upload a comma-separated values (.csv) file with the following exact headers (case-insensitive). Rep Name must match exactly as it appears in the ledger.
                 </p>
-                <p className="mt-2 font-mono bg-neutral-950 p-3 rounded-lg border border-neutral-800 text-neutral-400 text-xs">
+                <p className="mt-2 font-mono bg-black/20 p-3 rounded-lg border border-white/10 text-neutral-400 text-xs">
                   Format:<br/>
                   Rep Name,Amount,Method,Payout Date,Notes<br/>
                   <span className="text-neutral-500">John Doe,500,Check,2023-11-01,Bonus payout</span>
@@ -640,8 +640,8 @@ export default function PayoutsPage() {
       {/* Transaction Ledger Modal */}
       {selectedRepForLedger && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-neutral-800 shrink-0">
+          <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-white/10 shrink-0">
               <div>
                 <h2 className="text-xl font-black text-white">Transaction Ledger</h2>
                 <p className="text-sm text-neutral-400 mt-1">Showing all history for <span className="font-bold text-purple-400">{selectedRepForLedger.repName}</span></p>
@@ -655,10 +655,10 @@ export default function PayoutsPage() {
             </div>
             
             <div className="overflow-y-auto flex-1 p-4 sm:p-6">
-              <div className="bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden">
+              <div className="bg-black/20 border border-white/10 rounded-xl overflow-hidden">
                 <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead>
-                    <tr className="bg-neutral-900 border-b border-neutral-800 text-neutral-400 uppercase tracking-wider text-xs select-none">
+                    <tr className="glass-panel border-b border-white/10 text-neutral-400 uppercase tracking-wider text-xs select-none">
                       <th className="px-6 py-4 font-bold">Date</th>
                       <th className="px-6 py-4 font-bold w-full">Description</th>
                       <th className="px-6 py-4 font-bold text-right">Amount</th>
@@ -667,7 +667,7 @@ export default function PayoutsPage() {
                   </thead>
                   <tbody className="divide-y divide-neutral-800/50">
                     {transactionLedger.map((tx, i) => (
-                      <tr key={`${tx.id}-${i}`} className="hover:bg-neutral-900/50 transition-colors">
+                      <tr key={`${tx.id}-${i}`} className="hover:glass-panel/50 transition-colors">
                         <td className="px-6 py-3 text-neutral-300 font-mono text-xs">
                           {new Date(tx.date).toLocaleDateString()}
                         </td>
@@ -699,7 +699,7 @@ export default function PayoutsPage() {
               </div>
             </div>
             
-            <div className="p-4 sm:p-6 border-t border-neutral-800 bg-neutral-900 shrink-0 flex justify-end items-center gap-4">
+            <div className="p-4 sm:p-6 border-t border-white/10 glass-panel shrink-0 flex justify-end items-center gap-4">
               <div className="text-sm text-neutral-400 uppercase tracking-wider font-bold">Current Balance</div>
               <div className="text-2xl font-black text-purple-400 font-mono">
                 {formatCurrency(selectedRepForLedger.balance)}

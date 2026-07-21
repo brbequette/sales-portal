@@ -258,7 +258,7 @@ export default function ShippingPage() {
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all border ${
                 isActive
                   ? `${tab.bg} ${tab.color} border-current shadow-lg`
-                  : "bg-neutral-900/50 text-neutral-500 border-neutral-800 hover:bg-neutral-800 hover:text-neutral-300"
+                  : "glass-panel/50 text-neutral-500 border-white/10 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 hover:text-neutral-300"
               }`}
             >
               <tab.icon className="text-base" />
@@ -281,7 +281,7 @@ export default function ShippingPage() {
           placeholder="Search by SO #, customer, or salesperson..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full bg-neutral-900/70 border border-neutral-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-orange-500/50 transition-colors"
+          className="w-full glass-panel/70 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-orange-500/50 transition-colors"
         />
       </div>
 
@@ -318,7 +318,7 @@ export default function ShippingPage() {
             const statusLabel = statusLabels[order.shipStatus] || order.shipStatus
 
             return (
-              <div key={order.id} className="bg-neutral-900/60 border border-neutral-800/80 rounded-2xl overflow-hidden hover:border-neutral-700 transition-all">
+              <div key={order.id} className="glass-panel/60 border border-white/10/80 rounded-2xl overflow-hidden hover:border-neutral-700 transition-all">
                 {/* Main Row */}
                 <div
                   className="flex items-center gap-3 px-4 py-3 cursor-pointer"
@@ -374,11 +374,11 @@ export default function ShippingPage() {
 
                 {/* Expanded Detail */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 border-t border-neutral-800/50 pt-3 space-y-4">
+                  <div className="px-4 pb-4 border-t border-white/10/50 pt-3 space-y-4">
                     {/* Shipping Address + Actions row */}
                     <div className="flex flex-col md:flex-row gap-4">
                       {/* Address */}
-                      <div className="flex-1 bg-neutral-950/50 rounded-xl p-3 border border-neutral-800/50">
+                      <div className="flex-1 bg-black/20/50 rounded-xl p-3 border border-white/10/50">
                         <div className="flex items-center gap-2 mb-2">
                           <FiMapPin className="text-orange-400 text-xs" />
                           <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Shipping Address</span>
@@ -387,7 +387,7 @@ export default function ShippingPage() {
                       </div>
 
                       {/* Items Preview */}
-                      <div className="flex-1 bg-neutral-950/50 rounded-xl p-3 border border-neutral-800/50">
+                      <div className="flex-1 bg-black/20/50 rounded-xl p-3 border border-white/10/50">
                         <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Line Items</div>
                         {order.lineItemNames.length > 0 ? (
                           <div className="space-y-1">
@@ -410,7 +410,7 @@ export default function ShippingPage() {
                         <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Packages</div>
                         <div className="space-y-2">
                           {order.packages.map(pkg => (
-                            <div key={pkg.id} className="bg-neutral-950/50 border border-neutral-800/50 rounded-xl p-3 flex flex-col md:flex-row md:items-center gap-3">
+                            <div key={pkg.id} className="bg-black/20/50 border border-white/10/50 rounded-xl p-3 flex flex-col md:flex-row md:items-center gap-3">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
                                   <FiPackage className="text-blue-400 text-xs" />
@@ -505,7 +505,7 @@ export default function ShippingPage() {
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex gap-2 flex-wrap pt-2 border-t border-neutral-800/30">
+                    <div className="flex gap-2 flex-wrap pt-2 border-t border-white/10/30">
                       <button
                         onClick={() => fetchLineItems(order.zohoId, "package")}
                         disabled={fetchingLineItems === order.zohoId}
@@ -533,7 +533,7 @@ export default function ShippingPage() {
       {trackingModal && (
         <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setTrackingModal(null)} />
-          <div className="relative bg-neutral-900 border border-neutral-800 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+          <div className="relative glass-panel border border-white/10 w-full max-w-md rounded-2xl p-6 shadow-2xl">
             <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
               <FiTruck className="text-purple-400" /> Add Tracking Info
             </h3>
@@ -544,7 +544,7 @@ export default function ShippingPage() {
                 <select
                   value={trackingModal.carrier}
                   onChange={e => setTrackingModal({ ...trackingModal, carrier: e.target.value })}
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50"
                 >
                   <option value="">Select carrier...</option>
                   {CARRIERS.map(c => (
@@ -560,12 +560,12 @@ export default function ShippingPage() {
                   value={trackingModal.tracking}
                   onChange={e => setTrackingModal({ ...trackingModal, tracking: e.target.value })}
                   placeholder="Enter tracking number..."
-                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-purple-500/50"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-purple-500/50"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-5 mt-5 border-t border-neutral-800">
+            <div className="flex justify-end gap-3 pt-5 mt-5 border-t border-white/10">
               <button onClick={() => setTrackingModal(null)} className="px-4 py-2 text-neutral-400 hover:text-white font-bold text-sm">
                 Cancel
               </button>

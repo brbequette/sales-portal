@@ -93,21 +93,21 @@ export default function PricingCalculator({ onClose, onAddLineItem }: PricingCal
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 animate-in fade-in">
-      <div className="w-full max-w-2xl rounded-xl border border-neutral-800 bg-neutral-900 shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="w-full max-w-2xl rounded-xl border border-white/10 glass-panel shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-neutral-800 p-4">
+        <div className="flex items-center justify-between border-b border-white/10 p-4">
           <h2 className="text-xl font-bold text-neutral-100 flex items-center gap-2">
             <FiCheck className="text-emerald-500" /> Pricing Calculator
           </h2>
-          <button onClick={onClose} className="rounded p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors">
+          <button onClick={onClose} className="rounded p-2 text-neutral-400 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 hover:text-white transition-colors">
             <FiX className="text-xl" />
           </button>
         </div>
 
         <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
           {/* Left panel: Product Search */}
-          <div className="w-full md:w-1/2 border-b md:border-b-0 md:border-r border-neutral-800 p-4 flex flex-col gap-4 overflow-hidden">
+          <div className="w-full md:w-1/2 border-b md:border-b-0 md:border-r border-white/10 p-4 flex flex-col gap-4 overflow-hidden">
             <div>
               <label className="text-xs font-black tracking-wider text-neutral-400 uppercase mb-2 block">
                 Search Product
@@ -119,7 +119,7 @@ export default function PricingCalculator({ onClose, onAddLineItem }: PricingCal
                   placeholder="SKU or Name..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-lg border border-neutral-800 bg-neutral-950 py-2 pl-10 pr-4 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="w-full rounded-lg border border-white/10 bg-black/20 py-2 pl-10 pr-4 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
             </div>
@@ -132,7 +132,7 @@ export default function PricingCalculator({ onClose, onAddLineItem }: PricingCal
                   className={`w-full flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors ${
                     selectedProduct?.id === p.id 
                       ? 'border-emerald-500/50 bg-emerald-500/10' 
-                      : 'border-neutral-800 bg-neutral-950 hover:border-neutral-700'
+                      : 'border-white/10 bg-black/20 hover:border-neutral-700'
                   }`}
                 >
                   <div className="font-medium text-sm text-neutral-200 line-clamp-1">{p.name}</div>
@@ -154,7 +154,7 @@ export default function PricingCalculator({ onClose, onAddLineItem }: PricingCal
           <div className="w-full md:w-1/2 p-4 flex flex-col gap-6 overflow-y-auto">
             {selectedProduct ? (
               <>
-                <div className="bg-neutral-950 rounded-lg p-4 border border-neutral-800 shrink-0">
+                <div className="bg-black/20 rounded-lg p-4 border border-white/10 shrink-0">
                   <div className="text-xs font-black tracking-wider text-neutral-400 uppercase mb-1">
                     Selected Product
                   </div>
@@ -173,7 +173,7 @@ export default function PricingCalculator({ onClose, onAddLineItem }: PricingCal
                         type="number"
                         value={cost}
                         onChange={(e) => setCost(Number(e.target.value))}
-                        className="w-full rounded-lg border border-neutral-800 bg-neutral-950 py-2 pl-8 pr-4 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
+                        className="w-full rounded-lg border border-white/10 bg-black/20 py-2 pl-8 pr-4 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -190,7 +190,7 @@ export default function PricingCalculator({ onClose, onAddLineItem }: PricingCal
                       step="0.1"
                       value={vigMultiplier}
                       onChange={(e) => setVigMultiplier(Number(e.target.value))}
-                      className="w-full rounded-lg border border-neutral-800 bg-neutral-950 py-2 px-4 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
+                      className="w-full rounded-lg border border-white/10 bg-black/20 py-2 px-4 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
 
@@ -204,7 +204,7 @@ export default function PricingCalculator({ onClose, onAddLineItem }: PricingCal
                         type="number"
                         value={shippingCost}
                         onChange={(e) => setShippingCost(Number(e.target.value))}
-                        className="w-full rounded-lg border border-neutral-800 bg-neutral-950 py-2 pl-8 pr-4 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
+                        className="w-full rounded-lg border border-white/10 bg-black/20 py-2 pl-8 pr-4 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -219,7 +219,7 @@ export default function PricingCalculator({ onClose, onAddLineItem }: PricingCal
                         step="0.1"
                         value={ccFeeRate}
                         onChange={(e) => setCcFeeRate(Number(e.target.value))}
-                        className="w-full rounded-lg border border-neutral-800 bg-neutral-950 py-2 pl-4 pr-8 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
+                        className="w-full rounded-lg border border-white/10 bg-black/20 py-2 pl-4 pr-8 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500">%</span>
                     </div>
@@ -234,12 +234,12 @@ export default function PricingCalculator({ onClose, onAddLineItem }: PricingCal
                       min="1"
                       value={quantity}
                       onChange={(e) => setQuantity(Number(e.target.value))}
-                      className="w-full rounded-lg border border-neutral-800 bg-neutral-950 py-2 px-4 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
+                      className="w-full rounded-lg border border-white/10 bg-black/20 py-2 px-4 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
                 </div>
 
-                <div className="mt-auto border-t border-neutral-800 pt-4 shrink-0">
+                <div className="mt-auto border-t border-white/10 pt-4 shrink-0">
                   <div className="flex justify-between items-end mb-4">
                     <div>
                       <div className="text-xs font-medium text-neutral-500">Unit Sale Price</div>

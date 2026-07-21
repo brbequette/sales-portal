@@ -83,7 +83,7 @@ export default function AdminCampaignsPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Templates Section */}
-          <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
+          <div className="glass-panel/50 border border-white/10 rounded-xl p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-bold text-white flex items-center gap-2"><FiTarget className="text-emerald-400" /> Predefined Templates</h2>
               <button 
@@ -95,26 +95,26 @@ export default function AdminCampaignsPage() {
             </div>
 
             {showForm && (
-              <div className="mb-6 p-4 bg-black/50 border border-neutral-800 rounded-lg space-y-4">
+              <div className="mb-6 p-4 bg-black/50 border border-white/10 rounded-lg space-y-4">
                 <div>
                   <label className="text-xs text-neutral-500 block mb-1">Template Name</label>
-                  <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none" />
+                  <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-black/20 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none" />
                 </div>
                 <div>
                   <label className="text-xs text-neutral-500 block mb-1">Channel</label>
-                  <select value={channel} onChange={e => setChannel(e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                  <select value={channel} onChange={e => setChannel(e.target.value)} className="w-full bg-black/20 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
                     <option value="SMS">SMS / MMS</option>
                     <option value="Voice">Voice Call</option>
                   </select>
                 </div>
                 <div>
                   <label className="text-xs text-neutral-500 block mb-1">Content</label>
-                  <textarea value={content} onChange={e => setContent(e.target.value)} rows={4} className="w-full bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none" />
+                  <textarea value={content} onChange={e => setContent(e.target.value)} rows={4} className="w-full bg-black/20 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none" />
                 </div>
                 {channel === 'SMS' && (
                   <div>
                     <label className="text-xs text-neutral-500 block mb-1">Image URL (Optional for MMS)</label>
-                    <input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." className="w-full bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none" />
+                    <input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." className="w-full bg-black/20 border border-neutral-700 rounded px-3 py-2 text-white focus:border-emerald-500 focus:outline-none" />
                   </div>
                 )}
                 <div className="flex justify-end pt-2">
@@ -126,7 +126,7 @@ export default function AdminCampaignsPage() {
             <div className="space-y-3">
               {templates.length === 0 && <p className="text-sm text-neutral-500 italic">No templates defined.</p>}
               {templates.map(t => (
-                <div key={t.id} className="p-4 bg-black/50 border border-neutral-800 rounded-lg relative group">
+                <div key={t.id} className="p-4 bg-black/50 border border-white/10 rounded-lg relative group">
                   <button onClick={() => handleDelete(t.id)} className="absolute top-4 right-4 text-neutral-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition"><FiTrash2 /></button>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xs font-bold px-2 py-0.5 rounded bg-neutral-800 text-neutral-400 uppercase tracking-wider">{t.channel}</span>
@@ -140,13 +140,13 @@ export default function AdminCampaignsPage() {
           </div>
 
           {/* Historical Logs Section */}
-          <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
+          <div className="glass-panel/50 border border-white/10 rounded-xl p-6">
             <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><FiActivity className="text-purple-400" /> Historical Blasts</h2>
             <div className="space-y-4">
               {blasts.length === 0 && <p className="text-sm text-neutral-500 italic">No historical campaigns found.</p>}
               {blasts.map(blast => (
-                <div key={blast.id} className="bg-black/50 border border-neutral-800 rounded-lg overflow-hidden">
-                  <div className="p-4 border-b border-neutral-800 bg-neutral-950/50">
+                <div key={blast.id} className="bg-black/50 border border-white/10 rounded-lg overflow-hidden">
+                  <div className="p-4 border-b border-white/10 bg-black/20/50">
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <h3 className="font-bold text-white">{blast.name}</h3>

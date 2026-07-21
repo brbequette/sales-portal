@@ -307,7 +307,7 @@ export default function AdminTimeclockPage() {
                   type="month" 
                   value={monthFilter}
                   onChange={(e) => setMonthFilter(e.target.value)}
-                  className="px-3 py-1.5 bg-neutral-900 border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500 [color-scheme:dark]"
+                  className="px-3 py-1.5 glass-panel border border-neutral-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500 [color-scheme:dark]"
                 />
                 <button
                   onClick={() => setShowAddModal(true)}
@@ -418,7 +418,7 @@ export default function AdminTimeclockPage() {
             <div className="grid gap-3">
               {geofences.map(geo => (
                 <div key={geo.id} className={`bg-[#151618] border rounded-xl p-4 flex items-center justify-between gap-4 transition-colors ${
-                  geo.isActive ? 'border-blue-500/30' : 'border-white/5 opacity-60'
+                  geo.isActive ? 'border-blue-500/30' : 'border-white/10 opacity-60'
                 }`}>
                   <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
@@ -516,14 +516,14 @@ export default function AdminTimeclockPage() {
               </div>
               <div className="p-4 space-y-4">
                 {Object.entries(group.weeks).sort(([a],[b]) => b.localeCompare(a)).map(([weekName, weekData]) => (
-                  <div key={weekName} className="border border-white/5 rounded-lg overflow-hidden">
-                    <div className="px-4 py-2 bg-neutral-900/50 border-b border-white/5 flex justify-between items-center">
+                  <div key={weekName} className="border border-white/10 rounded-lg overflow-hidden">
+                    <div className="px-4 py-2 glass-panel/50 border-b border-white/10 flex justify-between items-center">
                       <h4 className="font-semibold text-sm text-neutral-300">Week of {weekName}</h4>
                       <span className="text-xs font-bold text-emerald-500">{weekData.totalHours.toFixed(2)} hrs</span>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-sm">
-                        <thead className="bg-black/20 text-neutral-500 border-b border-white/5 text-xs uppercase tracking-wider">
+                        <thead className="bg-black/20 text-neutral-500 border-b border-white/10 text-xs uppercase tracking-wider">
                           <tr>
                             <th className="px-4 py-2 font-semibold w-32">Date</th>
                             <th className="px-4 py-2 font-semibold">Clock In</th>
@@ -541,7 +541,7 @@ export default function AdminTimeclockPage() {
                             
                             return (
                               <React.Fragment key={entry.id}>
-                              <tr className="hover:bg-white/[0.02] transition-colors">
+                              <tr className="hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                                 <td className="px-4 py-2 font-medium">
                                   {entry.date}
                                   {(entry as any).clockSource === 'geofence' && (

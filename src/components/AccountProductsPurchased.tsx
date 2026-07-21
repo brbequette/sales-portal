@@ -40,14 +40,14 @@ export function AccountProductsPurchased({ accountId }: AccountProductsPurchased
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20 bg-neutral-900/40 border border-neutral-800 rounded-xl">
+      <div className="flex items-center justify-center py-20 glass-panel/40 border border-white/10 rounded-xl">
         <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     )
   }
 
   return (
-    <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl p-4 sm:p-6 shadow-xl flex-1 flex flex-col min-h-[500px] space-y-4">
+    <div className="glass-panel/40 border border-white/10 rounded-xl p-4 sm:p-6 shadow-xl flex-1 flex flex-col min-h-[500px] space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -65,14 +65,14 @@ export function AccountProductsPurchased({ accountId }: AccountProductsPurchased
             placeholder="Search purchased items..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
+            className="w-full bg-black/20 border border-white/10 rounded-lg pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
           />
         </div>
       </div>
 
-      <div className="bg-neutral-950/40 border border-neutral-800/80 rounded-xl overflow-hidden overflow-x-auto">
+      <div className="bg-black/20/40 border border-white/10/80 rounded-xl overflow-hidden overflow-x-auto">
         <table className="w-full text-left text-xs min-w-[600px]">
-          <thead className="bg-neutral-900/60 text-neutral-400 border-b border-neutral-800 uppercase tracking-wider text-[9px] font-bold">
+          <thead className="glass-panel/60 text-neutral-400 border-b border-white/10 uppercase tracking-wider text-[9px] font-bold">
             <tr>
               <th className="p-4 w-28">SKU</th>
               <th className="p-4">Product Name</th>
@@ -89,12 +89,12 @@ export function AccountProductsPurchased({ accountId }: AccountProductsPurchased
                 <tr
                   key={idx}
                   onClick={() => showProduct(p.sku, { name: p.name, sku: p.sku })}
-                  className="hover:bg-neutral-800/30 transition-colors cursor-pointer group"
+                  className="hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30 transition-colors cursor-pointer group"
                 >
                   <td className="p-4 font-mono font-bold text-neutral-400 group-hover:text-emerald-400 transition-colors">{p.sku}</td>
                   <td className="p-4 font-semibold text-white">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded bg-neutral-850 border border-neutral-800 flex items-center justify-center text-neutral-500 shrink-0">
+                      <div className="w-6 h-6 rounded glass-panel border border-white/10 flex items-center justify-center text-neutral-500 shrink-0">
                         <FiPackage size={12} />
                       </div>
                       <span className="truncate max-w-[250px]" title={p.name}>{p.name}</span>

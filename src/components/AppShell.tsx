@@ -64,7 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex bg-[var(--background)] text-[var(--foreground)]" style={{ height: "100dvh" }}>
 
       {/* â”€â”€ Desktop Floating Vertical Menu â”€â”€ */}
-      <aside className="hidden lg:flex flex-col items-center w-16 glass-panel border-white/5 rounded-2xl shadow-[0_18px_60px_rgba(0,0,0,0.4)] fixed top-4 left-4 bottom-4 py-5 z-40">
+      <aside className="hidden lg:flex flex-col items-center w-16 glass-panel border-white/10 rounded-2xl shadow-[0_18px_60px_rgba(0,0,0,0.4)] fixed top-4 left-4 bottom-4 py-5 z-40">
         {/* Brand */}
         <div className="mb-8 flex justify-center w-full">
           <div className="w-10 h-10 bg-[var(--primary)] rounded-xl flex items-center justify-center relative group cursor-pointer shadow-[0_0_15px_rgba(249,115,22,0.4)] hover:shadow-[0_0_25px_rgba(249,115,22,0.6)] transition-all">
@@ -228,7 +228,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {showMoreMenu && (
           <>
             <div className="fixed inset-0 z-20" onClick={() => setShowMoreMenu(false)} />
-            <div className="absolute bottom-full right-2 mb-2 z-30 bg-neutral-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_-8px_40px_rgba(0,0,0,0.5)] p-2 min-w-[200px]">
+            <div className="absolute bottom-full right-2 mb-2 z-30 glass-panel/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_-8px_40px_rgba(0,0,0,0.5)] p-2 min-w-[200px]">
               {[
                 { href: "/timeclock",   icon: FiClock,         label: "Timeclock",    color: "text-emerald-400" },
                 { href: "/commissions", icon: FiDollarSign,    label: "Commissions",  color: "text-[var(--success)]" },

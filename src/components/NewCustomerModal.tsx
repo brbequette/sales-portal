@@ -76,9 +76,9 @@ export function NewCustomerModal({ isOpen, onClose, currentUserId }: NewCustomer
     <div className="fixed inset-0 z-[10000] flex justify-end">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       
-      <div className="relative w-full max-w-2xl bg-neutral-900 h-full flex flex-col shadow-2xl z-[10001] animate-slide-in-right">
+      <div className="relative w-full max-w-2xl glass-panel h-full flex flex-col shadow-2xl z-[10001] animate-slide-in-right">
         {/* Header */}
-        <div className="bg-neutral-850 px-6 py-4 border-b border-neutral-800 flex justify-between items-center shrink-0">
+        <div className="glass-panel px-6 py-4 border-b border-white/10 flex justify-between items-center shrink-0">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <FiUserPlus className="text-amber-500" /> New Customer
@@ -96,7 +96,7 @@ export function NewCustomerModal({ isOpen, onClose, currentUserId }: NewCustomer
             
             {/* Account Info */}
             <section>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-2 mb-4 border-b border-neutral-800 pb-2">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-2 mb-4 border-b border-white/10 pb-2">
                 <FiBriefcase className="text-blue-400" /> Company / Account Info
               </h3>
               <div className="grid grid-cols-2 gap-4">
@@ -125,7 +125,7 @@ export function NewCustomerModal({ isOpen, onClose, currentUserId }: NewCustomer
 
             {/* Primary Contact Info */}
             <section>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-2 mb-4 border-b border-neutral-800 pb-2">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-2 mb-4 border-b border-white/10 pb-2">
                 <FiUserPlus className="text-emerald-400" /> Primary Contact
               </h3>
               <div className="grid grid-cols-2 gap-4">
@@ -150,7 +150,7 @@ export function NewCustomerModal({ isOpen, onClose, currentUserId }: NewCustomer
 
             {/* Address Info */}
             <section>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-2 mb-4 border-b border-neutral-800 pb-2">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-2 mb-4 border-b border-white/10 pb-2">
                 <FiMapPin className="text-purple-400" /> Address Details
               </h3>
               
@@ -216,7 +216,7 @@ export function NewCustomerModal({ isOpen, onClose, currentUserId }: NewCustomer
         </div>
 
         {/* Footer */}
-        <div className="p-5 bg-neutral-900 border-t border-neutral-800 flex justify-end gap-3 shrink-0">
+        <div className="p-5 glass-panel border-t border-white/10 flex justify-end gap-3 shrink-0">
           <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-neutral-800 hover:bg-neutral-700 transition-colors">
             Cancel
           </button>

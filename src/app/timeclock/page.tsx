@@ -253,7 +253,7 @@ export default function UserTimeclockPage() {
 
                         return (
                           <React.Fragment key={entry.id}>
-                          <tr className="hover:bg-white/[0.02] transition-colors">
+                          <tr className="hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                             <td className="hidden sm:table-cell px-6 py-4 font-medium">{entry.date}</td>
                             <td className="px-6 py-4">
                               <span className="sm:hidden text-[10px] text-neutral-500 block mb-0.5">{entry.date}</span>

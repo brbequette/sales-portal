@@ -96,7 +96,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
               )}
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors">
+          <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 rounded-lg transition-colors">
             <FiX size={20} />
           </button>
         </div>
@@ -122,7 +122,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
               <div className="space-y-3">
                 <div className="h-5 w-48 bg-neutral-800 rounded animate-pulse" />
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2 p-4 bg-neutral-900/60 rounded-xl border border-white/5">
+                  <div className="space-y-2 p-4 glass-panel/60 rounded-xl border border-white/10">
                     <div className="h-3 w-20 bg-neutral-800 rounded animate-pulse" />
                     <div className="h-4 w-36 bg-neutral-800 rounded animate-pulse" />
                     <div className="h-3 w-28 bg-neutral-800 rounded animate-pulse" />
@@ -159,7 +159,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
                       <FiInfo /> Contact Information
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-neutral-900/50 p-4 rounded-xl border border-white/5 min-w-0">
+                      <div className="glass-panel/50 p-4 rounded-xl border border-white/10 min-w-0">
                         <div className="flex items-center gap-3 text-white mb-2 min-w-0">
                           <FiUser className="text-emerald-500 shrink-0" />
                           <span className="font-semibold truncate">{[primaryContact?.firstName, primaryContact?.lastName].filter(Boolean).join(" ") || "No Contact Name"}</span>
@@ -179,7 +179,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
                       </div>
 
                       {/* Billing Address */}
-                      <div className="bg-neutral-900/50 p-4 rounded-xl border border-white/5 min-w-0">
+                      <div className="glass-panel/50 p-4 rounded-xl border border-white/10 min-w-0">
                         <div className="flex items-center justify-between gap-3 text-white mb-2 min-w-0">
                           <div className="flex items-center gap-3 min-w-0">
                             <FiMapPin className="text-emerald-500 shrink-0" />
@@ -242,12 +242,12 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
                       <FiShoppingBag /> Buying History & Metrics
                     </h3>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-neutral-900/50 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center text-center">
+                      <div className="glass-panel/50 p-4 rounded-xl border border-white/10 flex flex-col items-center justify-center text-center">
                         <FiDollarSign className="text-emerald-500 text-2xl mb-2" />
                         <div className="text-2xl font-bold text-white">${totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                         <div className="text-xs text-neutral-500 uppercase mt-1">Lifetime Value</div>
                       </div>
-                      <div className="bg-neutral-900/50 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center text-center">
+                      <div className="glass-panel/50 p-4 rounded-xl border border-white/10 flex flex-col items-center justify-center text-center">
                         <FiClock className="text-amber-500 text-2xl mb-2" />
                         <div className="text-2xl font-bold text-white">${outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                         <div className="text-xs text-neutral-500 uppercase mt-1">Outstanding Balance</div>
@@ -279,7 +279,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
                     <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                       <FiSettings /> Account Settings
                     </h3>
-                    <div className="bg-neutral-900/50 p-4 rounded-xl border border-white/5 space-y-4">
+                    <div className="glass-panel/50 p-4 rounded-xl border border-white/10 space-y-4">
                       <QualityPicker
                         zohoId={account?.zohoId || accountId}
                         accountId={account?.id || accountId}

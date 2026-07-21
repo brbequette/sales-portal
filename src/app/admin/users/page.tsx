@@ -441,7 +441,7 @@ export default function AdminUsersPage() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search by name or emailâ€¦"
-              className="w-full bg-neutral-900/60 border border-neutral-800 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-emerald-500/50 transition-colors"
+              className="w-full glass-panel/60 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-emerald-500/50 transition-colors"
             />
             {searchQuery && (
               <button
@@ -454,7 +454,7 @@ export default function AdminUsersPage() {
           </div>
 
           {/* Role Filter Tabs */}
-          <div className="flex rounded-lg border border-neutral-800 overflow-hidden shrink-0">
+          <div className="flex rounded-lg border border-white/10 overflow-hidden shrink-0">
             {(["All", "Admin", "Sales Representative"] as RoleFilter[]).map(role => (
               <button
                 key={role}
@@ -492,7 +492,7 @@ export default function AdminUsersPage() {
             const changed = hasChanges(user.id)
 
             return (
-              <div key={user.id} className={`bg-neutral-900/60 border rounded-xl overflow-hidden transition-all ${isExpanded ? 'border-emerald-500/30' : 'border-neutral-800'}`}>
+              <div key={user.id} className={`glass-panel/60 border rounded-xl overflow-hidden transition-all ${isExpanded ? 'border-emerald-500/30' : 'border-white/10'}`}>
                 {/* User Row */}
                 <button
                   onClick={() => toggleExpanded(user.id)}
@@ -547,7 +547,7 @@ export default function AdminUsersPage() {
 
                 {/* Expanded Permissions Panel */}
                 {isExpanded && (
-                  <div className="border-t border-neutral-800 p-4 sm:p-5 bg-black/30">
+                  <div className="border-t border-white/10 p-4 sm:p-5 bg-black/30">
                     {/* Quick Actions */}
                     <div className="flex flex-wrap gap-2 mb-5">
                       <button
@@ -571,7 +571,7 @@ export default function AdminUsersPage() {
                     </div>
 
                     {/* User Info Section */}
-                    <div className="mb-5 pb-5 border-b border-neutral-800">
+                    <div className="mb-5 pb-5 border-b border-white/10">
                       <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                         <FiEdit3 size={11} /> User Info
                       </h4>
@@ -681,7 +681,7 @@ export default function AdminUsersPage() {
                                   className={`flex items-start gap-2.5 p-3 rounded-lg border text-left transition-all ${
                                     isEnabled
                                       ? 'bg-emerald-500/8 border-emerald-500/25 hover:bg-emerald-500/12'
-                                      : 'bg-neutral-900/50 border-neutral-800 hover:border-neutral-700'
+                                      : 'glass-panel/50 border-white/10 hover:border-neutral-700'
                                   }`}
                                 >
                                   <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-all ${
@@ -706,7 +706,7 @@ export default function AdminUsersPage() {
                     </div>
 
                     {/* Save Button */}
-                    <div className="flex justify-end mt-5 pt-4 border-t border-neutral-800">
+                    <div className="flex justify-end mt-5 pt-4 border-t border-white/10">
                       <button
                         onClick={() => savePermissions(user.id)}
                         disabled={!changed || savingUser === user.id}
@@ -740,7 +740,7 @@ export default function AdminUsersPage() {
       {/* Add User Modal */}
       {showAddUser && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddUser(false)}>
-          <div className="bg-neutral-900 border border-neutral-700 rounded-xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="glass-panel border border-neutral-700 rounded-xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <FiUserPlus className="text-emerald-400" /> Add New User
             </h2>
@@ -793,7 +793,7 @@ export default function AdminUsersPage() {
             <div className="flex gap-2 pt-2">
               <button
                 onClick={() => setShowAddUser(false)}
-                className="flex-1 py-2 text-xs font-bold rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer"
+                className="flex-1 py-2 text-xs font-bold rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -833,9 +833,9 @@ export default function AdminUsersPage() {
       {/* Assign Accounts Modal */}
       {showAssignModal && assignUser && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !assigning && setShowAssignModal(false)}>
-          <div className="bg-neutral-900 border border-neutral-700 rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="glass-panel border border-neutral-700 rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div className="p-5 pb-4 border-b border-neutral-800 shrink-0">
+            <div className="p-5 pb-4 border-b border-white/10 shrink-0">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <FiUsers className="text-violet-400" /> Assign Accounts
               </h2>
@@ -846,7 +846,7 @@ export default function AdminUsersPage() {
             </div>
 
             {/* Search */}
-            <div className="px-5 py-3 border-b border-neutral-800 shrink-0">
+            <div className="px-5 py-3 border-b border-white/10 shrink-0">
               <div className="relative">
                 <FiSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
                 <input
@@ -918,7 +918,7 @@ export default function AdminUsersPage() {
 
             {/* Progress bar during assignment */}
             {assigning && assignProgress.total > 0 && (
-              <div className="px-5 py-3 border-t border-neutral-800 shrink-0">
+              <div className="px-5 py-3 border-t border-white/10 shrink-0">
                 <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1.5">
                   <span>Reassigning {assignProgress.done}/{assignProgress.total}â€¦</span>
                   <span>{Math.round((assignProgress.done / assignProgress.total) * 100)}%</span>
@@ -940,11 +940,11 @@ export default function AdminUsersPage() {
             )}
 
             {/* Footer */}
-            <div className="p-5 pt-3 border-t border-neutral-800 flex gap-2 shrink-0">
+            <div className="p-5 pt-3 border-t border-white/10 flex gap-2 shrink-0">
               <button
                 onClick={() => setShowAssignModal(false)}
                 disabled={assigning}
-                className="flex-1 py-2 text-xs font-bold rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer disabled:opacity-50"
+                className="flex-1 py-2 text-xs font-bold rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors cursor-pointer disabled:opacity-50"
               >
                 {assignProgress.errors.length > 0 && !assigning ? "Close" : "Cancel"}
               </button>

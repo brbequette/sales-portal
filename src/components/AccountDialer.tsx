@@ -380,7 +380,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
             className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold transition-all border cursor-pointer ${
               aiViewMode === "ai"
                 ? 'bg-purple-500 border-purple-400 text-white shadow-lg shadow-purple-500/30'
-                : 'bg-neutral-900/60 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
+                : 'glass-panel/60 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
             }`}
           >
             <FiZap size={10} />
@@ -404,7 +404,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                   <textarea 
                     value={aiPrompt}
                     onChange={e => setAiPrompt(e.target.value)}
-                    className="w-full bg-neutral-900 border border-neutral-800 rounded p-3 text-sm text-white focus:border-purple-500 h-24"
+                    className="w-full glass-panel border border-white/10 rounded p-3 text-sm text-white focus:border-purple-500 h-24"
                     placeholder="e.g. Write a quick follow-up text for a customer who bought Medusa blades last month."
                   />
                 </div>
@@ -515,7 +515,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                     ) : null
                   })()}
                   {accountPurchases.length > 0 && (
-                    <div className="flex items-center gap-1 pl-1.5 border-l border-neutral-800/60">
+                    <div className="flex items-center gap-1 pl-1.5 border-l border-white/10/60">
                       <FiPackage size={9} className="text-neutral-600" />
                       {accountPurchases.slice(0, 3).map((p: any, i: number) => (
                         <span key={i} className="flex items-center gap-0.5">
@@ -534,10 +534,10 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                   </div>
                 )}
 
-                <div className="px-5 mt-2.5 pt-2.5 border-t border-neutral-800/60 flex items-center gap-3 flex-wrap">
+                <div className="px-5 mt-2.5 pt-2.5 border-t border-white/10/60 flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="text-[10px] font-bold text-neutral-400">Reached:</span>
-                    <div className="flex bg-neutral-950 p-0.5 rounded border border-neutral-800">
+                    <div className="flex bg-black/20 p-0.5 rounded border border-white/10">
                       <button type="button" onClick={() => { setContactReached(true); setOutcome("check_in"); }} className={`px-2 py-0.5 rounded-[3px] text-[10px] font-bold transition-all cursor-pointer ${contactReached ? 'bg-cyan-500 text-black' : 'text-neutral-500 hover:text-neutral-300'}`}>Yes</button>
                       <button type="button" onClick={() => { setContactReached(false); setOutcome("left_voicemail"); }} className={`px-2 py-0.5 rounded-[3px] text-[10px] font-bold transition-all cursor-pointer ${!contactReached ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>No</button>
                     </div>
@@ -551,7 +551,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                         placeholder="Name" 
                         value={spokeTo} 
                         onChange={e => setSpokeTo(e.target.value)} 
-                        className="w-28 bg-neutral-950 border border-neutral-800 rounded px-2 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500" 
+                        className="w-28 bg-black/20 border border-white/10 rounded px-2 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500" 
                       />
                     </div>
                   )}
@@ -561,7 +561,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                     <select 
                       value={outcome} 
                       onChange={e => setOutcome(e.target.value)} 
-                      className="bg-neutral-950 border border-neutral-800 rounded px-1.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 cursor-pointer max-w-[120px]"
+                      className="bg-black/20 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 cursor-pointer max-w-[120px]"
                     >
                       {contactReached ? (
                         <>
@@ -588,7 +588,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                       value={followUpDate} 
                       min={new Date().toISOString().split('T')[0]} 
                       onChange={e => setFollowUpDate(e.target.value)} 
-                      className="bg-neutral-950 border border-neutral-800 rounded px-1.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 w-24" 
+                      className="bg-black/20 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500 w-24" 
                     />
                   </div>
 
@@ -599,7 +599,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                       placeholder="Pricing feedback, next steps..." 
                       value={notes} 
                       onChange={e => setNotes(e.target.value)} 
-                      className="flex-1 bg-neutral-950 border border-neutral-800 rounded px-2.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500" 
+                      className="flex-1 bg-black/20 border border-white/10 rounded px-2.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-cyan-500" 
                     />
                   </div>
 
@@ -620,7 +620,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                   <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
                     <FiBookOpen size={11} /> Outreach Script
                   </span>
-                  <div className="flex bg-neutral-900 border border-neutral-800 rounded text-[10px] font-bold p-0.5">
+                  <div className="flex glass-panel border border-white/10 rounded text-[10px] font-bold p-0.5">
                     <button onClick={() => setCallType("cold")} className={`px-2 py-1 rounded transition-colors cursor-pointer ${callType === "cold" ? "bg-cyan-600 text-black" : "text-neutral-500"}`}>Cold Call</button>
                     <button onClick={() => setCallType("update")} className={`px-2 py-1 rounded transition-colors cursor-pointer ${callType === "update" ? "bg-cyan-600 text-black" : "text-neutral-500"}`}>Follow-Up</button>
                   </div>
@@ -643,7 +643,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                     if (callType === "cold") {
                       return (
                         <>
-                          <div className="bg-neutral-950/60 border border-neutral-800 p-4 rounded-xl text-sm text-neutral-300 leading-relaxed whitespace-pre-line select-text">
+                          <div className="bg-black/20/60 border border-white/10 p-4 rounded-xl text-sm text-neutral-300 leading-relaxed whitespace-pre-line select-text">
                             {`Hey, ${contactName} this is ${repName} over at Titan Diamond USA. I'm giving you a call today because we have an early release on our brand new 2026 line-up of blades that we featured at the The World of Concrete and ConExpo shows in Las Vegas this year and what's great is with this new release, our manufacturer wants us to give away free blades to our new customers to build new relationships... I just have a quick couple questions to see which blade will work best for you and what you're cutting...`}
                           </div>
                           <FactFindingPanel
@@ -661,7 +661,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
 
                     return (
                       <>
-                        <div className="bg-neutral-950/60 border border-neutral-800 p-4 rounded-xl text-sm text-neutral-300 leading-relaxed whitespace-pre-line select-text">
+                        <div className="bg-black/20/60 border border-white/10 p-4 rounded-xl text-sm text-neutral-300 leading-relaxed whitespace-pre-line select-text">
                           {generateScript()}
                         </div>
                         <FactFindingPanel
@@ -714,7 +714,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
         </div>
 
         {/* === RIGHT PANEL: ACCOUNT INTEL === */}
-        <div className="w-[340px] bg-[#080b12] border-l border-neutral-800/50 overflow-y-auto scrollbar-thin p-4 space-y-4 shrink-0">
+        <div className="w-[340px] bg-[#080b12] border-l border-white/10/50 overflow-y-auto scrollbar-thin p-4 space-y-4 shrink-0">
           {isLoadingIntel && (
             <div className="flex items-center justify-center py-10 text-neutral-500">
               <FiLoader className="animate-spin mr-2" size={18} />
@@ -722,7 +722,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
             </div>
           )}
 
-          <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
+          <div className="bg-black/20/40 border border-white/10/60 rounded-xl p-3 space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5"><FiUser size={11} /> Profile</span>
             {(() => {
               const addr = accountDetail || account
@@ -759,7 +759,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
               const pct = maxSpend > 0 ? ((p.totalSpend || 0) / maxSpend) * 100 : 0
               const avgOrder = p.quantity > 0 ? (p.totalSpend || 0) / p.quantity : 0
               return (
-                <div key={i} className="bg-neutral-900/60 border border-neutral-800/40 rounded-lg p-2">
+                <div key={i} className="glass-panel/60 border border-white/10/40 rounded-lg p-2">
                   <div className="flex items-start justify-between mb-0.5">
                     <span className="text-[11px] text-white font-bold leading-tight pr-2 flex-1">{p.name}</span>
                     <span className={`text-[11px] font-black shrink-0 ${color}`}>${(p.totalSpend || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
@@ -820,11 +820,11 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
           })()}
           
           {account?.deals && account.deals.length > 0 && (
-            <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
+            <div className="bg-black/20/40 border border-white/10/60 rounded-xl p-3 space-y-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5"><FiDollarSign size={11} /> Deals ({account.deals.length})</span>
               <div className="space-y-1.5">
                 {account.deals.slice(0, 10).map((deal: any, i: number) => (
-                  <div key={deal.id || i} className="flex items-center justify-between bg-neutral-900/50 border border-neutral-800/40 rounded-lg px-2.5 py-1.5">
+                  <div key={deal.id || i} className="flex items-center justify-between glass-panel/50 border border-white/10/40 rounded-lg px-2.5 py-1.5">
                     <div>
                       <span className="text-xs text-white font-bold">{deal.name || `Deal ${i+1}`}</span>
                       {deal.stage && <span className="ml-1.5 text-[9px] font-bold text-purple-400">{deal.stage}</span>}
@@ -839,7 +839,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
             </div>
           )}
 
-          <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
+          <div className="bg-black/20/40 border border-white/10/60 rounded-xl p-3 space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5"><FiFileText size={11} /> Invoices ({(account?.invoices || []).length})</span>
             {!account?.invoices || account.invoices.length === 0 ? (
               <p className="text-xs text-neutral-500 text-center py-2">No invoices</p>
@@ -848,7 +848,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
                 {(account.invoices || []).slice(0, 20).map((inv: any, i: number) => {
                   const items = inv.items || {}
                   return (
-                    <div key={inv.id || i} className="flex items-center justify-between bg-neutral-900/50 border border-neutral-800/40 rounded-lg px-2.5 py-1.5">
+                    <div key={inv.id || i} className="flex items-center justify-between glass-panel/50 border border-white/10/40 rounded-lg px-2.5 py-1.5">
                       <div>
                         <span className="text-xs text-white font-bold">{items.invoiceNumber || items.invoice_number || `INV-${i+1}`}</span>
                         <span className={`ml-1.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${inv.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400' : inv.status === 'overdue' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>{inv.status}</span>
@@ -864,14 +864,14 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
             )}
           </div>
 
-          <div className="bg-neutral-950/40 border border-neutral-800/60 rounded-xl p-3 space-y-2">
+          <div className="bg-black/20/40 border border-white/10/60 rounded-xl p-3 space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5"><FiFileText size={11} /> Notes ({accountNotes.length})</span>
             {accountNotes.length === 0 ? (
               <p className="text-xs text-neutral-500 text-center py-2">No notes</p>
             ) : (
               <div className="space-y-1.5">
                 {accountNotes.map((note: any, i: number) => (
-                  <div key={note.id || i} className="bg-neutral-900/50 border border-neutral-800/40 rounded-lg p-2">
+                  <div key={note.id || i} className="glass-panel/50 border border-white/10/40 rounded-lg p-2">
                     <div className="flex justify-between items-start mb-0.5">
                       <span className="text-[10px] font-bold text-neutral-400">
                         {note.author?.name || 'System'}

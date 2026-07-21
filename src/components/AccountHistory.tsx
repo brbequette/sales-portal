@@ -111,7 +111,7 @@ export function AccountHistory({
                     <div 
                       key={inv.id} 
                       onClick={() => onViewInvoice && onViewInvoice(inv.zohoId)}
-                      className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/55 transition-colors cursor-pointer hover:bg-neutral-800/10 group"
+                      className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/55 transition-colors cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/10 group"
                       title="Click to view Invoice PDF"
                     >
                       <div>
@@ -172,7 +172,7 @@ export function AccountHistory({
                     <div 
                       key={so.id} 
                       onClick={() => onViewSalesDoc && onViewSalesDoc('SalesOrder', so)}
-                      className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/55 transition-colors cursor-pointer hover:bg-neutral-850/10 group"
+                      className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/55 transition-colors cursor-pointer hover:glass-panel/10 group"
                       title="Click to view Sales Order details"
                     >
                       <div>
@@ -237,7 +237,7 @@ export function AccountHistory({
                     <div 
                       key={quote.id} 
                       onClick={() => onViewSalesDoc && onViewSalesDoc('Quote', quote)}
-                      className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/55 transition-colors cursor-pointer hover:bg-neutral-850/10 group"
+                      className="flex items-center justify-between p-4 bg-black/20 border border-(--border) rounded-lg hover:border-(--primary)/55 transition-colors cursor-pointer hover:glass-panel/10 group"
                       title="Click to view Quote details"
                     >
                       <div>

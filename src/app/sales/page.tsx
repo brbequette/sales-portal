@@ -326,7 +326,7 @@ export default function SalesListPage() {
               {statusDropdownOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setStatusDropdownOpen(false)} />
-                  <div className="absolute top-full left-0 mt-1 z-50 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl min-w-[180px] py-1 animate-scale-in">
+                  <div className="absolute top-full left-0 mt-1 z-50 glass-panel border border-neutral-700 rounded-xl shadow-2xl min-w-[180px] py-1 animate-scale-in">
                     {/* Clear All */}
                     <button
                       onClick={() => { setStatusFilter([]); setStatusDropdownOpen(false) }}

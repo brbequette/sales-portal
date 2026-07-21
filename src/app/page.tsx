@@ -1477,7 +1477,7 @@ export default function Dashboard() {
 
                 <button
                   onClick={() => setShowFiltersDrawer(true)}
-                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-[var(--border)] glass-panel hover:bg-neutral-800 text-neutral-300 hover:text-white transition-colors cursor-pointer relative"
+                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-[var(--border)] glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-neutral-300 hover:text-white transition-colors cursor-pointer relative"
                 >
                   <FiFilter size={12} className={activeFilterCount > 0 ? (effort === "sales" ? "text-emerald-400" : "text-sky-400") : ""} />
                   <span>Filters</span>
@@ -1726,7 +1726,7 @@ export default function Dashboard() {
                         className={`group transition-all ${
                           isSelected
                             ? "bg-emerald-950/10 border-l-2 border-emerald-500"
-                            : "border-l-2 border-transparent hover:bg-neutral-800/40"
+                            : "border-l-2 border-transparent hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/40"
                         }`}
                       >
                         {effort === "call_list" ? (
@@ -2167,7 +2167,7 @@ export default function Dashboard() {
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button 
                                 onClick={() => handleOpenEditTask(task)}
-                                className="p-1 rounded glass-panel hover:bg-neutral-800 text-neutral-400 hover:text-white border border-[var(--border)] transition-colors"
+                                className="p-1 rounded glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-neutral-400 hover:text-white border border-[var(--border)] transition-colors"
                                 title="Edit Task"
                               >
                                 <FiEdit size={11} />
@@ -2359,7 +2359,7 @@ export default function Dashboard() {
                             {item.unpaidInvoiceSummary && item.unpaidInvoiceSummary.length > 0 && (
                               <div className="mt-2 space-y-1 border-t border-[var(--border)] pt-2">
                                 {item.unpaidInvoiceSummary.map((inv: any, i: number) => (
-                                  <div key={i} className="flex items-center justify-between text-[11px] px-2 py-1 rounded bg-neutral-900/50">
+                                  <div key={i} className="flex items-center justify-between text-[11px] px-2 py-1 rounded glass-panel/50">
                                     <div className="flex items-center gap-2">
                                       <span className="text-emerald-400 font-mono font-bold">#{inv.invoiceNumber}</span>
                                       <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${inv.status === 'Overdue' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}`}>{inv.status}</span>
@@ -3088,7 +3088,7 @@ export default function Dashboard() {
                   ) : (
                     /* Selector triggers */
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <label className="flex flex-col items-center justify-center py-4 px-3 glass-panel hover:bg-neutral-800 border border-dashed border-[var(--border)] hover:border-neutral-600 rounded-xl cursor-pointer transition-colors group">
+                      <label className="flex flex-col items-center justify-center py-4 px-3 glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 border border-dashed border-[var(--border)] hover:border-neutral-600 rounded-xl cursor-pointer transition-colors group">
                         <FiUploadCloud className="text-neutral-500 group-hover:text-emerald-400 transition-colors mb-1" size={18} />
                         <span className="text-[10px] font-semibold text-neutral-400">Upload custom file</span>
                         <input 
@@ -3104,7 +3104,7 @@ export default function Dashboard() {
                           setShowAssetSelector(true)
                           fetchMediaAssets()
                         }}
-                        className="flex flex-col items-center justify-center py-4 px-3 glass-panel hover:bg-neutral-800 border border-dashed border-[var(--border)] hover:border-neutral-600 rounded-xl transition-colors group"
+                        className="flex flex-col items-center justify-center py-4 px-3 glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 border border-dashed border-[var(--border)] hover:border-neutral-600 rounded-xl transition-colors group"
                       >
                         <FiPaperclip className="text-neutral-500 group-hover:text-emerald-400 transition-colors mb-1" size={18} />
                         <span className="text-[10px] font-semibold text-neutral-400">Select library asset</span>

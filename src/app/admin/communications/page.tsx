@@ -97,7 +97,7 @@ export default function CommunicationsDashboard() {
       <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto safe-bottom max-w-6xl mx-auto w-full">
         
         {/* Header & Settings Toggle */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-800 pb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
           <div>
             <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
               <FiMessageSquare className="text-indigo-500" />
@@ -131,7 +131,7 @@ export default function CommunicationsDashboard() {
             </button>
             <button 
               onClick={() => setShowSettings(!showSettings)}
-              className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 rounded-lg transition-colors font-medium text-sm"
+              className="flex items-center gap-2 px-4 py-2 glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-neutral-300 border border-white/10 rounded-lg transition-colors font-medium text-sm"
             >
               <FiSettings size={16} />
               Phone Numbers
@@ -142,8 +142,8 @@ export default function CommunicationsDashboard() {
 
         {/* Settings Panel (Collapsible) */}
         {showSettings && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-top-4 fade-in duration-200">
-            <div className="bg-neutral-950 px-6 py-4 border-b border-neutral-800 flex items-center justify-between">
+          <div className="glass-panel border border-white/10 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-top-4 fade-in duration-200">
+            <div className="bg-black/20 px-6 py-4 border-b border-white/10 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-white">Zoho Phone Numbers</h2>
                 <p className="text-sm text-neutral-400">Manage phone numbers used for voice and SMS routing</p>
@@ -157,7 +157,7 @@ export default function CommunicationsDashboard() {
             </div>
             <div className="p-6 space-y-3">
               {zohoNumbers.map((num, i) => (
-                <div key={i} className="flex flex-col sm:flex-row gap-3 items-start sm:items-center bg-black/40 p-3 rounded-lg border border-neutral-800">
+                <div key={i} className="flex flex-col sm:flex-row gap-3 items-start sm:items-center bg-black/40 p-3 rounded-lg border border-white/10">
                   <div className="flex-1 w-full space-y-2">
                     <input 
                       type="text"
@@ -168,7 +168,7 @@ export default function CommunicationsDashboard() {
                         newNums[i].number = e.target.value
                         setZohoNumbers(newNums)
                       }}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
                     />
                     <input 
                       type="text"
@@ -179,7 +179,7 @@ export default function CommunicationsDashboard() {
                         newNums[i].name = e.target.value
                         setZohoNumbers(newNums)
                       }}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
                     />
                   </div>
                   
@@ -208,7 +208,7 @@ export default function CommunicationsDashboard() {
                 </div>
               ))}
               {zohoNumbers.length === 0 && (
-                <div className="text-center py-8 border border-dashed border-neutral-800 rounded-lg text-neutral-500 text-sm">
+                <div className="text-center py-8 border border-dashed border-white/10 rounded-lg text-neutral-500 text-sm">
                   No Zoho numbers added yet.
                 </div>
               )}
@@ -227,7 +227,7 @@ export default function CommunicationsDashboard() {
         )}
 
         {/* Filters */}
-        <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 flex flex-col md:flex-row items-center gap-4 shadow-sm">
+        <div className="glass-panel/50 border border-white/10 rounded-xl p-4 flex flex-col md:flex-row items-center gap-4 shadow-sm">
           <div className="flex items-center gap-2 text-neutral-400 px-2 font-medium">
             <FiFilter /> Filters:
           </div>
@@ -239,7 +239,7 @@ export default function CommunicationsDashboard() {
                 placeholder="Search Account..." 
                 value={searchAccount}
                 onChange={e => setSearchAccount(e.target.value)}
-                className="w-full bg-black border border-neutral-800 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full bg-black border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
               />
             </div>
             <div className="relative">
@@ -249,13 +249,13 @@ export default function CommunicationsDashboard() {
                 placeholder="Search Agent..." 
                 value={searchAgent}
                 onChange={e => setSearchAgent(e.target.value)}
-                className="w-full bg-black border border-neutral-800 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full bg-black border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
               />
             </div>
             <select 
               value={typeFilter}
               onChange={e => setTypeFilter(e.target.value as any)}
-              className="bg-black border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none appearance-none"
+              className="bg-black border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none appearance-none"
             >
               <option value="ALL">All Types</option>
               <option value="CALL">Calls</option>
@@ -264,7 +264,7 @@ export default function CommunicationsDashboard() {
             <select 
               value={directionFilter}
               onChange={e => setDirectionFilter(e.target.value as any)}
-              className="bg-black border border-neutral-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none appearance-none"
+              className="bg-black border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none appearance-none"
             >
               <option value="ALL">All Directions</option>
               <option value="INBOUND">Inbound</option>
@@ -276,7 +276,7 @@ export default function CommunicationsDashboard() {
         {/* Unified Timeline Feed */}
         <div className="space-y-4">
           {filteredLogs.length === 0 ? (
-            <div className="text-center py-16 bg-neutral-900/20 border border-neutral-800/50 rounded-xl text-neutral-500">
+            <div className="text-center py-16 glass-panel/20 border border-white/10/50 rounded-xl text-neutral-500">
               <FiMessageSquare size={32} className="mx-auto mb-4 opacity-50" />
               <p>No communications found matching your filters.</p>
             </div>
@@ -286,7 +286,7 @@ export default function CommunicationsDashboard() {
               const isInbound = log.direction?.toUpperCase() === 'INBOUND'
               
               return (
-                <div key={log.id} className="group relative flex gap-4 p-4 rounded-xl border border-neutral-800/60 bg-neutral-900/40 hover:bg-neutral-800/60 transition-colors">
+                <div key={log.id} className="group relative flex gap-4 p-4 rounded-xl border border-white/10/60 glass-panel/40 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/60 transition-colors">
                   {/* Icon Indicator */}
                   <div className="shrink-0 pt-1">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center border shadow-inner ${
@@ -313,7 +313,7 @@ export default function CommunicationsDashboard() {
                           {isInbound ? 'Inbound' : 'Outbound'}
                         </span>
                       </div>
-                      <div className="text-xs text-neutral-400 flex items-center gap-1.5 shrink-0 bg-neutral-950 px-2.5 py-1 rounded-md border border-neutral-800">
+                      <div className="text-xs text-neutral-400 flex items-center gap-1.5 shrink-0 bg-black/20 px-2.5 py-1 rounded-md border border-white/10">
                         <FiClock className="opacity-70" />
                         {new Date(log.timestamp).toLocaleString(undefined, { 
                           month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
@@ -337,7 +337,7 @@ export default function CommunicationsDashboard() {
                     {log.content ? (
                       <div className={`p-3 rounded-lg text-sm leading-relaxed border ${
                         isCall 
-                          ? 'bg-neutral-950/80 border-neutral-800/80 text-neutral-300 italic' 
+                          ? 'bg-black/20/80 border-white/10/80 text-neutral-300 italic' 
                           : 'bg-indigo-500/5 border-indigo-500/10 text-indigo-100'
                       }`}>
                         {isCall && <span className="font-semibold text-neutral-500 block mb-1 not-italic text-xs uppercase tracking-wider">Call Notes</span>}

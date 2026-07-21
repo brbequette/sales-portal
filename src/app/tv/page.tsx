@@ -130,7 +130,7 @@ export default function TVPage() {
                 onPaste={i === 0 ? handlePaste : undefined}
                 disabled={verifying}
                 autoFocus={i === 0}
-                className={`w-16 h-20 text-center text-3xl font-mono font-bold rounded-xl border-2 bg-neutral-950 outline-none transition-all duration-200 ${
+                className={`w-16 h-20 text-center text-3xl font-mono font-bold rounded-xl border-2 bg-black/20 outline-none transition-all duration-200 ${
                   error
                     ? "border-red-500 text-red-400"
                     : digit

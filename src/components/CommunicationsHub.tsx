@@ -27,9 +27,9 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
   ]
 
   return (
-    <div className="flex flex-col h-full bg-neutral-950 text-white border border-neutral-800 rounded-xl overflow-hidden shadow-xl">
+    <div className="flex flex-col h-full bg-black/20 text-white border border-white/10 rounded-xl overflow-hidden shadow-xl">
       {/* Header Tabs */}
-      <div className="flex space-x-1 border-b border-neutral-800 bg-neutral-900/50 p-2 overflow-x-auto scrollbar-none">
+      <div className="flex space-x-1 border-b border-white/10 glass-panel/50 p-2 overflow-x-auto scrollbar-none">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -37,7 +37,7 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
             className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-colors whitespace-nowrap ${
               activeTab === tab.id
                 ? "bg-neutral-800 text-white shadow-sm border border-neutral-700"
-                : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/50 border border-transparent"
+                : "text-neutral-500 hover:text-neutral-300 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 border border-transparent"
             }`}
           >
             {tab.icon}
@@ -69,7 +69,7 @@ export function CommunicationsHub({ accountId, dealId, account, contacts }: Comm
         )}
         
         {activeTab === "CALLS" && (
-          <div className="h-[600px] border border-neutral-800 rounded-xl overflow-hidden">
+          <div className="h-[600px] border border-white/10 rounded-xl overflow-hidden">
              {/* Use AccountDialer here as it already handles calls */}
              <AccountDialer accountId={accountId} account={account} contacts={contacts || []} />
           </div>

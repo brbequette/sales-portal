@@ -114,7 +114,7 @@ export function AccountAnalytics({
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
         <div 
           onClick={() => onDrillDown?.("Lifetime Value (All Invoices)", invoices)}
-          className="bg-neutral-800/50 rounded-xl p-3 border border-neutral-800 cursor-pointer hover:bg-neutral-800 transition-colors"
+          className="bg-neutral-800/50 rounded-xl p-3 border border-white/10 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors"
         >
           <div className="text-[10px] uppercase text-neutral-500 font-semibold mb-1">Lifetime Value</div>
           <div className="text-lg font-bold text-emerald-400">${analytics.totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
@@ -122,7 +122,7 @@ export function AccountAnalytics({
         </div>
         <div 
           onClick={() => onDrillDown?.("Profit & Margin (All Invoices)", invoices)}
-          className="bg-neutral-800/50 rounded-xl p-3 border border-neutral-800 cursor-pointer hover:bg-neutral-800 transition-colors"
+          className="bg-neutral-800/50 rounded-xl p-3 border border-white/10 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors"
         >
           <div className="text-[10px] uppercase text-neutral-500 font-semibold mb-1">Total Profit</div>
           <div className="text-lg font-bold text-sky-400">${analytics.totalProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
@@ -130,7 +130,7 @@ export function AccountAnalytics({
         </div>
         <div 
           onClick={() => onDrillDown?.("Average Order (All Invoices)", invoices)}
-          className="bg-neutral-800/50 rounded-xl p-3 border border-neutral-800 cursor-pointer hover:bg-neutral-800 transition-colors"
+          className="bg-neutral-800/50 rounded-xl p-3 border border-white/10 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors"
         >
           <div className="text-[10px] uppercase text-neutral-500 font-semibold mb-1">Avg Order</div>
           <div className="text-lg font-bold text-blue-400">${analytics.avgOrderValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
@@ -138,7 +138,7 @@ export function AccountAnalytics({
         </div>
         <div 
           onClick={() => onDrillDown?.("Overdue Invoices", invoices.filter(i => i.status === "Overdue"))}
-          className="bg-neutral-800/50 rounded-xl p-3 border border-neutral-800 cursor-pointer hover:bg-neutral-800 transition-colors"
+          className="bg-neutral-800/50 rounded-xl p-3 border border-white/10 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors"
         >
           <div className="text-[10px] uppercase text-neutral-500 font-semibold mb-1">Pay Rate</div>
           <div className={`text-lg font-bold ${analytics.payRate >= 80 ? "text-emerald-400" : analytics.payRate >= 60 ? "text-amber-400" : "text-red-400"}`}>
@@ -148,7 +148,7 @@ export function AccountAnalytics({
         </div>
         <div 
           onClick={() => onDrillDown?.("Order Frequency (All Invoices)", invoices)}
-          className="bg-neutral-800/50 rounded-xl p-3 border border-neutral-800 cursor-pointer hover:bg-neutral-800 transition-colors"
+          className="bg-neutral-800/50 rounded-xl p-3 border border-white/10 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors"
         >
           <div className="text-[10px] uppercase text-neutral-500 font-semibold mb-1">Order Freq.</div>
           <div className="text-lg font-bold text-purple-400">
@@ -165,7 +165,7 @@ export function AccountAnalytics({
           { label: "Quotes", value: analytics.quoteCount, color: "text-purple-400" },
           { label: "Sales Orders", value: analytics.salesOrderCount, color: "text-emerald-400" },
         ].map((stat) => (
-          <div key={stat.label} className="bg-neutral-800/30 rounded-lg p-2 text-center border border-neutral-800">
+          <div key={stat.label} className="bg-neutral-800/30 rounded-lg p-2 text-center border border-white/10">
             <div className={`text-base font-bold ${stat.color}`}>{stat.value}</div>
             <div className="text-[10px] text-neutral-500">{stat.label}</div>
           </div>
@@ -174,7 +174,7 @@ export function AccountAnalytics({
 
       {/* Year-over-Year Revenue */}
       {analytics.years.length > 1 && (
-        <div className="bg-neutral-800/30 rounded-xl p-4 border border-neutral-800">
+        <div className="bg-neutral-800/30 rounded-xl p-4 border border-white/10">
           <div className="text-xs font-semibold text-neutral-400 uppercase mb-3 flex items-center gap-2">
             <FiTrendingUp className="text-emerald-500" /> Annual Revenue Trend
           </div>
@@ -182,11 +182,11 @@ export function AccountAnalytics({
             {analytics.years.map(([year, value]) => (
               <div 
                 key={year} 
-                className="flex items-center gap-3 cursor-pointer hover:bg-neutral-800/50 p-1 -mx-1 rounded transition-colors"
+                className="flex items-center gap-3 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 p-1 -mx-1 rounded transition-colors"
                 onClick={() => onDrillDown?.(`Invoices for ${year}`, invoices.filter(i => new Date(i.issueDate).getFullYear().toString() === year))}
               >
                 <div className="w-10 text-xs text-neutral-500 shrink-0">{year}</div>
-                <div className="flex-1 bg-neutral-900 rounded-full h-3 overflow-hidden">
+                <div className="flex-1 glass-panel rounded-full h-3 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-blue-600 to-emerald-500 rounded-full transition-all duration-500"
                     style={{ width: `${(value / analytics.maxYearRevenue) * 100}%` }}
@@ -203,7 +203,7 @@ export function AccountAnalytics({
 
       {/* Top Products */}
       {analytics.topItems.length > 0 && (
-        <div className="bg-neutral-800/30 rounded-xl p-4 border border-neutral-800">
+        <div className="bg-neutral-800/30 rounded-xl p-4 border border-white/10">
           <div className="text-xs font-semibold text-neutral-400 uppercase mb-3 flex items-center gap-2">
             <FiPackage className="text-blue-400" /> Most Purchased Items
           </div>
@@ -211,7 +211,7 @@ export function AccountAnalytics({
             {analytics.topItems.map(([name, data], i) => (
               <div 
                 key={name} 
-                className="flex items-center gap-3 cursor-pointer hover:bg-neutral-800/50 p-1 -mx-1 rounded transition-colors"
+                className="flex items-center gap-3 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 p-1 -mx-1 rounded transition-colors"
                 onClick={() => onDrillDown?.(`Invoices containing ${name}`, invoices.filter(inv => inv.items?.some((item: any) => (typeof item === 'string' ? item : item.name || "Unknown") === name)))}
               >
                 <div className="w-5 h-5 rounded-full bg-neutral-700 flex items-center justify-center text-[10px] font-bold text-neutral-300 shrink-0">

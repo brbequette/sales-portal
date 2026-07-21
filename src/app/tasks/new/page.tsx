@@ -440,7 +440,7 @@ export default function NewTaskPage() {
               <button 
                 type="button" 
                 onClick={() => router.push('/')}
-                className="px-6 py-3 rounded-xl bg-[#111214] border border-white/10 hover:bg-neutral-800 font-bold transition-colors"
+                className="px-6 py-3 rounded-xl bg-[#111214] border border-white/10 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 font-bold transition-colors"
               >
                 Cancel
               </button>

@@ -159,7 +159,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
             className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-center gap-3 cursor-pointer ${
               selectedContactId === "general"
                 ? "bg-neutral-800 border-emerald-500/40 shadow-lg"
-                : "bg-neutral-900/40 border-neutral-800 hover:border-neutral-700"
+                : "glass-panel/40 border-white/10 hover:border-neutral-700"
             }`}
           >
             <div className="p-1.5 rounded-lg bg-emerald-950/50 border border-emerald-500/20">
@@ -172,7 +172,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
           </button>
 
           {/* Section Divider */}
-          <div className="pt-2 pb-1 px-1 border-t border-neutral-800 flex items-center justify-between">
+          <div className="pt-2 pb-1 px-1 border-t border-white/10 flex items-center justify-between">
             <span className="text-[9px] uppercase font-bold tracking-wider text-neutral-500">Contacts</span>
             <button
               onClick={() => setEditingContact(null)}
@@ -199,7 +199,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     className={`w-full text-left p-3.5 rounded-xl border transition-all flex flex-col gap-1.5 cursor-pointer pr-8 ${
                       isSelected
                         ? "bg-neutral-800 border-emerald-500/40 shadow-lg"
-                        : "bg-neutral-900/40 border-neutral-800 hover:border-neutral-700"
+                        : "glass-panel/40 border-white/10 hover:border-neutral-700"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 w-full">
@@ -250,7 +250,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                 </button>
                 <button 
                   onClick={() => setEditingContact(c)}
-                  className="absolute top-2 right-2 p-1.5 text-neutral-500 hover:text-white bg-neutral-900 hover:bg-neutral-800 rounded-lg opacity-0 group-hover:opacity-100 transition-all border border-neutral-800"
+                  className="absolute top-2 right-2 p-1.5 text-neutral-500 hover:text-white glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 rounded-lg opacity-0 group-hover:opacity-100 transition-all border border-white/10"
                   title="Edit Contact"
                 >
                   <FiEdit2 size={12} />
@@ -262,7 +262,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
         </div>
 
         {/* Selected Contact Details and Notes panel */}
-        <div className="md:col-span-3 bg-neutral-900/30 border border-neutral-800 rounded-2xl p-5 flex flex-col justify-between space-y-5 min-h-[350px]">
+        <div className="md:col-span-3 glass-panel/30 border border-white/10 rounded-2xl p-5 flex flex-col justify-between space-y-5 min-h-[350px]">
           {selectedContactId === "general" ? (
             <>
               {/* General Account Notes View */}
@@ -286,12 +286,12 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
 
                 {/* Note input expand block */}
                 {showNoteFormId === "general" && (
-                  <div className="bg-neutral-950/65 border border-neutral-850 p-3 rounded-xl space-y-2.5 animate-fadeIn">
+                  <div className="bg-black/20/65 border border-neutral-850 p-3 rounded-xl space-y-2.5 animate-fadeIn">
                     <textarea
                       value={newNoteText}
                       onChange={e => setNewNoteText(e.target.value)}
                       placeholder="Write a general note or log a communication..."
-                      className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 resize-none h-18"
+                      className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 resize-none h-18"
                     />
                     <div className="flex justify-end gap-2 text-[10px]">
                       <button
@@ -324,7 +324,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                       const display = getNoteDisplay(note.content)
                       
                       return (
-                        <div key={note.id} className="p-3 bg-neutral-950/30 border border-neutral-850 rounded-xl space-y-1.5">
+                        <div key={note.id} className="p-3 bg-black/20/30 border border-neutral-850 rounded-xl space-y-1.5">
                           <div className="flex justify-between items-center text-[9px] text-neutral-500">
                             <span className="font-bold text-neutral-400 flex items-center gap-1.5">
                               <span>{note.author?.name || "System Log"}</span>
@@ -369,7 +369,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                 </div>
 
                 {/* Contact Data Details */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-neutral-950/40 p-4 rounded-xl border border-neutral-800/80">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-black/20/40 p-4 rounded-xl border border-white/10/80">
                   <div className="space-y-0.5">
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Email Address</span>
                     {selectedContact.email ? (
@@ -436,12 +436,12 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                   
                   {/* Note input expand block */}
                   {showNoteFormId === selectedContact.id && (
-                    <div className="bg-neutral-950/65 border border-neutral-850 p-3 rounded-xl space-y-2.5 animate-fadeIn">
+                    <div className="bg-black/20/65 border border-neutral-850 p-3 rounded-xl space-y-2.5 animate-fadeIn">
                       <textarea
                         value={newNoteText}
                         onChange={e => setNewNoteText(e.target.value)}
                         placeholder={`Write notes regarding ${selectedContact.firstName}...`}
-                        className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 resize-none h-18"
+                        className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 resize-none h-18"
                       />
                       <div className="flex justify-end gap-2 text-[10px]">
                         <button
@@ -473,7 +473,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                         const display = getNoteDisplay(note.content)
                         
                         return (
-                          <div key={note.id} className="p-3 bg-neutral-950/30 border border-neutral-850 rounded-xl space-y-1.5">
+                          <div key={note.id} className="p-3 bg-black/20/30 border border-neutral-850 rounded-xl space-y-1.5">
                             <div className="flex justify-between items-center text-[9px] text-neutral-500">
                               <span className="font-bold text-neutral-400">
                                 {note.author?.name || "System Log"}

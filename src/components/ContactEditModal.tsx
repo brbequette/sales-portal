@@ -68,7 +68,7 @@ export function ContactEditModal({ accountId, contact, onClose, onSaved }: Conta
                 type="text" 
                 value={formData.firstName}
                 onChange={e => setFormData({ ...formData, firstName: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
               />
             </div>
             <div>
@@ -77,7 +77,7 @@ export function ContactEditModal({ accountId, contact, onClose, onSaved }: Conta
                 type="text" 
                 value={formData.lastName}
                 onChange={e => setFormData({ ...formData, lastName: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
               />
             </div>
           </div>
@@ -88,7 +88,7 @@ export function ContactEditModal({ accountId, contact, onClose, onSaved }: Conta
               type="email" 
               value={formData.email}
               onChange={e => setFormData({ ...formData, email: e.target.value })}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
 
@@ -99,7 +99,7 @@ export function ContactEditModal({ accountId, contact, onClose, onSaved }: Conta
                 type="tel" 
                 value={formData.phone}
                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
               />
             </div>
             <div>
@@ -108,7 +108,7 @@ export function ContactEditModal({ accountId, contact, onClose, onSaved }: Conta
                 type="tel" 
                 value={formData.mobilePhone}
                 onChange={e => setFormData({ ...formData, mobilePhone: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
               />
             </div>
           </div>
@@ -120,11 +120,11 @@ export function ContactEditModal({ accountId, contact, onClose, onSaved }: Conta
               value={formData.designation}
               onChange={e => setFormData({ ...formData, designation: e.target.value })}
               placeholder="e.g. Accounts Payable, Owner, Buyer"
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="w-full glass-panel border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
 
-          <label className="flex items-center gap-3 cursor-pointer mt-2 bg-neutral-900 border border-neutral-800 p-3 rounded-lg">
+          <label className="flex items-center gap-3 cursor-pointer mt-2 glass-panel border border-white/10 p-3 rounded-lg">
             <input 
               type="checkbox" 
               checked={formData.isPrimary}

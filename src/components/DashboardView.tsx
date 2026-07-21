@@ -720,7 +720,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
               </thead>
               <tbody>
                 {data.allRepData.map((row, i) => (
-                  <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                  <tr key={i} className="border-b border-white/[0.03] hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                     <td className="py-2.5 pr-4 font-semibold text-white">{row.name}</td>
                     <td className="py-2.5 px-4 text-right text-neutral-300">${row.weeklySales.toLocaleString()}</td>
                     <td className="py-2.5 px-4 text-right text-neutral-300">${row.mtdSales.toLocaleString()}</td>

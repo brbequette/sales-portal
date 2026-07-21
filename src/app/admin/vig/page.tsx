@@ -137,14 +137,14 @@ export default function VigManagementPage() {
         </header>
 
         {/* Rep Selector & Global Settings */}
-        <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 mb-8 backdrop-blur-md">
+        <div className="glass-panel/50 border border-white/10 rounded-xl p-6 mb-8 backdrop-blur-md">
           <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">
             <div className="flex-1">
               <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest block mb-2">Select Sales Rep</label>
               <select 
                 value={selectedRepId}
                 onChange={(e) => setSelectedRepId(e.target.value)}
-                className="w-full md:w-64 bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition"
+                className="w-full md:w-64 bg-black border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition"
               >
                 {reps.map(r => (
                   <option key={r.repId} value={r.repId}>{r.repName}</option>
@@ -153,13 +153,13 @@ export default function VigManagementPage() {
             </div>
 
             {selectedRep && (
-              <div className="flex-1 flex flex-col sm:flex-row gap-6 p-4 bg-black/40 rounded-lg border border-neutral-800/50">
+              <div className="flex-1 flex flex-col sm:flex-row gap-6 p-4 bg-black/40 rounded-lg border border-white/10/50">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input 
                     type="checkbox" 
                     checked={selectedRep.constantVigEnabled}
                     onChange={(e) => handleToggleConstantVig(e.target.checked)}
-                    className="w-5 h-5 accent-emerald-500 rounded bg-neutral-900 border-neutral-700"
+                    className="w-5 h-5 accent-emerald-500 rounded glass-panel border-neutral-700"
                   />
                   <div>
                     <div className="text-sm font-bold text-white">Enable Constant VIG</div>
@@ -175,7 +175,7 @@ export default function VigManagementPage() {
                       step="0.1"
                       defaultValue={selectedRep.constantVigValue || 1.5}
                       onBlur={(e) => handleUpdateConstantValue(e.target.value)}
-                      className="w-20 bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-center text-emerald-400 font-bold focus:outline-none focus:border-emerald-500"
+                      className="w-20 glass-panel border border-neutral-700 rounded px-2 py-1 text-center text-emerald-400 font-bold focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                 )}
@@ -186,11 +186,11 @@ export default function VigManagementPage() {
 
         {/* Monthly History Table */}
         {selectedRep && (
-          <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden shadow-2xl backdrop-blur-md">
+          <div className="glass-panel/50 border border-white/10 rounded-xl overflow-hidden shadow-2xl backdrop-blur-md">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead>
-                  <tr className="bg-black/50 text-neutral-400 border-b border-neutral-800">
+                  <tr className="bg-black/50 text-neutral-400 border-b border-white/10">
                     <th className="px-6 py-4 font-bold tracking-wider uppercase text-xs">Month</th>
                     <th className="px-6 py-4 font-bold tracking-wider uppercase text-xs">Metric Selection</th>
                     <th className="px-6 py-4 font-bold tracking-wider uppercase text-xs">Subtotal Goal</th>
@@ -210,7 +210,7 @@ export default function VigManagementPage() {
                     const isManual = monthData.manualVigRate !== null
                     
                     return (
-                      <tr key={h.monthKey} className="hover:bg-neutral-800/30 transition">
+                      <tr key={h.monthKey} className="hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30 transition">
                         <td className="px-6 py-4">
                           <div className="font-bold text-white">{h.monthName}</div>
                           <div className="text-xs text-neutral-500">{h.monthKey}</div>
@@ -220,7 +220,7 @@ export default function VigManagementPage() {
                             value={monthData.metric || "PROFIT"}
                             onChange={(e) => handleUpdateMonthlyGoal(h.monthKey, "metric", e.target.value)}
                             disabled={isConstant}
-                            className="bg-black border border-neutral-800 rounded px-2 py-1 text-xs text-white disabled:opacity-50"
+                            className="bg-black border border-white/10 rounded px-2 py-1 text-xs text-white disabled:opacity-50"
                           >
                             <option value="PROFIT">Profit</option>
                             <option value="SUBTOTAL">Subtotal</option>
@@ -267,7 +267,7 @@ export default function VigManagementPage() {
                               defaultValue={monthData.manualVigRate || ""}
                               onBlur={(e) => handleUpdateMonthlyGoal(h.monthKey, "manualVigRate", e.target.value)}
                               disabled={isConstant}
-                              className="w-16 bg-black border border-neutral-800 rounded px-2 py-1 text-center text-sm text-amber-400 placeholder-neutral-700 disabled:opacity-50 focus:outline-none focus:border-amber-500"
+                              className="w-16 bg-black border border-white/10 rounded px-2 py-1 text-center text-sm text-amber-400 placeholder-neutral-700 disabled:opacity-50 focus:outline-none focus:border-amber-500"
                             />
                             {isManual && <span className="text-[10px] text-amber-500 uppercase font-bold px-1.5 py-0.5 bg-amber-500/10 rounded">Override</span>}
                           </div>

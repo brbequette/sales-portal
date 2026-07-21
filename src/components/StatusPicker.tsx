@@ -74,15 +74,15 @@ export function StatusPicker({ accountId, zohoId, currentStatus, onUpdated, comp
           {/* Backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           {/* Dropdown */}
-          <div className="absolute left-0 top-full mt-1 z-50 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl overflow-hidden min-w-[170px]">
-            <div className="px-3 py-1.5 border-b border-neutral-800">
+          <div className="absolute left-0 top-full mt-1 z-50 glass-panel border border-neutral-700 rounded-xl shadow-2xl overflow-hidden min-w-[170px]">
+            <div className="px-3 py-1.5 border-b border-white/10">
               <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Set Status</span>
             </div>
             {ACCOUNT_STATUSES.map(s => (
               <button
                 key={s.value}
                 onClick={() => update(s.value)}
-                className={`w-full flex items-center justify-between px-3 py-2 hover:bg-neutral-800 transition-colors text-left`}
+                className={`w-full flex items-center justify-between px-3 py-2 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors text-left`}
               >
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${s.color}`}>
                   {s.value}

@@ -52,7 +52,7 @@ export function AccountPackages({ accountId }: AccountPackagesProps) {
       {packages.map((pkg, idx) => {
         const isShipped = pkg.status === 'shipped' || pkg.status === 'delivered'
         return (
-          <div key={pkg.package_id || idx} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between hover:border-emerald-500/50 transition-colors cursor-pointer"
+          <div key={pkg.package_id || idx} className="glass-panel border border-white/10 rounded-lg p-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between hover:border-emerald-500/50 transition-colors cursor-pointer"
                onClick={() => {
                  // Trigger the DocumentFlipbook or SaleHub modal
                  window.dispatchEvent(new CustomEvent('openInvoiceDetails', {

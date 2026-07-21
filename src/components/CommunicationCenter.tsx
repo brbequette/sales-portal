@@ -552,12 +552,12 @@ export function CommunicationCenter({
       )}
 
       {/* â”€â”€ Channel Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <div className="flex space-x-1.5 border-b border-neutral-800 pb-0 overflow-x-auto flex-nowrap scrollbar-none">
+      <div className="flex space-x-1.5 border-b border-white/10 pb-0 overflow-x-auto flex-nowrap scrollbar-none">
         {([
-          { key: "CALL", icon: <FiPhoneCall size={12} />, label: "Call", color: "bg-[var(--primary)] text-white", inactive: "text-neutral-400 hover:text-white hover:bg-neutral-800" },
-          { key: "SMS", icon: <FiMessageCircle size={12} />, label: "SMS", color: "bg-emerald-600 text-white", inactive: "text-neutral-400 hover:text-white hover:bg-neutral-800" },
-          { key: "EMAIL", icon: <FiMail size={12} />, label: "Email", color: "bg-purple-600 text-white", inactive: "text-neutral-400 hover:text-white hover:bg-neutral-800" },
-          { key: "WHATSAPP", icon: <FiMessageSquare size={12} />, label: "WhatsApp", color: "bg-green-600 text-white", inactive: "text-neutral-400 hover:text-white hover:bg-neutral-800" },
+          { key: "CALL", icon: <FiPhoneCall size={12} />, label: "Call", color: "bg-[var(--primary)] text-white", inactive: "text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300" },
+          { key: "SMS", icon: <FiMessageCircle size={12} />, label: "SMS", color: "bg-emerald-600 text-white", inactive: "text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300" },
+          { key: "EMAIL", icon: <FiMail size={12} />, label: "Email", color: "bg-purple-600 text-white", inactive: "text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300" },
+          { key: "WHATSAPP", icon: <FiMessageSquare size={12} />, label: "WhatsApp", color: "bg-green-600 text-white", inactive: "text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300" },
         ] as const).map(tab => (
           <button
             key={tab.key}
@@ -584,7 +584,7 @@ export function CommunicationCenter({
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${
                   callSubTab === t.key
                     ? "bg-[var(--primary)] border-[var(--primary)] text-white shadow-sm"
-                    : "bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-white"
+                    : "glass-panel border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-white"
                 }`}
               >
                 {t.icon} {t.label}
@@ -612,7 +612,7 @@ export function CommunicationCenter({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-1 block">Call Outcome</label>
-                  <select value={callOutcome} onChange={e => setCallOutcome(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm focus:outline-none focus:border-[var(--primary)] text-white">
+                  <select value={callOutcome} onChange={e => setCallOutcome(e.target.value)} className="w-full glass-panel border border-neutral-700 rounded-lg p-2 text-sm focus:outline-none focus:border-[var(--primary)] text-white">
                     <option>Connected</option>
                     <option>Left Voicemail</option>
                     <option>No Answer / Busy</option>
@@ -626,14 +626,14 @@ export function CommunicationCenter({
                     value={spokeTo}
                     onChange={e => setSpokeTo(e.target.value)}
                     placeholder="Contact name..."
-                    className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm focus:outline-none focus:border-[var(--primary)] text-white"
+                    className="w-full glass-panel border border-neutral-700 rounded-lg p-2 text-sm focus:outline-none focus:border-[var(--primary)] text-white"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-1 block">Follow-up Reminder</label>
-                <input type="date" value={reminderDate} onChange={e => setReminderDate(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm focus:outline-none focus:border-[var(--primary)] text-neutral-300" />
+                <input type="date" value={reminderDate} onChange={e => setReminderDate(e.target.value)} className="w-full glass-panel border border-neutral-700 rounded-lg p-2 text-sm focus:outline-none focus:border-[var(--primary)] text-neutral-300" />
               </div>
 
               <div className="flex-1 flex flex-col min-h-[120px]">
@@ -641,7 +641,7 @@ export function CommunicationCenter({
                 <textarea
                   value={callNote}
                   onChange={e => setCallNote(e.target.value)}
-                  className="w-full flex-1 bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:outline-none focus:border-[var(--primary)] text-white font-sans resize-none"
+                  className="w-full flex-1 glass-panel border border-neutral-700 rounded-lg p-3 text-sm focus:outline-none focus:border-[var(--primary)] text-white font-sans resize-none"
                   placeholder="Notes from the call..."
                 />
               </div>
@@ -667,7 +667,7 @@ export function CommunicationCenter({
                     <button
                       key={t}
                       onClick={() => setCallType(t)}
-                      className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${callType === t ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400" : "bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-neutral-600"}`}
+                      className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${callType === t ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400" : "glass-panel border-neutral-700 text-neutral-400 hover:border-neutral-600"}`}
                     >
                       {t === "cold" ? "âš¡ Cold Call" : "ðŸ”„ Follow-Up"}
                     </button>
@@ -687,12 +687,12 @@ export function CommunicationCenter({
                     <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Generated Script</span>
                     <button onClick={() => navigator.clipboard?.writeText(scriptText)} className="text-[10px] text-[var(--primary)] hover:underline">Copy</button>
                   </div>
-                  <div className="flex-1 bg-neutral-900/60 border border-neutral-700 rounded-xl p-4 text-sm text-neutral-200 whitespace-pre-line leading-relaxed overflow-y-auto font-sans max-h-[420px] scrollbar-thin">
+                  <div className="flex-1 glass-panel/60 border border-neutral-700 rounded-xl p-4 text-sm text-neutral-200 whitespace-pre-line leading-relaxed overflow-y-auto font-sans max-h-[420px] scrollbar-thin">
                     {scriptText}
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 bg-neutral-900/40 border border-dashed border-neutral-700 rounded-xl flex flex-col items-center justify-center gap-2 py-10 text-neutral-500">
+                <div className="flex-1 glass-panel/40 border border-dashed border-neutral-700 rounded-xl flex flex-col items-center justify-center gap-2 py-10 text-neutral-500">
                   <FiBookOpen size={24} />
                   <p className="text-sm">Click "Generate Script" to get a personalized call script</p>
                   <p className="text-xs text-neutral-600">Script adapts based on call type, purchase history &amp; missing fact-finding</p>
@@ -738,7 +738,7 @@ export function CommunicationCenter({
                     <div key={i} className="border border-neutral-700 rounded-xl overflow-hidden">
                       <button
                         onClick={() => setExpandedPitch(expandedPitch === rec.blade ? null : rec.blade)}
-                        className="w-full flex items-center justify-between p-3 hover:bg-neutral-800/40 transition-colors text-left"
+                        className="w-full flex items-center justify-between p-3 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/40 transition-colors text-left"
                       >
                         <div className="flex items-center gap-3">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${tierColors[rec.tier]}`}>
@@ -749,7 +749,7 @@ export function CommunicationCenter({
                         {expandedPitch === rec.blade ? <FiChevronDown size={14} className="text-neutral-400" /> : <FiChevronRight size={14} className="text-neutral-400" />}
                       </button>
                       {expandedPitch === rec.blade && (
-                        <div className="px-4 pb-4 bg-neutral-900/50 border-t border-neutral-800">
+                        <div className="px-4 pb-4 glass-panel/50 border-t border-white/10">
                           <div className="text-xs text-neutral-200 whitespace-pre-line leading-relaxed mt-3 font-sans">{rec.pitch}</div>
                           <button
                             onClick={() => navigator.clipboard?.writeText(rec.pitch)}
@@ -778,7 +778,7 @@ export function CommunicationCenter({
                           setCallSubTab("ORDER")
                           addProductToOrder({ name: p.name, sku: p.sku, price: p.price, description: JSON.stringify({ cost: p.cost }) })
                         }}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-neutral-900 border border-neutral-700 rounded-lg text-[10px] font-bold text-neutral-300 hover:border-[var(--primary)] hover:text-white transition-all"
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 glass-panel border border-neutral-700 rounded-lg text-[10px] font-bold text-neutral-300 hover:border-[var(--primary)] hover:text-white transition-all"
                       >
                         <FiPlus size={10} /> {p.name}
                       </button>
@@ -800,7 +800,7 @@ export function CommunicationCenter({
                     className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all capitalize ${
                       intelTab === t
                         ? "bg-[var(--primary)] border-[var(--primary)] text-white"
-                        : "bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-neutral-600"
+                        : "glass-panel border-neutral-700 text-neutral-400 hover:border-neutral-600"
                     }`}
                   >
                     {t}
@@ -819,7 +819,7 @@ export function CommunicationCenter({
                     accountPurchases.length > 0 ? (
                       <div className="space-y-2">
                         {accountPurchases.map((p: any, i: number) => (
-                          <div key={i} className="p-3 bg-neutral-900/50 border border-neutral-800 rounded-lg flex items-center justify-between gap-3">
+                          <div key={i} className="p-3 glass-panel/50 border border-white/10 rounded-lg flex items-center justify-between gap-3">
                             <div>
                               <div className="font-bold text-xs text-white">{p.name || p.itemName}</div>
                               <div className="text-[10px] text-neutral-500">{p.sku || ""}</div>
@@ -839,7 +839,7 @@ export function CommunicationCenter({
                     accountNotes.length > 0 ? (
                       <div className="space-y-2">
                         {accountNotes.slice(0, 15).map((n: any, i: number) => (
-                          <div key={i} className="p-3 bg-neutral-900/50 border border-neutral-800 rounded-lg">
+                          <div key={i} className="p-3 glass-panel/50 border border-white/10 rounded-lg">
                             <div className="text-xs text-neutral-300 leading-relaxed">{n.content || n.note}</div>
                             <div className="text-[10px] text-neutral-600 mt-1 font-mono">{n.createdAt ? new Date(n.createdAt).toLocaleDateString() : ""}</div>
                           </div>
@@ -856,7 +856,7 @@ export function CommunicationCenter({
                           <div key={i} className={`p-3 border rounded-lg flex items-center justify-between gap-3 ${
                             inv.status?.toLowerCase() === "overdue"
                               ? "bg-red-900/10 border-red-500/20"
-                              : "bg-neutral-900/50 border-neutral-800"
+                              : "glass-panel/50 border-white/10"
                           }`}>
                             <div>
                               <div className="font-bold text-xs text-white">{inv.invoiceNumber || inv.zohoId}</div>
@@ -896,7 +896,7 @@ export function CommunicationCenter({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1 block">Channel</label>
-                  <select value={aiChannel} onChange={e => setAiChannel(e.target.value)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-[var(--primary)]">
+                  <select value={aiChannel} onChange={e => setAiChannel(e.target.value)} className="w-full glass-panel border border-neutral-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-[var(--primary)]">
                     <option>SMS</option>
                     <option>Email</option>
                     <option>WhatsApp</option>
@@ -905,7 +905,7 @@ export function CommunicationCenter({
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1 block">Type</label>
-                  <select value={aiType} onChange={e => setAiType(e.target.value as any)} className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-[var(--primary)]">
+                  <select value={aiType} onChange={e => setAiType(e.target.value as any)} className="w-full glass-panel border border-neutral-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-[var(--primary)]">
                     <option value="text">Text</option>
                     <option value="image">Image</option>
                   </select>
@@ -919,7 +919,7 @@ export function CommunicationCenter({
                   onChange={e => setAiPrompt(e.target.value)}
                   rows={3}
                   placeholder={`e.g. "Write a follow-up ${aiChannel.toLowerCase()} for ${primaryContact?.firstName || 'the customer'} who buys concrete blades. Mention our new King Turbo special."`}
-                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-[var(--primary)] resize-none"
+                  className="w-full glass-panel border border-neutral-700 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-[var(--primary)] resize-none"
                 />
               </div>
 
@@ -937,7 +937,7 @@ export function CommunicationCenter({
                     <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">AI Result</span>
                     <button onClick={() => navigator.clipboard?.writeText(aiResult)} className="text-[10px] text-[var(--primary)] hover:underline">Copy</button>
                   </div>
-                  <div className="flex-1 bg-neutral-900/60 border border-[var(--primary)]/20 rounded-xl p-4 text-sm text-neutral-200 whitespace-pre-line leading-relaxed overflow-y-auto scrollbar-thin max-h-[300px]">
+                  <div className="flex-1 glass-panel/60 border border-[var(--primary)]/20 rounded-xl p-4 text-sm text-neutral-200 whitespace-pre-line leading-relaxed overflow-y-auto scrollbar-thin max-h-[300px]">
                     {aiResult}
                   </div>
                   <div className="flex gap-2">
@@ -965,9 +965,9 @@ export function CommunicationCenter({
           SMS TAB
       â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {activeTab === "SMS" && (
-        <div className="flex-1 flex flex-col bg-neutral-950 border border-neutral-800 rounded-xl p-4 min-h-[320px] justify-between overflow-hidden">
+        <div className="flex-1 flex flex-col bg-black/20 border border-white/10 rounded-xl p-4 min-h-[320px] justify-between overflow-hidden">
           {outboundNumbers.length > 0 && (
-            <div className="mb-3 pb-3 border-b border-neutral-800 flex items-center gap-2">
+            <div className="mb-3 pb-3 border-b border-white/10 flex items-center gap-2">
               <label className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">From:</label>
               <select
                 value={selectedOutboundNumber}
@@ -999,14 +999,14 @@ export function CommunicationCenter({
             <div ref={chatEndRef} />
           </div>
 
-          <div className="pt-3 border-t border-neutral-800 flex gap-2">
+          <div className="pt-3 border-t border-white/10 flex gap-2">
             <input
               type="text"
               value={smsText}
               onChange={e => setSmsText(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") sendSMS() }}
               placeholder="Send text message..."
-              className="flex-1 bg-neutral-900 border border-neutral-700 rounded-full px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+              className="flex-1 glass-panel border border-neutral-700 rounded-full px-4 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
             />
             <button
               onClick={sendSMS}
@@ -1036,7 +1036,7 @@ export function CommunicationCenter({
           <textarea
             value={emailText}
             onChange={e => setEmailText(e.target.value)}
-            className="w-full flex-1 bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white resize-none min-h-[180px]"
+            className="w-full flex-1 glass-panel border border-neutral-700 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white resize-none min-h-[180px]"
             placeholder="Write your email here..."
           />
           <div className="flex justify-end">
@@ -1068,7 +1068,7 @@ export function CommunicationCenter({
           <textarea
             value={whatsappText}
             onChange={e => setWhatsappText(e.target.value)}
-            className="w-full flex-1 bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:outline-none focus:border-green-500 text-white resize-none min-h-[180px]"
+            className="w-full flex-1 glass-panel border border-neutral-700 rounded-lg p-3 text-sm focus:outline-none focus:border-green-500 text-white resize-none min-h-[180px]"
             placeholder="Write your WhatsApp message..."
           />
           <div className="flex justify-end">

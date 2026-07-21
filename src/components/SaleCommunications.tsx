@@ -73,7 +73,7 @@ export function SaleCommunications({ zohoId }: SaleCommunicationsProps) {
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
       {communications.map((comm) => (
-        <div key={comm.id} className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 shadow-sm">
+        <div key={comm.id} className="glass-panel border border-white/10 rounded-xl p-4 shadow-sm">
           <div className="flex justify-between items-start mb-3">
             <div className="flex items-center gap-3">
               <div className={`p-2.5 rounded-xl ${comm.type === 'CALL' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>
@@ -102,10 +102,10 @@ export function SaleCommunications({ zohoId }: SaleCommunicationsProps) {
           </div>
 
           {comm.type === 'CALL' && (
-            <div className="mt-4 pt-4 border-t border-neutral-800">
+            <div className="mt-4 pt-4 border-t border-white/10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Zoho Analysis */}
-                <div className="bg-neutral-950 rounded-lg p-3 border border-neutral-800/50">
+                <div className="bg-black/20 rounded-lg p-3 border border-white/10/50">
                   <div className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 mb-2">Zoho Voice Original</div>
                   <div className="text-xs text-neutral-300">
                     <span className="font-semibold text-white">Sentiment:</span> {comm.zohoSentiment || 'Unknown'}
@@ -123,7 +123,7 @@ export function SaleCommunications({ zohoId }: SaleCommunicationsProps) {
                 </div>
 
                 {/* AI Re-Evaluation */}
-                <div className="bg-neutral-950 rounded-lg p-3 border border-emerald-500/20 relative overflow-hidden">
+                <div className="bg-black/20 rounded-lg p-3 border border-emerald-500/20 relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
                   <div className="flex justify-between items-start mb-2 relative z-10">
                     <div className="text-[10px] uppercase font-bold tracking-widest text-emerald-500 flex items-center gap-1.5">
@@ -149,7 +149,7 @@ export function SaleCommunications({ zohoId }: SaleCommunicationsProps) {
                       </span>
                     </div>
                     {comm.aiSummary && (
-                      <div className="text-xs text-neutral-300 leading-relaxed italic bg-neutral-900/50 p-2 rounded">
+                      <div className="text-xs text-neutral-300 leading-relaxed italic glass-panel/50 p-2 rounded">
                         &quot;{comm.aiSummary}&quot;
                       </div>
                     )}
@@ -160,7 +160,7 @@ export function SaleCommunications({ zohoId }: SaleCommunicationsProps) {
           )}
 
           {comm.type === 'SMS' && comm.body && (
-            <div className="mt-3 pt-3 border-t border-neutral-800">
+            <div className="mt-3 pt-3 border-t border-white/10">
               <div className="text-sm text-neutral-200 whitespace-pre-wrap">{comm.body}</div>
             </div>
           )}

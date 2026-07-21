@@ -105,7 +105,7 @@ export function DocumentFlipbook({
       </div>
 
       {docs.length === 0 ? (
-        <div className="text-center py-8 text-neutral-500 border border-dashed border-neutral-800 rounded-xl">
+        <div className="text-center py-8 text-neutral-500 border border-dashed border-white/10 rounded-xl">
           <FiFileText className="mx-auto text-3xl mb-2 text-neutral-700" />
           <p className="text-sm">No {cfg.label.toLowerCase()} on record.</p>
         </div>
@@ -130,7 +130,7 @@ export function DocumentFlipbook({
           {/* Unified PDF Document Viewer */}
           <div className="space-y-3">
             {/* Actual PDF Container */}
-            <div className="w-full h-[600px] bg-neutral-900 rounded-xl overflow-hidden shadow-2xl border border-neutral-800 relative group">
+            <div className="w-full h-[600px] glass-panel rounded-xl overflow-hidden shadow-2xl border border-white/10 relative group">
               <iframe
                 src={`/api/get-invoice-pdf?id=${current.zohoId || current.id}&type=${getDocTypeParam(activeDoc)}#zoom=${zoomLevel}`}
                 className="w-full h-full border-0"
@@ -140,7 +140,7 @@ export function DocumentFlipbook({
               {/* Maximize Button overlayed at the top right of the PDF */}
               <button
                 onClick={() => setIsFullscreen(true)}
-                className="absolute top-4 right-4 bg-neutral-950/80 hover:bg-neutral-950 text-neutral-300 hover:text-white p-2.5 rounded-xl border border-neutral-800 shadow-xl transition-all hover:scale-105"
+                className="absolute top-4 right-4 bg-black/20/80 hover:bg-black/20 text-neutral-300 hover:text-white p-2.5 rounded-xl border border-white/10 shadow-xl transition-all hover:scale-105"
                 title="Expand to Full Screen"
               >
                 <FiMaximize2 size={16} />
@@ -148,7 +148,7 @@ export function DocumentFlipbook({
             </div>
 
             {/* Download / Status Footer */}
-            <div className="flex justify-between items-center bg-neutral-900/50 p-3 rounded-lg border border-neutral-800">
+            <div className="flex justify-between items-center glass-panel/50 p-3 rounded-lg border border-white/10">
               <div className="flex items-center gap-2">
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusColor(current?.status)}`}>
                   {current?.status || "â€”"}
@@ -182,7 +182,7 @@ export function DocumentFlipbook({
                 
                 <button
                   onClick={() => setIsFullscreen(true)}
-                  className="flex items-center gap-1.5 text-xs text-neutral-300 hover:text-white font-semibold transition-colors bg-neutral-800 hover:bg-neutral-700 px-3 py-1.5 rounded-lg border border-neutral-800"
+                  className="flex items-center gap-1.5 text-xs text-neutral-300 hover:text-white font-semibold transition-colors bg-neutral-800 hover:bg-neutral-700 px-3 py-1.5 rounded-lg border border-white/10"
                 >
                   <FiMaximize2 size={12} /> Full Screen
                 </button>
@@ -224,12 +224,12 @@ export function DocumentFlipbook({
                 <button
                   key={i}
                   onClick={() => setCurrentIndex(i)}
-                  className={`snap-center flex-shrink-0 w-24 h-28 rounded-lg border-2 transition-all bg-neutral-900 relative group overflow-hidden ${
-                    i === currentIndex ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]" : "border-neutral-800 hover:border-neutral-600"
+                  className={`snap-center flex-shrink-0 w-24 h-28 rounded-lg border-2 transition-all glass-panel relative group overflow-hidden ${
+                    i === currentIndex ? "border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]" : "border-white/10 hover:border-neutral-600"
                   }`}
                   title={`${cfg.label.slice(0, -1)} #${getDocNumber(d, activeDoc)}`}
                 >
-                  <div className={`absolute inset-0 flex flex-col items-center justify-center p-2 text-xs transition-colors ${i === currentIndex ? "bg-blue-500/10 text-blue-400" : "text-neutral-500 group-hover:text-neutral-300 group-hover:bg-neutral-800/50"}`}>
+                  <div className={`absolute inset-0 flex flex-col items-center justify-center p-2 text-xs transition-colors ${i === currentIndex ? "bg-blue-500/10 text-blue-400" : "text-neutral-500 group-hover:text-neutral-300 group-hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50"}`}>
                     <FiFileText size={24} className="mb-2" />
                     <span className="font-medium truncate w-full text-center text-white">{getDocNumber(d, activeDoc)}</span>
                     <span className="text-[10px] truncate w-full text-center mt-1 text-emerald-400/80 font-bold">
@@ -247,7 +247,7 @@ export function DocumentFlipbook({
       {isFullscreen && current && (
         <div className="fixed inset-0 z-[100] bg-black flex flex-col p-4 safe-top safe-bottom">
           {/* Fullscreen Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-3 shrink-0">
+          <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3 shrink-0">
             <div className="flex items-center gap-3">
               <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusColor(current?.status)}`}>
                 {current?.status || "â€”"}
@@ -258,12 +258,12 @@ export function DocumentFlipbook({
             </div>
             <div className="flex items-center gap-2">
               {/* Zoom Controls */}
-              <div className="flex items-center bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden mr-2 hidden sm:flex">
-                <button onClick={() => setZoomLevel(z => Math.max(50, z - 25))} className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors" title="Zoom Out">
+              <div className="flex items-center glass-panel rounded-lg border border-white/10 overflow-hidden mr-2 hidden sm:flex">
+                <button onClick={() => setZoomLevel(z => Math.max(50, z - 25))} className="p-1.5 text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors" title="Zoom Out">
                   <FiZoomOut size={16} />
                 </button>
                 <span className="text-xs text-neutral-300 font-medium px-2 w-12 text-center">{zoomLevel}%</span>
-                <button onClick={() => setZoomLevel(z => Math.min(300, z + 25))} className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors" title="Zoom In">
+                <button onClick={() => setZoomLevel(z => Math.min(300, z + 25))} className="p-1.5 text-neutral-400 hover:text-white hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors" title="Zoom In">
                   <FiZoomIn size={16} />
                 </button>
               </div>
@@ -276,7 +276,7 @@ export function DocumentFlipbook({
               </a>
               <button
                 onClick={() => setIsFullscreen(false)}
-                className="bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white p-2 rounded-lg border border-neutral-800 transition-all"
+                className="glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-neutral-400 hover:text-white p-2 rounded-lg border border-white/10 transition-all"
                 title="Exit Full Screen (Esc)"
               >
                 <FiMinimize2 size={16} />
@@ -285,7 +285,7 @@ export function DocumentFlipbook({
           </div>
 
           {/* Fullscreen Body */}
-          <div className="flex-1 w-full bg-neutral-950 rounded-xl overflow-hidden border border-neutral-800 relative">
+          <div className="flex-1 w-full bg-black/20 rounded-xl overflow-hidden border border-white/10 relative">
             <iframe
               src={`/api/get-invoice-pdf?id=${current.zohoId || current.id}&type=${getDocTypeParam(activeDoc)}#zoom=${zoomLevel}`}
               className="w-full h-full border-0"
@@ -298,7 +298,7 @@ export function DocumentFlipbook({
             <button
               onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
               disabled={currentIndex === 0}
-              className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white disabled:opacity-30 transition-colors bg-neutral-900 border border-neutral-800 px-3 py-2 rounded-lg"
+              className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white disabled:opacity-30 transition-colors glass-panel border border-white/10 px-3 py-2 rounded-lg"
             >
               <FiChevronLeft /> Previous
             </button>
@@ -308,7 +308,7 @@ export function DocumentFlipbook({
             <button
               onClick={() => setCurrentIndex(Math.min(docs.length - 1, currentIndex + 1))}
               disabled={currentIndex === docs.length - 1}
-              className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white disabled:opacity-30 transition-colors bg-neutral-900 border border-neutral-800 px-3 py-2 rounded-lg"
+              className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white disabled:opacity-30 transition-colors glass-panel border border-white/10 px-3 py-2 rounded-lg"
             >
               Next <FiChevronRight />
             </button>

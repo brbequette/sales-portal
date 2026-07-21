@@ -33,7 +33,7 @@ export function ClosingChecklist({ dealId, currentStageSlug, onComplete }: Closi
 
   return (
     <div 
-      className="mt-3 bg-neutral-900 border border-neutral-800 rounded-xl p-4 shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-300"
+      className="mt-3 glass-panel border border-white/10 rounded-xl p-4 shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-300"
       onClick={e => e.stopPropagation()}
     >
       <h4 className="text-sm font-black uppercase tracking-wider text-neutral-100 mb-3 flex items-center gap-2">

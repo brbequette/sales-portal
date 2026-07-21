@@ -152,7 +152,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
   return (
     <div
       className={`relative rounded-2xl border transition-all active:scale-[0.98] ${
-        completed ? "opacity-55 border-white/5 bg-white/2" :
+        completed ? "opacity-55 border-white/10 bg-white/2" :
         overdue   ? "border-red-500/40 bg-red-950/20" :
                     `${cfg.border} bg-[#111316]`
       }`}
@@ -261,7 +261,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
 
 
       {/* Quick action strip */}
-      <div className="flex border-t border-white/5">
+      <div className="flex border-t border-white/10">
         {/* Complete */}
         <button
           onClick={e => { e.stopPropagation(); onComplete() }}
@@ -277,7 +277,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
         <div className="relative" ref={menuRef}>
           <button
             onClick={e => { e.stopPropagation(); setShowMenu(!showMenu) }}
-            className="flex items-center justify-center gap-1.5 px-5 py-3 text-xs font-bold text-neutral-400 hover:text-white hover:bg-white/5 border-l border-white/5 transition-all"
+            className="flex items-center justify-center gap-1.5 px-5 py-3 text-xs font-bold text-neutral-400 hover:text-white hover:bg-white/5 border-l border-white/10 transition-all"
           >
             <FiMoreVertical size={14} />
           </button>
@@ -448,7 +448,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
                     <span className="text-sm font-medium text-white">{task.accountName}</span>
                   </div>
                   {task.type === "Call" && task.accountPhone && (
-                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-white/5">
+                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-white/10">
                       <span className="text-xs font-mono text-neutral-400">{task.accountPhone}</span>
                       <PhoneLink 
                         phone={task.accountPhone}
@@ -657,7 +657,7 @@ function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t
             const dt = tasksOn(day); const isToday = sameDay(day,today); const isCur = sameDay(day,cur)
             return (
               <div key={i} onClick={() => {setCur(day); setView("day")}}
-                className={`min-h-[100px] flex flex-col items-stretch justify-start p-1 border-b border-r border-white/5 transition-all cursor-pointer ${isToday ? "bg-violet-500/10" : isCur ? "bg-white/5" : "hover:bg-white/5"}`}
+                className={`min-h-[100px] flex flex-col items-stretch justify-start p-1 border-b border-r border-white/10 transition-all cursor-pointer ${isToday ? "bg-violet-500/10" : isCur ? "bg-white/5" : "hover:bg-white/5"}`}
               >
                 <div className="flex justify-between items-center w-full mb-1 px-1">
                   <span className={`text-[11px] font-bold ${isToday ? "text-violet-400" : "text-neutral-400"}`}>{day.getDate()}</span>
@@ -722,8 +722,8 @@ function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t
           {days.map((day,i) => {
             const dt=tasksOn(day); const isToday=sameDay(day,today)
             return (
-              <div key={i} className={`flex-1 min-w-[120px] border-r border-white/5 ${isToday?"bg-violet-500/3":""}`}>
-                <button onClick={() => {setCur(day); setView("day")}} className={`w-full text-center py-3 border-b border-white/5 ${isToday?"text-violet-400":"text-neutral-400"}`}>
+              <div key={i} className={`flex-1 min-w-[120px] border-r border-white/10 ${isToday?"bg-violet-500/3":""}`}>
+                <button onClick={() => {setCur(day); setView("day")}} className={`w-full text-center py-3 border-b border-white/10 ${isToday?"text-violet-400":"text-neutral-400"}`}>
                   <div className="text-[10px] font-bold">{day.toLocaleDateString("en-US",{weekday:"short"})}</div>
                   <div className="text-lg font-black">{day.getDate()}</div>
                 </button>
@@ -1137,7 +1137,7 @@ export default function TasksPage() {
 
       {/* â”€â”€ Category Tabs â”€â”€ */}
       {mainView === "list" && (
-        <div className="shrink-0 flex overflow-x-auto px-4 py-2 gap-2 border-b border-white/5 hide-scroll">
+        <div className="shrink-0 flex overflow-x-auto px-4 py-2 gap-2 border-b border-white/10 hide-scroll">
           {(Object.keys(CAT) as Category[]).map(c => {
             const cnt = c === "all" ? filteredTasks.length :
               filteredTasks.filter(t => classifyTask(t) === c).length

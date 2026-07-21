@@ -35,7 +35,7 @@ export function StandaloneOrderBuilder({
         accountName={accountName}
         accountDetail={accountDetail}
       />
-      <div className="flex justify-end gap-2 pt-4 border-t border-neutral-800">
+      <div className="flex justify-end gap-2 pt-4 border-t border-white/10">
         {onCancel && (
           <button onClick={onCancel} className="px-4 py-2 text-sm text-neutral-400 hover:text-white font-bold transition-colors">
             Cancel

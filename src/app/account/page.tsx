@@ -100,10 +100,10 @@ function AccountLeftRail({
   ]
 
   return (
-    <aside className="w-56 xl:w-60 shrink-0 flex flex-col bg-neutral-900/60 border-r border-neutral-800 overflow-y-auto scrollbar-thin">
+    <aside className="w-56 xl:w-60 shrink-0 flex flex-col glass-panel/60 border-r border-white/10 overflow-y-auto scrollbar-thin">
 
       {/* Primary Contact */}
-      <div className="p-3 border-b border-neutral-800">
+      <div className="p-3 border-b border-white/10">
         <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mb-2">Primary Contact</div>
         {contactName
           ? <div className="font-bold text-white text-sm mb-1 truncate">{contactName}</div>
@@ -159,7 +159,7 @@ function AccountLeftRail({
       )}
 
       {/* Blade Profile - Hidden on mobile */}
-      <div className="hidden lg:block p-3 border-b border-neutral-800">
+      <div className="hidden lg:block p-3 border-b border-white/10">
         <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mb-2">Blade Profile</div>
         <div className="space-y-1.5">
           {bladeRows.map(({ label, value }) => (
@@ -175,7 +175,7 @@ function AccountLeftRail({
 
       {/* Top Products - Hidden on mobile */}
       {account.topProducts && account.topProducts.length > 0 && (
-        <div className="hidden lg:block p-3 border-b border-neutral-800">
+        <div className="hidden lg:block p-3 border-b border-white/10">
           <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mb-2">Top Products</div>
           <div className="space-y-2">
             {account.topProducts.slice(0, 3).map((p: any, i: number) => (
@@ -213,7 +213,7 @@ function AccountLeftRail({
 
       {/* Notes */}
       {notes && (
-        <div className="p-3 border-b border-neutral-800">
+        <div className="p-3 border-b border-white/10">
           <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mb-1.5">Notes</div>
           <p className="text-[10px] text-neutral-400 leading-relaxed line-clamp-4 italic">{notes}</p>
         </div>
@@ -244,10 +244,10 @@ function AccordionSection({
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="border border-neutral-800 rounded-xl overflow-hidden">
+    <div className="border border-white/10 rounded-xl overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-neutral-900 hover:bg-neutral-800/80 transition-colors text-left"
+        className="w-full flex items-center justify-between px-3 py-2 glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/80 transition-colors text-left"
       >
         <div className="flex items-center gap-2">
           <span className="text-neutral-400">{icon}</span>
@@ -260,7 +260,7 @@ function AccordionSection({
           {open ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />}
         </span>
       </button>
-      {open && <div className="bg-neutral-900/40 border-t border-neutral-800">{children}</div>}
+      {open && <div className="glass-panel/40 border-t border-white/10">{children}</div>}
     </div>
   )
 }
@@ -312,7 +312,7 @@ function OverviewPanel({
           { label: "Overdue", value: overdueTotal > 0 ? `$${overdueTotal.toLocaleString(undefined,{maximumFractionDigits:0})}` : "None", color: overdueTotal > 0 ? "text-red-400" : "text-neutral-500" },
           { label: "Paid", value: paidInvoices.length, color: "text-emerald-400" },
         ].map(k => (
-          <div key={k.label} className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2">
+          <div key={k.label} className="glass-panel border border-white/10 rounded-lg px-3 py-2">
             <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-semibold">{k.label}</div>
             <div className={`text-sm font-extrabold ${k.color}`}>{k.value}</div>
           </div>
@@ -323,7 +323,7 @@ function OverviewPanel({
       <AccordionSection title="Contact & Addresses" icon={<FiMapPin size={12} />} defaultOpen>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3">
           {/* Primary Contact */}
-          <div className="bg-neutral-900/60 border border-neutral-800 rounded-lg p-3">
+          <div className="glass-panel/60 border border-white/10 rounded-lg p-3">
             <div className="text-[9px] text-blue-400 uppercase tracking-widest font-bold mb-2">Primary Contact</div>
             {primaryContact ? (
               <>
@@ -346,7 +346,7 @@ function OverviewPanel({
             )}
           </div>
           {/* Billing */}
-          <div className="bg-neutral-900/60 border border-neutral-800 rounded-lg p-3">
+          <div className="glass-panel/60 border border-white/10 rounded-lg p-3">
             <div className="text-[9px] text-amber-400 uppercase tracking-widest font-bold mb-2">Billing Address</div>
             {(account.billingStreet || account.booksContact?.billing_address?.address) ? (
               <div className="text-[11px] text-neutral-300 leading-relaxed">
@@ -357,7 +357,7 @@ function OverviewPanel({
             ) : <div className="text-[10px] text-neutral-600 italic">Not on file</div>}
           </div>
           {/* Shipping */}
-          <div className="bg-neutral-900/60 border border-neutral-800 rounded-lg p-3">
+          <div className="glass-panel/60 border border-white/10 rounded-lg p-3">
             <div className="text-[9px] text-emerald-400 uppercase tracking-widest font-bold mb-2">Shipping Address</div>
             {(account.shippingStreet || account.booksContact?.shipping_address?.address) ? (
               <div className="text-[11px] text-neutral-300 leading-relaxed">
@@ -390,7 +390,7 @@ function OverviewPanel({
         </div>
         {account.booksContact?.notes && (
           <div className="px-3 pb-3">
-            <div className="bg-neutral-950/40 border border-neutral-800 rounded-lg p-2.5">
+            <div className="bg-black/20/40 border border-white/10 rounded-lg p-2.5">
               {label("Notes")}
               <p className="text-[11px] text-neutral-300 leading-relaxed italic whitespace-pre-line">{account.booksContact.notes}</p>
             </div>
@@ -432,7 +432,7 @@ function OverviewPanel({
             <button
               key={idx}
               onClick={() => onViewInvoice(inv.zohoId)}
-              className="w-full flex items-center justify-between px-3 py-2 hover:bg-neutral-800/60 transition-colors text-left"
+              className="w-full flex items-center justify-between px-3 py-2 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/60 transition-colors text-left"
             >
               <div>
                 <div className="text-xs font-bold text-white">
@@ -464,7 +464,7 @@ function OverviewPanel({
       <AccordionSection title="Transaction History" icon={<FiList size={12} />} badge={invoices.length} defaultOpen={false}>
         <div className="p-2">
           <div className="flex justify-end mb-2">
-            <div className="flex bg-neutral-950 p-0.5 rounded-lg border border-neutral-800">
+            <div className="flex bg-black/20 p-0.5 rounded-lg border border-white/10">
               <button
                 onClick={() => setHistoryMode("data")}
                 className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all flex items-center gap-1 ${
@@ -595,7 +595,7 @@ function AccountHubContent() {
   }, [isInitialized, id])
 
   if (loading || !isInitialized) return (
-    <div className="flex items-center justify-center min-h-[100dvh] bg-neutral-950 text-white">
+    <div className="flex items-center justify-center min-h-[100dvh] bg-black/20 text-white">
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
         <p className="text-neutral-400 text-sm">Loading account...</p>
@@ -633,7 +633,7 @@ function AccountHubContent() {
   const isFluidTab = activeTab === "comms" || activeTab === "quicksale"
 
   return (
-    <div className="flex flex-col bg-neutral-950 text-white font-sans" style={{ height: "100%" }}>
+    <div className="flex flex-col bg-black/20 text-white font-sans" style={{ height: "100%" }}>
 
       {isEditingAccount && (
         <AccountEditModal
@@ -644,7 +644,7 @@ function AccountHubContent() {
       )}
 
       {/* Header */}
-      <header className="flex-none bg-neutral-900 border-b border-neutral-800 px-4 py-3">
+      <header className="flex-none glass-panel border-b border-white/10 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
 
           {/* Left: back + account name */}
@@ -686,7 +686,7 @@ function AccountHubContent() {
               <span className="text-[9px] text-neutral-500 uppercase tracking-wide">Local Time</span>
               <span className="text-xs font-bold text-emerald-300">{localTime}</span>
             </div>
-            <div className="hidden lg:flex items-center gap-4 text-right px-3 border-x border-neutral-800">
+            <div className="hidden lg:flex items-center gap-4 text-right px-3 border-x border-white/10">
               <div>
                 <div className="text-[9px] text-neutral-500 uppercase tracking-wide">LTV</div>
                 <div className="text-xs font-bold text-emerald-400">
@@ -737,7 +737,7 @@ function AccountHubContent() {
       </header>
 
       {/* Tab Bar */}
-      <div className="flex-none bg-neutral-900 border-b border-neutral-800 overflow-x-auto scrollbar-none">
+      <div className="flex-none glass-panel border-b border-white/10 overflow-x-auto scrollbar-none">
         <div className="flex px-4 min-w-max gap-0.5">
           {tabs.map(({ id: tabId, Icon, label }) => (
             <button
@@ -746,7 +746,7 @@ function AccountHubContent() {
               className={`py-3 px-3 text-xs font-bold flex items-center gap-1.5 border-b-2 transition-all whitespace-nowrap ${
                 activeTab === tabId
                   ? "text-emerald-400 border-emerald-500 bg-neutral-800/40"
-                  : "text-neutral-500 border-transparent hover:text-neutral-300 hover:bg-neutral-800/20"
+                  : "text-neutral-500 border-transparent hover:text-neutral-300 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/20"
               }`}
             >
               <Icon size={12} />
@@ -797,7 +797,7 @@ function AccountHubContent() {
 
           {/* QUICK SALE */}
           {activeTab === "quicksale" && (
-            <div className="p-4 bg-neutral-900/50 rounded-xl">
+            <div className="p-4 glass-panel/50 rounded-xl">
               <OrderBuilder
                 accountId={id}
                 accountName={account.name}
@@ -853,10 +853,10 @@ function AccountHubContent() {
           onClick={() => setDrillInvoices(null)}
         >
           <div
-            className="bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh]"
+            className="glass-panel border border-white/10 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b border-neutral-800 flex justify-between items-center bg-neutral-950">
+            <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/20">
               <h3 className="font-bold text-white flex items-center gap-2">
                 {drillTitle}
                 <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
@@ -878,7 +878,7 @@ function AccountHubContent() {
                       <div
                         key={idx}
                         onClick={() => { setViewingInvoice(inv); setDrillInvoices(null) }}
-                        className="bg-neutral-800/50 p-3 rounded border border-neutral-800 flex justify-between items-center cursor-pointer hover:bg-neutral-800 transition-colors"
+                        className="bg-neutral-800/50 p-3 rounded border border-white/10 flex justify-between items-center cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors"
                       >
                         <div>
                           <div className="text-sm font-bold text-white mb-0.5 flex items-center gap-1.5">
@@ -939,7 +939,7 @@ function AccountHubContent() {
 export default function AccountHub() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-[100dvh] bg-neutral-950 text-white">
+      <div className="flex items-center justify-center min-h-[100dvh] bg-black/20 text-white">
         <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
     }>

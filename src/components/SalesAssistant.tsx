@@ -110,7 +110,7 @@ export function SalesAssistant({ accountId, accountData }: { accountId: string, 
         </div>
 
         {/* Quick Actions */}
-        <div className="flex items-center gap-2 pt-2 border-t border-neutral-800">
+        <div className="flex items-center gap-2 pt-2 border-t border-white/10">
           <span className="text-xs text-neutral-500 font-semibold mr-2">QUICK ACTIONS:</span>
           {accountData?.booksContact?.phone && (
             <a 

@@ -106,7 +106,7 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="flex flex-col text-neutral-100 font-sans h-full">
-      <header className="px-6 py-5 border-b border-neutral-800 flex justify-between items-center shrink-0">
+      <header className="px-6 py-5 border-b border-white/10 flex justify-between items-center shrink-0">
         <h1 className="text-xl font-bold text-white flex items-center gap-2">
           <FiSettings className="text-neutral-400" /> System Settings
         </h1>
@@ -122,31 +122,31 @@ export default function AdminSettingsPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left Rail Navigation */}
-        <div className="w-64 border-r border-neutral-800 bg-neutral-950 flex flex-col p-4 gap-2 overflow-y-auto shrink-0">
+        <div className="w-64 border-r border-white/10 bg-black/20 flex flex-col p-4 gap-2 overflow-y-auto shrink-0">
           <button 
             onClick={() => setActiveTab('financial')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors ${activeTab === 'financial' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'text-neutral-400 hover:text-white hover:bg-neutral-900 border border-transparent'}`}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors ${activeTab === 'financial' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'text-neutral-400 hover:text-white hover:glass-panel border border-transparent'}`}
           >
             <FiDollarSign /> Financial & Commissions
           </button>
           
           <button 
             onClick={() => setActiveTab('communications')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors ${activeTab === 'communications' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30' : 'text-neutral-400 hover:text-white hover:bg-neutral-900 border border-transparent'}`}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors ${activeTab === 'communications' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30' : 'text-neutral-400 hover:text-white hover:glass-panel border border-transparent'}`}
           >
             <FiMessageSquare /> AI & Communications
           </button>
           
           <button 
             onClick={() => setActiveTab('shipping')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors ${activeTab === 'shipping' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'text-neutral-400 hover:text-white hover:bg-neutral-900 border border-transparent'}`}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors ${activeTab === 'shipping' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'text-neutral-400 hover:text-white hover:glass-panel border border-transparent'}`}
           >
             <FiTruck /> Shipping & Logistics
           </button>
 
           <button 
             onClick={() => setActiveTab('developer')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors ${activeTab === 'developer' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 hover:text-white hover:bg-neutral-900 border border-transparent'}`}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors ${activeTab === 'developer' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 hover:text-white hover:glass-panel border border-transparent'}`}
           >
             <FiTool /> Developer Tools
           </button>
@@ -167,7 +167,7 @@ export default function AdminSettingsPage() {
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                   <h2 className="text-2xl font-black text-white mb-6">Financial & Commissions</h2>
                   
-                  <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-6 shadow-xl">
+                  <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-6 shadow-xl">
                     <div>
                       <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
                         Default VIG Rate
@@ -179,10 +179,10 @@ export default function AdminSettingsPage() {
                         type="number" step="0.1"
                         value={settings.default_vig_rate || ''}
                         onChange={e => handleUpdateSetting('default_vig_rate', e.target.value)}
-                        className="w-32 bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
+                        className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
                       />
                     </div>
-                    <hr className="border-neutral-800" />
+                    <hr className="border-white/10" />
                     <div>
                       <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
                         Commission Split Percentage
@@ -195,12 +195,12 @@ export default function AdminSettingsPage() {
                           type="number" step="1"
                           value={settings.commission_rate_pct || ''}
                           onChange={e => handleUpdateSetting('commission_rate_pct', e.target.value)}
-                          className="w-32 bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
+                          className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
                         />
                         <span className="text-neutral-500 font-black">%</span>
                       </div>
                     </div>
-                    <hr className="border-neutral-800" />
+                    <hr className="border-white/10" />
                     <div>
                       <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
                         Credit Card Fee Rate
@@ -213,7 +213,7 @@ export default function AdminSettingsPage() {
                           type="number" step="0.1"
                           value={settings.cc_fee_rate || ''}
                           onChange={e => handleUpdateSetting('cc_fee_rate', e.target.value)}
-                          className="w-32 bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
+                          className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
                         />
                         <span className="text-neutral-500 font-black">%</span>
                       </div>
@@ -227,7 +227,7 @@ export default function AdminSettingsPage() {
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                   <h2 className="text-2xl font-black text-white mb-6">AI & Communications</h2>
                   
-                  <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-6 shadow-xl">
+                  <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-6 shadow-xl">
                     <div>
                       <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
                         SMS Daily Blast Limit
@@ -239,10 +239,10 @@ export default function AdminSettingsPage() {
                         type="number"
                         value={settings.sms_daily_account_limit || ''}
                         onChange={e => handleUpdateSetting('sms_daily_account_limit', e.target.value)}
-                        className="w-32 bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
+                        className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
                       />
                     </div>
-                    <hr className="border-neutral-800" />
+                    <hr className="border-white/10" />
                     <div>
                       <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
                         Magic Reply System Prompt
@@ -254,7 +254,7 @@ export default function AdminSettingsPage() {
                         value={settings.ai_reply_prompt || ''}
                         onChange={e => handleUpdateSetting('ai_reply_prompt', e.target.value)}
                         rows={6}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-3 text-neutral-300 focus:outline-none focus:border-blue-500 resize-y font-mono text-xs leading-relaxed"
+                        className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-neutral-300 focus:outline-none focus:border-blue-500 resize-y font-mono text-xs leading-relaxed"
                       />
                     </div>
                   </div>
@@ -266,7 +266,7 @@ export default function AdminSettingsPage() {
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                   <h2 className="text-2xl font-black text-white mb-6">Shipping & Logistics</h2>
                   
-                  <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-6 shadow-xl">
+                  <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-6 shadow-xl">
                     <div>
                       <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
                         Shipping Cost Multiplier
@@ -279,12 +279,12 @@ export default function AdminSettingsPage() {
                           type="number" step="0.1"
                           value={settings.shipping_multiplier || ''}
                           onChange={e => handleUpdateSetting('shipping_multiplier', e.target.value)}
-                          className="w-32 bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                          className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
                         />
                         <span className="text-neutral-500 font-black">x</span>
                       </div>
                     </div>
-                    <hr className="border-neutral-800" />
+                    <hr className="border-white/10" />
                     <div>
                       <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
                         Default Package Weight (lbs)
@@ -297,7 +297,7 @@ export default function AdminSettingsPage() {
                           type="number" step="0.1"
                           value={settings.default_shipping_weight || ''}
                           onChange={e => handleUpdateSetting('default_shipping_weight', e.target.value)}
-                          className="w-32 bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-amber-500"
+                          className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-amber-500"
                         />
                         <span className="text-neutral-500 font-black">lbs</span>
                       </div>
@@ -311,7 +311,7 @@ export default function AdminSettingsPage() {
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                   <h2 className="text-2xl font-black text-white mb-6">Developer Tools</h2>
                   
-                  <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-6 shadow-xl">
+                  <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-6 shadow-xl">
                     <div>
                       <h3 className="text-lg font-bold text-white mb-4">Test Push Notifications</h3>
                       <div className="space-y-4 max-w-md">
@@ -322,7 +322,7 @@ export default function AdminSettingsPage() {
                           <select
                             value={testUserId}
                             onChange={e => setTestUserId(e.target.value)}
-                            className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
                           >
                             {users.map(u => (
                               <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
@@ -338,7 +338,7 @@ export default function AdminSettingsPage() {
                             type="text"
                             value={testTitle}
                             onChange={e => setTestTitle(e.target.value)}
-                            className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
                           />
                         </div>
 
@@ -350,7 +350,7 @@ export default function AdminSettingsPage() {
                             value={testBody}
                             onChange={e => setTestBody(e.target.value)}
                             rows={2}
-                            className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 resize-none"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 resize-none"
                           />
                         </div>
 

@@ -52,7 +52,7 @@ export default function InvoiceManagementPage() {
   return (
     <div className="flex flex-col text-neutral-100 font-sans overflow-y-auto" style={{ height: "100%" }}>
       <main className="flex-1 px-4 sm:px-6 py-4 space-y-5 overflow-y-auto safe-bottom max-w-4xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-500/30">
               <FiDatabase size={20} className="text-blue-400" />
@@ -64,7 +64,7 @@ export default function InvoiceManagementPage() {
           </div>
         </div>
 
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
+        <div className="glass-panel border border-white/10 rounded-xl p-6">
           <h2 className="text-lg font-bold text-white mb-6">Bulk Fix Utility</h2>
           
           <div className="bg-neutral-800 p-6 rounded-lg border border-neutral-700 space-y-4">
@@ -88,7 +88,7 @@ export default function InvoiceManagementPage() {
                   type="month" 
                   value={selectedMonth} 
                   onChange={e => setSelectedMonth(e.target.value)} 
-                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-white color-scheme-dark" 
+                  className="w-full glass-panel border border-neutral-700 rounded-lg p-3 text-white color-scheme-dark" 
                 />
                 <p className="text-xs text-neutral-500 mt-1">Leave blank to target ALL invoices (Not recommended without limiting).</p>
               </div>
@@ -99,7 +99,7 @@ export default function InvoiceManagementPage() {
                   id="force" 
                   checked={force} 
                   onChange={e => setForce(e.target.checked)} 
-                  className="w-4 h-4 bg-neutral-900 border-neutral-700 rounded text-blue-500" 
+                  className="w-4 h-4 glass-panel border-neutral-700 rounded text-blue-500" 
                 />
                 <label htmlFor="force" className="text-sm text-neutral-300 font-bold cursor-pointer">
                   Force Recalculate (Override existing values)
@@ -131,26 +131,26 @@ export default function InvoiceManagementPage() {
             <h2 className="text-emerald-400 font-bold flex items-center gap-2 mb-4"><FiCheckCircle /> Bulk Fix Completed!</h2>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-neutral-900 p-4 rounded-lg border border-neutral-800">
+              <div className="glass-panel p-4 rounded-lg border border-white/10">
                 <p className="text-xs text-neutral-500 font-bold uppercase">Processed</p>
                 <p className="text-2xl font-bold text-white">{results.stats?.processed || 0}</p>
               </div>
-              <div className="bg-neutral-900 p-4 rounded-lg border border-neutral-800">
+              <div className="glass-panel p-4 rounded-lg border border-white/10">
                 <p className="text-xs text-neutral-500 font-bold uppercase">Updated</p>
                 <p className="text-2xl font-bold text-blue-400">{results.stats?.updated || 0}</p>
               </div>
-              <div className="bg-neutral-900 p-4 rounded-lg border border-neutral-800">
+              <div className="glass-panel p-4 rounded-lg border border-white/10">
                 <p className="text-xs text-neutral-500 font-bold uppercase">Errors</p>
                 <p className="text-2xl font-bold text-red-400">{results.stats?.errors || 0}</p>
               </div>
-              <div className="bg-neutral-900 p-4 rounded-lg border border-neutral-800">
+              <div className="glass-panel p-4 rounded-lg border border-white/10">
                 <p className="text-xs text-neutral-500 font-bold uppercase">Skipped</p>
                 <p className="text-2xl font-bold text-neutral-400">{results.stats?.skipped || 0}</p>
               </div>
             </div>
             
             {results.message && (
-               <p className="text-sm text-neutral-400 bg-neutral-900 p-3 rounded-lg border border-neutral-800 font-mono">
+               <p className="text-sm text-neutral-400 glass-panel p-3 rounded-lg border border-white/10 font-mono">
                  {results.message}
                </p>
             )}

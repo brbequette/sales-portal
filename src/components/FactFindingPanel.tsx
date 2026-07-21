@@ -179,8 +179,8 @@ function PillRow({ options, value, onChange, accentColor = "cyan", readOnly = fa
             value === opt
               ? activeClass
               : readOnly
-                ? "bg-neutral-900/50 border-neutral-800 text-neutral-600"
-                : "bg-neutral-900 border-neutral-700/60 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400"
+                ? "glass-panel/50 border-white/10 text-neutral-600"
+                : "glass-panel border-neutral-700/60 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400"
           }`}
         >
           {value === opt ? "âœ“ " : ""}{opt}
@@ -390,7 +390,7 @@ export function FactFindingPanel({
 
       {/* Progress bar */}
       {showProgress && (
-        <div className="flex items-center justify-between bg-neutral-900/40 border border-neutral-800/40 rounded-lg px-3 py-1.5 mt-2">
+        <div className="flex items-center justify-between glass-panel/40 border border-white/10/40 rounded-lg px-3 py-1.5 mt-2">
           <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
             <FiActivity size={10} /> Fact-Finding Progress
           </span>

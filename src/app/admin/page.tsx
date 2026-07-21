@@ -143,7 +143,7 @@ export default function AdminDashboardPage() {
                 <Link 
                   href={card.href} 
                   key={card.title}
-                  className="group block p-5 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/10 transition-all"
+                  className="group block p-5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/10 transition-all"
                 >
                   <div className="flex items-start gap-4">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${card.bg} ${card.color}`}>
@@ -169,7 +169,7 @@ export default function AdminDashboardPage() {
           <h2 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-4">
             Data Sync
           </h2>
-          <div className="p-5 rounded-xl border border-white/5 bg-white/[0.02] space-y-4">
+          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] space-y-4">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-indigo-500/10 text-indigo-400">
                 <FiRefreshCw size={20} className={syncing ? "animate-spin" : ""} />

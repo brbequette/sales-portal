@@ -210,9 +210,9 @@ export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumb
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fade-in">
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md shadow-2xl z-[61] animate-scale-in max-h-[90vh] overflow-y-auto hidden-scrollbar">
+      <div className="relative glass-panel border border-white/10 rounded-2xl w-full max-w-md shadow-2xl z-[61] animate-scale-in max-h-[90vh] overflow-y-auto hidden-scrollbar">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <h3 className="text-white font-bold text-sm flex items-center gap-2">
             <FiDollarSign className="text-emerald-400" /> Process Payment
           </h3>
@@ -435,7 +435,7 @@ export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumb
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-neutral-800 flex gap-2">
+        <div className="px-5 py-4 border-t border-white/10 flex gap-2">
           <button
             onClick={onClose}
             className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold py-2.5 rounded-lg text-xs transition-colors"

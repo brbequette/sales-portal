@@ -65,7 +65,7 @@ export function DocumentLifecycle({ zohoId, type }: DocumentLifecycleProps) {
   }
 
   return (
-    <div className="bg-neutral-900/50 border border-white/5 rounded-xl p-6">
+    <div className="glass-panel/50 border border-white/10 rounded-xl p-6">
       <h3 className="text-sm font-bold text-white mb-6 uppercase tracking-wider">Document Lifecycle</h3>
       <div className="flex items-start justify-between">
         
