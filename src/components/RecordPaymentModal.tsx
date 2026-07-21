@@ -347,7 +347,7 @@ export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumb
                     type="password"
                     value={cvv}
                     onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                    placeholder="”¢”¢”¢"
+                    placeholder="•••"
                     maxLength={4}
                     className="w-full bg-neutral-800 border border-neutral-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-neutral-600 text-center tracking-widest"
                   />

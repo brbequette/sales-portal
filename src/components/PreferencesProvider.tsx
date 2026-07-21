@@ -6,6 +6,7 @@ import { useZoho } from "./ZohoProvider"
 interface UserPreferences {
   defaultPageSize: number | "All"
   showHiddenReps?: boolean
+  impersonatedUser?: { id: string, name: string, email: string, role: string } | null
   // Dashboard filter persistence
   effort?: "sales" | "call_list" | "cold_call" | "dashboard"
   ownerFilter?: string

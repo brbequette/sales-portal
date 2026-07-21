@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { useProductModal } from "@/components/ProductModalProvider"
 import { NewCustomerModal } from "@/components/NewCustomerModal"
 import { useZoho } from "@/components/ZohoProvider"
+import { usePreferences } from "@/components/PreferencesProvider"
 import { NotificationCenter } from "@/components/NotificationCenter"
 import { GeofenceMonitor, type MonitorStatus } from "@/lib/geofence-monitor"
 
@@ -14,6 +15,7 @@ export function GlobalTopBar() {
   const router = useRouter()
   const { showProduct } = useProductModal()
   const { zohoContext: currentUser } = useZoho()
+  const { preferences, updatePreferences } = usePreferences()
   
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<any>(null)
@@ -341,6 +343,18 @@ export function GlobalTopBar() {
 
   return (
     <>
+    {preferences.impersonatedUser && (
+      <div className="bg-amber-500/20 border-b border-amber-500/30 text-amber-200 px-4 py-2 flex items-center justify-center gap-3 text-sm font-bold z-50 relative">
+        <FiUserPlus size={16} />
+        <span>Viewing as {preferences.impersonatedUser.name}</span>
+        <button
+          onClick={() => updatePreferences({ impersonatedUser: null })}
+          className="bg-amber-500 hover:bg-amber-400 text-black px-3 py-1 rounded shadow-lg transition-colors ml-2"
+        >
+          Exit Impersonation
+        </button>
+      </div>
+    )}
     <div className="glass-panel border-x-0 border-t-0 px-4 py-3 flex items-center justify-between sticky top-0 z-40 rounded-none shadow-lg">
       
       {/* Left side: Search */}

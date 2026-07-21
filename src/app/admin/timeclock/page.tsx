@@ -493,10 +493,10 @@ export default function AdminTimeclockPage() {
           {/* How it works info */}
           <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 text-xs text-blue-300/80 space-y-1">
             <p className="font-bold text-blue-300">✨“ How Geolocation Timeclock Works</p>
-            <p>”¢ GPS is captured <strong>only</strong> at clock-in and clock-out — not continuously tracked.</p>
-            <p>”¢ If geofence locations are configured, clock-in position is validated against the nearest location.</p>
-            <p>”¢ Status shows as VERIFIED (within radius), OUT_OF_RANGE, DENIED (no GPS permission), or UNAVAILABLE.</p>
-            <p>”¢ Without any geofences, GPS is still captured for audit trail but always shows as VERIFIED.</p>
+            <p>• GPS is captured <strong>only</strong> at clock-in and clock-out — not continuously tracked.</p>
+            <p>• If geofence locations are configured, clock-in position is validated against the nearest location.</p>
+            <p>• Status shows as VERIFIED (within radius), OUT_OF_RANGE, DENIED (no GPS permission), or UNAVAILABLE.</p>
+            <p>• Without any geofences, GPS is still captured for audit trail but always shows as VERIFIED.</p>
           </div>
         </div>
       ) : (

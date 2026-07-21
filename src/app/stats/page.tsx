@@ -90,7 +90,7 @@ export default function StatsPage() {
   const [sortField, setSortField] = useState<SortField>("revenue")
   const [sortAsc, setSortAsc] = useState(false)
   const [trackerPeriod, setTrackerPeriod] = useState<"week" | "month">("month")
-  const [selectedDataMonth, setSelectedDataMonth] = useState<string>("")
+  const [selectedDataDate, setSelectedDataDate] = useState<string>("")
 
   useEffect(() => {
     if (!isInitialized) return
@@ -103,8 +103,10 @@ export default function StatsPage() {
       try {
         setLoading(true)
         const hiddenParam = preferences.showHiddenReps ? "?includeHidden=true" : ""
-        const monthParam = selectedDataMonth ? (hiddenParam ? `&month=${selectedDataMonth}` : `?month=${selectedDataMonth}`) : ""
-        const res = await fetch(`/api/get-rep-stats${hiddenParam}${monthParam}`)
+        const dateParam = selectedDataDate ? (selectedDataDate.length === 7 ? `month=${selectedDataDate}` : `date=${selectedDataDate}`) : ""
+        const prefix = hiddenParam ? "&" : "?"
+        const urlParams = dateParam ? `${prefix}${dateParam}` : ""
+        const res = await fetch(`/api/get-rep-stats${hiddenParam}${urlParams}`)
         const data = await res.json()
         if (data.success) {
           setReps(data.reps || [])
@@ -121,7 +123,37 @@ export default function StatsPage() {
       }
     }
     fetchStats()
-  }, [isInitialized, currentUser, router, selectedDataMonth])
+  }, [isInitialized, currentUser, router, selectedDataDate])
+
+  const pastWeeks = useMemo(() => {
+    const weeks = []
+    const now = new Date()
+    for (let i = 1; i < 12; i++) {
+      const d = new Date(now.getTime())
+      d.setDate(d.getDate() - (i * 7))
+      const monday = new Date(d)
+      const day = monday.getDay()
+      const diff = monday.getDate() - day + (day === 0 ? -6 : 1)
+      monday.setDate(diff)
+      const label = i === 1 ? "Last Week" : `Week of ${monday.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+      const val = monday.toISOString().split('T')[0]
+      weeks.push({ value: val, label })
+    }
+    return weeks
+  }, [])
+
+  const pastDays = useMemo(() => {
+    const days = []
+    const now = new Date()
+    for (let i = 1; i < 14; i++) {
+      const d = new Date(now.getTime())
+      d.setDate(d.getDate() - i)
+      const label = i === 1 ? "Yesterday" : d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      const val = d.toISOString().split('T')[0]
+      days.push({ value: val, label })
+    }
+    return days
+  }, [])
 
   const sortedReps = useMemo(() => {
     return [...reps].sort((a, b) => {
@@ -234,13 +266,33 @@ export default function StatsPage() {
           <div className="flex items-center gap-2">
             <select 
                className="bg-black/20 border border-neutral-850 text-neutral-400 text-xs font-bold rounded-lg p-2 uppercase tracking-wider focus:outline-none"
-               value={selectedDataMonth}
-               onChange={(e) => setSelectedDataMonth(e.target.value)}
+               value={selectedDataDate}
+               onChange={(e) => setSelectedDataDate(e.target.value)}
             >
-               <option value="">Current Month</option>
-               {historicalVigRates.map(h => (
-                  <option key={h.monthKey} value={h.monthKey}>{h.monthName}</option>
-               ))}
+               {selectedPeriod === "monthly" && (
+                 <>
+                   <option value="">Current Month</option>
+                   {historicalVigRates.map(h => (
+                      <option key={h.monthKey} value={h.monthKey}>{h.monthName}</option>
+                   ))}
+                 </>
+               )}
+               {selectedPeriod === "weekly" && (
+                 <>
+                   <option value="">Current Week</option>
+                   {pastWeeks.map(w => (
+                     <option key={w.value} value={w.value}>{w.label}</option>
+                   ))}
+                 </>
+               )}
+               {selectedPeriod === "daily" && (
+                 <>
+                   <option value="">Today</option>
+                   {pastDays.map(d => (
+                     <option key={d.value} value={d.value}>{d.label}</option>
+                   ))}
+                 </>
+               )}
             </select>
             {/* Timeframe Filter Selector */}
             <div className="flex bg-black/20 border border-neutral-850 p-0.5 rounded-xl gap-0.5 shrink-0 self-start sm:self-auto w-full sm:w-auto sm:min-w-[240px]">
@@ -249,6 +301,7 @@ export default function StatsPage() {
                   key={p}
                   onClick={() => {
                     setSelectedPeriod(p)
+                    setSelectedDataDate("")
                     setSelectedRep(null) // Reset detail panel on timeframe switch
                   }}
                   className={`flex-1 py-1.5 text-xs font-bold rounded-lg uppercase tracking-wider transition-all ${
@@ -514,7 +567,7 @@ export default function StatsPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">{selectedRep.repName}</h3>
-                  <p className="text-[10px] text-neutral-500">{selectedRep.email} ”¢ Margin: {formatPercent(selectedRep.margin / 100)}</p>
+                  <p className="text-[10px] text-neutral-500">{selectedRep.email} • Margin: {formatPercent(selectedRep.margin / 100)}</p>
                 </div>
               </div>
               <button

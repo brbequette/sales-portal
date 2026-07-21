@@ -112,6 +112,7 @@ export const handler: Handler = async (event, context) => {
     }
 
     let booksRefId = null
+    let booksDocNumber = null
 
     if (type === "Quote") {
       const res = await fetch(`${baseUrl}/estimates?organization_id=${ORG_ID}`, {
@@ -125,6 +126,7 @@ export const handler: Handler = async (event, context) => {
       const data = await res.json()
       if (data.code !== 0) throw new Error(`Zoho Books Error: ${data.message}`)
       booksRefId = data.estimate?.estimate_id
+      booksDocNumber = data.estimate?.estimate_number
     } else if (type === "SalesOrder") {
       const res = await fetch(`${baseUrl}/salesorders?organization_id=${ORG_ID}`, {
         method: "POST",
@@ -137,6 +139,7 @@ export const handler: Handler = async (event, context) => {
       const data = await res.json()
       if (data.code !== 0) throw new Error(`Zoho Books Error: ${data.message}`)
       booksRefId = data.salesorder?.salesorder_id
+      booksDocNumber = data.salesorder?.salesorder_number
     } else {
        return { statusCode: 400, body: JSON.stringify({ success: false, message: "Invalid type" }) }
     }
@@ -144,23 +147,25 @@ export const handler: Handler = async (event, context) => {
     // Now save to Prisma database
     let transaction: any;
     if (type === "Quote") {
+      const itemsPayload = Array.isArray(items) ? { lineItems: items, estimateNumber: booksDocNumber || "EST-PENDING" } : items;
       transaction = await prisma.quote.create({
         data: {
           zohoId: booksRefId,
           accountId: dbAccountId,
           amount,
-          items: items || [],
+          items: itemsPayload || {},
           status: "Draft",
           validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
         }
       })
     } else if (type === "SalesOrder") {
+      const itemsPayload = Array.isArray(items) ? { lineItems: items, salesOrderNumber: booksDocNumber || "SO-PENDING" } : items;
       transaction = await prisma.salesOrder.create({
         data: {
           zohoId: booksRefId,
           accountId: dbAccountId,
           amount,
-          items: items || [],
+          items: itemsPayload || {},
           status: "Pending",
         }
       })

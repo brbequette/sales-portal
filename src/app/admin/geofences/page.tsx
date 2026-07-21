@@ -385,11 +385,11 @@ export default function AdminGeofencesPage() {
           <div className="mt-6 bg-blue-950/30 border border-blue-500/20 rounded-xl p-5">
             <h3 className="text-sm font-black uppercase tracking-wider text-blue-400 mb-2">How It Works</h3>
             <ul className="text-xs text-neutral-400 space-y-1.5 font-medium leading-relaxed">
-              <li>”¢ GPS is monitored in the background when the portal is open</li>
-              <li>”¢ Employee enters geofence â†’ <span className="text-emerald-400 font-bold">auto clock-in</span> after 30 seconds</li>
-              <li>”¢ Employee leaves geofence â†’ <span className="text-red-400 font-bold">auto clock-out</span> after 5 minutes</li>
-              <li>”¢ Manual clock-in/out always overrides the geofence</li>
-              <li>”¢ GPS accuracy must be within 500m for geofence checks</li>
+              <li>• GPS is monitored in the background when the portal is open</li>
+              <li>• Employee enters geofence â†’ <span className="text-emerald-400 font-bold">auto clock-in</span> after 30 seconds</li>
+              <li>• Employee leaves geofence â†’ <span className="text-red-400 font-bold">auto clock-out</span> after 5 minutes</li>
+              <li>• Manual clock-in/out always overrides the geofence</li>
+              <li>• GPS accuracy must be within 500m for geofence checks</li>
             </ul>
           </div>
         </div>

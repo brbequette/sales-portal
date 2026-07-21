@@ -7,9 +7,10 @@ import { toast } from 'react-hot-toast';
 interface DocumentLifecycleProps {
   zohoId: string
   type: 'Invoice' | 'SalesOrder' | 'Quote'
+  onNavigateDoc?: (type: 'Quote' | 'SalesOrder' | 'Invoice', id: string) => void
 }
 
-export function DocumentLifecycle({ zohoId, type }: DocumentLifecycleProps) {
+export function DocumentLifecycle({ zohoId, type, onNavigateDoc }: DocumentLifecycleProps) {
   const [lifecycle, setLifecycle] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
@@ -61,7 +62,12 @@ export function DocumentLifecycle({ zohoId, type }: DocumentLifecycleProps) {
 
   const openDoc = (docType: string, data: any) => {
     if (!data) return
-    toast.success(`Document Type: ${docType}\nNumber: ${data.items?.estimateNumber || data.items?.salesOrderNumber || data.items?.invoiceNumber || data.packageNumber || data.paymentNumber}\nZoho ID: ${data.zohoId}`)
+    const id = data.zohoId || data.id
+    if (onNavigateDoc && id) {
+      onNavigateDoc(docType as any, id)
+    } else {
+      toast.success(`Document Type: ${docType}\nNumber: ${data.items?.estimateNumber || data.items?.salesOrderNumber || data.items?.invoiceNumber || data.packageNumber || data.paymentNumber}\nZoho ID: ${data.zohoId}`)
+    }
   }
 
   return (

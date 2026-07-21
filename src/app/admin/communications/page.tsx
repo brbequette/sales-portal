@@ -329,7 +329,7 @@ export default function CommunicationsDashboard() {
                         </div>
                         {log.author?.name || log.author?.email || "System"}
                       </span>
-                      <span className="text-neutral-600">”¢</span>
+                      <span className="text-neutral-600">•</span>
                       <span className="font-mono text-xs opacity-75">{log.fromNumber} &rarr; {log.toNumber}</span>
                     </div>
 

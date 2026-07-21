@@ -5,9 +5,9 @@
  * OrderBuilder.tsx
  *
  * Universal Order Builder — shared by all POS transaction spots:
- *   ”¢ SalesCallCampaignModal (Titan Dialer campaign view)
- *   ”¢ AccountDialer (account page dialer)
- *   ”¢ CommunicationCenter (account page comm hub)
+ *   • SalesCallCampaignModal (Titan Dialer campaign view)
+ *   • AccountDialer (account page dialer)
+ *   • CommunicationCenter (account page comm hub)
  *
  * Features:
  *   ✅ Blade Lookup — filter by Application, Size, Type â†’ Good/Better/Best cards

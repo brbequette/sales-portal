@@ -65,6 +65,7 @@ export const handler: Handler = async (event) => {
     const params = event.queryStringParameters || {}
     const showHidden = params.includeHidden === 'true'
     const monthParam = params.month // e.g. "2026-07"
+    const dateParam = params.date // e.g. "2026-07-21"
 
     const appSettings = await getSystemSettings(prisma)
 
@@ -148,7 +149,10 @@ export const handler: Handler = async (event) => {
 
     // Time ranges
     let now = new Date()
-    if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      const [yyyy, mm, dd] = dateParam.split("-")
+      now = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd))
+    } else if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
       const [yyyy, mm] = monthParam.split("-")
       now = new Date(parseInt(yyyy), parseInt(mm) - 1, 15) // Middle of selected month
     }
@@ -442,10 +446,10 @@ export const handler: Handler = async (event) => {
         vigGoal.metric = 'PROFIT';
       }
 
-      if (now.getFullYear() < 2025) {
-        rep.monthly.vigRate = appSettings.default_vig_rate;
-      } else if (rep.constantVigEnabled && rep.constantVigValue !== null) {
+      if (rep.constantVigEnabled && rep.constantVigValue !== null) {
         rep.monthly.vigRate = rep.constantVigValue;
+      } else if (now.getFullYear() < 2025) {
+        rep.monthly.vigRate = appSettings.default_vig_rate;
       } else if (vigGoal.manualVigRate !== null) {
         rep.monthly.vigRate = vigGoal.manualVigRate;
       } else {
@@ -575,10 +579,10 @@ export const handler: Handler = async (event) => {
         
         let vigRate = appSettings.default_vig_rate;
         
-        if (year < 2025) {
-          vigRate = appSettings.default_vig_rate;
-        } else if ((u as any).constantVigEnabled && (u as any).constantVigValue !== null) {
+        if ((u as any).constantVigEnabled && (u as any).constantVigValue !== null) {
           vigRate = (u as any).constantVigValue;
+        } else if (year < 2025) {
+          vigRate = appSettings.default_vig_rate;
         } else if (vigGoal.manualVigRate !== null) {
           vigRate = vigGoal.manualVigRate;
         } else {

@@ -333,7 +333,7 @@ export default function ShippingPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-white font-bold text-sm">{order.soNumber || "—"}</span>
-                      <span className="text-neutral-600 text-xs">”¢</span>
+                      <span className="text-neutral-600 text-xs">•</span>
                       <span className="text-neutral-400 text-sm truncate">{order.customerName}</span>
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">

@@ -323,11 +323,11 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                                         ) : (
                                           <span className="text-[10px] text-neutral-400">🏢 {inv.accountName}</span>
                                         )}
-                                        <span className="text-[10px] text-neutral-600">”¢</span>
+                                        <span className="text-[10px] text-neutral-600">•</span>
                                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${
                                           inv.isPaid ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/20 text-amber-400'
                                         } font-bold`}>{inv.status}</span>
-                                        <span className="text-[10px] text-neutral-600">”¢</span>
+                                        <span className="text-[10px] text-neutral-600">•</span>
                                         <span className="text-[10px] text-neutral-500">{fmtDate(eventDate)}</span>
                                       </div>
                                     </div>
@@ -382,9 +382,9 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                       ) : (
                         <span className="text-[10px] text-neutral-400">🏢 {deal.accountName}</span>
                       )}
-                      <span className="text-[10px] text-neutral-600">”¢</span>
+                      <span className="text-[10px] text-neutral-600">•</span>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${stageColor(deal.stage)}`}>{deal.stage}</span>
-                      <span className="text-[10px] text-neutral-600">”¢</span>
+                      <span className="text-[10px] text-neutral-600">•</span>
                       <span className="text-[10px] text-neutral-500">{fmtDate(deal.closeDate)}</span>
                     </div>
                   </div>

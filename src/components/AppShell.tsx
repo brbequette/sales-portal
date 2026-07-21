@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
+import { usePreferences } from "@/components/PreferencesProvider"
 import {
   FiHome, FiPhoneCall, FiDollarSign, FiTool, FiUser,
   FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare, FiArrowLeft, FiCheckSquare, FiClock, FiGrid, FiTruck
@@ -16,6 +17,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const { zohoContext: user } = useZoho()
+  const { preferences } = usePreferences()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
@@ -24,7 +26,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const mainPages = ["/", "/login", "/sales", "/shipping", "/messages", "/collections", "/commissions", "/stats", "/tools", "/training", "/catalog", "/timeclock", "/tasks"]
   const showBackButton = !mainPages.includes(pathname)
 
-  const normalizedRole = user?.role?.toLowerCase() || ""
+  // Determine effective role (if impersonating, use the impersonated user's role)
+  const effectiveRole = preferences.impersonatedUser ? preferences.impersonatedUser.role : (user?.role || "")
+  const normalizedRole = effectiveRole.toLowerCase()
   const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
 
   const navItems = [

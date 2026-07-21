@@ -52,7 +52,6 @@ export default function Dashboard() {
   const [drillItems, setDrillItems] = useState<any[] | null>(null)
   const [drillType, setDrillType] = useState<"invoices" | "deals" | "accounts" | null>(null)
   const [effort, setEffort] = useState<"sales" | "call_list" | "cold_call" | "dashboard" | "pipeline" | "tv">("dashboard")
-  const [viewAsRepId, setViewAsRepId] = useState<string | null>(null)
   const [allDbUsers, setAllDbUsers] = useState<any[]>([])
   const [ownerFilter, setOwnerFilter] = useState("All")
   const [timezoneFilter, setTimezoneFilter] = useState("All")
@@ -1229,8 +1228,18 @@ export default function Dashboard() {
             <FiEye size={14} className="text-neutral-500" />
             <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">View as Rep</span>
             <select
-              value={viewAsRepId || ""}
-              onChange={e => setViewAsRepId(e.target.value || null)}
+              value={preferences.impersonatedUser?.id || ""}
+              onChange={e => {
+                const id = e.target.value;
+                if (!id) {
+                  updatePreferences({ impersonatedUser: null });
+                } else {
+                  const u = allDbUsers.find(user => user.id === id);
+                  if (u) {
+                    updatePreferences({ impersonatedUser: { id: u.id, name: u.name, email: u.email, role: u.role } });
+                  }
+                }
+              }}
               className="bg-neutral-800/80 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer min-w-[160px]"
             >
               <option value="">Myself (Admin)</option>
@@ -1238,11 +1247,6 @@ export default function Dashboard() {
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
             </select>
-            {viewAsRepId && (
-              <span className="text-[10px] text-amber-400/70 font-medium flex items-center gap-1">
-                <FiEye size={10} /> Viewing as {allDbUsers.find(u => u.id === viewAsRepId)?.name}
-              </span>
-            )}
           </div>
         )}
 
@@ -1260,13 +1264,13 @@ export default function Dashboard() {
         ) : effort === "dashboard" && resolvePermissions(dbUser?.permissions, dbUser?.role || currentUser?.role).salesBoard ? (
           <div className="mt-4">
             <DashboardView
-              repName={viewAsRepId
-                ? allDbUsers.find(u => u.id === viewAsRepId)?.name || null
+              repName={preferences.impersonatedUser
+                ? preferences.impersonatedUser.name
                 : isAdminUser ? null : (currentUser?.name || null)
               }
               isAdmin={isAdminUser}
-              repEmail={viewAsRepId
-                ? allDbUsers.find(u => u.id === viewAsRepId)?.email || null
+              repEmail={preferences.impersonatedUser
+                ? preferences.impersonatedUser.email
                 : currentUser?.email || null
               }
             />
