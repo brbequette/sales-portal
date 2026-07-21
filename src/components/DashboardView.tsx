@@ -217,7 +217,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
       // Rep aggregation (for top performers and company breakdown)
       const repData: Record<string, { sales: number; profit: number; deals: number; commission: number; weeklySales: number }> = {}
 
-      // Determine filter â€” case-insensitive
+      // Determine filter — case-insensitive
       const filterUpper = filterRepName ? filterRepName.toUpperCase() : null
 
       for (const inv of invoices) {
@@ -665,7 +665,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
       {/* â”€â”€â”€ Top Performers (admin only) â”€â”€â”€ */}
       {showTopPerformers && data.topReps.length > 0 && (
         <div className="glass-panel rounded-2xl p-5 border border-white/[0.06]">
-          <h3 className="text-sm font-bold text-white mb-4">Top Performers â€” This Month</h3>
+          <h3 className="text-sm font-bold text-white mb-4">Top Performers — This Month</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {data.topReps.map((rep, i) => {
               const quotaPct = rep.quota > 0 ? Math.min((rep.sales / (rep.quota * 4)) * 100, 100) : 0

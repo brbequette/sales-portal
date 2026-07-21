@@ -85,7 +85,7 @@ export default function BooksScriptsPage() {
       <h1 className="text-2xl font-bold text-white">Zoho Books Maintenance Scripts</h1>
       <p className="text-neutral-400">Run manual backend scripts to fix or sync Zoho Books data.</p>
       
-      {/* â”€â”€ Bulk Process Costs â€” Full Width â”€â”€ */}
+      {/* â”€â”€ Bulk Process Costs — Full Width â”€â”€ */}
       <div className="glass-panel border border-indigo-500/30 p-6 rounded-2xl space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -202,7 +202,7 @@ export default function BooksScriptsPage() {
         <div className="glass-panel border border-amber-500/30 p-6 rounded-2xl flex flex-col justify-between space-y-4">
           <div>
             <h2 className="text-lg font-bold text-amber-400">Batch Tariff Update (Dry Run)</h2>
-            <p className="text-sm text-neutral-400 mt-2">Preview which 2026 unpaid invoices will get a 12.5% tariff surcharge. No changes are made â€” shows what <em>would</em> happen.</p>
+            <p className="text-sm text-neutral-400 mt-2">Preview which 2026 unpaid invoices will get a 12.5% tariff surcharge. No changes are made — shows what <em>would</em> happen.</p>
           </div>
           <div>
             {results['tariff-dry'] && <div className="mb-3 text-xs text-amber-400 flex items-center gap-2 bg-amber-500/10 p-2 rounded max-h-40 overflow-y-auto whitespace-pre-wrap"><FiCheck /> {results['tariff-dry']}</div>}
@@ -219,7 +219,7 @@ export default function BooksScriptsPage() {
                   const data = await res.json()
                   if (data.success) {
                     const s = data.summary
-                    const invoiceList = (data.invoices || []).map((inv: any) => `  ${inv.invoiceNumber} â€” ${inv.customerName}: DC=$${inv.nonGiftDeadCost?.toFixed(2)}, Tariff=$${inv.tariffAmount?.toFixed(2)}`).join('\n')
+                    const invoiceList = (data.invoices || []).map((inv: any) => `  ${inv.invoiceNumber} — ${inv.customerName}: DC=$${inv.nonGiftDeadCost?.toFixed(2)}, Tariff=$${inv.tariffAmount?.toFixed(2)}`).join('\n')
                     setResults(prev => ({ ...prev, ['tariff-dry']: `Found ${s.totalUnpaid2026} unpaid, ${s.zeroAdjustment} with $0 adj, ${s.processed} eligible, ${s.skipped} skipped.\n${invoiceList}` }))
                   } else {
                     setResults(prev => ({ ...prev, ['tariff-dry']: `Error: ${data.error}` }))

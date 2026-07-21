@@ -275,14 +275,14 @@ export function CommunicationCenter({
       const top = accountPurchases.slice(0, 3)
       const totalSpent = accountPurchases.reduce((s: number, p: any) => s + (p.totalSpend || 0), 0)
       const totalQty = accountPurchases.reduce((s: number, p: any) => s + (p.quantity || 0), 0)
-      text += `I was looking at your account and saw that you've picked up ${totalQty} items from us totaling about $${totalSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })} â€” including ${top.map((p: any) => p.name).join(", ")}. `
+      text += `I was looking at your account and saw that you've picked up ${totalQty} items from us totaling about $${totalSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })} — including ${top.map((p: any) => p.name).join(", ")}. `
       text += totalQty >= 10
         ? `You're one of our valued repeat customers, so I wanted to make sure you're taken care of first on our latest deals.\n\n`
         : `I appreciate the business! I wanted to reach out and see how those are working out for you.\n\n`
       const hasBlades = accountPurchases.some((p: any) => (p.name || "").toLowerCase().includes("blade"))
       const hasCupWheels = accountPurchases.some((p: any) => ["cup", "wheel", "grind"].some(k => (p.name || "").toLowerCase().includes(k)))
       const hasCoredrills = accountPurchases.some((p: any) => ["core", "drill"].some(k => (p.name || "").toLowerCase().includes(k)))
-      if (hasBlades && !hasCupWheels) text += `I also noticed you've been running our diamond blades â€” have you had a chance to try our cup wheels and grinding products? A lot of our blade customers end up loving them for surface prep.\n\n`
+      if (hasBlades && !hasCupWheels) text += `I also noticed you've been running our diamond blades — have you had a chance to try our cup wheels and grinding products? A lot of our blade customers end up loving them for surface prep.\n\n`
       else if (hasBlades && !hasCoredrills) text += `Since you're running our blades, I wanted to let you know we also carry core drill bits if you ever need them on the job.\n\n`
       else text += `Are you getting close to needing a restock on any of those? I can get a quote together for you right now.\n\n`
     } else {
@@ -294,7 +294,7 @@ export function CommunicationCenter({
     if (!factFinding.materialsCut) missing.push("what materials you guys are cutting most right now")
     if (!factFinding.crewCount) missing.push("how many crews you have out in the field")
     if (missing.length > 0) {
-      text += `By the way, I was just updating your account profile â€” could you remind me ${missing[0]}?\n\n`
+      text += `By the way, I was just updating your account profile — could you remind me ${missing[0]}?\n\n`
     }
 
     text += `Is there anything we can quote or ship out for you today?`
@@ -308,11 +308,11 @@ export function CommunicationCenter({
     const prio = (factFinding.improvementPriority || "").toLowerCase()
 
     const pitches: Record<string, string> = {
-      medusa: `Let me tell you about one of my best selling blades for the kind of work you are doing. It's called "The Medusa". What my customers all love about this blade is that it has a 12mm jumbo segment compared to most blades on the market that are just 10mm giving you longer blade life. This new blade is perfect for Cured Concrete, Brick, Block, Stone & Pavers. The segments are made under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed. Each one of the segments are laser welded for reliability and safety and the core is speed tensioned to eliminate warping and wobbling.\n\nNow ${contactName}, retail stores in your city would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $100 bucks! Right now we are giving this blade away for FREE! The way the promotion works is I send 6 blades out there â€” the first blade you pull out of the box is absolutely FREE! The other 5 blades are only $68 bucks each! If you do the math, you're getting 6 blades for $340 bucks! That's less than $57 bucks per blade! And at that price you're stealing them!`,
-      kingTurbo: `Let me tell you about one of my best blades for what you are doing... it's called "THE KING TURBO BLADE". What my customers all love about this blade is that it has 24 serrated turbo segments which makes the blade cut super fast and super smooth through Hard Re-enforced Concrete and other hard materials. This premium soft bond blade will actually pull itself through the cut, so you don't have to put a lot of pressure on the saw â€” you just let the blade do the work for you.\n\nNow ${contactName}, retail stores will sell a blade of this quality for $250 bucks all day long! I normally wholesale it for $175 bucks! Right now we are giving this blade away for FREE! The way the promotion works is I send three blades out there â€” the first blade you pull out of the box is absolutely FREE! The other two are only $175 each! If you do the math you're getting three blades for $350 bucks! That's $116 bucks per blade! And at that price you're stealing them!`,
-      titan: `I want to tell you about one of my best blades for what you're doing. It's called "THE TITAN". This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from Re-enforced Concrete, Asphalt, Ductile Iron, Re-enforced Concrete Pipe and even Rebar!\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used, hands down! I don't expect you to take my word for it â€” I'll prove it to you! I normally wholesale these blades for $299 each! Like I said, right now I am giving you one absolutely free of charge. The first blade you pull out of the box is absolutely free! The other two blades in the box are only $250 each! You're getting three blades for $500 bucks â€” that's only $166 bucks per blade! And at that price you're stealing them!`,
-      darkKnight: `I want to tell you about one of my best blades for what you're doing. It's called my "Dark Knight Blade". It's versatile enough to cut everything from re-enforced concrete to asphalt, to brick, block & stone. The major improvement over other blades is that they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed.\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used! If you were able to find a blade of this quality at your local supplier it would cost $250 or more! I normally wholesale these blades for $175 each! Right now I am giving you one absolutely free of charge. The first blade you pull out of the box is absolutely free! The other 3 blades in the box are only $150 each! You're getting 4 blades for $450 bucks â€” that's less than $113 bucks per blade! And at that price you're stealing them!`,
-      razor: `This blade is ideal for cutting Ceramic Tile, Marble, Granite & even Porcelain and it cuts through it like a hot knife through butter! The new "Razor Blade" has a reinforced core to prevent warping, wobbling and walking and runs super quiet. This blade cuts really clean & fast & the manufacturer claims 100% chip free cutting.\n\nNow ${contactName}, retail stores would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $120 bucks! Right now we are giving this blade away for FREE! The way the promotion works is I send four blades out there â€” the first blade you pull out of the box is absolutely FREE! The next three are only $100 each!`,
+      medusa: `Let me tell you about one of my best selling blades for the kind of work you are doing. It's called "The Medusa". What my customers all love about this blade is that it has a 12mm jumbo segment compared to most blades on the market that are just 10mm giving you longer blade life. This new blade is perfect for Cured Concrete, Brick, Block, Stone & Pavers. The segments are made under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing speed. Each one of the segments are laser welded for reliability and safety and the core is speed tensioned to eliminate warping and wobbling.\n\nNow ${contactName}, retail stores in your city would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $100 bucks! Right now we are giving this blade away for FREE! The way the promotion works is I send 6 blades out there — the first blade you pull out of the box is absolutely FREE! The other 5 blades are only $68 bucks each! If you do the math, you're getting 6 blades for $340 bucks! That's less than $57 bucks per blade! And at that price you're stealing them!`,
+      kingTurbo: `Let me tell you about one of my best blades for what you are doing... it's called "THE KING TURBO BLADE". What my customers all love about this blade is that it has 24 serrated turbo segments which makes the blade cut super fast and super smooth through Hard Re-enforced Concrete and other hard materials. This premium soft bond blade will actually pull itself through the cut, so you don't have to put a lot of pressure on the saw — you just let the blade do the work for you.\n\nNow ${contactName}, retail stores will sell a blade of this quality for $250 bucks all day long! I normally wholesale it for $175 bucks! Right now we are giving this blade away for FREE! The way the promotion works is I send three blades out there — the first blade you pull out of the box is absolutely FREE! The other two are only $175 each! If you do the math you're getting three blades for $350 bucks! That's $116 bucks per blade! And at that price you're stealing them!`,
+      titan: `I want to tell you about one of my best blades for what you're doing. It's called "THE TITAN". This brand-new blade is designed to work great on a handheld or a walk-behind saw. It's versatile enough to cut everything from Re-enforced Concrete, Asphalt, Ductile Iron, Re-enforced Concrete Pipe and even Rebar!\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used, hands down! I don't expect you to take my word for it — I'll prove it to you! I normally wholesale these blades for $299 each! Like I said, right now I am giving you one absolutely free of charge. The first blade you pull out of the box is absolutely free! The other two blades in the box are only $250 each! You're getting three blades for $500 bucks — that's only $166 bucks per blade! And at that price you're stealing them!`,
+      darkKnight: `I want to tell you about one of my best blades for what you're doing. It's called my "Dark Knight Blade". It's versatile enough to cut everything from re-enforced concrete to asphalt, to brick, block & stone. The major improvement over other blades is that they make the diamond segments under a higher heat and a lower pressure which makes the diamonds last longer without sacrificing any speed.\n\n${contactName}, my customers are telling me that this is "The Best Blade" they've ever used! If you were able to find a blade of this quality at your local supplier it would cost $250 or more! I normally wholesale these blades for $175 each! Right now I am giving you one absolutely free of charge. The first blade you pull out of the box is absolutely free! The other 3 blades in the box are only $150 each! You're getting 4 blades for $450 bucks — that's less than $113 bucks per blade! And at that price you're stealing them!`,
+      razor: `This blade is ideal for cutting Ceramic Tile, Marble, Granite & even Porcelain and it cuts through it like a hot knife through butter! The new "Razor Blade" has a reinforced core to prevent warping, wobbling and walking and runs super quiet. This blade cuts really clean & fast & the manufacturer claims 100% chip free cutting.\n\nNow ${contactName}, retail stores would sell a blade of this quality for $150 bucks all day long! I normally wholesale it for $120 bucks! Right now we are giving this blade away for FREE! The way the promotion works is I send four blades out there — the first blade you pull out of the box is absolutely FREE! The next three are only $100 each!`,
     }
 
     let priorityAddon = ""
@@ -570,7 +570,7 @@ export function CommunicationCenter({
       </div>
 
       {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-          CALL TAB â€” with all 7 sub-panels
+          CALL TAB — with all 7 sub-panels
       â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {activeTab === "CALL" && (
         <div className="flex-1 flex flex-col min-h-0 gap-3">
@@ -602,7 +602,7 @@ export function CommunicationCenter({
                     phone={cleanPhone}
                     className="inline-flex items-center gap-2 px-8 py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--primary-foreground)] font-bold rounded-lg transition-colors shadow-lg text-sm"
                   >
-                    <FiPhoneCall /> Click to Dial â€” {displayPhone}
+                    <FiPhoneCall /> Click to Dial — {displayPhone}
                   </PhoneLink>
                 </div>
               ) : (
@@ -769,7 +769,7 @@ export function CommunicationCenter({
               {/* Quick-add top blades */}
               {topBladeProducts.length > 0 && (
                 <div className="mt-2">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mb-2">Top Selling Blades â€” Quick Add to Order</div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mb-2">Top Selling Blades — Quick Add to Order</div>
                   <div className="flex flex-wrap gap-2">
                     {topBladeProducts.map((p, i) => (
                       <button
@@ -983,7 +983,7 @@ export function CommunicationCenter({
 
           <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-4 scrollbar-thin max-h-[280px]">
             {chatMessages.length === 0 && (
-              <div className="text-center text-neutral-600 text-xs py-8">No messages yet â€” start the conversation below</div>
+              <div className="text-center text-neutral-600 text-xs py-8">No messages yet — start the conversation below</div>
             )}
             {chatMessages.map(msg => {
               const isRep = msg.sender === "rep"

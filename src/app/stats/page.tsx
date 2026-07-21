@@ -514,7 +514,7 @@ export default function StatsPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">{selectedRep.repName}</h3>
-                  <p className="text-[10px] text-neutral-500">{selectedRep.email} â€¢ Margin: {formatPercent(selectedRep.margin / 100)}</p>
+                  <p className="text-[10px] text-neutral-500">{selectedRep.email} ”¢ Margin: {formatPercent(selectedRep.margin / 100)}</p>
                 </div>
               </div>
               <button

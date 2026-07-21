@@ -180,7 +180,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
           {task.dueDate && (
             <span className={`ml-auto text-[11px] font-semibold shrink-0 ${overdue && !completed ? "text-red-400" : "text-neutral-500"}`}>
               <FiClock size={9} className="inline mr-0.5 -mt-0.5" />
-              {fmtDate(task.dueDate)}{fmtTime(task.dueDate) ? ` Â· ${fmtTime(task.dueDate)}` : ""}
+              {fmtDate(task.dueDate)}{fmtTime(task.dueDate) ? ` · ${fmtTime(task.dueDate)}` : ""}
             </span>
           )}
         </div>
@@ -190,7 +190,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
           {task.title}
         </p>
 
-        {/* Description preview â€” plain notes only, no outcome timestamps */}
+        {/* Description preview — plain notes only, no outcome timestamps */}
         {task.description && (() => {
           const plain = task.description.split("\n").filter((l: string) => !/^\[.+\]/.test(l.trim())).join(" ").trim()
           return plain ? (
@@ -208,7 +208,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
           </p>
         )}
 
-        {/* Deal chip â€” separate from account */}
+        {/* Deal chip — separate from account */}
         {task.dealName && (
           <p className="text-xs text-violet-400 flex items-center gap-1 mt-1">
             <FiShare2 size={10} className="shrink-0" />
@@ -291,7 +291,7 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
                   className={`w-full text-left text-sm px-4 py-3 transition-colors flex items-center gap-3 ${task.status === s ? "text-white font-bold bg-white/5" : "text-neutral-400 hover:bg-white/5 hover:text-white"}`}
                 >
                   <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[s]?.includes("emerald") ? "bg-emerald-400" : STATUS_COLORS[s]?.includes("sky") ? "bg-sky-400" : STATUS_COLORS[s]?.includes("yellow") ? "bg-yellow-400" : "bg-neutral-500"}`} />
-                  {s === "Waiting on someone else" ? "Waitingâ€¦" : s}
+                  {s === "Waiting on someone else" ? "Waiting”¦" : s}
                 </button>
               ))}
             </div>
@@ -365,7 +365,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
             <button onClick={handleSave} disabled={saving}
               className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-4 py-2 rounded-xl transition-all disabled:opacity-50"
             >
-              <FiSave size={13} /> {saving ? "â€¦" : "Save"}
+              <FiSave size={13} /> {saving ? "”¦" : "Save"}
             </button>
           </div>
         </div>
@@ -411,7 +411,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
                       editStatus === s ? STATUS_COLORS[s] + " border-opacity-100" : "bg-white/3 text-neutral-500 border-white/8 hover:bg-white/5"
                     }`}
                   >
-                    {s === "Waiting on someone else" ? "Waitingâ€¦" : s}
+                    {s === "Waiting on someone else" ? "Waiting”¦" : s}
                   </button>
                 ))}
               </div>
@@ -498,7 +498,7 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
                   setEditDesc(existing ? `${e.target.value}\n\n${existing}` : e.target.value)
                 }}
                 rows={5}
-                placeholder="Add notesâ€¦"
+                placeholder="Add notes”¦"
                 className="w-full bg-white/3 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-600 resize-none focus:outline-none focus:border-violet-500/50"
               />
             </div>
@@ -517,14 +517,14 @@ function TaskDetail({ task, onClose, onUpdate, onComplete }: {
                 <textarea
                   value={outcome}
                   onChange={e => setOutcome(e.target.value)}
-                  placeholder="Add outcome or updateâ€¦"
+                  placeholder="Add outcome or update”¦"
                   rows={2}
                   className="flex-1 bg-white/3 border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-600 resize-none focus:outline-none focus:border-violet-500/50"
                 />
                 <button onClick={handleAddOutcome} disabled={!outcome.trim() || addingOutcome}
                   className="px-4 self-end py-3 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold rounded-xl disabled:opacity-40 transition-all"
                 >
-                  {addingOutcome ? "â€¦" : "Add"}
+                  {addingOutcome ? "”¦" : "Add"}
                 </button>
               </div>
             </div>
@@ -632,7 +632,7 @@ function MiniCalendar({ tasks, onSelectTask }: { tasks: Task[]; onSelectTask: (t
     if (view === "year")  return cur.getFullYear().toString()
     const start = new Date(cur); start.setDate(start.getDate() - start.getDay())
     const end   = new Date(start); end.setDate(end.getDate() + 6)
-    return `${start.toLocaleDateString("en-US",{month:"short",day:"numeric"})} â€“ ${end.toLocaleDateString("en-US",{month:"short",day:"numeric"})}`
+    return `${start.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${end.toLocaleDateString("en-US",{month:"short",day:"numeric"})}`
   }
 
   const renderMonth = () => {
@@ -1023,7 +1023,7 @@ export default function TasksPage() {
       <div className="flex items-center justify-center h-full bg-[#0a0b0d]">
         <div className="text-center">
           <div className="w-12 h-12 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-sm text-neutral-500">Loading your tasksâ€¦</p>
+          <p className="text-sm text-neutral-500">Loading your tasks”¦</p>
         </div>
       </div>
     )
@@ -1052,8 +1052,8 @@ export default function TasksPage() {
             {/* Stats pills */}
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-sky-400 font-bold">{stats.open} open</span>
-              {stats.overdue > 0  && <span className="text-xs text-red-400 font-bold">Â· {stats.overdue} overdue</span>}
-              {stats.dueToday > 0 && <span className="text-xs text-amber-400 font-bold">Â· {stats.dueToday} due today</span>}
+              {stats.overdue > 0  && <span className="text-xs text-red-400 font-bold">· {stats.overdue} overdue</span>}
+              {stats.dueToday > 0 && <span className="text-xs text-amber-400 font-bold">· {stats.dueToday} due today</span>}
             </div>
           </div>
 
@@ -1092,7 +1092,7 @@ export default function TasksPage() {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search tasks, accountsâ€¦"
+              placeholder="Search tasks, accounts”¦"
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-violet-500/50"
             />
           </div>
@@ -1129,7 +1129,7 @@ export default function TasksPage() {
           <span className="text-xs text-neutral-600">{filteredTasks.length} task{filteredTasks.length !== 1 ? "s" : ""}</span>
           {showCompleted && (
             <span className="ml-2 text-xs text-emerald-500/70">
-              Â· {filteredTasks.filter(t => t.status === "Completed").length} completed
+              · {filteredTasks.filter(t => t.status === "Completed").length} completed
             </span>
           )}
         </div>
@@ -1181,8 +1181,8 @@ export default function TasksPage() {
                   if (catTasks.length === 0) return null
                   const cfg = CAT[cat]
                   const catLabels: Record<string, string> = {
-                    communication: "Communication â€” Calls, Emails & Texts",
-                    sales: "Sales â€” Account & Deal Tasks",
+                    communication: "Communication — Calls, Emails & Texts",
+                    sales: "Sales — Account & Deal Tasks",
                     process: "Office & Process"
                   }
                   return (

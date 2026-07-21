@@ -25,6 +25,8 @@ export function GlobalTopBar() {
   const searchRef = useRef<HTMLDivElement>(null)
 
   const [timeEntry, setTimeEntry] = useState<any>(null)
+  const timeEntryRef = useRef<any>(null)
+  useEffect(() => { timeEntryRef.current = timeEntry }, [timeEntry])
   const [geoStatus, setGeoStatus] = useState<{ status: string; location?: string } | null>(null)
   const [clockLoading, setClockLoading] = useState(false)
   const [monitorStatus, setMonitorStatus] = useState<MonitorStatus>('idle')
@@ -109,8 +111,8 @@ export function GlobalTopBar() {
     return () => clearInterval(interval)
   }, [currentUser?.id])
 
-  // â”€â”€ Activity-based Clock-In Prompt â”€â”€
-  // If user is logged in, data has loaded, and they're NOT clocked in â€” show prompt on first interaction
+  // ── Activity-based Clock-In Prompt ──
+  // If user is logged in, data has loaded, and they're NOT clocked in — show prompt on first interaction
   useEffect(() => {
     if (!currentUser?.id) return
     // Wait for timeclock data to load before deciding
@@ -133,7 +135,8 @@ export function GlobalTopBar() {
       clockPromptDismissed.current = true
       return
     }
-    const notClockedIn = !timeEntry || timeEntry.manualClockOut
+    const currentEntry = timeEntryRef.current
+    const notClockedIn = !currentEntry || currentEntry.manualClockOut
     setShowClockInPrompt(notClockedIn)
   }
 
@@ -164,8 +167,8 @@ export function GlobalTopBar() {
 
       // Show auto-clock toast
       const msg = event.action === 'clockIn'
-        ? `ðŸ“ Auto clocked in â€” ${event.fenceName || 'On-Site'}`
-        : `ðŸ‘‹ Auto clocked out â€” ${event.fenceName || 'Off-Site'}`
+        ? `ðŸ“ Auto clocked in — ${event.fenceName || 'On-Site'}`
+        : `ðŸ‘‹ Auto clocked out — ${event.fenceName || 'Off-Site'}`
       setAutoClockToast(msg)
       setTimeout(() => setAutoClockToast(null), 5000)
     })
@@ -180,7 +183,7 @@ export function GlobalTopBar() {
     return () => {
       unsubStatus()
       unsubEvent()
-      // Don't stop the monitor on unmount â€” it persists as singleton
+      // Don't stop the monitor on unmount — it persists as singleton
     }
   }, [currentUser?.id])
 
@@ -238,7 +241,7 @@ export function GlobalTopBar() {
         longitude = pos.coords.longitude
         accuracy = pos.coords.accuracy
       } catch {
-        // Permission denied or unavailable â€” proceed without GPS
+        // Permission denied or unavailable — proceed without GPS
         latitude = null
       }
     }
@@ -399,7 +402,7 @@ export function GlobalTopBar() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-bold text-white truncate">{i.invoiceNumber || i.items?.invoiceNumber || i.items?.invoice_number || i.items?.estimate_number || i.items?.salesorder_number || "Draft"}</div>
-                          <div className="text-xs text-neutral-500 truncate">{i.docType ? `${i.docType} Â· ` : ""}{i.status}{i.accountName ? ` Â· ${i.accountName}` : ""}</div>
+                          <div className="text-xs text-neutral-500 truncate">{i.docType ? `${i.docType} · ` : ""}{i.status}{i.accountName ? ` · ${i.accountName}` : ""}</div>
                         </div>
                         <div className="text-sm font-bold text-emerald-400">${parseFloat(i.amount).toFixed(2)}</div>
                       </div>
@@ -463,12 +466,12 @@ export function GlobalTopBar() {
         <div className="relative flex items-center rounded-lg border border-white/10 bg-white/[0.045] overflow-hidden text-xs lg:text-sm h-10 lg:h-9">
           {/* Geofence monitor indicator */}
           {monitorStatus === 'monitoring' && (
-            <div className="flex items-center px-2 h-full border-r border-white/10 bg-blue-500/10" title="ðŸ“ Auto-tracking active â€” GPS monitoring for clock-in/out">
+            <div className="flex items-center px-2 h-full border-r border-white/10 bg-blue-500/10" title="ðŸ“ Auto-tracking active — GPS monitoring for clock-in/out">
               <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,0.6)]" />
             </div>
           )}
           {monitorStatus === 'denied' && (
-            <div className="flex items-center px-2 h-full border-r border-white/10 bg-red-500/5" title="GPS permission denied â€” auto-tracking disabled">
+            <div className="flex items-center px-2 h-full border-r border-white/10 bg-red-500/5" title="GPS permission denied — auto-tracking disabled">
               <div className="w-2 h-2 rounded-full bg-red-500/60" />
             </div>
           )}

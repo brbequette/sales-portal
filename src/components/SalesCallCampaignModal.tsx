@@ -35,7 +35,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
   const [followUpDate, setFollowUpDate] = useState("")
   const [contactReached, setContactReached] = useState(true)
   
-  // Fact-Finding â€” single unified object (replaces 11 individual ff* states)
+  // Fact-Finding — single unified object (replaces 11 individual ff* states)
   const [factFinding, setFactFinding] = useState<FactFindingValues>(EMPTY_FACT_FINDING)
   const [callType, setCallType] = useState<"cold" | "update">("cold")
 
@@ -740,7 +740,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       <div className="bg-black/20/60 border border-white/10 p-4 rounded-xl text-sm text-neutral-300 leading-relaxed whitespace-pre-line select-text">
                         {`Hey, ${contactName} this is ${repName} over at Titan Diamond USA. I'm giving you a call today because we have an early release on our brand new 2026 line-up of blades that we featured at the The World of Concrete and ConExpo shows in Las Vegas this year and what's great is with this new release, our manufacturer wants us to give away free blades to our new customers to build new relationships... I just have a quick couple questions to see which blade will work best for you and what you're cutting...`}
                       </div>
-                      {/* Fact-Finding Questions â€” shared FactFindingPanel component */}
+                      {/* Fact-Finding Questions — shared FactFindingPanel component */}
                       <FactFindingPanel
                         values={factFinding}
                         onChange={setFactFinding}
@@ -761,7 +761,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                       {generateScript()}
                     </div>
 
-                    {/* Fact-finding for follow-ups â€” shared FactFindingPanel component */}
+                    {/* Fact-finding for follow-ups — shared FactFindingPanel component */}
                     <FactFindingPanel
                       values={factFinding}
                       onChange={setFactFinding}
@@ -852,7 +852,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                 <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ’³ Full card number</div>
                 <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ“… Expiration date</div>
                 <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ”’ CVV code</div>
-                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ“Â Billing ZIP code</div>
+                <div className="bg-sky-500/5 border border-sky-500/10 rounded-lg px-3 py-1.5 text-[10px] text-sky-300 font-bold">ðŸ“ Billing ZIP code</div>
               </div>
               <p className="text-xs text-neutral-500 pl-7 mt-2 italic">
                 Or Net 30: "Great  --  I'll get everything rolling and email your invoice with Net 30 terms. Who's the best contact for billing on your end?"

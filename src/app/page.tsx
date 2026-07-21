@@ -135,7 +135,7 @@ export default function Dashboard() {
   const [prefsLoaded, setPrefsLoaded] = useState(false)
   useEffect(() => {
     if (!preferences || prefsLoaded) return
-    // effort tab always defaults to "sales" (Sales Pipeline) â€” not restored from prefs
+    // effort tab always defaults to "sales" (Sales Pipeline) — not restored from prefs
     if (preferences.ownerFilter) setOwnerFilter(preferences.ownerFilter)
     if (preferences.sortBy) setSortBy(preferences.sortBy)
     if (preferences.searchQuery) setSearchQuery(preferences.searchQuery)
@@ -1415,7 +1415,7 @@ export default function Dashboard() {
         {/* â”€â”€ Main 2-col grid â”€â”€ */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-          {/* Accounts list â€” full width on mobile, hidden when tasks tab active */}
+          {/* Accounts list — full width on mobile, hidden when tasks tab active */}
           <div className={`lg:col-span-2 space-y-3 ${mobileTab === "tasks" ? "hidden sm:block" : ""}`}>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <h2 className="text-base font-bold text-white whitespace-nowrap flex items-center gap-2">
@@ -1690,7 +1690,7 @@ export default function Dashboard() {
                     const cleanPhone = rawPhone ? rawPhone.replace(/[^0-9+]/g, '') : ''
                     const displayPhone = rawPhone  // unformatted original for display
 
-                    // Top 2 contacts for call list fallback â€” primary always first
+                    // Top 2 contacts for call list fallback — primary always first
                     const top2Contacts = [...(account.contacts || [])]
                       .sort((a: any, b: any) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0))
                       .slice(0, 2)
@@ -2024,7 +2024,7 @@ export default function Dashboard() {
                   {accountsHasMore && (
                     <div className="flex items-center justify-center gap-2 mt-2 py-1">
                       <div className="w-3 h-3 rounded-full border-2 border-neutral-600 border-t-blue-400 animate-spin" />
-                      <p className="text-[11px] text-neutral-500">Loading accountsâ€¦ {accounts.length.toLocaleString()} of {accountsTotalCount.toLocaleString()}</p>
+                      <p className="text-[11px] text-neutral-500">Loading accounts”¦ {accounts.length.toLocaleString()} of {accountsTotalCount.toLocaleString()}</p>
                     </div>
                   )}
                 </div>
@@ -2032,7 +2032,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Tasks â€” stacks below on mobile, column on desktop */}
+          {/* Tasks — stacks below on mobile, column on desktop */}
           <div className={`lg:col-span-1 border-l border-[var(--border)] lg:pl-4 space-y-4 ${mobileTab === "accounts" ? "hidden sm:block" : ""}`}>
             <OrderNextSteps accounts={accounts} onViewDoc={(type, doc) => { setViewingDocType(type as any); setViewingInvoice(doc) }} />
 
@@ -2309,7 +2309,7 @@ export default function Dashboard() {
                         )}
                         <p className="text-neutral-400 text-xs mt-1 flex items-center gap-1.5">
                           <FiFileText className="text-amber-500 shrink-0" size={11} />
-                          <span className="text-emerald-400 group-hover:underline font-mono">#{(item.items as any)?.invoiceNumber || (item.items as any)?.invoice_number || (item.items as any)?.salesOrderNumber || (item.items as any)?.salesorder_number || (item.items as any)?.estimateNumber || (item.items as any)?.estimate_number || item.zohoId || item.id || "â€”"}</span>
+                          <span className="text-emerald-400 group-hover:underline font-mono">#{(item.items as any)?.invoiceNumber || (item.items as any)?.invoice_number || (item.items as any)?.salesOrderNumber || (item.items as any)?.salesorder_number || (item.items as any)?.estimateNumber || (item.items as any)?.estimate_number || item.zohoId || item.id || "—"}</span>
                           <span className="text-neutral-500 font-sans ml-1 flex flex-col gap-0.5 border-l border-[var(--border)] pl-2">
                             <span>Ordered: {new Date(item.issueDate || item.orderDate || item.createdAt || Date.now()).toLocaleDateString()}</span>
                             {item.status === 'Paid' && (
@@ -2515,7 +2515,7 @@ export default function Dashboard() {
                       placeholder="Min"
                       className="w-full bg-neutral-800 border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                     />
-                    <span className="text-neutral-500 text-xs">â€“</span>
+                    <span className="text-neutral-500 text-xs">–</span>
                     <input
                       type="number"
                       value={ltvMax}
@@ -2558,7 +2558,7 @@ export default function Dashboard() {
                   <label className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                     âš  Missing Vital Info
                   </label>
-                  <p className="text-[10px] text-neutral-500">Show accounts missing key data â€” use to clean up your CRM</p>
+                  <p className="text-[10px] text-neutral-500">Show accounts missing key data — use to clean up your CRM</p>
                   {[
                     { key: "noPhone", label: "No Phone Number (account + all contacts)" },
                     { key: "noEmail", label: "No Email (account + all contacts)" },

@@ -181,7 +181,7 @@ export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any)
         } else if (status === "partially_paid") {
           stage = "partially_paid"
         } else if (status === "paid") {
-          // Check if recent (within 14 days) â€” needs gift
+          // Check if recent (within 14 days) — needs gift
           if (daysOld <= 14) {
             stage = "needs_gift"
           } else {
@@ -197,7 +197,7 @@ export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any)
         pipelineDeals.push({
           id: inv.invoice_id || inv.salesorder_id || inv.estimate_id || String(Math.random()),
           customer: inv.customer_name || "Unknown",
-          invoiceNumber: inv.invoice_number || inv.salesorder_number || inv.estimate_number || "â€”",
+          invoiceNumber: inv.invoice_number || inv.salesorder_number || inv.estimate_number || "—",
           amount,
           profit,
           date: dateStr,

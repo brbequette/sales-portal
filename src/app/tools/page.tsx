@@ -37,12 +37,12 @@ export default function ToolsRepository() {
   const [productCategory, setProductCategory] = useState("All")
 
   const parseProductDescription = (desc: string | null) => {
-    if (!desc) return { text: "â€”", cost: null, vendor: null, retail: null, pertinentInfo: null, image: null }
+    if (!desc) return { text: "—", cost: null, vendor: null, retail: null, pertinentInfo: null, image: null }
     try {
       const parsed = JSON.parse(desc)
       if (parsed && typeof parsed === "object") {
         return {
-          text: parsed.text || "â€”",
+          text: parsed.text || "—",
           cost: parsed.cost !== undefined ? parsed.cost : null,
           vendor: parsed.vendor || null,
           retail: parsed.retail !== undefined ? parsed.retail : null,

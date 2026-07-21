@@ -232,7 +232,7 @@ function AccountLeftRail({
   )
 }
 
-// OverviewPanel â€” full accordion dashboard for the Overview tab
+// OverviewPanel — full accordion dashboard for the Overview tab
 function AccordionSection({
   title, icon, badge, defaultOpen = true, children,
 }: {
@@ -759,7 +759,7 @@ function AccountHubContent() {
       {/* 2-Column Body */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
 
-        {/* Left Rail â€” always visible on desktop, toggled on mobile */}
+        {/* Left Rail — always visible on desktop, toggled on mobile */}
         {leftRailOpen && (
           <>
             {/* Desktop */}

@@ -265,7 +265,7 @@ export default function UserTimeclockPage() {
                               {entry.manualClockOut && <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">Edited</span>}
                             </td>
                             <td className="px-6 py-4 font-bold text-emerald-400">
-                              <span className="md:hidden text-[10px] text-neutral-500 block mb-0.5">{formatTime(effectiveIn)} â€“ {formatTime(effectiveOut)}</span>
+                              <span className="md:hidden text-[10px] text-neutral-500 block mb-0.5">{formatTime(effectiveIn)} – {formatTime(effectiveOut)}</span>
                               {calculateHours(entry).toFixed(2)}h
                               {entry.locationStatus === 'VERIFIED' && (
                                 <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
@@ -289,12 +289,12 @@ export default function UserTimeclockPage() {
                                   {entry.inactivityPeriods.map((lapse: any, idx: number) => (
                                     <div key={lapse.id || idx} className="flex items-center gap-1.5 text-xs text-red-400">
                                       <FiAlertCircle className="shrink-0" />
-                                      <span>{formatTime(lapse.start)} â€“ {formatTime(lapse.end)} ({lapse.durationMinutes}m)</span>
+                                      <span>{formatTime(lapse.start)} – {formatTime(lapse.end)} ({lapse.durationMinutes}m)</span>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <span className="text-xs text-neutral-600">â€”</span>
+                                <span className="text-xs text-neutral-600">—</span>
                               )}
                             </td>
                             <td className="px-6 py-4">
@@ -327,7 +327,7 @@ export default function UserTimeclockPage() {
                                     {entry.inactivityPeriods.map((lapse: any, idx: number) => (
                                       <div key={lapse.id || idx} className="flex items-center gap-2 text-xs text-red-400">
                                          <FiAlertCircle /> 
-                                         <span>Idle: {formatTime(lapse.start)} â€“ {formatTime(lapse.end)} ({lapse.durationMinutes} min)</span>
+                                         <span>Idle: {formatTime(lapse.start)} – {formatTime(lapse.end)} ({lapse.durationMinutes} min)</span>
                                       </div>
                                     ))}
                                   </div>

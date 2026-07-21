@@ -19,7 +19,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const isLoginPage = typeof window !== "undefined" && window.location.pathname.includes("/login")
 
   // Fast-path: if URL carries Zoho merge-field params (email or zohoId),
-  // the user is already identified â€” authorize immediately
+  // the user is already identified — authorize immediately
   useEffect(() => {
     if (typeof window === "undefined") return
     const params = new URLSearchParams(window.location.search)
@@ -30,7 +30,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Login page always renders â€” no auth gating needed
+    // Login page always renders — no auth gating needed
     if (isLoginPage) {
       setIsAuthorized(true)
       setChecking(false)
@@ -69,7 +69,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
         setIsAuthorized(true)
         setChecking(false)
       } else {
-        // No session found â€” redirect to login
+        // No session found — redirect to login
         if (!redirected.current) {
           redirected.current = true
           console.log("No session found. Redirecting to login.")
@@ -110,7 +110,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   // Login page always renders immediately
   if (isLoginPage) return <>{children}</>
 
-  // Still checking â€” show loading
+  // Still checking — show loading
   if (checking || !isAuthorized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-(--background) text-(--foreground)">

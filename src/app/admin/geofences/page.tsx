@@ -145,7 +145,7 @@ export default function AdminGeofencesPage() {
           longitude: pos.coords.longitude.toFixed(6),
         }))
         setLocating(false)
-        setToast({ message: `ðŸ“ Location captured (Â±${Math.round(pos.coords.accuracy)}m accuracy)`, type: "success" })
+        setToast({ message: `ðŸ“ Location captured (±${Math.round(pos.coords.accuracy)}m accuracy)`, type: "success" })
       },
       (err) => {
         setLocating(false)
@@ -234,7 +234,7 @@ export default function AdminGeofencesPage() {
                   Status
                 </label>
                 <p className="text-xs text-neutral-500 font-semibold">
-                  {geofence.isActive ? "Geofence is active â€” auto clock-in/out is enabled" : "Geofence is disabled â€” manual clock only"}
+                  {geofence.isActive ? "Geofence is active — auto clock-in/out is enabled" : "Geofence is disabled — manual clock only"}
                 </p>
               </div>
               <button
@@ -385,11 +385,11 @@ export default function AdminGeofencesPage() {
           <div className="mt-6 bg-blue-950/30 border border-blue-500/20 rounded-xl p-5">
             <h3 className="text-sm font-black uppercase tracking-wider text-blue-400 mb-2">How It Works</h3>
             <ul className="text-xs text-neutral-400 space-y-1.5 font-medium leading-relaxed">
-              <li>â€¢ GPS is monitored in the background when the portal is open</li>
-              <li>â€¢ Employee enters geofence â†’ <span className="text-emerald-400 font-bold">auto clock-in</span> after 30 seconds</li>
-              <li>â€¢ Employee leaves geofence â†’ <span className="text-red-400 font-bold">auto clock-out</span> after 5 minutes</li>
-              <li>â€¢ Manual clock-in/out always overrides the geofence</li>
-              <li>â€¢ GPS accuracy must be within 500m for geofence checks</li>
+              <li>”¢ GPS is monitored in the background when the portal is open</li>
+              <li>”¢ Employee enters geofence â†’ <span className="text-emerald-400 font-bold">auto clock-in</span> after 30 seconds</li>
+              <li>”¢ Employee leaves geofence â†’ <span className="text-red-400 font-bold">auto clock-out</span> after 5 minutes</li>
+              <li>”¢ Manual clock-in/out always overrides the geofence</li>
+              <li>”¢ GPS accuracy must be within 500m for geofence checks</li>
             </ul>
           </div>
         </div>

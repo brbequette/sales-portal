@@ -152,7 +152,7 @@ export function AccountAnalytics({
         >
           <div className="text-[10px] uppercase text-neutral-500 font-semibold mb-1">Order Freq.</div>
           <div className="text-lg font-bold text-purple-400">
-            {analytics.avgDaysBetween !== null ? `${analytics.avgDaysBetween}d` : "â€”"}
+            {analytics.avgDaysBetween !== null ? `${analytics.avgDaysBetween}d` : "—"}
           </div>
           <div className="text-[10px] text-neutral-500 mt-0.5">avg between orders</div>
         </div>

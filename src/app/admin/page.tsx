@@ -175,7 +175,7 @@ export default function AdminDashboardPage() {
                 <FiRefreshCw size={20} className={syncing ? "animate-spin" : ""} />
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-white mb-1">Bulk Sync â€” Zoho Books</h3>
+                <h3 className="font-bold text-white mb-1">Bulk Sync — Zoho Books</h3>
                 <p className="text-xs text-neutral-400 leading-relaxed mb-3">
                   Pull accounts, invoices, quotes, and sales orders from Zoho Books. Sync one at a time or all sequentially.
                 </p>
@@ -220,7 +220,7 @@ export default function AdminDashboardPage() {
                       <div className="text-lg font-black text-white">{result.synced || 0}</div>
                       <div className="text-neutral-500">{entityLabels[entity]?.label || entity}</div>
                       <div className="text-[10px] text-neutral-600">
-                        {result.apiCalls || 0} calls Â· {result.skipped || 0} skipped
+                        {result.apiCalls || 0} calls · {result.skipped || 0} skipped
                       </div>
                       {result.error && (
                         <div className="text-[10px] text-red-400 mt-1">{result.error}</div>

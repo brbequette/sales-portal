@@ -14,7 +14,7 @@ interface InvoiceDetailsModalProps {
   invoice: any | string; // Can be an invoice object or just the zohoId string
   type?: "Quote" | "SalesOrder" | "Invoice";
   onClose: () => void;
-  // Optional navigation â€” pass the full list and current index to enable prev/next
+  // Optional navigation — pass the full list and current index to enable prev/next
   invoiceList?: any[];
   currentIndex?: number;
   onNavigate?: (index: number) => void;
@@ -333,7 +333,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 <p className="text-[10px] text-neutral-400 font-mono truncate">Zoho ID: {zohoId}</p>
                 {dataSource === 'local_db' && (
                   <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-sky-400 bg-sky-900/20 border border-sky-800/40 rounded px-1.5 py-0.5">
-                    âš¡ Cached{cachedAt ? ` Â· ${(() => { const mins = Math.round((Date.now() - new Date(cachedAt).getTime()) / 60000); return mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago` })()}` : ''}
+                    âš¡ Cached{cachedAt ? ` · ${(() => { const mins = Math.round((Date.now() - new Date(cachedAt).getTime()) / 60000); return mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago` })()}` : ''}
                   </span>
                 )}
                 {dataSource === 'zoho_live' && (
@@ -483,7 +483,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
             {/* â”€â”€ SHARED ACTIONS (all document types) â”€â”€ */}
             <div className="flex items-center gap-1">
-              {/* Process Costs â€” all document types */}
+              {/* Process Costs — all document types */}
               {!isVoided && (
                 <button
                   onClick={handleProcessCosts}
@@ -569,7 +569,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">{type === 'Quote' ? 'Quote' : type === 'SalesOrder' ? 'SO' : 'Invoice'} #</label>
-                  <div className="text-sm text-white font-mono truncate">{displayData.items?.invoiceNumber || displayData.items?.invoice_number || displayData.items?.salesOrderNumber || displayData.items?.salesorder_number || displayData.items?.estimateNumber || displayData.items?.estimate_number || displayData.invoiceNumber || displayData.invoice_number || displayData.salesorder_number || displayData.estimate_number || displayData.zohoId || "â€”"}</div>
+                  <div className="text-sm text-white font-mono truncate">{displayData.items?.invoiceNumber || displayData.items?.invoice_number || displayData.items?.salesOrderNumber || displayData.items?.salesorder_number || displayData.items?.estimateNumber || displayData.items?.estimate_number || displayData.invoiceNumber || displayData.invoice_number || displayData.salesorder_number || displayData.estimate_number || displayData.zohoId || "—"}</div>
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Amount</label>
@@ -577,11 +577,11 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Status</label>
-                  <div className={`text-sm font-bold ${displayData.status === 'Paid' || displayData.status === 'paid' ? 'text-blue-400' : displayData.status === 'Overdue' || displayData.status === 'overdue' ? 'text-red-400' : isVoided ? 'text-neutral-500' : 'text-amber-400'}`}>{displayData.status || "â€”"}</div>
+                  <div className={`text-sm font-bold ${displayData.status === 'Paid' || displayData.status === 'paid' ? 'text-blue-400' : displayData.status === 'Overdue' || displayData.status === 'overdue' ? 'text-red-400' : isVoided ? 'text-neutral-500' : 'text-amber-400'}`}>{displayData.status || "—"}</div>
                 </div>
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Issue Date</label>
-                  <div className="text-sm text-white">{displayData.issueDate || displayData.date ? new Date(displayData.issueDate || displayData.date).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "â€”"}</div>
+                  <div className="text-sm text-white">{displayData.issueDate || displayData.date ? new Date(displayData.issueDate || displayData.date).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "—"}</div>
                 </div>
                 {displayData.due_date && (
                   <div>
@@ -623,7 +623,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                   <span className="text-amber-400 text-lg">âš </span>
                   <div>
                     <div className="text-[10px] uppercase font-black text-amber-400 tracking-wider">Needs Shipping Costs</div>
-                    <div className="text-[10px] text-amber-300/70">Shipping charge is $0.00 â€” update in Zoho Books</div>
+                    <div className="text-[10px] text-amber-300/70">Shipping charge is $0.00 — update in Zoho Books</div>
                   </div>
                 </div>
               )}
@@ -741,21 +741,21 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                                     <div className="font-semibold text-white truncate">{li.name || li.sku || `Item ${idx+1}`}</div>
                                     {li.sku && <div className="text-[9px] text-neutral-500 font-mono">{li.sku}</div>}
                                   </div>
-                                  <div className="text-right text-neutral-300 self-center">{li.quantity ?? 'â€”'}</div>
+                                  <div className="text-right text-neutral-300 self-center">{li.quantity ?? '—'}</div>
                                   <div className="text-right text-neutral-300 self-center">
-                                    {li.rate != null ? `$${parseFloat(li.rate).toFixed(2)}` : 'â€”'}
+                                    {li.rate != null ? `$${parseFloat(li.rate).toFixed(2)}` : '—'}
                                   </div>
                                   <div className="text-right self-center">
                                     {li.deadCost != null ? (
                                       <span className="text-amber-300 font-bold">${parseFloat(li.deadCost).toFixed(2)}</span>
-                                    ) : 'â€”'}
+                                    ) : '—'}
                                   </div>
                                   <div className="text-right self-center">
                                     {li.deadCost != null && !li.noVig ? (
                                       <span className="text-emerald-400 font-bold">${(parseFloat(li.deadCost) * (parseFloat((displayData?.items as any)?.vigRate || costResult?.vigRate || 1.3))).toFixed(2)}</span>
                                     ) : li.noVig ? (
                                       <span className="text-neutral-400 text-[9px]">No VIG</span>
-                                    ) : 'â€”'}
+                                    ) : '—'}
                                   </div>
                                   <div className="text-right self-center flex justify-end gap-0.5 flex-wrap">
                                     {li.noVig && <span className="text-[8px] bg-blue-500/20 text-blue-300 px-1 rounded font-bold">NV</span>}

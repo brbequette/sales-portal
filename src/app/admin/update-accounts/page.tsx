@@ -447,7 +447,7 @@ export default function AdminUpdateAccountsPage() {
                 placeholder="Min"
                 className="w-20 bg-black/20 border border-neutral-700 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none focus:border-purple-500"
               />
-              <span className="text-neutral-600 text-xs">â€“</span>
+              <span className="text-neutral-600 text-xs">–</span>
               <input
                 type="number"
                 value={ltvMax}

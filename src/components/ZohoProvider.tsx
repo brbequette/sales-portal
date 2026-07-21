@@ -133,7 +133,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
 
         // Failsafe: if init() hangs (running standalone but SDK script loaded), give up after 3s
         const initFallback = setTimeout(() => {
-          console.warn("Zoho embeddedApp.init timed out. Standalone mode â€” redirecting to login.")
+          console.warn("Zoho embeddedApp.init timed out. Standalone mode — redirecting to login.")
           setIsInitialized(true) // Let AuthWrapper redirect to /login
         }, 3000)
 

@@ -70,10 +70,10 @@ function getTrackingUrl(carrier: string, tracking: string): string | null {
 }
 
 function formatAddress(addr: any): string {
-  if (!addr) return "â€”"
+  if (!addr) return "—"
   if (typeof addr === "string") return addr
   const parts = [addr.address, addr.street2, addr.city, addr.state, addr.zip || addr.code, addr.country].filter(Boolean)
-  return parts.join(", ") || "â€”"
+  return parts.join(", ") || "—"
 }
 
 export default function ShippingPage() {
@@ -332,13 +332,13 @@ export default function ShippingPage() {
                   {/* SO Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-bold text-sm">{order.soNumber || "â€”"}</span>
-                      <span className="text-neutral-600 text-xs">â€¢</span>
+                      <span className="text-white font-bold text-sm">{order.soNumber || "—"}</span>
+                      <span className="text-neutral-600 text-xs">”¢</span>
                       <span className="text-neutral-400 text-sm truncate">{order.customerName}</span>
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
                       <span className="text-[10px] text-neutral-600">
-                        {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "â€”"}
+                        {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "—"}
                       </span>
                       <span className="text-[10px] text-neutral-600">
                         {order.lineItemCount} item{order.lineItemCount !== 1 ? "s" : ""}

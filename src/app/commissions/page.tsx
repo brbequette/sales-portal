@@ -90,7 +90,7 @@ type CommData = {
 
 
 function fmtDate(s: string | null) {
-  if (!s) return "â€”"
+  if (!s) return "—"
   return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
@@ -184,7 +184,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
           </div>
           <div className="min-w-0 text-left">
             <div className="text-sm font-bold text-white truncate">{rep.repName}</div>
-            <div className="text-[10px] text-neutral-500">{rep.invoices.length} invoices Â· {rep.deals.length} pipeline deals</div>
+            <div className="text-[10px] text-neutral-500">{rep.invoices.length} invoices · {rep.deals.length} pipeline deals</div>
           </div>
         </div>
         <div className="flex items-center gap-6 shrink-0 ml-4">
@@ -312,7 +312,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                                             ? 'bg-amber-900/30 text-amber-400'
                                             : 'bg-emerald-900/30 text-emerald-400'
                                         }`}>
-                                          {isUpfront ? 'Â½ Upfront' : 'Â½ Final'}
+                                          {isUpfront ? '½ Upfront' : '½ Final'}
                                         </span>
                                       </div>
                                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
@@ -323,11 +323,11 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                                         ) : (
                                           <span className="text-[10px] text-neutral-400">ðŸ¢ {inv.accountName}</span>
                                         )}
-                                        <span className="text-[10px] text-neutral-600">â€¢</span>
+                                        <span className="text-[10px] text-neutral-600">”¢</span>
                                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${
                                           inv.isPaid ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/20 text-amber-400'
                                         } font-bold`}>{inv.status}</span>
-                                        <span className="text-[10px] text-neutral-600">â€¢</span>
+                                        <span className="text-[10px] text-neutral-600">”¢</span>
                                         <span className="text-[10px] text-neutral-500">{fmtDate(eventDate)}</span>
                                       </div>
                                     </div>
@@ -382,9 +382,9 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                       ) : (
                         <span className="text-[10px] text-neutral-400">ðŸ¢ {deal.accountName}</span>
                       )}
-                      <span className="text-[10px] text-neutral-600">â€¢</span>
+                      <span className="text-[10px] text-neutral-600">”¢</span>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${stageColor(deal.stage)}`}>{deal.stage}</span>
-                      <span className="text-[10px] text-neutral-600">â€¢</span>
+                      <span className="text-[10px] text-neutral-600">”¢</span>
                       <span className="text-[10px] text-neutral-500">{fmtDate(deal.closeDate)}</span>
                     </div>
                   </div>

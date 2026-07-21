@@ -5,9 +5,9 @@
  * FactFindingPanel.tsx
  *
  * Shared fact-finding component used across:
- *   - SalesCallCampaignModal (dialer â€” cold + follow-up calls)
- *   - CommunicationCenter (account screen â€” call tab)
- *   - AccountEditModal (Profile Data tab â€” editable account profile)
+ *   - SalesCallCampaignModal (dialer — cold + follow-up calls)
+ *   - CommunicationCenter (account screen — call tab)
+ *   - AccountEditModal (Profile Data tab — editable account profile)
  *   - AccountSlideout (compact read-only summary chips)
  *
  * Standardizes all FF fields, options, and pill-selection UX in one place.
@@ -138,7 +138,7 @@ export const FF_QUESTIONS: Question[] = [
   {
     num: 9, key: "jobTypes",
     label: "Job Types",
-    coldQ: '"What kinds of jobs are you running â€” road work, commercial, residential?"',
+    coldQ: '"What kinds of jobs are you running — road work, commercial, residential?"',
     followUpQ: '"What types of jobs are you working on?"',
     options: FF_OPTIONS.jobTypes,
     multi: true,
@@ -362,7 +362,7 @@ export function FactFindingPanel({
                 </p>
               </div>
 
-              {/* Answered answer badge â€” shown above the pills so rep can see/change */}
+              {/* Answered answer badge — shown above the pills so rep can see/change */}
               {isAnswered && (
                 <div className="pl-7">
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/25 px-2 py-1 rounded-lg">
@@ -372,7 +372,7 @@ export function FactFindingPanel({
                 </div>
               )}
 
-              {/* Pills â€” always shown so rep can change the answer */}
+              {/* Pills — always shown so rep can change the answer */}
               {!readOnly && (
                 <div className="pl-7">
                   <PillRow

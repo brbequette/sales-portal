@@ -319,7 +319,7 @@ export default function AdminSettingsPage() {
                       }
                       className="w-full bg-black/20 border border-neutral-700 rounded-xl px-3 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-purple-500 transition-colors appearance-none cursor-pointer pr-8"
                     >
-                      <option value="">â€” Select Rep â€”</option>
+                      <option value="">— Select Rep —</option>
                       {users.map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.name} ({u.email})

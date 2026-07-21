@@ -4,17 +4,17 @@
 /**
  * OrderBuilder.tsx
  *
- * Universal Order Builder â€” shared by all POS transaction spots:
- *   â€¢ SalesCallCampaignModal (Titan Dialer campaign view)
- *   â€¢ AccountDialer (account page dialer)
- *   â€¢ CommunicationCenter (account page comm hub)
+ * Universal Order Builder — shared by all POS transaction spots:
+ *   ”¢ SalesCallCampaignModal (Titan Dialer campaign view)
+ *   ”¢ AccountDialer (account page dialer)
+ *   ”¢ CommunicationCenter (account page comm hub)
  *
  * Features:
- *   âœ… Blade Lookup â€” filter by Application, Size, Type â†’ Good/Better/Best cards
+ *   âœ… Blade Lookup — filter by Application, Size, Type â†’ Good/Better/Best cards
  *   âœ… Product search (full catalog)
  *   âœ… Quick-Add top 10 blades
- *   âœ… Sold Items section (paidQty > 0) â€” editable qty input + +/- buttons
- *   âœ… Promotional Items section (freeQty > 0) â€” separated, green, gift items
+ *   âœ… Sold Items section (paidQty > 0) — editable qty input + +/- buttons
+ *   âœ… Promotional Items section (freeQty > 0) — separated, green, gift items
  *   âœ… Editable unit price per line
  *   âœ… Live financials (Dead Cost, Profit, VIG, Commission, Margin)
  *   âœ… Sales Order preview modal
@@ -49,7 +49,7 @@ export interface OrderBuilderProps {
   accountName?: string
   /** Optional: full account/address object for Sales Order */
   accountDetail?: any
-  /** Accent colour class prefix (e.g. "violet", "cyan") â€” defaults to "violet" */
+  /** Accent colour class prefix (e.g. "violet", "cyan") — defaults to "violet" */
   accent?: "violet" | "cyan" | "emerald" | "sky"
   accountId?: string
   dealId?: string
@@ -486,7 +486,7 @@ export function OrderBuilder({
         </span>
         {orderLines.length > 0 && (
           <span className="text-[10px] font-black text-violet-300">
-            {orderLines.length} item{orderLines.length !== 1 ? "s" : ""} Â· ${orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {orderLines.length} item{orderLines.length !== 1 ? "s" : ""} · ${orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </span>
         )}
       </div>
@@ -500,7 +500,7 @@ export function OrderBuilder({
         >
           <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
             <FiFilter size={11} />
-            Blade Lookup â€” Application Â· Size Â· Type
+            Blade Lookup — Application · Size · Type
           </span>
           <FiChevronDown
             size={12}
@@ -556,7 +556,7 @@ export function OrderBuilder({
                                 <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${colors.badge} shrink-0`}>{tier}</span>
                                 <div className="min-w-0">
                                   <p className="text-[11px] font-bold text-white truncate">{b.name}</p>
-                                  <p className="text-[8px] text-neutral-500">{b.sku} Â· {b.size ?? "?"} Â· {b.type}</p>
+                                  <p className="text-[8px] text-neutral-500">{b.sku} · {b.size ?? "?"} · {b.type}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
@@ -615,7 +615,7 @@ export function OrderBuilder({
                   <FiPlus size={12} className="text-violet-400" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] font-bold text-white truncate">{p.name}</p>
-                    <p className="text-[9px] text-neutral-500">{p.sku} Â· {p.category}</p>
+                    <p className="text-[9px] text-neutral-500">{p.sku} · {p.category}</p>
                   </div>
                   <span className="text-[10px] font-mono font-bold text-amber-400 shrink-0">${(p.price || 0).toFixed(2)}</span>
                 </button>
@@ -625,10 +625,10 @@ export function OrderBuilder({
         )}
       </div>
 
-      {/* â”€â”€ Quick Add â€” Top Blades â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â”€â”€ Quick Add — Top Blades â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {topBladeProducts.length > 0 && (
         <div>
-          <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold mb-1.5">Quick Add â€” Top Blades</p>
+          <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold mb-1.5">Quick Add — Top Blades</p>
           <div className="flex flex-wrap gap-1.5">
             {topBladeProducts.map(bp => {
               return (
@@ -781,7 +781,7 @@ export function OrderBuilder({
             >
               <div className="min-w-0">
                 <span className="text-[11px] font-bold text-emerald-300 truncate block">{line.name}</span>
-                <span className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL â€” FREE Â· {line.sku}</span>
+                <span className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL — FREE · {line.sku}</span>
               </div>
 
               <div className="flex justify-center">
@@ -898,7 +898,7 @@ export function OrderBuilder({
               <div>
                 <h3 className="text-white font-black text-base">Sales Order Preview</h3>
                 <p className="text-[10px] text-neutral-500 mt-0.5">
-                  {accountName || "Customer"} Â· {new Date().toLocaleDateString()}
+                  {accountName || "Customer"} · {new Date().toLocaleDateString()}
                 </p>
               </div>
               <button type="button" onClick={() => setShowMockOrder(false)} className="text-neutral-500 hover:text-white cursor-pointer">
@@ -964,7 +964,7 @@ export function OrderBuilder({
                       <div key={`so-promo-${line.id}`} className={`grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-2 ${i % 2 === 0 ? "bg-emerald-950/10" : ""}`}>
                         <div className="min-w-0">
                           <p className="text-[11px] font-bold text-emerald-300 truncate">{line.name}</p>
-                          <p className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL â€” FREE</p>
+                          <p className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL — FREE</p>
                         </div>
                         <span className="text-[11px] font-black text-emerald-400 text-center">{line.quantity}</span>
                         <span className="text-[10px] font-mono text-emerald-700 text-right">$0.00</span>

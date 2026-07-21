@@ -124,10 +124,10 @@ export default function VendorsPage() {
               <tbody className="divide-y divide-neutral-800">
                 {vendors.map(v => (
                   <tr key={v.id} className="hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
-                    <td className="px-6 py-4 font-bold text-white">{v.contactName || 'â€”'}</td>
-                    <td className="px-6 py-4 text-neutral-400 font-medium">{v.companyName || 'â€”'}</td>
-                    <td className="px-6 py-4 text-neutral-400 font-medium">{v.email || 'â€”'}</td>
-                    <td className="px-6 py-4 text-neutral-400 font-medium">{v.phone || 'â€”'}</td>
+                    <td className="px-6 py-4 font-bold text-white">{v.contactName || '—'}</td>
+                    <td className="px-6 py-4 text-neutral-400 font-medium">{v.companyName || '—'}</td>
+                    <td className="px-6 py-4 text-neutral-400 font-medium">{v.email || '—'}</td>
+                    <td className="px-6 py-4 text-neutral-400 font-medium">{v.phone || '—'}</td>
                     <td className="px-6 py-4 text-right">
                       <button onClick={() => setSelectedVendor(v)} className="p-2 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 rounded-lg text-emerald-500 transition-colors">
                         <FiEdit2 />
