@@ -121,7 +121,7 @@ export default function SalesListPage() {
         const data = await res.json()
         if (data.success) {
           setViewingSalesDoc(null)
-          fetchAccounts()
+          fetchDocuments()
         } else {
           toast.error(data.error || "Failed to delete transaction")
         }
