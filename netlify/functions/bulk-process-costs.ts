@@ -158,18 +158,38 @@ export const handler: Handler = async (event) => {
           }
         }
 
-        // Update local DB
+        // Update local DB — also store fresh line_items, custom_fields, doc cross-links
         try {
           const dbRecord = await (prisma as any)[cfg.dbModel].findFirst({ where: { zohoId } })
           if (dbRecord) {
             const existingItems = (dbRecord.items as any) || {}
+
+            // Extract cross-links from the full Zoho document (for document lifecycle)
+            const crossLinks: Record<string, any> = {}
+            if (entity === "invoices") {
+              crossLinks.invoiceNumber    = doc.invoice_number  || existingItems.invoiceNumber
+              crossLinks.salesOrderNumber = doc.salesorder_number || existingItems.salesOrderNumber
+              crossLinks.estimateNumber   = doc.estimate_number   || existingItems.estimateNumber
+              crossLinks.purchaseOrders   = doc.custom_fields?.find((f: any) =>
+                f.api_name === "cf_purchase_order_number_s"
+              )?.value || existingItems.purchaseOrders
+            } else if (entity === "salesorders") {
+              crossLinks.salesOrderNumber = doc.salesorder_number || existingItems.salesOrderNumber
+              crossLinks.estimateNumber   = doc.estimate_number   || existingItems.estimateNumber
+            } else {
+              crossLinks.estimateNumber   = doc.estimate_number   || existingItems.estimateNumber
+              crossLinks.salesOrderNumber = doc.salesorder_number || existingItems.salesOrderNumber
+            }
+
             await (prisma as any)[cfg.dbModel].update({
               where: { id: dbRecord.id },
               data: {
                 costsCalculatedAt: new Date(),
+                zohoModifiedTime: doc.last_modified_time ? new Date(doc.last_modified_time) : undefined,
                 pendingCostSync: false,
                 items: {
                   ...existingItems,
+                  // Cost calculations
                   deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
                   deadProfitActual, profit, marginPercent, subTotal,
                   vigRate, ccFees, additionalCosts, insurance,
@@ -177,7 +197,15 @@ export const handler: Handler = async (event) => {
                   cf_salesperson_vig: vigRate,
                   lineItemBreakdownStrings, lineItemDetails,
                   pendingZohoFields: [],
+                  // Fresh from Zoho — needed for portal display and document linking
+                  ...crossLinks,
+                  line_items:     doc.line_items    || existingItems.line_items    || [],
+                  custom_fields:  doc.custom_fields || existingItems.custom_fields || [],
+                  customer_name:  doc.customer_name || existingItems.customer_name,
+                  salesperson:    doc.salesperson_name ? doc.salesperson_name.toUpperCase().trim() : existingItems.salesperson,
+                  balance:        doc.balance ?? existingItems.balance,
                   costsCalculatedAt: new Date().toISOString(),
+                  lastSyncedAt:   new Date().toISOString(),
                 },
               },
             })
