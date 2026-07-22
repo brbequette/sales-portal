@@ -27,26 +27,90 @@ export const handler: Handler = async (event) => {
 
     // --- Commission source: ALL invoices except Void/Draft ---
     // Upfront half earned on creation, final half earned on payment
-    const rawInvoices = await prisma.invoice.findMany({
-      where: {
-        ...(targetYear !== "all" && { issueDate: dateFilter }),
-        status: { notIn: Array.from(SKIP_STATUSES) }
-      },
-      select: {
-        id: true,
-        zohoId: true,
-        amount: true,
-        status: true,
-        issueDate: true,
-        items: true,
-        account: { select: { name: true, zohoId: true } }
-      },
-      orderBy: { issueDate: "desc" }
-    })
+    // --- Batch all queries concurrently in a single Promise.all trip ---
+    let payoutWhere: any = repId ? { repId } : {}
+    if (targetYear && targetYear !== 'all' && !isNaN(parseInt(targetYear))) {
+      const payoutStart = new Date(`${targetYear}-01-01`)
+      const payoutEnd = new Date(`${parseInt(targetYear) + 1}-01-01`)
+      payoutWhere.date = { gte: payoutStart, lt: payoutEnd }
+    }
 
-    // Deduplicate by invoiceNumber — same invoice can be synced from both Zoho CRM and Zoho Books.
-    // Prefer the record with the highest profit (real profit data beats zero-profit Books record).
-    // Fall back to highest amount if profit is equal.
+    const [
+      rawInvoices,
+      rawSalesOrders,
+      deals,
+      rawUsers,
+      visibleRepsSetting,
+      collectionsManagerSetting,
+      payouts
+    ]: [any[], any[], any[], any[], any, any, any[]] = await Promise.all([
+      prisma.invoice.findMany({
+        where: {
+          ...(targetYear !== "all" && { createdAt: dateFilter }),
+          status: { notIn: Array.from(SKIP_STATUSES) }
+        },
+        select: {
+          id: true,
+          zohoId: true,
+          amount: true,
+          status: true,
+          createdAt: true,
+          items: true,
+          account: { select: { name: true, zohoId: true } }
+        },
+        orderBy: { createdAt: "desc" }
+      }).catch(() => []),
+      prisma.salesOrder.findMany({
+        where: {
+          ...(targetYear !== "all" ? { orderDate: dateFilter } : {}),
+          status: { notIn: ['Void', 'void', 'Draft', 'draft', 'Cancelled', 'cancelled'] }
+        },
+        select: {
+          id: true,
+          zohoId: true,
+          amount: true,
+          status: true,
+          orderDate: true,
+          items: true,
+          account: { select: { name: true, zohoId: true } }
+        },
+        orderBy: { orderDate: "desc" }
+      }).catch(() => []),
+      prisma.deal.findMany({
+        where: targetYear !== "all" ? {
+          OR: [
+            { closingDate: dateFilter },
+            { AND: [{ closingDate: null }, { createdAt: dateFilter }] }
+          ]
+        } : undefined,
+        select: {
+          id: true, zohoId: true, name: true, stage: true, amount: true,
+          closingDate: true, createdAt: true, ownerId: true,
+          owner: { select: { id: true, name: true } },
+          account: { select: { name: true, zohoId: true } }
+        },
+        orderBy: { closingDate: "desc" }
+      }).catch(() => []),
+      prisma.user.findMany({
+        select: { id: true, name: true, email: true, role: true },
+        orderBy: { name: "asc" }
+      }).catch(() => []),
+      prisma.systemSetting.findUnique({ where: { key: "visible_reps" } }).catch(() => null),
+      prisma.systemSetting.findUnique({ where: { key: "collections_manager_id" } }).catch(() => null),
+      prisma.payout.findMany({
+        where: payoutWhere,
+        orderBy: { date: "desc" }
+      }).catch(() => [])
+    ])
+
+    const visibleReps: string[] = JSON.parse(visibleRepsSetting?.value || "[]")
+    const collectionsManagerId = collectionsManagerSetting?.value || null
+    let users = rawUsers
+    if (!showHidden && !repId && visibleReps.length > 0) {
+      users = users.filter(u => visibleReps.includes(u.id))
+    }
+
+    // Deduplicate by invoiceNumber
     const seenInvoiceNumbers = new Map<string, typeof rawInvoices[0]>()
     const invoicesWithoutNumber: typeof rawInvoices = []
     
@@ -63,7 +127,6 @@ export const handler: Handler = async (event) => {
       } else {
         const invProfit = parseFloat((inv.items as any)?.profit || 0)
         const existProfit = parseFloat((existing.items as any)?.profit || 0)
-        // Prefer higher profit; if equal prefer higher amount
         const isBetter = invProfit > existProfit || (invProfit === existProfit && (inv.amount || 0) > (existing.amount || 0))
         if (isBetter) {
           seenInvoiceNumbers.set(num, inv)
@@ -72,69 +135,6 @@ export const handler: Handler = async (event) => {
     }
     
     const invoices = [...Array.from(seenInvoiceNumbers.values()), ...invoicesWithoutNumber]
-
-    // Fetch Sales Orders to include Sales Order based commission records
-    const rawSalesOrders = await prisma.salesOrder.findMany({
-      where: {
-        ...(targetYear !== "all" ? { orderDate: dateFilter } : {}),
-        status: { notIn: ['Void', 'void', 'Draft', 'draft', 'Cancelled', 'cancelled'] }
-      },
-      select: {
-        id: true,
-        zohoId: true,
-        amount: true,
-        status: true,
-        orderDate: true,
-        items: true,
-        account: { select: { name: true, zohoId: true } }
-      },
-      orderBy: { orderDate: "desc" }
-    })
-
-    // --- Pipeline source: DEALS only (estimates/SOs for activity metrics) ---
-    const deals = await prisma.deal.findMany({
-      where: targetYear !== "all" ? {
-        OR: [
-          { closingDate: dateFilter },
-          { AND: [{ closingDate: null }, { createdAt: dateFilter }] }
-        ]
-      } : undefined,
-      select: {
-        id: true, zohoId: true, name: true, stage: true, amount: true,
-        closingDate: true, createdAt: true, ownerId: true,
-        owner: { select: { id: true, name: true } },
-        account: { select: { name: true, zohoId: true } }
-      },
-      orderBy: { closingDate: "desc" }
-    })
-
-    // Get all reps
-    let users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, role: true },
-      orderBy: { name: "asc" }
-    })
-
-    const visibleRepsSetting = await prisma.systemSetting.findUnique({ where: { key: "visible_reps" } })
-    const visibleReps: string[] = JSON.parse(visibleRepsSetting?.value || "[]")
-    
-    const collectionsManagerSetting = await prisma.systemSetting.findUnique({ where: { key: "collections_manager_id" } })
-    const collectionsManagerId = collectionsManagerSetting?.value || null
-
-    if (!showHidden && !repId && visibleReps.length > 0) {
-      users = users.filter(u => visibleReps.includes(u.id))
-    }
-
-    // Fetch payouts — scoped to the target year if specified, or all payouts if 'all'
-    let payoutWhere: any = repId ? { repId } : {}
-    if (targetYear && targetYear !== 'all' && !isNaN(parseInt(targetYear))) {
-      const payoutStart = new Date(`${targetYear}-01-01`)
-      const payoutEnd = new Date(`${parseInt(targetYear) + 1}-01-01`)
-      payoutWhere.date = { gte: payoutStart, lt: payoutEnd }
-    }
-    const payouts = await prisma.payout.findMany({
-      where: payoutWhere,
-      orderBy: { date: "desc" }
-    })
 
     const userByName = new Map(users.map(u => [u.name?.toLowerCase().trim(), u]))
 
@@ -164,7 +164,7 @@ export const handler: Handler = async (event) => {
         deadCost = subTotal * 0.50
       }
 
-      const docDate = inv.issueDate ? new Date(inv.issueDate) : new Date()
+      const docDate = inv.createdAt ? new Date(inv.createdAt) : (items.date ? new Date(items.date) : new Date())
       const year = docDate.getFullYear()
       const isMontgomery = salespersonName?.toLowerCase().includes("montgomery") || salespersonName?.toLowerCase().includes("morgan")
       
@@ -175,16 +175,17 @@ export const handler: Handler = async (event) => {
       const deadCostPlusVig = deadCost * vigRate
 
       const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
+      const giftsCost = parseFloat(items.gifts || items.gifts_cost || items.giftCost || cfs.find((c: any) => (c.label || '').toUpperCase().includes('GIFT'))?.value || 0)
       const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0)
       
       // 1. Initial Estimated Profit before end-of-deal CC fees (for Upfront 1st Payment)
-      const initialProfit = subTotal - deadCostPlusVig - additionalCosts
+      const initialProfit = subTotal - deadCostPlusVig - additionalCosts - giftsCost
 
-      // 2. Final Net Profit after VIG, end CC fees & all final costs are in
-      const profit = subTotal - deadCostPlusVig - additionalCosts - ccFees
+      // 2. Final Net Profit after VIG, gifts, additional costs & end CC fees
+      const profit = subTotal - deadCostPlusVig - additionalCosts - giftsCost - ccFees
 
-      // Dead Profit is raw profit for Sales Goals (Subtotal - Dead Cost Total - Additional Costs - CC Fees)
-      const deadProfit = subTotal - deadCost - additionalCosts - ccFees
+      // Dead Profit is raw profit for Sales Goals (Subtotal - Dead Cost Total - Additional Costs - Gifts - CC Fees)
+      const deadProfit = subTotal - deadCost - additionalCosts - giftsCost - ccFees
 
       const matchedRep = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
       const isPaid = FINAL_PAID_STATUSES.has(inv.status)
@@ -258,10 +259,11 @@ export const handler: Handler = async (event) => {
       const deadCostPlusVig = deadCost * vigRate
 
       const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
+      const giftsCost = parseFloat(items.gifts || items.gifts_cost || items.giftCost || cfs.find((c: any) => (c.label || '').toUpperCase().includes('GIFT'))?.value || 0)
       const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0)
       
-      const initialProfit = subTotal - deadCostPlusVig - additionalCosts
-      const profit = subTotal - deadCostPlusVig - additionalCosts - ccFees
+      const initialProfit = subTotal - deadCostPlusVig - additionalCosts - giftsCost
+      const profit = subTotal - deadCostPlusVig - additionalCosts - giftsCost - ccFees
 
       const matchedRep = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
       const isPaid = FINAL_PAID_STATUSES.has((so.status || '').toLowerCase())
