@@ -9,7 +9,7 @@ async function run() {
   console.log("Starting Financial Backfill...");
 
   // 1. Process Purchase Orders
-  const poFile = 'C:/Users/titan/Documents/Titan Diamond/invoices/Purchase_Order (10).csv';
+  const poFile = 'C:/Users/titan/Documents/Titan Diamond/invoices/Purchase_Order (12).csv';
   if (fs.existsSync(poFile)) {
     console.log(`\nParsing ${poFile}...`);
     const content = fs.readFileSync(poFile, 'utf8');
@@ -43,37 +43,60 @@ async function run() {
     }
 
     console.log(`Found ${poMap.size} unique Purchase Orders.`);
-    let poUpdated = 0;
-    for (const po of poMap.values()) {
+    let existingPOCount = 0;
+    for (let retry = 0; retry < 5; retry++) {
       try {
-        await prisma.purchaseOrder.upsert({
-          where: { zohoId: po.zohoId },
-          update: {
-            vendorName: po.vendorName,
-            date: po.date,
-            total: po.total,
-            status: po.status,
-            items: po.items
-          },
-          create: {
-            zohoId: po.zohoId,
-            vendorName: po.vendorName,
-            date: po.date,
-            total: po.total,
-            status: po.status,
-            items: po.items
+        existingPOCount = await prisma.purchaseOrder.count();
+        break;
+      } catch (e) {
+        console.log(`DB Connection retry ${retry + 1}/5...`);
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+    if (existingPOCount >= poMap.size) {
+      console.log(`PO count in DB (${existingPOCount}) is already complete. Skipping PO upsert step.`);
+    } else {
+      let poUpdated = 0;
+      for (const po of poMap.values()) {
+        let attempts = 0;
+        while (attempts < 3) {
+          try {
+            await prisma.purchaseOrder.upsert({
+              where: { zohoId: po.zohoId },
+              update: {
+                vendorName: po.vendorName,
+                date: po.date,
+                total: po.total,
+                status: po.status,
+                items: po.items
+              },
+              create: {
+                zohoId: po.zohoId,
+                vendorName: po.vendorName,
+                date: po.date,
+                total: po.total,
+                status: po.status,
+                items: po.items
+              }
+            });
+            poUpdated++;
+            if (poUpdated % 1000 === 0) console.log(`Processed ${poUpdated} POs...`);
+            break;
+          } catch (err) {
+            attempts++;
+            if (attempts >= 3) {
+              console.error(`Error upserting PO ${po.zohoId}:`, err.message);
+            } else {
+              await new Promise(r => setTimeout(r, 1000 * attempts));
+            }
           }
-        });
-        poUpdated++;
-        if (poUpdated % 500 === 0) console.log(`Processed ${poUpdated} POs...`);
-      } catch (err) {
-        console.error(`Error upserting PO ${po.zohoId}:`, err.message);
+        }
       }
     }
   }
 
   // 2. Process Payments and Calculate CC Fees
-  const paymentFile = 'C:/Users/titan/Documents/Titan Diamond/invoices/Customer_Payment (3).csv';
+  const paymentFile = 'C:/Users/titan/Documents/Titan Diamond/invoices/Customer_Payment (5).csv';
   if (fs.existsSync(paymentFile)) {
     console.log(`\nParsing ${paymentFile}...`);
     const content = fs.readFileSync(paymentFile, 'utf8');
@@ -148,7 +171,10 @@ async function run() {
     }
 
     let invoicesUpdated = 0;
-    for (const [invoiceNumber, totalFee] of invoiceCCFees.entries()) {
+    const entries = Array.from(invoiceCCFees.entries());
+    
+    for (let i = 0; i < entries.length; i++) {
+      const [invoiceNumber, totalFee] = entries[i];
       const dbInv = invMap.get(invoiceNumber);
       if (!dbInv) continue; // couldn't find the invoice locally
       
@@ -166,13 +192,30 @@ async function run() {
       
       items.custom_fields = cfs;
 
-      await prisma.invoice.update({
-        where: { zohoId: dbInv.zohoId },
-        data: { items }
-      });
-      invoicesUpdated++;
+      // Retry wrapper to handle transient Neon DB connection drops
+      let attempts = 0;
+      while (attempts < 3) {
+        try {
+          await prisma.invoice.update({
+            where: { zohoId: dbInv.zohoId },
+            data: { items }
+          });
+          invoicesUpdated++;
+          if (invoicesUpdated % 500 === 0) {
+            console.log(`Applied CC fees to ${invoicesUpdated} / ${entries.length} invoices...`);
+          }
+          break;
+        } catch (err) {
+          attempts++;
+          if (attempts >= 3) {
+            console.error(`Failed to update invoice ${invoiceNumber} after 3 attempts: ${err.message}`);
+          } else {
+            await new Promise(r => setTimeout(r, 1000 * attempts));
+          }
+        }
+      }
     }
-    console.log(`Updated ${invoicesUpdated} Invoices with historical Credit Card Fees!`);
+    console.log(`✅ Successfully updated ${invoicesUpdated} Invoices with historical Credit Card Fees!`);
   }
 
 }
