@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { Handler } from "@netlify/functions"
 import { getSystemSettings } from "./lib/settings"
 import { prisma } from "./lib/prisma"
@@ -65,36 +66,123 @@ export const handler: Handler = async (event) => {
     const monthParam = params.month // e.g. "2026-07"
     const dateParam = params.date // e.g. "2026-07-21"
 
-    const appSettings = await getSystemSettings(prisma)
+    const appSettings = {
+      default_vig_rate: 1.3,
+      commission_rate_pct: 50,
+      shipping_multiplier: 1.5,
+      cc_fee_rate: 3.5,
+      default_shipping_weight: 0.5,
+      sms_daily_account_limit: 1,
+      ai_reply_prompt: "You are a professional sales assistant."
+    }
 
-    // 1. Fetch settings (holidays, sales targets)
-    const settings = await prisma.systemSetting.findMany().catch(() => [])
+    // Time ranges
+    let now = new Date()
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      const [yyyy, mm, dd] = dateParam.split("-")
+      now = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd))
+    } else if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+      const [yyyy, mm] = monthParam.split("-")
+      now = new Date(parseInt(yyyy), parseInt(mm) - 1, 15) // Middle of selected month
+    }
+
+    // Batch all DB queries concurrently in a single Promise.all trip
+    const startDateLimit = new Date(now.getFullYear(), now.getMonth() - 72, 1)
+
+    const [
+      settings,
+      users,
+      accounts,
+      deals,
+      allInvoicesForMatching,
+      oldestInvoice,
+      allHistoricalInvoices
+    ]: [any[], any[], any[], any[], any[], any, any[]] = await Promise.all([
+      prisma.systemSetting.findMany().catch(() => []),
+      prisma.user.findMany({
+        where: {
+          AND: [
+            { NOT: { email: { contains: "dummy.titandiamond.com" } } },
+            { NOT: { email: { contains: "example.com" } } },
+            { NOT: { name: { contains: "test_migration" } } }
+          ]
+        },
+        select: { 
+          id: true, 
+          name: true, 
+          email: true, 
+          role: true,
+          constantVigEnabled: true,
+          constantVigValue: true,
+          monthlyVigGoals: {
+            select: {
+              id: true,
+              monthKey: true,
+              metric: true,
+              subtotalGoal: true,
+              profitGoal: true,
+              manualVigRate: true,
+              lastSyncedVigRate: true
+            }
+          }
+        },
+        orderBy: { name: "asc" }
+      }).catch(() => []),
+      prisma.account.findMany({
+        select: {
+          id: true,
+          ownerId: true,
+          status: true,
+          invoices: {
+            select: {
+              id: true,
+              zohoId: true,
+              amount: true,
+              status: true,
+              items: true,
+              createdAt: true
+            }
+          }
+        }
+      }).catch(() => []),
+      prisma.deal.findMany({
+        select: {
+          id: true,
+          ownerId: true,
+          name: true,
+          amount: true,
+          stage: true,
+          closingDate: true
+        }
+      }).catch(() => []),
+      prisma.invoice.findMany({
+        select: {
+          zohoId: true,
+          items: true
+        }
+      }).catch(() => []),
+      prisma.invoice.findFirst({
+        orderBy: { createdAt: 'asc' },
+        select: { createdAt: true }
+      }).catch(() => null),
+      prisma.invoice.findMany({
+        where: { createdAt: { gte: startDateLimit } },
+        select: {
+          createdAt: true,
+          amount: true,
+          status: true,
+          items: true,
+          accountId: true,
+          account: { select: { ownerId: true } }
+        }
+      }).catch(() => [])
+    ])
+
     const settingsMap = new Map((settings || []).map(s => [s.key, s.value]))
     const holidays: string[] = JSON.parse(settingsMap.get("holidays") || "[]")
     const salesTargets: Record<string, number> = JSON.parse(settingsMap.get("sales_targets") || "{}")
     const subtotalTargets: Record<string, number> = JSON.parse(settingsMap.get("subtotal_targets") || "{}")
     const visibleReps: string[] = JSON.parse(settingsMap.get("visible_reps") || "[]")
-
-    // 2. Fetch all users (excluding inactive dummy/test users)
-    const users: any[] = await prisma.user.findMany({
-      where: {
-        AND: [
-          { NOT: { email: { contains: "dummy.titandiamond.com" } } },
-          { NOT: { email: { contains: "example.com" } } },
-          { NOT: { name: { contains: "test_migration" } } }
-        ]
-      },
-      select: { 
-        id: true, 
-        name: true, 
-        email: true, 
-        role: true,
-        constantVigEnabled: true,
-        constantVigValue: true,
-        monthlyVigGoals: true
-      },
-      orderBy: { name: "asc" }
-    }).catch(() => [])
 
     // 3. Map usernames to user IDs for salesperson matching with aliases and space normalization
     const userNameToIdMap: Record<string, string> = {}
@@ -118,58 +206,7 @@ export const handler: Handler = async (event) => {
     addAlias("monty morgan", "montgomery morgan")
     addAlias("ben bequette", "benjamin bequette")
     addAlias("justin  zastrow", "justin zastrow")
-    addAlias("mike edwards ", "mike edwards")
-
-    // 4. Fetch all accounts
-    const accounts: any[] = await prisma.account.findMany({
-      select: {
-        id: true,
-        ownerId: true,
-        status: true,
-        invoices: {
-          select: {
-            id: true,
-            zohoId: true,
-            amount: true,
-            status: true,
-            items: true,
-            issueDate: true
-          }
-        }
-      }
-    }).catch(() => [])
-
-    // 5. Fetch all deals
-    const deals: any[] = await prisma.deal.findMany({
-      select: {
-        id: true,
-        ownerId: true,
-        name: true,
-        amount: true,
-        stage: true,
-        closingDate: true
-      }
-    }).catch(() => [])
-
-    // 6. Fetch all invoices for deal matching
-    const allInvoicesForMatching: any[] = await prisma.invoice.findMany({
-      select: {
-        zohoId: true,
-        items: true
-      }
-    }).catch(() => [])
-
     const unassignedId = "unassigned"
-
-    // Time ranges
-    let now = new Date()
-    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-      const [yyyy, mm, dd] = dateParam.split("-")
-      now = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd))
-    } else if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
-      const [yyyy, mm] = monthParam.split("-")
-      now = new Date(parseInt(yyyy), parseInt(mm) - 1, 15) // Middle of selected month
-    }
     
     // Daily range
     const todayStart = new Date(now)
@@ -493,43 +530,20 @@ export const handler: Handler = async (event) => {
     // Compute historical vig rates (ALL TIME)
     const historicalVigRates: any[] = []
     
-    // Find the oldest invoice date
-    const oldestInvoice = await prisma.invoice.findFirst({
-      orderBy: { issueDate: 'asc' },
-      select: { issueDate: true }
-    }).catch(() => null);
-    
     let historyMonths = 72; // 6 years (2020 to present)
-    if (oldestInvoice?.issueDate) {
-      const oldestDate = new Date(oldestInvoice.issueDate);
+    if (oldestInvoice?.orderDate) {
+      const oldestDate = new Date(oldestInvoice.orderDate);
       const monthsDiff = (now.getFullYear() - oldestDate.getFullYear()) * 12 + (now.getMonth() - oldestDate.getMonth());
       historyMonths = Math.min(72, Math.max(1, monthsDiff));
     }
 
-    // Calculate start date lte lte for historical months (Jan 2020 to present)
-    const startDateLimit = new Date(now.getFullYear(), now.getMonth() - historyMonths, 1)
-
-    const allHistoricalInvoices: any[] = await prisma.invoice.findMany({
-      where: {
-        issueDate: { gte: startDateLimit }
-      },
-      select: {
-        issueDate: true,
-        amount: true,
-        status: true,
-        items: true,
-        accountId: true,
-        account: {
-          select: { ownerId: true }
-        }
-      }
-    }).catch(() => [])
-
     // Group invoices by month key in JS
     const invoicesByMonth = new Map<string, typeof allHistoricalInvoices>()
     for (const inv of allHistoricalInvoices) {
-      if (!inv.issueDate) continue
-      const d = new Date(inv.issueDate)
+      const rawDate = inv.orderDate || (inv.items as any)?.date || (inv.items as any)?.date_formatted
+      if (!rawDate) continue
+      const d = new Date(rawDate)
+      if (isNaN(d.getTime())) continue
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       if (!invoicesByMonth.has(key)) invoicesByMonth.set(key, [])
       invoicesByMonth.get(key)!.push(inv)
