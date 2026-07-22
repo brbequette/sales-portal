@@ -106,15 +106,15 @@ export const handler: Handler = async (event) => {
       users = users.filter(u => visibleReps.includes(u.id))
     }
 
-    // Fetch payouts — scoped to the target year so historical backfill payouts
-    // don't zero out the current year's balance
-    const payoutStart = new Date(`${targetYear}-01-01`)
-    const payoutEnd = new Date(`${parseInt(targetYear) + 1}-01-01`)
+    // Fetch payouts — scoped to the target year if specified, or all payouts if 'all'
+    let payoutWhere: any = repId ? { repId } : {}
+    if (targetYear && targetYear !== 'all' && !isNaN(parseInt(targetYear))) {
+      const payoutStart = new Date(`${targetYear}-01-01`)
+      const payoutEnd = new Date(`${parseInt(targetYear) + 1}-01-01`)
+      payoutWhere.date = { gte: payoutStart, lt: payoutEnd }
+    }
     const payouts = await prisma.payout.findMany({
-      where: {
-        ...(repId ? { repId } : {}),
-        date: { gte: payoutStart, lt: payoutEnd }
-      },
+      where: payoutWhere,
       orderBy: { date: "desc" }
     })
 
@@ -132,7 +132,17 @@ export const handler: Handler = async (event) => {
       const cfs = items.custom_fields || []
       const salespersonName = items.salesperson as string | null
       const subTotal = parseFloat(items.sub_total || items.subTotal) || inv.amount || 0
-      const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || 0)
+      const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
+
+      let deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || 0)
+      if (deadCost === 0 && lineItems.length > 0) {
+        deadCost = lineItems.reduce((sum: number, li: any) => {
+          const qty = parseFloat(li.quantity) || 1
+          const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
+          return sum + (qty * cost)
+        }, 0)
+      }
+
       const docDate = inv.issueDate ? new Date(inv.issueDate) : new Date()
       const year = docDate.getFullYear()
       const isMontgomery = salespersonName?.toLowerCase().includes("montgomery") || salespersonName?.toLowerCase().includes("morgan")
@@ -141,7 +151,7 @@ export const handler: Handler = async (event) => {
       // - Up to end of 2024: Monty = 1.0, Everyone else = 1.3
       // - 2025 onwards: Monty = 1.0, Everyone else = 1.3 baseline (or items.vigRate / 1.5 penalty)
       const vigRate = (year <= 2024 || isMontgomery) ? (isMontgomery ? 1.0 : 1.3) : parseFloat(items.vigRate || 1.3)
-      const deadCostPlusVig = parseFloat(items.deadCostPlusVig || items.dead_cost_plus_vig || 0) || (deadCost * vigRate)
+      const deadCostPlusVig = deadCost * vigRate
 
       const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
       const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0)
