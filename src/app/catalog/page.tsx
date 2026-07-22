@@ -32,7 +32,17 @@ export default function ProductCatalogPage() {
   const [editingProduct, setEditingProduct] = useState<any>(null)
   const [editSaving, setEditSaving] = useState(false)
 
-  const productCategories = ["All", "Blades", "Polishing", "Core Bits", "Grinding"]
+  const productCategories = [
+    "All",
+    "Saw Blades",
+    "Core Bits",
+    "Cup Wheels & Grinding",
+    "Tile & Porcelain Blades",
+    "Turbo Blades",
+    "Tuck Point Blades",
+    "Stone & Polishing",
+    "Zenesis & Premium Series"
+  ]
 
   const fetchProducts = async () => {
     setLoading(true)
