@@ -25,9 +25,11 @@ export default function VigManagementPage() {
       if (data.success) {
         setReps(data.reps || [])
         setHistoricalRates(data.historicalVigRates || [])
-        // Default expand the first rep
-        if (data.reps && data.reps.length > 0 && Object.keys(expandedReps).length === 0) {
-          setExpandedReps({ [data.reps[0].repId]: true })
+        // Expand ALL reps by default so historical data is immediately visible
+        if (data.reps && data.reps.length > 0) {
+          const initialExpanded: Record<string, boolean> = {}
+          data.reps.forEach((r: any) => { initialExpanded[r.repId] = true })
+          setExpandedReps(initialExpanded)
         }
       }
     } catch (err) {
@@ -273,13 +275,14 @@ export default function VigManagementPage() {
                       </div>
                     </div>
 
-                    {/* Expand/Collapse Button */}
+                    {/* Prominent Expand/Collapse Button for Historical Table */}
                     <button 
                       onClick={() => toggleExpand(rep.repId)}
-                      className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-300 border border-white/10 transition"
-                      title={isExpanded ? "Collapse" : "Expand"}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs border border-emerald-500/40 shadow-sm transition-all"
+                      title={isExpanded ? "Hide Historical Rates" : "Show Historical Rates"}
                     >
-                      {isExpanded ? <FiChevronUp className="w-5 h-5" /> : <FiChevronDown className="w-5 h-5" />}
+                      <span>{isExpanded ? "Hide 72-Month Historical Rates" : "📅 View 72-Month Historical Rates"}</span>
+                      {isExpanded ? <FiChevronUp className="w-4 h-4" /> : <FiChevronDown className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
