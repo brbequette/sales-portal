@@ -70,13 +70,16 @@ export function InvoiceFinancialBreakdown({
   const resolvedVigRate = isMontgomery ? 1.0 : (vigRate ?? getCustomField("SALESPERSON VIG") ?? 1.3)
   
   // Resolve Costs
-  const resolvedDeadCostTotal = deadCostTotal ?? getCustomField("DEAD COST TOTAL") ?? (subTotal * 0.6)
-  const resolvedDeadCostSubject = deadCostSubjectToVig ?? getCustomField("DEAD COST SUBJECT TO VIG") ?? Math.max(0, resolvedDeadCostTotal - deadCostNoVig)
-  const resolvedDeadCostPlusVig = deadCostPlusVig ?? getCustomField("DEAD COST PLUS VIG") ?? (resolvedDeadCostSubject * resolvedVigRate + deadCostNoVig)
+  const resolvedDeadCostSubject = (deadCostSubjectToVig != null && !isNaN(deadCostSubjectToVig) && deadCostSubjectToVig > 0)
+    ? deadCostSubjectToVig
+    : (getCustomField("DEAD COST SUBJECT TO VIG") ?? getCustomField("DEAD COST TOTAL") ?? (deadCostTotal != null && !isNaN(deadCostTotal) && deadCostTotal > 0 ? deadCostTotal : (subTotal * 0.35)))
+  
+  // Calculate Dead Cost + VIG directly from Subject Cost × VIG Multiplier
+  const resolvedDeadCostPlusVig = (resolvedDeadCostSubject * resolvedVigRate) + (deadCostNoVig || 0)
   
   // Net Profit MUST ALWAYS be mathematically derived as: Subtotal - (Dead Cost + VIG) - CC Fees - Additional Costs
   const calculatedProfit = subTotal - resolvedDeadCostPlusVig - ccFees - additionalCosts
-  const resolvedProfit = (subTotal > 0 && !isNaN(calculatedProfit)) ? calculatedProfit : (profit ?? 0)
+  const resolvedProfit = (subTotal > 0 && !isNaN(calculatedProfit)) ? calculatedProfit : 0
   const resolvedMargin = subTotal > 0 ? (resolvedProfit / subTotal) * 100 : 0
   
   const resolvedCommissionPct = commissionPct ?? getCustomField("COMMISSION FROM PROFIT") ?? 50

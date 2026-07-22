@@ -626,25 +626,36 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
         {/* ——— Content ——— */}
         {activeTab === 'financials' ? (
           <div className="flex-1 bg-black/20 overflow-y-auto p-4 sm:p-5">
-            <InvoiceFinancialBreakdown
-              subTotal={parseFloat(displayData.sub_total || displayData.total || displayData.amount || 0)}
-              deadCostTotal={displayData.deadCostTotal || displayData.dead_cost_total}
-              deadCostSubjectToVig={displayData.deadCostSubjectToVig}
-              deadCostNoVig={displayData.deadCostNoVig || 0}
-              vigRate={displayData.vigRate || displayData.vig_rate}
-              deadCostPlusVig={displayData.deadCostPlusVig}
-              profit={displayData.profit}
-              salesCommission={displayData.salesCommission}
-              salespersonName={displayData.salesperson_name || displayData.salespersonName || ""}
-              lineItemDetails={displayData.line_items?.map((item: any) => ({
-                name: item.name || item.description || "Item",
-                quantity: parseFloat(item.quantity || 1),
-                rate: parseFloat(item.rate || item.price || 0),
-                deadCost: parseFloat(item.b2bCost || item.cost || 0),
-                noVig: item.noVig || item.isNoVig
-              })) || []}
-              customFields={displayData.custom_fields || displayData.customFields || []}
-            />
+            {(() => {
+              const src = costResult || displayData?.items || displayData || {}
+              const subTotalVal = parseFloat(displayData.sub_total || displayData.total || displayData.amount || src.subTotal || 0)
+              const deadCostTotalVal = parseFloat(src.deadCostTotal || displayData.deadCostTotal || 0)
+              const deadCostSubjectVal = parseFloat(src.deadCostSubjectToVig || src.deadCostTotal || displayData.deadCostSubjectToVig || 0)
+              const vigRateVal = parseFloat(src.vigRate || displayData.vigRate || 1.3)
+              const profitVal = parseFloat(src.profit || displayData.profit || 0)
+              const commVal = parseFloat(src.commission || src.salesCommission || displayData.salesCommission || 0)
+
+              return (
+                <InvoiceFinancialBreakdown
+                  subTotal={subTotalVal}
+                  deadCostTotal={deadCostTotalVal}
+                  deadCostSubjectToVig={deadCostSubjectVal}
+                  deadCostNoVig={parseFloat(src.deadCostNoVig || displayData.deadCostNoVig || 0)}
+                  vigRate={vigRateVal}
+                  profit={profitVal}
+                  salesCommission={commVal}
+                  salespersonName={displayData.salesperson_name || displayData.salespersonName || ""}
+                  lineItemDetails={displayData.line_items?.map((item: any) => ({
+                    name: item.name || item.description || "Item",
+                    quantity: parseFloat(item.quantity || 1),
+                    rate: parseFloat(item.rate || item.price || 0),
+                    deadCost: parseFloat(item.b2bCost || item.cost || 0),
+                    noVig: item.noVig || item.isNoVig
+                  })) || []}
+                  customFields={displayData.custom_fields || displayData.customFields || []}
+                />
+              )
+            })()}
           </div>
         ) : activeTab === 'overview' ? (
           <div className="flex-1 bg-black/20 overflow-y-auto p-4 sm:p-5 flex flex-col gap-5">
@@ -792,25 +803,36 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
             {/* ─── Visual Financial & Commission Derivation Card ─── */}
             <div className="pt-3 border-t border-white/10">
-              <InvoiceFinancialBreakdown
-                subTotal={parseFloat(displayData.sub_total || displayData.total || displayData.amount || 0)}
-                deadCostTotal={displayData.deadCostTotal || displayData.dead_cost_total}
-                deadCostSubjectToVig={displayData.deadCostSubjectToVig}
-                deadCostNoVig={displayData.deadCostNoVig || 0}
-                vigRate={displayData.vigRate || displayData.vig_rate}
-                deadCostPlusVig={displayData.deadCostPlusVig}
-                profit={displayData.profit}
-                salesCommission={displayData.salesCommission}
-                salespersonName={displayData.salesperson_name || displayData.salespersonName || ""}
-                lineItemDetails={displayData.line_items?.map((item: any) => ({
-                  name: item.name || item.description || "Item",
-                  quantity: parseFloat(item.quantity || 1),
-                  rate: parseFloat(item.rate || item.price || 0),
-                  deadCost: parseFloat(item.b2bCost || item.cost || 0),
-                  noVig: item.noVig || item.isNoVig
-                })) || []}
-                customFields={displayData.custom_fields || displayData.customFields || []}
-              />
+              {(() => {
+                const src = costResult || displayData?.items || displayData || {}
+                const subTotalVal = parseFloat(displayData.sub_total || displayData.total || displayData.amount || src.subTotal || 0)
+                const deadCostTotalVal = parseFloat(src.deadCostTotal || displayData.deadCostTotal || 0)
+                const deadCostSubjectVal = parseFloat(src.deadCostSubjectToVig || src.deadCostTotal || displayData.deadCostSubjectToVig || 0)
+                const vigRateVal = parseFloat(src.vigRate || displayData.vigRate || 1.3)
+                const profitVal = parseFloat(src.profit || displayData.profit || 0)
+                const commVal = parseFloat(src.commission || src.salesCommission || displayData.salesCommission || 0)
+
+                return (
+                  <InvoiceFinancialBreakdown
+                    subTotal={subTotalVal}
+                    deadCostTotal={deadCostTotalVal}
+                    deadCostSubjectToVig={deadCostSubjectVal}
+                    deadCostNoVig={parseFloat(src.deadCostNoVig || displayData.deadCostNoVig || 0)}
+                    vigRate={vigRateVal}
+                    profit={profitVal}
+                    salesCommission={commVal}
+                    salespersonName={displayData.salesperson_name || displayData.salespersonName || ""}
+                    lineItemDetails={displayData.line_items?.map((item: any) => ({
+                      name: item.name || item.description || "Item",
+                      quantity: parseFloat(item.quantity || 1),
+                      rate: parseFloat(item.rate || item.price || 0),
+                      deadCost: parseFloat(item.b2bCost || item.cost || 0),
+                      noVig: item.noVig || item.isNoVig
+                    })) || []}
+                    customFields={displayData.custom_fields || displayData.customFields || []}
+                  />
+                )
+              })()}
             </div>
 
             {/* ─── Cost & Commission Panel + Line Items ─── */}
