@@ -44,20 +44,20 @@ export function DocumentLifecycle({ zohoId, type, onNavigateDoc }: DocumentLifec
   const Node = ({ icon: Icon, title, subtitle, color, isCompleted, onClick }: any) => (
     <div 
       onClick={onClick}
-      className={`flex flex-col items-center gap-2 relative ${onClick ? 'cursor-pointer hover:scale-105 transition-transform' : 'opacity-50'}`}
+      className={`flex flex-col items-center gap-1 shrink-0 ${onClick ? 'cursor-pointer hover:scale-105 transition-transform' : 'opacity-40'}`}
     >
-      <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 z-10 bg-[#0f1013] ${isCompleted ? `border-${color}-500 text-${color}-500` : 'border-neutral-700 text-neutral-600'}`}>
-        <Icon size={20} />
+      <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 z-10 bg-[#0f1013] ${isCompleted ? 'border-emerald-500 text-emerald-400' : 'border-neutral-700 text-neutral-600'}`}>
+        <Icon size={16} />
       </div>
       <div className="text-center">
-        <p className={`text-xs font-bold ${isCompleted ? 'text-white' : 'text-neutral-500'}`}>{title}</p>
-        <p className="text-[10px] text-neutral-500 truncate max-w-[80px]">{subtitle}</p>
+        <p className={`text-[11px] font-bold ${isCompleted ? 'text-white' : 'text-neutral-500'}`}>{title}</p>
+        <p className="text-[9px] text-neutral-500 truncate max-w-[70px] font-mono">{subtitle}</p>
       </div>
     </div>
   )
 
   const Line = ({ active }: { active: boolean }) => (
-    <div className={`h-1 flex-1 mx-2 mt-6 rounded ${active ? 'bg-emerald-500/50' : 'bg-neutral-800'}`} />
+    <div className={`h-0.5 min-w-[20px] flex-1 mx-1.5 mb-5 rounded ${active ? 'bg-emerald-500/60' : 'bg-neutral-800'}`} />
   )
 
   const openDoc = (docType: string, data: any) => {
@@ -71,9 +71,9 @@ export function DocumentLifecycle({ zohoId, type, onNavigateDoc }: DocumentLifec
   }
 
   return (
-    <div className="glass-panel/50 border border-white/10 rounded-xl p-6">
-      <h3 className="text-sm font-bold text-white mb-6 uppercase tracking-wider">Document Lifecycle</h3>
-      <div className="flex items-start justify-between">
+    <div className="glass-panel/50 border border-white/10 rounded-xl p-3 sm:p-4">
+      <h3 className="text-xs font-bold text-white mb-3 uppercase tracking-wider">Document Lifecycle</h3>
+      <div className="flex items-center justify-between overflow-x-auto scrollbar-none py-1 gap-1">
         
         {/* Quote */}
         <Node 
@@ -97,27 +97,29 @@ export function DocumentLifecycle({ zohoId, type, onNavigateDoc }: DocumentLifec
           onClick={() => openDoc('Sales Order', salesOrder)}
         />
 
-        <Line active={invoices.length > 0 || packages.length > 0} />
+        <Line active={purchaseOrders.length > 0 || packages.length > 0 || invoices.length > 0} />
 
-        {/* Fulfillment / PO */}
-        <div className="flex flex-col gap-4 w-24">
-          <Node 
-            icon={FiTruck} 
-            title="PO" 
-            subtitle={purchaseOrders[0]?.items?.purchaseorder_number || `${purchaseOrders.length} POs`} 
-            color="emerald"
-            isCompleted={purchaseOrders.length > 0}
-            onClick={() => purchaseOrders.length > 0 && openDoc('Purchase Order', purchaseOrders[0])}
-          />
-          <Node 
-            icon={FiBox} 
-            title="Package" 
-            subtitle={packages[0]?.packageNumber || `${packages.length} Pkgs`} 
-            color="emerald"
-            isCompleted={packages.length > 0}
-            onClick={() => packages.length > 0 && openDoc('Package', packages[0])}
-          />
-        </div>
+        {/* PO */}
+        <Node 
+          icon={FiTruck} 
+          title="PO" 
+          subtitle={purchaseOrders[0]?.items?.purchaseorder_number || `${purchaseOrders.length} POs`} 
+          color="emerald"
+          isCompleted={purchaseOrders.length > 0}
+          onClick={() => purchaseOrders.length > 0 && openDoc('Purchase Order', purchaseOrders[0])}
+        />
+
+        <Line active={packages.length > 0 || invoices.length > 0} />
+
+        {/* Package */}
+        <Node 
+          icon={FiBox} 
+          title="Package" 
+          subtitle={packages[0]?.packageNumber || `${packages.length} Pkgs`} 
+          color="emerald"
+          isCompleted={packages.length > 0}
+          onClick={() => packages.length > 0 && openDoc('Package', packages[0])}
+        />
 
         <Line active={invoices.length > 0} />
 
