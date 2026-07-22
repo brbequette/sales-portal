@@ -62,7 +62,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const params = event.queryStringParameters || {}
-    const showHidden = params.includeHidden === 'true'
+    const showHidden = params.showHidden === 'true' || params.includeHidden === 'true' || params.showHidden === '1'
     const monthParam = params.month // e.g. "2026-07"
     const dateParam = params.date // e.g. "2026-07-21"
 
