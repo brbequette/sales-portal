@@ -129,19 +129,23 @@ export const handler: Handler = async (event) => {
     // Account owner is a CRM assignment only and does NOT drive commissions.
     const invoiceRecords = invoices.map(inv => {
       const items = inv.items as any || {}
+      const cfs = items.custom_fields || []
       const salespersonName = items.salesperson as string | null
       const subTotal = parseFloat(items.sub_total || items.subTotal) || inv.amount || 0
       const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || 0)
       const vigRate = parseFloat(items.vigRate || 1.3)
       const deadCostPlusVig = parseFloat(items.deadCostPlusVig || items.dead_cost_plus_vig || 0) || (deadCost * vigRate)
+
+      const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
+      const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0)
       
-      // Profit is After-VIG Profit (Subtotal - Dead Cost Plus VIG)
+      // Profit is After-VIG Profit (Subtotal - Dead Cost Plus VIG - Additional Costs - CC Fees)
       const profit = items.profit !== undefined && items.profit !== null && items.profit !== '' 
         ? parseFloat(items.profit) 
-        : (subTotal - deadCostPlusVig)
+        : (subTotal - deadCostPlusVig - additionalCosts - ccFees)
 
-      // Dead Profit is raw profit for Sales Goals (Subtotal - Dead Cost Total)
-      const deadProfit = subTotal - deadCost
+      // Dead Profit is raw profit for Sales Goals (Subtotal - Dead Cost Total - Additional Costs - CC Fees)
+      const deadProfit = subTotal - deadCost - additionalCosts - ccFees
 
       const commissionAmount = parseFloat(items.commission || items.cf_commission_amount_unformatted || items.cf_commision_amount_unformatted || items.Commission_Amount || 0) || (profit * 0.50)
       const invoiceNumber = items.invoiceNumber || items.invoice_number || null

@@ -275,19 +275,23 @@ export const handler: Handler = async (event) => {
       const invoices = acc.invoices || []
       invoices.forEach(inv => {
         const items = inv.items as any || {}
+        const cfs = items.custom_fields || []
         // Subtotal = invoice line-item total (sub_total), NOT the balance due (amount)
         const amount = parseFloat(items.sub_total) || parseFloat(inv.amount as any) || 0
         const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || 0)
         const vigRate = parseFloat(items.vigRate || 1.3)
         const deadCostPlusVig = parseFloat(items.deadCostPlusVig || items.dead_cost_plus_vig || 0) || (deadCost * vigRate)
-        
-        // Dead Profit = sub_total - deadCostTotal (raw profit before VIG strictly used for Sales Goals)
-        const deadProfit = amount - deadCost
 
-        // Profit = sub_total - deadCostPlusVig (actual net profit AFTER VIG is added)
+        const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
+        const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0)
+        
+        // Dead Profit = sub_total - deadCostTotal - additionalCosts - ccFees (strictly used for Sales Goals)
+        const deadProfit = amount - deadCost - additionalCosts - ccFees
+
+        // Profit = sub_total - deadCostPlusVig - additionalCosts - ccFees (actual net profit AFTER VIG is added)
         const profit = items.profit !== undefined && items.profit !== null && items.profit !== '' 
           ? parseFloat(items.profit) 
-          : (amount - deadCostPlusVig)
+          : (amount - deadCostPlusVig - additionalCosts - ccFees)
 
         // Commission = 50% of After-VIG profit (or explicit custom field)
         const zohoCommission = parseFloat((inv.items as any)?.commission) 
