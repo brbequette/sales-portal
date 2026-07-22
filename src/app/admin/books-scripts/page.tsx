@@ -46,7 +46,7 @@ export default function BooksScriptsPage() {
       while (true) {
         setBulkProgress(`Processing page ${page}... (${totalProcessed} done, ${totalErrors} errors)`)
 
-        const res = await fetch('/api/admin/books/bulk-process-costs', {
+        const res = await fetch('/.netlify/functions/bulk-process-costs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ entity: bulkEntity, page, filter: bulkFilter, perPage: 25 })
