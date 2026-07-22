@@ -68,15 +68,15 @@ export const handler: Handler = async (event) => {
     const appSettings = await getSystemSettings(prisma)
 
     // 1. Fetch settings (holidays, sales targets)
-    const settings = await prisma.systemSetting.findMany()
-    const settingsMap = new Map(settings.map(s => [s.key, s.value]))
+    const settings = await prisma.systemSetting.findMany().catch(() => [])
+    const settingsMap = new Map((settings || []).map(s => [s.key, s.value]))
     const holidays: string[] = JSON.parse(settingsMap.get("holidays") || "[]")
     const salesTargets: Record<string, number> = JSON.parse(settingsMap.get("sales_targets") || "{}")
     const subtotalTargets: Record<string, number> = JSON.parse(settingsMap.get("subtotal_targets") || "{}")
     const visibleReps: string[] = JSON.parse(settingsMap.get("visible_reps") || "[]")
 
     // 2. Fetch all users (excluding inactive dummy/test users)
-    const users = await prisma.user.findMany({
+    const users: any[] = await prisma.user.findMany({
       where: {
         AND: [
           { NOT: { email: { contains: "dummy.titandiamond.com" } } },
@@ -94,7 +94,7 @@ export const handler: Handler = async (event) => {
         monthlyVigGoals: true
       },
       orderBy: { name: "asc" }
-    })
+    }).catch(() => [])
 
     // 3. Map usernames to user IDs for salesperson matching with aliases and space normalization
     const userNameToIdMap: Record<string, string> = {}
@@ -121,7 +121,7 @@ export const handler: Handler = async (event) => {
     addAlias("mike edwards ", "mike edwards")
 
     // 4. Fetch all accounts
-    const accounts = await prisma.account.findMany({
+    const accounts: any[] = await prisma.account.findMany({
       select: {
         id: true,
         ownerId: true,
@@ -137,10 +137,10 @@ export const handler: Handler = async (event) => {
           }
         }
       }
-    })
+    }).catch(() => [])
 
     // 5. Fetch all deals
-    const deals = await prisma.deal.findMany({
+    const deals: any[] = await prisma.deal.findMany({
       select: {
         id: true,
         ownerId: true,
@@ -149,15 +149,15 @@ export const handler: Handler = async (event) => {
         stage: true,
         closingDate: true
       }
-    })
+    }).catch(() => [])
 
     // 6. Fetch all invoices for deal matching
-    const allInvoicesForMatching = await prisma.invoice.findMany({
+    const allInvoicesForMatching: any[] = await prisma.invoice.findMany({
       select: {
         zohoId: true,
         items: true
       }
-    })
+    }).catch(() => [])
 
     const unassignedId = "unassigned"
 
@@ -287,7 +287,7 @@ export const handler: Handler = async (event) => {
       }
 
       const invoices = acc.invoices || []
-      invoices.forEach(inv => {
+      invoices.forEach((inv: any) => {
         const items = inv.items as any || {}
         const cfs = items.custom_fields || []
         // Subtotal = invoice line-item total (sub_total), NOT the balance due (amount)
