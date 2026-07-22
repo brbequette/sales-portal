@@ -91,10 +91,10 @@ export function DocumentLifecycle({ zohoId, type, onNavigateDoc }: DocumentLifec
         <Node 
           icon={FiShoppingBag} 
           title="Sales Order" 
-          subtitle={salesOrder?.items?.salesOrderNumber || 'N/A'} 
+          subtitle={salesOrder?.items?.salesOrderNumber || salesOrder?.salesorder_number || 'N/A'} 
           color="emerald"
           isCompleted={!!salesOrder}
-          onClick={() => openDoc('Sales Order', salesOrder)}
+          onClick={() => openDoc('SalesOrder', salesOrder)}
         />
 
         <Line active={purchaseOrders.length > 0 || packages.length > 0 || invoices.length > 0} />

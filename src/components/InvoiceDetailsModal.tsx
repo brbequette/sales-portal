@@ -3,7 +3,8 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight, FiCheckSquare } from "react-icons/fi"
+import Link from "next/link"
+import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight, FiCheckSquare, FiExternalLink } from "react-icons/fi"
 import { CreatePackageModal } from "./CreatePackageModal"
 import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
 import { RecordPaymentModal } from "./RecordPaymentModal"
@@ -370,7 +371,17 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 <FiFileText className="shrink-0" /> <span className="truncate">{typeLabel} Details</span>
               </h2>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                <p className="text-[10px] text-neutral-400 font-mono truncate">Zoho ID: {zohoId}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] text-neutral-400 font-mono truncate">Zoho ID: {zohoId}</p>
+                  <a
+                    href={`https://books.zoho.com/app/685934575#/${currentType === 'Quote' ? 'estimates' : currentType === 'SalesOrder' ? 'salesorders' : 'invoices'}/${zohoId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-[9px] font-bold uppercase text-sky-400 hover:text-sky-300 hover:underline bg-sky-950/40 border border-sky-500/30 px-1.5 py-0.5 rounded transition-colors"
+                  >
+                    Open in Zoho Books <FiExternalLink size={10} />
+                  </a>
+                </div>
                 {dataSource === 'local_db' && (
                   <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-sky-400 bg-sky-900/20 border border-sky-800/40 rounded px-1.5 py-0.5">
                     ⚡ Cached{cachedAt ? ` · ${(() => { const mins = Math.round((Date.now() - new Date(cachedAt).getTime()) / 60000); return mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago` })()}` : ''}
@@ -690,10 +701,19 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                     <div className="text-sm text-white font-semibold truncate">{displayData.salesperson_name}</div>
                   </div>
                 )}
-                {displayData.customer_name && (
+                {(displayData.customer_name || displayData.customer_id) && (
                   <div>
-                    <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Customer</label>
-                    <div className="text-sm text-white font-semibold truncate">{displayData.customer_name}</div>
+                    <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Customer / Account</label>
+                    {displayData.customer_id || displayData.items?.customerId ? (
+                      <Link
+                        href={`/account?id=${displayData.customer_id || displayData.items?.customerId}`}
+                        className="text-sm font-bold text-sky-400 hover:text-sky-300 hover:underline truncate block"
+                      >
+                        🏢 {displayData.customer_name || displayData.customer_id}
+                      </Link>
+                    ) : (
+                      <div className="text-sm text-white font-semibold truncate">{displayData.customer_name}</div>
+                    )}
                   </div>
                 )}
                 {displayData.vigRate && (
