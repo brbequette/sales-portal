@@ -169,8 +169,8 @@ export function GlobalTopBar() {
 
       // Show auto-clock toast
       const msg = event.action === 'clockIn'
-        ? `✨“ Auto clocked in — ${event.fenceName || 'On-Site'}`
-        : `👋 Auto clocked out — ${event.fenceName || 'Off-Site'}`
+        ? `Auto clocked in — ${event.fenceName || 'On-Site'}`
+        : `Auto clocked out — ${event.fenceName || 'Off-Site'}`
       setAutoClockToast(msg)
       setTimeout(() => setAutoClockToast(null), 5000)
     })
@@ -523,19 +523,19 @@ export function GlobalTopBar() {
             {calculateHours(timeEntry)}h
           </button>
 
-          {/* Geolocation status toast */}
+          {/* Geofence status badge */}
           {geoStatus && (
-            <div className={`absolute -bottom-9 left-0 right-0 mx-auto w-max px-3 py-1.5 rounded-md text-[10px] font-bold shadow-lg border animate-pulse z-50 ${
+            <div className={`px-2 py-0.5 text-[10px] font-bold border-l whitespace-nowrap hidden xl:block ${
               geoStatus.status === 'VERIFIED'
                 ? 'bg-emerald-900/90 text-emerald-300 border-emerald-500/30'
                 : geoStatus.status === 'OUT_OF_RANGE'
                   ? 'bg-amber-900/90 text-amber-300 border-amber-500/30'
                   : 'bg-neutral-800/90 text-neutral-400 border-neutral-600/30'
             }`}>
-              {geoStatus.status === 'VERIFIED' && `✨“ ${geoStatus.location || 'On-Site'}`}
-              {geoStatus.status === 'OUT_OF_RANGE' && '⚠ï¸ Out of Range'}
-              {geoStatus.status === 'DENIED' && '🔒 GPS Denied'}
-              {geoStatus.status === 'UNAVAILABLE' && '📡 GPS Unavailable'}
+              {geoStatus.status === 'VERIFIED' && (geoStatus.location || 'On-Site')}
+              {geoStatus.status === 'OUT_OF_RANGE' && 'Out of Range'}
+              {geoStatus.status === 'DENIED' && 'GPS Denied'}
+              {geoStatus.status === 'UNAVAILABLE' && 'GPS Unavailable'}
             </div>
           )}
 
@@ -576,38 +576,62 @@ export function GlobalTopBar() {
       )}
     </div>
 
-    {/* â”€â”€ Persistent Stats Strip â”€â”€ */}
+    {/* Persistent Stats Strip */}
     {stripStats && (
       <div className="glass-panel border-x-0 border-t-0 px-4 py-1.5 sticky top-[56px] z-[39] rounded-none flex items-center gap-0 overflow-x-auto scrollbar-none">
         <div className="flex items-center gap-4 min-w-max mx-auto">
-          <div className="flex items-center gap-1.5">
+          <div 
+            onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "weeklyGoal" } }))}
+            className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+            title="Click to view Weekly Goal calculation formula"
+          >
             <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Weekly</span>
             <span className="text-xs font-black text-white">${stripStats.weeklySales.toLocaleString()}</span>
           </div>
           <div className="w-px h-3.5 bg-white/[0.08]"></div>
-          <div className="flex items-center gap-1.5">
+          <div 
+            onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "totalRevenue" } }))}
+            className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+            title="Click to view Total Revenue calculation formula"
+          >
             <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">MTD</span>
             <span className="text-xs font-black text-white">${stripStats.mtdSales.toLocaleString()}</span>
           </div>
           <div className="w-px h-3.5 bg-white/[0.08]"></div>
-          <div className="flex items-center gap-1.5">
+          <div 
+            onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "monthlyProfit" } }))}
+            className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+            title="Click to view Monthly Profit calculation formula"
+          >
             <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Profit</span>
             <span className="text-xs font-black text-emerald-400">${stripStats.mtdProfit.toLocaleString()}</span>
           </div>
           <div className="w-px h-3.5 bg-white/[0.08]"></div>
-          <div className="flex items-center gap-1.5">
+          <div 
+            onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "monthlyProfit" } }))}
+            className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+            title="Click to view Commission calculation formula"
+          >
             <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Comm</span>
             <span className="text-xs font-black text-purple-400">${stripStats.mtdCommission.toLocaleString()}</span>
           </div>
           <div className="w-px h-3.5 bg-white/[0.08]"></div>
-          <div className="flex items-center gap-1.5">
+          <div 
+            onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "activePipeline" } }))}
+            className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+            title="Click to view Pipeline calculation formula"
+          >
             <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">Pipeline</span>
             <span className="text-xs font-black text-sky-400">${stripStats.pipeline.toLocaleString()}</span>
           </div>
           {stripStats.overdue > 0 && (
             <>
               <div className="w-px h-3.5 bg-white/[0.08]"></div>
-              <div className="flex items-center gap-1.5">
+              <div 
+                onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "activePipeline" } }))}
+                className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+                title="Click to view Overdue balance calculation formula"
+              >
                 <FiAlertCircle size={10} className="text-red-400" />
                 <span className="text-[10px] text-red-400/70 font-medium uppercase tracking-wider">Overdue</span>
                 <span className="text-xs font-black text-red-400">${stripStats.overdue.toLocaleString()}</span>
@@ -617,7 +641,8 @@ export function GlobalTopBar() {
         </div>
       </div>
     )}
-    {/* â”€â”€ Clock-In Prompt Banner â”€â”€ */}
+
+    {/* Clock-In Prompt Banner */}
     {showClockInPrompt && currentUser?.id && (
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] animate-[slideUp_0.3s_ease-out]">
         <div className="flex items-center gap-3 bg-gradient-to-r from-blue-900/95 to-indigo-900/95 backdrop-blur-xl border border-blue-500/30 rounded-2xl px-5 py-3 shadow-[0_8px_32px_rgba(59,130,246,0.3)] text-white">

@@ -75,6 +75,16 @@ export async function resolveVigRate(
 ): Promise<number> {
   if (manualVig !== undefined && manualVig !== null) return manualVig
 
+  const salespersonName: string = doc.salesperson_name || ""
+  
+  // Enforce Montgomery Morgan always gets 1.0 VIG overriding any existing custom fields
+  if (salespersonName) {
+    const isMontgomery =
+      salespersonName.toLowerCase().includes("montgomery") ||
+      salespersonName.toLowerCase().includes("morgan")
+    if (isMontgomery) return 1.0
+  }
+
   const existingVig = doc.custom_fields?.find((f: any) =>
     f.label?.toUpperCase().includes("VIG")
   )
@@ -82,13 +92,7 @@ export async function resolveVigRate(
     return parseFloat(existingVig.value)
   }
 
-  const salespersonName: string = doc.salesperson_name || ""
   if (salespersonName) {
-    const isMontgomery =
-      salespersonName.toLowerCase().includes("montgomery") ||
-      salespersonName.toLowerCase().includes("morgan")
-    if (isMontgomery) return 1.0
-
     const users = await prisma.user.findMany()
     const user = users.find(u =>
       u.name &&
@@ -163,8 +167,8 @@ export async function calculateDocumentCosts(
   const lineItemDetails: LineItemDetail[] = []
 
   for (const item of (doc.line_items || [])) {
-    // Zoho Books API now supports "header" rows. Skip them in cost calculations.
-    if (item.line_item_category === "header") continue;
+    // Zoho Books API now supports "header" and "subtotal" rows. Skip them in cost calculations.
+    if (item.line_item_category === "header" || item.line_item_category === "subtotal") continue;
 
     const qty          = parseFloat(item.quantity || 1)
     const rate         = parseFloat(item.rate || 0)

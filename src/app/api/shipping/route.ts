@@ -1,23 +1,34 @@
 import { NextRequest, NextResponse } from "next/server"
 import { PrismaClient } from "@prisma/client"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 const prisma = new PrismaClient()
 
 // GET — Fetch all sales orders with their packages for the shipping center
 export async function GET(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    const role = (session?.user as any)?.role || "Sales Representative"
+    const userName = session?.user?.name || ""
+    const isAdmin = role === "Admin"
+
     const url = new URL(req.url)
     const status = url.searchParams.get("status") || "all"
     const search = url.searchParams.get("search") || ""
+    const salespersonFilter = url.searchParams.get("salesperson") || ""
+    const carrierFilter = url.searchParams.get("carrier") || ""
+    const sortBy = url.searchParams.get("sortBy") || "orderDate"
+    const sortDir = url.searchParams.get("sortDir") || "desc"
     const page = parseInt(url.searchParams.get("page") || "1")
-    const limit = parseInt(url.searchParams.get("limit") || "50")
+    const limit = parseInt(url.searchParams.get("limit") || "100")
 
     // Fetch SOs that are not void/draft (active orders)
-    const salesOrders = await prisma.salesOrder.findMany({
+    let salesOrders = await prisma.salesOrder.findMany({
       where: {
         status: { notIn: ["Void", "Draft", "Cancelled", "Closed"] },
       },
-      take: 500,
+      take: 1000,
       include: { 
         account: { 
           select: { 
@@ -32,6 +43,16 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { orderDate: "desc" },
     })
+
+    // RBAC: If not admin, restrict to rep's own orders
+    if (!isAdmin && userName) {
+      const lowerName = userName.toLowerCase()
+      salesOrders = salesOrders.filter(so => {
+        const items = (so.items as any) || {}
+        const sp = (items.salesperson || items.salesperson_name || items.salespersonName || "").toLowerCase()
+        return sp.includes(lowerName) || lowerName.includes(sp)
+      })
+    }
 
     // Fetch all packages
     const packages = await prisma.package.findMany({
@@ -80,17 +101,26 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Collect all available Salespersons and Carriers for UI dropdowns
+    const salespersonsSet = new Set<string>()
+    const carriersSet = new Set<string>()
+
     // Enrich each SO with shipping status
     let results = salesOrders.map(so => {
       const items = (so.items as any) || {}
       const soNumber = items.salesOrderNumber || items.salesorder_number || so.zohoId || ""
       const soZohoId = so.zohoId || ""
+      const salesperson = items.salesperson || items.salesperson_name || items.salespersonName || "Unknown"
+
+      if (salesperson && salesperson !== "Unknown") salespersonsSet.add(salesperson)
 
       // Find packages and dropshipments for this SO
       const soPkgs = packagesBySOId.get(soZohoId) || packagesBySONumber.get(soNumber) || []
-      const soDropships = dropshipsBySOId.get(soZohoId) || dropshipsBySONumber.get(soNumber) || []
+      const soDrops = dropshipsBySOId.get(soZohoId) || dropshipsBySONumber.get(soNumber) || []
 
-      const hasFulfillment = soPkgs.length > 0 || soDropships.length > 0
+      soPkgs.forEach((p: any) => { if (p.carrier) carriersSet.add(p.carrier) })
+
+      const hasFulfillment = soPkgs.length > 0 || soDrops.length > 0
 
       // Derive shipping status considering both packages AND dropshipments
       let shipStatus: "needs_packaging" | "packaged" | "shipped" | "delivered" = "needs_packaging"
@@ -102,10 +132,10 @@ export async function GET(req: NextRequest) {
         )
 
         // Check dropshipments — PO statuses: draft, issued, received, billed, cancelled
-        const allDropDelivered = soDropships.length === 0 || soDropships.every((po: any) =>
+        const allDropDelivered = soDrops.length === 0 || soDrops.every((po: any) =>
           po.status?.toLowerCase() === "received" || po.status?.toLowerCase() === "delivered" || po.status?.toLowerCase() === "billed"
         )
-        const anyDropShipped = soDropships.some((po: any) =>
+        const anyDropShipped = soDrops.some((po: any) =>
           po.status?.toLowerCase() === "issued" || po.status?.toLowerCase() === "received" ||
           po.status?.toLowerCase() === "billed" || po.trackingNumber
         )
@@ -154,7 +184,7 @@ export async function GET(req: NextRequest) {
         shippingAddress,
         lineItemCount,
         lineItemNames,
-        salesperson: items.salesperson || items.salesperson_name || "",
+        salesperson,
         packages: soPkgs.map((p: any) => ({
           id: p.id,
           zohoId: p.zohoId,
@@ -166,7 +196,7 @@ export async function GET(req: NextRequest) {
           shippingCharge: p.shippingCharge,
           items: p.items,
         })),
-        dropshipments: soDropships.map((po: any) => ({
+        dropshipments: soDrops.map((po: any) => ({
           id: po.id,
           zohoId: po.zohoId,
           vendorName: po.vendorName,
@@ -188,10 +218,43 @@ export async function GET(req: NextRequest) {
       )
     }
 
+    // Apply Salesperson filter (for Admin view)
+    if (isAdmin && salespersonFilter) {
+      results = results.filter(r => r.salesperson.toLowerCase() === salespersonFilter.toLowerCase())
+    }
+
+    // Apply Carrier filter
+    if (carrierFilter) {
+      results = results.filter(r =>
+        r.packages.some((p: any) => p.carrier?.toLowerCase() === carrierFilter.toLowerCase())
+      )
+    }
+
     // Apply status filter
     if (status !== "all") {
       results = results.filter(r => r.shipStatus === status)
     }
+
+    // Apply Sorting
+    results.sort((a, b) => {
+      let valA: any = a.orderDate
+      let valB: any = b.orderDate
+
+      if (sortBy === "amount") {
+        valA = a.amount || 0
+        valB = b.amount || 0
+      } else if (sortBy === "customer") {
+        valA = a.customerName.toLowerCase()
+        valB = b.customerName.toLowerCase()
+      } else if (sortBy === "soNumber") {
+        valA = a.soNumber.toLowerCase()
+        valB = b.soNumber.toLowerCase()
+      }
+
+      if (valA < valB) return sortDir === "asc" ? -1 : 1
+      if (valA > valB) return sortDir === "asc" ? 1 : -1
+      return 0
+    })
 
     // Pagination
     const total = results.length
@@ -206,42 +269,16 @@ export async function GET(req: NextRequest) {
       delivered: results.filter(r => r.shipStatus === "delivered").length,
     }
 
-    // Recalculate counts from full (pre-search-filter) results for tabs
-    const allResults = salesOrders.map(so => {
-      const soZohoId = so.zohoId || ""
-      const items = (so.items as any) || {}
-      const soNumber = items.salesOrderNumber || items.salesorder_number || so.zohoId || ""
-      const soPkgs = packagesBySOId.get(soZohoId) || packagesBySONumber.get(soNumber) || []
-      const soDrops = dropshipsBySOId.get(soZohoId) || dropshipsBySONumber.get(soNumber) || []
-      const hasFulfillment = soPkgs.length > 0 || soDrops.length > 0
-      let shipStatus: string = "needs_packaging"
-      if (hasFulfillment) {
-        const allPkgDel = soPkgs.length === 0 || soPkgs.every((p: any) => p.status?.toLowerCase() === "delivered")
-        const anyPkgShip = soPkgs.some((p: any) => p.trackingNumber || p.status?.toLowerCase() === "shipped" || p.status?.toLowerCase() === "delivered")
-        const allDropDel = soDrops.length === 0 || soDrops.every((po: any) => ["received","delivered","billed"].includes(po.status?.toLowerCase()))
-        const anyDropShip = soDrops.some((po: any) => ["issued","received","billed"].includes(po.status?.toLowerCase()) || po.trackingNumber)
-        if (allPkgDel && allDropDel) shipStatus = "delivered"
-        else if (anyPkgShip || anyDropShip) shipStatus = "shipped"
-        else shipStatus = "packaged"
-      }
-      return { shipStatus }
-    })
-
-    const totalCounts = {
-      all: allResults.length,
-      needs_packaging: allResults.filter(r => r.shipStatus === "needs_packaging").length,
-      packaged: allResults.filter(r => r.shipStatus === "packaged").length,
-      shipped: allResults.filter(r => r.shipStatus === "shipped").length,
-      delivered: allResults.filter(r => r.shipStatus === "delivered").length,
-    }
-
     return NextResponse.json({
       success: true,
       data: paginated,
       total,
       page,
       limit,
-      counts: search ? counts : totalCounts,
+      counts,
+      isAdmin,
+      availableSalespersons: Array.from(salespersonsSet).sort(),
+      availableCarriers: Array.from(carriersSet).sort(),
     })
   } catch (err: any) {
     console.error("shipping GET error:", err)

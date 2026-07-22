@@ -84,6 +84,17 @@ export default function ShippingPage() {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
 
+  // Filter & Sort State
+  const [filterSalesperson, setFilterSalesperson] = useState("")
+  const [filterCarrier, setFilterCarrier] = useState("")
+  const [sortBy, setSortBy] = useState("orderDate")
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
+
+  // Dynamic Metadata
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [availableSalespersons, setAvailableSalespersons] = useState<string[]>([])
+  const [availableCarriers, setAvailableCarriers] = useState<string[]>([])
+
   // Tracking modal state
   const [trackingModal, setTrackingModal] = useState<{ packageId: string; carrier: string; tracking: string } | null>(null)
   const [trackingSubmitting, setTrackingSubmitting] = useState(false)
@@ -98,19 +109,30 @@ export default function ShippingPage() {
   const fetchOrders = useCallback(async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ status: activeTab, search, limit: "200" })
+      const params = new URLSearchParams({
+        status: activeTab,
+        search,
+        salesperson: filterSalesperson,
+        carrier: filterCarrier,
+        sortBy,
+        sortDir,
+        limit: "200"
+      })
       const res = await fetch(`/api/shipping?${params}`)
       const data = await res.json()
       if (data.success) {
         setOrders(data.data)
         setCounts(data.counts)
+        setIsAdmin(!!data.isAdmin)
+        if (data.availableSalespersons) setAvailableSalespersons(data.availableSalespersons)
+        if (data.availableCarriers) setAvailableCarriers(data.availableCarriers)
       }
     } catch (e) {
       console.error("Failed to fetch shipping data:", e)
     } finally {
       setLoading(false)
     }
-  }, [activeTab, search])
+  }, [activeTab, search, filterSalesperson, filterCarrier, sortBy, sortDir])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
@@ -273,16 +295,67 @@ export default function ShippingPage() {
         })}
       </div>
 
-      {/* Search */}
-      <div className="relative mb-5">
-        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-        <input
-          type="text"
-          placeholder="Search by SO #, customer, or salesperson..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full glass-panel/70 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-orange-500/50 transition-colors"
-        />
+      {/* Search & Filters Row */}
+      <div className="flex flex-col md:flex-row gap-3 mb-5">
+        <div className="relative flex-1">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+          <input
+            type="text"
+            placeholder="Search by SO #, customer, or salesperson..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full glass-panel/70 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-orange-500/50 transition-colors"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Salesperson Filter (Admin view only or available) */}
+          {isAdmin && (
+            <select
+              value={filterSalesperson}
+              onChange={e => setFilterSalesperson(e.target.value)}
+              className="bg-neutral-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-neutral-300 focus:outline-none focus:border-orange-500/50"
+            >
+              <option value="">All Sales Reps</option>
+              {availableSalespersons.map(sp => (
+                <option key={sp} value={sp}>{sp}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Carrier Filter */}
+          <select
+            value={filterCarrier}
+            onChange={e => setFilterCarrier(e.target.value)}
+            className="bg-neutral-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-neutral-300 focus:outline-none focus:border-orange-500/50"
+          >
+            <option value="">All Carriers</option>
+            {availableCarriers.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+
+          {/* Sort By */}
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            className="bg-neutral-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-neutral-300 focus:outline-none focus:border-orange-500/50"
+          >
+            <option value="orderDate">Sort: Order Date</option>
+            <option value="amount">Sort: Amount</option>
+            <option value="customer">Sort: Customer Name</option>
+            <option value="soNumber">Sort: SO #</option>
+          </select>
+
+          {/* Sort Direction Toggle */}
+          <button
+            onClick={() => setSortDir(prev => prev === "asc" ? "desc" : "asc")}
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-neutral-900 border border-white/10 text-neutral-300 text-sm font-bold hover:bg-neutral-800 transition-colors"
+            title="Toggle sort direction"
+          >
+            {sortDir === "asc" ? "↑ Asc" : "↓ Desc"}
+          </button>
+        </div>
       </div>
 
       {/* Orders Table */}

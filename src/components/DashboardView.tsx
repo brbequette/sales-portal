@@ -11,6 +11,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts"
 import { useZoho } from "@/components/ZohoProvider"
+import { MetricDerivationModal, MetricDerivationInfo } from "@/components/MetricDerivationModal"
 
 // â”€â”€â”€ Types â”€â”€â”€
 interface DashboardData {
@@ -73,17 +74,22 @@ function ChartTooltip({ active, payload, label }: any) {
   )
 }
 
-// â”€â”€â”€ KPI Card â”€â”€â”€
+// ─── KPI Card ───
 function KPICard({
-  icon: Icon, title, value, subtitle, trend, trendUp, color, children
+  icon: Icon, title, value, subtitle, trend, trendUp, color, children, onClick
 }: {
   icon: any; title: string; value: string; subtitle?: string;
-  trend?: string; trendUp?: boolean; color: string; children?: React.ReactNode
+  trend?: string; trendUp?: boolean; color: string; children?: React.ReactNode; onClick?: () => void
 }) {
   return (
-    <div className="glass-panel rounded-2xl p-5 border border-white/[0.06] hover:border-white/[0.12] transition-all duration-300 group relative overflow-hidden">
+    <div 
+      onClick={onClick}
+      className={`glass-panel rounded-2xl p-5 border border-white/[0.06] hover:border-white/[0.2] transition-all duration-300 group relative overflow-hidden ${
+        onClick ? "cursor-pointer hover:scale-[1.01] active:scale-[0.99]" : ""
+      }`}
+    >
       {/* Glow effect */}
-      <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full opacity-[0.07] group-hover:opacity-[0.12] transition-opacity duration-500"
+      <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full opacity-[0.07] group-hover:opacity-[0.14] transition-opacity duration-500"
         style={{ background: `radial-gradient(circle, ${color}, transparent)` }} />
       
       <div className="flex items-start justify-between mb-3">
@@ -91,18 +97,27 @@ function KPICard({
           style={{ background: `${color}15`, borderColor: `${color}30` }}>
           <Icon size={18} style={{ color }} />
         </div>
-        {trend && (
-          <div className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg ${
-            trendUp ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-          }`}>
-            {trendUp ? <FiArrowUpRight size={12} /> : <FiArrowDownRight size={12} />}
-            {trend}
-          </div>
-        )}
+        <div className="flex items-center gap-1.5">
+          {onClick && (
+            <span className="text-[9px] font-bold tracking-wider uppercase opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 px-1.5 py-0.5 rounded text-neutral-300">
+              Formula
+            </span>
+          )}
+          {trend && (
+            <div className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg ${
+              trendUp ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+            }`}>
+              {trendUp ? <FiArrowUpRight size={12} /> : <FiArrowDownRight size={12} />}
+              {trend}
+            </div>
+          )}
+        </div>
       </div>
-      <p className="text-xs text-neutral-500 font-medium uppercase tracking-wider mb-1">{title}</p>
-      <p className="text-2xl font-black tracking-tight text-white">{value}</p>
-      {subtitle && <p className="text-xs text-neutral-500 mt-1">{subtitle}</p>}
+      <div>
+        <p className="text-xs font-medium text-neutral-400 mb-1">{title}</p>
+        <p className="text-2xl font-bold text-white tracking-tight">{value}</p>
+        {subtitle && <p className="text-xs text-neutral-500 mt-1">{subtitle}</p>}
+      </div>
       {children}
     </div>
   )
@@ -136,11 +151,21 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
   const { zohoContext: currentUser } = useZoho()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [timeEntry, setTimeEntry] = useState<any>(null)
+  const [showCompanyWide, setShowCompanyWide] = useState<boolean>(isAdmin ?? false)
+  const [timeEntry, setTimeEntry] = useState<any | null>(null)
   const [clockLoading, setClockLoading] = useState(false)
+  const [selectedMetricInfo, setSelectedMetricInfo] = useState<MetricDerivationInfo | null>(null)
 
-  // Determine if we're showing company-wide or filtered rep data
-  const showCompanyWide = isAdmin === true && !repName
+  useEffect(() => {
+    const handleGlobalMetricEvent = (e: any) => {
+      if (e.detail?.key && data) {
+        const info = buildMetricInfo(e.detail.key, data, timeEntry, repName)
+        if (info) setSelectedMetricInfo(info)
+      }
+    }
+    window.addEventListener("open-metric-derivation", handleGlobalMetricEvent as any)
+    return () => window.removeEventListener("open-metric-derivation", handleGlobalMetricEvent as any)
+  }, [data, timeEntry, repName])
   const filterRepName = repName || null
   const showTopPerformers = isAdmin === true
   const showCompanyBreakdown = isAdmin === true
@@ -572,26 +597,51 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
       {/* ─── KPI Cards ─── */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3">
         {/* Weekly Goal Progress */}
-        <KPICard icon={FiTarget} title="Weekly Goal" value={`$${data.weeklyTotal.toLocaleString()}`}
-          subtitle={showCompanyWide ? `of $${data.weeklyTarget.toLocaleString()} target` : `This week's sales`} color={CHART_COLORS.primary}
-          trend={`${goalPct}%`} trendUp={goalPct >= 50}>
+        <KPICard 
+          icon={FiTarget} 
+          title="Weekly Goal" 
+          value={`$${data.weeklyTotal.toLocaleString()}`}
+          subtitle={showCompanyWide ? `of $${data.weeklyTarget.toLocaleString()} target` : `This week's sales`} 
+          color={CHART_COLORS.primary}
+          trend={`${goalPct}%`} 
+          trendUp={goalPct >= 50}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("weeklyGoal", data, timeEntry, repName))}
+        >
           <QuotaRing current={data.weeklyTotal} target={data.weeklyTarget} color={CHART_COLORS.primary} />
         </KPICard>
 
         {/* Total Revenue */}
-        <KPICard icon={FiDollarSign} title="Total Revenue" value={`$${data.monthlyTotal.toLocaleString()}`}
-          subtitle="Month-to-Date Sales" color={CHART_COLORS.primary}
-          trend={`${data.monthlyDeals} deals`} trendUp={true} />
+        <KPICard 
+          icon={FiDollarSign} 
+          title="Total Revenue" 
+          value={`$${data.monthlyTotal.toLocaleString()}`}
+          subtitle="Month-to-Date Sales" 
+          color={CHART_COLORS.primary}
+          trend={`${data.monthlyDeals} deals`} 
+          trendUp={true} 
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("totalRevenue", data, timeEntry, repName))}
+        />
           
         {/* Monthly Profit */}
-        <KPICard icon={FiTrendingUp} title="Monthly Profit" value={`$${data.monthlyProfit.toLocaleString()}`}
-          subtitle={`Commission: $${data.monthlyCommission.toLocaleString()}`} color={CHART_COLORS.purple} />
+        <KPICard 
+          icon={FiTrendingUp} 
+          title="Monthly Profit" 
+          value={`$${data.monthlyProfit.toLocaleString()}`}
+          subtitle={`Commission: $${data.monthlyCommission.toLocaleString()}`} 
+          color={CHART_COLORS.purple} 
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("monthlyProfit", data, timeEntry, repName))}
+        />
           
         {/* Timeclock */}
-        <KPICard icon={FiClock} title="Timeclock" value={(!timeEntry || timeEntry.manualClockOut) ? "Off Clock" : `${calculateHours(timeEntry)}h`}
-          color={(!timeEntry || timeEntry.manualClockOut) ? CHART_COLORS.text : CHART_COLORS.accent}>
+        <KPICard 
+          icon={FiClock} 
+          title="Timeclock" 
+          value={(!timeEntry || timeEntry.manualClockOut) ? "Off Clock" : `${calculateHours(timeEntry)}h`}
+          color={(!timeEntry || timeEntry.manualClockOut) ? CHART_COLORS.text : CHART_COLORS.accent}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("timeclock", data, timeEntry, repName))}
+        >
           <button
-            onClick={handleToggleClock}
+            onClick={(e) => { e.stopPropagation(); handleToggleClock(); }}
             disabled={clockLoading}
             className={`mt-3 w-full text-xs font-bold py-2 rounded-xl border transition-all duration-300 ${
               (!timeEntry || timeEntry.manualClockOut)
@@ -604,20 +654,44 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         </KPICard>
 
         {/* Deals Won */}
-        <KPICard icon={FiCheckCircle} title="Deals Won" value={`${data.dealsWon}`}
-          subtitle="Total successful deals" color={CHART_COLORS.accent} />
+        <KPICard 
+          icon={FiCheckCircle} 
+          title="Deals Won" 
+          value={`${data.dealsWon}`}
+          subtitle="Total successful deals" 
+          color={CHART_COLORS.accent} 
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("dealsWon", data, timeEntry, repName))}
+        />
 
         {/* Deals Lost */}
-        <KPICard icon={FiAlertCircle} title="Deals Lost" value={`${data.dealsLost}`}
-          subtitle="Total void/lost deals" color={CHART_COLORS.rose} />
+        <KPICard 
+          icon={FiAlertCircle} 
+          title="Deals Lost" 
+          value={`${data.dealsLost}`}
+          subtitle="Total void/lost deals" 
+          color={CHART_COLORS.rose} 
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("dealsLost", data, timeEntry, repName))}
+        />
 
         {/* Avg Deal Size */}
-        <KPICard icon={FiTrendingUp} title="Avg Deal Size" value={`$${data.avgDealSize.toLocaleString()}`}
-          subtitle="Revenue per won deal" color={CHART_COLORS.sky} />
+        <KPICard 
+          icon={FiTrendingUp} 
+          title="Avg Deal Size" 
+          value={`$${data.avgDealSize.toLocaleString()}`}
+          subtitle="Revenue per won deal" 
+          color={CHART_COLORS.sky} 
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("avgDealSize", data, timeEntry, repName))}
+        />
 
         {/* Pipeline */}
-        <KPICard icon={FiLayers} title="Active Pipeline" value={`$${data.pipelineValue.toLocaleString()}`}
-          subtitle={`${data.pipelineCount} open invoices`} color={CHART_COLORS.sky}>
+        <KPICard 
+          icon={FiLayers} 
+          title="Active Pipeline" 
+          value={`$${data.pipelineValue.toLocaleString()}`}
+          subtitle={`${data.pipelineCount} open invoices`} 
+          color={CHART_COLORS.sky}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("activePipeline", data, timeEntry, repName))}
+        >
           {data.overdueCount > 0 && (
             <div className="mt-2 flex items-center gap-1.5 text-xs text-red-400">
               <FiAlertCircle size={12} />
@@ -884,7 +958,150 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           </div>
         </div>
       )}
+
+      {/* ─── Metric Derivation Explanation Modal ─── */}
+      <MetricDerivationModal
+        info={selectedMetricInfo}
+        onClose={() => setSelectedMetricInfo(null)}
+      />
     </div>
   )
+}
+
+function buildMetricInfo(key: string, data: DashboardData, timeEntry: any, repName?: string | null): MetricDerivationInfo | null {
+  const repLabel = repName || "All Sales Representatives"
+
+  switch (key) {
+    case "weeklyGoal": {
+      const pct = data.weeklyTarget > 0 ? Math.round((data.weeklyTotal / data.weeklyTarget) * 100) : 0
+      return {
+        title: "Weekly Goal Progress",
+        value: `$${data.weeklyTotal.toLocaleString()} / $${data.weeklyTarget.toLocaleString()} (${pct}%)`,
+        subtitle: `Tracked for ${repLabel} this calendar week`,
+        color: CHART_COLORS.primary,
+        formula: "Weekly Goal % = (Current Week Paid & Active Invoices Subtotal / Weekly Quota Target) × 100",
+        explanation: "Measures current week sales volume against your target quota. Resets every Monday at midnight. Includes all non-void, active invoices created within the current week date range.",
+        dataSource: "Prisma `Invoice` & `SalesOrder` models, filtered by `orderDate >= Monday`.",
+        calculationDetails: [
+          { label: "Current Week Sales", value: `$${data.weeklyTotal.toLocaleString()}`, description: "Sum of valid invoice subtotals issued Mon-Sun" },
+          { label: "Weekly Quota Target", value: `$${data.weeklyTarget.toLocaleString()}`, description: "Rep target assigned in system settings" },
+          { label: "Completion Rate", value: `${pct}%`, description: "Calculated progress ratio" }
+        ],
+        notes: "Quotes and draft orders are excluded from goal progress until converted to active Sales Orders or Invoices."
+      }
+    }
+    case "totalRevenue": {
+      return {
+        title: "Month-to-Date (MTD) Total Revenue",
+        value: `$${data.monthlyTotal.toLocaleString()}`,
+        subtitle: `Total sales generated in current month (${data.monthlyDeals} completed deals)`,
+        color: CHART_COLORS.primary,
+        formula: "MTD Revenue = Σ (Invoice Subtotal) for all active invoices issued in current calendar month",
+        explanation: "Total gross revenue generated by confirmed invoices during the current calendar month. Excludes tax, shipping, and voided/cancelled documents.",
+        dataSource: "Prisma `Invoice` table, filtered by `issueDate` within current month.",
+        calculationDetails: [
+          { label: "MTD Gross Subtotal", value: `$${data.monthlyTotal.toLocaleString()}`, description: "Sum of items subtotal before VIG or deductions" },
+          { label: "Completed Deals", value: `${data.monthlyDeals}`, description: "Number of active invoices/orders this month" },
+          { label: "Average Order Value", value: data.monthlyDeals > 0 ? `$${Math.round(data.monthlyTotal / data.monthlyDeals).toLocaleString()}` : "$0", description: "MTD Revenue / Deals Count" }
+        ]
+      }
+    }
+    case "monthlyProfit": {
+      return {
+        title: "Monthly Profit & Commission",
+        value: `$${data.monthlyProfit.toLocaleString()}`,
+        subtitle: `Commission earned: $${data.monthlyCommission.toLocaleString()}`,
+        color: CHART_COLORS.purple,
+        formula: "Profit = Subtotal - (Dead Cost + VIG) - Credit Card Fees - Additional Costs\nCommission = Max(0, Profit) × Commission %",
+        explanation: "Calculated per line item using item wholesale cost, salesperson VIG rate multiplier (e.g. 1.3x for standard, 1.0x for Montgomery Morgan), credit card processing fees (3%), and custom invoice fee deductions.",
+        dataSource: "Calculated via `cost-calculations.ts` engine on synced Zoho Invoices.",
+        calculationDetails: [
+          { label: "Gross Subtotal", value: `$${data.monthlyTotal.toLocaleString()}`, description: "Total revenue before costs" },
+          { label: "Net Profit Total", value: `$${data.monthlyProfit.toLocaleString()}`, description: "Profit after VIG cost deduction & CC fees" },
+          { label: "Estimated Commission", value: `$${data.monthlyCommission.toLocaleString()}`, description: "Salesperson payout based on tier %" }
+        ],
+        notes: "Montgomery Morgan invoices enforce a 1.0 VIG multiplier. Insurance items are retained as company revenue and not deducted from rep profit."
+      }
+    }
+    case "timeclock": {
+      const statusText = (!timeEntry || timeEntry.manualClockOut) ? "Off Clock" : "Clocked In"
+      return {
+        title: "Timeclock & Logged Shift Hours",
+        value: statusText,
+        subtitle: "Automated & manual shift tracking",
+        color: CHART_COLORS.accent,
+        formula: "Shift Hours = (Clock Out Time - Clock In Time) - Total Logged Inactivity Periods",
+        explanation: "Calculates total active working hours. Inactivity detection flags periods over 20 minutes without system interaction, deducting them from total paid time unless approved by admin.",
+        dataSource: "Prisma `TimeEntry` table with geofence validation.",
+        calculationDetails: [
+          { label: "Current Status", value: statusText, description: "Real-time state from Timeclock engine" },
+          { label: "Geofence Check", value: timeEntry?.locationStatus || "VERIFIED", description: "GPS validation against office coordinates" }
+        ]
+      }
+    }
+    case "dealsWon": {
+      return {
+        title: "Deals Won",
+        value: `${data.dealsWon}`,
+        subtitle: "Successful sales closed",
+        color: CHART_COLORS.accent,
+        formula: "Deals Won = Count(Deals / Invoices with status 'Closed Won' or 'Paid')",
+        explanation: "Represents the total count of successfully closed sales opportunities that reached final payment or confirmation.",
+        dataSource: "Prisma `Deal` and `Invoice` records.",
+        calculationDetails: [
+          { label: "Total Closed Won", value: `${data.dealsWon}`, description: "Count of successful deals" }
+        ]
+      }
+    }
+    case "dealsLost": {
+      return {
+        title: "Deals Lost",
+        value: `${data.dealsLost}`,
+        subtitle: "Voided or lost opportunities",
+        color: CHART_COLORS.rose,
+        formula: "Deals Lost = Count(Deals with status 'Closed Lost', 'Void', or 'Write-Off')",
+        explanation: "Tracks non-converting deals, cancelled sales orders, or bad debt write-offs to monitor win/loss conversion ratios.",
+        dataSource: "Prisma `Deal` and `SalesOrder` records.",
+        calculationDetails: [
+          { label: "Total Void/Lost", value: `${data.dealsLost}`, description: "Count of lost opportunities" }
+        ]
+      }
+    }
+    case "avgDealSize": {
+      return {
+        title: "Average Deal Size",
+        value: `$${data.avgDealSize.toLocaleString()}`,
+        subtitle: "Average revenue generated per closed deal",
+        color: CHART_COLORS.sky,
+        formula: "Average Deal Size = Total Revenue from Won Deals / Total Count of Won Deals",
+        explanation: "Measures average deal value across all closed transactions, helping gauge upsell performance and customer sizing.",
+        dataSource: "Aggregated from MTD invoice totals and won deal counts.",
+        calculationDetails: [
+          { label: "Won Revenue Sum", value: `$${(data.avgDealSize * (data.dealsWon || 1)).toLocaleString()}`, description: "Total won deal value" },
+          { label: "Won Deals Count", value: `${data.dealsWon}`, description: "Total count of closed deals" },
+          { label: "Avg Deal Size", value: `$${data.avgDealSize.toLocaleString()}`, description: "Result of Division" }
+        ]
+      }
+    }
+    case "activePipeline": {
+      return {
+        title: "Active Pipeline & Overdue Balances",
+        value: `$${data.pipelineValue.toLocaleString()}`,
+        subtitle: `${data.pipelineCount} open invoices (${data.overdueCount} overdue: $${data.overdueBalance.toLocaleString()})`,
+        color: CHART_COLORS.sky,
+        formula: "Pipeline = Σ (Unpaid Invoice Balance)\nOverdue = Σ (Balance of Invoices where Due Date < Current Date)",
+        explanation: "Tracks total outstanding collections value. Overdue balance highlights invoices requiring immediate follow-up by reps or collections team.",
+        dataSource: "Prisma `Invoice` table, filtered by `balance > 0`.",
+        calculationDetails: [
+          { label: "Total Open Invoices", value: `${data.pipelineCount}`, description: "All active non-paid invoices" },
+          { label: "Total Open Balance", value: `$${data.pipelineValue.toLocaleString()}`, description: "Sum of unpaid balances" },
+          { label: "Overdue Invoices", value: `${data.overdueCount}`, description: "Invoices past due date" },
+          { label: "Overdue Balance", value: `$${data.overdueBalance.toLocaleString()}`, description: "Past due collection amount" }
+        ]
+      }
+    }
+    default:
+      return null
+  }
 }
 

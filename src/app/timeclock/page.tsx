@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from "react"
 import { useZoho } from "@/components/ZohoProvider"
-import { FiClock, FiAlertCircle, FiCheckCircle, FiXCircle } from "react-icons/fi"
+import { FiClock, FiAlertCircle, FiCheckCircle, FiXCircle, FiMapPin, FiAlertTriangle, FiLock } from "react-icons/fi"
 import { calculateHours, formatHours } from "@/lib/timeclock-utils"
 import { toast } from 'react-hot-toast';
 
@@ -268,18 +268,18 @@ export default function UserTimeclockPage() {
                               <span className="md:hidden text-[10px] text-neutral-500 block mb-0.5">{formatTime(effectiveIn)} – {formatTime(effectiveOut)}</span>
                               {calculateHours(entry).toFixed(2)}h
                               {entry.locationStatus === 'VERIFIED' && (
-                                <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
-                                  ✨“ {entry.clockInLocation || 'On-Site'}
+                                <span className="ml-2 text-[9px] inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
+                                  <FiMapPin className="text-[10px]" /> {entry.clockInLocation || 'On-Site'}
                                 </span>
                               )}
                               {entry.locationStatus === 'OUT_OF_RANGE' && (
-                                <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">
-                                  ⚠ï¸ Off-Site
+                                <span className="ml-2 text-[9px] inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">
+                                  <FiAlertTriangle className="text-[10px]" /> Off-Site
                                 </span>
                               )}
                               {entry.locationStatus === 'DENIED' && (
-                                <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-500/20 text-neutral-400 font-bold">
-                                  🔒 No GPS
+                                <span className="ml-2 text-[9px] inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-neutral-500/20 text-neutral-400 font-bold">
+                                  <FiLock className="text-[10px]" /> No GPS
                                 </span>
                               )}
                             </td>

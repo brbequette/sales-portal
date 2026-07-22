@@ -10,6 +10,7 @@ import { RecordPaymentModal } from "./RecordPaymentModal"
 import { DocumentLifecycle } from "./DocumentLifecycle"
 import { SaleCommunications } from "./SaleCommunications"
 import { DocumentTasks } from "./DocumentTasks"
+import { InvoiceFinancialBreakdown } from "./InvoiceFinancialBreakdown"
 
 interface InvoiceDetailsModalProps {
   invoice: any | string; // Can be an invoice object or just the zohoId string
@@ -39,7 +40,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   
   // Tabs state
-  const [activeTab, setActiveTab] = useState<'overview' | 'communications' | 'notes_tasks' | 'pdf_preview'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'financials' | 'communications' | 'notes_tasks' | 'pdf_preview'>('overview')
   
   // Discount state
   const [discountPercentage, setDiscountPercentage] = useState<number>(5)
@@ -589,6 +590,14 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
             Overview
           </button>
           <button
+            onClick={() => setActiveTab('financials')}
+            className={`pb-2 px-2 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${
+              activeTab === 'financials' ? 'border-emerald-500 text-emerald-400 font-extrabold' : 'border-transparent text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            📊 Financial Derivation
+          </button>
+          <button
             onClick={() => setActiveTab('communications')}
             className={`pb-2 px-2 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${
               activeTab === 'communications' ? 'border-blue-500 text-blue-400' : 'border-transparent text-neutral-500 hover:text-neutral-300'
@@ -614,8 +623,30 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
           </button>
         </div>
 
-        {/* â”€â”€ Content â”€â”€ */}
-        {activeTab === 'overview' ? (
+        {/* ——— Content ——— */}
+        {activeTab === 'financials' ? (
+          <div className="flex-1 bg-black/20 overflow-y-auto p-4 sm:p-5">
+            <InvoiceFinancialBreakdown
+              subTotal={parseFloat(displayData.sub_total || displayData.total || displayData.amount || 0)}
+              deadCostTotal={displayData.deadCostTotal || displayData.dead_cost_total}
+              deadCostSubjectToVig={displayData.deadCostSubjectToVig}
+              deadCostNoVig={displayData.deadCostNoVig || 0}
+              vigRate={displayData.vigRate || displayData.vig_rate}
+              deadCostPlusVig={displayData.deadCostPlusVig}
+              profit={displayData.profit}
+              salesCommission={displayData.salesCommission}
+              salespersonName={displayData.salesperson_name || displayData.salespersonName || ""}
+              lineItemDetails={displayData.line_items?.map((item: any) => ({
+                name: item.name || item.description || "Item",
+                quantity: parseFloat(item.quantity || 1),
+                rate: parseFloat(item.rate || item.price || 0),
+                deadCost: parseFloat(item.b2bCost || item.cost || 0),
+                noVig: item.noVig || item.isNoVig
+              })) || []}
+              customFields={displayData.custom_fields || displayData.customFields || []}
+            />
+          </div>
+        ) : activeTab === 'overview' ? (
           <div className="flex-1 bg-black/20 overflow-y-auto p-4 sm:p-5 flex flex-col gap-5">
             <div>
               <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><FiDatabase className="text-sky-400 shrink-0" /> Data View</h3>
@@ -759,7 +790,30 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 />
               </div>
 
-            {/* â”€â”€ Cost & Commission Panel + Line Items â”€â”€ */}
+            {/* ─── Visual Financial & Commission Derivation Card ─── */}
+            <div className="pt-3 border-t border-white/10">
+              <InvoiceFinancialBreakdown
+                subTotal={parseFloat(displayData.sub_total || displayData.total || displayData.amount || 0)}
+                deadCostTotal={displayData.deadCostTotal || displayData.dead_cost_total}
+                deadCostSubjectToVig={displayData.deadCostSubjectToVig}
+                deadCostNoVig={displayData.deadCostNoVig || 0}
+                vigRate={displayData.vigRate || displayData.vig_rate}
+                deadCostPlusVig={displayData.deadCostPlusVig}
+                profit={displayData.profit}
+                salesCommission={displayData.salesCommission}
+                salespersonName={displayData.salesperson_name || displayData.salespersonName || ""}
+                lineItemDetails={displayData.line_items?.map((item: any) => ({
+                  name: item.name || item.description || "Item",
+                  quantity: parseFloat(item.quantity || 1),
+                  rate: parseFloat(item.rate || item.price || 0),
+                  deadCost: parseFloat(item.b2bCost || item.cost || 0),
+                  noVig: item.noVig || item.isNoVig
+                })) || []}
+                customFields={displayData.custom_fields || displayData.customFields || []}
+              />
+            </div>
+
+            {/* ─── Cost & Commission Panel + Line Items ─── */}
             <div className="pt-3 border-t border-white/10 flex flex-col gap-4">
 
               {isLoading ? (
@@ -840,7 +894,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
                   {/* â”€â”€ Per-Item Cost Breakdown Table â”€â”€ */}
                   {(() => {
-                    let lineItems: any[] = costResult?.lineItems ||
+                    let lineItems: any[] = costResult?.lineItemDetails ||
                       (displayData?.items as any)?.lineItemDetails ||
                       []
                     
@@ -1037,6 +1091,14 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                               return (
                                 <div key={item.line_item_id || i} className="bg-sky-900/30 border-l-2 border-sky-500 rounded-r-lg p-2.5 mt-2">
                                   <div className="font-black text-sky-400 text-xs uppercase tracking-widest">{item.name || item.description}</div>
+                                </div>
+                              )
+                            }
+                            if (item.line_item_category === 'subtotal') {
+                              return (
+                                <div key={item.line_item_id || i} className="glass-panel border-b-2 border-emerald-500/50 rounded-b-lg p-2.5 mt-1 flex justify-between items-center">
+                                  <div className="font-black text-emerald-400/80 text-xs uppercase tracking-widest">{item.name || item.description || 'Subtotal'}</div>
+                                  <div className="text-emerald-400 font-bold">${parseFloat(item.item_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                                 </div>
                               )
                             }

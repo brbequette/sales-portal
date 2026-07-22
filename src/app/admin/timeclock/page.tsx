@@ -492,7 +492,7 @@ export default function AdminTimeclockPage() {
 
           {/* How it works info */}
           <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 text-xs text-blue-300/80 space-y-1">
-            <p className="font-bold text-blue-300">✨“ How Geolocation Timeclock Works</p>
+            <p className="font-bold text-blue-300">How Geolocation Timeclock Works</p>
             <p>• GPS is captured <strong>only</strong> at clock-in and clock-out — not continuously tracked.</p>
             <p>• If geofence locations are configured, clock-in position is validated against the nearest location.</p>
             <p>• Status shows as VERIFIED (within radius), OUT_OF_RANGE, DENIED (no GPS permission), or UNAVAILABLE.</p>
@@ -500,7 +500,7 @@ export default function AdminTimeclockPage() {
           </div>
         </div>
       ) : (
-      /* â•â•â•â•â•â•â•â•â•â• Entries Tab â•â•â•â•â•â•â•â•â•â• */
+      /* Entries Tab */
       <>
       {Object.values(userGroups).length === 0 ? (
         <div className="text-neutral-500">No time entries found for this month.</div>
@@ -550,23 +550,23 @@ export default function AdminTimeclockPage() {
                                 </td>
                                 <td className="px-4 py-2">
                                   {formatTime(entry.manualClockIn || entry.clockIn)}
-                                  {entry.manualClockIn && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">â—</span>}
+                                  {entry.manualClockIn && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">•</span>}
                                 </td>
                                 <td className="px-4 py-2">
                                   {formatTime(entry.manualClockOut || entry.clockOut || entry.lastActivity)}
-                                  {entry.manualClockOut && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">â—</span>}
+                                  {entry.manualClockOut && <span className="ml-1 text-[10px] text-emerald-500" title="Manually Edited">•</span>}
                                 </td>
                                 <td className="px-4 py-2">
                                   {(entry as any).locationStatus === 'VERIFIED' && (
                                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold whitespace-nowrap">
-                                      ✨“ {(entry as any).clockInLocation || 'On-Site'}
+                                      {(entry as any).clockInLocation || 'On-Site'}
                                     </span>
                                   )}
                                   {(entry as any).locationStatus === 'OUT_OF_RANGE' && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">⚠ï¸ Off-Site</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">Off-Site</span>
                                   )}
                                   {(entry as any).locationStatus === 'DENIED' && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-500/20 text-neutral-400 font-bold">🔒 No GPS</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-500/20 text-neutral-400 font-bold">No GPS</span>
                                   )}
                                   {(entry as any).locationStatus === 'UNAVAILABLE' && (
                                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-800 text-neutral-500 font-bold">—</span>

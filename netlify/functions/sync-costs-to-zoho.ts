@@ -100,17 +100,17 @@ async function syncDocType(
 
   if (docType === "invoices") {
     pendingDocs = await prisma.invoice.findMany({
-      where: { pendingCostSync: true, zohoId: { not: null } },
+      where: { pendingCostSync: true, zohoId: { not: "" } },
       select: { id: true, zohoId: true, items: true },
     })
   } else if (docType === "quotes") {
     pendingDocs = await prisma.quote.findMany({
-      where: { pendingCostSync: true, zohoId: { not: null } },
+      where: { pendingCostSync: true, zohoId: { not: "" } },
       select: { id: true, zohoId: true, items: true },
     })
   } else {
     pendingDocs = await prisma.salesOrder.findMany({
-      where: { pendingCostSync: true, zohoId: { not: null } },
+      where: { pendingCostSync: true, zohoId: { not: "" } },
       select: { id: true, zohoId: true, items: true },
     })
   }
@@ -249,6 +249,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const token = await getZohoAccessToken()
+    if (!token) throw new Error("Failed to get Zoho access token")
 
     for (const docType of docTypes) {
       await syncDocType(docType, token, dryRun, batchDelay, stats)

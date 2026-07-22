@@ -214,15 +214,15 @@ async function processDocType(
   } as const
 
   if (docType === "invoices") {
-    const whereClause: any = { zohoId: { not: null } }
+    const whereClause: any = { zohoId: { not: "" } }
     if (opts.month) {
       whereClause.date = { startsWith: opts.month }
     }
     dbDocs = await prisma.invoice.findMany({ where: whereClause, select: selectFields })
   } else if (docType === "quotes") {
-    dbDocs = await prisma.quote.findMany({ where: { zohoId: { not: null } }, select: selectFields })
+    dbDocs = await prisma.quote.findMany({ where: { zohoId: { not: "" } }, select: selectFields })
   } else {
-    dbDocs = await prisma.salesOrder.findMany({ where: { zohoId: { not: null } }, select: selectFields })
+    dbDocs = await prisma.salesOrder.findMany({ where: { zohoId: { not: "" } }, select: selectFields })
   }
 
   if (opts.limit) dbDocs = dbDocs.slice(0, opts.limit)
@@ -392,6 +392,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const token = await getZohoAccessToken()
+    if (!token) throw new Error("Failed to get Zoho access token")
 
     for (const docType of docTypes) {
       await processDocType(docType, token, opts, stats)
