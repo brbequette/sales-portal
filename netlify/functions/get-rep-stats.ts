@@ -1,8 +1,6 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 import { getSystemSettings } from "./lib/settings"
-
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 
 // Workday calculation helpers
 function getWorkdaysCount(startDate: Date, endDate: Date, holidays: any[]): number {
@@ -499,16 +497,22 @@ export const handler: Handler = async (event) => {
     const oldestInvoice = await prisma.invoice.findFirst({
       orderBy: { issueDate: 'asc' },
       select: { issueDate: true }
-    });
+    }).catch(() => null);
     
-    let historyMonths = 60; // default fallback back to 2020
+    let historyMonths = 72; // 6 years (2020 to present)
     if (oldestInvoice?.issueDate) {
       const oldestDate = new Date(oldestInvoice.issueDate);
       const monthsDiff = (now.getFullYear() - oldestDate.getFullYear()) * 12 + (now.getMonth() - oldestDate.getMonth());
-      historyMonths = Math.max(1, monthsDiff);
+      historyMonths = Math.min(72, Math.max(1, monthsDiff));
     }
 
-    const allHistoricalInvoices = await prisma.invoice.findMany({
+    // Calculate start date lte lte for historical months (Jan 2020 to present)
+    const startDateLimit = new Date(now.getFullYear(), now.getMonth() - historyMonths, 1)
+
+    const allHistoricalInvoices: any[] = await prisma.invoice.findMany({
+      where: {
+        issueDate: { gte: startDateLimit }
+      },
       select: {
         issueDate: true,
         amount: true,
@@ -519,7 +523,7 @@ export const handler: Handler = async (event) => {
           select: { ownerId: true }
         }
       }
-    })
+    }).catch(() => [])
 
     // Group invoices by month key in JS
     const invoicesByMonth = new Map<string, typeof allHistoricalInvoices>()

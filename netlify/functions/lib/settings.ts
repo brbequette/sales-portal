@@ -21,17 +21,23 @@ export const DEFAULT_SETTINGS: AppSettings = {
 }
 
 export async function getSystemSettings(prisma: PrismaClient): Promise<AppSettings> {
-  const records = await prisma.systemSetting.findMany()
-  const map: Record<string, string> = {}
-  records.forEach((r: any) => { map[r.key] = r.value })
+  try {
+    const records = await prisma.systemSetting.findMany().catch(() => [])
+    const map: Record<string, string> = {}
+    if (Array.isArray(records)) {
+      records.forEach((r: any) => { map[r.key] = r.value })
+    }
 
-  return {
-    default_vig_rate: map.default_vig_rate ? parseFloat(map.default_vig_rate) : DEFAULT_SETTINGS.default_vig_rate,
-    commission_rate_pct: map.commission_rate_pct ? parseFloat(map.commission_rate_pct) : DEFAULT_SETTINGS.commission_rate_pct,
-    shipping_multiplier: map.shipping_multiplier ? parseFloat(map.shipping_multiplier) : DEFAULT_SETTINGS.shipping_multiplier,
-    cc_fee_rate: map.cc_fee_rate ? parseFloat(map.cc_fee_rate) : DEFAULT_SETTINGS.cc_fee_rate,
-    default_shipping_weight: map.default_shipping_weight ? parseFloat(map.default_shipping_weight) : DEFAULT_SETTINGS.default_shipping_weight,
-    sms_daily_account_limit: map.sms_daily_account_limit ? parseInt(map.sms_daily_account_limit) : DEFAULT_SETTINGS.sms_daily_account_limit,
-    ai_reply_prompt: map.ai_reply_prompt || DEFAULT_SETTINGS.ai_reply_prompt
+    return {
+      default_vig_rate: map.default_vig_rate ? parseFloat(map.default_vig_rate) : DEFAULT_SETTINGS.default_vig_rate,
+      commission_rate_pct: map.commission_rate_pct ? parseFloat(map.commission_rate_pct) : DEFAULT_SETTINGS.commission_rate_pct,
+      shipping_multiplier: map.shipping_multiplier ? parseFloat(map.shipping_multiplier) : DEFAULT_SETTINGS.shipping_multiplier,
+      cc_fee_rate: map.cc_fee_rate ? parseFloat(map.cc_fee_rate) : DEFAULT_SETTINGS.cc_fee_rate,
+      default_shipping_weight: map.default_shipping_weight ? parseFloat(map.default_shipping_weight) : DEFAULT_SETTINGS.default_shipping_weight,
+      sms_daily_account_limit: map.sms_daily_account_limit ? parseInt(map.sms_daily_account_limit) : DEFAULT_SETTINGS.sms_daily_account_limit,
+      ai_reply_prompt: map.ai_reply_prompt || DEFAULT_SETTINGS.ai_reply_prompt
+    }
+  } catch (err) {
+    return DEFAULT_SETTINGS
   }
 }

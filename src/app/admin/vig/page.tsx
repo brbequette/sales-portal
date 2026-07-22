@@ -303,8 +303,19 @@ export default function VigManagementPage() {
                         </thead>
                         <tbody className="divide-y divide-neutral-800/40">
                           {historicalRates.map((h) => {
-                            const monthData = h.reps?.[rep.repId]
-                            if (!monthData) return null
+                            const monthData = h.reps?.[rep.repId] || {
+                              metric: "PROFIT",
+                              target: 20000,
+                              subtotalGoal: 40000,
+                              profitGoal: 20000,
+                              sales: 0,
+                              profit: 0,
+                              subtotal: 0,
+                              vigRate: 1.3,
+                              manualVigRate: null,
+                              lastSyncedVigRate: null,
+                              metGoal: false
+                            }
 
                             const isConstant = rep.constantVigEnabled
                             const isManual = monthData.manualVigRate !== null
