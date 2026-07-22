@@ -485,11 +485,11 @@ export const handler: Handler = async (event) => {
       select: { issueDate: true }
     });
     
-    let historyMonths = 6; // default fallback
+    let historyMonths = 12; // default fallback
     if (oldestInvoice?.issueDate) {
       const oldestDate = new Date(oldestInvoice.issueDate);
       const monthsDiff = (now.getFullYear() - oldestDate.getFullYear()) * 12 + (now.getMonth() - oldestDate.getMonth());
-      historyMonths = Math.max(1, monthsDiff);
+      historyMonths = Math.min(24, Math.max(1, monthsDiff));
     }
 
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
