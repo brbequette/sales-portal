@@ -130,9 +130,12 @@ export const handler: Handler = async (event) => {
     const invoiceRecords = invoices.map(inv => {
       const items = inv.items as any || {}
       const salespersonName = items.salesperson as string | null
-      const profit = parseFloat(items.profit || 0)
-      const deadCost = parseFloat(items.deadCostTotal || 0)
-      const commissionAmount = parseFloat(items.commission || items.cf_commission_amount_unformatted || items.cf_commision_amount_unformatted || items.Commission_Amount || 0)
+      const subTotal = parseFloat(items.sub_total || items.subTotal) || inv.amount || 0
+      const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || 0)
+      const profit = items.profit !== undefined && items.profit !== null && items.profit !== '' 
+        ? parseFloat(items.profit) 
+        : (subTotal - deadCost)
+      const commissionAmount = parseFloat(items.commission || items.cf_commission_amount_unformatted || items.cf_commision_amount_unformatted || items.Commission_Amount || 0) || (profit * 0.50)
       const invoiceNumber = items.invoiceNumber || items.invoice_number || null
       const paymentDate = items.paymentDate || null
 
