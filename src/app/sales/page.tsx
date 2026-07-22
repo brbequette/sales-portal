@@ -38,11 +38,14 @@ export default function SalesListPage() {
   const [selectedReps, setSelectedReps] = useState<string[]>([])
   const [sortBy, setSortBy] = useState<"date-desc" | "date-asc" | "amount-desc" | "amount-asc">("date-desc")
 
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>("all")
+  const [loadAllHistory, setLoadAllHistory] = useState<boolean>(false)
+
   const isAdmin = user?.role?.toLowerCase().includes("admin") || user?.role === "Administrator"
 
   useEffect(() => {
-    if (user) {
-      setShowAllReps(isAdmin)
+    if (user && !isAdmin) {
+      setSelectedOwnerId(user.id)
     }
   }, [user, isAdmin])
 
@@ -67,19 +70,19 @@ export default function SalesListPage() {
         search,
         type: typeFilter,
         sortBy,
+        loadAll: loadAllHistory ? 'true' : 'false',
         _t: ts.toString()
       })
       
+      if (!isAdmin) {
+        queryParams.set('ownerId', user.id)
+      } else if (selectedOwnerId && selectedOwnerId !== 'all') {
+        queryParams.set('ownerId', selectedOwnerId)
+      }
+
       if (statusFilter.length > 0) {
         queryParams.set('status', statusFilter.join(','))
       }
-      
-      // If admin selected reps (we need owner ids, but since selectedReps is currently names, 
-      // we can search by owner names if our API supports it, or we need to pass the names. 
-      // For now, let's just pass the selectedReps names and let the API filter if we update the API,
-      // or we can just fetch all users and map them).
-      // Since our API expects ownerIds, we can pass them if we map them. 
-      // For simplicity, let's assume we map them later, or just don't pass ownerIds right now.
 
       const res = await fetch(`/api/get-documents?${queryParams.toString()}`)
       const data = await res.json()
@@ -98,15 +101,15 @@ export default function SalesListPage() {
     } finally {
       if (loadId === fetchDocsRef.current) setLoading(false)
     }
-  }, [user, page, search, typeFilter, statusFilter, sortBy])
+  }, [user, page, search, typeFilter, statusFilter, sortBy, selectedOwnerId, loadAllHistory, isAdmin])
 
   useEffect(() => { fetchDocuments() }, [fetchDocuments])
 
   // Fetch reps list for the filter
-  const [repsList, setRepsList] = useState<string[]>([])
+  const [repsList, setRepsList] = useState<any[]>([])
   useEffect(() => {
     fetch('/api/get-users').then(r => r.json()).then(d => {
-      if (d.success) setRepsList(d.users.map((u: any) => u.name).filter(Boolean))
+      if (d.success) setRepsList(d.users || [])
     }).catch(() => {})
   }, [])
 
@@ -226,7 +229,36 @@ export default function SalesListPage() {
         <div className="max-w-6xl mx-auto flex flex-col h-full">
           {/* Quick Filters */}
           <div className="flex flex-wrap items-center gap-2 mb-6">
-            <span className="text-xs font-bold text-neutral-500 uppercase mr-2 tracking-wider">Type</span>
+            
+            {/* History Load Mode Toggle */}
+            <button
+              onClick={() => setLoadAllHistory(!loadAllHistory)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 border shadow-sm ${
+                loadAllHistory
+                  ? "bg-amber-500/15 text-amber-400 border-amber-500/35"
+                  : "bg-emerald-500/15 text-emerald-400 border-emerald-500/35"
+              }`}
+            >
+              {loadAllHistory ? "📂 All History (>30 Days)" : "⚡ Open & Recent (<30 Days)"}
+            </button>
+
+            {/* Admin Account Owner Filter */}
+            {isAdmin && repsList.length > 0 && (
+              <select
+                value={selectedOwnerId}
+                onChange={e => setSelectedOwnerId(e.target.value)}
+                className="bg-black/40 border border-white/15 rounded-lg px-3 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-[var(--primary)]"
+              >
+                <option value="all">All Account Owners</option>
+                {repsList.map(r => (
+                  <option key={r.id} value={r.id}>{r.name || r.email}</option>
+                ))}
+              </select>
+            )}
+
+            <div className="w-[1px] h-6 bg-neutral-800 mx-1" />
+
+            <span className="text-xs font-bold text-neutral-500 uppercase mr-1 tracking-wider">Type</span>
             {["All", "Quote", "SalesOrder", "Invoice"].map(t => (
               <button
                 key={t}
