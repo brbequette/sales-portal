@@ -667,7 +667,10 @@ export const handler: Handler = async (event) => {
         return visibleReps.includes(rep.repId);
       }
       
-      // Fallback: if visibleReps is empty or showHidden is true, only show those with actual activity (like before)
+      // If showHidden is true, include all valid sales reps
+      if (showHidden) return true;
+      
+      // Fallback: if visibleReps is empty, only show those with actual activity in current window
       return rep.revenue > 0 || rep.totalDeals > 0;
     }).sort((a: any, b: any) => b.revenue - a.revenue)
 

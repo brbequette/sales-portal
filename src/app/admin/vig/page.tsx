@@ -20,13 +20,13 @@ export default function VigManagementPage() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch("/api/get-rep-stats")
+      const res = await fetch("/api/get-rep-stats?showHidden=true")
       const data = await res.json()
       if (data.success) {
-        setReps(data.reps)
-        setHistoricalRates(data.historicalVigRates)
-        if (data.reps.length > 0 && !selectedRepId) {
-          setSelectedRepId(data.reps[0].repId)
+        setReps(data.reps || [])
+        setHistoricalRates(data.historicalVigRates || [])
+        if (data.reps && data.reps.length > 0) {
+          setSelectedRepId(prev => prev || data.reps[0].repId)
         }
       }
     } catch (err) {
