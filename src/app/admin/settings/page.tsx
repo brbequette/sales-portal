@@ -1,6 +1,7 @@
 "use client"
 import { useState, useEffect } from "react"
 import { FiSave, FiSettings, FiDollarSign, FiMessageSquare, FiTruck, FiTool, FiMonitor } from "react-icons/fi"
+import VigManagementBuilder from "@/components/VigManagementBuilder"
 
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState<'financial'|'communications'|'shipping'|'developer'>('financial')
@@ -172,62 +173,7 @@ export default function AdminSettingsPage() {
               
               {/* FINANCIAL TAB */}
               {activeTab === 'financial' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-                  <h2 className="text-2xl font-black text-white mb-6">Financial & Commissions</h2>
-                  
-                  <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-6 shadow-xl">
-                    <div>
-                      <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
-                        Default VIG Rate
-                      </label>
-                      <p className="text-xs text-neutral-500 mb-3 font-semibold">
-                        The fallback multiplier applied to dead costs if a rep doesn't hit their goal and has no manual override.
-                      </p>
-                      <input 
-                        type="number" step="0.1"
-                        value={settings.default_vig_rate || ''}
-                        onChange={e => handleUpdateSetting('default_vig_rate', e.target.value)}
-                        className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <hr className="border-white/10" />
-                    <div>
-                      <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
-                        Commission Split Percentage
-                      </label>
-                      <p className="text-xs text-neutral-500 mb-3 font-semibold">
-                        The default percentage of total profit awarded to the rep as commission. Standard is 50%.
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <input 
-                          type="number" step="1"
-                          value={settings.commission_rate_pct || ''}
-                          onChange={e => handleUpdateSetting('commission_rate_pct', e.target.value)}
-                          className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
-                        />
-                        <span className="text-neutral-500 font-black">%</span>
-                      </div>
-                    </div>
-                    <hr className="border-white/10" />
-                    <div>
-                      <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
-                        Credit Card Fee Rate
-                      </label>
-                      <p className="text-xs text-neutral-500 mb-3 font-semibold">
-                        The percentage deduction taken from the payment amount for CC processing fees when calculating profit.
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <input 
-                          type="number" step="0.1"
-                          value={settings.cc_fee_rate || ''}
-                          onChange={e => handleUpdateSetting('cc_fee_rate', e.target.value)}
-                          className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
-                        />
-                        <span className="text-neutral-500 font-black">%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <VigManagementBuilder />
               )}
 
               {/* COMMUNICATIONS TAB */}
