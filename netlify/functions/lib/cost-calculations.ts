@@ -239,7 +239,8 @@ export async function calculateDocumentCosts(
 
   // ─── 6. Commission ──────────────────────────────────────────────────────────
   const commissionPct   = resolveCommissionPct(doc, settings, manualCommPct)
-  const salesCommission = profit > 0 ? profit * (commissionPct / 100) : 0
+  // 50/50 Profit/Loss Split: Rep earns 50% of positive profit, or absorbs 50% of negative profit (loss)
+  const salesCommission = profit * (commissionPct / 100)
 
   // ─── 7. Paid ────────────────────────────────────────────────────────────────
   const isPaid = doc.status === "paid" || parseFloat(doc.balance || 0) <= 0

@@ -186,16 +186,14 @@ export const handler: Handler = async (event) => {
       const matchedRep = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
       const isPaid = FINAL_PAID_STATUSES.has(inv.status)
 
-      // 3. Two-Stage 50/50 Commission Payout Logic:
-      // Upfront 1st Payment = 25% of Initial Profit (issued on creation)
-      const upfront = Math.max(0, initialProfit * 0.25)
+      // 3. Two-Stage 50/50 Commission Payout & 50/50 Negative Profit Loss Sharing:
+      // - Positive Profit: Rep earns 50% of After-VIG profit (25% upfront on creation + 25% final when paid)
+      // - Negative Profit (Loss): Rep & Company split loss 50/50 (25% upfront deduction on creation + 25% final deduction when paid)
+      const upfront = initialProfit * 0.25
+      const finalTotalTarget = profit * 0.50
 
-      // Final Total Commission Target = 50% of Final Net Profit (after CC fees come in at the end)
-      const finalTotalTarget = Math.max(0, profit * 0.50)
-
-      // Final 2nd Payment = Remaining balance of total commission after upfront 1st payment
-      const final  = isPaid ? Math.max(0, finalTotalTarget - upfront) : 0
-      const future = !isPaid ? Math.max(0, finalTotalTarget - upfront) : 0
+      const final  = isPaid ? (finalTotalTarget - upfront) : 0
+      const future = !isPaid ? (finalTotalTarget - upfront) : 0
       const total  = upfront + final
 
       const invoiceNumber = items.invoiceNumber || items.invoice_number || null
@@ -262,11 +260,11 @@ export const handler: Handler = async (event) => {
       const matchedRep = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
       const isPaid = FINAL_PAID_STATUSES.has((so.status || '').toLowerCase())
 
-      const upfront = Math.max(0, initialProfit * 0.25)
-      const finalTotalTarget = Math.max(0, profit * 0.50)
+      const upfront = initialProfit * 0.25
+      const finalTotalTarget = profit * 0.50
 
-      const final  = isPaid ? Math.max(0, finalTotalTarget - upfront) : 0
-      const future = !isPaid ? Math.max(0, finalTotalTarget - upfront) : 0
+      const final  = isPaid ? (finalTotalTarget - upfront) : 0
+      const future = !isPaid ? (finalTotalTarget - upfront) : 0
       const total  = upfront + final
 
       const soNumber = items.salesorder_number || items.salesorderNumber || so.zohoId || null
