@@ -656,13 +656,18 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                   profit={profitVal}
                   salesCommission={commVal}
                   salespersonName={displayData.salesperson_name || displayData.salespersonName || ""}
-                  lineItemDetails={displayData.line_items?.map((item: any) => ({
-                    name: item.name || item.description || "Item",
-                    quantity: parseFloat(item.quantity || 1),
-                    rate: parseFloat(item.rate || item.price || 0),
-                    deadCost: parseFloat(item.b2bCost || item.cost || 0),
-                    noVig: item.noVig || item.isNoVig
-                  })) || []}
+                  lineItemDetails={
+                    // Prefer pre-calculated lineItemDetails from DB (has correct deadCost from purchase_rate)
+                    // Fall back to building from raw line_items using purchase_rate
+                    (displayData.items?.lineItemDetails) ||
+                    displayData.line_items?.map((item: any) => ({
+                      name: item.name || item.description || "Item",
+                      quantity: parseFloat(item.quantity || 1),
+                      rate: parseFloat(item.rate || item.price || 0),
+                      cost: parseFloat(item.purchase_rate || item.pricebook_rate || item.b2bCost || 0),
+                      deadCost: parseFloat(item.purchase_rate || item.pricebook_rate || 0) * parseFloat(item.quantity || 1),
+                      noVig: item.noVig || item.isNoVig
+                    })) || []}
                   customFields={displayData.custom_fields || displayData.customFields || []}
                 />
               )
@@ -903,13 +908,18 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                     profit={profitVal}
                     salesCommission={commVal}
                     salespersonName={displayData.salesperson_name || displayData.salespersonName || ""}
-                    lineItemDetails={displayData.line_items?.map((item: any) => ({
-                      name: item.name || item.description || "Item",
-                      quantity: parseFloat(item.quantity || 1),
-                      rate: parseFloat(item.rate || item.price || 0),
-                      deadCost: parseFloat(item.b2bCost || item.cost || 0),
-                      noVig: item.noVig || item.isNoVig
-                    })) || []}
+                    lineItemDetails={
+                      // Prefer pre-calculated lineItemDetails from DB (has correct deadCost from purchase_rate)
+                      // Fall back to building from raw line_items using purchase_rate
+                      (displayData.items?.lineItemDetails) ||
+                      displayData.line_items?.map((item: any) => ({
+                        name: item.name || item.description || "Item",
+                        quantity: parseFloat(item.quantity || 1),
+                        rate: parseFloat(item.rate || item.price || 0),
+                        cost: parseFloat(item.purchase_rate || item.pricebook_rate || item.b2bCost || 0),
+                        deadCost: parseFloat(item.purchase_rate || item.pricebook_rate || 0) * parseFloat(item.quantity || 1),
+                        noVig: item.noVig || item.isNoVig
+                      })) || []}
                     customFields={displayData.custom_fields || displayData.customFields || []}
                   />
                 )
