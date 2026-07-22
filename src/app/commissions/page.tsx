@@ -303,59 +303,92 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                               const { inv, commissionAmount, eventType, eventDate } = ev
                               const isUpfront = eventType === 'upfront'
                               return (
-                                <div
-                                  key={`${inv.id}-${eventType}`}
-                                  onClick={() => onViewInvoice && onViewInvoice(inv.zohoId)}
-                                  className="flex items-center justify-between px-5 py-3 transition-colors border-b border-white/10/30 last:border-0 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-pointer"
-                                >
-                                  <div className="min-w-0 flex-1 flex items-center gap-2.5">
-                                    <FiFileText className={`shrink-0 text-sm ${isUpfront ? 'text-amber-400' : 'text-emerald-500'}`} />
-                                    <div className="min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs font-semibold text-white">
-                                          {inv.invoiceNumber ? `INV-${inv.invoiceNumber}` : inv.zohoId}
-                                        </span>
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                          isUpfront
-                                            ? 'bg-amber-900/30 text-amber-400'
-                                            : 'bg-emerald-900/30 text-emerald-400'
-                                        }`}>
-                                          {isUpfront ? '½ Upfront' : '½ Final'}
-                                        </span>
+                                <div key={`${inv.id}-${eventType}`} className="border-b border-white/10/30 last:border-0">
+                                  <div
+                                    onClick={() => onViewInvoice && onViewInvoice(inv.zohoId)}
+                                    className="flex items-center justify-between px-5 py-3 transition-colors hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-pointer"
+                                  >
+                                    <div className="min-w-0 flex-1 flex items-center gap-2.5">
+                                      <FiFileText className={`shrink-0 text-sm ${isUpfront ? 'text-amber-400' : 'text-emerald-500'}`} />
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs font-semibold text-white">
+                                            {inv.invoiceNumber ? `INV-${inv.invoiceNumber}` : inv.zohoId}
+                                          </span>
+                                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                            isUpfront
+                                              ? 'bg-amber-900/30 text-amber-400'
+                                              : 'bg-emerald-900/30 text-emerald-400'
+                                          }`}>
+                                            {isUpfront ? '½ Upfront' : '½ Final'}
+                                          </span>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                                          {inv.accountZohoId ? (
+                                            <Link href={`/account?id=${inv.accountZohoId}`} className="text-[10px] text-blue-400 hover:underline font-bold" onClick={(e) => e.stopPropagation()}>
+                                              🏢 {inv.accountName}
+                                            </Link>
+                                          ) : (
+                                            <span className="text-[10px] text-neutral-400">🏢 {inv.accountName}</span>
+                                          )}
+                                          <span className="text-[10px] text-neutral-600">•</span>
+                                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                            inv.isPaid ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/20 text-amber-400'
+                                          } font-bold`}>{inv.status}</span>
+                                          <span className="text-[10px] text-neutral-600">•</span>
+                                          <span className="text-[10px] text-neutral-500">{fmtDate(eventDate)}</span>
+                                        </div>
                                       </div>
-                                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
-                                        {inv.accountZohoId ? (
-                                          <Link href={`/account?id=${inv.accountZohoId}`} className="text-[10px] text-blue-400 hover:underline font-bold" onClick={(e) => e.stopPropagation()}>
-                                            🏢 {inv.accountName}
-                                          </Link>
-                                        ) : (
-                                          <span className="text-[10px] text-neutral-400">🏢 {inv.accountName}</span>
-                                        )}
-                                        <span className="text-[10px] text-neutral-600">•</span>
-                                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-                                          inv.isPaid ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/20 text-amber-400'
-                                        } font-bold`}>{inv.status}</span>
-                                        <span className="text-[10px] text-neutral-600">•</span>
-                                        <span className="text-[10px] text-neutral-500">{fmtDate(eventDate)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-4 shrink-0 ml-3">
+                                      <div className="text-right hidden sm:block">
+                                        <div className="text-[10px] text-neutral-500">Invoice</div>
+                                        <div className="text-xs font-semibold text-white">{fmt(inv.amount)}</div>
+                                      </div>
+                                      <div className="text-right hidden sm:block">
+                                        <div className="text-[10px] text-neutral-500">Profit</div>
+                                        <div className="text-xs font-semibold text-sky-400">{fmt(inv.profit)}</div>
+                                      </div>
+                                      <div className="text-right">
+                                        <div className="text-[10px] text-neutral-500">Commission</div>
+                                        <div className={`text-xs font-bold ${commissionAmount < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                          {fmt(commissionAmount)}
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-4 shrink-0 ml-3">
-                                    <div className="text-right hidden sm:block">
-                                      <div className="text-[10px] text-neutral-500">Invoice</div>
-                                      <div className="text-xs font-semibold text-white">{fmt(inv.amount)}</div>
-                                    </div>
-                                    <div className="text-right hidden sm:block">
-                                      <div className="text-[10px] text-neutral-500">Profit</div>
-                                      <div className="text-xs font-semibold text-sky-400">{fmt(inv.profit)}</div>
-                                    </div>
-                                    <div className="text-right">
-                                      <div className="text-[10px] text-neutral-500">Commission</div>
-                                      <div className={`text-xs font-bold ${commissionAmount < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                                        {fmt(commissionAmount)}
+
+                                  {/* Line items sub-breakdown */}
+                                  {(() => {
+                                    const raw = (inv as any).raw || {}
+                                    const rawItems = (inv as any).items || raw.items || {}
+                                    const lineItems: any[] = Array.isArray(rawItems.line_items) ? rawItems.line_items : (Array.isArray(rawItems) ? rawItems : [])
+                                    if (lineItems.length === 0) return null
+
+                                    return (
+                                      <div className="px-9 py-2 bg-black/40 border-t border-white/5 space-y-1">
+                                        <div className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Line Items:</div>
+                                        {lineItems.map((item, idx) => {
+                                          const qty = parseFloat(item.quantity || 1)
+                                          const rate = parseFloat(item.rate || 0)
+                                          const cost = parseFloat(item.purchase_rate || item.pricebook_rate || 0)
+                                          const lineTotal = qty * rate
+                                          const lineDeadCost = qty * cost
+
+                                          return (
+                                            <div key={idx} className="flex items-center justify-between text-[10px] font-mono text-neutral-300 pl-2 border-l border-neutral-700">
+                                              <span>{qty}x {item.sku ? `[${item.sku}] ` : ''}{item.name}</span>
+                                              <div className="flex items-center gap-3 text-neutral-400">
+                                                <span>Rate: ${rate.toFixed(2)}</span>
+                                                <span>Dead Cost: ${lineDeadCost.toFixed(2)}</span>
+                                                <span className="font-bold text-emerald-400">${lineTotal.toFixed(2)}</span>
+                                              </div>
+                                            </div>
+                                          )
+                                        })}
                                       </div>
-                                    </div>
-                                  </div>
+                                    )
+                                  })()}
                                 </div>
                               )
                             })}

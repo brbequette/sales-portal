@@ -285,28 +285,70 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-neutral-200 print:divide-black/10 print:text-black font-mono text-[11px]">
-                  {upfrontInvoices.map(inv => (
-                    <tr key={inv.id}>
-                      <td className="py-2 px-4 font-bold text-white print:text-black">
-                        {inv.invoiceNumber ? `INV-${inv.invoiceNumber}` : inv.zohoId}
-                      </td>
-                      <td className="py-2 px-4 font-sans font-semibold text-neutral-300 print:text-black">
-                        {inv.accountName}
-                      </td>
-                      <td className="py-2 px-4 text-neutral-400 print:text-black">
-                        {fmtDate(inv.issueDate)}
-                      </td>
-                      <td className="py-2 px-4 text-right text-neutral-300 print:text-black">
-                        {fmt(inv.amount)}
-                      </td>
-                      <td className="py-2 px-4 text-right text-sky-300 print:text-black font-bold">
-                        {fmt(inv.profit)}
-                      </td>
-                      <td className="py-2 px-4 text-right font-black text-amber-300 print:text-black">
-                        {fmt(inv.commission.upfront)}
-                      </td>
-                    </tr>
-                  ))}
+                  {upfrontInvoices.map(inv => {
+                    const raw = (inv as any).raw || {}
+                    const rawItems = (inv as any).items || raw.items || {}
+                    const lineItems: any[] = Array.isArray(rawItems.line_items) ? rawItems.line_items : (Array.isArray(rawItems) ? rawItems : [])
+
+                    return (
+                      <>
+                        <tr key={inv.id} className="bg-white/[0.02] print:bg-gray-50">
+                          <td className="py-2.5 px-4 font-bold text-white print:text-black">
+                            {inv.invoiceNumber ? `INV-${inv.invoiceNumber}` : inv.zohoId}
+                          </td>
+                          <td className="py-2.5 px-4 font-sans font-semibold text-neutral-300 print:text-black">
+                            {inv.accountName}
+                          </td>
+                          <td className="py-2.5 px-4 text-neutral-400 print:text-black">
+                            {fmtDate(inv.issueDate)}
+                          </td>
+                          <td className="py-2.5 px-4 text-right text-neutral-300 print:text-black">
+                            {fmt(inv.amount)}
+                          </td>
+                          <td className="py-2.5 px-4 text-right text-sky-300 print:text-black font-bold">
+                            {fmt(inv.profit)}
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-black text-amber-300 print:text-black">
+                            {fmt(inv.commission.upfront)}
+                          </td>
+                        </tr>
+
+                        {/* Nested Line Items Breakdown */}
+                        {lineItems.length > 0 && (
+                          <tr key={`${inv.id}-items`} className="bg-black/30 print:bg-gray-100/50">
+                            <td colSpan={6} className="px-6 py-2">
+                              <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1 print:text-black/60">
+                                Line Item Breakdown ({lineItems.length} Products):
+                              </div>
+                              <div className="space-y-1">
+                                {lineItems.map((item, idx) => {
+                                  const qty = parseFloat(item.quantity || 1)
+                                  const rate = parseFloat(item.rate || 0)
+                                  const cost = parseFloat(item.purchase_rate || item.pricebook_rate || 0)
+                                  const lineTotal = qty * rate
+                                  const lineDeadCost = qty * cost
+
+                                  return (
+                                    <div key={idx} className="flex items-center justify-between text-[11px] font-mono text-neutral-300 print:text-black/80 pl-3 border-l-2 border-amber-500/40">
+                                      <span className="font-sans font-medium text-neutral-200 print:text-black">
+                                        {qty}x {item.sku ? `[${item.sku}] ` : ''}{item.name}
+                                      </span>
+                                      <div className="flex items-center gap-4">
+                                        <span>Rate: ${rate.toFixed(2)}</span>
+                                        <span>Cost: ${cost.toFixed(2)}</span>
+                                        <span>Dead Cost: ${lineDeadCost.toFixed(2)}</span>
+                                        <span className="font-bold text-amber-300 print:text-black">${lineTotal.toFixed(2)}</span>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    )
+                  })}
                 </tbody>
               </table>
             )}
@@ -335,28 +377,70 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-neutral-200 print:divide-black/10 print:text-black font-mono text-[11px]">
-                  {finalInvoices.map(inv => (
-                    <tr key={inv.id}>
-                      <td className="py-2 px-4 font-bold text-white print:text-black">
-                        {inv.invoiceNumber ? `INV-${inv.invoiceNumber}` : inv.zohoId}
-                      </td>
-                      <td className="py-2 px-4 font-sans font-semibold text-neutral-300 print:text-black">
-                        {inv.accountName}
-                      </td>
-                      <td className="py-2 px-4 text-neutral-400 print:text-black">
-                        {fmtDate(inv.paymentDate)}
-                      </td>
-                      <td className="py-2 px-4 text-right text-neutral-300 print:text-black">
-                        {fmt(inv.amount)}
-                      </td>
-                      <td className="py-2 px-4 text-right text-sky-300 print:text-black font-bold">
-                        {fmt(inv.profit)}
-                      </td>
-                      <td className="py-2 px-4 text-right font-black text-emerald-300 print:text-black">
-                        {fmt(inv.commission.final)}
-                      </td>
-                    </tr>
-                  ))}
+                  {finalInvoices.map(inv => {
+                    const raw = (inv as any).raw || {}
+                    const rawItems = (inv as any).items || raw.items || {}
+                    const lineItems: any[] = Array.isArray(rawItems.line_items) ? rawItems.line_items : (Array.isArray(rawItems) ? rawItems : [])
+
+                    return (
+                      <>
+                        <tr key={inv.id} className="bg-white/[0.02] print:bg-gray-50">
+                          <td className="py-2.5 px-4 font-bold text-white print:text-black">
+                            {inv.invoiceNumber ? `INV-${inv.invoiceNumber}` : inv.zohoId}
+                          </td>
+                          <td className="py-2.5 px-4 font-sans font-semibold text-neutral-300 print:text-black">
+                            {inv.accountName}
+                          </td>
+                          <td className="py-2.5 px-4 text-neutral-400 print:text-black">
+                            {fmtDate(inv.paymentDate)}
+                          </td>
+                          <td className="py-2.5 px-4 text-right text-neutral-300 print:text-black">
+                            {fmt(inv.amount)}
+                          </td>
+                          <td className="py-2.5 px-4 text-right text-sky-300 print:text-black font-bold">
+                            {fmt(inv.profit)}
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-black text-emerald-300 print:text-black">
+                            {fmt(inv.commission.final)}
+                          </td>
+                        </tr>
+
+                        {/* Nested Line Items Breakdown */}
+                        {lineItems.length > 0 && (
+                          <tr key={`${inv.id}-items`} className="bg-black/30 print:bg-gray-100/50">
+                            <td colSpan={6} className="px-6 py-2">
+                              <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1 print:text-black/60">
+                                Line Item Breakdown ({lineItems.length} Products):
+                              </div>
+                              <div className="space-y-1">
+                                {lineItems.map((item, idx) => {
+                                  const qty = parseFloat(item.quantity || 1)
+                                  const rate = parseFloat(item.rate || 0)
+                                  const cost = parseFloat(item.purchase_rate || item.pricebook_rate || 0)
+                                  const lineTotal = qty * rate
+                                  const lineDeadCost = qty * cost
+
+                                  return (
+                                    <div key={idx} className="flex items-center justify-between text-[11px] font-mono text-neutral-300 print:text-black/80 pl-3 border-l-2 border-emerald-500/40">
+                                      <span className="font-sans font-medium text-neutral-200 print:text-black">
+                                        {qty}x {item.sku ? `[${item.sku}] ` : ''}{item.name}
+                                      </span>
+                                      <div className="flex items-center gap-4">
+                                        <span>Rate: ${rate.toFixed(2)}</span>
+                                        <span>Cost: ${cost.toFixed(2)}</span>
+                                        <span>Dead Cost: ${lineDeadCost.toFixed(2)}</span>
+                                        <span className="font-bold text-emerald-300 print:text-black">${lineTotal.toFixed(2)}</span>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    )
+                  })}
                 </tbody>
               </table>
             )}
