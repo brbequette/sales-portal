@@ -6,8 +6,9 @@ const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
 
+import { getZohoAccessToken } from "@/lib/zoho-auth"
+
 async function getToken(): Promise<string> {
-  const { getZohoAccessToken } = await import("../../../../../../netlify/functions/lib/zoho-auth")
   const token = await getZohoAccessToken()
   if (!token) throw new Error("Failed to get Zoho access token")
   return token

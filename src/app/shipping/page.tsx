@@ -142,12 +142,18 @@ export default function ShippingPage() {
     setSyncResult(null)
     try {
       const res = await fetch("/api/admin/books/sync-packages", { method: "POST" })
-      const data = await res.json()
-      if (data.success) {
+      const text = await res.text()
+      let data: any = {}
+      try {
+        data = JSON.parse(text)
+      } catch (err) {
+        throw new Error(`Server response error (${res.status}): ${text.substring(0, 120)}`)
+      }
+      if (res.ok && data.success) {
         setSyncResult(`✅ ${data.message}`)
         fetchOrders()
       } else {
-        setSyncResult(`❌ ${data.error}`)
+        setSyncResult(`❌ ${data.error || "Sync failed"}`)
       }
     } catch (e: any) {
       setSyncResult(`❌ ${e.message}`)
