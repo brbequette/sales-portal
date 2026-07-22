@@ -73,18 +73,26 @@ export async function resolveVigRate(
   settings: AppSettings,
   manualVig?: number | null
 ): Promise<number> {
-  if (manualVig !== undefined && manualVig !== null) return manualVig
+  if (manualVig !== undefined && manualVig !== null && manualVig > 0) return manualVig
 
-  const salespersonName: string = doc.salesperson_name || ""
-  
-  // Enforce Montgomery Morgan always gets 1.0 VIG overriding any existing custom fields
-  if (salespersonName) {
-    const isMontgomery =
-      salespersonName.toLowerCase().includes("montgomery") ||
-      salespersonName.toLowerCase().includes("morgan")
-    if (isMontgomery) return 1.0
+  const salespersonName: string = (doc.salesperson_name || doc.salesperson || "").trim()
+  const isMontgomery = salespersonName.toLowerCase().includes("montgomery") || salespersonName.toLowerCase().includes("morgan")
+
+  // Parse document date
+  const docDateRaw = doc.date || doc.issueDate || doc.created_time
+  const docDate = docDateRaw ? new Date(docDateRaw) : new Date()
+  const year = docDate.getFullYear()
+
+  // 1. Up to end of 2024 (through Dec 31, 2024):
+  //    Monty is 1.0 VIG; everyone else is 1.3 VIG.
+  if (year <= 2024) {
+    return isMontgomery ? 1.0 : 1.3
   }
 
+  // 2. Montgomery is always 1.0 unless explicitly overridden
+  if (isMontgomery) return 1.0
+
+  // 3. Check for explicit custom field VIG RATE on document
   const existingVig = doc.custom_fields?.find((f: any) =>
     f.label?.toUpperCase().includes("VIG")
   )
@@ -92,6 +100,9 @@ export async function resolveVigRate(
     return parseFloat(existingVig.value)
   }
 
+  // 4. Starting Jan 1, 2025:
+  //    Base VIG is 1.3. If rep missed goal in prior month, VIG is 1.5.
+  //    Goal before 03/2026 evaluated by Subtotal Goal. Goal 03/2026+ evaluated by Dead Profit Goal.
   if (salespersonName) {
     const users = await prisma.user.findMany()
     const user = users.find(u =>
@@ -101,27 +112,33 @@ export async function resolveVigRate(
     )
 
     if (user) {
+      if (user.constantVigEnabled && user.constantVigValue !== null) {
+        return user.constantVigValue
+      }
+
+      // Check monthly VIG goal override in SystemSettings
       const vigSettings = await prisma.systemSetting.findUnique({ where: { key: "vig_settings" } })
       const allVig = vigSettings ? JSON.parse(vigSettings.value) : {}
       const userVig = allVig[user.id]
 
-      if (userVig) {
-        if (userVig.constantVigEnabled && userVig.constantVigValue !== null) {
-          return userVig.constantVigValue
-        }
-        const docDate = doc.date || doc.created_time
-        const monthKey = docDate
-          ? new Date(docDate).toISOString().substring(0, 7)
-          : new Date().toISOString().substring(0, 7)
-        const monthlyGoal = (userVig.monthlyVigGoals || []).find((g: any) => g.monthKey === monthKey)
-        if (monthlyGoal?.manualVigRate !== null && monthlyGoal?.manualVigRate !== undefined) {
-          return monthlyGoal.manualVigRate
-        }
+      const monthKey = docDate.toISOString().substring(0, 7)
+      const monthlyGoal = (userVig?.monthlyVigGoals || []).find((g: any) => g.monthKey === monthKey)
+      if (monthlyGoal?.manualVigRate !== null && monthlyGoal?.manualVigRate !== undefined) {
+        return monthlyGoal.manualVigRate
+      }
+
+      // Dynamic prior month goal hit/miss check
+      const priorMonth = new Date(docDate.getFullYear(), docDate.getMonth() - 1, 1)
+      const priorMonthKey = priorMonth.toISOString().substring(0, 7)
+      const priorGoal = (userVig?.monthlyVigGoals || []).find((g: any) => g.monthKey === priorMonthKey)
+
+      if (priorGoal && priorGoal.status === "MISSED") {
+        return 1.5
       }
     }
   }
 
-  return settings.default_vig_rate
+  return settings.default_vig_rate || 1.3
 }
 
 // ─── Commission % Resolution ────────────────────────────────────────────────

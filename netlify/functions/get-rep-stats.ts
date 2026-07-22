@@ -279,7 +279,15 @@ export const handler: Handler = async (event) => {
         // Subtotal = invoice line-item total (sub_total), NOT the balance due (amount)
         const amount = parseFloat(items.sub_total) || parseFloat(inv.amount as any) || 0
         const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || 0)
-        const vigRate = parseFloat(items.vigRate || 1.3)
+        const docDate = inv.issueDate ? new Date(inv.issueDate) : new Date()
+        const year = docDate.getFullYear()
+        const salespersonName = items.salesperson || ""
+        const isMontgomery = salespersonName.toLowerCase().includes("montgomery") || salespersonName.toLowerCase().includes("morgan")
+        
+        // Historical VIG Rate Rules:
+        // - Up to end of 2024: Monty = 1.0, Everyone else = 1.3
+        // - 2025 onwards: Monty = 1.0, Everyone else = 1.3 baseline (or items.vigRate / 1.5 penalty)
+        const vigRate = (year <= 2024 || isMontgomery) ? (isMontgomery ? 1.0 : 1.3) : parseFloat(items.vigRate || 1.3)
         const deadCostPlusVig = parseFloat(items.deadCostPlusVig || items.dead_cost_plus_vig || 0) || (deadCost * vigRate)
 
         const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
@@ -300,7 +308,6 @@ export const handler: Handler = async (event) => {
         const issueDate = inv.issueDate ? new Date(inv.issueDate) : null
 
         // Find salesperson on invoice
-        const salespersonName = (inv.items as any)?.salesperson
         let repId = unassignedId
         if (salespersonName) {
           const matchedId = userNameToIdMap[salespersonName.toLowerCase().trim()]
