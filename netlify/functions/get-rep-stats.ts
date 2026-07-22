@@ -520,7 +520,7 @@ export const handler: Handler = async (event) => {
       invoicesByMonth.get(key)!.push(inv)
     }
 
-    for (let m = 1; m <= historyMonths; m++) {
+    for (let m = historyMonths; m >= 1; m--) {
       const targetMonthDate = new Date(now.getFullYear(), now.getMonth() - m, 1)
       const year = targetMonthDate.getFullYear()
       const monthIdx = targetMonthDate.getMonth() // 0-indexed
@@ -579,8 +579,9 @@ export const handler: Handler = async (event) => {
         }
       })
 
-      // Build stats for each rep based on DB targets or defaults
-      const repVigs: Record<string, { metric: string, target: number, subtotalGoal: number, profitGoal: number, sales: number, profit: number, subtotal: number, vigRate: number, manualVigRate: number | null }> = {}
+      // Build stats for each rep based on DB targets or defaults and prior-month carry-over VIG rate
+      const repVigs: Record<string, { metric: string, target: number, subtotalGoal: number, profitGoal: number, sales: number, profit: number, subtotal: number, vigRate: number, manualVigRate: number | null, metGoal: boolean }> = {}
+
       users.forEach(u => {
         const dailyGoal = salesTargets[u.id] || 0;
         const defaultProfitGoal = dailyGoal * workdays;
@@ -589,47 +590,62 @@ export const handler: Handler = async (event) => {
         const defaultSubtotalGoal = dailySubtotalGoal * workdays;
 
         const vigGoal = (u as any).monthlyVigGoals?.find((g: any) => g.monthKey === monthKey) || {
-          metric: 'PROFIT',
+          metric: (year >= 2026 && monthIdx >= 2) ? 'PROFIT' : 'SUBTOTAL',
           profitGoal: defaultProfitGoal || 20000,
           subtotalGoal: defaultSubtotalGoal || 40000,
           manualVigRate: null
         };
         
-        // Ensure 2026+ is always PROFIT
-        if (year >= 2026) {
+        // Ensure March 2026+ is always PROFIT
+        if (year > 2026 || (year === 2026 && monthIdx >= 2)) {
           vigGoal.metric = 'PROFIT';
         }
 
         const profit = repProfit[u.id] || 0;
         const subtotal = repSubtotal[u.id] || 0;
         
-        const target = vigGoal.metric === 'SUBTOTAL' ? vigGoal.subtotalGoal : vigGoal.profitGoal;
+        const target = vigGoal.metric === 'SUBTOTAL' ? (vigGoal.subtotalGoal || 40000) : (vigGoal.profitGoal || 20000);
         const actual = vigGoal.metric === 'SUBTOTAL' ? subtotal : profit;
-        
+        const metGoal = actual >= target;
+
         let vigRate = appSettings.default_vig_rate;
+        const isMontgomery = u.name && u.name.toLowerCase().includes("montgomery") && u.name.toLowerCase().includes("morgan");
         
         if ((u as any).constantVigEnabled && (u as any).constantVigValue !== null) {
           vigRate = (u as any).constantVigValue;
-        } else if (year < 2025) {
-          vigRate = appSettings.default_vig_rate;
-        } else if (vigGoal.manualVigRate !== null) {
+        } else if (isMontgomery) {
+          vigRate = 1.0;
+        } else if (year <= 2024) {
+          vigRate = 1.3;
+        } else if (vigGoal.manualVigRate !== null && vigGoal.manualVigRate !== undefined) {
           vigRate = vigGoal.manualVigRate;
+        } else if (monthKey === '2025-01') {
+          vigRate = 1.3;
         } else {
-          const met = actual >= target;
-          const isMontgomery = u.name && u.name.toLowerCase().includes("montgomery") && u.name.toLowerCase().includes("morgan");
-          vigRate = isMontgomery ? 1.0 : (met ? appSettings.default_vig_rate : appSettings.default_vig_rate);
+          // Carry-over from prior month: check if rep met goal in prior month
+          const prevMonthDate = new Date(year, monthIdx - 1, 1);
+          const prevMonthKey = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+          
+          // Look up prior month performance from historicalRates array built chronologically
+          const prevMonthData = historicalVigRates.find(h => h.monthKey === prevMonthKey)?.reps?.[u.id];
+          if (prevMonthData) {
+            vigRate = prevMonthData.metGoal ? 1.3 : 1.5;
+          } else {
+            vigRate = 1.3;
+          }
         }
         
         repVigs[u.id] = { 
           metric: vigGoal.metric,
           target, 
-          profitGoal: vigGoal.profitGoal,
-          subtotalGoal: vigGoal.subtotalGoal,
-          sales: actual, // for backward compatibility in UI
+          subtotalGoal: vigGoal.subtotalGoal || 40000,
+          profitGoal: vigGoal.profitGoal || 20000,
+          sales: actual,
           profit,
           subtotal,
           vigRate,
-          manualVigRate: vigGoal.manualVigRate
+          manualVigRate: vigGoal.manualVigRate || null,
+          metGoal
         }
       })
 
