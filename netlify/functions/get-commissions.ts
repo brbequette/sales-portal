@@ -139,7 +139,10 @@ export const handler: Handler = async (event) => {
       const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
       const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0)
       
-      // Profit is After-VIG Profit (Subtotal - Dead Cost Plus VIG - Additional Costs - CC Fees)
+      // 1. Initial Estimated Profit before end-of-deal CC fees (for Upfront 1st Payment)
+      const initialProfit = subTotal - deadCostPlusVig - additionalCosts
+
+      // 2. Final Net Profit after end CC fees & all final costs are in
       const profit = items.profit !== undefined && items.profit !== null && items.profit !== '' 
         ? parseFloat(items.profit) 
         : (subTotal - deadCostPlusVig - additionalCosts - ccFees)
@@ -147,19 +150,23 @@ export const handler: Handler = async (event) => {
       // Dead Profit is raw profit for Sales Goals (Subtotal - Dead Cost Total - Additional Costs - CC Fees)
       const deadProfit = subTotal - deadCost - additionalCosts - ccFees
 
-      const commissionAmount = parseFloat(items.commission || items.cf_commission_amount_unformatted || items.cf_commision_amount_unformatted || items.Commission_Amount || 0) || (profit * 0.50)
-      const invoiceNumber = items.invoiceNumber || items.invoice_number || null
-      const paymentDate = items.paymentDate || null
-
       const matchedRep = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
-
       const isPaid = FINAL_PAID_STATUSES.has(inv.status)
 
-      // The total commission is exact, we split it in half for Upfront and Final (as 50% of the rep's commission is paid now, and 50% when paid)
-      const upfront = commissionAmount * 0.50
-      const final   = isPaid ? commissionAmount * 0.50 : 0
-      const future  = !isPaid ? commissionAmount * 0.50 : 0
-      const total   = upfront + final
+      // 3. Two-Stage 50/50 Commission Payout Logic:
+      // Upfront 1st Payment = 25% of Initial Profit (issued on creation)
+      const upfront = Math.max(0, initialProfit * 0.25)
+
+      // Final Total Commission Target = 50% of Final Net Profit (after CC fees come in at the end)
+      const finalTotalTarget = Math.max(0, profit * 0.50)
+
+      // Final 2nd Payment = Remaining balance of total commission after upfront 1st payment
+      const final  = isPaid ? Math.max(0, finalTotalTarget - upfront) : 0
+      const future = !isPaid ? Math.max(0, finalTotalTarget - upfront) : 0
+      const total  = upfront + final
+
+      const invoiceNumber = items.invoiceNumber || items.invoice_number || null
+      const paymentDate = items.paymentDate || null
 
       const daysOld = inv.issueDate ? (Date.now() - inv.issueDate.getTime()) / (1000 * 60 * 60 * 24) : 0
       const isAtRisk = !isPaid && daysOld >= 120
