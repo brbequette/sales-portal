@@ -289,9 +289,7 @@ export const handler: Handler = async (event) => {
         const deadProfit = amount - deadCost - additionalCosts - ccFees
 
         // Profit = sub_total - deadCostPlusVig - additionalCosts - ccFees (actual net profit AFTER VIG is added)
-        const profit = items.profit !== undefined && items.profit !== null && items.profit !== '' 
-          ? parseFloat(items.profit) 
-          : (amount - deadCostPlusVig - additionalCosts - ccFees)
+        const profit = amount - deadCostPlusVig - additionalCosts - ccFees
 
         // Commission = 50% of After-VIG profit (or explicit custom field)
         const zohoCommission = parseFloat((inv.items as any)?.commission) 

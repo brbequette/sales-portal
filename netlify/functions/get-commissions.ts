@@ -142,10 +142,8 @@ export const handler: Handler = async (event) => {
       // 1. Initial Estimated Profit before end-of-deal CC fees (for Upfront 1st Payment)
       const initialProfit = subTotal - deadCostPlusVig - additionalCosts
 
-      // 2. Final Net Profit after end CC fees & all final costs are in
-      const profit = items.profit !== undefined && items.profit !== null && items.profit !== '' 
-        ? parseFloat(items.profit) 
-        : (subTotal - deadCostPlusVig - additionalCosts - ccFees)
+      // 2. Final Net Profit after VIG, end CC fees & all final costs are in
+      const profit = subTotal - deadCostPlusVig - additionalCosts - ccFees
 
       // Dead Profit is raw profit for Sales Goals (Subtotal - Dead Cost Total - Additional Costs - CC Fees)
       const deadProfit = subTotal - deadCost - additionalCosts - ccFees
