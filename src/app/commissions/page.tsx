@@ -10,6 +10,7 @@ import { usePagination, Pagination } from "@/components/Pagination"
 import { FiDollarSign, FiRefreshCw, FiChevronDown, FiChevronUp, FiTrendingUp, FiUsers, FiBarChart2, FiAward, FiFilter, FiX, FiSearch, FiFileText, FiPhoneCall } from "react-icons/fi"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { SalesCallCampaignModal } from "@/components/SalesCallCampaignModal"
+import { PayPeriodStatementModal } from "@/components/PayPeriodStatementModal"
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0)
@@ -112,12 +113,13 @@ function stageColor(stage: string) {
 }
 
 // â”€â”€ Rep Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, onStartCampaign }: {
+function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, onOpenStatement, onStartCampaign }: {
   rep: RepSummary,
   isAdmin: boolean,
   onViewInvoice?: (id: string) => void,
   onManagePayouts: (rep: RepSummary) => void,
   onViewLedger: (rep: RepSummary) => void,
+  onOpenStatement: (rep: RepSummary) => void,
   onStartCampaign?: (rep: RepSummary) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -229,17 +231,23 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
           </div>
 
           <div className="px-5 py-3 border-b border-white/10 glass-panel/50 flex justify-end gap-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenStatement(rep); }}
+              className="flex items-center gap-1.5 text-xs font-black text-emerald-400 hover:text-white bg-emerald-500/10 hover:bg-emerald-500/30 px-3 py-1.5 rounded-lg transition-colors border border-emerald-500/30"
+            >
+              <FiFileText /> Pay Stub / Statement
+            </button>
             {onStartCampaign && (
               <button
                 onClick={(e) => { e.stopPropagation(); onStartCampaign(rep); }}
-                className="flex items-center gap-1.5 text-xs font-bold text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500/30 px-3 py-1.5 rounded transition-colors"
+                className="flex items-center gap-1.5 text-xs font-bold text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500/30 px-3 py-1.5 rounded-lg transition-colors"
               >
                 <FiPhoneCall /> Call Campaign
               </button>
             )}
             <button
               onClick={(e) => { e.stopPropagation(); onManagePayouts(rep); }}
-              className="text-xs font-bold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 rounded transition-colors"
+              className="text-xs font-bold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 rounded-lg transition-colors"
             >
               Manage Payouts
             </button>
@@ -574,6 +582,7 @@ export default function CommissionsPage() {
   const [editingPayoutId, setEditingPayoutId] = useState<string | null>(null)
   const [payoutMethod, setPayoutMethod] = useState("Check")
   const [viewingLedgerFor, setViewingLedgerFor] = useState<RepSummary | null>(null)
+  const [viewingStatementFor, setViewingStatementFor] = useState<RepSummary | null>(null)
   const [campaignAccounts, setCampaignAccounts] = useState<any[]>([])
   const [isCampaignLoading, setIsCampaignLoading] = useState(false)
 
@@ -971,6 +980,7 @@ export default function CommissionsPage() {
                     onViewInvoice={setViewingInvoiceZohoId} 
                     onManagePayouts={setManagingPayoutsFor}
                     onViewLedger={setViewingLedgerFor}
+                    onOpenStatement={setViewingStatementFor}
                     onStartCampaign={handleStartCampaign}
                   />
                 ))
@@ -982,6 +992,14 @@ export default function CommissionsPage() {
           <ReimbursementsTab userId={user?.id} />
         )}
       </div>
+
+      {/* Pay Period Statement & Check Stub Modal */}
+      {viewingStatementFor && (
+        <PayPeriodStatementModal 
+          rep={viewingStatementFor}
+          onClose={() => setViewingStatementFor(null)}
+        />
+      )}
 
       {/* Invoice Details Modal */}
       {viewingInvoiceZohoId && (
