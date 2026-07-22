@@ -71,9 +71,9 @@ export function InvoiceFinancialBreakdown({
   
   // Calculate line item cost sum if available
   const lineItemDeadCostSum = lineItemDetails.reduce((sum, item) => {
-    if (item.deadCost && item.deadCost > 0) return sum + item.deadCost
-    // If deadCost is 0 on item, fallback to standard 60% of item rate * qty
-    return sum + (item.quantity * item.rate * 0.6)
+    if (item.deadCost && item.deadCost > 0) return sum + item.deadCost  // deadCost = qty × cost (already total)
+    if (item.cost && item.cost > 0) return sum + (item.cost * item.quantity)
+    return sum  // no cost data — don't guess with 60% fallback per item (aggregate fallback handles it)
   }, 0)
 
   // Resolve Costs
@@ -289,7 +289,14 @@ export function InvoiceFinancialBreakdown({
                     )}
                   </div>
                   <div className="font-mono text-neutral-300">
-                    Dead Cost: ${((item.deadCost || item.cost || 0) * item.quantity).toFixed(2)}
+                    {/* deadCost = qty × purchase_rate (total), cost = per-unit purchase_rate */}
+                    Dead Cost: ${(item.deadCost != null && item.deadCost > 0
+                      ? item.deadCost
+                      : (item.cost || 0) * item.quantity
+                    ).toFixed(2)}
+                    {(item.cost || 0) > 0 && (
+                      <span className="text-[10px] text-neutral-500 ml-1.5">(${(item.cost || 0).toFixed(2)}/ea)</span>
+                    )}
                   </div>
                 </div>
               ))}
