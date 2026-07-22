@@ -160,6 +160,9 @@ export const handler: Handler = async (event) => {
           return sum + (qty * cost)
         }, 0)
       }
+      if (deadCost === 0 && subTotal > 0) {
+        deadCost = subTotal * 0.50
+      }
 
       const docDate = inv.issueDate ? new Date(inv.issueDate) : new Date()
       const year = docDate.getFullYear()
@@ -242,6 +245,9 @@ export const handler: Handler = async (event) => {
           const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
           return sum + (qty * cost)
         }, 0)
+      }
+      if (deadCost === 0 && subTotal > 0) {
+        deadCost = subTotal * 0.50
       }
 
       const docDate = so.orderDate ? new Date(so.orderDate) : new Date()

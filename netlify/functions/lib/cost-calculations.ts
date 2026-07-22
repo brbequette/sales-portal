@@ -202,7 +202,15 @@ export async function calculateDocumentCosts(
     lineItemDetails.push({ name: item.name, sku: item.sku || null, quantity: qty, rate, cost, itemTotal, deadCost: itemDeadCost, noVig, gift })
   }
 
-  const deadCostTotal = deadCostSubjectToVig + deadCostNoVig
+  const subTotal = parseFloat(doc.sub_total || 0)
+  let deadCostTotal = deadCostSubjectToVig + deadCostNoVig
+
+  // Fallback: If document has subTotal > 0 but zero line items or missing cost data in Books,
+  // estimate base product cost as 50% of subTotal so profit is not artificially inflated.
+  if (deadCostTotal === 0 && subTotal > 0) {
+    deadCostSubjectToVig = subTotal * 0.50
+    deadCostTotal = deadCostSubjectToVig
+  }
 
   // ─── 2. VIG rate ────────────────────────────────────────────────────────────
   const vigRate = await resolveVigRate(doc, settings, manualVigRate)
@@ -222,7 +230,6 @@ export async function calculateDocumentCosts(
   })
 
   // ─── 5. Profit ──────────────────────────────────────────────────────────────
-  const subTotal = parseFloat(doc.sub_total || 0)
 
   const ccFeesField          = doc.custom_fields?.find((f: any) => f.label?.toUpperCase().includes("CREDIT CARD PROCESSING"))
   const additionalCostsField = doc.custom_fields?.find((f: any) => f.label?.toUpperCase().includes("ADDITIONAL COSTS SEE"))
