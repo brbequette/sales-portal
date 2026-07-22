@@ -277,19 +277,24 @@ export const handler: Handler = async (event) => {
         const items = inv.items as any || {}
         // Subtotal = invoice line-item total (sub_total), NOT the balance due (amount)
         const amount = parseFloat(items.sub_total) || parseFloat(inv.amount as any) || 0
-        const deadCost = parseFloat(items.deadCostTotal) || 0
+        const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || 0)
+        const vigRate = parseFloat(items.vigRate || 1.3)
+        const deadCostPlusVig = parseFloat(items.deadCostPlusVig || items.dead_cost_plus_vig || 0) || (deadCost * vigRate)
         
-        // Dead Profit = sub_total - deadCostTotal (raw profit before VIG)
+        // Dead Profit = sub_total - deadCostTotal (raw profit before VIG strictly used for Sales Goals)
         const deadProfit = amount - deadCost
-        
-        // Actual commission comes from Zoho directly
+
+        // Profit = sub_total - deadCostPlusVig (actual net profit AFTER VIG is added)
+        const profit = items.profit !== undefined && items.profit !== null && items.profit !== '' 
+          ? parseFloat(items.profit) 
+          : (amount - deadCostPlusVig)
+
+        // Commission = 50% of After-VIG profit (or explicit custom field)
         const zohoCommission = parseFloat((inv.items as any)?.commission) 
           || parseFloat((inv.items as any)?.cf_commission_amount_unformatted) 
           || parseFloat((inv.items as any)?.cf_commision_amount_unformatted) 
           || parseFloat((inv.items as any)?.Commission_Amount)
-          || parseFloat((inv.items as any)?.profit as any) || 0;
-        
-        const profit = deadProfit; // We display deadProfit as the profit metric on the board
+          || (profit * 0.50)
         const issueDate = inv.issueDate ? new Date(inv.issueDate) : null
 
         // Find salesperson on invoice
