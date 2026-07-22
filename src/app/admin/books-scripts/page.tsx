@@ -11,6 +11,7 @@ export default function BooksScriptsPage() {
   // Bulk process costs state
   const [bulkFilter, setBulkFilter] = useState<'unpaid' | 'all' | 'recent'>('unpaid')
   const [bulkEntity, setBulkEntity] = useState<'invoices' | 'salesorders' | 'estimates'>('invoices')
+  const [bulkForce, setBulkForce] = useState(false)
   const [bulkProgress, setBulkProgress] = useState("")
   const [bulkRunning, setBulkRunning] = useState(false)
 
@@ -49,7 +50,7 @@ export default function BooksScriptsPage() {
         const res = await fetch('/.netlify/functions/bulk-process-costs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ entity: bulkEntity, page, filter: bulkFilter, perPage: 25 })
+          body: JSON.stringify({ entity: bulkEntity, page, filter: bulkFilter, perPage: 25, force: bulkForce })
         })
 
         const data = await res.json()
@@ -116,6 +117,16 @@ export default function BooksScriptsPage() {
               <option value="recent">Last 90 Days</option>
               <option value="all">All</option>
             </select>
+            <label className="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={bulkForce}
+                onChange={e => setBulkForce(e.target.checked)}
+                disabled={bulkRunning}
+                className="w-3.5 h-3.5 accent-amber-500"
+              />
+              <span className={bulkForce ? 'text-amber-400 font-bold' : ''}>Force Recalc</span>
+            </label>
           </div>
         </div>
 
