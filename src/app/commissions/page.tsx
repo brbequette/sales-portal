@@ -602,7 +602,7 @@ export default function CommissionsPage() {
   const [data, setData] = useState<CommData | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"ledger" | "stats" | "reimbursements">("ledger")
-  const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()))
+  const [selectedYear, setSelectedYear] = useState<string>("all")
   const [selectedRep, setSelectedRep] = useState<string>("")
   const [search, setSearch] = useState("")
   const [hideFulfilled, setHideFulfilled] = useState(false)
@@ -775,7 +775,6 @@ export default function CommissionsPage() {
       const json = await res.json()
       if (json.success) {
         setData(json)
-        if (!selectedYear && json.years?.[0]) setSelectedYear(String(json.years[0]))
       }
     } catch (e) {
       console.error(e)
