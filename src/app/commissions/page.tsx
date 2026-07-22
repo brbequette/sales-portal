@@ -764,8 +764,11 @@ export default function CommissionsPage() {
     }
   }
 
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setFetchError(null)
     try {
       const params = new URLSearchParams()
       if (selectedYear) params.set("year", selectedYear)
@@ -775,9 +778,13 @@ export default function CommissionsPage() {
       const json = await res.json()
       if (json.success) {
         setData(json)
+      } else {
+        console.error("get-commissions failed:", json.error || json)
+        setFetchError(json.error || "Server error loading commission data")
       }
-    } catch (e) {
-      console.error(e)
+    } catch (e: any) {
+      console.error("get-commissions fetch error:", e)
+      setFetchError(e.message || "Network error")
     } finally {
       setLoading(false)
     }
@@ -996,7 +1003,13 @@ export default function CommissionsPage() {
             <span className="text-sm">Loading commissions...</span>
           </div>
         ) : !data ? (
-          <div className="text-center text-neutral-500 mt-20">Failed to load commission data.</div>
+          <div className="flex flex-col items-center justify-center h-full text-neutral-500 gap-3 p-8">
+            <div className="text-red-400 font-bold text-sm">Failed to load commission data</div>
+            {fetchError && <div className="text-xs text-red-300/70 max-w-md text-center bg-red-900/20 border border-red-500/20 rounded-lg p-3">{fetchError}</div>}
+            <button onClick={fetchData} className="flex items-center gap-1.5 text-xs text-neutral-300 hover:text-white px-4 py-2 bg-neutral-800 rounded-lg border border-neutral-700 transition-colors">
+              <FiRefreshCw size={13} /> Retry
+            </button>
+          </div>
         ) : activeTab === "ledger" ? (
           <div className="space-y-3">
             {Object.values(filteredByRep).length === 0 ? (

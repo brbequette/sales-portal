@@ -555,17 +555,29 @@ export const handler: Handler = async (event) => {
     })
 
     // ── Get available years from invoices ────────────────────────────────
-    const yearRows = await prisma.$queryRaw<{ y: number }[]>`
-      SELECT DISTINCT y FROM (
-        SELECT EXTRACT(YEAR FROM "issueDate")::int AS y FROM "Invoice"
-          WHERE "issueDate" IS NOT NULL AND status NOT IN ('Void','void','Draft','draft')
-        UNION
-        SELECT EXTRACT(YEAR FROM "closingDate")::int AS y FROM "Deal" WHERE "closingDate" IS NOT NULL
-        UNION
-        SELECT EXTRACT(YEAR FROM "createdAt")::int AS y FROM "Deal" WHERE "closingDate" IS NULL
-      ) t WHERE y IS NOT NULL ORDER BY y DESC
-    `
-    const years = yearRows.map(r => r.y)
+    let years: number[] = []
+    try {
+      const yearRows = await prisma.$queryRaw<{ y: number }[]>`
+        SELECT DISTINCT y FROM (
+          SELECT EXTRACT(YEAR FROM "issueDate")::int AS y FROM "Invoice"
+            WHERE "issueDate" IS NOT NULL AND status NOT IN ('Void','void','Draft','draft')
+          UNION
+          SELECT EXTRACT(YEAR FROM "closingDate")::int AS y FROM "Deal" WHERE "closingDate" IS NOT NULL
+          UNION
+          SELECT EXTRACT(YEAR FROM "createdAt")::int AS y FROM "Deal" WHERE "closingDate" IS NULL
+        ) t WHERE y IS NOT NULL ORDER BY y DESC
+      `
+      years = yearRows.map(r => r.y)
+    } catch (yearErr: any) {
+      console.warn("Years query failed, using fallback:", yearErr.message)
+      // Fallback: derive years from invoice data in memory
+      const yearSet = new Set<number>()
+      for (const inv of rawInvoices) {
+        if (inv.issueDate) yearSet.add(new Date(inv.issueDate).getFullYear())
+      }
+      years = Array.from(yearSet).sort((a, b) => b - a)
+      if (years.length === 0) years = [new Date().getFullYear()]
+    }
 
     // ── Apply repId filter ───────────────────────────────────────────────
     let finalByRep = byRep
