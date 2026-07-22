@@ -88,10 +88,26 @@ export default function VigManagementPage() {
       [field]: value
     }
 
-    await fetch("/api/update-vig-settings", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    })
+    try {
+      await fetch("/api/update-vig-settings", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      })
+
+      // Immediately recalculate documents for this rep and month
+      const recalcRes = await fetch("/api/admin/recalculate-vig-documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repId: selectedRepId, monthKey })
+      })
+      const recalcData = await recalcRes.json()
+      if (recalcData.success) {
+        toast.success(`Saved & recalculated ${recalcData.updatedCount || 0} document(s) for ${selectedRep.repName} (${monthKey})!`, { duration: 4000 })
+      }
+    } catch (e: any) {
+      toast.error("Error saving VIG goal: " + e.message)
+    }
+
     fetchStats()
   }
 
