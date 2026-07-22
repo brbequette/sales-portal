@@ -67,12 +67,19 @@ export function InvoiceFinancialBreakdown({
   const isMontgomery = salespersonName.toLowerCase().includes("montgomery") || salespersonName.toLowerCase().includes("morgan")
   
   // Resolve VIG Rate (1.0 for Montgomery Morgan, custom field fallback, or default 1.3)
-  const resolvedVigRate = isMontgomery ? 1.0 : (vigRate ?? getCustomField("SALESPERSON VIG") ?? 1.3)
+  const resolvedVigRate = isMontgomery ? 1.0 : (vigRate && vigRate > 0 ? vigRate : (getCustomField("SALESPERSON VIG") || 1.3))
   
+  // Calculate line item cost sum if available
+  const lineItemDeadCostSum = lineItemDetails.reduce((sum, item) => {
+    if (item.deadCost && item.deadCost > 0) return sum + item.deadCost
+    // If deadCost is 0 on item, fallback to standard 60% of item rate * qty
+    return sum + (item.quantity * item.rate * 0.6)
+  }, 0)
+
   // Resolve Costs
   const resolvedDeadCostSubject = (deadCostSubjectToVig != null && !isNaN(deadCostSubjectToVig) && deadCostSubjectToVig > 0)
     ? deadCostSubjectToVig
-    : (getCustomField("DEAD COST SUBJECT TO VIG") ?? getCustomField("DEAD COST TOTAL") ?? (deadCostTotal != null && !isNaN(deadCostTotal) && deadCostTotal > 0 ? deadCostTotal : (subTotal * 0.35)))
+    : (getCustomField("DEAD COST SUBJECT TO VIG") || getCustomField("DEAD COST TOTAL") || (deadCostTotal != null && !isNaN(deadCostTotal) && deadCostTotal > 0 ? deadCostTotal : (lineItemDeadCostSum > 0 ? lineItemDeadCostSum : (subTotal * 0.6))))
   
   // Calculate Dead Cost + VIG directly from Subject Cost × VIG Multiplier
   const resolvedDeadCostPlusVig = (resolvedDeadCostSubject * resolvedVigRate) + (deadCostNoVig || 0)
@@ -82,8 +89,10 @@ export function InvoiceFinancialBreakdown({
   const resolvedProfit = (subTotal > 0 && !isNaN(calculatedProfit)) ? calculatedProfit : 0
   const resolvedMargin = subTotal > 0 ? (resolvedProfit / subTotal) * 100 : 0
   
-  const resolvedCommissionPct = commissionPct ?? getCustomField("COMMISSION FROM PROFIT") ?? 50
-  const resolvedCommission = salesCommission ?? (resolvedProfit > 0 ? resolvedProfit * (resolvedCommissionPct / 100) : 0)
+  const resolvedCommissionPct = (commissionPct && commissionPct > 0) ? commissionPct : (getCustomField("COMMISSION FROM PROFIT") || 50)
+  const resolvedCommission = (salesCommission && salesCommission > 0)
+    ? salesCommission
+    : (resolvedProfit > 0 ? resolvedProfit * (resolvedCommissionPct / 100) : 0)
 
   return (
     <div className="glass-panel border border-white/10 rounded-2xl p-5 bg-neutral-900/80 text-white space-y-6 shadow-xl">
