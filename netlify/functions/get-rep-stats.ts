@@ -98,13 +98,29 @@ export const handler: Handler = async (event) => {
       orderBy: { name: "asc" }
     })
 
-    // 3. Map usernames to user IDs for salesperson matching
+    // 3. Map usernames to user IDs for salesperson matching with aliases and space normalization
     const userNameToIdMap: Record<string, string> = {}
     users.forEach(u => {
       if (u.name) {
-        userNameToIdMap[u.name.toLowerCase().trim()] = u.id
+        const normalized = u.name.replace(/\s+/g, ' ').trim().toLowerCase()
+        userNameToIdMap[normalized] = u.id
       }
     })
+
+    // Add common salesperson aliases found in Zoho Books invoices
+    const addAlias = (alias: string, targetName: string) => {
+      const targetUser = users.find(u => u.name?.toLowerCase().includes(targetName.toLowerCase()))
+      if (targetUser) {
+        userNameToIdMap[alias.toLowerCase().trim()] = targetUser.id
+      }
+    }
+
+    addAlias("ricky griffin", "richard griffin")
+    addAlias("ricky griffin ", "richard griffin")
+    addAlias("monty morgan", "montgomery morgan")
+    addAlias("ben bequette", "benjamin bequette")
+    addAlias("justin  zastrow", "justin zastrow")
+    addAlias("mike edwards ", "mike edwards")
 
     // 4. Fetch all accounts
     const accounts = await prisma.account.findMany({
@@ -561,7 +577,8 @@ export const handler: Handler = async (event) => {
         const salespersonName = items.salesperson
         let repId = unassignedId
         if (salespersonName) {
-          const matchedId = userNameToIdMap[salespersonName.toLowerCase().trim()]
+          const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
+          const matchedId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()]
           if (matchedId) repId = matchedId
         }
         if (repId === unassignedId) {
