@@ -485,19 +485,14 @@ export const handler: Handler = async (event) => {
       select: { issueDate: true }
     });
     
-    let historyMonths = 12; // default fallback
+    let historyMonths = 60; // default fallback back to 2020
     if (oldestInvoice?.issueDate) {
       const oldestDate = new Date(oldestInvoice.issueDate);
       const monthsDiff = (now.getFullYear() - oldestDate.getFullYear()) * 12 + (now.getMonth() - oldestDate.getMonth());
-      historyMonths = Math.min(24, Math.max(1, monthsDiff));
+      historyMonths = Math.max(1, monthsDiff);
     }
 
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
-
     const allHistoricalInvoices = await prisma.invoice.findMany({
-      where: {
-        issueDate: { lte: endOfLastMonth }
-      },
       select: {
         issueDate: true,
         amount: true,
@@ -520,7 +515,8 @@ export const handler: Handler = async (event) => {
       invoicesByMonth.get(key)!.push(inv)
     }
 
-    for (let m = historyMonths; m >= 1; m--) {
+    // Loop from oldest month (m = historyMonths) down to current month (m = 0)
+    for (let m = historyMonths; m >= 0; m--) {
       const targetMonthDate = new Date(now.getFullYear(), now.getMonth() - m, 1)
       const year = targetMonthDate.getFullYear()
       const monthIdx = targetMonthDate.getMonth() // 0-indexed
