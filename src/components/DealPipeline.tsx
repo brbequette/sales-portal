@@ -9,7 +9,7 @@ import {
 } from "react-icons/fi"
 import { ClosingChecklist } from "./ClosingChecklist"
 
-// â”€â”€â”€ Pipeline Stage Definitions â”€â”€â”€
+// â"€â"€â"€ Pipeline Stage Definitions â"€â"€â"€
 const STAGES = [
   { key: "estimate", label: "Estimate", icon: FiFileText, color: "#38bdf8", bg: "rgba(56,189,248,0.08)", borderColor: "rgba(56,189,248,0.2)" },
   { key: "salesorder", label: "Sales Order", icon: FiFileText, color: "#a855f7", bg: "rgba(168,85,247,0.08)", borderColor: "rgba(168,85,247,0.2)" },
@@ -34,7 +34,7 @@ interface PipelineDeal {
   balance: number
 }
 
-// â”€â”€â”€ Deal Card â”€â”€â”€
+// â"€â"€â"€ Deal Card â"€â"€â"€
 function DealCard({ deal, onView, onComplete }: { deal: PipelineDeal; onView: (deal: PipelineDeal) => void; onComplete: (dealId: string) => void }) {
   const isStale = deal.daysInStage > 14
   const isUrgent = deal.daysInStage > 30
@@ -90,7 +90,7 @@ function DealCard({ deal, onView, onComplete }: { deal: PipelineDeal; onView: (d
   )
 }
 
-// â”€â”€â”€ Pipeline Column â”€â”€â”€
+// â"€â"€â"€ Pipeline Column â"€â"€â"€
 function PipelineColumn({ stage, deals, onViewDeal, onCompleteDeal }: {
   stage: typeof STAGES[number]; deals: PipelineDeal[]; onViewDeal: (deal: PipelineDeal) => void; onCompleteDeal: (dealId: string) => void
 }) {
@@ -128,7 +128,7 @@ function PipelineColumn({ stage, deals, onViewDeal, onCompleteDeal }: {
   )
 }
 
-// â”€â”€â”€ Main Pipeline Component â”€â”€â”€
+// â"€â"€â"€ Main Pipeline Component â"€â"€â"€
 export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any) => void }) {
   const [deals, setDeals] = useState<PipelineDeal[]>([])
   const [loading, setLoading] = useState(true)
@@ -181,7 +181,7 @@ export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any)
         } else if (status === "partially_paid") {
           stage = "partially_paid"
         } else if (status === "paid") {
-          // Check if recent (within 14 days) — needs gift
+          // Check if recent (within 14 days) -- needs gift
           if (daysOld <= 14) {
             stage = "needs_gift"
           } else {
@@ -197,7 +197,7 @@ export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any)
         pipelineDeals.push({
           id: inv.invoice_id || inv.salesorder_id || inv.estimate_id || String(Math.random()),
           customer: inv.customer_name || "Unknown",
-          invoiceNumber: inv.invoice_number || inv.salesorder_number || inv.estimate_number || "—",
+          invoiceNumber: inv.invoice_number || inv.salesorder_number || inv.estimate_number || "--",
           amount,
           profit,
           date: dateStr,
@@ -250,7 +250,7 @@ export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any)
 
   return (
     <div className="space-y-3 animate-fade-in">
-      {/* â”€â”€â”€ Pipeline Header â”€â”€â”€ */}
+      {/* â"€â"€â"€ Pipeline Header â"€â"€â"€ */}
       <div className="glass-panel rounded-xl p-3 border border-white/[0.06] flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <div>
@@ -298,7 +298,7 @@ export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any)
         </button>
       </div>
 
-      {/* â”€â”€â”€ Kanban Board â”€â”€â”€ */}
+      {/* â"€â"€â"€ Kanban Board â"€â"€â"€ */}
       <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-4 scrollbar-none">
         {STAGES.map(stage => (
           <PipelineColumn

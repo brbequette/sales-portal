@@ -102,7 +102,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
               <h3 className="text-xs font-bold text-white uppercase tracking-wider">Notifications & Reminders</h3>
             </div>
             <p className="text-[10px] text-neutral-500 leading-relaxed">
-              Choose how you want to be notified when task reminders fire. These are your default preferences — you can override them per task.
+              Choose how you want to be notified when task reminders fire. These are your default preferences -- you can override them per task.
             </p>
 
             {/* Push Notification */}
@@ -115,7 +115,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                   <div>
                     <p className="text-xs font-bold text-white">Push Notifications</p>
                     <p className="text-[10px] text-neutral-500">
-                      {permission === 'granted' ? 'Browser notifications enabled' : permission === 'denied' ? 'Blocked — enable in browser settings' : 'Click to enable browser notifications'}
+                      {permission === 'granted' ? 'Browser notifications enabled' : permission === 'denied' ? 'Blocked -- enable in browser settings' : 'Click to enable browser notifications'}
                     </p>
                   </div>
                 </div>

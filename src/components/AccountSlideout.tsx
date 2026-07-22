@@ -49,7 +49,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
         }
       } catch (e) {
         console.error("Failed to load account details", e)
-        setError("Network error — could not load account")
+        setError("Network error -- could not load account")
       } finally {
         setLoading(false)
       }

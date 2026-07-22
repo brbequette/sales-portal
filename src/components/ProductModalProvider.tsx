@@ -214,7 +214,7 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
             <div className="bg-black/20/40 border border-white/10/80 p-3.5 rounded-xl flex flex-col justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Vendor Cost</span>
               <span className="text-base font-extrabold text-neutral-300 mt-1">
-                {costVal !== null ? `$${costVal.toFixed(2)}` : "—"}
+                {costVal !== null ? `$${costVal.toFixed(2)}` : "--"}
               </span>
             </div>
 
@@ -227,7 +227,7 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
                   <span className="text-[9px] font-bold text-emerald-500/90">({profitMargin.toFixed(1)}% margin)</span>
                 </div>
               ) : (
-                <span className="text-base font-extrabold text-neutral-500 mt-1">—</span>
+                <span className="text-base font-extrabold text-neutral-500 mt-1">--</span>
               )}
             </div>
           </div>

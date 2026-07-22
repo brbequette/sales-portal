@@ -11,7 +11,7 @@
 
 export type DocumentType = "invoice" | "estimate" | "salesorder"
 
-// ─── Fetch document details ────────────────────────────────────────────────────
+// --- Fetch document details ----------------------------------------------------
 
 export async function fetchDocument(id: string, type: DocumentType = "invoice"): Promise<any> {
   const res = await fetch("/api/get-invoice-details", {
@@ -25,7 +25,7 @@ export async function fetchDocument(id: string, type: DocumentType = "invoice"):
   return data
 }
 
-// ─── Process / recalculate costs ──────────────────────────────────────────────
+// --- Process / recalculate costs ----------------------------------------------
 
 export interface ProcessCostsOptions {
   vigRate?: number | null
@@ -88,7 +88,7 @@ export async function processSalesOrderCosts(
   return data
 }
 
-// ─── Unified dispatcher ────────────────────────────────────────────────────────
+// --- Unified dispatcher --------------------------------------------------------
 
 export function processDocumentCosts(
   idOrNumber: string,

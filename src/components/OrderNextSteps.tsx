@@ -51,7 +51,7 @@ function getNextStep(doc: any, docType: "Quote" | "SalesOrder" | "Invoice"): str
 
   if (docType === "Invoice") {
     if (s === "draft") return "send_invoice"
-    return null // sent, paid, overdue, void — not processing tasks
+    return null // sent, paid, overdue, void -- not processing tasks
   }
 
   return null
@@ -73,7 +73,7 @@ export function OrderNextSteps({ accounts, onViewDoc }: { accounts: any[]; onVie
         if (!config) return
 
         const items = doc.items && !Array.isArray(doc.items) ? doc.items : {}
-        const docNumber = items?.invoiceNumber || items?.quoteNumber || items?.salesOrderNumber || doc.zohoId?.slice(-6) || doc.id?.slice(-6) || "—"
+        const docNumber = items?.invoiceNumber || items?.quoteNumber || items?.salesOrderNumber || doc.zohoId?.slice(-6) || doc.id?.slice(-6) || "--"
 
         result.push({
           id: doc.id,
@@ -151,7 +151,7 @@ export function OrderNextSteps({ accounts, onViewDoc }: { accounts: any[]; onVie
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={`text-[10px] font-semibold ${step.stepColor}`}>{step.stepLabel}</span>
-                  <span className="text-[9px] text-neutral-600">•</span>
+                  <span className="text-[9px] text-neutral-600">-</span>
                   <span className="text-[9px] text-neutral-500 font-mono">#{step.docNumber}</span>
                 </div>
               </div>

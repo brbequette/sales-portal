@@ -401,22 +401,22 @@ export default function PayoutsPage() {
               <thead>
                 <tr className="bg-black/20/50 border-b border-white/10 text-neutral-400 uppercase tracking-wider text-xs select-none">
                   <th className="px-6 py-4 font-bold cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("repName")}>
-                    Rep Name {sortField === "repName" && (sortDir === "asc" ? "â†‘" : "â†“")}
+                    Rep Name {sortField === "repName" && (sortDir === "asc" ? "^" : "v")}
                   </th>
                   <th className="px-6 py-4 font-bold text-right text-emerald-400 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("totalEarned")}>
-                    Total Earned {sortField === "totalEarned" && (sortDir === "asc" ? "â†‘" : "â†“")}
+                    Total Earned {sortField === "totalEarned" && (sortDir === "asc" ? "^" : "v")}
                   </th>
                   <th className="px-6 py-4 font-bold text-right text-neutral-500 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("totalPaid")}>
-                    Total Paid {sortField === "totalPaid" && (sortDir === "asc" ? "â†‘" : "â†“")}
+                    Total Paid {sortField === "totalPaid" && (sortDir === "asc" ? "^" : "v")}
                   </th>
                   <th className="px-6 py-4 font-bold text-right text-purple-400 text-base cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("balance")}>
-                    Balance {sortField === "balance" && (sortDir === "asc" ? "â†‘" : "â†“")}
+                    Balance {sortField === "balance" && (sortDir === "asc" ? "^" : "v")}
                   </th>
                   <th className="px-6 py-4 font-bold text-right text-amber-500 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("totalFutures")}>
-                    Futures {sortField === "totalFutures" && (sortDir === "asc" ? "â†‘" : "â†“")}
+                    Futures {sortField === "totalFutures" && (sortDir === "asc" ? "^" : "v")}
                   </th>
                   <th className="px-6 py-4 font-bold text-right text-red-400 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("totalAtRisk")}>
-                    At Risk (90d+) {sortField === "totalAtRisk" && (sortDir === "asc" ? "â†‘" : "â†“")}
+                    At Risk (90d+) {sortField === "totalAtRisk" && (sortDir === "asc" ? "^" : "v")}
                   </th>
                 </tr>
               </thead>

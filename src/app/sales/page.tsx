@@ -427,7 +427,7 @@ export default function SalesListPage() {
         </div>
       </div>
 
-      {/* â”€â”€ Filters Popout Drawer â”€â”€ */}
+      {/* â"€â"€ Filters Popout Drawer â"€â"€ */}
       {showFiltersDrawer && createPortal(
         <div className="fixed inset-0 z-[9999]">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFiltersDrawer(false)} />
@@ -477,7 +477,7 @@ export default function SalesListPage() {
         </div>, document.body
       )}
 
-      {/* â”€â”€ Sales Document (Quote / Sales Order / Invoice) Details Modal â”€â”€ */}
+      {/* â"€â"€ Sales Document (Quote / Sales Order / Invoice) Details Modal â"€â"€ */}
       {viewingSalesDoc && (
         <InvoiceDetailsModal 
           invoice={viewingSalesDoc.doc} 

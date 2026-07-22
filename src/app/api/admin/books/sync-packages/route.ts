@@ -27,17 +27,17 @@ async function fetchAllPages(baseUrl: string, token: string, endpoint: string): 
 
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
-        throw new Error(`Zoho auth failed (${res.status}) — token may be expired. Try again in a minute.`)
+        throw new Error(`Zoho auth failed (${res.status}) -- token may be expired. Try again in a minute.`)
       }
       if (res.status === 429) {
-        throw new Error(`Zoho rate limit hit — wait a minute and try again.`)
+        throw new Error(`Zoho rate limit hit -- wait a minute and try again.`)
       }
       throw new Error(`Zoho API returned ${res.status} for ${endpoint}`)
     }
 
     const rawText = await res.text()
     if (rawText.trim().startsWith('<')) {
-      throw new Error(`Zoho returned HTML instead of JSON for ${endpoint} — token likely expired. Try again in a minute.`)
+      throw new Error(`Zoho returned HTML instead of JSON for ${endpoint} -- token likely expired. Try again in a minute.`)
     }
 
     let data: any
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     const token = await getToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
-    // ── Sync Packages ──
+    // -- Sync Packages --
     const allPackages = await fetchAllPages(baseUrl, token, "packages")
 
     let pkgCreated = 0, pkgUpdated = 0, pkgErrors = 0
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
       } catch (e: any) { pkgErrors++ }
     }
 
-    // ── Sync Dropshipment POs ──
+    // -- Sync Dropshipment POs --
     const allPOs = await fetchAllPages(baseUrl, token, "purchaseorders")
 
     let poCreated = 0, poUpdated = 0, poErrors = 0, dropshipCount = 0

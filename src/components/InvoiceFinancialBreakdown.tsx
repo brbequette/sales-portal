@@ -73,7 +73,7 @@ export function InvoiceFinancialBreakdown({
   const lineItemDeadCostSum = lineItemDetails.reduce((sum, item) => {
     if (item.deadCost && item.deadCost > 0) return sum + item.deadCost  // deadCost = qty × cost (already total)
     if (item.cost && item.cost > 0) return sum + (item.cost * item.quantity)
-    return sum  // no cost data — don't guess with 60% fallback per item (aggregate fallback handles it)
+    return sum  // no cost data -- don't guess with 60% fallback per item (aggregate fallback handles it)
   }, 0)
 
   // Resolve Costs
@@ -121,7 +121,7 @@ export function InvoiceFinancialBreakdown({
         )}
       </div>
 
-      {/* ─── VISUAL FLOW DIAGRAM ─── */}
+      {/* --- VISUAL FLOW DIAGRAM --- */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3 relative">
         {/* Step 1: Subtotal */}
         <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-center flex flex-col justify-between">
@@ -169,7 +169,7 @@ export function InvoiceFinancialBreakdown({
         </div>
       </div>
 
-      {/* ─── DETAILED MATHEMATICAL STEP-BY-STEP TABLE ─── */}
+      {/* --- DETAILED MATHEMATICAL STEP-BY-STEP TABLE --- */}
       <div className="bg-black/30 border border-white/10 rounded-xl overflow-hidden text-xs">
         <div className="p-3 bg-white/[0.03] border-b border-white/10 font-bold text-neutral-300 flex justify-between items-center">
           <span>Mathematical Calculation Breakdown</span>
@@ -209,7 +209,7 @@ export function InvoiceFinancialBreakdown({
                 <span className="font-bold text-white">VIG Multiplier Applied ({resolvedVigRate}x)</span>
                 <p className="text-[11px] text-neutral-400">
                   (${resolvedDeadCostSubject.toFixed(2)} × {resolvedVigRate} VIG rate)
-                  {isMontgomery ? " — Montgomery Morgan override active" : ""}
+                  {isMontgomery ? " -- Montgomery Morgan override active" : ""}
                 </p>
               </div>
             </div>

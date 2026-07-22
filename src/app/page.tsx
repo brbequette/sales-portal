@@ -142,7 +142,7 @@ export default function Dashboard() {
   const [prefsLoaded, setPrefsLoaded] = useState(false)
   useEffect(() => {
     if (!preferences || prefsLoaded) return
-    // effort tab always defaults to "sales" (Sales Pipeline) — not restored from prefs
+    // effort tab always defaults to "sales" (Sales Pipeline) -- not restored from prefs
     if (preferences.ownerFilter) setOwnerFilter(preferences.ownerFilter)
     if (preferences.sortBy) setSortBy(preferences.sortBy)
     if (preferences.searchQuery) setSearchQuery(preferences.searchQuery)
@@ -347,7 +347,7 @@ export default function Dashboard() {
       return
     }
 
-    // Close modal — pill takes over
+    // Close modal -- pill takes over
     setShowCampaignModal(false)
     setCampaignModalFromPill(false)
     setSelectedAccountIds([])
@@ -807,7 +807,7 @@ export default function Dashboard() {
     }
   }
 
-  // â”€â”€ Separation Logic â”€â”€
+  // â"€â"€ Separation Logic â"€â"€
   const normalizedRole = currentUser?.role?.toLowerCase() || ""
   const isAdminUser = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
 
@@ -1020,7 +1020,7 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col text-neutral-100 font-sans overflow-y-auto" style={{ height: "100%" }}>
 
-      {/* â”€â”€ Main scrollable content â”€â”€ */}
+      {/* â"€â"€ Main scrollable content â"€â"€ */}
       <main className="flex-1 px-4 sm:px-6 py-4 space-y-4 overflow-y-auto safe-bottom">
 
         {apiError && (
@@ -1030,7 +1030,7 @@ export default function Dashboard() {
         )}
 
 
-        {/* â”€â”€ Workspace / Effort Selector Switcher â”€â”€ */}
+        {/* â"€â"€ Workspace / Effort Selector Switcher â"€â"€ */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <button
             onClick={() => handleEffortChange("sales")}
@@ -1173,7 +1173,7 @@ export default function Dashboard() {
 
         </div>
 
-        {/* â”€â”€ View as Rep (Admin Only) â”€â”€ */}
+        {/* â"€â"€ View as Rep (Admin Only) â"€â"€ */}
         {isAdminUser && allDbUsers.length > 0 && (
           <div className="flex items-center gap-2 mt-2">
             <FiEye size={14} className="text-neutral-500" />
@@ -1363,10 +1363,10 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* â”€â”€ Main 2-col grid â”€â”€ */}
+        {/* â"€â"€ Main 2-col grid â"€â"€ */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-          {/* Accounts list — full width on mobile, hidden when tasks tab active */}
+          {/* Accounts list -- full width on mobile, hidden when tasks tab active */}
           <div className={`lg:col-span-2 space-y-3 ${mobileTab === "tasks" ? "hidden sm:block" : ""}`}>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <h2 className="text-base font-bold text-white whitespace-nowrap flex items-center gap-2">
@@ -1416,8 +1416,8 @@ export default function Dashboard() {
                     <option value="timezone_desc">Time Zone (Z-A)</option>
                     <option value="recentOrders_desc">Orders (Newest)</option>
                     <option value="recentOrders_asc">Orders (Oldest)</option>
-                    <option value="ltv_desc">LTV (High â†’ Low)</option>
-                    <option value="ltv_asc">LTV (Low â†’ High)</option>
+                    <option value="ltv_desc">LTV (High to Low)</option>
+                    <option value="ltv_asc">LTV (Low to High)</option>
                   </select>
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                     <svg className="w-3 h-3 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1641,12 +1641,12 @@ export default function Dashboard() {
                     const cleanPhone = rawPhone ? rawPhone.replace(/[^0-9+]/g, '') : ''
                     const displayPhone = rawPhone  // unformatted original for display
 
-                    // Top 2 contacts for call list fallback — primary always first
+                    // Top 2 contacts for call list fallback -- primary always first
                     const top2Contacts = [...(account.contacts || [])]
                       .sort((a: any, b: any) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0))
                       .slice(0, 2)
 
-                    // â”€â”€ derived contact display values â”€â”€
+                    // â"€â"€ derived contact display values â"€â"€
                     const contactDisplayName = primaryContact
                       ? `${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`.trim()
                       : hasContacts ? "" : "Company"
@@ -1681,7 +1681,7 @@ export default function Dashboard() {
                         }`}
                       >
                         {effort === "call_list" ? (
-                          /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• CALL LIST CARD â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+                          /* â-â-â-â-â-â-â-â-â-â-â-â-â-â-â- CALL LIST CARD â-â-â-â-â-â-â-â-â-â-â-â-â-â-â- */
                           <div className="flex items-stretch gap-0 px-3 py-2.5">
 
                             {/* Checkbox */}
@@ -1836,7 +1836,7 @@ export default function Dashboard() {
                             </div>
                           </div>
                         ) : (
-                          /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SALES LIST CARD (Enhanced) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+                          /* â-â-â-â-â-â-â-â-â-â-â-â-â-â-â- SALES LIST CARD (Enhanced) â-â-â-â-â-â-â-â-â-â-â-â-â-â-â- */
                           <div className="flex items-center justify-between px-4 py-3.5 gap-4">
                             {/* Checkbox */}
                             <div className="flex items-center shrink-0">
@@ -1975,7 +1975,7 @@ export default function Dashboard() {
                   {accountsHasMore && (
                     <div className="flex items-center justify-center gap-2 mt-2 py-1">
                       <div className="w-3 h-3 rounded-full border-2 border-neutral-600 border-t-blue-400 animate-spin" />
-                      <p className="text-[11px] text-neutral-500">Loading accounts”¦ {accounts.length.toLocaleString()} of {accountsTotalCount.toLocaleString()}</p>
+                      <p className="text-[11px] text-neutral-500">Loading accounts"¦ {accounts.length.toLocaleString()} of {accountsTotalCount.toLocaleString()}</p>
                     </div>
                   )}
                 </div>
@@ -1983,7 +1983,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Tasks — stacks below on mobile, column on desktop */}
+          {/* Tasks -- stacks below on mobile, column on desktop */}
           <div className={`lg:col-span-1 border-l border-[var(--border)] lg:pl-4 space-y-4 ${mobileTab === "accounts" ? "hidden sm:block" : ""}`}>
             <OrderNextSteps accounts={accounts} onViewDoc={(type, doc) => { setViewingDocType(type as any); setViewingInvoice(doc) }} />
 
@@ -2109,7 +2109,7 @@ export default function Dashboard() {
                                     ? "bg-amber-950/40 text-amber-400 border border-amber-500/20 animate-pulse"
                                     : "bg-neutral-800 text-neutral-400 border border-[var(--border)]"
                                 }`}>
-                                  ✨”” {reminderFiredFlag ? "REMINDER!" : "Reminder Set"}
+                                  ✨"" {reminderFiredFlag ? "REMINDER!" : "Reminder Set"}
                                 </span>
                               )}
                             </div>
@@ -2260,7 +2260,7 @@ export default function Dashboard() {
                         )}
                         <p className="text-neutral-400 text-xs mt-1 flex items-center gap-1.5">
                           <FiFileText className="text-amber-500 shrink-0" size={11} />
-                          <span className="text-emerald-400 group-hover:underline font-mono">#{(item.items as any)?.invoiceNumber || (item.items as any)?.invoice_number || (item.items as any)?.salesOrderNumber || (item.items as any)?.salesorder_number || (item.items as any)?.estimateNumber || (item.items as any)?.estimate_number || item.zohoId || item.id || "—"}</span>
+                          <span className="text-emerald-400 group-hover:underline font-mono">#{(item.items as any)?.invoiceNumber || (item.items as any)?.invoice_number || (item.items as any)?.salesOrderNumber || (item.items as any)?.salesorder_number || (item.items as any)?.estimateNumber || (item.items as any)?.estimate_number || item.zohoId || item.id || "--"}</span>
                           <span className="text-neutral-500 font-sans ml-1 flex flex-col gap-0.5 border-l border-[var(--border)] pl-2">
                             <span>Ordered: {new Date(item.issueDate || item.orderDate || item.createdAt || Date.now()).toLocaleDateString()}</span>
                             {item.status === 'Paid' && (
@@ -2337,7 +2337,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* â”€â”€ Filters Popup Modal (portaled to body) â”€â”€ */}
+      {/* â"€â"€ Filters Popup Modal (portaled to body) â"€â"€ */}
       {showFiltersDrawer && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFiltersDrawer(false)} />
@@ -2466,7 +2466,7 @@ export default function Dashboard() {
                       placeholder="Min"
                       className="w-full bg-neutral-800 border border-[var(--border)] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                     />
-                    <span className="text-neutral-500 text-xs">–</span>
+                    <span className="text-neutral-500 text-xs">-</span>
                     <input
                       type="number"
                       value={ltvMax}
@@ -2509,7 +2509,7 @@ export default function Dashboard() {
                   <label className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                     ⚠ Missing Vital Info
                   </label>
-                  <p className="text-[10px] text-neutral-500">Show accounts missing key data — use to clean up your CRM</p>
+                  <p className="text-[10px] text-neutral-500">Show accounts missing key data -- use to clean up your CRM</p>
                   {[
                     { key: "noPhone", label: "No Phone Number (account + all contacts)" },
                     { key: "noEmail", label: "No Email (account + all contacts)" },
@@ -2735,7 +2735,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="border-t border-[var(--border)] pt-3 mt-2">
-                <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">✨”” Reminder</h4>
+                <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">✨"" Reminder</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
                   <div>
                     <label className="block text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1">Reminder Date</label>
@@ -2773,7 +2773,7 @@ export default function Dashboard() {
                             }}
                             className="w-3.5 h-3.5 rounded border-white/20 bg-[#111214] text-emerald-500 focus:ring-emerald-500"
                           />
-                          <span className="text-xs text-neutral-300 font-semibold">{method === 'push' ? '✨”” Push' : method === 'sms' ? '✨’¬ SMS' : '✨“§ Email'}</span>
+                          <span className="text-xs text-neutral-300 font-semibold">{method === 'push' ? 'Push' : method === 'sms' ? 'SMS' : 'Email'}</span>
                         </label>
                       ))}
                     </div>
@@ -2834,7 +2834,7 @@ export default function Dashboard() {
               {campaignSending ? (
                 <button
                   onClick={() => { setShowCampaignModal(false); setCampaignModalFromPill(false) }}
-                  title="Minimize — campaign keeps running"
+                  title="Minimize -- campaign keeps running"
                   className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 rounded-lg transition-colors"
                 >
                   <span>⬇</span> Minimize
@@ -2873,7 +2873,7 @@ export default function Dashboard() {
                   <div className="campaign-shimmer h-1.5 rounded-full transition-all duration-500" style={{ width: `${(campaignProgress / campaignTotal) * 100}%` }} />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-neutral-500">{campaignState.sentCount} sent · {campaignState.failedCount} failed</span>
+                  <span className="text-[10px] text-neutral-500">{campaignState.sentCount} sent . {campaignState.failedCount} failed</span>
                   <button
                     type="button"
                     onClick={cancelCampaign}
@@ -3219,7 +3219,7 @@ export default function Dashboard() {
         />,
         document.body
       )}
-      {/* â”€â”€ Invoice Details Modal â”€â”€ */}
+      {/* â"€â"€ Invoice Details Modal â"€â"€ */}
       {viewingInvoice && (
         <InvoiceDetailsModal 
           invoice={viewingInvoice} 

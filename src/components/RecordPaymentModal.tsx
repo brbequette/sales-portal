@@ -28,7 +28,7 @@ const PAYMENT_METHODS = [
   { value: "ACH", label: "ACH / Bank Transfer", icon: "🏦" },
   { value: "Wire Transfer", label: "Wire Transfer", icon: "🔗" },
   { value: "Cash", label: "Cash", icon: "💵" },
-  { value: "PayPal", label: "PayPal", icon: "✨…¿ï¸" },
+  { value: "PayPal", label: "PayPal", icon: "✨...¿ï¸" },
   { value: "Other", label: "Other", icon: "📋" },
 ]
 
@@ -158,7 +158,7 @@ export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumb
 
       const payData = await payRes.json()
       if (!payData.success) {
-        // Card was charged but Zoho failed — warn but don't fail
+        // Card was charged but Zoho failed -- warn but don't fail
         console.error("Zoho payment recording failed:", payData.error)
         setStatus(`⚠ï¸ Card charged $${amt.toFixed(2)} (Auth: ${chargeData.authCode}) but Zoho recording failed. Record manually.`)
         setTimeout(() => onSuccess(), 3000)
@@ -347,7 +347,7 @@ export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumb
                     type="password"
                     value={cvv}
                     onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                    placeholder="•••"
+                    placeholder="---"
                     maxLength={4}
                     className="w-full bg-neutral-800 border border-neutral-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-neutral-600 text-center tracking-widest"
                   />

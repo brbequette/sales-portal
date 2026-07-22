@@ -5,14 +5,14 @@ import { prisma } from '@/lib/prisma';
  * GET /api/zoho-invoices
  * 
  * Returns all invoices + active sales orders from the LOCAL database.
- * No Zoho API calls — data is kept current via:
+ * No Zoho API calls -- data is kept current via:
  *   1. Daily sync (daily-books-sync scheduled function)
  *   2. Zoho webhooks (zoho-books-webhook)
  *   3. Portal saves (push to Zoho + update DB)
  * 
  * Query params:
- *   ?force=true  — Reserved for future force-refresh from Zoho
- *   ?status=paid — Filter by status
+ *   ?force=true  -- Reserved for future force-refresh from Zoho
+ *   ?status=paid -- Filter by status
  */
 export async function GET(request: Request) {
   try {

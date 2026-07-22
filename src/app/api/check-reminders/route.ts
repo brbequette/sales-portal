@@ -35,12 +35,12 @@ export async function GET(req: NextRequest) {
 
       // Handle SMS reminders (placeholder)
       if (method.includes('sms')) {
-        console.log(`[SMS Reminder] Task "${task.subject}" (${task.id}) — owner: ${task.ownerId}`)
+        console.log(`[SMS Reminder] Task "${task.subject}" (${task.id}) -- owner: ${task.ownerId}`)
       }
 
       // Handle email reminders (placeholder)
       if (method.includes('email')) {
-        console.log(`[Email Reminder] Task "${task.subject}" (${task.id}) — owner: ${task.ownerId}`)
+        console.log(`[Email Reminder] Task "${task.subject}" (${task.id}) -- owner: ${task.ownerId}`)
       }
 
       // Mark reminder as fired

@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth"
 
 const prisma = new PrismaClient()
 
-// GET — Fetch all sales orders with their packages for the shipping center
+// GET -- Fetch all sales orders with their packages for the shipping center
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -131,7 +131,7 @@ export async function GET(req: NextRequest) {
           p.trackingNumber || p.status?.toLowerCase() === "shipped" || p.status?.toLowerCase() === "delivered"
         )
 
-        // Check dropshipments — PO statuses: draft, issued, received, billed, cancelled
+        // Check dropshipments -- PO statuses: draft, issued, received, billed, cancelled
         const allDropDelivered = soDrops.length === 0 || soDrops.every((po: any) =>
           po.status?.toLowerCase() === "received" || po.status?.toLowerCase() === "delivered" || po.status?.toLowerCase() === "billed"
         )
@@ -286,7 +286,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PUT — Update package tracking or status
+// PUT -- Update package tracking or status
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json()

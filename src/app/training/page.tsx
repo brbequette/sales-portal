@@ -111,7 +111,7 @@ export default function TrainingPage() {
     const html = `<!DOCTYPE html>
 <html>
 <head>
-  <title>${title} — Titan Diamond Training</title>
+  <title>${title} -- Titan Diamond Training</title>
   <style>
     @page { margin: 0.75in; size: letter; }
     body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 13px; color: #333; line-height: 1.6; margin: 0; padding: 0; }
@@ -122,13 +122,13 @@ export default function TrainingPage() {
 </head>
 <body>
   <div style="text-align:center;margin-bottom:32px;padding-bottom:20px;border-bottom:3px solid #0a6;">
-    <h1 style="font-size:28px;font-weight:900;color:#111;margin:0;">Titan Diamond — Sales Hub</h1>
+    <h1 style="font-size:28px;font-weight:900;color:#111;margin:0;">Titan Diamond -- Sales Hub</h1>
     <div style="font-size:14px;color:#666;margin-top:4px;">${title}</div>
     <div style="font-size:11px;color:#999;margin-top:4px;">Generated ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
   </div>
   ${content}
   <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e5e5;text-align:center;font-size:11px;color:#999;">
-    © ${new Date().getFullYear()} Titan Diamond — Confidential Training Material
+    (C) ${new Date().getFullYear()} Titan Diamond -- Confidential Training Material
   </div>
 </body>
 </html>`
@@ -149,7 +149,7 @@ export default function TrainingPage() {
           <h1 className="text-2xl font-black text-white flex items-center gap-2">
             <FiBookOpen className="text-[var(--primary)]" /> Training Hub
           </h1>
-          <p className="text-neutral-400 mt-1">Learn how to use every part of the Titan Hub — sales, communication, collections, payroll, and admin.</p>
+          <p className="text-neutral-400 mt-1">Learn how to use every part of the Titan Hub -- sales, communication, collections, payroll, and admin.</p>
         </div>
         <button
           onClick={() => generatePdf(trainingModules, 'Complete Training Manual')}

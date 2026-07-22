@@ -1,6 +1,6 @@
 /**
  * Geolocation utilities for GPS-based timeclock geofencing.
- * GPS is captured ONLY at clock-in and clock-out — not tracked continuously.
+ * GPS is captured ONLY at clock-in and clock-out -- not tracked continuously.
  */
 
 export interface GeoPosition {

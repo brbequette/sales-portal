@@ -6,7 +6,7 @@ import { FiPhoneCall, FiSearch, FiRefreshCw, FiDownload, FiAlertCircle, FiX, FiU
 import { useZoho } from "@/components/ZohoProvider"
 import { toast } from 'react-hot-toast';
 
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export type Invoice = {
   id: string
   zohoId: string
@@ -66,7 +66,7 @@ function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0)
 }
 
-// â”€â”€ Modals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Modals â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function CallModal({ invoice, onClose, onSaved }: { invoice: Invoice, onClose: () => void, onSaved: () => void }) {
   const { zohoContext: user } = useZoho()
@@ -151,7 +151,7 @@ function CallModal({ invoice, onClose, onSaved }: { invoice: Invoice, onClose: (
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <FiPhoneCall className="text-emerald-400" /> Log Call
             </h2>
-            <p className="text-xs text-neutral-400 mt-0.5">{invoice.customer_name} — Inv #{invoice.invoice_number}</p>
+            <p className="text-xs text-neutral-400 mt-0.5">{invoice.customer_name} -- Inv #{invoice.invoice_number}</p>
           </div>
           <button onClick={onClose} className="text-neutral-500 hover:text-white p-1 transition-colors"><FiX /></button>
         </div>
@@ -405,7 +405,7 @@ function RunCardModal({ invoice, onClose, onSuccess }: { invoice: Invoice, onClo
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="bg-black/20/50 border border-white/10 rounded-lg p-3 space-y-1">
             <span className="text-[10px] uppercase font-bold text-neutral-500">Invoice Reference</span>
-            <div className="text-sm font-semibold text-neutral-300">Inv #{invoice.invoice_number} · {invoice.customer_name}</div>
+            <div className="text-sm font-semibold text-neutral-300">Inv #{invoice.invoice_number} . {invoice.customer_name}</div>
           </div>
 
           <div>
@@ -539,7 +539,7 @@ function RequestReturnModal({ invoice, onClose, onSuccess }: { invoice: Invoice,
         {labelResult ? (
           <div className="p-6 text-center space-y-4">
             <div className="w-12 h-12 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded-full flex items-center justify-center mx-auto text-xl">
-              ✍“
+              ✍"
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Return Label Generated!</h3>
@@ -833,15 +833,15 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                   <FiFileText size={13} /> Collections Script
                 </h4>
                 <div className="text-sm text-neutral-300 leading-relaxed font-sans border-l-2 border-red-500/30 pl-3.5 whitespace-pre-line py-1">
-                  {`“Hello, is this the accounts payable department for ${activeAccount.customerName}?
+                  {`"Hello, is this the accounts payable department for ${activeAccount.customerName}?
 
                   My name is ${callerName || "[caller]"} from Titan Diamond. I am calling to follow up on some outstanding invoices on your account. 
 
                   Currently, you have ${Object.keys(selectedInvoices).filter(id => selectedInvoices[id]).length} outstanding invoice(s) selected, totaling ${fmt(Object.keys(selectedInvoices).filter(id => selectedInvoices[id]).reduce((sum, id) => sum + (activeAccount.invoices.find(i => i.id === id)?.balance || 0), 0))}.
 
-                  ${activeAccount.oldestInvoice ? `Our oldest pending invoice is #${activeAccount.oldestInvoice.invoice_number}, which was due on ${activeAccount.oldestInvoice.due_date || "—"} and is currently ${activeAccount.oldestInvoice.days_overdue} days overdue.` : ""}
+                  ${activeAccount.oldestInvoice ? `Our oldest pending invoice is #${activeAccount.oldestInvoice.invoice_number}, which was due on ${activeAccount.oldestInvoice.due_date || "--"} and is currently ${activeAccount.oldestInvoice.days_overdue} days overdue.` : ""}
 
-                  Would you like to process a credit card payment for this balance today, or could you provide a promise date for when we can expect a check payment?”`}
+                  Would you like to process a credit card payment for this balance today, or could you provide a promise date for when we can expect a check payment?"`}
                 </div>
               </div>
 
@@ -890,7 +890,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                           <div>
                             <span className="font-mono font-bold text-emerald-400">#{inv.invoice_number}</span>
                             {inv.shipping_charge === 0 && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400 ml-2">⚠ No Ship $</span>}
-                            <span className="text-neutral-505 ml-2">Due: {inv.due_date || "—"}</span>
+                            <span className="text-neutral-505 ml-2">Due: {inv.due_date || "--"}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-4 shrink-0">
@@ -1001,7 +1001,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
   )
 }
 
-// â”€â”€ Unified Modal Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Unified Modal Component â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 interface CollectionsModalProps {
   isOpen: boolean;

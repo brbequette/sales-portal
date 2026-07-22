@@ -65,7 +65,7 @@ export async function POST(req: Request) {
       const geofences = await (prisma as any).geofenceLocation?.findMany?.({ where: { isActive: true } }) || []
 
       if (geofences.length === 0) {
-        // No geofences configured — GPS captured but no validation
+        // No geofences configured -- GPS captured but no validation
         locationStatus = 'VERIFIED'
       } else {
         let nearest: any = null
@@ -118,7 +118,7 @@ export async function POST(req: Request) {
     })
 
     if (!existing) {
-      // Geofence clock-out without an existing entry is invalid — skip
+      // Geofence clock-out without an existing entry is invalid -- skip
       if (action === 'clockOut' && clockSource === 'geofence') {
         return NextResponse.json({ success: true, skipped: true, reason: 'No active entry to clock out' })
       }

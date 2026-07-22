@@ -15,8 +15,8 @@ interface PhoneLinkProps {
 /**
  * Unified click-to-dial component.
  * 
- * Desktop: tel: link â†’ ZDialer Chrome extension intercepts automatically.
- * Mobile:  tel: link â†’ OS app chooser lets user pick ZDialer app or native Phone.
+ * Desktop: tel: link â†' ZDialer Chrome extension intercepts automatically.
+ * Mobile:  tel: link â†' OS app chooser lets user pick ZDialer app or native Phone.
  * 
  * The `data-zohovoice="true"` attribute gives the ZDialer extension
  * a stronger signal to intercept the link.

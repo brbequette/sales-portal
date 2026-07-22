@@ -161,7 +161,7 @@ export function AccountEditModal({ account, onClose, onSaved }: AccountEditModal
             </select>
           </div>
 
-          {/* ── Fact-Finding Section ── */}
+          {/* -- Fact-Finding Section -- */}
           <div className="border-t border-white/10 pt-4 mt-2">
             <h3 className="text-sm font-bold text-orange-400 mb-4">📋 Fact-Finding</h3>
             <div className="space-y-4">

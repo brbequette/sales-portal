@@ -15,7 +15,7 @@ import {
   FiCalendar, FiMapPin, FiFileText, FiList, FiExternalLink
 } from "react-icons/fi"
 
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 type Invoice = {
   id: string
   zohoId: string
@@ -77,9 +77,9 @@ function fmt(n: number) {
 
 function agingBucket(days: number) {
   if (days > 90) return { label: "90+ days", cls: "text-red-400 bg-red-950/40 border-red-500/30" }
-  if (days > 60) return { label: "61–90d",   cls: "text-orange-400 bg-orange-950/40 border-orange-500/30" }
-  if (days > 30) return { label: "31–60d",   cls: "text-amber-400 bg-amber-950/40 border-amber-500/30" }
-  return               { label: "1–30d",    cls: "text-yellow-400 bg-yellow-950/40 border-yellow-500/30" }
+  if (days > 60) return { label: "61-90d",   cls: "text-orange-400 bg-orange-950/40 border-orange-500/30" }
+  if (days > 30) return { label: "31-60d",   cls: "text-amber-400 bg-amber-950/40 border-amber-500/30" }
+  return               { label: "1-30d",    cls: "text-yellow-400 bg-yellow-950/40 border-yellow-500/30" }
 }
 
 function getProductImage(name: string, sku?: string) {
@@ -93,7 +93,7 @@ function getProductImage(name: string, sku?: string) {
   return null
 }
 
-// â”€â”€ Log Call Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Log Call Modal â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function CallModal({ invoice, onClose, onSaved }: { invoice: Invoice, onClose: () => void, onSaved: () => void }) {
   const { zohoContext: user } = useZoho()
   const [outcome, setOutcome] = useState<CallOutcome>("left_voicemail")
@@ -177,7 +177,7 @@ function CallModal({ invoice, onClose, onSaved }: { invoice: Invoice, onClose: (
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <FiPhoneCall className="text-emerald-400" /> Log Call
             </h2>
-            <p className="text-xs text-neutral-400 mt-0.5">{invoice.customer_name} — Inv #{invoice.invoice_number}</p>
+            <p className="text-xs text-neutral-400 mt-0.5">{invoice.customer_name} -- Inv #{invoice.invoice_number}</p>
           </div>
           <button onClick={onClose} className="text-neutral-500 hover:text-white p-1 transition-colors"><FiX /></button>
         </div>
@@ -261,7 +261,7 @@ function CallModal({ invoice, onClose, onSaved }: { invoice: Invoice, onClose: (
   )
 }
 
-// â”€â”€ Run Card Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Run Card Modal â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 interface RunCardProps {
   invoice: Invoice
   onClose: () => void
@@ -445,7 +445,7 @@ function RunCardModal({ invoice, onClose, onSuccess }: RunCardProps) {
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="bg-black/20/50 border border-white/10 rounded-lg p-3 space-y-1">
             <span className="text-[10px] uppercase font-bold text-neutral-500">Invoice Reference</span>
-            <div className="text-sm font-semibold text-neutral-300">Inv #{invoice.invoice_number} · {invoice.customer_name}</div>
+            <div className="text-sm font-semibold text-neutral-300">Inv #{invoice.invoice_number} . {invoice.customer_name}</div>
           </div>
 
           <div>
@@ -518,7 +518,7 @@ function RunCardModal({ invoice, onClose, onSuccess }: RunCardProps) {
   )
 }
 
-// â”€â”€ Request Return Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Request Return Modal â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 interface RequestReturnProps {
   invoice: Invoice
   onClose: () => void
@@ -587,7 +587,7 @@ function RequestReturnModal({ invoice, onClose, onSuccess }: RequestReturnProps)
         {labelResult ? (
           <div className="p-6 text-center space-y-4">
             <div className="w-12 h-12 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded-full flex items-center justify-center mx-auto text-xl">
-              ✍“
+              ✍"
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Return Label Generated!</h3>
@@ -639,7 +639,7 @@ function RequestReturnModal({ invoice, onClose, onSuccess }: RequestReturnProps)
   )
 }
 
-// â”€â”€ Call Campaign / Collections Script Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Call Campaign / Collections Script Modal â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice[], onClose: () => void, onRefresh: () => void }) {
   const { zohoContext: user } = useZoho()
   const [searchTerm, setSearchTerm] = useState("")
@@ -891,15 +891,15 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                   <FiFileText size={13} /> Collections Script
                 </h4>
                 <div className="text-sm text-neutral-300 leading-relaxed font-sans border-l-2 border-red-500/30 pl-3.5 whitespace-pre-line py-1">
-                  {`“Hello, is this the accounts payable department for ${activeAccount.customerName}?
+                  {`"Hello, is this the accounts payable department for ${activeAccount.customerName}?
 
                   My name is ${callerName || "[caller]"} from Titan Diamond. I am calling to follow up on some outstanding invoices on your account. 
 
                   Currently, you have ${Object.keys(selectedInvoices).filter(id => selectedInvoices[id]).length} outstanding invoice(s) selected, totaling ${fmt(Object.keys(selectedInvoices).filter(id => selectedInvoices[id]).reduce((sum, id) => sum + (activeAccount.invoices.find(i => i.id === id)?.balance || 0), 0))}.
 
-                  ${activeAccount.oldestInvoice ? `Our oldest pending invoice is #${activeAccount.oldestInvoice.invoice_number}, which was due on ${activeAccount.oldestInvoice.due_date || "—"} and is currently ${activeAccount.oldestInvoice.days_overdue} days overdue.` : ""}
+                  ${activeAccount.oldestInvoice ? `Our oldest pending invoice is #${activeAccount.oldestInvoice.invoice_number}, which was due on ${activeAccount.oldestInvoice.due_date || "--"} and is currently ${activeAccount.oldestInvoice.days_overdue} days overdue.` : ""}
 
-                  Would you like to process a credit card payment for this balance today, or could you provide a promise date for when we can expect a check payment?”`}
+                  Would you like to process a credit card payment for this balance today, or could you provide a promise date for when we can expect a check payment?"`}
                 </div>
               </div>
 
@@ -948,7 +948,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                           <div>
                             <span className="font-mono font-bold text-emerald-400">#{inv.invoice_number}</span>
                             {inv.shipping_charge === 0 && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400 ml-2">⚠ No Ship $</span>}
-                            <span className="text-neutral-505 ml-2">Due: {inv.due_date || "—"}</span>
+                            <span className="text-neutral-505 ml-2">Due: {inv.due_date || "--"}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-4 shrink-0">
@@ -1067,7 +1067,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
   )
 }
 
-// â”€â”€ Main Collections Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Main Collections Page â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export default function CollectionsPage() {
   const { zohoContext: user } = useZoho()
   const [tab, setTab] = useState<"overdue" | "current" | "all">("overdue")
@@ -1116,7 +1116,7 @@ export default function CollectionsPage() {
 
   // Ownership filtering: My Invoices vs All Reps
   const visibleInvoices = invoices.filter(i => {
-    // DNC filtering — hide invoices whose account is DO_NOT_CALL unless checkbox is checked
+    // DNC filtering -- hide invoices whose account is DO_NOT_CALL unless checkbox is checked
     if (!showDoNotCall && i.account_quality === "DO_NOT_CALL") return false
 
     if (showAllReps) return true
@@ -1181,9 +1181,9 @@ export default function CollectionsPage() {
 
   // Aging pill stats
   const pills = [
-    { key: "1-30",  label: "1–30d",   cls: "border-yellow-500/40 text-yellow-400 bg-yellow-900/10" },
-    { key: "31-60", label: "31–60d",  cls: "border-amber-500/40 text-amber-400 bg-amber-900/10" },
-    { key: "61-90", label: "61–90d",  cls: "border-orange-500/40 text-orange-400 bg-orange-900/10" },
+    { key: "1-30",  label: "1-30d",   cls: "border-yellow-500/40 text-yellow-400 bg-yellow-900/10" },
+    { key: "31-60", label: "31-60d",  cls: "border-amber-500/40 text-amber-400 bg-amber-900/10" },
+    { key: "61-90", label: "61-90d",  cls: "border-orange-500/40 text-orange-400 bg-orange-900/10" },
     { key: "90+",   label: "90+ days",cls: "border-red-500/40 text-red-400 bg-red-900/10" },
   ].map(p => {
     const bucket = repFilteredInvoices.filter(i => {
@@ -1202,7 +1202,7 @@ export default function CollectionsPage() {
       ["Invoice", "Customer", "Sales Rep", "Due Date", "Balance", "Days Overdue", "Status"],
       ...filtered.map(i => [
         i.invoice_number, i.customer_name, i.salesperson_name,
-        i.due_date || "—", i.balance.toFixed(2), i.days_overdue, i.status
+        i.due_date || "--", i.balance.toFixed(2), i.days_overdue, i.status
       ])
     ]
     const csv = rows.map(r => r.join(",")).join("\n")
@@ -1278,19 +1278,19 @@ export default function CollectionsPage() {
           </div>
         </div>
 
-        {/* Aging pills — overdue tab only */}
+        {/* Aging pills -- overdue tab only */}
         {tab === "overdue" && (
           <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
             <button onClick={() => setAgingFilter("")}
               className={`shrink-0 flex flex-col items-center px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all border-orange-500/40 text-orange-400 bg-orange-900/10 ${agingFilter === "" ? "ring-1 ring-orange-500 border-orange-500" : "border-transparent"}`}>
               <span className="font-bold">All Overdue</span>
-              <span className="text-[10px] opacity-75">{repFilteredInvoices.length} · {fmt(repFilteredInvoices.reduce((s, i) => s + i.balance, 0))}</span>
+              <span className="text-[10px] opacity-75">{repFilteredInvoices.length} . {fmt(repFilteredInvoices.reduce((s, i) => s + i.balance, 0))}</span>
             </button>
             {pills.map(p => (
               <button key={p.key} onClick={() => setAgingFilter(agingFilter === p.key ? "" : p.key)}
                 className={`shrink-0 flex flex-col items-center px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${p.cls} ${agingFilter === p.key ? "ring-1 ring-current border-current" : "border-transparent"}`}>
                 <span className="font-bold">{p.label}</span>
-                <span className="text-[10px] opacity-75">{p.count} · {fmt(p.amount)}</span>
+                <span className="text-[10px] opacity-75">{p.count} . {fmt(p.amount)}</span>
               </button>
             ))}
           </div>
@@ -1412,7 +1412,7 @@ export default function CollectionsPage() {
         </div>
       </div>
 
-      {/* â”€â”€ Filters Popout Drawer â”€â”€ */}
+      {/* â"€â"€ Filters Popout Drawer â"€â"€ */}
       {showFiltersDrawer && createPortal(
         <div className="fixed inset-0 z-[9999]">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFiltersDrawer(false)} />
@@ -1446,7 +1446,7 @@ export default function CollectionsPage() {
                   </div>
                 )}
 
-                {/* Aging pills — overdue tab only */}
+                {/* Aging pills -- overdue tab only */}
                 {tab === "overdue" && (
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Aging Category</label>
@@ -1458,7 +1458,7 @@ export default function CollectionsPage() {
                         }`}
                       >
                         <span className="font-bold text-xs">All Overdue</span>
-                        <span className="text-[9px] opacity-75">{repFilteredInvoices.length} · {fmt(repFilteredInvoices.reduce((s, i) => s + i.balance, 0))}</span>
+                        <span className="text-[9px] opacity-75">{repFilteredInvoices.length} . {fmt(repFilteredInvoices.reduce((s, i) => s + i.balance, 0))}</span>
                       </button>
                       {pills.map(p => (
                         <button 
@@ -1469,7 +1469,7 @@ export default function CollectionsPage() {
                           }`}
                         >
                           <span className="font-bold text-xs">{p.label}</span>
-                          <span className="text-[9px] opacity-75">{p.count} · {fmt(p.amount)}</span>
+                          <span className="text-[9px] opacity-75">{p.count} . {fmt(p.amount)}</span>
                         </button>
                       ))}
                     </div>
@@ -1488,8 +1488,8 @@ export default function CollectionsPage() {
                     <option value="days_asc">Newest First</option>
                     <option value="balance_desc">Highest Balance</option>
                     <option value="balance_asc">Lowest Balance</option>
-                    <option value="name_asc">Customer A–Z</option>
-                    <option value="name_desc">Customer Z–A</option>
+                    <option value="name_asc">Customer A-Z</option>
+                    <option value="name_desc">Customer Z-A</option>
                   </select>
                 </div>
               </div>
@@ -1563,7 +1563,7 @@ export default function CollectionsPage() {
                         <span className="flex items-center gap-2 text-xs font-bold text-neutral-300">
                           <FiUser size={11} className="text-neutral-500" /> {rep}
                         </span>
-                        <span className="text-[10px] text-neutral-500">{invs.length} inv · {fmt(invs.reduce((s,i) => s+i.balance, 0))} · Profit: {fmt(invs.reduce((s,i) => s+(i.profit || 0), 0))}</span>
+                        <span className="text-[10px] text-neutral-500">{invs.length} inv . {fmt(invs.reduce((s,i) => s+i.balance, 0))} . Profit: {fmt(invs.reduce((s,i) => s+(i.profit || 0), 0))}</span>
                       </div>
                     </td>
                   </tr>,
@@ -1590,7 +1590,7 @@ export default function CollectionsPage() {
                           <span className="text-xs text-neutral-400">{inv.salesperson_name}</span>
                         </td>
                         <td className="px-4 py-3 hidden sm:table-cell">
-                          <span className="text-xs text-neutral-400">{inv.due_date || "—"}</span>
+                          <span className="text-xs text-neutral-400">{inv.due_date || "--"}</span>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <span className="font-bold text-red-400 text-sm">{fmt(inv.balance)}</span>
@@ -1605,7 +1605,7 @@ export default function CollectionsPage() {
                             </span>
                           ) : (
                             <span className="text-[10px] text-neutral-400">
-                              Due {inv.due_date || "—"}
+                              Due {inv.due_date || "--"}
                             </span>
                           )}
                         </td>

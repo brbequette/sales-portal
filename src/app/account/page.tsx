@@ -240,7 +240,7 @@ function AccountLeftRail({
   )
 }
 
-// OverviewPanel — full accordion dashboard for the Overview tab
+// OverviewPanel -- full accordion dashboard for the Overview tab
 function AccordionSection({
   title, icon, badge, defaultOpen = true, children,
 }: {
@@ -329,7 +329,7 @@ function OverviewPanel({
         ))}
       </div>
 
-      {/* Recent Invoices — shown first for quick access */}
+      {/* Recent Invoices -- shown first for quick access */}
       <AccordionSection title="Recent Invoices" icon={<FiDollarSign size={12} />} badge={invoices.length} defaultOpen>
         <div className="divide-y divide-neutral-800">
           {recentInvoices.length === 0 ? (
@@ -474,7 +474,7 @@ function OverviewPanel({
         </div>
       </AccordionSection>
 
-      {/* Recent Invoices section moved to top — removed from here */}
+      {/* Recent Invoices section moved to top -- removed from here */}
 
       {/* Deals */}
       <AccordionSection title="Deals" icon={<FiClipboard size={12} />} badge={deals.length} defaultOpen={false}>
@@ -813,7 +813,7 @@ function AccountHubContent() {
       {/* 2-Column Body */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
 
-        {/* Left Rail — always visible on desktop, toggled on mobile */}
+        {/* Left Rail -- always visible on desktop, toggled on mobile */}
         {leftRailOpen && (
           <>
             {/* Desktop */}

@@ -70,10 +70,10 @@ function getTrackingUrl(carrier: string, tracking: string): string | null {
 }
 
 function formatAddress(addr: any): string {
-  if (!addr) return "—"
+  if (!addr) return "--"
   if (typeof addr === "string") return addr
   const parts = [addr.address, addr.street2, addr.city, addr.state, addr.zip || addr.code, addr.country].filter(Boolean)
-  return parts.join(", ") || "—"
+  return parts.join(", ") || "--"
 }
 
 export default function ShippingPage() {
@@ -270,7 +270,7 @@ export default function ShippingPage() {
           syncResult.startsWith("✅") ? "bg-emerald-950/30 text-emerald-400 border-emerald-800/50" : "bg-red-950/30 text-red-400 border-red-800/50"
         }`}>
           {syncResult}
-          <button onClick={() => setSyncResult(null)} className="ml-3 text-neutral-500 hover:text-white">✍•</button>
+          <button onClick={() => setSyncResult(null)} className="ml-3 text-neutral-500 hover:text-white">✍-</button>
         </div>
       )}
 
@@ -359,7 +359,7 @@ export default function ShippingPage() {
             className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-neutral-900 border border-white/10 text-neutral-300 text-sm font-bold hover:bg-neutral-800 transition-colors"
             title="Toggle sort direction"
           >
-            {sortDir === "asc" ? "↑ Asc" : "↓ Desc"}
+            {sortDir === "asc" ? " up  Asc" : " down  Desc"}
           </button>
         </div>
       </div>
@@ -411,13 +411,13 @@ export default function ShippingPage() {
                   {/* SO Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-bold text-sm">{order.soNumber || "—"}</span>
-                      <span className="text-neutral-600 text-xs">•</span>
+                      <span className="text-white font-bold text-sm">{order.soNumber || "--"}</span>
+                      <span className="text-neutral-600 text-xs">-</span>
                       <span className="text-neutral-400 text-sm truncate">{order.customerName}</span>
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
                       <span className="text-[10px] text-neutral-600">
-                        {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "—"}
+                        {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "--"}
                       </span>
                       <span className="text-[10px] text-neutral-600">
                         {order.lineItemCount} item{order.lineItemCount !== 1 ? "s" : ""}

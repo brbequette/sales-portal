@@ -41,7 +41,7 @@ export async function PUT(req: Request) {
     if (role !== undefined) updateData.role = role
     if (name !== undefined) updateData.name = name
     if (email !== undefined) updateData.email = email
-    if (zohoId !== undefined) updateData.zohoId = zohoId || null  // empty string → null
+    if (zohoId !== undefined) updateData.zohoId = zohoId || null  // empty string  to  null
 
     const user = await prisma.user.update({
       where: { id },

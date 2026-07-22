@@ -26,7 +26,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Titan Diamond - Unified Hub",
-  description: "Sales, Collections, and Commissions — all in one place",
+  description: "Sales, Collections, and Commissions -- all in one place",
   manifest: "/manifest.json",
 };
 

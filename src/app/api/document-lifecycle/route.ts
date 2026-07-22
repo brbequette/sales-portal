@@ -7,7 +7,7 @@ const prisma = new PrismaClient()
  * GET /api/document-lifecycle?zohoId=xxx&type=Invoice|SalesOrder|Quote
  *
  * Returns the full document lifecycle chain for a given document:
- *   Quote → SalesOrder → PurchaseOrders → Packages → Invoice(s) → Payments
+ *   Quote  to  SalesOrder  to  PurchaseOrders  to  Packages  to  Invoice(s)  to  Payments
  *
  * All lookups are indexed DB queries (no full-table scans).
  */
@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     let invoices:       any[]   = []
     let payments:       any[]   = []
 
-    // ── Resolve the starting document ──────────────────────────────────────
+    // -- Resolve the starting document --------------------------------------
     let soZohoId:       string | null = null
     let soNumber:       string | null = null
     let invoiceZohoId:  string | null = null
@@ -146,7 +146,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // ── POs and Packages — linked by SO zohoId or soNumber ─────────────────
+    // -- POs and Packages -- linked by SO zohoId or soNumber -----------------
     if (soZohoId || soNumber) {
       purchaseOrders = await prisma.purchaseOrder.findMany({
         where: {

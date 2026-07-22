@@ -184,7 +184,7 @@ export default function PayrollAdminPage() {
                       <div key={a.id} className="py-3 flex justify-between items-center">
                         <div>
                           <p className="font-bold text-white">{getUserName(a.userId)} <span className="text-neutral-500 font-normal">({a.reason})</span></p>
-                          <p className="text-xs text-neutral-400">Issued: {fmtDate(a.issueDate)} · {a.splitOverWeeks ? `Split over ${a.splitOverWeeks} weeks` : `$${a.deductionRate}/week`}</p>
+                          <p className="text-xs text-neutral-400">Issued: {fmtDate(a.issueDate)} . {a.splitOverWeeks ? `Split over ${a.splitOverWeeks} weeks` : `$${a.deductionRate}/week`}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-red-400">{fmt(a.amount)}</p>

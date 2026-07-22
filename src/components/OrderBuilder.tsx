@@ -4,17 +4,17 @@
 /**
  * OrderBuilder.tsx
  *
- * Universal Order Builder — shared by all POS transaction spots:
- *   • SalesCallCampaignModal (Titan Dialer campaign view)
- *   • AccountDialer (account page dialer)
- *   • CommunicationCenter (account page comm hub)
+ * Universal Order Builder -- shared by all POS transaction spots:
+ *   - SalesCallCampaignModal (Titan Dialer campaign view)
+ *   - AccountDialer (account page dialer)
+ *   - CommunicationCenter (account page comm hub)
  *
  * Features:
- *   ✅ Blade Lookup — filter by Application, Size, Type â†’ Good/Better/Best cards
+ *   ✅ Blade Lookup -- filter by Application, Size, Type â†' Good/Better/Best cards
  *   ✅ Product search (full catalog)
  *   ✅ Quick-Add top 10 blades
- *   ✅ Sold Items section (paidQty > 0) — editable qty input + +/- buttons
- *   ✅ Promotional Items section (freeQty > 0) — separated, green, gift items
+ *   ✅ Sold Items section (paidQty > 0) -- editable qty input + +/- buttons
+ *   ✅ Promotional Items section (freeQty > 0) -- separated, green, gift items
  *   ✅ Editable unit price per line
  *   ✅ Live financials (Dead Cost, Profit, VIG, Commission, Margin)
  *   ✅ Sales Order preview modal
@@ -27,7 +27,7 @@ import {
   FiPackage, FiChevronDown,
 } from "react-icons/fi"
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 export type OrderLine = {
   id: string
@@ -49,7 +49,7 @@ export interface OrderBuilderProps {
   accountName?: string
   /** Optional: full account/address object for Sales Order */
   accountDetail?: any
-  /** Accent colour class prefix (e.g. "violet", "cyan") — defaults to "violet" */
+  /** Accent colour class prefix (e.g. "violet", "cyan") -- defaults to "violet" */
   accent?: "violet" | "cyan" | "emerald" | "sky"
   accountId?: string
   dealId?: string
@@ -57,7 +57,7 @@ export interface OrderBuilderProps {
   onSuccess?: () => void
 }
 
-// â”€â”€â”€ Blade lookup config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Blade lookup config â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 const APPLICATIONS = [
   "All",
@@ -117,7 +117,7 @@ const TYPE_KEYWORDS: Record<string, string[]> = {
   "Abrasive":       ["abrasive", "abra", "cup", "wheel"],
 }
 
-/** Extract inch size from product name (e.g. "MEDUSA 14" â†’ "14\"") */
+/** Extract inch size from product name (e.g. "MEDUSA 14" â†' "14\"") */
 function extractSize(name: string): string | null {
   const m = name.match(/\b(4\.5|4-1\/2|7|9|10|12|14|16|18|20|24)\b/)
   if (!m) return null
@@ -146,7 +146,7 @@ function matchType(name: string, category: string): string {
   return "Segmented"
 }
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function parseDesc(raw: string | null | undefined): Record<string, any> {
   try { return JSON.parse(raw || "{}") } catch { return {} }
@@ -159,7 +159,7 @@ const TIER_COLORS = {
   Best:   { bg: "bg-amber-950/40",border: "border-amber-600/50",badge: "bg-amber-700/60 text-amber-300", price: "text-amber-300" },
 }
 
-// â”€â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Sub-components â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function QtyInput({
   value,
@@ -223,7 +223,7 @@ function QtyInput({
   )
 }
 
-// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Main Component â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 export function OrderBuilder({
   orderLines: externalOrderLines,
@@ -355,7 +355,7 @@ export function OrderBuilder({
     return () => document.removeEventListener("mousedown", handler)
   }, [])
 
-  // â”€â”€ Derived product lists â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â"€â"€ Derived product lists â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
   const activeBlades = useMemo(() => {
     return catalogProducts
@@ -392,7 +392,7 @@ export function OrderBuilder({
   }, [activeBlades, filterApp, filterSize, filterType])
 
   /**
-   * Assign Good/Better/Best tiers by price (ascending = Good â†’ Best).
+   * Assign Good/Better/Best tiers by price (ascending = Good â†' Best).
    * If only 1 or 2 results, label them accordingly.
    */
   const tieredBlades = useMemo(() => {
@@ -411,7 +411,7 @@ export function OrderBuilder({
     }))
   }, [filteredBlades])
 
-  // â”€â”€ Financials â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â"€â"€ Financials â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
   const financials = useMemo(() => {
     if (orderLines.length === 0) return null
@@ -427,7 +427,7 @@ export function OrderBuilder({
     return { subTotal, deadCostTotal, deadCostPlusVig, deadProfit, profitAfterVig, salesCommission, marginPct }
   }, [orderLines, vigRate, commissionPct])
 
-  // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
   const openAddItemModal = (p: { name: string; sku: string; price: number; cost: number }) => {
     setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost })
@@ -484,7 +484,7 @@ export function OrderBuilder({
   const promoLines = orderLines.filter(l => l.isPromo)
   const orderTotal = paidLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0)
 
-  // â”€â”€ Filtered search results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â"€â"€ Filtered search results â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
   const searchResults = useMemo(() => {
     if (productSearch.length < 2) return []
@@ -501,23 +501,23 @@ export function OrderBuilder({
       .slice(0, 8)
   }, [productSearch, catalogProducts])
 
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   return (
     <div className="space-y-3">
 
-      {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â"€â"€ Header â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
           <FiShoppingCart size={11} /> Build Order
         </span>
         {orderLines.length > 0 && (
           <span className="text-[10px] font-black text-violet-300">
-            {orderLines.length} item{orderLines.length !== 1 ? "s" : ""} · ${orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {orderLines.length} item{orderLines.length !== 1 ? "s" : ""} . ${orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </span>
         )}
       </div>
 
-      {/* â”€â”€ Blade Lookup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â"€â"€ Blade Lookup â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       <div className="border border-white/10 rounded-xl overflow-hidden">
         <button
           type="button"
@@ -526,7 +526,7 @@ export function OrderBuilder({
         >
           <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
             <FiFilter size={11} />
-            Blade Lookup — Equipment · Application · Size · Type
+            Blade Lookup -- Equipment . Application . Size . Type
           </span>
           <FiChevronDown
             size={12}
@@ -595,7 +595,7 @@ export function OrderBuilder({
                                 <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${colors.badge} shrink-0`}>{tier}</span>
                                 <div className="min-w-0">
                                   <p className="text-[11px] font-bold text-white truncate">{b.name}</p>
-                                  <p className="text-[8px] text-neutral-500">{b.sku} · {b.size ?? "?"} · {b.type}</p>
+                                  <p className="text-[8px] text-neutral-500">{b.sku} . {b.size ?? "?"} . {b.type}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
@@ -621,7 +621,7 @@ export function OrderBuilder({
         )}
       </div>
 
-      {/* â”€â”€ Product Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â"€â"€ Product Search â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       <div ref={productSearchRef} className="relative">
         <div className="flex items-center gap-2 glass-panel border border-neutral-700 rounded-lg px-3 py-2 focus-within:border-violet-500 transition-colors">
           <FiSearch size={12} className="text-neutral-500 shrink-0" />
@@ -654,7 +654,7 @@ export function OrderBuilder({
                   <FiPlus size={12} className="text-violet-400" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] font-bold text-white truncate">{p.name}</p>
-                    <p className="text-[9px] text-neutral-500">{p.sku} · {p.category}</p>
+                    <p className="text-[9px] text-neutral-500">{p.sku} . {p.category}</p>
                   </div>
                   <span className="text-[10px] font-mono font-bold text-amber-400 shrink-0">${(p.price || 0).toFixed(2)}</span>
                 </button>
@@ -664,10 +664,10 @@ export function OrderBuilder({
         )}
       </div>
 
-      {/* â”€â”€ Quick Add — Top Blades â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â"€â"€ Quick Add -- Top Blades â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       {topBladeProducts.length > 0 && (
         <div>
-          <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold mb-1.5">Quick Add — Top Blades</p>
+          <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold mb-1.5">Quick Add -- Top Blades</p>
           <div className="flex flex-wrap gap-1.5">
             {topBladeProducts.map(bp => {
               return (
@@ -685,7 +685,7 @@ export function OrderBuilder({
         </div>
       )}
 
-      {/* â”€â”€ Add Item Pending Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â"€â"€ Add Item Pending Modal â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       {pendingItem && (
         <div className="bg-violet-950/40 border border-violet-500/40 rounded-xl p-3 space-y-3">
           <div className="flex items-start justify-between">
@@ -735,7 +735,7 @@ export function OrderBuilder({
         </div>
       )}
 
-      {/* â”€â”€ Sold Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â"€â"€ Sold Items â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       {paidLines.length > 0 && (
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
@@ -796,7 +796,7 @@ export function OrderBuilder({
         </div>
       )}
 
-      {/* â”€â”€ Promotional / Gift Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â"€â"€ Promotional / Gift Items â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       {promoLines.length > 0 && (
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
@@ -820,7 +820,7 @@ export function OrderBuilder({
             >
               <div className="min-w-0">
                 <span className="text-[11px] font-bold text-emerald-300 truncate block">{line.name}</span>
-                <span className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL — FREE · {line.sku}</span>
+                <span className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL -- FREE . {line.sku}</span>
               </div>
 
               <div className="flex justify-center">
@@ -844,7 +844,7 @@ export function OrderBuilder({
         </div>
       )}
 
-      {/* â”€â”€ Empty State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â"€â"€ Empty State â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       {orderLines.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-2 py-6 text-neutral-600">
           <FiShoppingCart size={22} />
@@ -852,7 +852,7 @@ export function OrderBuilder({
         </div>
       )}
 
-      {/* â”€â”€ Order Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â"€â"€ Order Summary â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       {orderLines.length > 0 && (
         <div className="border-t border-violet-500/20 pt-2 space-y-1">
           <div className="flex justify-between px-1">
@@ -878,7 +878,7 @@ export function OrderBuilder({
         </div>
       )}
 
-      {/* â”€â”€ Financials â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â"€â"€ Financials â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       {financials && (
         <div className="border-t border-amber-500/20 pt-2 space-y-1">
           <p className="text-[8px] font-bold uppercase tracking-wider text-amber-500/60 px-1 mb-1">💰 Profit Estimates</p>
@@ -911,7 +911,7 @@ export function OrderBuilder({
         </div>
       )}
 
-      {/* â”€â”€ Preview Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â"€â"€ Preview Button â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       {orderLines.length > 0 && (
         <button
           type="button"
@@ -922,7 +922,7 @@ export function OrderBuilder({
         </button>
       )}
 
-      {/* â”€â”€ Sales Order Preview Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â"€â"€ Sales Order Preview Modal â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       {showMockOrder && orderLines.length > 0 && (
         <div
           className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4"
@@ -937,7 +937,7 @@ export function OrderBuilder({
               <div>
                 <h3 className="text-white font-black text-base">Sales Order Preview</h3>
                 <p className="text-[10px] text-neutral-500 mt-0.5">
-                  {accountName || "Customer"} · {new Date().toLocaleDateString()}
+                  {accountName || "Customer"} . {new Date().toLocaleDateString()}
                 </p>
               </div>
               <button type="button" onClick={() => setShowMockOrder(false)} className="text-neutral-500 hover:text-white cursor-pointer">
@@ -1003,7 +1003,7 @@ export function OrderBuilder({
                       <div key={`so-promo-${line.id}`} className={`grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-2 ${i % 2 === 0 ? "bg-emerald-950/10" : ""}`}>
                         <div className="min-w-0">
                           <p className="text-[11px] font-bold text-emerald-300 truncate">{line.name}</p>
-                          <p className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL — FREE</p>
+                          <p className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL -- FREE</p>
                         </div>
                         <span className="text-[11px] font-black text-emerald-400 text-center">{line.quantity}</span>
                         <span className="text-[10px] font-mono text-emerald-700 text-right">$0.00</span>

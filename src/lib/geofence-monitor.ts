@@ -1,18 +1,18 @@
 /**
- * Geofence Monitor — Singleton that watches GPS and auto-triggers clock-in/out.
+ * Geofence Monitor -- Singleton that watches GPS and auto-triggers clock-in/out.
  *
  * Flow:
- *  1. App mounts → GeofenceMonitor.start(userId, email, name)
+ *  1. App mounts  to  GeofenceMonitor.start(userId, email, name)
  *  2. watchPosition fires every ~10s with device GPS
  *  3. Position checked against active geofences (Haversine)
- *  4. ENTER fence for 30s → auto clock-in
- *  5. EXIT all fences for 5min → auto clock-out
+ *  4. ENTER fence for 30s  to  auto clock-in
+ *  5. EXIT all fences for 5min  to  auto clock-out
  *  6. Duplicate prevention via localStorage state
  */
 
 import { haversineDistance, type GeoPosition, type GeofenceLocation } from './geolocation'
 
-// ── Thresholds ──
+// -- Thresholds --
 const ENTER_DWELL_MS  = 30_000   // 30s inside fence before clock-in
 const EXIT_DWELL_MS   = 300_000  // 5min outside all fences before clock-out
 const GEOFENCE_POLL_MS = 600_000 // Re-fetch geofences every 10min
@@ -59,13 +59,13 @@ class GeofenceMonitorClass {
   private statusListeners: Set<(status: MonitorStatus) => void> = new Set()
   private lastPosition: GeoPosition | null = null
 
-  // ── Public API ──
+  // -- Public API --
 
   get status(): MonitorStatus { return this._status }
 
   /**
    * Start monitoring. Call once when app mounts.
-   * Safe to call multiple times — will not double-start.
+   * Safe to call multiple times -- will not double-start.
    */
   async start(userId: string, email: string, name?: string) {
     if (this.watchId !== null) return // Already running
@@ -81,7 +81,7 @@ class GeofenceMonitorClass {
     // Fetch geofences
     await this.fetchGeofences()
     if (this.geofences.length === 0) {
-      // No geofences configured — nothing to monitor
+      // No geofences configured -- nothing to monitor
       this.setStatus('idle')
       return
     }
@@ -102,7 +102,7 @@ class GeofenceMonitorClass {
         }
       },
       {
-        enableHighAccuracy: false, // Save battery — 100m accuracy is fine for geofences
+        enableHighAccuracy: false, // Save battery -- 100m accuracy is fine for geofences
         timeout: 30000,
         maximumAge: 15000,
       }
@@ -151,7 +151,7 @@ class GeofenceMonitorClass {
     this.saveState()
   }
 
-  // ── Internal ──
+  // -- Internal --
 
   private async fetchGeofences() {
     try {
@@ -168,7 +168,7 @@ class GeofenceMonitorClass {
   private onPosition(pos: GeoPosition) {
     this.lastPosition = pos
 
-    // Check accuracy — ignore wildly inaccurate readings
+    // Check accuracy -- ignore wildly inaccurate readings
     if (pos.accuracy > 500) return // >500m accuracy is useless
 
     // Find the nearest geofence and check if we're inside any
@@ -188,7 +188,7 @@ class GeofenceMonitorClass {
     const todayStr = this.getTodayString()
 
     if (insideAny && nearestInside) {
-      // ── INSIDE a fence ──
+      // -- INSIDE a fence --
       this.state.exitTime = null // Reset exit timer
 
       if (!this.state.insideFence) {
@@ -199,25 +199,25 @@ class GeofenceMonitorClass {
         this.state.enterTime = new Date().toISOString()
         this.saveState()
       } else if (this.state.enterTime) {
-        // Still inside — check dwell time
+        // Still inside -- check dwell time
         const dwellMs = now - new Date(this.state.enterTime).getTime()
         if (dwellMs >= ENTER_DWELL_MS && this.state.clockedInToday !== todayStr) {
-          // Dwell threshold met → AUTO CLOCK IN
+          // Dwell threshold met  to  AUTO CLOCK IN
           this.triggerClockAction('clockIn', nearestInside, pos, todayStr)
         }
       }
     } else {
-      // ── OUTSIDE all fences ──
+      // -- OUTSIDE all fences --
       if (this.state.insideFence) {
         // Just exited
         this.state.insideFence = false
         this.state.exitTime = new Date().toISOString()
         this.saveState()
       } else if (this.state.exitTime && this.state.clockedInToday === todayStr) {
-        // Still outside — check exit dwell
+        // Still outside -- check exit dwell
         const awayMs = now - new Date(this.state.exitTime).getTime()
         if (awayMs >= EXIT_DWELL_MS && this.state.clockedOutToday !== todayStr) {
-          // Away long enough → AUTO CLOCK OUT
+          // Away long enough  to  AUTO CLOCK OUT
           this.triggerClockAction('clockOut', null, pos, todayStr)
         }
       }
@@ -330,5 +330,5 @@ class GeofenceMonitorClass {
   }
 }
 
-// ── Singleton export ──
+// -- Singleton export --
 export const GeofenceMonitor = new GeofenceMonitorClass()

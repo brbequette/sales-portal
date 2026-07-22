@@ -29,7 +29,7 @@ export function AccountHistory({
   // Map database notes to communication logs
   const logs = notes.map((note) => ({
     id: note.id,
-    date: note.createdAt ? new Date(note.createdAt).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "—",
+    date: note.createdAt ? new Date(note.createdAt).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "--",
     type: note.callSid ? "Call" : "Note",
     summary: note.content
   }))
@@ -102,7 +102,7 @@ export function AccountHistory({
                     style: 'currency', 
                     currency: 'USD' 
                   })
-                  const formattedDate = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "—"
+                  const formattedDate = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "--"
                   const invoiceNumber = (inv.items && typeof inv.items === 'object' && 'invoiceNumber' in inv.items)
                     ? (inv.items as any).invoiceNumber
                     : (inv.items as any)?.invoice_number || inv.zohoId || inv.id || "INV";
@@ -166,7 +166,7 @@ export function AccountHistory({
                     style: 'currency', 
                     currency: 'USD' 
                   })
-                  const formattedDate = so.orderDate ? new Date(so.orderDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "—"
+                  const formattedDate = so.orderDate ? new Date(so.orderDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "--"
 
                   return (
                     <div 
@@ -231,7 +231,7 @@ export function AccountHistory({
                     style: 'currency', 
                     currency: 'USD' 
                   })
-                  const formattedDate = quote.createdAt ? new Date(quote.createdAt).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "—"
+                  const formattedDate = quote.createdAt ? new Date(quote.createdAt).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "--"
 
                   return (
                     <div 

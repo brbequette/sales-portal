@@ -13,7 +13,7 @@ import {
 import { useZoho } from "@/components/ZohoProvider"
 import { MetricDerivationModal, MetricDerivationInfo } from "@/components/MetricDerivationModal"
 
-// â”€â”€â”€ Types â”€â”€â”€
+// â"€â"€â"€ Types â"€â"€â"€
 interface DashboardData {
   companyWeeklyTotal: number
   companyMonthlyTotal: number
@@ -46,7 +46,7 @@ interface DashboardViewProps {
   repEmail?: string | null   // For matching user to invoices
 }
 
-// â”€â”€â”€ Chart Colors â”€â”€â”€
+// â"€â"€â"€ Chart Colors â"€â"€â"€
 const CHART_COLORS = {
   primary: "#f97316",
   accent: "#10b981",
@@ -59,7 +59,7 @@ const CHART_COLORS = {
   text: "#a1a1aa",
 }
 
-// â”€â”€â”€ Custom Tooltip â”€â”€â”€
+// â"€â"€â"€ Custom Tooltip â"€â"€â"€
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
@@ -74,7 +74,7 @@ function ChartTooltip({ active, payload, label }: any) {
   )
 }
 
-// ─── KPI Card ───
+// --- KPI Card ---
 function KPICard({
   icon: Icon, title, value, subtitle, trend, trendUp, color, children, onClick
 }: {
@@ -123,7 +123,7 @@ function KPICard({
   )
 }
 
-// â”€â”€â”€ Quota Ring â”€â”€â”€
+// â"€â"€â"€ Quota Ring â"€â"€â"€
 function QuotaRing({ current, target, color }: { current: number; target: number; color: string }) {
   const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0
   const r = 36
@@ -146,7 +146,7 @@ function QuotaRing({ current, target, color }: { current: number; target: number
   )
 }
 
-// ——— Main Dashboard Component ———
+// ------ Main Dashboard Component ------
 export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps) {
   const { zohoContext: currentUser } = useZoho()
   const [data, setData] = useState<DashboardData | null>(null)
@@ -329,7 +329,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
       // Rep aggregation (for top performers and company breakdown)
       const repData: Record<string, { sales: number; profit: number; deals: number; commission: number; weeklySales: number }> = {}
 
-      // Determine filter — case-insensitive
+      // Determine filter -- case-insensitive
       const filterUpper = filterRepName ? filterRepName.toUpperCase() : null
 
       for (const inv of invoices) {
@@ -562,7 +562,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* ─── Company Totals Banner (For Reps Only) ─── */}
+      {/* --- Company Totals Banner (For Reps Only) --- */}
       {!showCompanyWide && (
         <div className="glass-panel p-4 rounded-2xl border border-white/[0.06] flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -594,7 +594,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         </div>
       )}
 
-      {/* ─── KPI Cards ─── */}
+      {/* --- KPI Cards --- */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3">
         {/* Weekly Goal Progress */}
         <KPICard 
@@ -701,9 +701,9 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         </KPICard>
       </div>
 
-      {/* ─── Charts Row 1: Revenue & Status ─── */}
+      {/* --- Charts Row 1: Revenue & Status --- */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-        {/* Revenue vs Goal — spans 2 cols */}
+        {/* Revenue vs Goal -- spans 2 cols */}
         <div className="lg:col-span-2 glass-panel rounded-2xl p-5 border border-white/[0.06]">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -795,7 +795,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         </div>
       </div>
 
-      {/* ─── Charts Row 2: Weekly Trend & Commission ─── */}
+      {/* --- Charts Row 2: Weekly Trend & Commission --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Weekly Sales Trend */}
         <div className="glass-panel rounded-2xl p-5 border border-white/[0.06]">
@@ -867,10 +867,10 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         </div>
       </div>
 
-      {/* â”€â”€â”€ Top Performers (admin only) â”€â”€â”€ */}
+      {/* â"€â"€â"€ Top Performers (admin only) â"€â"€â"€ */}
       {showTopPerformers && data.topReps.length > 0 && (
         <div className="glass-panel rounded-2xl p-5 border border-white/[0.06]">
-          <h3 className="text-sm font-bold text-white mb-4">Top Performers — This Month</h3>
+          <h3 className="text-sm font-bold text-white mb-4">Top Performers -- This Month</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {data.topReps.map((rep, i) => {
               const quotaPct = rep.quota > 0 ? Math.min((rep.sales / (rep.quota * 4)) * 100, 100) : 0
@@ -907,7 +907,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         </div>
       )}
 
-      {/* â”€â”€â”€ Company Breakdown (admin only) â”€â”€â”€ */}
+      {/* â"€â"€â"€ Company Breakdown (admin only) â"€â"€â"€ */}
       {showCompanyBreakdown && data.allRepData.length > 0 && (
         <div className="glass-panel rounded-2xl p-5 border border-white/[0.06]">
           <h3 className="text-sm font-bold text-white mb-4">Company Breakdown</h3>
@@ -959,7 +959,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         </div>
       )}
 
-      {/* ─── Metric Derivation Explanation Modal ─── */}
+      {/* --- Metric Derivation Explanation Modal --- */}
       <MetricDerivationModal
         info={selectedMetricInfo}
         onClose={() => setSelectedMetricInfo(null)}

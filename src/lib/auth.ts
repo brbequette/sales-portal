@@ -110,7 +110,7 @@ export const authOptions: NextAuthOptions = {
         const rawZuid = zohoProfile?.ZUID || zohoProfile?.zuid || null
         const zohoUserId = rawZuid ? String(rawZuid) : null
 
-        // Sync to database — check by zohoId first (merges stub users from account sync), then by email
+        // Sync to database -- check by zohoId first (merges stub users from account sync), then by email
         let dbUser = null
 
         // 1. Try finding by Zoho User ID (catches stub users created during account sync with dummy emails)
@@ -124,7 +124,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         if (!dbUser) {
-          // Brand new user — create with real info
+          // Brand new user -- create with real info
           dbUser = await prisma.user.create({
             data: {
               email,
@@ -135,7 +135,7 @@ export const authOptions: NextAuthOptions = {
           })
           console.log("Created new user via Zoho NextAuth:", email)
         } else {
-          // Existing user — merge/update: fix dummy email, missing name, missing zohoId
+          // Existing user -- merge/update: fix dummy email, missing name, missing zohoId
           const updates: any = {}
           if (dbUser.email.includes("@dummy.titandiamond.com") && email) updates.email = email
           if ((!dbUser.name || dbUser.name === "Unknown Owner") && fullName) updates.name = fullName

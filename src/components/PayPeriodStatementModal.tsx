@@ -47,7 +47,7 @@ function fmt(n: number) {
 }
 
 function fmtDate(s: string | null) {
-  if (!s) return "—"
+  if (!s) return "--"
   return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
@@ -145,7 +145,7 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
             </div>
             <div>
               <h2 className="text-lg font-black tracking-tight text-white">Pay Period Statement & Check Stub</h2>
-              <p className="text-xs text-neutral-400 font-semibold">{rep.repName} • Commission Statement</p>
+              <p className="text-xs text-neutral-400 font-semibold">{rep.repName} - Commission Statement</p>
             </div>
           </div>
 
@@ -201,7 +201,7 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
                 Pay Period Range
               </div>
               <div className="text-sm font-black text-white print:text-black font-mono mt-0.5">
-                {fmtDate(periodStart.toISOString())} – {fmtDate(periodEnd.toISOString())}
+                {fmtDate(periodStart.toISOString())} - {fmtDate(periodEnd.toISOString())}
               </div>
               <div className="text-[11px] text-neutral-500 print:text-black/60 mt-1 font-semibold">
                 Statement Date: {fmtDate(new Date().toISOString())}

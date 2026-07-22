@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getZohoAccessToken } from "@/lib/zoho-auth"
 
-// Resolve the outbound caller-ID number: explicit override → env → default
-// Zoho number from system settings → legacy fallback.
+// Resolve the outbound caller-ID number: explicit override  to  env  to  default
+// Zoho number from system settings  to  legacy fallback.
 async function resolveFromNumber(provided?: string): Promise<string> {
   if (provided && provided !== "System") return provided
   if (process.env.ZOHO_VOICE_FROM_NUMBER) return process.env.ZOHO_VOICE_FROM_NUMBER
@@ -29,7 +29,7 @@ function normalize(num: string): string {
  * Initiate an outbound call through Zoho Voice (click-to-call).
  * When Zoho credentials/dial-out are configured, this places a real call;
  * otherwise it falls back to "manual" mode so the rep can still dial on
- * their handset and log the call afterwards — the UI is never blocked.
+ * their handset and log the call afterwards -- the UI is never blocked.
  */
 export async function POST(req: NextRequest) {
   try {

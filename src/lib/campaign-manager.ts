@@ -2,7 +2,7 @@
  * campaign-manager.ts
  *
  * Module-level singleton that manages campaign job polling.
- * Lives in browser JS memory independently of React — survives navigation.
+ * Lives in browser JS memory independently of React -- survives navigation.
  * State is persisted in the DB, so refresh just reconnects via localStorage jobId.
  */
 
@@ -60,7 +60,7 @@ class CampaignManager {
   private pollTimer: ReturnType<typeof setTimeout> | null = null
   private initialized = false
 
-  /** Called once on app mount — reconnects to any in-progress job from localStorage */
+  /** Called once on app mount -- reconnects to any in-progress job from localStorage */
   init() {
     if (this.initialized || typeof window === "undefined") return
     this.initialized = true
@@ -100,7 +100,7 @@ class CampaignManager {
       const data = await res.json()
 
       if (!data.success && res.status !== 200) {
-        // Transient error — retry
+        // Transient error -- retry
         this.schedulePoll()
         return
       }
@@ -143,7 +143,7 @@ class CampaignManager {
       }
     } catch (err) {
       console.error("[CampaignManager] Poll error:", err)
-      // Network error — retry
+      // Network error -- retry
       this.schedulePoll()
     }
   }

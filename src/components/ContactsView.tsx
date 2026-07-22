@@ -320,7 +320,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     <p className="text-neutral-500 text-xs italic py-4 text-center">No logged notes for this account.</p>
                   ) : (
                     contactNotes.map(note => {
-                      const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString() : "—"
+                      const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString() : "--"
                       const display = getNoteDisplay(note.content)
                       
                       return (
@@ -469,7 +469,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                       <p className="text-neutral-500 text-xs italic py-4 text-center">No logged notes for this contact.</p>
                     ) : (
                       contactNotes.map(note => {
-                        const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString() : "—"
+                        const date = note.createdAt ? new Date(note.createdAt).toLocaleDateString() : "--"
                         const display = getNoteDisplay(note.content)
                         
                         return (

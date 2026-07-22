@@ -22,7 +22,7 @@ export function CampaignProgressProvider({ children }: { children: ReactNode }) 
     // Initialize singleton (reconnects to any in-progress job from localStorage)
     campaignManager.init()
 
-    // Sync singleton state → React state
+    // Sync singleton state  to  React state
     const unsub = campaignManager.subscribe((s) => setState(s))
     return unsub
   }, [])

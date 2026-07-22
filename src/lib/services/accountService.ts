@@ -15,7 +15,7 @@
  * Backend endpoints are preserved as-is; this layer just unifies the client-side call patterns.
  */
 
-// ─── Fetch ─────────────────────────────────────────────────────────────────────
+// --- Fetch ---------------------------------------------------------------------
 
 export async function fetchAccount(accountId: string): Promise<any> {
   const res = await fetch("/api/get-account-details", {
@@ -29,7 +29,7 @@ export async function fetchAccount(accountId: string): Promise<any> {
   return data.account
 }
 
-// ─── Patch helpers ─────────────────────────────────────────────────────────────
+// --- Patch helpers -------------------------------------------------------------
 
 export interface AccountPatch {
   // General fields (update-account-details)
@@ -47,7 +47,7 @@ export interface AccountPatch {
   bladesPerOrder?: number
   improvementPriority?: string
 
-  // Owner change (update-account-owner — has its own Zoho CRM workflow)
+  // Owner change (update-account-owner -- has its own Zoho CRM workflow)
   newOwnerId?: string
   note?: string
 
@@ -59,18 +59,18 @@ export interface AccountPatch {
  * Update one or more fields on an account.
  *
  * Internally routes to the correct endpoint:
- *   - `newOwnerId` → /api/update-account-owner  (also updates Zoho CRM owner + contacts)
- *   - `status`     → /api/update-account-status  (validates enum, logs note)
- *   - `quality`    → /api/update-account-quality (validates enum, logs note)
- *   - `timeZone`   → /api/update-account-timezone (pushes to Zoho CRM field)
- *   - everything else → /api/update-account-details
+ *   - `newOwnerId`  to  /api/update-account-owner  (also updates Zoho CRM owner + contacts)
+ *   - `status`      to  /api/update-account-status  (validates enum, logs note)
+ *   - `quality`     to  /api/update-account-quality (validates enum, logs note)
+ *   - `timeZone`    to  /api/update-account-timezone (pushes to Zoho CRM field)
+ *   - everything else  to  /api/update-account-details
  *
- * Callers can pass any combination — this service will fan out to the right endpoints.
+ * Callers can pass any combination -- this service will fan out to the right endpoints.
  */
 export async function updateAccount(accountId: string, patch: AccountPatch): Promise<any> {
   const results: any[] = []
 
-  // Owner change — dedicated endpoint with CRM sync
+  // Owner change -- dedicated endpoint with CRM sync
   if (patch.newOwnerId !== undefined) {
     const res = await fetch("/api/update-account-owner", {
       method: "POST",
@@ -82,7 +82,7 @@ export async function updateAccount(accountId: string, patch: AccountPatch): Pro
     results.push(data)
   }
 
-  // Status change — validated + note-logged by dedicated endpoint
+  // Status change -- validated + note-logged by dedicated endpoint
   if (patch.status !== undefined) {
     const res = await fetch("/api/update-account-status", {
       method: "POST",
@@ -94,7 +94,7 @@ export async function updateAccount(accountId: string, patch: AccountPatch): Pro
     results.push(data)
   }
 
-  // Quality change — validated + note-logged by dedicated endpoint
+  // Quality change -- validated + note-logged by dedicated endpoint
   if (patch.quality !== undefined) {
     const res = await fetch("/api/update-account-quality", {
       method: "POST",
@@ -106,7 +106,7 @@ export async function updateAccount(accountId: string, patch: AccountPatch): Pro
     results.push(data)
   }
 
-  // Timezone change — pushes to Zoho CRM
+  // Timezone change -- pushes to Zoho CRM
   if (patch.timeZone !== undefined) {
     const res = await fetch("/api/update-account-timezone", {
       method: "POST",
@@ -118,7 +118,7 @@ export async function updateAccount(accountId: string, patch: AccountPatch): Pro
     results.push(data)
   }
 
-  // General details — anything not handled above
+  // General details -- anything not handled above
   const detailFields = [
     "name", "industry", "tags",
     "bladeSizes", "materialsCut", "currentSupplier",

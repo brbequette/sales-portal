@@ -53,10 +53,10 @@ export default function BackfillPage() {
     setLog(prev => [`[${ts}] ${msg}`, ...prev].slice(0, 200))
   }
 
-  // Safe JSON parse — guards against empty body (e.g. function timeout)
+  // Safe JSON parse -- guards against empty body (e.g. function timeout)
   const safeJson = async (res: Response): Promise<any> => {
     const text = await res.text()
-    if (!text || text.trim() === '') throw new Error(`Empty response (HTTP ${res.status}) — function may have timed out`)
+    if (!text || text.trim() === '') throw new Error(`Empty response (HTTP ${res.status}) -- function may have timed out`)
     try { return JSON.parse(text) } catch { throw new Error(`Invalid JSON (HTTP ${res.status}): ${text.slice(0, 120)}`) }
   }
 
@@ -80,7 +80,7 @@ export default function BackfillPage() {
   const runPhase1 = async () => {
     setPhase1Running(true)
     phase1AutoRef.current = true
-    addLog("â–¶ Phase 1 starting — processing one Zoho page per call, auto-continuing...")
+    addLog("â-¶ Phase 1 starting -- processing one Zoho page per call, auto-continuing...")
 
     while (phase1AutoRef.current) {
       try {
@@ -96,7 +96,7 @@ export default function BackfillPage() {
         addLog(
           data.done
             ? `🎁‰ Phase 1 complete! ${data.totalMapped} IDs mapped.`
-            : `📄 ${data.module} pg ${data.page}: +${data.pageMapped} mapped · ${data.percentComplete}% done`
+            : `📄 ${data.module} pg ${data.page}: +${data.pageMapped} mapped . ${data.percentComplete}% done`
         )
 
         if (data.done || !data.callAgain) break
@@ -126,7 +126,7 @@ export default function BackfillPage() {
       addLog(
         data.done
           ? `🎁‰ DONE! All records backfilled.`
-          : `✅ Batch: +${data.batchProcessed} cached (${data.batchErrors || 0} errors) · ${data.percentComplete}% · ${data.remaining} left · ~${data.etaMinutesRemaining}m remaining`
+          : `✅ Batch: +${data.batchProcessed} cached (${data.batchErrors || 0} errors) . ${data.percentComplete}% . ${data.remaining} left . ~${data.etaMinutesRemaining}m remaining`
       )
       return data
     } catch (e: any) {
@@ -139,7 +139,7 @@ export default function BackfillPage() {
     setPhase2Running(true)
     setAutoRun(true)
     autoRunRef.current = true
-    addLog("â–¶ Starting Phase 2 auto-run (will continue until complete or stopped)...")
+    addLog("â-¶ Starting Phase 2 auto-run (will continue until complete or stopped)...")
 
     let consecutiveErrors = 0
     const MAX_CONSECUTIVE_ERRORS = 3
@@ -155,20 +155,20 @@ export default function BackfillPage() {
           consecutiveErrors++
           addLog(`❌ Batch error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${data.error}`)
           if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-            addLog(`â›” ${MAX_CONSECUTIVE_ERRORS} consecutive errors — stopping. Click Resume to try again.`)
+            addLog(`â›" ${MAX_CONSECUTIVE_ERRORS} consecutive errors -- stopping. Click Resume to try again.`)
             break
           }
           await new Promise(r => setTimeout(r, 3000 * consecutiveErrors))
           continue
         }
 
-        // Success — reset error counter
+        // Success -- reset error counter
         consecutiveErrors = 0
 
         addLog(
           data.done
             ? `🎁‰ DONE! All records backfilled.`
-            : `✅ Batch: +${data.batchProcessed} cached (${data.batchErrors || 0} errors) · ${data.percentComplete}% · ${data.remaining?.toLocaleString()} left · ~${data.etaMinutesRemaining}m remaining`
+            : `✅ Batch: +${data.batchProcessed} cached (${data.batchErrors || 0} errors) . ${data.percentComplete}% . ${data.remaining?.toLocaleString()} left . ~${data.etaMinutesRemaining}m remaining`
         )
 
         if (data.done || !data.callAgain) {
@@ -183,7 +183,7 @@ export default function BackfillPage() {
         consecutiveErrors++
         addLog(`❌ Network error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${e.message}`)
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-          addLog(`â›” ${MAX_CONSECUTIVE_ERRORS} consecutive errors — stopping. Click Resume to try again.`)
+          addLog(`â›" ${MAX_CONSECUTIVE_ERRORS} consecutive errors -- stopping. Click Resume to try again.`)
           break
         }
         // Exponential backoff on network errors
@@ -226,7 +226,7 @@ export default function BackfillPage() {
             Books Data Backfill
           </h1>
           <p className="text-neutral-400 text-sm mt-1">
-            One-time operation to populate line items for all {status?.totals.total.toLocaleString() || '”¦'} local records
+            One-time operation to populate line items for all {status?.totals.total.toLocaleString() || '"¦'} local records
           </p>
         </div>
         <button
@@ -243,7 +243,7 @@ export default function BackfillPage() {
       {status && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: "Total Records", value: status.totals.total.toLocaleString(), sub: `${status.totals.invoices} inv · ${status.totals.salesOrders} SO · ${status.totals.quotes} quotes`, color: "border-neutral-700" },
+            { label: "Total Records", value: status.totals.total.toLocaleString(), sub: `${status.totals.invoices} inv . ${status.totals.salesOrders} SO . ${status.totals.quotes} quotes`, color: "border-neutral-700" },
             { label: "Have Books ID", value: status.hasBookId.total.toLocaleString(), sub: `${Math.round(status.hasBookId.total / Math.max(1, status.totals.total) * 100)}% of records`, color: "border-sky-700" },
             { label: "Fully Cached", value: status.cached.total.toLocaleString(), sub: `${pct}% complete`, color: "border-emerald-700" },
             { label: "Still Needed", value: Math.max(0, status.totals.total - status.cached.total).toLocaleString(), sub: `${status.totals.total - status.hasBookId.total} missing Books ID`, color: "border-amber-700" },
@@ -286,19 +286,19 @@ export default function BackfillPage() {
               <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${phase1Done ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>1</span>
               <div>
                 <h3 className="font-bold text-white text-sm">Map Zoho Books IDs</h3>
-                <p className="text-xs text-neutral-400">~80 API calls · ~3 minutes</p>
+                <p className="text-xs text-neutral-400">~80 API calls . ~3 minutes</p>
               </div>
             </div>
             {phase1Done && <FiCheckCircle className="text-emerald-400 w-5 h-5 shrink-0" />}
           </div>
           <p className="text-xs text-neutral-400 leading-relaxed">
             Enumerates all Zoho Books invoices, SOs, and estimates (200/page) and writes their Books ID into local records.
-            Required before Phase 2 — without it, Phase 2 needs 2 API calls per record instead of 1.
+            Required before Phase 2 -- without it, Phase 2 needs 2 API calls per record instead of 1.
           </p>
           {status && (
             <div className="text-xs text-neutral-500 bg-neutral-800 rounded-lg px-3 py-2">
-              Invoices with Books ID: <span className="text-white font-bold">{status.hasBookId.invoices.toLocaleString()}</span> / {status.totals.invoices.toLocaleString()} ·
-              SOs: <span className="text-white font-bold">{status.hasBookId.salesOrders.toLocaleString()}</span> / {status.totals.salesOrders.toLocaleString()} ·
+              Invoices with Books ID: <span className="text-white font-bold">{status.hasBookId.invoices.toLocaleString()}</span> / {status.totals.invoices.toLocaleString()} .
+              SOs: <span className="text-white font-bold">{status.hasBookId.salesOrders.toLocaleString()}</span> / {status.totals.salesOrders.toLocaleString()} .
               Quotes: <span className="text-white font-bold">{status.hasBookId.quotes.toLocaleString()}</span> / {status.totals.quotes.toLocaleString()}
             </div>
           )}
@@ -329,14 +329,14 @@ export default function BackfillPage() {
               <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${status?.checkpoint?.phase2Done ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/20 text-sky-400'}`}>2</span>
               <div>
                 <h3 className="font-bold text-white text-sm">Fetch All Line Items</h3>
-                <p className="text-xs text-neutral-400">~15,500 API calls · 3–8 hours total · auto-continues</p>
+                <p className="text-xs text-neutral-400">~15,500 API calls . 3-8 hours total . auto-continues</p>
               </div>
             </div>
             {status?.checkpoint?.phase2Done && <FiCheckCircle className="text-emerald-400 w-5 h-5 shrink-0" />}
           </div>
           <p className="text-xs text-neutral-400 leading-relaxed">
             Fetches full details (line items, custom fields, balance) for every uncached record.
-            Rate-limited to 50 calls/min. Runs in batches of {18} — click Start and leave this tab open. Progress saves automatically.
+            Rate-limited to 50 calls/min. Runs in batches of {18} -- click Start and leave this tab open. Progress saves automatically.
           </p>
           {lastResult && lastResult.phase === 2 && (
             <div className="text-xs bg-neutral-800 rounded-lg px-3 py-2 space-y-1">
@@ -355,7 +355,7 @@ export default function BackfillPage() {
           )}
           {status?.checkpoint?.phase2Offset > 0 && !status?.checkpoint?.phase2Done && (
             <p className="text-xs text-sky-400">
-              Checkpoint saved at offset {status?.checkpoint?.phase2Offset} — will resume from here.
+              Checkpoint saved at offset {status?.checkpoint?.phase2Offset} -- will resume from here.
             </p>
           )}
           <div className="flex gap-2">
@@ -391,8 +391,8 @@ export default function BackfillPage() {
       <div className="bg-amber-950/30 border border-amber-800/40 rounded-xl p-4 flex gap-3">
         <FiInfo className="text-amber-400 shrink-0 mt-0.5" size={16} />
         <div className="text-xs text-amber-200/80 space-y-1">
-          <p><strong>Run Phase 1 first</strong> — it maps 7,615 invoice Books IDs and will find SO/Quote IDs too. Takes ~3 minutes.</p>
-          <p><strong>Phase 2 is safe to stop and restart</strong> — progress is saved after every batch of 18 records. Close the tab and come back anytime.</p>
+          <p><strong>Run Phase 1 first</strong> -- it maps 7,615 invoice Books IDs and will find SO/Quote IDs too. Takes ~3 minutes.</p>
+          <p><strong>Phase 2 is safe to stop and restart</strong> -- progress is saved after every batch of 18 records. Close the tab and come back anytime.</p>
           <p><strong>Leave this tab open during Phase 2.</strong> Each batch takes ~25 seconds. The page auto-continues until all records are done or you click Stop.</p>
           <p><strong>After Phase 2:</strong> the <strong>Product Buyer Search</strong> filter on the dashboard will work for all accounts, and all invoice modals will load instantly from cache.</p>
         </div>
@@ -416,7 +416,7 @@ export default function BackfillPage() {
         </div>
       </div>
 
-      {/* â”€â”€ CSV Import â”€â”€ */}
+      {/* â"€â"€ CSV Import â"€â"€ */}
       <CsvImportSection />
     </div>
   )
@@ -455,7 +455,7 @@ function CsvImportSection() {
       let unmatchedCols: string[] = []
       let matchedCols: string[] = []
 
-      setProgress(`${totalRows} rows â†’ ${totalChunks} batch${totalChunks > 1 ? 'es' : ''} of ${CHUNK_SIZE}`)
+      setProgress(`${totalRows} rows â†' ${totalChunks} batch${totalChunks > 1 ? 'es' : ''} of ${CHUNK_SIZE}`)
 
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE
@@ -493,7 +493,7 @@ function CsvImportSection() {
         if (data.unmatchedColumns && unmatchedCols.length === 0) unmatchedCols = data.unmatchedColumns
         if (data.matchedColumns && matchedCols.length === 0) matchedCols = data.matchedColumns
 
-        setProgress(`Batch ${i + 1}/${totalChunks} done — ${totalUpdated} updated so far`)
+        setProgress(`Batch ${i + 1}/${totalChunks} done -- ${totalUpdated} updated so far`)
       }
 
       setResult({
@@ -526,7 +526,7 @@ function CsvImportSection() {
           <FiDatabase size={14} /> CSV Import from Zoho Books Export
         </h3>
         <p className="text-xs text-neutral-500 mt-1">
-          Export from Zoho Books â†’ Upload CSV â†’ All custom fields filled instantly (auto-chunked for large files)
+          Export from Zoho Books â†' Upload CSV â†' All custom fields filled instantly (auto-chunked for large files)
         </p>
       </div>
       <div className="p-4 space-y-3">

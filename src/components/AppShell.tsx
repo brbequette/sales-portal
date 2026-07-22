@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex bg-[var(--background)] text-[var(--foreground)]" style={{ height: "100dvh" }}>
 
-      {/* â”€â”€ Desktop Floating Vertical Menu â”€â”€ */}
+      {/* â"€â"€ Desktop Floating Vertical Menu â"€â"€ */}
       <aside className="hidden lg:flex flex-col items-center w-16 glass-panel border-white/10 rounded-2xl shadow-[0_18px_60px_rgba(0,0,0,0.4)] fixed top-4 left-4 bottom-4 py-5 z-40">
         {/* Brand */}
         <div className="mb-8 flex justify-center w-full">
@@ -151,7 +151,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* â”€â”€ Mobile Top Bar â”€â”€ */}
+      {/* â"€â"€ Mobile Top Bar â"€â"€ */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-30 glass-panel border-x-0 border-t-0 px-4 py-3 flex items-center justify-between rounded-none shadow-md">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-gradient-to-br from-[var(--primary)] to-orange-600 rounded-lg flex items-center justify-center shadow-[0_0_10px_rgba(249,115,22,0.5)]">
@@ -200,7 +200,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* â”€â”€ Mobile Bottom Tab Bar â”€â”€ */}
+      {/* â"€â"€ Mobile Bottom Tab Bar â"€â"€ */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#111214]/95 backdrop-blur border-t border-white/10 flex pb-[env(safe-area-inset-bottom)]">
         {bottomItems.map(item => {
           const Icon = item.icon
@@ -264,7 +264,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </div>
 
-      {/* â”€â”€ Main Content â”€â”€ */}
+      {/* â"€â"€ Main Content â"€â"€ */}
       <main className="flex-1 overflow-hidden flex flex-col lg:pt-0 pt-12 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-24">
         <GlobalTopBar />
         <div className="flex-1 overflow-y-auto">

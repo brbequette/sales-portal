@@ -1,7 +1,7 @@
 import webpush from 'web-push'
 import { prisma } from './prisma'
 
-// ── Types ──────────────────────────────────────────────────────
+// -- Types ------------------------------------------------------
 
 export type NotificationChannel = 'in_app' | 'email' | 'sms'
 
@@ -15,7 +15,7 @@ interface SendNotificationOptions {
   variables?: Record<string, string>
 }
 
-// ── VAPID Setup ────────────────────────────────────────────────
+// -- VAPID Setup ------------------------------------------------
 
 let vapidDetailsSet = false
 
@@ -33,14 +33,14 @@ function ensureVapidDetails() {
   vapidDetailsSet = true
 }
 
-// ── Template Resolution ────────────────────────────────────────
+// -- Template Resolution ----------------------------------------
 
 /** Resolve template variables like {{dealName}}, {{accountName}} */
 function resolveTemplate(text: string, variables: Record<string, string>): string {
   return text.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] || `{{${key}}}`)
 }
 
-// ── In-App + Push (original sendPushNotification preserved) ────
+// -- In-App + Push (original sendPushNotification preserved) ----
 
 export async function sendPushNotification(userId: string, payload: { title: string, body: string, url?: string }) {
   ensureVapidDetails()
@@ -96,13 +96,13 @@ export async function sendPushNotification(userId: string, payload: { title: str
   return { notification, subscriptionsSent: sent }
 }
 
-// ── Alias for in-app (DB record + web push) ────────────────────
+// -- Alias for in-app (DB record + web push) --------------------
 
 export async function sendInAppNotification(userId: string, title: string, body: string, url?: string) {
   return sendPushNotification(userId, { title, body, url })
 }
 
-// ── Email via ZeptoMail ────────────────────────────────────────
+// -- Email via ZeptoMail ----------------------------------------
 
 export async function sendEmailNotification(userId: string, title: string, body: string) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } })
@@ -132,7 +132,7 @@ export async function sendEmailNotification(userId: string, title: string, body:
   }
 }
 
-// ── SMS via Zoho Voice ─────────────────────────────────────────
+// -- SMS via Zoho Voice -----------------------------------------
 
 export async function sendSmsNotification(userId: string, body: string) {
   // Look up user's phone from their account or user record
@@ -140,7 +140,7 @@ export async function sendSmsNotification(userId: string, body: string) {
   // TODO: Integrate with existing Zoho Voice SMS when credentials are provided
 }
 
-// ── Unified Dispatcher ─────────────────────────────────────────
+// -- Unified Dispatcher -----------------------------------------
 
 export async function sendNotification(options: SendNotificationOptions) {
   let { title, body } = options
@@ -167,7 +167,7 @@ export async function sendNotification(options: SendNotificationOptions) {
   }
 }
 
-// ── Batch: Stage-triggered Notifications ───────────────────────
+// -- Batch: Stage-triggered Notifications -----------------------
 
 export async function sendStageNotifications(
   dealId: string,

@@ -7,7 +7,7 @@ function fmt(n: number) {
 }
 
 function fmtDate(s: string | null) {
-  if (!s) return "—"
+  if (!s) return "--"
   return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 

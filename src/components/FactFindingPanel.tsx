@@ -5,9 +5,9 @@
  * FactFindingPanel.tsx
  *
  * Shared fact-finding component used across:
- *   - SalesCallCampaignModal (dialer — cold + follow-up calls)
- *   - CommunicationCenter (account screen — call tab)
- *   - AccountEditModal (Profile Data tab — editable account profile)
+ *   - SalesCallCampaignModal (dialer -- cold + follow-up calls)
+ *   - CommunicationCenter (account screen -- call tab)
+ *   - AccountEditModal (Profile Data tab -- editable account profile)
  *   - AccountSlideout (compact read-only summary chips)
  *
  * Standardizes all FF fields, options, and pill-selection UX in one place.
@@ -21,7 +21,7 @@
 
 import { FiActivity, FiClock, FiUser } from "react-icons/fi"
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 export interface FactFindingValues {
   bladeSizes: string          // e.g. "14\""
@@ -51,7 +51,7 @@ export const EMPTY_FACT_FINDING: FactFindingValues = {
   productInterest: [],
 }
 
-// â”€â”€â”€ Option Tables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Option Tables â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 export const FF_OPTIONS = {
   bladeSizes:          ['10"', '12"', '14"', '16"', '18"', '20"', '24"', '30"', '36"'],
@@ -66,7 +66,7 @@ export const FF_OPTIONS = {
   painPoints:          ['Speed', 'Blade life', 'Chip-out', 'Price', 'Availability'],
 }
 
-// â”€â”€â”€ Question Definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Question Definitions â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 interface Question {
   num: number
@@ -138,7 +138,7 @@ export const FF_QUESTIONS: Question[] = [
   {
     num: 9, key: "jobTypes",
     label: "Job Types",
-    coldQ: '"What kinds of jobs are you running — road work, commercial, residential?"',
+    coldQ: '"What kinds of jobs are you running -- road work, commercial, residential?"',
     followUpQ: '"What types of jobs are you working on?"',
     options: FF_OPTIONS.jobTypes,
     multi: true,
@@ -152,7 +152,7 @@ export const FF_QUESTIONS: Question[] = [
   },
 ]
 
-// â”€â”€â”€ Subcomponents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Subcomponents â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 interface PillRowProps {
   options: string[]
@@ -183,14 +183,14 @@ function PillRow({ options, value, onChange, accentColor = "cyan", readOnly = fa
                 : "glass-panel border-neutral-700/60 text-neutral-500 hover:border-neutral-600 hover:text-neutral-400"
           }`}
         >
-          {value === opt ? "✍“ " : ""}{opt}
+          {value === opt ? "* " : ""}{opt}
         </button>
       ))}
     </div>
   )
 }
 
-// â”€â”€â”€ Compact Summary (read-only chips) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Compact Summary (read-only chips) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 export function FactFindingSummary({ values }: { values: FactFindingValues }) {
   const chips: { label: string; value: string }[] = [
@@ -223,7 +223,7 @@ export function FactFindingSummary({ values }: { values: FactFindingValues }) {
   )
 }
 
-// â”€â”€â”€ Audit metadata row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Audit metadata row â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function AuditRow({ updatedAt, updatedBy }: { updatedAt?: string; updatedBy?: string }) {
   if (!updatedAt && !updatedBy) return null
@@ -248,7 +248,7 @@ function AuditRow({ updatedAt, updatedBy }: { updatedAt?: string; updatedBy?: st
   )
 }
 
-// â”€â”€â”€ Main Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Main Panel â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 export interface FactFindingPanelProps {
   values: FactFindingValues
@@ -291,7 +291,7 @@ export function FactFindingPanel({
     onChange({ ...values, [key]: val })
   }
 
-  // â”€â”€ Profile mode (no script phrasing) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â"€â"€ Profile mode (no script phrasing) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   if (mode === "profile") {
     return (
       <div className="space-y-4">
@@ -306,7 +306,7 @@ export function FactFindingPanel({
                 </label>
                 {isAnswered && (
                   <span className="text-[8px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
-                    ✍“ {value}
+                    ✍" {value}
                   </span>
                 )}
               </div>
@@ -327,7 +327,7 @@ export function FactFindingPanel({
     )
   }
 
-  // â”€â”€ Dialer mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â"€â"€ Dialer mode â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   // Colors
   const unansweredBg = accentColor === "amber"
     ? "border-amber-800/30 bg-amber-950/20"
@@ -355,24 +355,24 @@ export function FactFindingPanel({
               {/* Question header */}
               <div className="flex items-start gap-2">
                 <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5 ${numColor(isAnswered)}`}>
-                  {isAnswered ? "✍“" : q.num}
+                  {isAnswered ? "✓" : q.num}
                 </span>
                 <p className={`text-xs leading-relaxed italic flex-1 ${isAnswered ? "text-neutral-500" : questionTextColor}`}>
                   {getQuestion(q)}
                 </p>
               </div>
 
-              {/* Answered answer badge — shown above the pills so rep can see/change */}
+              {/* Answered answer badge -- shown above the pills so rep can see/change */}
               {isAnswered && (
                 <div className="pl-7">
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/25 px-2 py-1 rounded-lg">
-                    ✍“ {value}
+                    ✍" {value}
                   </span>
                   <AuditRow updatedAt={updatedAt} updatedBy={updatedBy} />
                 </div>
               )}
 
-              {/* Pills — always shown so rep can change the answer */}
+              {/* Pills -- always shown so rep can change the answer */}
               {!readOnly && (
                 <div className="pl-7">
                   <PillRow

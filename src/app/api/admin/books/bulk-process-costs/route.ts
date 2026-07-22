@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 export const maxDuration = 60
 
 /**
- * Bulk Process Costs — calls the Netlify process-invoice-costs function directly
+ * Bulk Process Costs -- calls the Netlify process-invoice-costs function directly
  * for each doc in a page, running up to 5 concurrently to reduce wall-clock time.
  *
  * Calls /.netlify/functions/process-invoice-costs instead of the Next.js wrapper
@@ -15,7 +15,7 @@ export const maxDuration = 60
  *   page:     number   (default 1)
  *   filter:   'all' | 'unpaid' | 'recent'               (default 'unpaid')
  *   perPage:  number   (default 25, max 50)
- *   force:    boolean  (skip loop-guard — default false)
+ *   force:    boolean  (skip loop-guard -- default false)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -29,14 +29,14 @@ export async function POST(req: NextRequest) {
     const BATCH_CONCURRENCY = 5
     const BATCH_DELAY_MS    = 300
 
-    // ── Resolve the base URL for Netlify function calls ──────────────────────
+    // -- Resolve the base URL for Netlify function calls ----------------------
     // On Netlify: NETLIFY_URL or DEPLOY_URL is set. Locally: use localhost.
     const siteUrl = process.env.NETLIFY_URL ||
                     process.env.DEPLOY_URL  ||
                     process.env.NEXT_PUBLIC_SITE_URL ||
                     req.nextUrl.origin
 
-    // ── Entity config ────────────────────────────────────────────────────────
+    // -- Entity config --------------------------------------------------------
     const ENTITY_CONFIG: Record<string, {
       booksEndpoint: string; listKey: string; idField: string; numField: string
       netlifyFn: string; idBodyField: string; resultKey: string
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     const cfg = ENTITY_CONFIG[entity]
     if (!cfg) return NextResponse.json({ success: false, error: `Unknown entity: ${entity}` }, { status: 400 })
 
-    // ── Zoho token (inline — no module-level Prisma) ─────────────────────────
+    // -- Zoho token (inline -- no module-level Prisma) -------------------------
     const ZOHO_DC  = process.env.ZOHO_DC || "com"
     const ORG_ID   = process.env.ZOHO_ORGANIZATION_ID || "664670946"
     const baseUrl  = `https://www.zohoapis.${ZOHO_DC}/books/v3`
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     const authHeaders = { Authorization: `Zoho-oauthtoken ${token}` }
 
-    // ── Status filter ────────────────────────────────────────────────────────
+    // -- Status filter --------------------------------------------------------
     let statusFilter = ""
     if (entity === "invoices") {
       if (filter === "unpaid") statusFilter = "&status=sent,overdue,partially_paid"
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       statusFilter = `&date_start=${since.toISOString().split("T")[0]}`
     }
 
-    // ── Step 1: 1 list GET ───────────────────────────────────────────────────
+    // -- Step 1: 1 list GET ---------------------------------------------------
     const sortParam = entity === "estimates" ? "" : "&sort_column=date&sort_order=D"
     const listRes = await fetch(
       `${baseUrl}/${cfg.booksEndpoint}?organization_id=${ORG_ID}&page=${page}&per_page=${perPage}${sortParam}${statusFilter}`,
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, processed: 0, errors: 0, skipped: 0, hasMore: false, page, results: [] })
     }
 
-    // ── Step 2: Parallel process via Netlify function URL ────────────────────
+    // -- Step 2: Parallel process via Netlify function URL --------------------
     const results: any[] = []
     let processed = 0, errors = 0, skipped = 0
 
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
 
         const contentType = res.headers.get("content-type") || ""
         if (!contentType.includes("application/json")) {
-          throw new Error(`Function returned non-JSON (HTTP ${res.status}) — check Netlify function logs`)
+          throw new Error(`Function returned non-JSON (HTTP ${res.status}) -- check Netlify function logs`)
         }
 
         const data: any = await res.json()

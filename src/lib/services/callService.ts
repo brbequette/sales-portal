@@ -9,7 +9,7 @@
 
 export type CallType = "sales" | "collection"
 
-// ─── Shared call log payload ───────────────────────────────────────────────────
+// --- Shared call log payload ---------------------------------------------------
 
 export interface SalesCallPayload {
   accountId: string
@@ -50,7 +50,7 @@ export interface CollectionCallPayload {
   duration?: number
 }
 
-// ─── Log a call ───────────────────────────────────────────────────────────────
+// --- Log a call ---------------------------------------------------------------
 
 export async function logCall(
   type: "sales",
@@ -72,14 +72,14 @@ export async function logCall(
   })
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Failed to log ${type} call: ${res.status} — ${text}`)
+    throw new Error(`Failed to log ${type} call: ${res.status} -- ${text}`)
   }
   const data = await res.json()
   if (!data.success) throw new Error(data.error || `${type} call log failed`)
   return data
 }
 
-// ─── Convenience wrappers ──────────────────────────────────────────────────────
+// --- Convenience wrappers ------------------------------------------------------
 
 export const logSalesCall = (payload: SalesCallPayload) => logCall("sales", payload)
 export const logCollectionCall = (payload: CollectionCallPayload) => logCall("collection", payload)

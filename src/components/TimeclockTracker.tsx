@@ -53,7 +53,7 @@ export function TimeclockTracker() {
     // Ping loop every 5 minutes to stay within the 20-minute inactivity threshold
     const interval = setInterval(sendPing, 300000)
     
-    // Activity listeners — reset throttle so the next ping fires immediately on activity
+    // Activity listeners -- reset throttle so the next ping fires immediately on activity
     let throttleTimeout: NodeJS.Timeout | null = null
     const handleActivity = () => {
       if (!throttleTimeout) {

@@ -28,9 +28,9 @@ const getDocTypeParam = (tab: DocType): "Invoice" | "Quote" | "SalesOrder" => {
 }
 
 const getDocNumber = (doc: any, tab: DocType) => {
-  if (tab === "invoices") return doc?.items?.invoiceNumber || doc?.items?.invoice_number || doc?.zohoId || doc?.id || "—";
-  if (tab === "quotes") return doc?.items?.estimateNumber || doc?.items?.estimate_number || doc?.items?.quoteNumber || doc?.quoteNumber || doc?.zohoId || doc?.id || "—";
-  return doc?.items?.salesOrderNumber || doc?.items?.salesorder_number || doc?.orderNumber || doc?.zohoId || doc?.id || "—";
+  if (tab === "invoices") return doc?.items?.invoiceNumber || doc?.items?.invoice_number || doc?.zohoId || doc?.id || "--";
+  if (tab === "quotes") return doc?.items?.estimateNumber || doc?.items?.estimate_number || doc?.items?.quoteNumber || doc?.quoteNumber || doc?.zohoId || doc?.id || "--";
+  return doc?.items?.salesOrderNumber || doc?.items?.salesorder_number || doc?.orderNumber || doc?.zohoId || doc?.id || "--";
 }
 
 interface DocumentFlipbookProps {
@@ -151,7 +151,7 @@ export function DocumentFlipbook({
             <div className="flex justify-between items-center glass-panel/50 p-3 rounded-lg border border-white/10">
               <div className="flex items-center gap-2">
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusColor(current?.status)}`}>
-                  {current?.status || "—"}
+                  {current?.status || "--"}
                 </span>
                 <span className="text-xs text-neutral-400">
                   {cfg.label.slice(0, -1)} #{getDocNumber(current, activeDoc)}
@@ -250,7 +250,7 @@ export function DocumentFlipbook({
           <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3 shrink-0">
             <div className="flex items-center gap-3">
               <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusColor(current?.status)}`}>
-                {current?.status || "—"}
+                {current?.status || "--"}
               </span>
               <h3 className="text-white font-bold text-sm sm:text-base">
                 {cfg.label.slice(0, -1)} #{getDocNumber(current, activeDoc)}

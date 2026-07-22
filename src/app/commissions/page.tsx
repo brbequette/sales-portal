@@ -16,7 +16,7 @@ function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0)
 }
 
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 type InvoiceRecord = {
   id: string
   zohoId: string
@@ -91,7 +91,7 @@ type CommData = {
 
 
 function fmtDate(s: string | null) {
-  if (!s) return "—"
+  if (!s) return "--"
   return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
@@ -112,7 +112,7 @@ function stageColor(stage: string) {
   return "text-neutral-400 bg-neutral-800"
 }
 
-// â”€â”€ Rep Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Rep Card â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, onOpenStatement, onStartCampaign }: {
   rep: RepSummary,
   isAdmin: boolean,
@@ -148,7 +148,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
       }
     })
 
-    // Group events into year â†’ week buckets
+    // Group events into year â†' week buckets
     const groups: Record<number, Record<string, { events: CommEvent[], totalCommission: number, startOfWeek: string }>> = {}
     events.forEach(ev => {
       const d = new Date(ev.eventDate)
@@ -186,7 +186,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
           </div>
           <div className="min-w-0 text-left">
             <div className="text-sm font-bold text-white truncate">{rep.repName}</div>
-            <div className="text-[10px] text-neutral-500">{rep.invoices.length} invoices · {rep.deals.length} pipeline deals</div>
+            <div className="text-[10px] text-neutral-500">{rep.invoices.length} invoices . {rep.deals.length} pipeline deals</div>
           </div>
         </div>
         <div className="flex items-center gap-6 shrink-0 ml-4">
@@ -331,11 +331,11 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                                           ) : (
                                             <span className="text-[10px] text-neutral-400">🏢 {inv.accountName}</span>
                                           )}
-                                          <span className="text-[10px] text-neutral-600">•</span>
+                                          <span className="text-[10px] text-neutral-600">-</span>
                                           <span className={`text-[10px] px-1.5 py-0.5 rounded ${
                                             inv.isPaid ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/20 text-amber-400'
                                           } font-bold`}>{inv.status}</span>
-                                          <span className="text-[10px] text-neutral-600">•</span>
+                                          <span className="text-[10px] text-neutral-600">-</span>
                                           <span className="text-[10px] text-neutral-500">{fmtDate(eventDate)}</span>
                                         </div>
                                       </div>
@@ -423,9 +423,9 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
                       ) : (
                         <span className="text-[10px] text-neutral-400">🏢 {deal.accountName}</span>
                       )}
-                      <span className="text-[10px] text-neutral-600">•</span>
+                      <span className="text-[10px] text-neutral-600">-</span>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${stageColor(deal.stage)}`}>{deal.stage}</span>
-                      <span className="text-[10px] text-neutral-600">•</span>
+                      <span className="text-[10px] text-neutral-600">-</span>
                       <span className="text-[10px] text-neutral-500">{fmtDate(deal.closeDate)}</span>
                     </div>
                   </div>
@@ -443,7 +443,7 @@ function RepCard({ rep, isAdmin, onViewInvoice, onManagePayouts, onViewLedger, o
   )
 }
 
-// â”€â”€ Performance Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Performance Stats â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function StatsTab({ data }: { data: CommData }) {
   // Top reps by commission earned
   const topReps = Object.values(data.byRep)
@@ -595,7 +595,7 @@ function ReimbursementsTab({ userId }: { userId?: string }) {
   )
 }
 
-// â”€â”€ Main Commissions Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Main Commissions Page â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export default function CommissionsPage() {
   const { zohoContext: user } = useZoho()
   const { preferences } = usePreferences()
@@ -898,7 +898,7 @@ export default function CommissionsPage() {
         </div>
       </div>
 
-      {/* â”€â”€ Filters Popout Drawer â”€â”€ */}
+      {/* â"€â"€ Filters Popout Drawer â"€â"€ */}
       {showFiltersDrawer && createPortal(
         <div className="fixed inset-0 z-[9999]">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFiltersDrawer(false)} />
@@ -1041,7 +1041,7 @@ export default function CommissionsPage() {
         />
       )}
 
-      {/* â”€â”€ Manage Payouts Modal â”€â”€ */}
+      {/* â"€â"€ Manage Payouts Modal â"€â"€ */}
       {managingPayoutsFor && createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={() => setManagingPayoutsFor(null)} />

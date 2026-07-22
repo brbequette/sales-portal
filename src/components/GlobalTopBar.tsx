@@ -39,7 +39,7 @@ export function GlobalTopBar() {
   const clockPromptDismissed = useRef(false)
   const timeEntryLoaded = useRef(false)
 
-  // â”€â”€ Stats Strip Data â”€â”€
+  // â"€â"€ Stats Strip Data â"€â"€
   const [stripStats, setStripStats] = useState<{
     weeklySales: number; mtdSales: number; mtdProfit: number;
     mtdCommission: number; pipeline: number; overdue: number;
@@ -115,8 +115,8 @@ export function GlobalTopBar() {
     return () => clearInterval(interval)
   }, [currentUser?.id])
 
-  // ── Activity-based Clock-In Prompt ──
-  // If user is logged in, data has loaded, and they're NOT clocked in — show prompt on first interaction
+  // -- Activity-based Clock-In Prompt --
+  // If user is logged in, data has loaded, and they're NOT clocked in -- show prompt on first interaction
   useEffect(() => {
     if (!currentUser?.id) return
     // Wait for timeclock data to load before deciding
@@ -157,7 +157,7 @@ export function GlobalTopBar() {
     await handleToggleClock()
   }
 
-  // â”€â”€ Auto-start Geofence Monitor â”€â”€
+  // â"€â"€ Auto-start Geofence Monitor â"€â"€
   useEffect(() => {
     if (!currentUser?.id) return
 
@@ -171,8 +171,8 @@ export function GlobalTopBar() {
 
       // Show auto-clock toast
       const msg = event.action === 'clockIn'
-        ? `Auto clocked in — ${event.fenceName || 'On-Site'}`
-        : `Auto clocked out — ${event.fenceName || 'Off-Site'}`
+        ? `Auto clocked in -- ${event.fenceName || 'On-Site'}`
+        : `Auto clocked out -- ${event.fenceName || 'Off-Site'}`
       setAutoClockToast(msg)
       setTimeout(() => setAutoClockToast(null), 5000)
     })
@@ -187,7 +187,7 @@ export function GlobalTopBar() {
     return () => {
       unsubStatus()
       unsubEvent()
-      // Don't stop the monitor on unmount — it persists as singleton
+      // Don't stop the monitor on unmount -- it persists as singleton
     }
   }, [currentUser?.id])
 
@@ -245,7 +245,7 @@ export function GlobalTopBar() {
         longitude = pos.coords.longitude
         accuracy = pos.coords.accuracy
       } catch {
-        // Permission denied or unavailable — proceed without GPS
+        // Permission denied or unavailable -- proceed without GPS
         latitude = null
       }
     }
@@ -418,7 +418,7 @@ export function GlobalTopBar() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-bold text-white truncate">{i.invoiceNumber || i.items?.invoiceNumber || i.items?.invoice_number || i.items?.estimate_number || i.items?.salesorder_number || "Draft"}</div>
-                          <div className="text-xs text-neutral-500 truncate">{i.docType ? `${i.docType} · ` : ""}{i.status}{i.accountName ? ` · ${i.accountName}` : ""}</div>
+                          <div className="text-xs text-neutral-500 truncate">{i.docType ? `${i.docType} . ` : ""}{i.status}{i.accountName ? ` . ${i.accountName}` : ""}</div>
                         </div>
                         <div className="text-sm font-bold text-emerald-400">${parseFloat(i.amount).toFixed(2)}</div>
                       </div>
@@ -482,12 +482,12 @@ export function GlobalTopBar() {
         <div className="relative flex items-center rounded-lg border border-white/10 bg-white/[0.045] overflow-hidden text-xs lg:text-sm h-10 lg:h-9">
           {/* Geofence monitor indicator */}
           {monitorStatus === 'monitoring' && (
-            <div className="flex items-center px-2 h-full border-r border-white/10 bg-blue-500/10" title="✨“ Auto-tracking active — GPS monitoring for clock-in/out">
+            <div className="flex items-center px-2 h-full border-r border-white/10 bg-blue-500/10" title="Auto-tracking active -- GPS monitoring for clock-in/out">
               <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,0.6)]" />
             </div>
           )}
           {monitorStatus === 'denied' && (
-            <div className="flex items-center px-2 h-full border-r border-white/10 bg-red-500/5" title="GPS permission denied — auto-tracking disabled">
+            <div className="flex items-center px-2 h-full border-r border-white/10 bg-red-500/5" title="GPS permission denied -- auto-tracking disabled">
               <div className="w-2 h-2 rounded-full bg-red-500/60" />
             </div>
           )}
@@ -644,7 +644,7 @@ export function GlobalTopBar() {
       </div>
     )}
 
-    {/* ── Campaign Progress Pill ── */}
+    {/* -- Campaign Progress Pill -- */}
     {(campaignState.status === 'running' || campaignState.status === 'done' || campaignState.status === 'cancelled') && (() => {
       const pct = campaignState.total > 0 ? Math.round((campaignState.progress / campaignState.total) * 100) : 0
       const isDone = campaignState.status === 'done'
@@ -675,7 +675,7 @@ export function GlobalTopBar() {
             </span>
             {campaignState.name && (
               <span className="text-xs text-neutral-400 font-medium hidden sm:inline truncate max-w-[140px]">
-                — {campaignState.name}
+                -- {campaignState.name}
               </span>
             )}
           </div>
@@ -708,10 +708,10 @@ export function GlobalTopBar() {
             className="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white transition-colors hidden sm:flex items-center gap-1"
             title="Open campaign"
           >
-            Open ↗
+            Open  up 
           </button>
 
-          {/* Cancel button — only while running */}
+          {/* Cancel button -- only while running */}
           {campaignState.status === 'running' && (
             <button
               onClick={cancelCampaign}
