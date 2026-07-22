@@ -542,12 +542,27 @@ export const handler: Handler = async (event) => {
       })
 
       monthInvoices.forEach(inv => {
+        const items = (inv.items as any) || {}
+        const cfs = items.custom_fields || []
         // Subtotal = invoice line-item total (sub_total field), NOT balance due (amount)
-        const subtotal = parseFloat((inv.items as any)?.sub_total as any) || parseFloat(inv.amount as any) || 0
-        const deadCost = parseFloat((inv.items as any)?.deadCostTotal as any) || 0
-        // Dead profit = sub_total - deadCostTotal (raw profit before VIG adjustment)
-        const profit = subtotal - deadCost
-        const salespersonName = (inv.items as any)?.salesperson
+        const subtotal = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
+        const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
+
+        let deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || 0)
+        if (deadCost === 0 && lineItems.length > 0) {
+          deadCost = lineItems.reduce((sum: number, li: any) => {
+            const qty = parseFloat(li.quantity) || 1
+            const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
+            return sum + (qty * cost)
+          }, 0)
+        }
+
+        const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
+        const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0)
+
+        // Dead profit = sub_total - deadCostTotal - additionalCosts - ccFees
+        const profit = subtotal - deadCost - additionalCosts - ccFees
+        const salespersonName = items.salesperson
         let repId = unassignedId
         if (salespersonName) {
           const matchedId = userNameToIdMap[salespersonName.toLowerCase().trim()]
