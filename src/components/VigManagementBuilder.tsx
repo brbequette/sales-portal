@@ -65,6 +65,45 @@ export default function VigManagementBuilder() {
     setRepConfigs(prev => prev.map(r => ({ ...r, constantVigValue: rate })))
   }
 
+  const [recalculatingId, setRecalculatingId] = useState<string | null>(null)
+  const [recalculatingAll, setRecalculatingAll] = useState(false)
+  const [selectedMonth, setSelectedMonth] = useState<string>("")
+  const [recalcMessage, setRecalcMessage] = useState<string | null>(null)
+
+  const handleRecalculateDocuments = async (repId?: string) => {
+    try {
+      if (repId) {
+        setRecalculatingId(repId)
+      } else {
+        setRecalculatingAll(true)
+      }
+      setRecalcMessage(null)
+
+      const res = await fetch('/api/admin/recalculate-vig-documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repId,
+          monthKey: selectedMonth || undefined,
+          applyToAll: !repId
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setRecalcMessage(data.message || `Successfully recalculated ${data.updatedCount} document(s)!`)
+        setTimeout(() => setRecalcMessage(null), 5000)
+      } else {
+        alert('Error recalculating documents: ' + data.error)
+      }
+    } catch (e: any) {
+      console.error('Failed to recalculate documents:', e)
+      alert('Error recalculating documents with new VIG rates.')
+    } finally {
+      setRecalculatingId(null)
+      setRecalculatingAll(false)
+    }
+  }
+
   const handleSaveAll = async () => {
     try {
       setSaving(true)
@@ -131,28 +170,68 @@ export default function VigManagementBuilder() {
           </p>
         </div>
 
-        <button
-          onClick={handleSaveAll}
-          disabled={saving}
-          className={`px-6 py-3 rounded-xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 shadow-xl ${
-            saveSuccess 
-              ? 'bg-emerald-500 text-black shadow-emerald-500/20' 
-              : 'bg-emerald-600 hover:bg-emerald-500 text-white hover:scale-[1.02] active:scale-95'
-          }`}
-        >
-          {saving ? (
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : saveSuccess ? (
-            <>
-              <FiCheck size={18} /> Saved Successfully!
-            </>
-          ) : (
-            <>
-              <FiSave size={18} /> Save All VIG Targets
-            </>
-          )}
-        </button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-3 py-1.5">
+            <span className="text-[11px] font-bold text-neutral-400 uppercase">Month Filter:</span>
+            <select
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+              className="bg-transparent text-white text-xs font-mono font-bold focus:outline-none cursor-pointer"
+            >
+              <option value="" className="bg-neutral-900 text-white">All Months (Everything)</option>
+              <option value="2025-01" className="bg-neutral-900 text-white">Jan 2025</option>
+              <option value="2025-02" className="bg-neutral-900 text-white">Feb 2025</option>
+              <option value="2025-03" className="bg-neutral-900 text-white">Mar 2025</option>
+              <option value="2025-04" className="bg-neutral-900 text-white">Apr 2025</option>
+              <option value="2025-05" className="bg-neutral-900 text-white">May 2025</option>
+              <option value="2025-06" className="bg-neutral-900 text-white">Jun 2025</option>
+              <option value="2025-07" className="bg-neutral-900 text-white">Jul 2025</option>
+            </select>
+          </div>
+
+          <button
+            onClick={() => handleRecalculateDocuments()}
+            disabled={recalculatingAll}
+            className="px-4 py-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95"
+            title="Recalculate all documents across reps with updated VIG rates"
+          >
+            {recalculatingAll ? (
+              <div className="w-4 h-4 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+            ) : (
+              <FiRefreshCw size={14} />
+            )}
+            Re-run All Documents VIG
+          </button>
+
+          <button
+            onClick={handleSaveAll}
+            disabled={saving}
+            className={`px-6 py-3 rounded-xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 shadow-xl ${
+              saveSuccess 
+                ? 'bg-emerald-500 text-black shadow-emerald-500/20' 
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white hover:scale-[1.02] active:scale-95'
+            }`}
+          >
+            {saving ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : saveSuccess ? (
+              <>
+                <FiCheck size={18} /> Saved Successfully!
+              </>
+            ) : (
+              <>
+                <FiSave size={18} /> Save All VIG Targets
+              </>
+            )}
+          </button>
+        </div>
       </div>
+
+      {recalcMessage && (
+        <div className="p-4 bg-emerald-950/40 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2 shadow-lg animate-in fade-in duration-200">
+          <FiCheck size={16} /> {recalcMessage}
+        </div>
+      )}
 
       {/* Global Controls & Presets */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -253,6 +332,7 @@ export default function VigManagementBuilder() {
                 <th className="py-3.5 px-4">VIG Mode & Rate</th>
                 <th className="py-3.5 px-4">Daily Dead Profit Goal</th>
                 <th className="py-3.5 px-4">Daily Subtotal Goal</th>
+                <th className="py-3.5 px-4 text-center">Recalculate VIG</th>
                 <th className="py-3.5 px-6 text-right">Est. Monthly Goal (22 Workdays)</th>
               </tr>
             </thead>
@@ -343,6 +423,23 @@ export default function VigManagementBuilder() {
                           className="w-full bg-black/40 border border-white/15 rounded-xl pl-7 pr-3 py-2 text-cyan-300 font-mono font-bold text-xs focus:outline-none focus:border-cyan-400"
                         />
                       </div>
+                    </td>
+
+                    {/* Recalculate Rep Documents Button */}
+                    <td className="py-4 px-4 text-center">
+                      <button
+                        onClick={() => handleRecalculateDocuments(rep.id)}
+                        disabled={recalculatingId === rep.id}
+                        className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 mx-auto active:scale-95 shadow"
+                        title={`Recalculate all documents for ${rep.name}`}
+                      >
+                        {recalculatingId === rep.id ? (
+                          <div className="w-3.5 h-3.5 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+                        ) : (
+                          <FiRefreshCw size={12} />
+                        )}
+                        <span>Re-run</span>
+                      </button>
                     </td>
 
                     {/* Monthly Preview */}
