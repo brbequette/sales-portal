@@ -51,9 +51,13 @@ export function InvoiceFinancialBreakdown({
 }: InvoiceFinancialBreakdownProps) {
   const [showItemBreakdown, setShowItemBreakdown] = useState(false)
 
-  // Extract from customFields if missing
+  // Extract exact custom field by label name (strict match to avoid matching PROFIT MARGIN % as PROFIT)
   const getCustomField = (keyStr: string): number | null => {
-    const found = customFields?.find((f) => f.label?.toUpperCase().includes(keyStr))
+    const targetKey = keyStr.toUpperCase()
+    const found = customFields?.find((f) => {
+      const label = (f.label || "").toUpperCase().trim()
+      return label === targetKey || label === `${targetKey} ($)` || label === `RECALCULATED ${targetKey}`
+    })
     if (found && found.value != null && !isNaN(parseFloat(found.value))) {
       return parseFloat(found.value)
     }
@@ -65,16 +69,18 @@ export function InvoiceFinancialBreakdown({
   // Resolve VIG Rate (1.0 for Montgomery Morgan, custom field fallback, or default 1.3)
   const resolvedVigRate = isMontgomery ? 1.0 : (vigRate ?? getCustomField("SALESPERSON VIG") ?? 1.3)
   
-  // Resolve Costs & Profit
+  // Resolve Costs
   const resolvedDeadCostTotal = deadCostTotal ?? getCustomField("DEAD COST TOTAL") ?? (subTotal * 0.6)
   const resolvedDeadCostSubject = deadCostSubjectToVig ?? getCustomField("DEAD COST SUBJECT TO VIG") ?? Math.max(0, resolvedDeadCostTotal - deadCostNoVig)
   const resolvedDeadCostPlusVig = deadCostPlusVig ?? getCustomField("DEAD COST PLUS VIG") ?? (resolvedDeadCostSubject * resolvedVigRate + deadCostNoVig)
   
-  const resolvedProfit = profit ?? getCustomField("PROFIT") ?? (subTotal - resolvedDeadCostPlusVig - ccFees - additionalCosts)
-  const resolvedMargin = marginPercent ?? (subTotal > 0 ? (resolvedProfit / subTotal) * 100 : 0)
+  // Net Profit MUST ALWAYS be mathematically derived as: Subtotal - (Dead Cost + VIG) - CC Fees - Additional Costs
+  const calculatedProfit = subTotal - resolvedDeadCostPlusVig - ccFees - additionalCosts
+  const resolvedProfit = (subTotal > 0 && !isNaN(calculatedProfit)) ? calculatedProfit : (profit ?? 0)
+  const resolvedMargin = subTotal > 0 ? (resolvedProfit / subTotal) * 100 : 0
   
   const resolvedCommissionPct = commissionPct ?? getCustomField("COMMISSION FROM PROFIT") ?? 50
-  const resolvedCommission = salesCommission ?? getCustomField("SALES COMMISSION") ?? (resolvedProfit > 0 ? resolvedProfit * (resolvedCommissionPct / 100) : 0)
+  const resolvedCommission = salesCommission ?? (resolvedProfit > 0 ? resolvedProfit * (resolvedCommissionPct / 100) : 0)
 
   return (
     <div className="glass-panel border border-white/10 rounded-2xl p-5 bg-neutral-900/80 text-white space-y-6 shadow-xl">
