@@ -62,11 +62,27 @@ export function DocumentLifecycle({ zohoId, type, onNavigateDoc }: DocumentLifec
 
   const openDoc = (docType: string, data: any) => {
     if (!data) return
-    const id = data.zohoId || data.id
+    const id = data.zohoId || data.id || data.package_id || data.payment_id || data.purchaseorder_id
+
+    if (docType === 'Package' && (data.package_id || data.id)) {
+      window.open(`https://books.zoho.com/app/685934575#/packages/${data.package_id || data.id}`, '_blank')
+      return
+    }
+
+    if (docType === 'Payment' && (data.payment_id || data.id)) {
+      window.open(`https://books.zoho.com/app/685934575#/customerpayments/${data.payment_id || data.id}`, '_blank')
+      return
+    }
+
+    if (docType === 'Purchase Order' && (data.purchaseorder_id || data.id)) {
+      window.open(`https://books.zoho.com/app/685934575#/purchaseorders/${data.purchaseorder_id || data.id}`, '_blank')
+      return
+    }
+
     if (onNavigateDoc && id) {
       onNavigateDoc(docType as any, id)
     } else {
-      toast.success(`Document Type: ${docType}\nNumber: ${data.items?.estimateNumber || data.items?.salesOrderNumber || data.items?.invoiceNumber || data.packageNumber || data.paymentNumber}\nZoho ID: ${data.zohoId}`)
+      toast.success(`Document Type: ${docType}\nNumber: ${data.items?.estimateNumber || data.items?.salesOrderNumber || data.items?.invoiceNumber || data.packageNumber || data.paymentNumber}\nZoho ID: ${data.zohoId || id}`)
     }
   }
 

@@ -732,18 +732,18 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 )}
               </div>
 
-              {/* â”€â”€ Payments Made (Zoho Books) â”€â”€ */}
+              {/* ─── Payments Made (Zoho Books) ─── */}
               {displayData?.payments && displayData.payments.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-white/10">
                   <h4 className="text-[10px] text-emerald-400 uppercase font-bold tracking-wider mb-2">Payments Applied</h4>
                   <div className="flex flex-col gap-1.5">
                     {displayData.payments.map((pmt: any) => (
-                      <div key={pmt.payment_id} className="flex justify-between items-center bg-black/20 p-2 rounded-lg border border-white/5">
+                      <div key={pmt.payment_id || pmt.id} className="flex justify-between items-center bg-black/20 p-2.5 rounded-lg border border-white/5">
                         <div>
                           <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                            ${parseFloat(pmt.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            ${parseFloat(pmt.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             {pmt.payment_mode && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 uppercase tracking-wider">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 uppercase tracking-wider font-bold">
                                 {pmt.payment_mode}
                               </span>
                             )}
@@ -752,13 +752,24 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                             {pmt.date} {pmt.reference_number ? `| Ref: ${pmt.reference_number}` : ''}
                           </div>
                         </div>
+
+                        {pmt.payment_id && (
+                          <a
+                            href={`https://books.zoho.com/app/685934575#/customerpayments/${pmt.payment_id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 hover:underline bg-emerald-950/40 border border-emerald-500/30 px-2 py-1 rounded transition-colors"
+                          >
+                            Payment ↗
+                          </a>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* â”€â”€ Shipping Cost Flag â”€â”€ */}
+              {/* ─── Shipping Cost Flag ─── */}
               {currentType === "Invoice" && !isVoided && displayData?.shipping_charge !== undefined && parseFloat(displayData.shipping_charge || 0) === 0 && statusLower !== 'draft' && (
                 <div className="mt-3 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 animate-pulse">
                   <span className="text-amber-400 text-lg">⚠</span>
@@ -770,42 +781,92 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               )}
             </div>
 
-            {/* â”€â”€ Tracking & Fulfillment â”€â”€ */}
+            {/* ─── Tracking & Fulfillment ─── */}
             {((displayData.packages && displayData.packages.length > 0) || (displayData.dropshipments && displayData.dropshipments.length > 0)) && (
               <div className="pt-3 border-t border-white/10">
                 <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><FiTruck className="text-sky-400 shrink-0" /> Tracking &amp; Fulfillment</h3>
                 <div className="flex flex-col gap-2">
-                  {displayData.packages?.map((pkg: any) => (
-                    <div key={pkg.id || pkg.packageNumber} className="glass-panel border border-white/10 rounded-lg p-3 flex justify-between items-center">
-                      <div>
-                        <div className="text-sm font-bold text-white flex items-center gap-2">
-                          PKG: {pkg.packageNumber || pkg.trackingNumber || 'Pending'}
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${pkg.status?.toLowerCase() === 'shipped' || pkg.status?.toLowerCase() === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
-                            {pkg.status || 'Packaged'}
-                          </span>
-                        </div>
-                        <div className="text-xs text-neutral-400 mt-1">
-                          Carrier: <span className="text-neutral-200">{pkg.carrier || '—'}</span> | 
-                          Tracking: <span className="font-mono text-neutral-300">{pkg.trackingNumber || '—'}</span>
+                  {displayData.packages?.map((pkg: any) => {
+                    const trackingNumber = pkg.trackingNumber || pkg.tracking_number
+                    const carrier = pkg.carrier || pkg.shipment_carrier || 'Carrier'
+                    const packageId = pkg.package_id || pkg.id
+                    const trackUrl = trackingNumber ? (
+                      carrier.toLowerCase().includes('fedex') ? `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(trackingNumber)}` :
+                      carrier.toLowerCase().includes('ups') ? `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingNumber)}` :
+                      carrier.toLowerCase().includes('usps') ? `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}` :
+                      `https://www.google.com/search?q=tracking+${encodeURIComponent(trackingNumber)}`
+                    ) : null
+
+                    return (
+                      <div key={pkg.id || pkg.packageNumber} className="glass-panel border border-white/10 rounded-lg p-3 flex justify-between items-center">
+                        <div>
+                          <div className="text-sm font-bold text-white flex items-center gap-2">
+                            PKG: {packageId ? (
+                              <a
+                                href={`https://books.zoho.com/app/685934575#/packages/${packageId}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sky-400 hover:text-sky-300 hover:underline flex items-center gap-1"
+                              >
+                                {pkg.packageNumber || packageId} <FiExternalLink size={11} />
+                              </a>
+                            ) : (
+                              pkg.packageNumber || 'Pending'
+                            )}
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${pkg.status?.toLowerCase() === 'shipped' || pkg.status?.toLowerCase() === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                              {pkg.status || 'Packaged'}
+                            </span>
+                          </div>
+                          <div className="text-xs text-neutral-400 mt-1">
+                            Carrier: <span className="text-neutral-200">{carrier}</span> | 
+                            Tracking: {trackUrl ? (
+                              <a
+                                href={trackUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-mono text-sky-400 hover:text-sky-300 hover:underline inline-flex items-center gap-1 ml-1"
+                              >
+                                {trackingNumber} <FiExternalLink size={10} />
+                              </a>
+                            ) : (
+                              <span className="font-mono text-neutral-300 ml-1">{trackingNumber || '—'}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                  {displayData.dropshipments?.map((ds: any) => (
-                    <div key={ds.id || ds.trackingNumber} className="glass-panel border border-white/10 rounded-lg p-3 flex justify-between items-center">
-                      <div>
-                        <div className="text-sm font-bold text-white flex items-center gap-2">
-                          DROPSHIP: {ds.vendorName || 'Vendor'}
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${ds.status?.toLowerCase() === 'shipped' || ds.status?.toLowerCase() === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                            {ds.status || 'Ordered'}
-                          </span>
-                        </div>
-                        <div className="text-xs text-neutral-400 mt-1">
-                          Tracking: <span className="font-mono text-neutral-300">{ds.trackingNumber || '—'}</span>
+                    )
+                  })}
+                  {displayData.dropshipments?.map((ds: any) => {
+                    const trackingNumber = ds.trackingNumber || ds.tracking_number
+                    const trackUrl = trackingNumber ? `https://www.google.com/search?q=tracking+${encodeURIComponent(trackingNumber)}` : null
+
+                    return (
+                      <div key={ds.id || ds.trackingNumber} className="glass-panel border border-white/10 rounded-lg p-3 flex justify-between items-center">
+                        <div>
+                          <div className="text-sm font-bold text-white flex items-center gap-2">
+                            DROPSHIP: {ds.vendorName || 'Vendor'}
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${ds.status?.toLowerCase() === 'shipped' || ds.status?.toLowerCase() === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                              {ds.status || 'Ordered'}
+                            </span>
+                          </div>
+                          <div className="text-xs text-neutral-400 mt-1">
+                            Tracking: {trackUrl ? (
+                              <a
+                                href={trackUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-mono text-sky-400 hover:text-sky-300 hover:underline inline-flex items-center gap-1 ml-1"
+                              >
+                                {trackingNumber} <FiExternalLink size={10} />
+                              </a>
+                            ) : (
+                              <span className="font-mono text-neutral-300 ml-1">{trackingNumber || '—'}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}
