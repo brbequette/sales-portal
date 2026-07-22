@@ -3,7 +3,8 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { toast } from 'react-hot-toast';
+import { toast } from 'react-hot-toast'
+import VigManagementBuilder from "@/components/VigManagementBuilder"
 
 export default function VigManagementPage() {
   const router = useRouter()
@@ -123,21 +124,17 @@ export default function VigManagementPage() {
   }
 
   if (loading) {
-    return <div className="p-8 text-center text-neutral-400">Loading VIG history...</div>
+    return <div className="p-8 text-center text-neutral-400">Loading VIG management...</div>
   }
 
   return (
     <div className="flex flex-col text-neutral-100 font-sans h-full">
       <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto safe-bottom">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">VIG Management</h1>
-            <p className="text-xs text-neutral-500 mt-1">Configure goals, override rates, and sync to Zoho Books.</p>
-          </div>
-        </header>
+        {/* Full VIG Management Builder (Global Recalculate & Presets) */}
+        <VigManagementBuilder />
 
-        {/* Rep Selector & Global Settings */}
-        <div className="glass-panel/50 border border-white/10 rounded-xl p-6 mb-8 backdrop-blur-md">
+        {/* Rep Selector & Historical Overrides Table */}
+        <div className="glass-panel/50 border border-white/10 rounded-xl p-6 backdrop-blur-md">
           <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">
             <div className="flex-1">
               <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest block mb-2">Select Sales Rep</label>
