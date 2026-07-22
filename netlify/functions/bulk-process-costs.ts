@@ -71,11 +71,14 @@ export const handler: Handler = async (event) => {
     // ── Status filter ──────────────────────────────────────────────────────
     let statusFilter = ""
     if (entity === "invoices") {
-      if (filter === "unpaid") statusFilter = "&status=sent,overdue,partially_paid"
-      else if (filter === "recent") {
+      if (filter === "unpaid") {
+        // filter_by=Status.Unpaid returns sent + overdue + partially_paid
+        statusFilter = "&filter_by=Status.Unpaid"
+      } else if (filter === "recent") {
         const since = new Date(); since.setDate(since.getDate() - 90)
         statusFilter = `&date_start=${since.toISOString().split("T")[0]}`
       }
+      // filter === "all" → no filter
     } else if (filter === "recent") {
       const since = new Date(); since.setDate(since.getDate() - 90)
       statusFilter = `&date_start=${since.toISOString().split("T")[0]}`
