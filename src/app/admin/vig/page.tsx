@@ -303,7 +303,7 @@ export default function VigManagementPage() {
                         </thead>
                         <tbody className="divide-y divide-neutral-800/40">
                           {historicalRates.map((h) => {
-                            const monthData = h.reps?.[rep.repId] || {
+                            const monthData = h.reps?.[rep.repId] || h.reps?.[rep.id] || (rep.repName ? h.reps?.[rep.repName] : null) || (rep.repName ? h.reps?.[rep.repName.toLowerCase().trim()] : null) || {
                               metric: "PROFIT",
                               target: 20000,
                               subtotalGoal: 40000,

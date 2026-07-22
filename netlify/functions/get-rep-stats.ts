@@ -652,7 +652,7 @@ export const handler: Handler = async (event) => {
           }
         }
         
-        repVigs[u.id] = { 
+        const repVigEntry = { 
           metric: vigGoal.metric,
           target, 
           subtotalGoal: vigGoal.subtotalGoal || 40000,
@@ -664,6 +664,13 @@ export const handler: Handler = async (event) => {
           manualVigRate: vigGoal.manualVigRate || null,
           lastSyncedVigRate: vigGoal.lastSyncedVigRate !== undefined ? vigGoal.lastSyncedVigRate : null,
           metGoal
+        }
+
+        repVigs[u.id] = repVigEntry
+        if (u.name) {
+          repVigs[u.name] = repVigEntry
+          repVigs[u.name.toLowerCase().trim()] = repVigEntry
+          repVigs[u.name.replace(/\s+/g, ' ').trim().toLowerCase()] = repVigEntry
         }
       })
 
