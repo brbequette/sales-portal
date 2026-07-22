@@ -73,6 +73,24 @@ export const handler: Handler = async (event) => {
     
     const invoices = [...Array.from(seenInvoiceNumbers.values()), ...invoicesWithoutNumber]
 
+    // Fetch Sales Orders to include Sales Order based commission records
+    const rawSalesOrders = await prisma.salesOrder.findMany({
+      where: {
+        ...(targetYear !== "all" ? { orderDate: dateFilter } : {}),
+        status: { notIn: ['Void', 'void', 'Draft', 'draft', 'Cancelled', 'cancelled'] }
+      },
+      select: {
+        id: true,
+        zohoId: true,
+        amount: true,
+        status: true,
+        orderDate: true,
+        items: true,
+        account: { select: { name: true, zohoId: true } }
+      },
+      orderBy: { orderDate: "desc" }
+    })
+
     // --- Pipeline source: DEALS only (estimates/SOs for activity metrics) ---
     const deals = await prisma.deal.findMany({
       where: targetYear !== "all" ? {
@@ -210,6 +228,74 @@ export const handler: Handler = async (event) => {
       }
     })
 
+    const seenSoIds = new Set(invoiceRecords.map(i => i.zohoId).filter(Boolean))
+
+    const salesOrderRecords = rawSalesOrders.map(so => {
+      const items = (so.items as any) || {}
+      const cfs = items.custom_fields || []
+      const salespersonName = items.salesperson as string | null
+      const subTotal = parseFloat(items.sub_total || items.subTotal) || so.amount || 0
+      const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
+
+      let deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || 0)
+      if (deadCost === 0 && lineItems.length > 0) {
+        deadCost = lineItems.reduce((sum: number, li: any) => {
+          const qty = parseFloat(li.quantity) || 1
+          const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
+          return sum + (qty * cost)
+        }, 0)
+      }
+
+      const docDate = so.orderDate ? new Date(so.orderDate) : new Date()
+      const year = docDate.getFullYear()
+      const isMontgomery = salespersonName?.toLowerCase().includes("montgomery") || salespersonName?.toLowerCase().includes("morgan")
+      
+      const vigRate = (year <= 2024 || isMontgomery) ? (isMontgomery ? 1.0 : 1.3) : parseFloat(items.vigRate || 1.3)
+      const deadCostPlusVig = deadCost * vigRate
+
+      const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
+      const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0)
+      
+      const initialProfit = subTotal - deadCostPlusVig - additionalCosts
+      const profit = subTotal - deadCostPlusVig - additionalCosts - ccFees
+
+      const matchedRep = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
+      const isPaid = FINAL_PAID_STATUSES.has((so.status || '').toLowerCase())
+
+      const upfront = Math.max(0, initialProfit * 0.25)
+      const finalTotalTarget = Math.max(0, profit * 0.50)
+
+      const final  = isPaid ? Math.max(0, finalTotalTarget - upfront) : 0
+      const future = !isPaid ? Math.max(0, finalTotalTarget - upfront) : 0
+      const total  = upfront + final
+
+      const soNumber = items.salesorder_number || items.salesorderNumber || so.zohoId || null
+
+      return {
+        id: so.id,
+        zohoId: so.zohoId,
+        invoiceNumber: soNumber ? `SO-${soNumber}` : null,
+        name: soNumber ? `${so.account?.name || 'Unknown'} | SO-${soNumber}` : (so.account?.name || 'Unknown'),
+        amount: parseFloat(items.sub_total) || so.amount || 0,
+        profit,
+        deadCost,
+        status: so.status || 'Pending',
+        isPaid,
+        daysOld: so.orderDate ? (Date.now() - so.orderDate.getTime()) / (1000 * 60 * 60 * 24) : 0,
+        isAtRisk: false,
+        issueDate: so.orderDate,
+        paymentDate: null,
+        repId: matchedRep?.id || salespersonName?.toLowerCase().trim() || "unassigned",
+        repName: matchedRep?.name || salespersonName || "Unassigned",
+        accountName: so.account?.name || "Unknown",
+        accountZohoId: so.account?.zohoId || null,
+        commission: { total, upfront, final, future, atRiskAmount: 0 },
+        type: "invoice" as const
+      }
+    }).filter(so => !so.zohoId || !seenSoIds.has(so.zohoId))
+
+    const allCommissionRecords = [...invoiceRecords, ...salesOrderRecords]
+
     // ── Build deal pipeline records (activity only, no commission) ───────
     const dealRecords = deals.map(deal => {
       const stage = (deal.stage || "").toLowerCase()
@@ -232,10 +318,10 @@ export const handler: Handler = async (event) => {
       }
     })
 
-    // ── Group invoice commissions by rep ─────────────────────────────────
+    // ── Group invoice & sales order commissions by rep ───────────────────
     const byRep: Record<string, any> = {}
 
-    for (const inv of invoiceRecords) {
+    for (const inv of allCommissionRecords) {
       const key = inv.repId
       if (!byRep[key]) {
         byRep[key] = {
@@ -377,8 +463,8 @@ export const handler: Handler = async (event) => {
     }
 
     const allInvoices = repId
-      ? invoiceRecords.filter(i => i.repId === repId)
-      : invoiceRecords
+      ? allCommissionRecords.filter(i => i.repId === repId)
+      : allCommissionRecords
 
     // ── Stats ────────────────────────────────────────────────────────────
     const stats = {
