@@ -99,6 +99,7 @@ export const handler: Handler = async (event) => {
 
     let successCount = 0
     let failCount = 0
+    let apiCallsCount = 0
 
     // Helper for throttling
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms))
@@ -120,21 +121,33 @@ export const handler: Handler = async (event) => {
       }
 
       if (matches && inv.zohoId) {
+        // Each invoice update requires 1-2 API calls (1 GET if uncached + 1 PUT)
         const ok = await updateCustomFieldInZoho("invoices", inv.zohoId as string, token as string, "cf_salesperson_vig", newVigRate)
+        apiCallsCount += 2
         if (ok) successCount++
         else failCount++
         
         // Add a small delay to prevent tripping Zoho Books rate limits
-        await delay(300)
+        await delay(250)
       }
     }
+
+    // Update MonthlyVigGoal tracking record in DB
+    await prisma.monthlyVigGoal.upsert({
+      where: { repId_monthKey: { repId, monthKey } },
+      update: { lastSyncedVigRate: parseFloat(newVigRate), lastSyncedAt: new Date() },
+      create: { repId, monthKey, manualVigRate: parseFloat(newVigRate), lastSyncedVigRate: parseFloat(newVigRate), lastSyncedAt: new Date() }
+    })
 
     return { 
       statusCode: 200, 
       headers: cors, 
       body: JSON.stringify({ 
         success: true, 
-        message: `Synced VIG ${newVigRate} to ${successCount} invoices (failed: ${failCount})` 
+        apiCallsCount,
+        successCount,
+        failCount,
+        message: `Synced VIG Rate (${newVigRate}x) for ${repUser.name} (${monthKey}) across ${successCount} invoice(s)! Required ${apiCallsCount} Zoho API calls.` 
       }) 
     }
 

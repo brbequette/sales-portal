@@ -112,7 +112,8 @@ export default function VigManagementPage() {
       })
       const data = await res.json()
       if (data.success) {
-        toast.success(data.message)
+        toast.success(data.message, { duration: 6000 })
+        fetchStats()
       } else {
         toast.error("Error: " + data.error)
       }
@@ -270,8 +271,15 @@ export default function VigManagementPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full border-2 ${isConstant ? 'border-indigo-500/30 text-indigo-400 bg-indigo-500/10' : isManual ? 'border-amber-500/30 text-amber-400 bg-amber-500/10' : monthData.vigRate === 1.3 ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-rose-500/30 text-rose-400 bg-rose-500/10'} font-black text-lg`}>
-                            {monthData.vigRate.toFixed(1)}
+                          <div className="flex flex-col items-center gap-1">
+                            <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full border-2 ${isConstant ? 'border-indigo-500/30 text-indigo-400 bg-indigo-500/10' : isManual ? 'border-amber-500/30 text-amber-400 bg-amber-500/10' : monthData.vigRate === 1.3 ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-rose-500/30 text-rose-400 bg-rose-500/10'} font-black text-lg`}>
+                              {monthData.vigRate.toFixed(1)}
+                            </div>
+                            {monthData.lastSyncedVigRate !== undefined && monthData.lastSyncedVigRate !== monthData.vigRate && (
+                              <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-semibold animate-pulse">
+                                🟡 Rate Changed
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4 text-right">
@@ -285,7 +293,9 @@ export default function VigManagementPage() {
                                 <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                 Syncing...
                               </>
-                            ) : "Push VIG to Zoho"}
+                            ) : (
+                              monthData.lastSyncedVigRate !== undefined && monthData.lastSyncedVigRate !== monthData.vigRate ? "Push New Rate to Books" : "Push VIG to Zoho"
+                            )}
                           </button>
                         </td>
                       </tr>

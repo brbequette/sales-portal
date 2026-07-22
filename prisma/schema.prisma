@@ -302,16 +302,18 @@ model Payout {
 }
 
 model MonthlyVigGoal {
-  id            String   @id @default(cuid())
-  monthKey      String
-  repId         String
-  metric        String   @default("PROFIT")
-  profitGoal    Float    @default(20000)
-  subtotalGoal  Float    @default(40000)
-  manualVigRate Float?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  rep           User     @relation(fields: [repId], references: [id], onDelete: Cascade)
+  id                String    @id @default(cuid())
+  monthKey          String
+  repId             String
+  metric            String    @default("PROFIT")
+  profitGoal        Float     @default(20000)
+  subtotalGoal      Float     @default(40000)
+  manualVigRate     Float?
+  lastSyncedVigRate Float?
+  lastSyncedAt      DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  rep               User      @relation(fields: [repId], references: [id], onDelete: Cascade)
 
   @@unique([repId, monthKey])
   @@index([repId])

@@ -580,7 +580,7 @@ export const handler: Handler = async (event) => {
       })
 
       // Build stats for each rep based on DB targets or defaults and prior-month carry-over VIG rate
-      const repVigs: Record<string, { metric: string, target: number, subtotalGoal: number, profitGoal: number, sales: number, profit: number, subtotal: number, vigRate: number, manualVigRate: number | null, metGoal: boolean }> = {}
+      const repVigs: Record<string, { metric: string, target: number, subtotalGoal: number, profitGoal: number, sales: number, profit: number, subtotal: number, vigRate: number, manualVigRate: number | null, lastSyncedVigRate: number | null, metGoal: boolean }> = {}
 
       users.forEach(u => {
         const dailyGoal = salesTargets[u.id] || 0;
@@ -645,6 +645,7 @@ export const handler: Handler = async (event) => {
           subtotal,
           vigRate,
           manualVigRate: vigGoal.manualVigRate || null,
+          lastSyncedVigRate: vigGoal.lastSyncedVigRate !== undefined ? vigGoal.lastSyncedVigRate : null,
           metGoal
         }
       })
