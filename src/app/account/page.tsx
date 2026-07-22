@@ -300,7 +300,9 @@ function OverviewPanel({
   const paidInvoices = invoices.filter((i: any) => i.status === "Paid")
   const overdueInvoices = invoices.filter((i: any) => i.status === "Overdue")
   const overdueTotal = overdueInvoices.reduce((s: number, i: any) => s + parseFloat(i.amount || 0), 0)
-  const recentInvoices = [...invoices].sort((a, b) => new Date(b.issueDate || 0).getTime() - new Date(a.issueDate || 0).getTime()).slice(0, 5)
+  const recentInvoices = [...invoices].sort((a, b) => new Date(b.issueDate || 0).getTime() - new Date(a.issueDate || 0).getTime())
+  const [showAllInvoices, setShowAllInvoices] = useState(false)
+  const displayedInvoices = showAllInvoices ? recentInvoices : recentInvoices.slice(0, 3)
 
   const label = (v: string) => (
     <span className="text-[9px] text-neutral-500 block uppercase tracking-widest font-semibold mb-0.5">{v}</span>
@@ -326,6 +328,47 @@ function OverviewPanel({
           </div>
         ))}
       </div>
+
+      {/* Recent Invoices — shown first for quick access */}
+      <AccordionSection title="Recent Invoices" icon={<FiDollarSign size={12} />} badge={invoices.length} defaultOpen>
+        <div className="divide-y divide-neutral-800">
+          {recentInvoices.length === 0 ? (
+            <div className="p-4 text-center text-neutral-600 text-xs italic">No invoices found</div>
+          ) : displayedInvoices.map((inv: any, idx: number) => (
+            <button
+              key={idx}
+              onClick={() => onViewInvoice(inv.zohoId)}
+              className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 text-left group"
+            >
+              <div>
+                <div className="text-xs font-bold text-white group-hover:text-sky-300 transition-colors">
+                  {(inv.items as any)?.invoiceNumber || (inv.items as any)?.invoice_number || inv.zohoId || "INV"}
+                </div>
+                <div className="text-[10px] text-neutral-500">
+                  {inv.issueDate ? new Date(inv.issueDate).toLocaleDateString(undefined, { timeZone: "UTC" }) : "-"}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs font-bold text-blue-400">${parseFloat(inv.amount || 0).toLocaleString()}</div>
+                <div className={`text-[9px] font-bold uppercase ${
+                  inv.status === "Paid" ? "text-emerald-400" : inv.status === "Overdue" ? "text-red-400" : "text-neutral-400"
+                }`}>{inv.status}</div>
+              </div>
+            </button>
+          ))}
+          {recentInvoices.length > 3 && (
+            <button
+              onClick={() => setShowAllInvoices(v => !v)}
+              className="w-full py-2 text-[10px] font-bold text-neutral-400 hover:text-sky-400 hover:bg-white/5 transition-all flex items-center justify-center gap-1.5"
+            >
+              {showAllInvoices
+                ? <><span>▲</span> Show Less</>
+                : <><span>▼</span> See More ({recentInvoices.length - 3} more)</>
+              }
+            </button>
+          )}
+        </div>
+      </AccordionSection>
 
       {/* Contact & Addresses */}
       <AccordionSection title="Contact & Addresses" icon={<FiMapPin size={12} />} defaultOpen>
@@ -431,35 +474,7 @@ function OverviewPanel({
         </div>
       </AccordionSection>
 
-      {/* Recent Invoices */}
-      <AccordionSection title="Recent Invoices" icon={<FiDollarSign size={12} />} badge={invoices.length} defaultOpen={false}>
-        <div className="divide-y divide-neutral-800">
-          {recentInvoices.length === 0 ? (
-            <div className="p-4 text-center text-neutral-600 text-xs italic">No invoices found</div>
-          ) : recentInvoices.map((inv: any, idx: number) => (
-            <button
-              key={idx}
-              onClick={() => onViewInvoice(inv.zohoId)}
-              className="w-full flex items-center justify-between px-3 py-2 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/60 transition-colors text-left"
-            >
-              <div>
-                <div className="text-xs font-bold text-white">
-                  {(inv.items as any)?.invoiceNumber || (inv.items as any)?.invoice_number || inv.zohoId || "INV"}
-                </div>
-                <div className="text-[10px] text-neutral-500">
-                  {inv.issueDate ? new Date(inv.issueDate).toLocaleDateString(undefined, { timeZone: "UTC" }) : "-"}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-xs font-bold text-blue-400">${parseFloat(inv.amount || 0).toLocaleString()}</div>
-                <div className={`text-[9px] font-bold uppercase ${
-                  inv.status === "Paid" ? "text-emerald-400" : inv.status === "Overdue" ? "text-red-400" : "text-neutral-400"
-                }`}>{inv.status}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </AccordionSection>
+      {/* Recent Invoices section moved to top — removed from here */}
 
       {/* Deals */}
       <AccordionSection title="Deals" icon={<FiClipboard size={12} />} badge={deals.length} defaultOpen={false}>
