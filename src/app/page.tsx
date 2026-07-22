@@ -23,8 +23,9 @@ import { SalesBoard } from "@/components/SalesBoard"
 import { DashboardView } from "@/components/DashboardView"
 import { DealPipeline } from "@/components/DealPipeline"
 import { ClockInModal } from "@/components/ClockInModal"
-import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand, FiTarget, FiBox, FiLayers, FiMonitor, FiEye } from "react-icons/fi"
+import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiMenu, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiUploadCloud, FiImage, FiTrash2, FiPaperclip, FiAlertCircle, FiDatabase, FiUserPlus, FiCommand, FiTarget, FiBox, FiLayers, FiMonitor, FiEye, FiSmartphone } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
+import { useCampaignProgress } from "@/components/CampaignProgressProvider"
 
 function formatLastCalled(dateStr: string | null) {
   if (!dateStr) return "Never called"
@@ -112,12 +113,8 @@ export default function Dashboard() {
   const [campaignChannel, setCampaignChannel] = useState<"SMS" | "EMAIL" | "WHATSAPP">("SMS")
   const [campaignText, setCampaignText] = useState("")
   const [campaignImageUrl, setCampaignImageUrl] = useState("")
-  const [campaignSending, setCampaignSending] = useState(false)
   const [campaignError, setCampaignError] = useState("")
   const [campaignSuccess, setCampaignSuccess] = useState("")
-  const [campaignProgress, setCampaignProgress] = useState(0)
-  const [campaignTotal, setCampaignTotal] = useState(0)
-  const cancelCampaignRef = useRef(false)
   const [zohoNumbers, setZohoNumbers] = useState<any[]>([])
   const [selectedZohoNumber, setSelectedZohoNumber] = useState("")
   const [campaignTemplates, setCampaignTemplates] = useState<any[]>([])
@@ -125,6 +122,16 @@ export default function Dashboard() {
   const [mediaAssets, setMediaAssets] = useState<any[]>([])
   const [loadingMedia, setLoadingMedia] = useState(false)
   const [showAssetSelector, setShowAssetSelector] = useState(false)
+  // Sample send
+  const [showSampleInput, setShowSampleInput] = useState(false)
+  const [samplePhone, setSamplePhone] = useState("")
+  const [sendingSample, setSendingSample] = useState(false)
+
+  // Campaign Progress from context
+  const { state: campaignState, start: startCampaign, cancel: cancelCampaign, sendSample, showModal: campaignModalFromPill, setShowModal: setCampaignModalFromPill } = useCampaignProgress()
+  const campaignSending = campaignState.status === 'running'
+  const campaignProgress = campaignState.progress
+  const campaignTotal = campaignState.total
 
   // AI Magic States
   const [aiPrompt, setAiPrompt] = useState("")
@@ -321,86 +328,55 @@ export default function Dashboard() {
 
   const handleSendCampaign = async (e: React.FormEvent) => {
     e.preventDefault()
-    setCampaignSending(true)
     setCampaignError("")
     setCampaignSuccess("")
-    setCampaignTotal(selectedAccountIds.length)
-    setCampaignProgress(0)
-    cancelCampaignRef.current = false
 
-    try {
-      const CHUNK_SIZE = 2
-      const chunks: string[][] = []
-      for (let i = 0; i < selectedAccountIds.length; i += CHUNK_SIZE) {
-        chunks.push(selectedAccountIds.slice(i, i + CHUNK_SIZE))
-      }
+    const result = await startCampaign({
+      accountIds: selectedAccountIds,
+      channel: campaignChannel,
+      text: campaignText,
+      imageUrl: campaignImageUrl,
+      campaignName,
+      fromNumber: selectedZohoNumber,
+      userId: currentUser?.id || "",
+      userEmail: currentUser?.email || "",
+    })
 
-      let blastId: string | null = null
-      let totalSuccess = 0
-      let totalFailed = 0
-      let i = 0
+    if (!result.success) {
+      setCampaignError(result.error || "Failed to start campaign.")
+      return
+    }
 
-      for (const chunk of chunks) {
-        if (cancelCampaignRef.current) {
-          setCampaignError("Campaign sending was cancelled. Sent so far: " + totalSuccess)
-          break
-        }
+    // Close modal — pill takes over
+    setShowCampaignModal(false)
+    setCampaignModalFromPill(false)
+    setSelectedAccountIds([])
+    setCampaignName("")
+    setCampaignText("")
+    setCampaignImageUrl("")
+    setShowSampleInput(false)
+    setSamplePhone("")
+    toast.success(`Campaign started! Sending to ${selectedAccountIds.length} customers.`)
+  }
 
-        const fetchRes = await fetch("/api/send-campaign", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            blastId,
-            accountIds: chunk,
-            channel: campaignChannel,
-            text: campaignText,
-            imageUrl: campaignImageUrl,
-            campaignName: campaignName,
-            fromNumber: selectedZohoNumber,
-            userId: currentUser?.id,
-            userEmail: currentUser?.email
-          })
-        })
-
-        const textRes = await fetchRes.text()
-        let data: any = {}
-        try {
-          data = JSON.parse(textRes)
-        } catch (e) {
-          console.error("Non-JSON response from server:", textRes)
-          throw new Error(`Server Error (${fetchRes.status} ${fetchRes.statusText}). If you attached a large image, it might be too big (limit is typically 1MB-4MB).`)
-        }
-        
-        if (!fetchRes.ok || !data.success) {
-          if (i === 0) throw new Error(data.message || `Failed to start campaign. (${fetchRes.status})`)
-          console.error("Chunk failed:", data.message)
-        } else {
-          if (!blastId && data.blastId) {
-            blastId = data.blastId
-          }
-          totalSuccess += data.count || 0
-          totalFailed += data.failedCount || 0
-        }
-        
-        i++
-        setCampaignProgress(Math.min(selectedAccountIds.length, i * CHUNK_SIZE))
-      }
-
-      setCampaignSuccess(`Campaign finished! Sent: ${totalSuccess}, Failed: ${totalFailed}`)
-      setTimeout(() => {
-        setSelectedAccountIds([])
-        setShowCampaignModal(false)
-        setCampaignName("")
-        setCampaignText("")
-        setCampaignImageUrl("")
-        setCampaignSuccess("")
-        setCampaignProgress(0)
-        setCampaignTotal(0)
-      }, 3000)
-    } catch (err: any) {
-      setCampaignError(err.message || "An error occurred while sending campaign.")
-    } finally {
-      setCampaignSending(false)
+  const handleSendSample = async () => {
+    if (!samplePhone || (!campaignText && !campaignImageUrl)) return
+    setSendingSample(true)
+    const result = await sendSample({
+      testPhone: samplePhone,
+      channel: campaignChannel,
+      text: campaignText,
+      imageUrl: campaignImageUrl,
+      fromNumber: selectedZohoNumber,
+      userId: currentUser?.id || "",
+      userEmail: currentUser?.email || "",
+    })
+    setSendingSample(false)
+    if (result.success) {
+      toast.success(result.message || `Test sent to ${samplePhone}`)
+      setShowSampleInput(false)
+    } else {
+      toast.error(result.message || "Failed to send test message")
     }
   }
 
@@ -2826,9 +2802,21 @@ export default function Dashboard() {
       )}
 
       {/* Campaign Composer Modal */}
-      {showCampaignModal && createPortal(
+      {(showCampaignModal || campaignModalFromPill) && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCampaignModal(false)} />
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => {
+              // If sending, just minimize (don't cancel)
+              if (campaignSending) {
+                setShowCampaignModal(false)
+                setCampaignModalFromPill(false)
+              } else {
+                setShowCampaignModal(false)
+                setCampaignModalFromPill(false)
+              }
+            }}
+          />
           <div className="relative w-full max-w-lg glass-panel border border-[var(--border)] rounded-xl flex flex-col shadow-[0_22px_70px_rgba(0,0,0,0.38)] text-white z-[9999] p-6 max-h-[90vh] overflow-y-auto">
             
             {/* Header */}
@@ -2842,12 +2830,23 @@ export default function Dashboard() {
                   Sending message to <span className="text-emerald-400 font-semibold">{selectedAccountIds.length}</span> selected {selectedAccountIds.length === 1 ? 'customer' : 'customers'}
                 </p>
               </div>
-              <button 
-                onClick={() => setShowCampaignModal(false)} 
-                className="text-neutral-400 hover:text-white glass-panel p-1.5 rounded-full transition-colors"
-              >
-                <FiX size={16} />
-              </button>
+              {/* Close / Minimize button */}
+              {campaignSending ? (
+                <button
+                  onClick={() => { setShowCampaignModal(false); setCampaignModalFromPill(false) }}
+                  title="Minimize — campaign keeps running"
+                  className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 rounded-lg transition-colors"
+                >
+                  <span>⬇</span> Minimize
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setShowCampaignModal(false); setCampaignModalFromPill(false) }}
+                  className="text-neutral-400 hover:text-white glass-panel p-1.5 rounded-full transition-colors"
+                >
+                  <FiX size={16} />
+                </button>
+              )}
             </div>
 
             {/* Success / Error Messages */}
@@ -2866,20 +2865,23 @@ export default function Dashboard() {
             
             {campaignSending && campaignTotal > 0 && (
               <div className="mb-4">
-                 <div className="flex justify-between text-xs text-neutral-400 mb-1">
-                   <span>Sending...</span>
-                   <span>{campaignProgress} / {campaignTotal}</span>
-                 </div>
-                 <div className="w-full bg-neutral-800 rounded-full h-1.5 overflow-hidden mb-2">
-                   <div className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${(campaignProgress / campaignTotal) * 100}%` }}></div>
-                 </div>
-                 <button
-                   type="button"
-                   onClick={() => { cancelCampaignRef.current = true }}
-                   className="text-[10px] uppercase font-bold tracking-wider text-red-500 hover:text-red-400 py-1 transition-colors"
-                 >
-                   Cancel Remaining
-                 </button>
+                <div className="flex justify-between text-xs text-neutral-400 mb-1">
+                  <span className="text-orange-300 font-semibold">📨 Sending in background...</span>
+                  <span>{campaignProgress.toLocaleString()} / {campaignTotal.toLocaleString()}</span>
+                </div>
+                <div className="w-full bg-neutral-800 rounded-full h-1.5 overflow-hidden mb-2">
+                  <div className="campaign-shimmer h-1.5 rounded-full transition-all duration-500" style={{ width: `${(campaignProgress / campaignTotal) * 100}%` }} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-neutral-500">{campaignState.sentCount} sent · {campaignState.failedCount} failed</span>
+                  <button
+                    type="button"
+                    onClick={cancelCampaign}
+                    className="text-[10px] uppercase font-bold tracking-wider text-red-500 hover:text-red-400 py-1 transition-colors"
+                  >
+                    Stop Campaign
+                  </button>
+                </div>
               </div>
             )}
 
@@ -3129,30 +3131,72 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Buttons */}
-              <div className="pt-4 flex justify-end gap-2 border-t border-[var(--border)]">
-                <button 
-                  type="button" 
-                  disabled={campaignSending}
-                  onClick={() => setShowCampaignModal(false)}
-                  className="px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-sm font-semibold transition-colors disabled:opacity-50"
+              {/* Send Test */}
+              <div className="pt-4 border-t border-[var(--border)]">
+                {showSampleInput ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2">
+                      <FiSmartphone size={14} className="text-neutral-500 shrink-0" />
+                      <input
+                        type="tel"
+                        value={samplePhone}
+                        onChange={e => setSamplePhone(e.target.value)}
+                        placeholder="+1 (480) 555-1234"
+                        className="flex-1 bg-transparent text-sm text-white placeholder-neutral-600 outline-none"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSendSample}
+                      disabled={sendingSample || !samplePhone || (!campaignText && !campaignImageUrl)}
+                      className="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white transition-colors disabled:opacity-50"
+                    >
+                      {sendingSample ? 'Sending...' : 'Send'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowSampleInput(false)}
+                      className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-xs font-semibold transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setShowSampleInput(true); setSamplePhone(currentUser?.phone || '') }}
+                    disabled={!campaignText && !campaignImageUrl}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors py-0.5"
+                  >
+                    <FiSmartphone size={13} />
+                    Send Test Message
+                  </button>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowCampaignModal(false); setCampaignModalFromPill(false) }}
+                  className="px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-sm font-semibold transition-colors"
                 >
-                  Cancel
+                  {campaignSending ? 'Minimize' : 'Cancel'}
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={campaignSending || (!campaignText && !campaignImageUrl) || (dbUser?.canSendCampaigns === false && currentUser?.role !== 'ADMIN')}
                   onClick={() => {
                     if (dbUser?.canSendCampaigns === false && currentUser?.role !== 'ADMIN') {
                       toast.error("You do not have permission to send campaigns. Please contact an administrator.");
                     }
                   }}
-                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-bold text-white  shadow-emerald-950/20 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-bold text-white shadow-emerald-950/20 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {campaignSending ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Sending...
+                      Running...
                     </>
                   ) : (
                     <>

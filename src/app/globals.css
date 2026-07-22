@@ -381,3 +381,26 @@ p, span, a, h1, h2, h3, h4, h5, h6, li, td, th, label, div {
 .status-sent { background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.3); color: #38bdf8; }
 .status-partial { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #f59e0b; }
 
+/* ── Campaign Progress Pill ── */
+@keyframes slideDownIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes campaignShimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.campaign-shimmer {
+  background: linear-gradient(
+    90deg,
+    #f97316 0%,
+    #fb923c 40%,
+    #fde68a 50%,
+    #fb923c 60%,
+    #f97316 100%
+  );
+  background-size: 200% auto;
+  animation: campaignShimmer 2s linear infinite;
+}

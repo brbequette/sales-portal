@@ -42,11 +42,13 @@ export const handler: Handler = async (event) => {
       rawUsers,
       visibleRepsSetting,
       collectionsManagerSetting,
-      payouts
-    ]: [any[], any[], any[], any[], any, any, any[]] = await Promise.all([
+      payouts,
+      allVigGoals,
+      allVigUsers
+    ]: [any[], any[], any[], any[], any, any, any[], any[], any[]] = await Promise.all([
       prisma.invoice.findMany({
         where: {
-          ...(targetYear !== "all" && { createdAt: dateFilter }),
+          ...(targetYear !== "all" && { issueDate: dateFilter }),
           status: { notIn: Array.from(SKIP_STATUSES) }
         },
         select: {
@@ -54,11 +56,12 @@ export const handler: Handler = async (event) => {
           zohoId: true,
           amount: true,
           status: true,
+          issueDate: true,
           createdAt: true,
           items: true,
           account: { select: { name: true, zohoId: true } }
         },
-        orderBy: { createdAt: "desc" }
+        orderBy: { issueDate: "desc" }
       }).catch(() => []),
       prisma.salesOrder.findMany({
         where: {
@@ -100,6 +103,14 @@ export const handler: Handler = async (event) => {
       prisma.payout.findMany({
         where: payoutWhere,
         orderBy: { date: "desc" }
+      }).catch(() => []),
+      // Fetch all monthly VIG goals to resolve correct VIG rate per rep/month
+      prisma.monthlyVigGoal.findMany({
+        select: { repId: true, monthKey: true, manualVigRate: true, lastSyncedVigRate: true }
+      }).catch(() => []),
+      // Fetch all users with VIG override settings
+      prisma.user.findMany({
+        select: { id: true, name: true, constantVigEnabled: true, constantVigValue: true }
       }).catch(() => [])
     ])
 
@@ -108,6 +119,69 @@ export const handler: Handler = async (event) => {
     let users = rawUsers
     if (!showHidden && !repId && visibleReps.length > 0) {
       users = users.filter(u => visibleReps.includes(u.id))
+    }
+
+    // ── VIG Rate Resolution Helpers ─────────────────────────────────────
+    // Build lookup: repId -> Map<monthKey, vigRate>
+    const vigGoalMap = new Map<string, Map<string, number>>()
+    for (const goal of allVigGoals) {
+      const rate = goal.manualVigRate ?? goal.lastSyncedVigRate
+      if (rate != null && !isNaN(rate)) {
+        if (!vigGoalMap.has(goal.repId)) vigGoalMap.set(goal.repId, new Map())
+        vigGoalMap.get(goal.repId)!.set(goal.monthKey, rate)
+      }
+    }
+    // Build lookup: repId -> constant vig override
+    const vigUserMap = new Map<string, { constantVigEnabled: boolean; constantVigValue: number | null }>()
+    for (const u of allVigUsers) {
+      vigUserMap.set(u.id, { constantVigEnabled: !!u.constantVigEnabled, constantVigValue: u.constantVigValue ?? null })
+    }
+    // Build reverse lookup: salesperson name (lowercase) -> userId
+    const nameToUserId = new Map<string, string>()
+    for (const u of allVigUsers) {
+      if (u.name) nameToUserId.set(u.name.toLowerCase().trim(), u.id)
+    }
+
+    /**
+     * Resolve the correct VIG rate for a rep on a given invoice date.
+     * Priority:
+     *   1. cf_salesperson_vig field stored on the invoice (set by sync-vig-to-zoho)
+     *   2. User's constant VIG override (constantVigEnabled + constantVigValue)
+     *   3. MonthlyVigGoal for that rep's month
+     *   4. Default 1.3 (company baseline)
+     */
+    function resolveVigRate(
+      salespersonName: string | null,
+      matchedRepId: string | null,
+      docDate: Date,
+      rawVigField: any,
+      isMontgomery: boolean
+    ): number {
+      // Montgomery always 1.0
+      if (isMontgomery) return 1.0
+
+      // Historical: pre-2025 everyone was 1.3
+      if (docDate.getFullYear() <= 2024) return 1.3
+
+      // 1. Try reading cf_salesperson_vig from the invoice JSON
+      const fieldVal = parseFloat(rawVigField)
+      if (!isNaN(fieldVal) && fieldVal >= 1.0) return fieldVal
+
+      // 2. Constant VIG override on the user record
+      if (matchedRepId) {
+        const userVig = vigUserMap.get(matchedRepId)
+        if (userVig?.constantVigEnabled && userVig.constantVigValue != null && !isNaN(userVig.constantVigValue)) {
+          return userVig.constantVigValue
+        }
+
+        // 3. MonthlyVigGoal for the month this invoice was issued
+        const monthKey = `${docDate.getFullYear()}-${String(docDate.getMonth() + 1).padStart(2, '0')}`
+        const monthlyRate = vigGoalMap.get(matchedRepId)?.get(monthKey)
+        if (monthlyRate != null && !isNaN(monthlyRate) && monthlyRate >= 1.0) return monthlyRate
+      }
+
+      // 4. Default baseline
+      return 1.3
     }
 
     // Deduplicate by invoiceNumber
@@ -152,49 +226,66 @@ export const handler: Handler = async (event) => {
       const subTotal = parseFloat(items.sub_total || items.subTotal) || inv.amount || 0
       const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
 
-      let deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || 0)
-      if (deadCost === 0 && lineItems.length > 0) {
+      // Dead cost: try all known Zoho field name variants, then fall back to line item costs, then 50% estimate
+      let deadCost = parseFloat(
+        items.deadCostTotal || items.dead_cost_total || items.deadCost ||
+        items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted ||
+        items.total_dead_cost || 0
+      )
+      if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
         deadCost = lineItems.reduce((sum: number, li: any) => {
           const qty = parseFloat(li.quantity) || 1
           const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
           return sum + (qty * cost)
         }, 0)
       }
-      if (deadCost === 0 && subTotal > 0) {
+      if ((isNaN(deadCost) || deadCost === 0) && subTotal > 0) {
         deadCost = subTotal * 0.50
       }
+      if (isNaN(deadCost)) deadCost = 0
 
-      const docDate = inv.createdAt ? new Date(inv.createdAt) : (items.date ? new Date(items.date) : new Date())
-      const year = docDate.getFullYear()
+      // Use issueDate for VIG rate resolution (prefer issueDate, fall back to createdAt)
+      const docDate = inv.issueDate ? new Date(inv.issueDate) : (inv.createdAt ? new Date(inv.createdAt) : (items.date ? new Date(items.date) : new Date()))
       const isMontgomery = salespersonName?.toLowerCase().includes("montgomery") || salespersonName?.toLowerCase().includes("morgan")
-      
-      // Historical VIG Rate Rules:
-      // - Up to end of 2024: Monty = 1.0, Everyone else = 1.3
-      // - 2025 onwards: Monty = 1.0, Everyone else = 1.3 baseline (or items.vigRate / 1.5 penalty)
-      const vigRate = (year <= 2024 || isMontgomery) ? (isMontgomery ? 1.0 : 1.3) : parseFloat(items.vigRate || 1.3)
-      const deadCostPlusVig = deadCost * vigRate
-
-      const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
-      const giftsCost = parseFloat(items.gifts || items.gifts_cost || items.giftCost || cfs.find((c: any) => (c.label || '').toUpperCase().includes('GIFT'))?.value || 0)
-      const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0)
-      
-      // 1. Initial Estimated Profit before end-of-deal CC fees (for Upfront 1st Payment)
-      const initialProfit = subTotal - deadCostPlusVig - additionalCosts - giftsCost
-
-      // 2. Final Net Profit after VIG, gifts, additional costs & end CC fees
-      const profit = subTotal - deadCostPlusVig - additionalCosts - giftsCost - ccFees
-
-      // Dead Profit is raw profit for Sales Goals (Subtotal - Dead Cost Total - Additional Costs - Gifts - CC Fees)
-      const deadProfit = subTotal - deadCost - additionalCosts - giftsCost - ccFees
 
       const matchedRep = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
+      const matchedRepId = matchedRep?.id || (salespersonName ? nameToUserId.get(salespersonName.toLowerCase().trim()) : null) || null
+
+      // VIG Rate: resolved from cf_salesperson_vig on invoice → user constant → MonthlyVigGoal → 1.3 default
+      // cf_salesperson_vig is the Zoho custom field pushed by sync-vig-to-zoho
+      const vigRate = resolveVigRate(
+        salespersonName,
+        matchedRepId,
+        docDate,
+        items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted,
+        !!isMontgomery
+      )
+      const deadCostPlusVig = deadCost * vigRate
+
+      const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
+      const giftsCost = parseFloat(items.gifts || items.gifts_cost || items.giftCost || cfs.find((c: any) => (c.label || '').toUpperCase().includes('GIFT'))?.value || 0) || 0
+      const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
+
+      // 1. Initial Estimated Profit (no CC fees — used for upfront commission calc)
+      const initialProfit = subTotal - deadCostPlusVig - additionalCosts - giftsCost
+
+      // 2. Final Net Profit after VIG, gifts, additional costs & end CC fees (commission base)
+      const profit = subTotal - deadCostPlusVig - additionalCosts - giftsCost - ccFees
+
+      // 3. Dead Profit = raw markup for Sales Goals (no VIG multiplier)
+      const deadProfit = subTotal - deadCost - additionalCosts - giftsCost - ccFees
+
       const isPaid = FINAL_PAID_STATUSES.has(inv.status)
 
-      // 3. Two-Stage 50/50 Commission Payout & 50/50 Negative Profit Loss Sharing:
-      // - Positive Profit: Rep earns 50% of After-VIG profit (25% upfront on creation + 25% final when paid)
-      // - Negative Profit (Loss): Rep & Company split loss 50/50 (25% upfront deduction on creation + 25% final deduction when paid)
-      const upfront = initialProfit * 0.25
-      const finalTotalTarget = profit * 0.50
+      // 4. Two-Stage 50/50 Commission (after-VIG profit basis):
+      //    - Upfront (25% of initialProfit): earned on invoice creation
+      //    - Final  (25% of profit, adjusted): earned when invoice is paid
+      const safeInitialProfit = isNaN(initialProfit) ? 0 : initialProfit
+      const safeProfit = isNaN(profit) ? 0 : profit
+      const safeDeadProfit = isNaN(deadProfit) ? 0 : deadProfit
+
+      const upfront = safeInitialProfit * 0.25
+      const finalTotalTarget = safeProfit * 0.50
 
       const final  = isPaid ? (finalTotalTarget - upfront) : 0
       const future = !isPaid ? (finalTotalTarget - upfront) : 0
@@ -203,7 +294,7 @@ export const handler: Handler = async (event) => {
       const invoiceNumber = items.invoiceNumber || items.invoice_number || null
       const paymentDate = items.paymentDate || null
 
-      const daysOld = inv.issueDate ? (Date.now() - inv.issueDate.getTime()) / (1000 * 60 * 60 * 24) : 0
+      const daysOld = inv.issueDate ? (Date.now() - new Date(inv.issueDate).getTime()) / (1000 * 60 * 60 * 24) : 0
       const isAtRisk = !isPaid && daysOld >= 120
       const atRiskAmount = isAtRisk ? (upfront + future) : 0
 
@@ -213,15 +304,17 @@ export const handler: Handler = async (event) => {
         invoiceNumber,
         name: invoiceNumber ? `${inv.account?.name || 'Unknown'} | INV-${invoiceNumber}` : (inv.account?.name || 'Unknown'),
         amount: parseFloat(items.sub_total) || inv.amount || 0,
-        profit,
+        profit: safeProfit,
+        deadProfit: safeDeadProfit,
         deadCost,
+        vigRate,
         status: inv.status,
         isPaid,
         daysOld,
         isAtRisk,
         issueDate: inv.issueDate,
         paymentDate,
-        repId: matchedRep?.id || salespersonName?.toLowerCase().trim() || "unassigned",
+        repId: matchedRepId || salespersonName?.toLowerCase().trim() || "unassigned",
         repName: matchedRep?.name || salespersonName || "Unassigned",
         accountName: inv.account?.name || "Unknown",
         accountZohoId: inv.account?.zohoId || null,
@@ -239,37 +332,54 @@ export const handler: Handler = async (event) => {
       const subTotal = parseFloat(items.sub_total || items.subTotal) || so.amount || 0
       const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
 
-      let deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || 0)
-      if (deadCost === 0 && lineItems.length > 0) {
+      let deadCost = parseFloat(
+        items.deadCostTotal || items.dead_cost_total || items.deadCost ||
+        items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted ||
+        items.total_dead_cost || 0
+      )
+      if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
         deadCost = lineItems.reduce((sum: number, li: any) => {
           const qty = parseFloat(li.quantity) || 1
           const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
           return sum + (qty * cost)
         }, 0)
       }
-      if (deadCost === 0 && subTotal > 0) {
+      if ((isNaN(deadCost) || deadCost === 0) && subTotal > 0) {
         deadCost = subTotal * 0.50
       }
+      if (isNaN(deadCost)) deadCost = 0
 
       const docDate = so.orderDate ? new Date(so.orderDate) : new Date()
-      const year = docDate.getFullYear()
       const isMontgomery = salespersonName?.toLowerCase().includes("montgomery") || salespersonName?.toLowerCase().includes("morgan")
-      
-      const vigRate = (year <= 2024 || isMontgomery) ? (isMontgomery ? 1.0 : 1.3) : parseFloat(items.vigRate || 1.3)
-      const deadCostPlusVig = deadCost * vigRate
-
-      const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
-      const giftsCost = parseFloat(items.gifts || items.gifts_cost || items.giftCost || cfs.find((c: any) => (c.label || '').toUpperCase().includes('GIFT'))?.value || 0)
-      const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0)
-      
-      const initialProfit = subTotal - deadCostPlusVig - additionalCosts - giftsCost
-      const profit = subTotal - deadCostPlusVig - additionalCosts - giftsCost - ccFees
 
       const matchedRep = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
+      const matchedRepId = matchedRep?.id || (salespersonName ? nameToUserId.get(salespersonName.toLowerCase().trim()) : null) || null
+
+      const vigRate = resolveVigRate(
+        salespersonName,
+        matchedRepId,
+        docDate,
+        items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted,
+        !!isMontgomery
+      )
+      const deadCostPlusVig = deadCost * vigRate
+
+      const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
+      const giftsCost = parseFloat(items.gifts || items.gifts_cost || items.giftCost || cfs.find((c: any) => (c.label || '').toUpperCase().includes('GIFT'))?.value || 0) || 0
+      const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
+
+      const initialProfit = subTotal - deadCostPlusVig - additionalCosts - giftsCost
+      const profit = subTotal - deadCostPlusVig - additionalCosts - giftsCost - ccFees
+      const deadProfit = subTotal - deadCost - additionalCosts - giftsCost - ccFees
+
       const isPaid = FINAL_PAID_STATUSES.has((so.status || '').toLowerCase())
 
-      const upfront = initialProfit * 0.25
-      const finalTotalTarget = profit * 0.50
+      const safeInitialProfit = isNaN(initialProfit) ? 0 : initialProfit
+      const safeProfit = isNaN(profit) ? 0 : profit
+      const safeDeadProfit = isNaN(deadProfit) ? 0 : deadProfit
+
+      const upfront = safeInitialProfit * 0.25
+      const finalTotalTarget = safeProfit * 0.50
 
       const final  = isPaid ? (finalTotalTarget - upfront) : 0
       const future = !isPaid ? (finalTotalTarget - upfront) : 0
@@ -283,15 +393,17 @@ export const handler: Handler = async (event) => {
         invoiceNumber: soNumber ? `SO-${soNumber}` : null,
         name: soNumber ? `${so.account?.name || 'Unknown'} | SO-${soNumber}` : (so.account?.name || 'Unknown'),
         amount: parseFloat(items.sub_total) || so.amount || 0,
-        profit,
+        profit: safeProfit,
+        deadProfit: safeDeadProfit,
         deadCost,
+        vigRate,
         status: so.status || 'Pending',
         isPaid,
-        daysOld: so.orderDate ? (Date.now() - so.orderDate.getTime()) / (1000 * 60 * 60 * 24) : 0,
+        daysOld: so.orderDate ? (Date.now() - new Date(so.orderDate).getTime()) / (1000 * 60 * 60 * 24) : 0,
         isAtRisk: false,
         issueDate: so.orderDate,
         paymentDate: null,
-        repId: matchedRep?.id || salespersonName?.toLowerCase().trim() || "unassigned",
+        repId: matchedRepId || salespersonName?.toLowerCase().trim() || "unassigned",
         repName: matchedRep?.name || salespersonName || "Unassigned",
         accountName: so.account?.name || "Unknown",
         accountZohoId: so.account?.zohoId || null,
@@ -339,6 +451,7 @@ export const handler: Handler = async (event) => {
           totalEarned: 0,
           totalPaid: 0,
           totalProfit: 0,
+          totalDeadProfit: 0,
           totalSales: 0,
           totalFutures: 0,
           totalAtRisk: 0,
@@ -346,11 +459,12 @@ export const handler: Handler = async (event) => {
         }
       }
       byRep[key].invoices.push(inv)
-      byRep[key].totalEarned += inv.commission.total   // upfront + final (if paid)
-      byRep[key].totalProfit += inv.profit
-      byRep[key].totalSales  += inv.amount
-      byRep[key].totalFutures += inv.commission.future
-      byRep[key].totalAtRisk += inv.commission.atRiskAmount
+      byRep[key].totalEarned     += inv.commission.total         // upfront + final (if paid)
+      byRep[key].totalProfit     += inv.profit                   // after-VIG profit (commission basis)
+      byRep[key].totalDeadProfit += (inv as any).deadProfit || 0 // raw markup for sales goals
+      byRep[key].totalSales      += inv.amount
+      byRep[key].totalFutures    += inv.commission.future
+      byRep[key].totalAtRisk     += inv.commission.atRiskAmount
     }
 
     // Attach deal pipeline activity to reps (for display only)

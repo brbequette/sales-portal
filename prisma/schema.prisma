@@ -24,6 +24,7 @@ model User {
   showOnSalesBoard   Boolean          @default(false)
   accounts           Account[]
   campaignBlasts     CampaignBlast[]
+  campaignJobs       CampaignJob[]
   deals              Deal[]
   monthlyVigGoals    MonthlyVigGoal[]
   notes              Note[]
@@ -407,6 +408,31 @@ model CampaignBlast {
   smsMessages SmsMessage[]
 
   @@index([authorId])
+}
+
+model CampaignJob {
+  id           String   @id @default(cuid())
+  authorId     String
+  blastId      String?  // linked CampaignBlast once created
+  status       String   @default("RUNNING") // RUNNING | DONE | CANCELLED | ERROR
+  campaignName String
+  channel      String   @default("SMS")
+  text         String   @default("")
+  imageUrl     String?
+  fromNumber   String?
+  accountIds   Json     // String[] — full ordered recipient list
+  currentIndex Int      @default(0)
+  total        Int
+  sentCount    Int      @default(0)
+  failedCount  Int      @default(0)
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  author       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId])
+  @@index([status])
 }
 
 model CampaignLog {

@@ -139,6 +139,7 @@ export const handler: Handler = async (event) => {
               zohoId: true,
               amount: true,
               status: true,
+              issueDate: true,
               items: true,
               createdAt: true
             }
@@ -166,8 +167,9 @@ export const handler: Handler = async (event) => {
         select: { createdAt: true }
       }).catch(() => null),
       prisma.invoice.findMany({
-        where: { createdAt: { gte: startDateLimit } },
+        where: { issueDate: { gte: startDateLimit } },
         select: {
+          issueDate: true,
           createdAt: true,
           amount: true,
           status: true,
@@ -338,7 +340,7 @@ export const handler: Handler = async (event) => {
         // Historical VIG Rate Rules:
         // - Up to end of 2024: Monty = 1.0, Everyone else = 1.3
         // - 2025 onwards: Monty = 1.0, Everyone else = 1.3 baseline (or items.vigRate / 1.5 penalty)
-        const vigRate = (year <= 2024 || isMontgomery) ? (isMontgomery ? 1.0 : 1.3) : parseFloat(items.vigRate || 1.3)
+        const vigRate = (year <= 2024 || isMontgomery) ? (isMontgomery ? 1.0 : 1.3) : (parseFloat(items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted) || 1.3)
         const deadCostPlusVig = parseFloat(items.deadCostPlusVig || items.dead_cost_plus_vig || 0) || (deadCost * vigRate)
 
         const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
@@ -356,7 +358,7 @@ export const handler: Handler = async (event) => {
           || parseFloat((inv.items as any)?.cf_commision_amount_unformatted) 
           || parseFloat((inv.items as any)?.Commission_Amount)
           || (profit * 0.50)
-        const issueDate = inv.issueDate ? new Date(inv.issueDate) : null
+        const issueDate = inv.issueDate ? new Date(inv.issueDate) : (inv.createdAt ? new Date(inv.createdAt) : null)
 
         // Find salesperson on invoice
         let repId = unassignedId
@@ -537,10 +539,10 @@ export const handler: Handler = async (event) => {
       historyMonths = Math.min(72, Math.max(1, monthsDiff));
     }
 
-    // Group invoices by month key in JS
+    // Group invoices by month key using issueDate (fall back to createdAt)
     const invoicesByMonth = new Map<string, typeof allHistoricalInvoices>()
     for (const inv of allHistoricalInvoices) {
-      const rawDate = inv.orderDate || (inv.items as any)?.date || (inv.items as any)?.date_formatted
+      const rawDate = inv.issueDate || inv.createdAt
       if (!rawDate) continue
       const d = new Date(rawDate)
       if (isNaN(d.getTime())) continue
@@ -578,20 +580,25 @@ export const handler: Handler = async (event) => {
         const subtotal = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
         const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
 
-        let deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || 0)
-        if (deadCost === 0 && lineItems.length > 0) {
+        // Dead cost: try all known Zoho field name variants, then fall back to line item costs
+        let deadCost = parseFloat(
+          items.deadCostTotal || items.dead_cost_total || items.deadCost ||
+          items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0
+        )
+        if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
           deadCost = lineItems.reduce((sum: number, li: any) => {
             const qty = parseFloat(li.quantity) || 1
             const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
             return sum + (qty * cost)
           }, 0)
         }
+        if (isNaN(deadCost)) deadCost = 0
 
-        const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
-        const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0)
+        const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
+        const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
 
-        // Dead profit = sub_total - deadCostTotal - additionalCosts - ccFees
-        const profit = subtotal - deadCost - additionalCosts - ccFees
+        // Dead profit = subtotal - deadCost - additionalCosts - ccFees (for goal tracking)
+        const deadProfit = subtotal - deadCost - additionalCosts - ccFees
         const salespersonName = items.salesperson
         let repId = unassignedId
         if (salespersonName) {
@@ -603,9 +610,18 @@ export const handler: Handler = async (event) => {
           repId = inv.account?.ownerId || unassignedId
         }
 
+        // After-VIG profit for commission calculations
+        const invDate = inv.issueDate ? new Date(inv.issueDate) : (inv.createdAt ? new Date(inv.createdAt) : null)
+        const invYear = invDate ? invDate.getFullYear() : year
+        const isMontgomery = (items.salesperson || '').toLowerCase().includes('montgomery') || (items.salesperson || '').toLowerCase().includes('morgan')
+        const rawVigField = items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted
+        const vigFieldVal = parseFloat(rawVigField)
+        const vigRate = isMontgomery ? 1.0 : (invYear <= 2024 ? 1.3 : (!isNaN(vigFieldVal) && vigFieldVal >= 1.0 ? vigFieldVal : 1.3))
+        const afterVigProfit = subtotal - (deadCost * vigRate) - additionalCosts - ccFees
+
         const isValidInvoice = inv.status !== 'Void' && inv.status !== 'Draft'
         if (isValidInvoice && repProfit[repId] !== undefined) {
-          repProfit[repId] += profit
+          repProfit[repId] += isNaN(deadProfit) ? 0 : deadProfit
           repSubtotal[repId] += subtotal
         }
       })
@@ -666,13 +682,49 @@ export const handler: Handler = async (event) => {
           }
         }
         
+        // Also track dead profit separately per rep per month
+        const repDeadProfit: Record<string, number> = {}
+        users.forEach(u => { repDeadProfit[u.id] = 0 })
+        // Re-aggregate dead profit from the same month invoices
+        monthInvoices.forEach((inv: any) => {
+          const items = (inv.items as any) || {}
+          const cfs = items.custom_fields || []
+          const subtotal = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
+          const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
+          let deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || items.cf_dead_cost_total || 0)
+          if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
+            deadCost = lineItems.reduce((sum: number, li: any) => {
+              const qty = parseFloat(li.quantity) || 1
+              const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
+              return sum + (qty * cost)
+            }, 0)
+          }
+          if (isNaN(deadCost)) deadCost = 0
+          const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
+          const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
+          const deadProfit = subtotal - deadCost - additionalCosts - ccFees
+          const salespersonName = items.salesperson
+          let repId = unassignedId
+          if (salespersonName) {
+            const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
+            const matchedId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()]
+            if (matchedId) repId = matchedId
+          }
+          if (repId === unassignedId) repId = (inv as any).account?.ownerId || unassignedId
+          const isValidInvoice = inv.status !== 'Void' && inv.status !== 'Draft'
+          if (isValidInvoice && repDeadProfit[repId] !== undefined) {
+            repDeadProfit[repId] += isNaN(deadProfit) ? 0 : deadProfit
+          }
+        })
+
         const repVigEntry = { 
           metric: vigGoal.metric,
           target, 
           subtotalGoal: vigGoal.subtotalGoal || 40000,
           profitGoal: vigGoal.profitGoal || 20000,
           sales: actual,
-          profit,
+          profit,           // dead profit (goal basis)
+          deadProfit: repDeadProfit[u.id] || 0, // explicit dead profit field
           subtotal,
           vigRate,
           manualVigRate: vigGoal.manualVigRate || null,

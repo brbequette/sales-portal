@@ -10,12 +10,14 @@ import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { NotificationCenter } from "@/components/NotificationCenter"
 import { GeofenceMonitor, type MonitorStatus } from "@/lib/geofence-monitor"
+import { useCampaignProgress } from "@/components/CampaignProgressProvider"
 
 export function GlobalTopBar() {
   const router = useRouter()
   const { showProduct } = useProductModal()
   const { zohoContext: currentUser } = useZoho()
   const { preferences, updatePreferences } = usePreferences()
+  const { state: campaignState, cancel: cancelCampaign, setShowModal: setCampaignModalOpen } = useCampaignProgress()
   
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<any>(null)
@@ -642,7 +644,86 @@ export function GlobalTopBar() {
       </div>
     )}
 
-    {/* Clock-In Prompt Banner */}
+    {/* ── Campaign Progress Pill ── */}
+    {(campaignState.status === 'running' || campaignState.status === 'done' || campaignState.status === 'cancelled') && (() => {
+      const pct = campaignState.total > 0 ? Math.round((campaignState.progress / campaignState.total) * 100) : 0
+      const isDone = campaignState.status === 'done'
+      const isCancelled = campaignState.status === 'cancelled'
+      return (
+        <div
+          style={{
+            animation: 'slideDownIn 0.3s ease-out',
+            background: isDone
+              ? 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.1))'
+              : isCancelled
+              ? 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.08))'
+              : 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(234,88,12,0.08))',
+          }}
+          className={`border-x-0 border-t-0 px-4 py-2 sticky top-[56px] z-[38] rounded-none flex items-center gap-3 overflow-x-auto scrollbar-none border-b ${
+            isDone ? 'border-emerald-500/20' : isCancelled ? 'border-red-500/20' : 'border-orange-500/20'
+          }`}
+        >
+          {/* Icon + label */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-sm">
+              {isDone ? '✅' : isCancelled ? '🛑' : '📨'}
+            </span>
+            <span className={`text-xs font-bold ${
+              isDone ? 'text-emerald-400' : isCancelled ? 'text-red-400' : 'text-orange-300'
+            }`}>
+              {isDone ? 'Campaign Complete' : isCancelled ? 'Campaign Cancelled' : 'Campaign Sending'}
+            </span>
+            {campaignState.name && (
+              <span className="text-xs text-neutral-400 font-medium hidden sm:inline truncate max-w-[140px]">
+                — {campaignState.name}
+              </span>
+            )}
+          </div>
+
+          {/* Progress bar */}
+          <div className="flex-1 min-w-[80px] max-w-[220px] h-1.5 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                isDone
+                  ? 'bg-emerald-500'
+                  : isCancelled
+                  ? 'bg-red-500'
+                  : 'bg-orange-500 campaign-shimmer'
+              }`}
+              style={{ width: `${isDone ? 100 : pct}%` }}
+            />
+          </div>
+
+          {/* Count */}
+          <span className="text-xs font-mono text-neutral-300 shrink-0">
+            {campaignState.progress.toLocaleString()} / {campaignState.total.toLocaleString()}
+            {campaignState.sentCount > 0 && !isDone && (
+              <span className="text-emerald-400 ml-1">({campaignState.sentCount} sent)</span>
+            )}
+          </span>
+
+          {/* Open button */}
+          <button
+            onClick={() => setCampaignModalOpen(true)}
+            className="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white transition-colors hidden sm:flex items-center gap-1"
+            title="Open campaign"
+          >
+            Open ↗
+          </button>
+
+          {/* Cancel button — only while running */}
+          {campaignState.status === 'running' && (
+            <button
+              onClick={cancelCampaign}
+              className="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors"
+              title="Cancel campaign"
+            >
+              Stop
+            </button>
+          )}
+        </div>
+      )
+    })()}
     {showClockInPrompt && currentUser?.id && (
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] animate-[slideUp_0.3s_ease-out]">
         <div className="flex items-center gap-3 bg-gradient-to-r from-blue-900/95 to-indigo-900/95 backdrop-blur-xl border border-blue-500/30 rounded-2xl px-5 py-3 shadow-[0_8px_32px_rgba(59,130,246,0.3)] text-white">

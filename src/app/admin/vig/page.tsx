@@ -295,12 +295,13 @@ export default function VigManagementPage() {
                         <thead>
                           <tr className="bg-black/60 text-neutral-400 border-b border-white/10">
                             <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Month</th>
-                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Metric Selection</th>
+                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Metric</th>
                             <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Subtotal Goal</th>
                             <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Profit Goal</th>
-                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Actual Sales</th>
+                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Actual Subtotal</th>
+                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Actual Dead Profit</th>
                             <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Manual VIG Override</th>
-                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs text-center">Calculated VIG</th>
+                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs text-center">VIG Rate</th>
                             <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs text-right">Actions</th>
                           </tr>
                         </thead>
@@ -368,10 +369,18 @@ export default function VigManagementPage() {
                                   <div className="text-[10px] text-neutral-500 mt-0.5">Act: ${(monthData.profit || 0).toLocaleString()}</div>
                                 </td>
                                 <td className="px-6 py-3.5">
-                                  <div className={`font-mono text-xs font-bold ${monthData.sales >= monthData.target ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    ${(monthData.sales || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  {/* Actual Subtotal */}
+                                  <div className={`font-mono text-xs font-bold ${(monthData.subtotal || 0) >= (monthData.subtotalGoal || 40000) ? 'text-emerald-400' : 'text-sky-300'}`}>
+                                    ${(monthData.subtotal || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                   </div>
-                                  <div className="text-[10px] text-neutral-500 mt-0.5">Target: ${(monthData.target || 0).toLocaleString()}</div>
+                                  <div className="text-[10px] text-neutral-500 mt-0.5">Goal: ${(monthData.subtotalGoal || 40000).toLocaleString()}</div>
+                                </td>
+                                <td className="px-6 py-3.5">
+                                  {/* Actual Dead Profit */}
+                                  <div className={`font-mono text-xs font-bold ${(monthData.deadProfit || monthData.profit || 0) >= (monthData.profitGoal || 20000) ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                    ${(monthData.deadProfit ?? monthData.profit ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                  </div>
+                                  <div className="text-[10px] text-neutral-500 mt-0.5">Goal: ${(monthData.profitGoal || 20000).toLocaleString()}</div>
                                 </td>
                                 <td className="px-6 py-3.5">
                                   <div className="flex items-center gap-2">

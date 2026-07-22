@@ -12,6 +12,7 @@ import { ClientToaster } from "@/components/ClientToaster";
 import "./globals.css";
 
 import { PreferencesProvider } from "@/components/PreferencesProvider";
+import { CampaignProgressProvider } from "@/components/CampaignProgressProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,11 +58,13 @@ export default function RootLayout({
               <AuthWrapper>
                 <ProductModalProvider>
                   <NotificationProvider>
-                    <AppShell>
-                      <TimeclockTracker />
-                      <ClientToaster />
-                      {children}
-                    </AppShell>
+                    <CampaignProgressProvider>
+                      <AppShell>
+                        <TimeclockTracker />
+                        <ClientToaster />
+                        {children}
+                      </AppShell>
+                    </CampaignProgressProvider>
                   </NotificationProvider>
                 </ProductModalProvider>
               </AuthWrapper>

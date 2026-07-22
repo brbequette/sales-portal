@@ -92,10 +92,14 @@ export async function resolveVigRate(
   // 2. Montgomery is always 1.0 unless explicitly overridden
   if (isMontgomery) return 1.0
 
-  // 3. Check for explicit custom field VIG RATE on document
-  const existingVig = doc.custom_fields?.find((f: any) =>
-    f.label?.toUpperCase().includes("VIG")
-  )
+  // 3. Check for an explicit SALESPERSON VIG RATE override on the document
+  //    NOTE: Be specific — do NOT match "SALESPERSON VIG" (which is the output field we write)
+  //    or "DEAD COST SUBJECT TO VIG". Only match the rate-input field.
+  const existingVig = doc.custom_fields?.find((f: any) => {
+    const label = (f.label || '').toUpperCase().trim()
+    const apiName = (f.api_name || '').toLowerCase()
+    return label === 'SALESPERSON VIG RATE' || apiName === 'cf_salesperson_vig_rate'
+  })
   if (existingVig?.value && parseFloat(existingVig.value) > 0) {
     return parseFloat(existingVig.value)
   }
@@ -262,4 +266,71 @@ export async function calculateDocumentCosts(
     isPaid,
     lineItemDetails, lineItemBreakdownStrings,
   }
+}
+
+// ─── Field Diff Builder ──────────────────────────────────────────────────────
+/**
+ * Compares calculated values against the existing Zoho custom fields and returns
+ * only the fields that have actually changed. Exported so both bulk-calculate-costs
+ * and bulk-process-costs use the identical diff logic.
+ *
+ * docTypeHint: "invoices" | "quotes" | "salesorders" — controls PAID IN FULL DATE logic
+ */
+export function buildFieldsToUpdate(
+  calc: CostCalculationResult,
+  zohoDoc: any,
+  docTypeHint: string = "invoices"
+): any[] {
+  const {
+    deadCostSubjectToVig, deadCostNoVig, deadCostTotal,
+    vigRate, deadCostPlusVig, profit, deadProfitActual,
+    commissionPct, salesCommission, isPaid, lineItemBreakdownStrings,
+  } = calc
+
+  const existingFields: any[] = zohoDoc.custom_fields || []
+  const existingPaidDate = existingFields.find((f: any) =>
+    f.label?.toUpperCase().includes("PAID IN FULL DATE")
+  )
+
+  const fieldMap: Record<string, any> = {
+    "DEAD COST TOTAL":          deadCostTotal.toFixed(2),
+    "DEAD COST SUBJECT TO VIG": deadCostSubjectToVig.toFixed(2),
+    "DEAD COST NO VIG":         deadCostNoVig.toFixed(2),
+    "SALESPERSON VIG":          vigRate,
+    "DEAD COST PLUS VIG":       deadCostPlusVig.toFixed(2),
+    "PROFIT":                   profit.toFixed(2),
+    "COMMISSION FROM PROFIT %": commissionPct,
+    "SALES COMMISSION":         salesCommission.toFixed(2),
+    "ITEMS DC BREAKDOWN":       lineItemBreakdownStrings.join("\n"),
+  }
+
+  if (docTypeHint === "invoices" && isPaid && existingPaidDate && !existingPaidDate.value) {
+    fieldMap["PAID IN FULL DATE"] = new Date().toISOString().split("T")[0]
+  }
+
+  const apiNameMap: Record<string, any> = {
+    cf_dead_profit_actual: deadProfitActual.toFixed(2),
+  }
+
+  const fieldsToUpdate: any[] = []
+
+  for (const [label, value] of Object.entries(fieldMap)) {
+    const field = existingFields.find((f: any) => f.label?.toUpperCase().trim() === label)
+    if (field) {
+      if (String(field.value ?? "").trim() !== String(value).trim()) {
+        fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
+      }
+    }
+  }
+
+  for (const [apiName, value] of Object.entries(apiNameMap)) {
+    const field = existingFields.find((f: any) => f.api_name === apiName)
+    if (field && String(field.value ?? "").trim() !== String(value).trim()) {
+      if (!fieldsToUpdate.some((f: any) => f.customfield_id === field.customfield_id)) {
+        fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
+      }
+    }
+  }
+
+  return fieldsToUpdate
 }

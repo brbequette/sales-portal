@@ -22,7 +22,7 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient } from "@prisma/client"
 import { getZohoAccessToken } from "./lib/zoho-auth"
-import { calculateDocumentCosts } from "./lib/cost-calculations"
+import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculations"
 
 const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || "com"
@@ -70,62 +70,6 @@ async function releaseLock() {
   } catch { /* best-effort */ }
 }
 
-// ─── Field Map Builder (same as individual processors) ────────────────────────
-
-function buildFieldsToUpdate(calc: any, zohoDoc: any, docType: string): any[] {
-  const {
-    deadCostSubjectToVig, deadCostNoVig, deadCostTotal,
-    vigRate, deadCostPlusVig, profit, deadProfitActual,
-    commissionPct, salesCommission, isPaid, lineItemBreakdownStrings,
-  } = calc
-
-  const existingFields: any[] = zohoDoc.custom_fields || []
-  const existingPaidDate = existingFields.find((f: any) =>
-    f.label?.toUpperCase().includes("PAID IN FULL DATE")
-  )
-
-  const fieldMap: Record<string, any> = {
-    "DEAD COST TOTAL":           deadCostTotal.toFixed(2),
-    "DEAD COST SUBJECT TO VIG":  deadCostSubjectToVig.toFixed(2),
-    "DEAD COST NO VIG":          deadCostNoVig.toFixed(2),
-    "SALESPERSON VIG":           vigRate,
-    "DEAD COST PLUS VIG":        deadCostPlusVig.toFixed(2),
-    "PROFIT":                    profit.toFixed(2),
-    "COMMISSION FROM PROFIT %":  commissionPct,
-    "SALES COMMISSION":          salesCommission.toFixed(2),
-    "ITEMS DC BREAKDOWN":        lineItemBreakdownStrings.join("\n"),
-  }
-
-  if (docType === "invoices" && isPaid && existingPaidDate && !existingPaidDate.value) {
-    fieldMap["PAID IN FULL DATE"] = new Date().toISOString().split("T")[0]
-  }
-
-  const apiNameMap: Record<string, any> = {
-    cf_dead_profit_actual: deadProfitActual.toFixed(2),
-  }
-
-  const fieldsToUpdate: any[] = []
-
-  for (const [label, value] of Object.entries(fieldMap)) {
-    const field = existingFields.find((f: any) => f.label?.toUpperCase().trim() === label)
-    if (field) {
-      if (String(field.value ?? "").trim() !== String(value).trim()) {
-        fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
-      }
-    }
-  }
-
-  for (const [apiName, value] of Object.entries(apiNameMap)) {
-    const field = existingFields.find((f: any) => f.api_name === apiName)
-    if (field && String(field.value ?? "").trim() !== String(value).trim()) {
-      if (!fieldsToUpdate.some((f: any) => f.customfield_id === field.customfield_id)) {
-        fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
-      }
-    }
-  }
-
-  return fieldsToUpdate
-}
 
 // ─── Per-Document Type Processing ─────────────────────────────────────────────
 
@@ -216,7 +160,12 @@ async function processDocType(
   if (docType === "invoices") {
     const whereClause: any = { zohoId: { not: "" } }
     if (opts.month) {
-      whereClause.date = { startsWith: opts.month }
+      // issueDate is stored as a Date — filter by year-month range
+      const [yr, mo] = opts.month.split("-").map(Number)
+      whereClause.issueDate = {
+        gte: new Date(yr, mo - 1, 1),
+        lt:  new Date(yr, mo, 1),
+      }
     }
     dbDocs = await prisma.invoice.findMany({ where: whereClause, select: selectFields })
   } else if (docType === "quotes") {
@@ -249,18 +198,19 @@ async function processDocType(
         const calcTime = new Date(dbDoc.costsCalculatedAt).getTime()
         const modTime = dbDoc.zohoModifiedTime ? new Date(dbDoc.zohoModifiedTime).getTime() : null
 
-        // If calculated AFTER last Zoho modification, skip (data is current)
-        if (modTime !== null && calcTime >= modTime) {
+        // Require calcTime to be at least 5 minutes AFTER modTime to avoid same-tick skips
+        const FRESHNESS_BUFFER = 5 * 60 * 1000
+        if (modTime !== null && calcTime >= modTime + FRESHNESS_BUFFER) {
           result.status = "skipped"
-          result.reason = "Costs current (calcTime >= zohoModifiedTime)"
+          result.reason = "Costs current (calcTime > zohoModifiedTime + 5min buffer)"
           stats.skipped++
           stats.docs.push(result)
           continue
         }
-        // If no modTime but was calculated within the last 24h, skip
-        if (modTime === null && Date.now() - calcTime < 24 * 60 * 60 * 1000) {
+        // If no modTime but was calculated within the last 12h, skip
+        if (modTime === null && Date.now() - calcTime < 12 * 60 * 60 * 1000) {
           result.status = "skipped"
-          result.reason = "Calculated within 24h, no Zoho modTime to compare"
+          result.reason = "Calculated within 12h, no Zoho modTime to compare"
           stats.skipped++
           stats.docs.push(result)
           continue

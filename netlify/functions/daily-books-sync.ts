@@ -199,13 +199,15 @@ async function syncDocumentToDb(
     else if (zStatus === 'draft') status = 'Draft'
     else if (doc.status) status = doc.status.charAt(0).toUpperCase() + doc.status.slice(1)
 
-    // Write back to DB
+    // Write back to DB — also update zohoModifiedTime so bulk-calculate-costs knows
+    // this doc may need its costs recalculated (remoteModified > costsCalculatedAt triggers recalc)
+    const zohoModTime = summary.last_modified_time ? new Date(summary.last_modified_time) : new Date()
     if (type === 'Invoice') {
-      await prisma.invoice.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems } })
+      await prisma.invoice.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems, zohoModifiedTime: zohoModTime } })
     } else if (type === 'SalesOrder') {
-      await prisma.salesOrder.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems } })
+      await prisma.salesOrder.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems, zohoModifiedTime: zohoModTime } })
     } else {
-      await prisma.quote.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems } })
+      await prisma.quote.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems, zohoModifiedTime: zohoModTime } })
     }
   } catch (e: any) {
     console.error(`syncDocumentToDb error for ${type} ${booksId}:`, e.message)
