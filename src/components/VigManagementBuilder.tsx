@@ -20,6 +20,7 @@ export default function VigManagementBuilder() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   useEffect(() => {
     fetchVigData()
@@ -28,14 +29,21 @@ export default function VigManagementBuilder() {
   const fetchVigData = async () => {
     try {
       setLoading(true)
+      setErrorMsg(null)
       const res = await fetch('/api/admin/users/vig')
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+      }
       const data = await res.json()
       if (data.success) {
         setDefaultVigRate(data.defaultVigRate)
-        setRepConfigs(data.repConfigs)
+        setRepConfigs(data.repConfigs || [])
+      } else {
+        throw new Error(data.error || 'Failed to load VIG configuration.')
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to fetch VIG data:', e)
+      setErrorMsg(e.message || 'Error loading VIG configuration.')
     } finally {
       setLoading(false)
     }
@@ -86,9 +94,24 @@ export default function VigManagementBuilder() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12 text-neutral-400 font-bold gap-3">
-        <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-        Loading VIG & Target Management...
+      <div className="flex flex-col items-center justify-center p-16 text-neutral-400 font-bold gap-3">
+        <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        <span>Loading VIG &amp; Target Management...</span>
+      </div>
+    )
+  }
+
+  if (errorMsg) {
+    return (
+      <div className="p-8 bg-red-950/30 border border-red-500/30 rounded-2xl text-center space-y-4">
+        <div className="text-red-400 font-black text-lg">Failed to Load VIG Management</div>
+        <p className="text-xs text-neutral-400 max-w-md mx-auto">{errorMsg}</p>
+        <button
+          onClick={fetchVigData}
+          className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg"
+        >
+          🔄 Retry Loading
+        </button>
       </div>
     )
   }

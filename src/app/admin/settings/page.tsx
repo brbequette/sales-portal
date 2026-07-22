@@ -29,13 +29,17 @@ export default function AdminSettingsPage() {
         setSettings(data.settings)
       }
 
-      const usersRes = await fetch('/api/get-users')
-      const usersData = await usersRes.json()
-      if (usersData.users) {
-        setUsers(usersData.users)
-        if (usersData.users.length > 0) {
-          setTestUserId(usersData.users[0].id)
+      try {
+        const usersRes = await fetch('/api/get-users')
+        const usersData = await usersRes.json()
+        if (usersData.users) {
+          setUsers(usersData.users)
+          if (usersData.users.length > 0) {
+            setTestUserId(usersData.users[0].id)
+          }
         }
+      } catch (err) {
+        console.error('Failed to load users for test notification:', err)
       }
     } catch (e) {
       console.error(e)
