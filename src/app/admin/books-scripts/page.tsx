@@ -34,7 +34,7 @@ export default function BooksScriptsPage() {
   const [fullSyncForce, setFullSyncForce] = useState(true)
 
   // ── Bulk Process state ───────────────────────────────────────────────────
-  const [bulkFilter, setBulkFilter] = useState<'unpaid' | 'all' | 'recent' | 'daterange'>('daterange')
+  const [bulkFilter, setBulkFilter] = useState<'unpaid' | 'all' | 'recent' | 'daterange' | 'draft'>('daterange')
   const [bulkEntity, setBulkEntity] = useState<'invoices' | 'salesorders' | 'estimates'>('invoices')
   const [bulkForce, setBulkForce] = useState(false)
   const [bulkProgress, setBulkProgress] = useState("")
@@ -319,6 +319,7 @@ export default function BooksScriptsPage() {
               className="bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded-lg px-3 py-2"
             >
               <option value="daterange">Date Range</option>
+              <option value="draft">Draft Only</option>
               <option value="unpaid">Unpaid Only</option>
               <option value="recent">Last 90 Days</option>
               <option value="all">All</option>
@@ -400,8 +401,9 @@ export default function BooksScriptsPage() {
           {bulkRunning ? <FiLoader className="animate-spin" /> : <FiCpu />}
           {bulkRunning ? 'Processing...' : `Process ${
             bulkFilter === 'daterange' ? `${bulkStartDate} to ${bulkEndDate}` :
-            bulkFilter === 'all' ? 'All' :
-            bulkFilter === 'recent' ? 'Last 90 Days' : 'Unpaid'
+            bulkFilter === 'draft'     ? 'Draft' :
+            bulkFilter === 'all'       ? 'All' :
+            bulkFilter === 'recent'    ? 'Last 90 Days' : 'Unpaid'
           } ${bulkEntity === 'invoices' ? 'Invoices' : bulkEntity === 'salesorders' ? 'Sales Orders' : 'Quotes'}`}
         </button>
       </div>

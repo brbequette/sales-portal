@@ -76,6 +76,9 @@ export const handler: Handler = async (event) => {
       // Explicit date range — pass directly to Zoho
       statusFilter = `&date_start=${startDate}`
       if (endDate) statusFilter += `&date_end=${endDate}`
+    } else if (filter === "draft") {
+      // Draft invoices only
+      statusFilter = "&filter_by=Status.Draft"
     } else if (entity === "invoices") {
       if (filter === "unpaid") {
         statusFilter = "&filter_by=Status.Unpaid"
