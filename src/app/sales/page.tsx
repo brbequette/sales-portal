@@ -53,7 +53,10 @@ export default function SalesListPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
   const pageSize = 50
-  
+
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
+
   const fetchDocsRef = useRef(0)
 
   const fetchDocuments = useCallback(async () => {
@@ -112,6 +115,35 @@ export default function SalesListPage() {
       if (d.success) setRepsList(d.users || [])
     }).catch(() => {})
   }, [])
+
+  const handleSync = async () => {
+    setSyncing(true)
+    setSyncMsg(null)
+    let totalSynced = 0
+    try {
+      // Sync invoices page by page
+      for (const entity of ['invoices', 'salesorders', 'quotes']) {
+        let pg = 1
+        while (true) {
+          const res = await fetch('/api/admin/bulk-sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entity, page: pg })
+          })
+          const data = await res.json()
+          if (!data.success || !data.hasMore) break
+          totalSynced += data.synced || 0
+          pg++
+        }
+      }
+      setSyncMsg(`✅ Sync complete — ${totalSynced} records synced`)
+      fetchDocuments()
+    } catch (e: any) {
+      setSyncMsg(`❌ Sync failed: ${e.message}`)
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const handleDeleteTransaction = async (type: string, id: string) => {
     toastConfirm(`Are you sure you want to delete this ${type}? This action cannot be undone in the hub.`, async () => {
@@ -216,6 +248,26 @@ export default function SalesListPage() {
             />
           </div>
 
+          {/* Sync from Zoho Books button */}
+          {isAdmin && (
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              title="Sync all documents from Zoho Books"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all shrink-0 ${
+                syncing
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 cursor-not-allowed'
+                  : 'bg-sky-500/10 border-sky-500/25 text-sky-400 hover:bg-sky-500/20'
+              }`}
+            >
+              {syncing ? (
+                <><span className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />Syncing…</>
+              ) : (
+                <>↻ Sync Zoho</>
+              )}
+            </button>
+          )}
+
           <button 
             onClick={() => setShowFiltersDrawer(true)} 
             className={`p-2 rounded-lg border transition-all shrink-0 ${showFiltersDrawer ? "bg-[var(--primary)]/15 border-[var(--primary)]/35 text-[var(--primary)]" : "bg-white/[0.045] border-white/10 hover:bg-white/[0.075] text-neutral-400"}`}
@@ -223,6 +275,15 @@ export default function SalesListPage() {
             <FiFilter size={18} />
           </button>
         </div>
+
+        {/* Sync status message */}
+        {syncMsg && (
+          <div className={`text-xs px-3 py-1.5 rounded-lg border ${
+            syncMsg.startsWith('✅') ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400' : 'bg-rose-500/10 border-rose-500/25 text-rose-400'
+          }`}>
+            {syncMsg}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 scrollbar-thin">
@@ -360,7 +421,20 @@ export default function SalesListPage() {
                 <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-neutral-400">
                   <FiFileText size={48} className="mb-4 text-neutral-600" />
                   <p className="text-lg font-bold text-white mb-2">No documents found</p>
-                  <p className="text-sm max-w-sm">Try adjusting your filters or search terms.</p>
+                  <p className="text-sm max-w-sm mb-4">
+                    {search || statusFilter.length > 0
+                      ? 'Try adjusting your filters or search terms.'
+                      : 'The database may not have synced yet. Use the ↻ Sync Zoho button to pull documents from Zoho Books.'}
+                  </p>
+                  {isAdmin && !search && statusFilter.length === 0 && (
+                    <button
+                      onClick={handleSync}
+                      disabled={syncing}
+                      className="px-4 py-2 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-xs font-bold hover:bg-sky-500/25 transition-all disabled:opacity-50"
+                    >
+                      {syncing ? 'Syncing…' : '↻ Sync from Zoho Books'}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
