@@ -317,17 +317,33 @@ export function buildFieldsToUpdate(
   for (const [label, value] of Object.entries(fieldMap)) {
     const field = existingFields.find((f: any) => f.label?.toUpperCase().trim() === label)
     if (field) {
-      if (String(field.value ?? "").trim() !== String(value).trim()) {
+      // Field exists on the doc — only push if value changed or currently blank
+      const currentVal = String(field.value ?? "").trim()
+      const newVal = String(value).trim()
+      if (currentVal !== newVal || currentVal === "" || currentVal === "0") {
         fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
       }
+    } else {
+      // Field not yet on this doc — write it by label so Zoho matches it
+      // to the org-level custom field definition. Zoho accepts label+value on PUT.
+      fieldsToUpdate.push({ label, value })
     }
   }
 
   for (const [apiName, value] of Object.entries(apiNameMap)) {
     const field = existingFields.find((f: any) => f.api_name === apiName)
-    if (field && String(field.value ?? "").trim() !== String(value).trim()) {
-      if (!fieldsToUpdate.some((f: any) => f.customfield_id === field.customfield_id)) {
-        fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
+    if (field) {
+      const currentVal = String(field.value ?? "").trim()
+      const newVal = String(value).trim()
+      if (currentVal !== newVal || currentVal === "" || currentVal === "0") {
+        if (!fieldsToUpdate.some((f: any) => f.customfield_id === field.customfield_id)) {
+          fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
+        }
+      }
+    } else {
+      // Not on doc yet — write by api_name fallback
+      if (!fieldsToUpdate.some((f: any) => f.api_name === apiName)) {
+        fieldsToUpdate.push({ api_name: apiName, value })
       }
     }
   }
