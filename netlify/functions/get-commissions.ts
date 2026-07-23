@@ -1,5 +1,5 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, Prisma } from "@prisma/client"
 
 const prisma = new PrismaClient()
 
@@ -35,9 +35,17 @@ export const handler: Handler = async (event) => {
       payoutWhere.date = { gte: payoutStart, lt: payoutEnd }
     }
 
+    // Build date filter fragments for raw queries
+    const invDateSql = targetYear !== 'all'
+      ? Prisma.sql`AND i."issueDate" >= ${new Date(`${targetYear}-01-01`)} AND i."issueDate" < ${new Date(`${parseInt(targetYear)+1}-01-01`)}`
+      : Prisma.empty
+    const soDateSql = targetYear !== 'all'
+      ? Prisma.sql`AND s."orderDate" >= ${new Date(`${targetYear}-01-01`)} AND s."orderDate" < ${new Date(`${parseInt(targetYear)+1}-01-01`)}`
+      : Prisma.empty
+
     const [
-      rawInvoices,
-      rawSalesOrders,
+      rawInvoicesRaw,
+      rawSalesOrdersRaw,
       deals,
       rawUsers,
       visibleRepsSetting,
@@ -46,39 +54,89 @@ export const handler: Handler = async (event) => {
       allVigGoals,
       allVigUsers
     ]: [any[], any[], any[], any[], any, any, any[], any[], any[]] = await Promise.all([
-      prisma.invoice.findMany({
-        where: {
-          ...(targetYear !== "all" && { issueDate: dateFilter }),
-          status: { notIn: Array.from(SKIP_STATUSES) }
-        },
-        select: {
-          id: true,
-          zohoId: true,
-          amount: true,
-          status: true,
-          issueDate: true,
-          createdAt: true,
-          items: true,
-          account: { select: { name: true, zohoId: true } }
-        },
-        orderBy: { issueDate: "desc" }
-      }).catch(() => []),
-      prisma.salesOrder.findMany({
-        where: {
-          ...(targetYear !== "all" ? { orderDate: dateFilter } : {}),
-          status: { notIn: ['Void', 'void', 'Draft', 'draft', 'Cancelled', 'cancelled'] }
-        },
-        select: {
-          id: true,
-          zohoId: true,
-          amount: true,
-          status: true,
-          orderDate: true,
-          items: true,
-          account: { select: { name: true, zohoId: true } }
-        },
-        orderBy: { orderDate: "desc" }
-      }).catch(() => []),
+      // Use $queryRaw to extract ONLY the scalar fields needed for commission calc.
+      // This avoids fetching huge line_items/custom_fields arrays stored by bulk-sync,
+      // which were causing Netlify function timeouts (response truncated mid-stream).
+      prisma.$queryRaw<any[]>(Prisma.sql`
+        SELECT
+          i.id::text,
+          i."zohoId",
+          i.amount,
+          i.status,
+          i."issueDate",
+          i."createdAt",
+          a.name    AS "accountName",
+          a."zohoId" AS "accountZohoId",
+          jsonb_build_object(
+            'salesperson',                i.items->>'salesperson',
+            'invoiceNumber',              i.items->>'invoiceNumber',
+            'invoice_number',             i.items->>'invoice_number',
+            'sub_total',                  i.items->>'sub_total',
+            'subTotal',                   i.items->>'subTotal',
+            'deadCostTotal',              i.items->>'deadCostTotal',
+            'dead_cost_total',            i.items->>'dead_cost_total',
+            'cf_dead_cost_total',         i.items->>'cf_dead_cost_total',
+            'deadCostPlusVig',            i.items->>'deadCostPlusVig',
+            'cf_salesperson_vig',         i.items->>'cf_salesperson_vig',
+            'cf_salesperson_vig_unformatted', i.items->>'cf_salesperson_vig_unformatted',
+            'paymentDate',               i.items->>'paymentDate',
+            'ccFees',                    i.items->>'ccFees',
+            'cc_fees',                   i.items->>'cc_fees',
+            'additionalCosts',           i.items->>'additionalCosts',
+            'additional_costs',          i.items->>'additional_costs',
+            'gifts',                     i.items->>'gifts',
+            'gifts_cost',                i.items->>'gifts_cost',
+            'giftCost',                  i.items->>'giftCost',
+            'balance',                   i.items->>'balance',
+            'profit',                    i.items->>'profit',
+            'vigRate',                   i.items->>'vigRate'
+          ) AS items
+        FROM "Invoice" i
+        LEFT JOIN "Account" a ON a.id = i."accountId"
+        WHERE i.status NOT IN ('Void','void','Draft','draft')
+        ${invDateSql}
+        ORDER BY i."issueDate" DESC NULLS LAST
+      `).catch(() => []),
+      prisma.$queryRaw<any[]>(Prisma.sql`
+        SELECT
+          s.id::text,
+          s."zohoId",
+          s.amount,
+          s.status,
+          s."orderDate",
+          s."createdAt",
+          a.name     AS "accountName",
+          a."zohoId"  AS "accountZohoId",
+          jsonb_build_object(
+            'salesperson',            s.items->>'salesperson',
+            'salesorder_number',      s.items->>'salesorder_number',
+            'salesorderNumber',       s.items->>'salesorderNumber',
+            'sub_total',              s.items->>'sub_total',
+            'subTotal',               s.items->>'subTotal',
+            'deadCostTotal',          s.items->>'deadCostTotal',
+            'dead_cost_total',        s.items->>'dead_cost_total',
+            'cf_dead_cost_total',     s.items->>'cf_dead_cost_total',
+            'deadCostPlusVig',        s.items->>'deadCostPlusVig',
+            'cf_salesperson_vig',     s.items->>'cf_salesperson_vig',
+            'cf_salesperson_vig_unformatted', s.items->>'cf_salesperson_vig_unformatted',
+            'paymentDate',            s.items->>'paymentDate',
+            'ccFees',                 s.items->>'ccFees',
+            'cc_fees',                s.items->>'cc_fees',
+            'additionalCosts',        s.items->>'additionalCosts',
+            'additional_costs',       s.items->>'additional_costs',
+            'gifts',                  s.items->>'gifts',
+            'gifts_cost',             s.items->>'gifts_cost',
+            'giftCost',               s.items->>'giftCost',
+            'balance',                s.items->>'balance',
+            'profit',                 s.items->>'profit',
+            'vigRate',                s.items->>'vigRate'
+          ) AS items
+        FROM "SalesOrder" s
+        LEFT JOIN "Account" a ON a.id = s."accountId"
+        WHERE s.status NOT IN ('Void','void','Draft','draft','Cancelled','cancelled')
+        ${soDateSql}
+        ORDER BY s."orderDate" DESC NULLS LAST
+      `).catch(() => []),
       prisma.deal.findMany({
         where: targetYear !== "all" ? {
           OR: [
@@ -120,6 +178,22 @@ export const handler: Handler = async (event) => {
     if (!showHidden && !repId && visibleReps.length > 0) {
       users = users.filter(u => visibleReps.includes(u.id))
     }
+
+    // Add .account compat shim so existing calc code works unchanged
+    const rawInvoices = rawInvoicesRaw.map((row: any) => ({
+      ...row,
+      issueDate: row.issueDate ? new Date(row.issueDate) : null,
+      createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
+      amount: row.amount != null ? parseFloat(row.amount) : 0,
+      account: { name: row.accountName || null, zohoId: row.accountZohoId || null }
+    }))
+    const rawSalesOrders = rawSalesOrdersRaw.map((row: any) => ({
+      ...row,
+      orderDate: row.orderDate ? new Date(row.orderDate) : null,
+      createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
+      amount: row.amount != null ? parseFloat(row.amount) : 0,
+      account: { name: row.accountName || null, zohoId: row.accountZohoId || null }
+    }))
 
     // ── VIG Rate Resolution Helpers ─────────────────────────────────────
     // Build lookup: repId -> Map<monthKey, vigRate>
@@ -185,8 +259,8 @@ export const handler: Handler = async (event) => {
     }
 
     // Deduplicate by invoiceNumber
-    const seenInvoiceNumbers = new Map<string, typeof rawInvoices[0]>()
-    const invoicesWithoutNumber: typeof rawInvoices = []
+    const seenInvoiceNumbers = new Map<string, (typeof rawInvoices)[0]>()
+    const invoicesWithoutNumber: (typeof rawInvoices) = []
     
     for (const inv of rawInvoices) {
       const num = (inv.items as any)?.invoiceNumber
