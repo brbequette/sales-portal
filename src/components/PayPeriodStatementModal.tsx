@@ -76,7 +76,18 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
     return Array.from(weekStarts).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
   }, [rep])
 
-  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(payPeriodOptions[0] || new Date().toISOString().split('T')[0])
+  // Snap any date to its Monday (week start)
+  function toMondayStr(dateStr: string): string {
+    const d = new Date(dateStr)
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    const monday = new Date(d)
+    monday.setDate(diff)
+    monday.setHours(0, 0, 0, 0)
+    return monday.toISOString().split('T')[0]
+  }
+
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(payPeriodOptions[0] || toMondayStr(new Date().toISOString().split('T')[0]))
 
   // Calculate Pay Period Range
   const periodStart = useMemo(() => new Date(selectedWeekStart), [selectedWeekStart])
@@ -150,18 +161,37 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Pay Period Selector */}
-            <select
-              value={selectedWeekStart}
-              onChange={e => setSelectedWeekStart(e.target.value)}
-              className="bg-black/40 border border-white/15 rounded-xl px-4 py-2 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
-            >
-              {payPeriodOptions.map(ws => (
-                <option key={ws} value={ws}>
-                  Week of {fmtDate(ws)}
-                </option>
-              ))}
-            </select>
+            {/* Quick-pick: weeks with activity */}
+            <div className="flex flex-col gap-0.5">
+              <label className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider px-1">Quick Pick</label>
+              <select
+                value={payPeriodOptions.includes(selectedWeekStart) ? selectedWeekStart : ''}
+                onChange={e => { if (e.target.value) setSelectedWeekStart(e.target.value) }}
+                className="bg-black/40 border border-white/15 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-emerald-500 max-w-[180px]"
+              >
+                {!payPeriodOptions.includes(selectedWeekStart) && (
+                  <option value="">-- Custom Date --</option>
+                )}
+                {payPeriodOptions.map(ws => (
+                  <option key={ws} value={ws}>
+                    Week of {fmtDate(ws)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Free-form date picker — snaps to Monday of chosen week */}
+            <div className="flex flex-col gap-0.5">
+              <label className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider px-1">Any Week</label>
+              <input
+                type="date"
+                value={selectedWeekStart}
+                onChange={e => {
+                  if (e.target.value) setSelectedWeekStart(toMondayStr(e.target.value))
+                }}
+                className="bg-black/40 border border-white/15 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-emerald-500 [color-scheme:dark]"
+              />
+            </div>
 
             <button
               onClick={handlePrint}
