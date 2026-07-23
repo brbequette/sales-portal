@@ -37,6 +37,7 @@ export default function BooksScriptsPage() {
   const [bulkFilter, setBulkFilter] = useState<'unpaid' | 'all' | 'recent' | 'daterange' | 'draft'>('daterange')
   const [bulkEntity, setBulkEntity] = useState<'invoices' | 'salesorders' | 'estimates'>('invoices')
   const [bulkForce, setBulkForce] = useState(false)
+  const [bulkApplyTariff, setBulkApplyTariff] = useState(true)  // default ON for invoices
   const [bulkProgress, setBulkProgress] = useState("")
   const [bulkRunning, setBulkRunning] = useState(false)
   // Date range defaults to current month
@@ -184,6 +185,7 @@ export default function BooksScriptsPage() {
               filter: bulkFilter,
               perPage: 25,
               force: bulkForce,
+              applyTariff: bulkEntity === 'invoices' ? bulkApplyTariff : false,
               ...(bulkFilter === 'daterange' ? { startDate: bulkStartDate, endDate: bulkEndDate } : {}),
             })
           })
@@ -334,6 +336,18 @@ export default function BooksScriptsPage() {
               />
               <span className={bulkForce ? 'text-amber-400 font-bold' : ''}>Force Recalc</span>
             </label>
+            {bulkEntity === 'invoices' && (
+              <label className="flex items-center gap-2 text-xs text-neutral-400 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={bulkApplyTariff}
+                  onChange={e => setBulkApplyTariff(e.target.checked)}
+                  disabled={anyBusy}
+                  className="w-3.5 h-3.5 accent-orange-500"
+                />
+                <span className={bulkApplyTariff ? 'text-orange-400 font-bold' : ''}>Apply Tariff (12.5%)</span>
+              </label>
+            )}
           </div>
         </div>
 
