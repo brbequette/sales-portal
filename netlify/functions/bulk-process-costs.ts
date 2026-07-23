@@ -52,11 +52,13 @@ export const handler: Handler = async (event) => {
   let body: any = {}
   try { body = JSON.parse(event.body || "{}") } catch { /* use defaults */ }
 
-  const entity  = (body.entity  || "invoices") as EntityType
-  const page    = parseInt(body.page    || "1",  10)
-  const filter  = body.filter   || "unpaid"
-  const perPage = Math.min(parseInt(body.perPage || "25", 10), 50)
-  const force   = !!body.force
+  const entity    = (body.entity  || "invoices") as EntityType
+  const page      = parseInt(body.page    || "1",  10)
+  const filter    = body.filter   || "unpaid"
+  const perPage   = Math.min(parseInt(body.perPage || "25", 10), 50)
+  const force     = !!body.force
+  const startDate = body.startDate as string | undefined   // YYYY-MM-DD
+  const endDate   = body.endDate   as string | undefined   // YYYY-MM-DD
 
   const cfg = ENTITY_CONFIG[entity]
   if (!cfg) return { statusCode: 400, headers: CORS, body: JSON.stringify({ success: false, error: `Unknown entity: ${entity}` }) }
@@ -70,9 +72,12 @@ export const handler: Handler = async (event) => {
 
     // ── Status filter ──────────────────────────────────────────────────────
     let statusFilter = ""
-    if (entity === "invoices") {
+    if (filter === "daterange" && startDate) {
+      // Explicit date range — pass directly to Zoho
+      statusFilter = `&date_start=${startDate}`
+      if (endDate) statusFilter += `&date_end=${endDate}`
+    } else if (entity === "invoices") {
       if (filter === "unpaid") {
-        // filter_by=Status.Unpaid returns sent + overdue + partially_paid
         statusFilter = "&filter_by=Status.Unpaid"
       } else if (filter === "recent") {
         const since = new Date(); since.setDate(since.getDate() - 90)

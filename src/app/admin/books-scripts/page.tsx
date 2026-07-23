@@ -34,11 +34,17 @@ export default function BooksScriptsPage() {
   const [fullSyncForce, setFullSyncForce] = useState(true)
 
   // ── Bulk Process state ───────────────────────────────────────────────────
-  const [bulkFilter, setBulkFilter] = useState<'unpaid' | 'all' | 'recent'>('unpaid')
+  const [bulkFilter, setBulkFilter] = useState<'unpaid' | 'all' | 'recent' | 'daterange'>('daterange')
   const [bulkEntity, setBulkEntity] = useState<'invoices' | 'salesorders' | 'estimates'>('invoices')
   const [bulkForce, setBulkForce] = useState(false)
   const [bulkProgress, setBulkProgress] = useState("")
   const [bulkRunning, setBulkRunning] = useState(false)
+  // Date range defaults to current month
+  const nowY = new Date().getFullYear()
+  const nowM = String(new Date().getMonth() + 1).padStart(2, '0')
+  const lastDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
+  const [bulkStartDate, setBulkStartDate] = useState(`${nowY}-${nowM}-01`)
+  const [bulkEndDate, setBulkEndDate] = useState(`${nowY}-${nowM}-${lastDayOfMonth}`)
 
   // ── Helpers ──────────────────────────────────────────────────────────────
   const runScript = async (scriptName: string, endpoint: string) => {
@@ -172,7 +178,14 @@ export default function BooksScriptsPage() {
           const res = await fetch('/.netlify/functions/bulk-process-costs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ entity: bulkEntity, page, filter: bulkFilter, perPage: 25, force: bulkForce })
+            body: JSON.stringify({
+              entity: bulkEntity,
+              page,
+              filter: bulkFilter,
+              perPage: 25,
+              force: bulkForce,
+              ...(bulkFilter === 'daterange' ? { startDate: bulkStartDate, endDate: bulkEndDate } : {}),
+            })
           })
 
           const data = await res.json()
@@ -305,6 +318,7 @@ export default function BooksScriptsPage() {
               disabled={anyBusy}
               className="bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded-lg px-3 py-2"
             >
+              <option value="daterange">Date Range</option>
               <option value="unpaid">Unpaid Only</option>
               <option value="recent">Last 90 Days</option>
               <option value="all">All</option>
@@ -321,6 +335,49 @@ export default function BooksScriptsPage() {
             </label>
           </div>
         </div>
+
+        {/* Date range row — shown when filter = daterange */}
+        {bulkFilter === 'daterange' && (
+          <div className="flex items-center gap-3 flex-wrap bg-indigo-950/30 border border-indigo-500/20 rounded-xl px-4 py-3">
+            <span className="text-xs font-bold text-indigo-300">Date Range:</span>
+            {/* Month quick-picks */}
+            {(() => {
+              const today = new Date()
+              const months = Array.from({ length: 6 }, (_, i) => {
+                const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
+                const y = d.getFullYear()
+                const m = String(d.getMonth() + 1).padStart(2, '0')
+                const lastDay = new Date(y, d.getMonth() + 1, 0).getDate()
+                return { label: d.toLocaleString('default', { month: 'short', year: 'numeric' }), start: `${y}-${m}-01`, end: `${y}-${m}-${lastDay}` }
+              })
+              return months.map(mn => (
+                <button
+                  key={mn.start}
+                  onClick={() => { setBulkStartDate(mn.start); setBulkEndDate(mn.end) }}
+                  disabled={anyBusy}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
+                    bulkStartDate === mn.start && bulkEndDate === mn.end
+                      ? 'bg-indigo-600 border-indigo-400 text-white'
+                      : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-indigo-500 hover:text-white'
+                  }`}
+                >
+                  {mn.label}
+                </button>
+              ))
+            })()}
+            <div className="flex items-center gap-2 ml-auto">
+              <input type="date" value={bulkStartDate} onChange={e => setBulkStartDate(e.target.value)}
+                disabled={anyBusy}
+                className="bg-neutral-800 border border-neutral-700 text-white text-xs rounded-lg px-2 py-1.5 [color-scheme:dark]"
+              />
+              <span className="text-neutral-500 text-xs">to</span>
+              <input type="date" value={bulkEndDate} onChange={e => setBulkEndDate(e.target.value)}
+                disabled={anyBusy}
+                className="bg-neutral-800 border border-neutral-700 text-white text-xs rounded-lg px-2 py-1.5 [color-scheme:dark]"
+              />
+            </div>
+          </div>
+        )}
 
         {bulkProgress && (
           <div className="flex items-center gap-2 text-indigo-400 text-xs font-medium bg-indigo-950/30 border border-indigo-500/20 rounded-lg p-3">
@@ -341,7 +398,11 @@ export default function BooksScriptsPage() {
           className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
         >
           {bulkRunning ? <FiLoader className="animate-spin" /> : <FiCpu />}
-          {bulkRunning ? 'Processing...' : `Process ${bulkFilter === 'all' ? 'All' : bulkFilter === 'recent' ? 'Recent' : 'Unpaid'} ${bulkEntity === 'invoices' ? 'Invoices' : bulkEntity === 'salesorders' ? 'Sales Orders' : 'Quotes'}`}
+          {bulkRunning ? 'Processing...' : `Process ${
+            bulkFilter === 'daterange' ? `${bulkStartDate} to ${bulkEndDate}` :
+            bulkFilter === 'all' ? 'All' :
+            bulkFilter === 'recent' ? 'Last 90 Days' : 'Unpaid'
+          } ${bulkEntity === 'invoices' ? 'Invoices' : bulkEntity === 'salesorders' ? 'Sales Orders' : 'Quotes'}`}
         </button>
       </div>
 
