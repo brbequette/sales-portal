@@ -1054,6 +1054,21 @@ export const handler: Handler = async (event, context) => {
     // Prune: aggregate invoices server-side, keep only primary contact. Stays well under 6MB Lambda limit.
     const totalCount = (dbAccounts as any)._totalCount ?? dbAccounts.length;
     const EXCLUDED_STATUSES = new Set(['writeoff', 'write_off', 'write off', 'bad debt', 'void', 'voided', 'draft']);
+
+    // The full document `items` blob carries huge nested arrays (line items, custom fields,
+    // per-line cost breakdowns) that the list/dashboard views never read — the detailed invoice
+    // modal fetches those separately via /api/get-invoice-details. Left in, a single admin page
+    // of 400 accounts serialized to 6.4MB and blew past the 6MB Lambda response limit, so the
+    // whole home page failed to load. Strip the heavy keys, keep the scalar fields the UI uses.
+    const HEAVY_ITEM_KEYS = ['line_items', 'lineItems', 'items', 'custom_fields', 'lineItemDetails', 'lineItemBreakdownStrings', 'itemsDcBreakdown'];
+    const slimDoc = (doc: any) => {
+      if (!doc || !doc.items || typeof doc.items !== 'object') return doc;
+      const slimItems: any = {};
+      for (const k of Object.keys(doc.items)) {
+        if (!HEAVY_ITEM_KEYS.includes(k)) slimItems[k] = doc.items[k];
+      }
+      return { ...doc, items: slimItems };
+    };
     const accounts = dbAccounts.map((acc: any) => {
       const invoices: any[] = acc.invoices || [];
       let totalSales = 0, totalProfit = 0, overdueBalance = 0, overdueCount = 0, unpaidBalance = 0, unpaidCount = 0;
@@ -1130,9 +1145,9 @@ export const handler: Handler = async (event, context) => {
         purchasedProductNames,
         contacts: primaryContact ? [primaryContact] : [],
         ...(wantDocs ? {
-          invoices: acc.invoices || [],
-          quotes: acc.quotes || [],
-          salesOrders: acc.salesOrders || [],
+          invoices: (acc.invoices || []).map(slimDoc),
+          quotes: (acc.quotes || []).map(slimDoc),
+          salesOrders: (acc.salesOrders || []).map(slimDoc),
         } : {}),
         _count: acc._count || { invoices: 0, quotes: 0, salesOrders: 0 },
       };
