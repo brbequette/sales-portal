@@ -1,9 +1,12 @@
 import type { Context } from "@netlify/functions"
 import OpenAI from "openai"
 
-// Zero-config client: Netlify AI Gateway injects OPENAI_API_KEY / OPENAI_BASE_URL
-// into the v2 function runtime, so the SDK auto-detects credentials.
-const openai = new OpenAI()
+// Lazy-init so `next build` doesn't crash when OPENAI_API_KEY is absent locally.
+let _openai: OpenAI | null = null
+function getOpenAI() {
+  if (!_openai) _openai = new OpenAI()
+  return _openai
+}
 
 const cors = {
   "Content-Type": "application/json",
@@ -37,7 +40,7 @@ export default async (req: Request, context: Context) => {
 
     if (type === "image") {
       // Generate Image using the AI Gateway supported image model
-      const response = await openai.images.generate({
+      const response = await getOpenAI().images.generate({
         model: "gpt-image-1",
         prompt: prompt,
         n: 1,
@@ -59,7 +62,7 @@ Keep it concise, engaging, and professional.
 DO NOT use placeholders like [Name] or [Company]. Just write the message so it can be sent as a blast to many contractors.
 Use industry lingo occasionally if appropriate (e.g., "like a hot knife through butter", "let the blade do the work").`
 
-      const response = await openai.chat.completions.create({
+      const response = await getOpenAI().chat.completions.create({
         model: "gpt-4o",
         messages: [
           { role: "system", content: systemPrompt },

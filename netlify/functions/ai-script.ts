@@ -3,11 +3,19 @@ import OpenAI from "openai"
 import { scriptTemplates } from "./lib/script-templates"
 import { PrismaClient } from "@prisma/client"
 
-// Zero-config client: Netlify AI Gateway injects OPENAI_API_KEY / OPENAI_BASE_URL
-// into the v2 function runtime, so the SDK auto-detects credentials.
-const openai = new OpenAI()
-
-const prisma = new PrismaClient()
+// Clients are initialized lazily inside the handler so that
+// `next build` does not crash when env vars are absent locally.
+// On Netlify, OPENAI_API_KEY and DATABASE_URL are always present.
+let _openai: OpenAI | null = null
+let _prisma: PrismaClient | null = null
+function getOpenAI() {
+  if (!_openai) _openai = new OpenAI()
+  return _openai
+}
+function getPrisma() {
+  if (!_prisma) _prisma = new PrismaClient()
+  return _prisma
+}
 
 export default async (req: Request, context: Context) => {
   if (req.method !== "POST") {
@@ -40,12 +48,12 @@ export default async (req: Request, context: Context) => {
     let callHistory: any[] = []
     
     try {
-      dbScripts = await prisma.callScript.findMany({
+    dbScripts = await getPrisma().callScript.findMany({
         where: { isActive: true }
       })
 
       if (accountId) {
-        callHistory = await prisma.callLog.findMany({
+        callHistory = await getPrisma().callLog.findMany({
           where: { accountId },
           orderBy: { createdAt: 'desc' },
           take: 10,
@@ -161,7 +169,7 @@ CRITICAL INSTRUCTIONS based on Call Type:
       contextPrompt += `Context: Account Update / Active Client. Pitch an upgrade or restock of the ${recommendedBlade.name}. Recommend quantities and pricing based on their history. Reference their recent items directly so it feels personalized.\n`
     }
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
