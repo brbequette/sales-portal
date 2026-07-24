@@ -1,6 +1,10 @@
 [build]
-  command = "npx prisma generate && next build"
+  command = "echo DATABASE_URL=$DATABASE_URL >> .env.production && echo NETLIFY_DATABASE_URL=$NETLIFY_DATABASE_URL >> .env.production && npx prisma generate && next build"
   publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
 
 [dev]
   port = 8888
