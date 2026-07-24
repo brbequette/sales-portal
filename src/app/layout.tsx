@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { GeistSans, GeistMono } from "./fonts";
 import { NextAuthProvider } from "@/components/NextAuthProvider";
 import { ZohoProvider } from "@/components/ZohoProvider";
 import { AuthWrapper } from "@/components/AuthWrapper";
@@ -13,16 +13,6 @@ import "./globals.css";
 
 import { PreferencesProvider } from "@/components/PreferencesProvider";
 import { CampaignProgressProvider } from "@/components/CampaignProgressProvider";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Titan Diamond - Unified Hub",
@@ -45,7 +35,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable}`}
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
     >
       <head>
         <Script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js" strategy="beforeInteractive" />
