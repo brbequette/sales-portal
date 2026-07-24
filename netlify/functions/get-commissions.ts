@@ -133,7 +133,7 @@ export const handler: Handler = async (event) => {
           ) AS items
         FROM "SalesOrder" s
         LEFT JOIN "Account" a ON a.id = s."accountId"
-        WHERE s.status NOT IN ('Void','void','Draft','draft','Cancelled','cancelled')
+        WHERE s.status NOT IN ('Void','void','Draft','draft','Cancelled','cancelled','Invoiced','invoiced','Converted','converted')
         ${soDateSql}
         ORDER BY s."orderDate" DESC NULLS LAST
       `).catch(() => []),
@@ -484,7 +484,13 @@ export const handler: Handler = async (event) => {
         commission: { total, upfront, final, future, atRiskAmount: 0 },
         type: "invoice" as const
       }
-    }).filter(so => !so.zohoId || !seenSoIds.has(so.zohoId))
+    // Only include Sales Orders that have NOT been converted to an Invoice.
+    // When Zoho converts a SO → Invoice it sets the SO status to 'Invoiced' / 'Converted'.
+    // We exclude those at SQL level above, but also guard here in case of sync lag or
+    // alternate status spellings. A SO should only appear in commissions if it is still
+    // the source of truth (i.e. no corresponding Invoice has been created for it).
+    const INVOICED_SO_STATUSES = new Set(['Invoiced','invoiced','Converted','converted','Closed','closed'])
+    }).filter(so => !INVOICED_SO_STATUSES.has(so.status || ''))
 
     const allCommissionRecords = [...invoiceRecords, ...salesOrderRecords]
 
