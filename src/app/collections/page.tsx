@@ -2,6 +2,7 @@
 
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { CollectionsDialer } from "@/components/CollectionsDialer"
 import { createPortal } from "react-dom"
 import { usePagination, Pagination } from "@/components/Pagination"
 import { usePreferences } from "@/components/PreferencesProvider"
@@ -1676,10 +1677,11 @@ export default function CollectionsPage() {
       )}
 
       {showCallCampaign && (
-        <CallCampaignModal
+        <CollectionsDialer
           invoices={filtered}
           onClose={() => setShowCallCampaign(false)}
           onRefresh={fetchInvoices}
+          onRunCard={(inv) => { setShowCallCampaign(false); setShowRunCardDirect(inv as any) }}
         />
       )}
     </div>
