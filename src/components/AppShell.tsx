@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/collections", icon: FiPhoneCall,     label: "Collections", color: "text-[var(--danger)]" },
   ]
 
-  if (pathname === "/login") return <>{children}</>
+  if (pathname === "/login" || pathname === "/intro-offer") return <>{children}</>
 
   const handleLogout = () => {
     try { localStorage.removeItem("sales_portal_user") } catch {}
