@@ -38,12 +38,16 @@ export default function AppleStylePatriotOfferPage() {
   // Fullscreen Image Modal State
   const [fullscreenImage, setFullscreenImage] = useState<{ src: string; title: string; subtitle: string } | null>(null)
 
-  // Parallax Scroll Y position tracking
+  // Parallax Scroll Y position tracking & scroll progress
   const [scrollY, setScrollY] = useState(0)
+  const [scrollProgress, setScrollProgress] = useState(0)
 
   useEffect(() => {
     const handleScroll = () => {
-      setScrollY(window.scrollY)
+      const currentScrollY = window.scrollY
+      const totalHeight = document.documentElement.scrollHeight - window.innerHeight
+      setScrollY(currentScrollY)
+      setScrollProgress(totalHeight > 0 ? (currentScrollY / totalHeight) * 100 : 0)
     }
     window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
@@ -157,43 +161,53 @@ export default function AppleStylePatriotOfferPage() {
   return (
     <div className="relative min-h-screen bg-[#05070c] text-slate-100 font-sans selection:bg-red-600 selection:text-white pb-20 md:pb-0 overflow-x-hidden">
 
-      {/* ── REAL AMERICAN FLAG VIDEO BACKGROUND (PARALLAX EFFECT) ── */}
+      {/* ── TOP SCROLL PROGRESS BAR ── */}
+      <div className="fixed top-0 left-0 right-0 h-1 bg-slate-900 z-50">
+        <div
+          className="h-full bg-gradient-to-r from-red-600 via-amber-400 to-blue-600 transition-all duration-150 ease-out shadow-[0_0_10px_rgba(220,38,38,0.8)]"
+          style={{ width: `${scrollProgress}%` }}
+        />
+      </div>
+
+      {/* ── REAL AMERICAN FLAG VIDEO BACKGROUND (DYNAMIC PARALLAX) ── */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         <video
           autoPlay
           loop
           muted
           playsInline
-          className="absolute inset-0 w-full h-full object-cover opacity-30 sm:opacity-40 scale-105 filter contrast-125 saturate-150 transition-transform duration-75 ease-out"
-          style={{ transform: `translateY(${scrollY * 0.15}px) scale(1.05)` }}
+          className="absolute inset-0 w-full h-full object-cover opacity-35 sm:opacity-45 filter contrast-125 saturate-150 transition-transform duration-100 ease-out"
+          style={{ transform: `translateY(${scrollY * 0.18}px) scale(1.08)` }}
         >
           <source src="https://assets.mixkit.co/videos/preview/mixkit-american-flag-waving-in-the-wind-41549-large.mp4" type="video/mp4" />
           <source src="https://cdn.coverr.co/videos/coverr-american-flag-waving-5282/1080p.mp4" type="video/mp4" />
         </video>
 
         {/* Ambient Dark Gradient Vignette for Apple-Style Sleek Depth */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#05070c]/90 via-[#05070c]/40 to-[#05070c]/95" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#05070c]/90 via-[#05070c]/50 to-[#05070c]/95" />
       </div>
 
       <div className="relative z-10">
 
-        {/* ── APPLE-STYLE STICKY SUB-NAVBAR ── */}
-        <div className="sticky top-0 z-40 bg-[#080b12]/80 backdrop-blur-2xl border-b border-white/10 px-4 sm:px-8 py-3 flex items-center justify-between shadow-2xl transition-all">
+        {/* ── APPLE-STYLE STICKY SUB-NAVBAR WITH NEW SPARTAN LOGO ── */}
+        <div className="sticky top-1 z-40 bg-[#080b12]/85 backdrop-blur-2xl border-b border-white/10 px-4 sm:px-8 py-3 flex items-center justify-between shadow-2xl transition-all">
+          
+          {/* New Titan Spartan Logo Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-red-600 via-white to-blue-600 p-0.5 shadow-lg shrink-0">
-              <div className="w-full h-full bg-[#080b12] rounded-[10px] flex items-center justify-center font-black text-sm text-white">
-                T
-              </div>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-sm sm:text-base font-black text-white tracking-wide">Patriot BOGO</span>
-              <span className="text-xs font-bold text-red-500 hidden sm:inline">• Buy 1 Get 1 Free</span>
+            <img
+              src="/images/titan-spartan-logo.png"
+              alt="Titan Diamond USA Spartan Logo"
+              className="h-9 sm:h-11 w-auto object-contain filter drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]"
+            />
+            <div className="hidden sm:block border-l border-white/15 pl-3">
+              <span className="text-xs font-black uppercase text-white tracking-wider block">PATRIOT BOGO SPECIAL</span>
+              <span className="text-[10px] text-red-500 font-bold">BUY 1 GET 1 FREE ($99.99)</span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="hidden sm:block text-right">
-              <span className="text-xs font-extrabold text-amber-400 block leading-none">$99.99 BOGO Special</span>
+              <span className="text-xs font-extrabold text-amber-400 block leading-none">$99.99 BOGO Package</span>
               <span className="text-[10px] text-emerald-400 font-bold">Save $360 + Free Shipping</span>
             </div>
 
@@ -220,7 +234,7 @@ export default function AppleStylePatriotOfferPage() {
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2 overflow-hidden truncate">
               <span className="text-emerald-400 font-black flex items-center gap-1 shrink-0 text-[11px]">
-                <FiActivity className="animate-pulse" /> LIVE ORDERS:
+                <FiActivity className="animate-pulse" /> LIVE JOBSITE ORDERS:
               </span>
               <span className="text-slate-200 text-[11px] truncate">
                 <strong>{tickerEvents[currentTickerIndex].name}</strong> ({tickerEvents[currentTickerIndex].location}) — <span className="text-amber-300 font-extrabold">{tickerEvents[currentTickerIndex].action}</span>
@@ -237,14 +251,27 @@ export default function AppleStylePatriotOfferPage() {
           </div>
         </div>
 
-        {/* ── APPLE-STYLE HERO SECTION (SLEEK & DYNAMIC PARALLAX) ── */}
-        <section className="relative pt-12 sm:pt-20 pb-20 sm:pb-32 px-4 sm:px-8 max-w-7xl mx-auto text-center space-y-10">
+        {/* ── HERO SECTION (WITH OFFICIAL LOGO & ADVANCED PARALLAX BLADE SHOWCASE) ── */}
+        <section className="relative pt-12 sm:pt-16 pb-20 sm:pb-32 px-4 sm:px-8 max-w-7xl mx-auto text-center space-y-10">
           
-          {/* Headline Badges */}
-          <div className="space-y-4 max-w-4xl mx-auto">
+          {/* Main Titan Spartan Crest & Title */}
+          <div className="space-y-5 max-w-4xl mx-auto flex flex-col items-center">
+            
+            {/* Centered Titan Spartan Crest */}
+            <div
+              className="transition-transform duration-300 ease-out cursor-pointer"
+              style={{ transform: `scale(${Math.max(0.9, 1 - scrollY * 0.0005)})` }}
+            >
+              <img
+                src="/images/titan-spartan-logo.png"
+                alt="Titan Diamond USA Logo"
+                className="h-28 sm:h-40 w-auto object-contain filter drop-shadow-[0_0_35px_rgba(255,255,255,0.5)]"
+              />
+            </div>
+
             <div className="inline-flex items-center gap-2 bg-gradient-to-r from-red-950/80 via-slate-900/90 to-blue-950/80 border border-red-500/40 rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-widest text-white shadow-2xl backdrop-blur-md">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-              <span>THE NEXT-GENERATION INDUSTRIAL DIAMOND BLADE</span>
+              <span>OFFICIAL CONTRACTOR INTRODUCTORY BOGO SPECIAL</span>
             </div>
 
             <h1 className="text-4xl sm:text-7xl lg:text-8xl font-black text-white tracking-tight uppercase leading-[0.95] drop-shadow-[0_10px_30px_rgba(0,0,0,0.9)]">
@@ -259,23 +286,23 @@ export default function AppleStylePatriotOfferPage() {
             </p>
           </div>
 
-          {/* ── 3D FLOATING PARALLAX BLADE SHOWCASE (APPLE IPHONE STYLE) ── */}
+          {/* ── 3D FLOATING PARALLAX BLADE SHOWCASE ── */}
           <div
-            className="relative bg-gradient-to-b from-white/10 via-white/5 to-transparent border border-white/15 rounded-3xl p-6 sm:p-12 shadow-[0_20px_80px_rgba(0,0,0,0.8)] max-w-5xl mx-auto backdrop-blur-2xl overflow-hidden group transition-transform duration-500"
-            style={{ transform: `translateY(${Math.min(25, scrollY * 0.05)}px)` }}
+            className="relative bg-gradient-to-b from-white/10 via-white/5 to-transparent border border-white/15 rounded-3xl p-6 sm:p-12 shadow-[0_20px_80px_rgba(0,0,0,0.8)] max-w-5xl mx-auto backdrop-blur-2xl overflow-hidden group transition-all duration-300 ease-out"
+            style={{ transform: `translateY(${Math.min(30, scrollY * 0.06)}px)` }}
           >
-            {/* Ambient Backlight Glow */}
-            <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-72 h-72 bg-red-600/30 rounded-full blur-[100px] pointer-events-none" />
-            <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-72 h-72 bg-blue-600/30 rounded-full blur-[100px] pointer-events-none" />
+            {/* Ambient Backlight Glows */}
+            <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-80 h-80 bg-red-600/30 rounded-full blur-[100px] pointer-events-none" />
+            <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-80 h-80 bg-blue-600/30 rounded-full blur-[100px] pointer-events-none" />
 
             <div className="text-center text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center justify-center gap-1.5">
               <FiMaximize2 className="text-red-500 animate-pulse" /> CLICK IMAGE TO VIEW HIGH-RES 3D RENDER
             </div>
 
-            {/* 2-Blade Product Graphic Container */}
+            {/* 2-Blade Product Graphic Container with Independent Parallax Translates */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 items-center relative z-10">
               
-              {/* Blade 1: Speed Demon */}
+              {/* Blade 1: Speed Demon (Parallax Shift Up) */}
               <div
                 onClick={() => setFullscreenImage({
                   src: "/images/intro-offer/patriot-blade-1.png",
@@ -283,6 +310,7 @@ export default function AppleStylePatriotOfferPage() {
                   subtitle: "12mm Laser Welded Turbo Segments — Speed Specialist for Hard Concrete & Rebar"
                 })}
                 className="relative bg-gradient-to-b from-slate-900/90 to-black/90 p-6 rounded-2xl border border-red-500/40 text-center cursor-pointer group hover:border-red-500 transition-all duration-300 hover:shadow-[0_0_40px_rgba(220,38,38,0.5)] transform hover:-translate-y-2"
+                style={{ transform: `translateY(${Math.sin(scrollY * 0.003) * 12}px)` }}
               >
                 <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-lg">
                   PAY FOR BLADE #1 ($99.99)
@@ -302,7 +330,7 @@ export default function AppleStylePatriotOfferPage() {
                 <div className="text-[11px] text-slate-400 mt-2 font-medium">Ultra-velocity cutting through hard aggregate & cured concrete.</div>
               </div>
 
-              {/* Blade 2: Endurance Master */}
+              {/* Blade 2: Endurance Master (Parallax Shift Down) */}
               <div
                 onClick={() => setFullscreenImage({
                   src: "/images/intro-offer/patriot-blade-2.png",
@@ -310,6 +338,7 @@ export default function AppleStylePatriotOfferPage() {
                   subtitle: "14mm Slanted Drop Segments — Longevity Specialist for Asphalt & Green Concrete"
                 })}
                 className="relative bg-gradient-to-b from-slate-900/90 to-black/90 p-6 rounded-2xl border border-emerald-500/50 text-center cursor-pointer group hover:border-emerald-400 transition-all duration-300 hover:shadow-[0_0_40px_rgba(16,185,129,0.5)] transform hover:-translate-y-2"
+                style={{ transform: `translateY(${Math.cos(scrollY * 0.003) * 12}px)` }}
               >
                 <div className="absolute top-3 left-3 bg-emerald-600 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-lg animate-pulse">
                   BLADE #2: 100% FREE!
@@ -356,7 +385,7 @@ export default function AppleStylePatriotOfferPage() {
 
         </section>
 
-        {/* ── APPLE-STYLE FEATURE BLOCK 1: SPEED DEMON VELOCITY ── */}
+        {/* ── PARALLAX SCROLL FEATURE BLOCK 1: SPEED DEMON VELOCITY ── */}
         <section className="py-20 sm:py-32 px-4 sm:px-8 border-t border-white/10 bg-gradient-to-b from-[#05070c] via-slate-950 to-[#05070c]">
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             
@@ -373,11 +402,11 @@ export default function AppleStylePatriotOfferPage() {
               </p>
 
               <div className="grid grid-cols-2 gap-4 pt-2 text-left">
-                <div className="bg-slate-900/80 border border-white/10 p-4 rounded-xl backdrop-blur-md">
+                <div className="bg-slate-900/80 border border-white/10 p-4 rounded-xl backdrop-blur-md transform hover:scale-105 transition-transform">
                   <div className="text-3xl font-black text-red-500 font-mono">9.9 / 10</div>
                   <div className="text-xs font-bold text-slate-300 uppercase mt-1">Cutting Speed Rating</div>
                 </div>
-                <div className="bg-slate-900/80 border border-white/10 p-4 rounded-xl backdrop-blur-md">
+                <div className="bg-slate-900/80 border border-white/10 p-4 rounded-xl backdrop-blur-md transform hover:scale-105 transition-transform">
                   <div className="text-3xl font-black text-white font-mono">14,000 PSI</div>
                   <div className="text-xs font-bold text-slate-300 uppercase mt-1">Laser Weld Strength</div>
                 </div>
@@ -385,7 +414,10 @@ export default function AppleStylePatriotOfferPage() {
             </div>
 
             <div className="lg:col-span-6 flex justify-center">
-              <div className="relative w-72 h-72 sm:w-96 sm:h-96 flex items-center justify-center group">
+              <div
+                className="relative w-72 h-72 sm:w-96 sm:h-96 flex items-center justify-center group"
+                style={{ transform: `translateY(${Math.sin(scrollY * 0.002) * 20}px)` }}
+              >
                 <div className="absolute inset-0 bg-red-600/20 rounded-full blur-[80px] pointer-events-none group-hover:bg-red-600/30 transition-all" />
                 <img
                   src="/images/intro-offer/patriot-blade-1.png"
@@ -403,12 +435,15 @@ export default function AppleStylePatriotOfferPage() {
           </div>
         </section>
 
-        {/* ── APPLE-STYLE FEATURE BLOCK 2: ENDURANCE MASTER FOOTAGE ── */}
+        {/* ── PARALLAX SCROLL FEATURE BLOCK 2: ENDURANCE MASTER FOOTAGE ── */}
         <section className="py-20 sm:py-32 px-4 sm:px-8 border-t border-white/10 bg-gradient-to-b from-[#05070c] via-blue-950/40 to-[#05070c]">
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             
             <div className="lg:col-span-6 order-2 lg:order-1 flex justify-center">
-              <div className="relative w-72 h-72 sm:w-96 sm:h-96 flex items-center justify-center group">
+              <div
+                className="relative w-72 h-72 sm:w-96 sm:h-96 flex items-center justify-center group"
+                style={{ transform: `translateY(${Math.cos(scrollY * 0.002) * 20}px)` }}
+              >
                 <div className="absolute inset-0 bg-blue-600/20 rounded-full blur-[80px] pointer-events-none group-hover:bg-blue-600/30 transition-all" />
                 <img
                   src="/images/intro-offer/patriot-blade-2.png"
@@ -436,11 +471,11 @@ export default function AppleStylePatriotOfferPage() {
               </p>
 
               <div className="grid grid-cols-2 gap-4 pt-2 text-left">
-                <div className="bg-slate-900/80 border border-white/10 p-4 rounded-xl backdrop-blur-md">
+                <div className="bg-slate-900/80 border border-white/10 p-4 rounded-xl backdrop-blur-md transform hover:scale-105 transition-transform">
                   <div className="text-3xl font-black text-emerald-400 font-mono">200%+</div>
                   <div className="text-xs font-bold text-slate-300 uppercase mt-1">Extended Footage</div>
                 </div>
-                <div className="bg-slate-900/80 border border-white/10 p-4 rounded-xl backdrop-blur-md">
+                <div className="bg-slate-900/80 border border-white/10 p-4 rounded-xl backdrop-blur-md transform hover:scale-105 transition-transform">
                   <div className="text-3xl font-black text-white font-mono">14mm</div>
                   <div className="text-xs font-bold text-slate-300 uppercase mt-1">Deep Drop Segments</div>
                 </div>
@@ -450,10 +485,15 @@ export default function AppleStylePatriotOfferPage() {
           </div>
         </section>
 
-        {/* ── APPLE-STYLE 4 TECHNICAL SPECIFICATIONS GRID ── */}
+        {/* ── 4 TECHNICAL SPECIFICATIONS GRID (PARALLAX TILES) ── */}
         <section className="py-20 sm:py-32 px-4 sm:px-8 border-t border-white/10 max-w-6xl mx-auto space-y-12">
           
           <div className="text-center space-y-3 max-w-3xl mx-auto">
+            <img
+              src="/images/titan-spartan-logo.png"
+              alt="Titan Logo"
+              className="h-16 w-auto mx-auto object-contain filter drop-shadow-[0_0_20px_rgba(255,255,255,0.4)] mb-2"
+            />
             <span className="text-xs font-black text-amber-400 uppercase tracking-widest bg-amber-950/80 border border-amber-800/60 px-4 py-1.5 rounded-full inline-block">
               ENGINEERING MATRIX
             </span>
@@ -468,7 +508,7 @@ export default function AppleStylePatriotOfferPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* Spec 1 */}
-            <div className="bg-gradient-to-b from-slate-900/90 to-black/90 border border-white/15 p-6 rounded-2xl space-y-3 shadow-xl backdrop-blur-md">
+            <div className="bg-gradient-to-b from-slate-900/90 to-black/90 border border-white/15 p-6 rounded-2xl space-y-3 shadow-xl backdrop-blur-md hover:border-red-500/50 transition-all hover:shadow-[0_0_30px_rgba(220,38,38,0.3)]">
               <div className="w-10 h-10 rounded-xl bg-red-600/20 text-red-500 flex items-center justify-center font-black text-xl">
                 <FiLayers />
               </div>
@@ -480,7 +520,7 @@ export default function AppleStylePatriotOfferPage() {
             </div>
 
             {/* Spec 2 */}
-            <div className="bg-gradient-to-b from-slate-900/90 to-black/90 border border-white/15 p-6 rounded-2xl space-y-3 shadow-xl backdrop-blur-md">
+            <div className="bg-gradient-to-b from-slate-900/90 to-black/90 border border-white/15 p-6 rounded-2xl space-y-3 shadow-xl backdrop-blur-md hover:border-amber-400/50 transition-all hover:shadow-[0_0_30px_rgba(251,191,36,0.3)]">
               <div className="w-10 h-10 rounded-xl bg-amber-600/20 text-amber-400 flex items-center justify-center font-black text-xl">
                 <FiCpu />
               </div>
@@ -492,7 +532,7 @@ export default function AppleStylePatriotOfferPage() {
             </div>
 
             {/* Spec 3 */}
-            <div className="bg-gradient-to-b from-slate-900/90 to-black/90 border border-white/15 p-6 rounded-2xl space-y-3 shadow-xl backdrop-blur-md">
+            <div className="bg-gradient-to-b from-slate-900/90 to-black/90 border border-white/15 p-6 rounded-2xl space-y-3 shadow-xl backdrop-blur-md hover:border-blue-400/50 transition-all hover:shadow-[0_0_30px_rgba(96,165,250,0.3)]">
               <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-black text-xl">
                 <FiFeather />
               </div>
@@ -504,7 +544,7 @@ export default function AppleStylePatriotOfferPage() {
             </div>
 
             {/* Spec 4 */}
-            <div className="bg-gradient-to-b from-slate-900/90 to-black/90 border border-white/15 p-6 rounded-2xl space-y-3 shadow-xl backdrop-blur-md">
+            <div className="bg-gradient-to-b from-slate-900/90 to-black/90 border border-white/15 p-6 rounded-2xl space-y-3 shadow-xl backdrop-blur-md hover:border-emerald-400/50 transition-all hover:shadow-[0_0_30px_rgba(52,211,153,0.3)]">
               <div className="w-10 h-10 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center font-black text-xl">
                 <FiTool />
               </div>
@@ -524,7 +564,12 @@ export default function AppleStylePatriotOfferPage() {
           
           <div className="bg-gradient-to-b from-slate-900/95 via-[#080b12] to-black border-2 border-white/20 rounded-3xl p-6 sm:p-12 shadow-[0_20px_80px_rgba(0,0,0,0.9)] space-y-8 backdrop-blur-2xl">
             
-            <div className="text-center space-y-2">
+            <div className="text-center space-y-3">
+              <img
+                src="/images/titan-spartan-logo.png"
+                alt="Titan Spartan Logo"
+                className="h-16 w-auto mx-auto object-contain filter drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]"
+              />
               <span className="bg-red-600 text-white text-xs font-black px-4 py-1 rounded-full uppercase tracking-widest shadow-lg">
                 OFFICIAL CONTRACTOR BOGO ORDER
               </span>
@@ -877,8 +922,13 @@ export default function AppleStylePatriotOfferPage() {
 
         </section>
 
-        {/* ── FOOTER ── */}
-        <footer className="py-12 px-4 border-t border-white/10 bg-[#05070c] text-center text-xs text-slate-500 space-y-3">
+        {/* ── FOOTER WITH TITAN SPARTAN LOGO ── */}
+        <footer className="py-12 px-4 border-t border-white/10 bg-[#05070c] text-center text-xs text-slate-500 space-y-4">
+          <img
+            src="/images/titan-spartan-logo.png"
+            alt="Titan Logo"
+            className="h-16 w-auto mx-auto object-contain filter drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]"
+          />
           <div className="flex items-center justify-center gap-3 font-black text-slate-300 flex-wrap">
             <span>TITAN DIAMOND TOOLS USA</span>
             <span>•</span>
@@ -981,7 +1031,12 @@ export default function AppleStylePatriotOfferPage() {
               </button>
 
               <div className="text-center space-y-2">
-                <div className="w-14 h-14 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-2xl font-black">
+                <img
+                  src="/images/titan-spartan-logo.png"
+                  alt="Titan Logo"
+                  className="h-14 w-auto mx-auto object-contain filter drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]"
+                />
+                <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-xl font-black">
                   ✓
                 </div>
                 <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
