@@ -397,7 +397,9 @@ export const handler: Handler = async (event) => {
       }
     })
 
-    const seenSoIds = new Set(invoiceRecords.map(i => i.zohoId).filter(Boolean))
+    // Statuses Zoho sets on a SO once it has been converted to an Invoice.
+    // These SOs must be excluded — the Invoice is the source of truth.
+    const INVOICED_SO_STATUSES = new Set(['Invoiced','invoiced','Converted','converted','Closed','closed'])
 
     const salesOrderRecords = rawSalesOrders.map(so => {
       const items = (so.items as any) || {}
@@ -484,12 +486,6 @@ export const handler: Handler = async (event) => {
         commission: { total, upfront, final, future, atRiskAmount: 0 },
         type: "invoice" as const
       }
-    // Only include Sales Orders that have NOT been converted to an Invoice.
-    // When Zoho converts a SO → Invoice it sets the SO status to 'Invoiced' / 'Converted'.
-    // We exclude those at SQL level above, but also guard here in case of sync lag or
-    // alternate status spellings. A SO should only appear in commissions if it is still
-    // the source of truth (i.e. no corresponding Invoice has been created for it).
-    const INVOICED_SO_STATUSES = new Set(['Invoiced','invoiced','Converted','converted','Closed','closed'])
     }).filter(so => !INVOICED_SO_STATUSES.has(so.status || ''))
 
     const allCommissionRecords = [...invoiceRecords, ...salesOrderRecords]
