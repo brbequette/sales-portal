@@ -77,10 +77,10 @@ export default function StandalonePatriotOfferPage() {
     return () => clearInterval(timer)
   }, [])
 
-  // BOGO Pricing Calculations ($99.99 for 14", $129.99 for 16", $169.99 for 20")
-  const pricePerPack = selectedSize === "14" ? 99.99 : selectedSize === "16" ? 129.99 : 169.99
-  const regularValue = selectedSize === "14" ? 459.98 : selectedSize === "16" ? 529.98 : 649.98
-  const savings = Math.round(regularValue - pricePerPack)
+  // BOGO Pricing Calculations (Fixed 14" Package: $99.99 Total)
+  const pricePerPack = 99.99
+  const regularValue = 459.98
+  const savings = 360
   const totalPrice = (pricePerPack * quantity).toFixed(2)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -538,34 +538,23 @@ export default function StandalonePatriotOfferPage() {
             <p className="text-xs text-slate-600">Pay by Credit Card or Confirm 30-Day Business Account Billing.</p>
           </div>
 
-          {/* Size & Quantity Selector */}
+          {/* Locked 14" Package Badge & Quantity Selector */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-200">
             
-            {/* Size Options */}
+            {/* Locked 14" BOGO Package Badge */}
             <div className="space-y-2">
               <label className="text-xs font-black text-blue-950 uppercase tracking-wider block">
-                1. SELECT BLADE DIAMETER:
+                1. SELECTED BOGO PACKAGE:
               </label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { size: "14", label: '14" BOGO', price: "$99.99" },
-                  { size: "16", label: '16" BOGO', price: "$129.99" },
-                  { size: "20", label: '20" BOGO', price: "$169.99" },
-                ].map(opt => (
-                  <button
-                    key={opt.size}
-                    type="button"
-                    onClick={() => setSelectedSize(opt.size as any)}
-                    className={`min-h-[52px] p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center active:scale-95 ${
-                      selectedSize === opt.size
-                        ? "bg-blue-900 border-blue-900 text-white shadow-md ring-2 ring-blue-900/30"
-                        : "bg-white border-slate-300 text-slate-700 hover:border-slate-400"
-                    }`}
-                  >
-                    <span className="text-xs font-black uppercase">{opt.label}</span>
-                    <span className={`text-xs font-black mt-0.5 ${selectedSize === opt.size ? "text-amber-300" : "text-red-600"}`}>{opt.price}</span>
-                  </button>
-                ))}
+              <div className="bg-blue-900 text-white p-3.5 rounded-xl border border-blue-900 shadow-md flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-black uppercase tracking-wide text-white">14" PATRIOT 2-BLADE BOGO PACK</div>
+                  <div className="text-[11px] font-bold text-amber-300">1x 14" Speed + 1x 14" Life Blade</div>
+                </div>
+                <div className="text-right">
+                  <span className="bg-red-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded">ONLY</span>
+                  <div className="text-xl font-black text-white">$99.99</div>
+                </div>
               </div>
             </div>
 
