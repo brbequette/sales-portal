@@ -6,7 +6,7 @@ import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
 import {
-  FiHome, FiPhoneCall, FiDollarSign, FiTool,
+  FiHome, FiPhoneCall, FiDollarSign, FiTool, FiZap,
   FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare, FiArrowLeft, FiCheckSquare, FiClock, FiGrid, FiTruck
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
@@ -22,7 +22,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [showSettings, setShowSettings] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
 
-  const mainPages = ["/", "/login", "/sales", "/shipping", "/messages", "/collections", "/commissions", "/stats", "/tools", "/training", "/catalog", "/timeclock", "/tasks"]
+  const mainPages = ["/", "/login", "/sales", "/shipping", "/messages", "/collections", "/commissions", "/stats", "/tools", "/training", "/catalog", "/timeclock", "/tasks", "/intro-offer"]
   const showBackButton = !mainPages.includes(pathname)
 
   const effectiveRole = preferences.impersonatedUser ? preferences.impersonatedUser.role : (user?.role || "")
@@ -31,6 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: "/",            icon: FiHome,          label: "Sales Hub",     color: "text-[var(--primary)]" },
+    { href: "/intro-offer", icon: FiZap,           label: "Intro Offer",   color: "text-amber-400" },
     { href: "/tasks",       icon: FiCheckSquare,   label: "Task Hub",      color: "text-violet-400" },
     { href: "/sales",       icon: FiFileText,      label: "Sales Docs",    color: "text-[var(--accent)]" },
     { href: "/shipping",    icon: FiTruck,         label: "Shipping",      color: "text-orange-400" },
