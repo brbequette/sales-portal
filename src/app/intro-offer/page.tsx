@@ -22,16 +22,19 @@ import {
   FiLayers,
   FiTool,
   FiFeather,
-  FiChevronDown,
-  FiCheck,
-  FiAward
+  FiChevronLeft,
+  FiChevronRight,
+  FiCheck
 } from "react-icons/fi"
 
 export default function AppleStylePatriotOfferPage() {
+  // Hero Slider State (3 Slides)
+  const [currentSlide, setCurrentSlide] = useState<number>(0)
+  const totalSlides = 3
+
   // Offer State
   const [quantity, setQuantity] = useState<number>(1)
   const [activeTab, setActiveTab] = useState<"credit_card" | "30_day_billing">("credit_card")
-  const [activeBladeTab, setActiveBladeTab] = useState<"speed" | "life">("speed")
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [orderCompleted, setOrderCompleted] = useState<any>(null)
   
@@ -51,6 +54,14 @@ export default function AppleStylePatriotOfferPage() {
     }
     window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  // Auto-play Hero Slider every 6 seconds
+  useEffect(() => {
+    const slideInterval = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % totalSlides)
+    }, 6000)
+    return () => clearInterval(slideInterval)
   }, [])
 
   // Live Sales Ticker State
@@ -189,45 +200,45 @@ export default function AppleStylePatriotOfferPage() {
 
       <div className="relative z-10">
 
-        {/* ── APPLE-STYLE STICKY SUB-NAVBAR WITH NEW SPARTAN LOGO ── */}
-        <div className="sticky top-1 z-40 bg-[#080b12]/85 backdrop-blur-2xl border-b border-white/10 px-4 sm:px-8 py-3 flex items-center justify-between shadow-2xl transition-all">
+        {/* ── HEADER (PROMINENT SPARTAN LOGO ONLY HERE) ── */}
+        <header className="sticky top-1 z-40 bg-[#080b12]/90 backdrop-blur-2xl border-b border-white/10 px-4 sm:px-8 py-3.5 flex items-center justify-between shadow-2xl transition-all">
           
-          {/* New Titan Spartan Logo Brand */}
+          {/* Prominent Titan Spartan Crest Logo (Bigger Image in Header) */}
           <div className="flex items-center gap-3">
             <img
               src="/images/titan-spartan-logo.png"
               alt="Titan Diamond USA Spartan Logo"
-              className="h-9 sm:h-11 w-auto object-contain filter drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]"
+              className="h-12 sm:h-16 w-auto object-contain filter drop-shadow-[0_0_18px_rgba(255,255,255,0.6)]"
             />
             <div className="hidden sm:block border-l border-white/15 pl-3">
-              <span className="text-xs font-black uppercase text-white tracking-wider block">PATRIOT BOGO SPECIAL</span>
-              <span className="text-[10px] text-red-500 font-bold">BUY 1 GET 1 FREE ($99.99)</span>
+              <span className="text-sm font-black uppercase text-white tracking-wider block">TITAN DIAMOND USA</span>
+              <span className="text-xs text-red-500 font-extrabold">PATRIOT BOGO SPECIAL ($99.99)</span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:block text-right">
-              <span className="text-xs font-extrabold text-amber-400 block leading-none">$99.99 BOGO Package</span>
+            <div className="hidden md:block text-right">
+              <span className="text-xs font-extrabold text-amber-400 block leading-none">BUY 1 GET 1 FREE</span>
               <span className="text-[10px] text-emerald-400 font-bold">Save $360 + Free Shipping</span>
             </div>
 
             <a
               href="tel:18008482634"
-              className="hidden lg:flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/15 px-3.5 py-1.5 rounded-full text-xs font-black transition-all"
+              className="hidden sm:flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/15 px-4 py-2 rounded-full text-xs font-black transition-all shadow-md"
             >
-              <FiPhone size={12} className="text-blue-400 animate-pulse" />
+              <FiPhone size={13} className="text-blue-400 animate-pulse" />
               <span>(800) 848-2634</span>
             </a>
 
             <a
               href="#order-section"
-              className="bg-gradient-to-r from-red-600 via-red-500 to-blue-600 hover:from-red-500 hover:to-blue-500 text-white px-4 sm:px-5 py-2 rounded-full text-xs font-black uppercase tracking-wider shadow-[0_0_20px_rgba(220,38,38,0.6)] transition-all active:scale-95 flex items-center gap-1.5"
+              className="bg-gradient-to-r from-red-600 via-red-500 to-blue-600 hover:from-red-500 hover:to-blue-500 text-white px-5 sm:px-6 py-2.5 rounded-full text-xs sm:text-sm font-black uppercase tracking-wider shadow-[0_0_20px_rgba(220,38,38,0.6)] transition-all active:scale-95 flex items-center gap-1.5"
             >
-              <span>Buy Now</span>
-              <FiArrowRight size={14} />
+              <span>CLAIM BOGO</span>
+              <FiArrowRight size={16} />
             </a>
           </div>
-        </div>
+        </header>
 
         {/* ── LIVE SOCIAL PROOF TICKER ── */}
         <div className="bg-blue-950/70 border-b border-blue-900/50 backdrop-blur-md py-1.5 px-4 text-xs text-slate-300">
@@ -251,135 +262,303 @@ export default function AppleStylePatriotOfferPage() {
           </div>
         </div>
 
-        {/* ── HERO SECTION (WITH OFFICIAL LOGO & ADVANCED PARALLAX BLADE SHOWCASE) ── */}
-        <section className="relative pt-12 sm:pt-16 pb-20 sm:pb-32 px-4 sm:px-8 max-w-7xl mx-auto text-center space-y-10">
+        {/* ── APPLE-STYLE 3-SLIDE HERO CAROUSEL (BLADES PROMINENT ABOVE THE FOLD) ── */}
+        <section className="relative pt-6 sm:pt-10 pb-12 sm:pb-20 px-3.5 sm:px-8 max-w-6xl mx-auto">
           
-          {/* Main Titan Spartan Crest & Title */}
-          <div className="space-y-5 max-w-4xl mx-auto flex flex-col items-center">
+          {/* Slide Navigation Controls & Indicators */}
+          <div className="flex items-center justify-between mb-4 max-w-4xl mx-auto">
             
-            {/* Centered Titan Spartan Crest */}
-            <div
-              className="transition-transform duration-300 ease-out cursor-pointer"
-              style={{ transform: `scale(${Math.max(0.9, 1 - scrollY * 0.0005)})` }}
-            >
-              <img
-                src="/images/titan-spartan-logo.png"
-                alt="Titan Diamond USA Logo"
-                className="h-28 sm:h-40 w-auto object-contain filter drop-shadow-[0_0_35px_rgba(255,255,255,0.5)]"
-              />
+            {/* Slide Dots */}
+            <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
+              <button
+                onClick={() => setCurrentSlide(0)}
+                className={`text-[10px] font-black uppercase px-3 py-1 rounded-full transition-all flex items-center gap-1 ${
+                  currentSlide === 0 ? "bg-red-600 text-white shadow-md" : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <span>SLIDE 1: BOGO DEAL</span>
+              </button>
+
+              <button
+                onClick={() => setCurrentSlide(1)}
+                className={`text-[10px] font-black uppercase px-3 py-1 rounded-full transition-all flex items-center gap-1 ${
+                  currentSlide === 1 ? "bg-red-600 text-white shadow-md" : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <span>SLIDE 2: SPEED DEMON</span>
+              </button>
+
+              <button
+                onClick={() => setCurrentSlide(2)}
+                className={`text-[10px] font-black uppercase px-3 py-1 rounded-full transition-all flex items-center gap-1 ${
+                  currentSlide === 2 ? "bg-emerald-600 text-white shadow-md" : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <span>SLIDE 3: ENDURANCE MASTER</span>
+              </button>
             </div>
 
-            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-red-950/80 via-slate-900/90 to-blue-950/80 border border-red-500/40 rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-widest text-white shadow-2xl backdrop-blur-md">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-              <span>OFFICIAL CONTRACTOR INTRODUCTORY BOGO SPECIAL</span>
+            {/* Prev / Next Arrows */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentSlide((currentSlide - 1 + totalSlides) % totalSlides)}
+                className="w-9 h-9 rounded-full bg-slate-900/80 hover:bg-slate-800 border border-white/15 text-white flex items-center justify-center transition-colors active:scale-95 shadow-md"
+              >
+                <FiChevronLeft size={18} />
+              </button>
+              <button
+                onClick={() => setCurrentSlide((currentSlide + 1) % totalSlides)}
+                className="w-9 h-9 rounded-full bg-slate-900/80 hover:bg-slate-800 border border-white/15 text-white flex items-center justify-center transition-colors active:scale-95 shadow-md"
+              >
+                <FiChevronRight size={18} />
+              </button>
             </div>
 
-            <h1 className="text-4xl sm:text-7xl lg:text-8xl font-black text-white tracking-tight uppercase leading-[0.95] drop-shadow-[0_10px_30px_rgba(0,0,0,0.9)]">
-              PRECISION. VELOCITY. <br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-500 via-amber-300 to-blue-500">
-                UNTOUCHABLE POWER.
-              </span>
-            </h1>
-
-            <p className="text-base sm:text-2xl text-slate-300 font-light max-w-3xl mx-auto leading-relaxed pt-2">
-              Meet the <strong className="text-white font-black">Patriot BOGO Package</strong>. Engineered with 100% laser-welded GE synthetic diamond matrices to out-cut and out-last every conventional blade on earth.
-            </p>
           </div>
 
-          {/* ── 3D FLOATING PARALLAX BLADE SHOWCASE ── */}
-          <div
-            className="relative bg-gradient-to-b from-white/10 via-white/5 to-transparent border border-white/15 rounded-3xl p-6 sm:p-12 shadow-[0_20px_80px_rgba(0,0,0,0.8)] max-w-5xl mx-auto backdrop-blur-2xl overflow-hidden group transition-all duration-300 ease-out"
-            style={{ transform: `translateY(${Math.min(30, scrollY * 0.06)}px)` }}
-          >
-            {/* Ambient Backlight Glows */}
-            <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-80 h-80 bg-red-600/30 rounded-full blur-[100px] pointer-events-none" />
-            <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-80 h-80 bg-blue-600/30 rounded-full blur-[100px] pointer-events-none" />
+          {/* ── CAROUSEL CONTAINER ── */}
+          <div className="relative bg-gradient-to-b from-white/10 via-white/5 to-transparent border border-white/15 rounded-3xl p-5 sm:p-10 shadow-[0_20px_80px_rgba(0,0,0,0.85)] backdrop-blur-2xl overflow-hidden">
+            
+            {/* Ambient Lighting Glows */}
+            <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-80 h-80 bg-red-600/25 rounded-full blur-[100px] pointer-events-none" />
+            <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-80 h-80 bg-blue-600/25 rounded-full blur-[100px] pointer-events-none" />
 
-            <div className="text-center text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center justify-center gap-1.5">
-              <FiMaximize2 className="text-red-500 animate-pulse" /> CLICK IMAGE TO VIEW HIGH-RES 3D RENDER
-            </div>
+            {/* ── SLIDE 1: BOTH BLADES ABOVE THE FOLD + HIGHLIGHT BOGO DEAL ── */}
+            {currentSlide === 0 && (
+              <div className="space-y-6 text-center animate-fade-in">
+                
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-red-950/90 via-slate-900/90 to-blue-950/90 border border-red-500/40 rounded-full px-4 py-1 text-xs font-black uppercase tracking-widest text-white shadow-lg">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                    <span>SLIDE 1 OF 3 • OFFICIAL BOGO INTRODUCTORY PACKAGE</span>
+                  </div>
 
-            {/* 2-Blade Product Graphic Container with Independent Parallax Translates */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 items-center relative z-10">
-              
-              {/* Blade 1: Speed Demon (Parallax Shift Up) */}
-              <div
-                onClick={() => setFullscreenImage({
-                  src: "/images/intro-offer/patriot-blade-1.png",
-                  title: '14" PATRIOT SPEED DEMON BLADE',
-                  subtitle: "12mm Laser Welded Turbo Segments — Speed Specialist for Hard Concrete & Rebar"
-                })}
-                className="relative bg-gradient-to-b from-slate-900/90 to-black/90 p-6 rounded-2xl border border-red-500/40 text-center cursor-pointer group hover:border-red-500 transition-all duration-300 hover:shadow-[0_0_40px_rgba(220,38,38,0.5)] transform hover:-translate-y-2"
-                style={{ transform: `translateY(${Math.sin(scrollY * 0.003) * 12}px)` }}
-              >
-                <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-lg">
-                  PAY FOR BLADE #1 ($99.99)
+                  <h1 className="text-3xl sm:text-6xl font-black text-white tracking-tight uppercase leading-tight">
+                    BUY 1 SPEED DEMON, GET 1 ENDURANCE MASTER <span className="text-red-500">FREE!</span>
+                  </h1>
+
+                  <p className="text-xs sm:text-base text-slate-300 font-light max-w-2xl mx-auto">
+                    Both 14" Patriot Blades included in one package for <strong className="text-emerald-400 font-black text-sm sm:text-lg">$99.99</strong>. (Regular Value: ${regularValue.toFixed(2)} — Save ${savings} today!).
+                  </p>
                 </div>
 
-                <div className="w-full h-56 sm:h-72 relative my-4 flex items-center justify-center">
-                  <img
-                    src="/images/intro-offer/patriot-blade-1.png"
-                    alt="Patriot Speed Demon"
-                    className="max-h-full object-contain filter drop-shadow-[0_0_25px_rgba(220,38,38,0.6)] group-hover:scale-110 transition-transform duration-500 ease-out"
-                    onError={(e) => { (e.target as HTMLElement).style.display = 'none' }}
-                  />
+                {/* Both Blades Side-by-Side Display */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-6 relative max-w-4xl mx-auto">
+                  
+                  {/* Blade 1: Speed Demon */}
+                  <div
+                    onClick={() => setFullscreenImage({
+                      src: "/images/intro-offer/patriot-blade-1.png",
+                      title: '14" PATRIOT SPEED DEMON BLADE',
+                      subtitle: "12mm Laser Welded Turbo Segments — Speed Specialist for Hard Concrete & Rebar"
+                    })}
+                    className="relative bg-gradient-to-b from-slate-900/90 to-black/90 p-3.5 sm:p-6 rounded-2xl border border-red-500/40 text-center cursor-pointer group hover:border-red-500 transition-all duration-300 hover:shadow-[0_0_40px_rgba(220,38,38,0.5)] transform hover:-translate-y-1"
+                  >
+                    <span className="absolute top-2 left-2 bg-red-600 text-white text-[8px] sm:text-[10px] font-black uppercase px-2.5 py-0.5 rounded shadow z-10">
+                      PAY FOR BLADE #1 ($99.99)
+                    </span>
+
+                    <div className="w-full h-36 sm:h-56 relative my-2 flex items-center justify-center">
+                      <img
+                        src="/images/intro-offer/patriot-blade-1.png"
+                        alt="Patriot Speed Demon"
+                        className="max-h-full object-contain filter drop-shadow-[0_0_25px_rgba(220,38,38,0.6)] group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => { (e.target as HTMLElement).style.display = 'none' }}
+                      />
+                    </div>
+
+                    <h3 className="text-sm sm:text-lg font-black text-white uppercase leading-tight">PATRIOT SPEED DEMON</h3>
+                    <p className="text-[10px] sm:text-xs text-red-400 font-bold mt-0.5">12mm Turbo Segments</p>
+                  </div>
+
+                  {/* Blade 2: Endurance Master */}
+                  <div
+                    onClick={() => setFullscreenImage({
+                      src: "/images/intro-offer/patriot-blade-2.png",
+                      title: '14" PATRIOT ENDURANCE MASTER BLADE',
+                      subtitle: "14mm Slanted Drop Segments — Longevity Specialist for Asphalt & Green Concrete"
+                    })}
+                    className="relative bg-gradient-to-b from-slate-900/90 to-black/90 p-3.5 sm:p-6 rounded-2xl border border-emerald-500/50 text-center cursor-pointer group hover:border-emerald-400 transition-all duration-300 hover:shadow-[0_0_40px_rgba(16,185,129,0.5)] transform hover:-translate-y-1"
+                  >
+                    <span className="absolute top-2 left-2 bg-emerald-600 text-white text-[8px] sm:text-[10px] font-black uppercase px-2.5 py-0.5 rounded shadow z-10 animate-pulse">
+                      BLADE #2: 100% FREE!
+                    </span>
+
+                    <div className="w-full h-36 sm:h-56 relative my-2 flex items-center justify-center">
+                      <img
+                        src="/images/intro-offer/patriot-blade-2.png"
+                        alt="Patriot Endurance Master"
+                        className="max-h-full object-contain filter drop-shadow-[0_0_25px_rgba(16,185,129,0.6)] group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => { (e.target as HTMLElement).style.display = 'none' }}
+                      />
+                    </div>
+
+                    <h3 className="text-sm sm:text-lg font-black text-white uppercase leading-tight">PATRIOT ENDURANCE MASTER</h3>
+                    <p className="text-[10px] sm:text-xs text-emerald-400 font-bold mt-0.5">14mm Drop Segments</p>
+                  </div>
+
                 </div>
 
-                <h3 className="text-xl font-black text-white uppercase tracking-wider">PATRIOT SPEED DEMON</h3>
-                <p className="text-xs text-red-400 font-bold mt-1">12mm Laser Welded Turbo Segments</p>
-                <div className="text-[11px] text-slate-400 mt-2 font-medium">Ultra-velocity cutting through hard aggregate & cured concrete.</div>
+                {/* Action CTA */}
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                  <a
+                    href="#order-section"
+                    className="w-full sm:w-auto bg-gradient-to-r from-red-600 via-red-500 to-blue-600 hover:from-red-500 hover:to-blue-500 text-white font-black text-sm px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(220,38,38,0.6)] transition-all uppercase tracking-wide active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <span>CLAIM BOGO OFFER NOW ($99.99)</span>
+                    <FiArrowRight size={18} />
+                  </a>
+
+                  <button
+                    onClick={() => setCurrentSlide(1)}
+                    className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white border border-white/15 font-bold text-xs px-6 py-4 rounded-xl transition-all"
+                  >
+                    VIEW PRODUCT ATTRIBUTES →
+                  </button>
+                </div>
+
               </div>
+            )}
 
-              {/* Blade 2: Endurance Master (Parallax Shift Down) */}
-              <div
-                onClick={() => setFullscreenImage({
-                  src: "/images/intro-offer/patriot-blade-2.png",
-                  title: '14" PATRIOT ENDURANCE MASTER BLADE',
-                  subtitle: "14mm Slanted Drop Segments — Longevity Specialist for Asphalt & Green Concrete"
-                })}
-                className="relative bg-gradient-to-b from-slate-900/90 to-black/90 p-6 rounded-2xl border border-emerald-500/50 text-center cursor-pointer group hover:border-emerald-400 transition-all duration-300 hover:shadow-[0_0_40px_rgba(16,185,129,0.5)] transform hover:-translate-y-2"
-                style={{ transform: `translateY(${Math.cos(scrollY * 0.003) * 12}px)` }}
-              >
-                <div className="absolute top-3 left-3 bg-emerald-600 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-lg animate-pulse">
-                  BLADE #2: 100% FREE!
+            {/* ── SLIDE 2: PATRIOT SPEED DEMON ATTRIBUTES (BLADE #1) ── */}
+            {currentSlide === 1 && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center text-left animate-fade-in">
+                
+                <div className="lg:col-span-6 space-y-4">
+                  <span className="bg-red-950 text-red-400 border border-red-800 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest inline-block">
+                    SLIDE 2 OF 3 • BLADE #1 ATTRIBUTES
+                  </span>
+                  
+                  <h2 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight leading-none">
+                    PATRIOT SPEED DEMON
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-300 font-light leading-relaxed">
+                    Built for extreme cutting velocity through hard aggregate, cured concrete, and heavy steel rebar. The 12mm turbo-vented segment design clears slurry rapidly, allowing your saw to cut 40% faster at maximum RPM.
+                  </p>
+
+                  {/* Attributes Spec List */}
+                  <div className="space-y-2 pt-1 text-xs">
+                    <div className="bg-slate-900/90 border border-white/10 p-3 rounded-xl flex items-center justify-between">
+                      <span className="text-slate-400 font-bold">Segment Geometry:</span>
+                      <strong className="text-red-400 font-black">12mm Turbo Vented Segments</strong>
+                    </div>
+                    <div className="bg-slate-900/90 border border-white/10 p-3 rounded-xl flex items-center justify-between">
+                      <span className="text-slate-400 font-bold">Cutting Velocity Score:</span>
+                      <strong className="text-red-400 font-black">9.9 / 10 (EXPERT FAST)</strong>
+                    </div>
+                    <div className="bg-slate-900/90 border border-white/10 p-3 rounded-xl flex items-center justify-between">
+                      <span className="text-slate-400 font-bold">Laser Weld Resistance:</span>
+                      <strong className="text-white font-black">14,000 PSI Shear Strength</strong>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-2">
+                    <a
+                      href="#order-section"
+                      className="bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase px-6 py-3.5 rounded-xl shadow-lg transition-all"
+                    >
+                      CLAIM BOGO ($99.99)
+                    </a>
+                    <button
+                      onClick={() => setCurrentSlide(2)}
+                      className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1"
+                    >
+                      <span>NEXT: ENDURANCE MASTER</span>
+                      <FiChevronRight />
+                    </button>
+                  </div>
                 </div>
 
-                <div className="w-full h-56 sm:h-72 relative my-4 flex items-center justify-center">
-                  <img
-                    src="/images/intro-offer/patriot-blade-2.png"
-                    alt="Patriot Endurance Master"
-                    className="max-h-full object-contain filter drop-shadow-[0_0_25px_rgba(16,185,129,0.6)] group-hover:scale-110 transition-transform duration-500 ease-out"
-                    onError={(e) => { (e.target as HTMLElement).style.display = 'none' }}
-                  />
+                <div className="lg:col-span-6 flex justify-center">
+                  <div
+                    onClick={() => setFullscreenImage({
+                      src: "/images/intro-offer/patriot-blade-1.png",
+                      title: '14" PATRIOT SPEED DEMON BLADE',
+                      subtitle: "12mm Laser Welded Turbo Segments"
+                    })}
+                    className="w-64 h-64 sm:w-80 sm:h-80 relative flex items-center justify-center cursor-pointer group"
+                  >
+                    <div className="absolute inset-0 bg-red-600/30 rounded-full blur-[80px] pointer-events-none" />
+                    <img
+                      src="/images/intro-offer/patriot-blade-1.png"
+                      alt="Patriot Speed Demon"
+                      className="max-h-full object-contain filter drop-shadow-[0_0_35px_rgba(220,38,38,0.7)] group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
                 </div>
 
-                <h3 className="text-xl font-black text-white uppercase tracking-wider">PATRIOT ENDURANCE MASTER</h3>
-                <p className="text-xs text-emerald-400 font-bold mt-1">14mm Slanted Drop Segments</p>
-                <div className="text-[11px] text-slate-400 mt-2 font-medium">Deep undercut guard protection for 2X footage on asphalt.</div>
               </div>
+            )}
 
-            </div>
+            {/* ── SLIDE 3: PATRIOT ENDURANCE MASTER ATTRIBUTES (BLADE #2) ── */}
+            {currentSlide === 2 && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center text-left animate-fade-in">
+                
+                <div className="lg:col-span-6 flex justify-center order-2 lg:order-1">
+                  <div
+                    onClick={() => setFullscreenImage({
+                      src: "/images/intro-offer/patriot-blade-2.png",
+                      title: '14" PATRIOT ENDURANCE MASTER BLADE',
+                      subtitle: "14mm Slanted Drop Segments"
+                    })}
+                    className="w-64 h-64 sm:w-80 sm:h-80 relative flex items-center justify-center cursor-pointer group"
+                  >
+                    <div className="absolute inset-0 bg-emerald-600/30 rounded-full blur-[80px] pointer-events-none" />
+                    <img
+                      src="/images/intro-offer/patriot-blade-2.png"
+                      alt="Patriot Endurance Master"
+                      className="max-h-full object-contain filter drop-shadow-[0_0_35px_rgba(16,185,129,0.7)] group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                </div>
 
-            {/* Apple Style BOGO Price Banner */}
-            <div className="mt-8 bg-gradient-to-r from-blue-950/90 via-slate-900/90 to-black/90 border border-white/15 p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-6 backdrop-blur-xl">
-              <div className="text-center sm:text-left">
-                <span className="text-xs font-black text-amber-400 uppercase tracking-widest block">SPECIAL INTRODUCTORY PACKAGE</span>
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-1">
-                  BUY 1 GET 1 FREE FOR <span className="text-emerald-400">$99.99</span>
+                <div className="lg:col-span-6 order-1 lg:order-2 space-y-4">
+                  <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest inline-block">
+                    SLIDE 3 OF 3 • BLADE #2 ATTRIBUTES (100% FREE)
+                  </span>
+                  
+                  <h2 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight leading-none">
+                    PATRIOT ENDURANCE MASTER
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-300 font-light leading-relaxed">
+                    Engineered for maximum footage and wear resistance. Features 14mm deep slanted drop-segments that shield the steel core from abrasive undercut wear when slicing through asphalt, green concrete, brick, and block.
+                  </p>
+
+                  {/* Attributes Spec List */}
+                  <div className="space-y-2 pt-1 text-xs">
+                    <div className="bg-slate-900/90 border border-white/10 p-3 rounded-xl flex items-center justify-between">
+                      <span className="text-slate-400 font-bold">Segment Geometry:</span>
+                      <strong className="text-emerald-400 font-black">14mm Slanted Drop Segments</strong>
+                    </div>
+                    <div className="bg-slate-900/90 border border-white/10 p-3 rounded-xl flex items-center justify-between">
+                      <span className="text-slate-400 font-bold">Lifespan Extension:</span>
+                      <strong className="text-emerald-400 font-black">2X EXTENDED FOOTAGE (200%+)</strong>
+                    </div>
+                    <div className="bg-slate-900/90 border border-white/10 p-3 rounded-xl flex items-center justify-between">
+                      <span className="text-slate-400 font-bold">Undercut Protection:</span>
+                      <strong className="text-white font-black">Deep Core Shield Technology</strong>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-2">
+                    <a
+                      href="#order-section"
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase px-6 py-3.5 rounded-xl shadow-lg transition-all"
+                    >
+                      CLAIM BOGO ($99.99)
+                    </a>
+                    <button
+                      onClick={() => setCurrentSlide(0)}
+                      className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1"
+                    >
+                      <span>BACK TO BOGO DEAL</span>
+                      <FiChevronRight />
+                    </button>
+                  </div>
                 </div>
-                <div className="text-xs text-slate-300 font-medium mt-1">
-                  Regular Retail Value: <span className="line-through text-slate-500">${regularValue.toFixed(2)}</span> — You save <strong className="text-emerald-400 font-black">${savings}.00</strong> today!
-                </div>
+
               </div>
-
-              <a
-                href="#order-section"
-                className="w-full sm:w-auto bg-gradient-to-r from-red-600 via-red-500 to-blue-600 hover:from-red-500 hover:to-blue-500 text-white font-black text-sm px-8 py-4 rounded-xl shadow-[0_0_30px_rgba(220,38,38,0.6)] transition-all flex items-center justify-center gap-2 uppercase tracking-wide shrink-0 active:scale-95"
-              >
-                <span>CLAIM BOGO OFFER</span>
-                <FiArrowRight size={18} />
-              </a>
-            </div>
+            )}
 
           </div>
 
@@ -489,11 +668,6 @@ export default function AppleStylePatriotOfferPage() {
         <section className="py-20 sm:py-32 px-4 sm:px-8 border-t border-white/10 max-w-6xl mx-auto space-y-12">
           
           <div className="text-center space-y-3 max-w-3xl mx-auto">
-            <img
-              src="/images/titan-spartan-logo.png"
-              alt="Titan Logo"
-              className="h-16 w-auto mx-auto object-contain filter drop-shadow-[0_0_20px_rgba(255,255,255,0.4)] mb-2"
-            />
             <span className="text-xs font-black text-amber-400 uppercase tracking-widest bg-amber-950/80 border border-amber-800/60 px-4 py-1.5 rounded-full inline-block">
               ENGINEERING MATRIX
             </span>
@@ -565,11 +739,6 @@ export default function AppleStylePatriotOfferPage() {
           <div className="bg-gradient-to-b from-slate-900/95 via-[#080b12] to-black border-2 border-white/20 rounded-3xl p-6 sm:p-12 shadow-[0_20px_80px_rgba(0,0,0,0.9)] space-y-8 backdrop-blur-2xl">
             
             <div className="text-center space-y-3">
-              <img
-                src="/images/titan-spartan-logo.png"
-                alt="Titan Spartan Logo"
-                className="h-16 w-auto mx-auto object-contain filter drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]"
-              />
               <span className="bg-red-600 text-white text-xs font-black px-4 py-1 rounded-full uppercase tracking-widest shadow-lg">
                 OFFICIAL CONTRACTOR BOGO ORDER
               </span>
@@ -922,13 +1091,8 @@ export default function AppleStylePatriotOfferPage() {
 
         </section>
 
-        {/* ── FOOTER WITH TITAN SPARTAN LOGO ── */}
-        <footer className="py-12 px-4 border-t border-white/10 bg-[#05070c] text-center text-xs text-slate-500 space-y-4">
-          <img
-            src="/images/titan-spartan-logo.png"
-            alt="Titan Logo"
-            className="h-16 w-auto mx-auto object-contain filter drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]"
-          />
+        {/* ── FOOTER ── */}
+        <footer className="py-12 px-4 border-t border-white/10 bg-[#05070c] text-center text-xs text-slate-500 space-y-3">
           <div className="flex items-center justify-center gap-3 font-black text-slate-300 flex-wrap">
             <span>TITAN DIAMOND TOOLS USA</span>
             <span>•</span>
@@ -1031,11 +1195,6 @@ export default function AppleStylePatriotOfferPage() {
               </button>
 
               <div className="text-center space-y-2">
-                <img
-                  src="/images/titan-spartan-logo.png"
-                  alt="Titan Logo"
-                  className="h-14 w-auto mx-auto object-contain filter drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]"
-                />
                 <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-xl font-black">
                   ✓
                 </div>
