@@ -65,8 +65,8 @@ export default function IntroOfferLandingPage() {
     return () => clearInterval(timer)
   }, [])
 
-  // Price calculations
-  const pricePerPack = selectedSize === "14" ? 299.99 : selectedSize === "16" ? 349.99 : 429.99
+  // Price calculations - Buy 1 Get 1 Free @ $99.99
+  const pricePerPack = selectedSize === "14" ? 99.99 : selectedSize === "16" ? 129.99 : 169.99
   const regularPrice = selectedSize === "14" ? 459.98 : selectedSize === "16" ? 529.98 : 649.98
   const savings = Math.round(regularPrice - pricePerPack)
   const totalPrice = (pricePerPack * quantity).toFixed(2)
@@ -85,7 +85,7 @@ export default function IntroOfferLandingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           paymentMethod: activeTab,
-          bladeSize: `${selectedSize}-inch`,
+          bladeSize: `${selectedSize}-inch BOGO Pack`,
           quantity,
           totalAmount: parseFloat(totalPrice),
           customerName: formData.customerName,
@@ -107,7 +107,7 @@ export default function IntroOfferLandingPage() {
         setOrderCompleted({
           ...data,
           date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          bladeSize: `${selectedSize}"`,
+          bladeSize: `${selectedSize}" BOGO Pack`,
           quantity,
           address: `${formData.address}, ${formData.city}, ${formData.state} ${formData.zip}`,
         })
@@ -127,9 +127,9 @@ export default function IntroOfferLandingPage() {
 
       {/* ── Top Patriotic Announcement Banner ── */}
       <div className="bg-gradient-to-r from-blue-700 via-red-600 to-blue-700 text-white py-2 px-4 text-center font-black tracking-wide text-xs sm:text-sm uppercase shadow-md flex items-center justify-center gap-2 flex-wrap">
-        <span>🇺🇸 SPECIAL AMERICAN INTRODUCTORY OFFER</span>
+        <span>🇺🇸 INTRODUCTORY BOGO SPECIAL: BUY 1 GET 1 FREE FOR $99.99</span>
         <span className="hidden md:inline">•</span>
-        <span>SAVE $160 + FREE EXPRESS SHIPPING</span>
+        <span>SAVE OVER $350 + FREE EXPRESS SHIPPING</span>
         <span className="hidden md:inline">•</span>
         <a href="tel:18008482634" className="bg-white text-blue-900 px-2.5 py-0.5 rounded-full font-extrabold hover:bg-yellow-300 transition-colors inline-flex items-center gap-1">
           <FiPhone size={12} /> CALL TO ORDER: (800) 848-2634
@@ -203,7 +203,7 @@ export default function IntroOfferLandingPage() {
 
             {/* Subheadline */}
             <p className="text-base sm:text-lg text-slate-300 font-medium leading-relaxed max-w-2xl mx-auto lg:mx-0">
-              Get <strong className="text-amber-400 font-bold">1x PATRIOT SPEED DEMON</strong> (built for maximum cutting velocity) plus <strong className="text-blue-400 font-bold">1x PATRIOT ENDURANCE MASTER</strong> (built for extreme lifespan). Two premium 12mm & 14mm laser-welded diamond blades for one unbelievable price.
+              Buy <strong className="text-amber-400 font-bold">1x PATRIOT SPEED DEMON</strong> (12mm Turbo Segments for extreme cutting speed) and get <strong className="text-blue-400 font-bold">1x PATRIOT ENDURANCE MASTER</strong> (14mm Drop Segments for maximum life) <span className="text-emerald-400 font-extrabold underline decoration-emerald-500 underline-offset-4">ABSOLUTELY FREE!</span>
             </p>
 
             {/* Key Value Bullets */}
@@ -211,7 +211,7 @@ export default function IntroOfferLandingPage() {
               <div className="flex items-start gap-2.5 bg-slate-900/60 border border-slate-800 p-3 rounded-xl">
                 <FiZap className="text-red-500 shrink-0 mt-0.5" size={18} />
                 <div className="text-xs">
-                  <strong className="text-white block font-bold">SPEED DEMON BLADE</strong>
+                  <strong className="text-white block font-bold">BLADE #1: SPEED DEMON</strong>
                   <span className="text-slate-400">40% Faster cut rate on hard cured concrete & granite</span>
                 </div>
               </div>
@@ -219,7 +219,7 @@ export default function IntroOfferLandingPage() {
               <div className="flex items-start gap-2.5 bg-slate-900/60 border border-slate-800 p-3 rounded-xl">
                 <FiShield className="text-blue-500 shrink-0 mt-0.5" size={18} />
                 <div className="text-xs">
-                  <strong className="text-white block font-bold">ENDURANCE MASTER BLADE</strong>
+                  <strong className="text-white block font-bold">BLADE #2: ENDURANCE MASTER (FREE)</strong>
                   <span className="text-slate-400">2x Longer footage with 14mm undercut drop protection</span>
                 </div>
               </div>
@@ -228,15 +228,15 @@ export default function IntroOfferLandingPage() {
             {/* Price Card & Urgency Callout */}
             <div className="bg-gradient-to-br from-slate-900 via-slate-900/90 to-slate-950 border border-slate-700/80 p-5 rounded-2xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 max-w-xl mx-auto lg:mx-0">
               <div>
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">REGULAR RETAIL PRICE</div>
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">REGULAR RETAIL VALUE</div>
                 <div className="text-lg font-bold text-slate-500 line-through">${regularPrice.toFixed(2)}</div>
-                <div className="text-xs font-bold text-emerald-400 mt-0.5">INSTANT SAVINGS: ${savings}.00 (35% OFF)</div>
+                <div className="text-xs font-bold text-emerald-400 mt-0.5">BUY 1 GET 1 FREE — SAVE ${savings}.00</div>
               </div>
 
               <div className="text-center sm:text-right border-t sm:border-t-0 sm:border-l border-slate-800 pt-3 sm:pt-0 sm:pl-5">
-                <div className="text-xs font-extrabold text-amber-400 uppercase tracking-wider">INTRODUCTORY OFFER</div>
+                <div className="text-xs font-extrabold text-amber-400 uppercase tracking-wider">BUY 1 GET 1 FREE PACKAGE</div>
                 <div className="text-4xl font-black text-white tracking-tight">${pricePerPack.toFixed(2)}</div>
-                <div className="text-[11px] font-bold text-blue-400">Includes 2 Blades + Free Shipping</div>
+                <div className="text-[11px] font-bold text-blue-400">Get BOTH Blades + Free Express Shipping</div>
               </div>
             </div>
 
@@ -632,9 +632,9 @@ export default function IntroOfferLandingPage() {
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { size: "14", label: '14" Standard', price: "$299.99" },
-                  { size: "16", label: '16" Pro Pack', price: "$349.99" },
-                  { size: "20", label: '20" Heavy Duty', price: "$429.99" },
+                  { size: "14", label: '14" BOGO Pack', price: "$99.99" },
+                  { size: "16", label: '16" BOGO Pack', price: "$129.99" },
+                  { size: "20", label: '20" BOGO Pack', price: "$169.99" },
                 ].map(opt => (
                   <button
                     key={opt.size}
