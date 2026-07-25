@@ -143,55 +143,31 @@ export default function StandalonePatriotOfferPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-slate-100 text-slate-900 font-sans selection:bg-red-600 selection:text-white pb-20 md:pb-0 overflow-x-hidden">
+    <div className="relative min-h-screen bg-slate-900 text-slate-900 font-sans selection:bg-red-600 selection:text-white pb-20 md:pb-0 overflow-x-hidden">
 
-      {/* ── FLOWING AMERICAN FLAG BACKGROUND (HIGHLY VISIBLE) ── */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-35 sm:opacity-40">
+      {/* ── REAL AMERICAN FLAG VIDEO BACKGROUND (HIGHLY VISIBLE) ── */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         
-        {/* Animated Flowing Red & White Stripes Layer */}
-        <div
-          className="absolute -inset-[50%] w-[200%] h-[200%] bg-repeat animate-[flagWave_12s_linear_infinite]"
-          style={{
-            backgroundImage: `repeating-linear-gradient(
-              -45deg,
-              #b91c1c 0px,
-              #b91c1c 45px,
-              #ffffff 45px,
-              #ffffff 90px,
-              #1e3a8a 90px,
-              #1e3a8a 135px,
-              #ffffff 135px,
-              #ffffff 180px
-            )`
-          }}
-        />
+        {/* Real HD Looping Flag Video */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover opacity-50 sm:opacity-60 scale-105 filter contrast-125 saturate-150"
+        >
+          <source src="https://assets.mixkit.co/videos/preview/mixkit-american-flag-waving-in-the-wind-41549-large.mp4" type="video/mp4" />
+          <source src="https://cdn.coverr.co/videos/coverr-american-flag-waving-5282/1080p.mp4" type="video/mp4" />
+        </video>
 
-        {/* Shimmering Stars Canton Overlay */}
-        <div className="absolute top-0 left-0 w-full sm:w-1/2 h-96 bg-blue-950/80 backdrop-blur-sm p-6 flex flex-wrap gap-4 items-center justify-around rounded-br-full shadow-2xl border-b-4 border-r-4 border-red-600 opacity-90">
-          {Array.from({ length: 30 }).map((_, i) => (
-            <span key={i} className="text-white text-xs sm:text-base animate-pulse" style={{ animationDelay: `${(i % 5) * 0.4}s` }}>
-              ★
-            </span>
-          ))}
-        </div>
-
-        {/* Wave Lighting Overlay Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-transparent to-slate-100/90 mix-blend-overlay" />
+        {/* Lighting & Contrast Overlay to ensure extreme text legibility */}
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-white/20 to-slate-950/50" />
       </div>
-
-      {/* CSS Animation Keyframes for Flowing Flag */}
-      <style jsx global>{`
-        @keyframes flagWave {
-          0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-          50% { transform: translate(-30px, -20px) rotate(1.5deg) scale(1.03); }
-          100% { transform: translate(-60px, -40px) rotate(0deg) scale(1); }
-        }
-      `}</style>
 
       <div className="relative z-10">
 
         {/* ── TOP PATRIOTIC ANNOUNCEMENT BAR ── */}
-        <div className="bg-gradient-to-r from-blue-950 via-red-600 to-blue-950 text-white py-2 px-3 text-center font-black tracking-wider text-[11px] sm:text-xs uppercase shadow-lg flex items-center justify-center gap-1.5 flex-wrap border-b border-red-500/40">
+        <div className="bg-gradient-to-r from-blue-950 via-red-600 to-blue-950 text-white py-2 px-3 text-center font-black tracking-wider text-[11px] sm:text-xs uppercase shadow-xl flex items-center justify-center gap-1.5 flex-wrap border-b border-red-500/50">
           <span className="flex items-center gap-1">
             <span>🇺🇸</span> <strong>AMERICAN BOGO OFFER:</strong> BUY 1 GET 1 FREE FOR $99.99
           </span>
@@ -267,8 +243,8 @@ export default function StandalonePatriotOfferPage() {
           </div>
         </div>
 
-        {/* ── HERO SECTION (HIGHLY VISIBLE WITH FLOWING FLAG BACKGROUND) ── */}
-        <section className="relative pt-4 sm:pt-8 pb-10 sm:pb-16 px-3.5 sm:px-6 lg:px-10 border-b border-slate-200/80">
+        {/* ── HERO SECTION (REAL FLAG VIDEO BACKGROUND VISIBLE) ── */}
+        <section className="relative pt-4 sm:pt-8 pb-10 sm:pb-16 px-3.5 sm:px-6 lg:px-10">
           
           <div className="max-w-7xl mx-auto space-y-5">
             
@@ -279,13 +255,13 @@ export default function StandalonePatriotOfferPage() {
                 <span>OFFICIAL CONTRACTOR INTRODUCTORY BOGO SPECIAL</span>
               </div>
 
-              <h1 className="text-2xl sm:text-5xl lg:text-6xl font-black text-blue-950 tracking-tight uppercase leading-tight max-w-4xl mx-auto drop-shadow-sm">
-                BUY 1 SPEED DEMON, GET 1 ENDURANCE MASTER <span className="text-red-600">FREE!</span>
+              <h1 className="text-2xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight uppercase leading-tight max-w-4xl mx-auto drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
+                BUY 1 SPEED DEMON, GET 1 ENDURANCE MASTER <span className="text-red-500">FREE!</span>
               </h1>
             </div>
 
-            {/* ── MOBILE ABOVE-THE-FOLD FEATURED BLADE DISPLAY (GLASSMORPHIC HIGH CONTRAST) ── */}
-            <div className="bg-white/95 backdrop-blur-md rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200 shadow-2xl max-w-4xl mx-auto space-y-4">
+            {/* ── MOBILE ABOVE-THE-FOLD FEATURED BLADE DISPLAY (GLASSMORPHIC OVER REAL FLAG VIDEO) ── */}
+            <div className="bg-white/95 backdrop-blur-md rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200/90 shadow-2xl max-w-4xl mx-auto space-y-4">
               
               <div className="text-center text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center justify-center gap-1">
                 <FiMaximize2 className="text-red-600" /> CLICK ANY BLADE IMAGE TO EXPAND FULLSCREEN
@@ -385,7 +361,7 @@ export default function StandalonePatriotOfferPage() {
 
             {/* Subheadline & Value Highlights */}
             <div className="max-w-3xl mx-auto text-center space-y-4 pt-2">
-              <p className="text-xs sm:text-base text-slate-800 font-semibold leading-relaxed bg-white/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-md">
+              <p className="text-xs sm:text-base text-slate-800 font-semibold leading-relaxed bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-lg">
                 Buy <strong className="text-blue-900 font-bold">1x Patriot Speed Demon Blade</strong> for <strong className="text-red-600 font-black text-base sm:text-lg">$99.99</strong> (built for maximum cutting velocity through hard aggregate & cured concrete) and receive <strong className="text-emerald-700 font-bold">1x Patriot Endurance Master Blade</strong> (14mm drop segments for 2x lifespan on asphalt) <span className="text-red-600 font-black underline">100% FREE!</span>
               </p>
 
@@ -434,7 +410,7 @@ export default function StandalonePatriotOfferPage() {
               </div>
 
               {/* Contractor Guarantees */}
-              <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-800 font-bold pt-1 bg-white/80 backdrop-blur-sm py-2 px-4 rounded-full border border-slate-200/80 inline-flex shadow-sm">
+              <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-800 font-bold pt-1 bg-white/90 backdrop-blur-md py-2 px-4 rounded-full border border-slate-200 inline-flex shadow-sm">
                 <span className="flex items-center gap-1 text-[11px]">
                   <FiCheckCircle className="text-emerald-600" /> 100% Risk-Free Guarantee
                 </span>
@@ -493,10 +469,10 @@ export default function StandalonePatriotOfferPage() {
             <span className="bg-blue-100/90 text-blue-900 border border-blue-200 text-[10px] sm:text-xs font-black px-3.5 py-1 rounded-full uppercase tracking-widest shadow-sm">
               ENGINEERING SPECIFICATIONS
             </span>
-            <h2 className="text-2xl sm:text-4xl font-black text-blue-950 uppercase tracking-tight">
+            <h2 className="text-2xl sm:text-4xl font-black text-blue-950 uppercase tracking-tight drop-shadow-[0_2px_8px_rgba(255,255,255,0.8)]">
               4 FULL CONTRACTOR SPECIFICATIONS
             </h2>
-            <p className="text-xs sm:text-sm text-slate-700 font-medium">
+            <p className="text-xs sm:text-sm text-slate-900 font-bold bg-white/80 backdrop-blur-sm px-4 py-1 rounded-full inline-block">
               Engineered in the USA with heavy-duty laser welding and GE industrial synthetic diamond matrices.
             </p>
           </div>
