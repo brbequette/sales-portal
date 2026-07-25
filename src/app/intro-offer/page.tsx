@@ -17,17 +17,26 @@ import {
   FiPrinter,
   FiCheckSquare,
   FiActivity,
-  FiCheck
+  FiCheck,
+  FiMaximize2,
+  FiMaximize,
+  FiCpu,
+  FiLayers,
+  FiTool,
+  FiFeather
 } from "react-icons/fi"
 
 export default function StandalonePatriotOfferPage() {
   // Offer Selection State
-  const [selectedSize, setSelectedSize] = useState<"14" | "16" | "20">("14")
+  const [selectedSize, setSelectedSize] = useState<"14">("14")
   const [quantity, setQuantity] = useState<number>(1)
   const [activeTab, setActiveTab] = useState<"credit_card" | "30_day_billing">("credit_card")
   const [activeBladeTab, setActiveBladeTab] = useState<"speed" | "life">("speed")
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [orderCompleted, setOrderCompleted] = useState<any>(null)
+  
+  // Fullscreen Image Modal State
+  const [fullscreenImage, setFullscreenImage] = useState<{ src: string; title: string; subtitle: string } | null>(null)
 
   // Live Sales Ticker State
   const [currentTickerIndex, setCurrentTickerIndex] = useState(0)
@@ -97,7 +106,7 @@ export default function StandalonePatriotOfferPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           paymentMethod: activeTab,
-          bladeSize: `${selectedSize}-inch BOGO Package (Buy 1 Get 1 Free)`,
+          bladeSize: `14-inch BOGO Package (Buy 1 Get 1 Free)`,
           quantity,
           totalAmount: parseFloat(totalPrice),
           customerName: formData.customerName,
@@ -119,7 +128,7 @@ export default function StandalonePatriotOfferPage() {
         setOrderCompleted({
           ...data,
           date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          bladeSize: `${selectedSize}" BOGO Pack (2 Blades)`,
+          bladeSize: `14" BOGO Pack (2 Blades)`,
           quantity,
           address: `${formData.address}, ${formData.city}, ${formData.state} ${formData.zip}`,
         })
@@ -137,7 +146,7 @@ export default function StandalonePatriotOfferPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-red-600 selection:text-white pb-20 md:pb-0">
 
-      {/* ── TOP PATRIOTIC ANNOUNCEMENT BAR (LIGHT THEME) ── */}
+      {/* ── TOP PATRIOTIC ANNOUNCEMENT BAR ── */}
       <div className="bg-gradient-to-r from-blue-900 via-red-600 to-blue-900 text-white py-2 px-3 text-center font-black tracking-wider text-[11px] sm:text-xs uppercase shadow-md flex items-center justify-center gap-1.5 flex-wrap">
         <span className="flex items-center gap-1">
           <span>🇺🇸</span> <strong>AMERICAN BOGO OFFER:</strong> BUY 1 GET 1 FREE FOR $99.99
@@ -154,7 +163,7 @@ export default function StandalonePatriotOfferPage() {
         </a>
       </div>
 
-      {/* ── CLEAN LIGHT HEADER (Zero Password/Login Required) ── */}
+      {/* ── CLEAN LIGHT HEADER ── */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 px-3.5 sm:px-6 lg:px-10 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-red-600 via-blue-900 to-blue-600 p-0.5 shadow-md shrink-0">
@@ -231,17 +240,32 @@ export default function StandalonePatriotOfferPage() {
             </h1>
           </div>
 
-          {/* ── MOBILE ABOVE-THE-FOLD FEATURED BLADE DISPLAY (VISIBLE RIGHT AWAY) ── */}
+          {/* ── MOBILE ABOVE-THE-FOLD FEATURED BLADE DISPLAY (CLICK IMAGE FOR FULLSCREEN) ── */}
           <div className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200 shadow-xl max-w-4xl mx-auto space-y-4">
             
-            {/* 2-Blade Product Graphic Container (Optimized for Mobile Heights) */}
+            <div className="text-center text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center justify-center gap-1">
+              <FiMaximize2 className="text-red-600" /> CLICK ANY BLADE IMAGE TO EXPAND FULLSCREEN
+            </div>
+
+            {/* 2-Blade Product Graphic Container */}
             <div className="grid grid-cols-2 gap-2.5 sm:gap-4 relative">
               
-              {/* Blade 1: Speed Demon */}
-              <div className="bg-gradient-to-b from-slate-50 to-red-50/30 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-red-200 text-center relative group">
+              {/* Blade 1: Speed Demon (Clickable Image) */}
+              <div
+                onClick={() => setFullscreenImage({
+                  src: "/images/intro-offer/patriot-blade-1.png",
+                  title: '14" PATRIOT SPEED DEMON BLADE',
+                  subtitle: "12mm Laser Welded Turbo Segments — Speed Specialist for Hard Concrete & Rebar"
+                })}
+                className="bg-gradient-to-b from-slate-50 to-red-50/30 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-red-200 text-center relative group cursor-pointer hover:border-red-400 transition-all hover:shadow-lg"
+              >
                 <span className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[8px] sm:text-[10px] font-black uppercase px-2 py-0.5 rounded shadow-sm z-10">
                   PAY FOR BLADE #1 ($99.99)
                 </span>
+
+                <div className="absolute top-1.5 right-1.5 bg-white/90 text-slate-700 p-1 rounded-full shadow hover:bg-red-600 hover:text-white transition-colors z-10">
+                  <FiMaximize2 size={12} />
+                </div>
                 
                 <div className="w-full h-32 sm:h-48 relative my-1.5 flex items-center justify-center">
                   <img
@@ -256,11 +280,22 @@ export default function StandalonePatriotOfferPage() {
                 <div className="text-[9px] sm:text-xs text-red-600 font-bold mt-0.5">12mm Turbo Segments</div>
               </div>
 
-              {/* Blade 2: Endurance Master (FREE!) */}
-              <div className="bg-gradient-to-b from-slate-50 to-emerald-50/40 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-emerald-300 text-center relative group">
+              {/* Blade 2: Endurance Master (Clickable Image) */}
+              <div
+                onClick={() => setFullscreenImage({
+                  src: "/images/intro-offer/patriot-blade-2.png",
+                  title: '14" PATRIOT ENDURANCE MASTER BLADE',
+                  subtitle: "14mm Slanted Drop Segments — Longevity Specialist for Asphalt & Green Concrete"
+                })}
+                className="bg-gradient-to-b from-slate-50 to-emerald-50/40 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-emerald-300 text-center relative group cursor-pointer hover:border-emerald-500 transition-all hover:shadow-lg"
+              >
                 <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[8px] sm:text-[10px] font-black uppercase px-2 py-0.5 rounded shadow-md z-10 animate-pulse">
                   BLADE #2: 100% FREE!
                 </span>
+
+                <div className="absolute top-1.5 right-1.5 bg-white/90 text-slate-700 p-1 rounded-full shadow hover:bg-emerald-600 hover:text-white transition-colors z-10">
+                  <FiMaximize2 size={12} />
+                </div>
                 
                 <div className="w-full h-32 sm:h-48 relative my-1.5 flex items-center justify-center">
                   <img
@@ -407,23 +442,128 @@ export default function StandalonePatriotOfferPage() {
         </div>
       </section>
 
-      {/* ── BLADE SPECIFICATIONS COMPARISON (LIGHT THEME) ── */}
-      <section className="py-12 sm:py-16 px-3.5 sm:px-6 lg:px-10 max-w-6xl mx-auto space-y-8">
+      {/* ── 4 FULL TECHNICAL SPECIFICATIONS BREAKDOWN ── */}
+      <section className="py-12 sm:py-16 px-3.5 sm:px-6 lg:px-10 max-w-6xl mx-auto space-y-10">
         
         <div className="text-center space-y-2 max-w-3xl mx-auto">
           <span className="bg-blue-100 text-blue-900 border border-blue-200 text-[10px] sm:text-xs font-black px-3.5 py-1 rounded-full uppercase tracking-widest">
-            THE DUAL-THREAT CONTRACTOR PACKAGE
+            ENGINEERING SPECIFICATIONS
           </span>
           <h2 className="text-2xl sm:text-4xl font-black text-blue-950 uppercase tracking-tight">
-            WHY YOUR CREW NEEDS BOTH BLADES
+            4 FULL CONTRACTOR SPECIFICATIONS
           </h2>
           <p className="text-xs sm:text-sm text-slate-600">
-            One blade cuts through hard aggregate like butter; the other delivers maximum footage on abrasive asphalt. You get both in this BOGO deal!
+            Engineered in the USA with heavy-duty laser welding and GE industrial synthetic diamond matrices.
           </p>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex justify-center">
+        {/* 4 Specifications Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          {/* Spec 1: Segment Geometry & Weld */}
+          <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center font-black text-lg">
+              <FiLayers />
+            </div>
+            <div>
+              <span className="text-[10px] font-black text-red-600 uppercase tracking-wider">SPECIFICATION #1</span>
+              <h3 className="text-base font-black text-blue-950 uppercase">LASER WELD BOND & SEGMENT HEIGHT</h3>
+            </div>
+            <ul className="text-xs text-slate-600 space-y-1.5 font-medium border-t border-slate-100 pt-2">
+              <li className="flex items-start gap-1.5">
+                <FiCheck className="text-emerald-600 shrink-0 mt-0.5" />
+                <span><strong>100% Direct Laser Welded:</strong> Tested to 14,000 PSI segment shear resistance.</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <FiCheck className="text-emerald-600 shrink-0 mt-0.5" />
+                <span><strong>Speed Demon:</strong> 12mm Turbo Vented Segments for high-velocity slurry clearing.</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <FiCheck className="text-emerald-600 shrink-0 mt-0.5" />
+                <span><strong>Endurance Master:</strong> 14mm Slanted Drop Segments prevent undercut core wear.</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Spec 2: Diamond Matrix */}
+          <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-black text-lg">
+              <FiCpu />
+            </div>
+            <div>
+              <span className="text-[10px] font-black text-amber-600 uppercase tracking-wider">SPECIFICATION #2</span>
+              <h3 className="text-base font-black text-blue-950 uppercase">GE SYNTHETIC DIAMOND CONCENTRATION</h3>
+            </div>
+            <ul className="text-xs text-slate-600 space-y-1.5 font-medium border-t border-slate-100 pt-2">
+              <li className="flex items-start gap-1.5">
+                <FiCheck className="text-emerald-600 shrink-0 mt-0.5" />
+                <span><strong>High-Purity Diamonds:</strong> Premium GE/De Beers industrial synthetic diamond crystals.</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <FiCheck className="text-emerald-600 shrink-0 mt-0.5" />
+                <span><strong>45% Diamond Concentration:</strong> Engineered for zero segment glazing under high RPMs.</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <FiCheck className="text-emerald-600 shrink-0 mt-0.5" />
+                <span><strong>Cobalt-Bronze Matrix:</strong> Self-sharpening bond exposes fresh diamond edges.</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Spec 3: Steel Core Tensioning */}
+          <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-black text-lg">
+              <FiFeather />
+            </div>
+            <div>
+              <span className="text-[10px] font-black text-blue-800 uppercase tracking-wider">SPECIFICATION #3</span>
+              <h3 className="text-base font-black text-blue-950 uppercase">TENSIONED ALLOY STEEL CORE</h3>
+            </div>
+            <ul className="text-xs text-slate-600 space-y-1.5 font-medium border-t border-slate-100 pt-2">
+              <li className="flex items-start gap-1.5">
+                <FiCheck className="text-emerald-600 shrink-0 mt-0.5" />
+                <span><strong>Pre-Tensioned Steel:</strong> Precision heat-treated alloy steel core eliminates wobble.</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <FiCheck className="text-emerald-600 shrink-0 mt-0.5" />
+                <span><strong>Thermal Expansion Slots:</strong> Laser-cut gullets dissipate heat during dry cuts.</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <FiCheck className="text-emerald-600 shrink-0 mt-0.5" />
+                <span><strong>Vibration Control:</strong> Smooth, straight cuts without flex or saw fatigue.</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Spec 4: Equipment & Arbor Specs */}
+          <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-lg">
+              <FiTool />
+            </div>
+            <div>
+              <span className="text-[10px] font-black text-emerald-700 uppercase tracking-wider">SPECIFICATION #4</span>
+              <h3 className="text-base font-black text-blue-950 uppercase">UNIVERSAL EQUIPMENT COMPATIBILITY</h3>
+            </div>
+            <ul className="text-xs text-slate-600 space-y-1.5 font-medium border-t border-slate-100 pt-2">
+              <li className="flex items-start gap-1.5">
+                <FiCheck className="text-emerald-600 shrink-0 mt-0.5" />
+                <span><strong>1" Arbor + 20mm Bushing:</strong> Heavy-duty brass adapter bushing included.</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <FiCheck className="text-emerald-600 shrink-0 mt-0.5" />
+                <span><strong>Gas Cut-Off Saws:</strong> Fits Stihl TS420/500i, Husqvarna K770/970, Makita.</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <FiCheck className="text-emerald-600 shrink-0 mt-0.5" />
+                <span><strong>Walk-Behind & Table Saws:</strong> Approved for saws up to 20HP (Wet or Dry).</span>
+              </li>
+            </ul>
+          </div>
+
+        </div>
+
+        {/* Tab Switcher for Deep Dive Comparison */}
+        <div className="flex justify-center pt-4">
           <div className="bg-white p-1 rounded-xl border border-slate-200 shadow-sm inline-flex gap-1.5 w-full sm:w-auto">
             <button
               onClick={() => setActiveBladeTab("speed")}
@@ -433,7 +573,7 @@ export default function StandalonePatriotOfferPage() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <FiZap /> SPEED DEMON
+              <FiZap /> SPEED DEMON DETAILS
             </button>
             <button
               onClick={() => setActiveBladeTab("life")}
@@ -443,7 +583,7 @@ export default function StandalonePatriotOfferPage() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <FiShield /> ENDURANCE MASTER
+              <FiShield /> ENDURANCE MASTER DETAILS
             </button>
           </div>
         </div>
@@ -451,16 +591,18 @@ export default function StandalonePatriotOfferPage() {
         {/* Dynamic Blade Info Panel */}
         {activeBladeTab === "speed" ? (
           <div className="bg-white border border-red-200 rounded-2xl sm:rounded-3xl p-5 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center shadow-xl">
-            <div className="lg:col-span-5 flex flex-col items-center">
+            <div className="lg:col-span-5 flex flex-col items-center cursor-pointer" onClick={() => setFullscreenImage({ src: "/images/intro-offer/patriot-blade-1.png", title: '14" Patriot Speed Demon Blade', subtitle: "12mm Laser Welded Turbo Segments" })}>
               <div className="w-44 h-44 sm:w-56 sm:h-56 relative flex items-center justify-center">
                 <img
                   src="/images/intro-offer/patriot-blade-1.png"
                   alt="Patriot Speed Demon"
-                  className="max-h-full object-contain filter drop-shadow-md"
+                  className="max-h-full object-contain filter drop-shadow-md hover:scale-105 transition-transform"
                   onError={(e) => { (e.target as HTMLElement).style.display = 'none' }}
                 />
               </div>
-              <span className="text-xs font-black text-red-600 uppercase mt-3">12mm Laser Welded Segments</span>
+              <span className="text-xs font-black text-red-600 uppercase mt-3 flex items-center gap-1">
+                <FiMaximize2 /> Click for Fullscreen Image
+              </span>
             </div>
 
             <div className="lg:col-span-7 space-y-3.5 text-xs">
@@ -486,16 +628,18 @@ export default function StandalonePatriotOfferPage() {
           </div>
         ) : (
           <div className="bg-white border border-blue-200 rounded-2xl sm:rounded-3xl p-5 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center shadow-xl">
-            <div className="lg:col-span-5 flex flex-col items-center">
+            <div className="lg:col-span-5 flex flex-col items-center cursor-pointer" onClick={() => setFullscreenImage({ src: "/images/intro-offer/patriot-blade-2.png", title: '14" Patriot Endurance Master Blade', subtitle: "14mm Slanted Drop Segments" })}>
               <div className="w-44 h-44 sm:w-56 sm:h-56 relative flex items-center justify-center">
                 <img
                   src="/images/intro-offer/patriot-blade-2.png"
                   alt="Patriot Endurance Master"
-                  className="max-h-full object-contain filter drop-shadow-md"
+                  className="max-h-full object-contain filter drop-shadow-md hover:scale-105 transition-transform"
                   onError={(e) => { (e.target as HTMLElement).style.display = 'none' }}
                 />
               </div>
-              <span className="text-xs font-black text-blue-800 uppercase mt-3">14mm Drop Segments (Undercut Guard)</span>
+              <span className="text-xs font-black text-blue-800 uppercase mt-3 flex items-center gap-1">
+                <FiMaximize2 /> Click for Fullscreen Image
+              </span>
             </div>
 
             <div className="lg:col-span-7 space-y-3.5 text-xs">
@@ -523,7 +667,7 @@ export default function StandalonePatriotOfferPage() {
 
       </section>
 
-      {/* ── ORDER SECTION: CREDIT CARD vs 30-DAY BILLING (LIGHT THEME) ── */}
+      {/* ── ORDER SECTION: CREDIT CARD vs 30-DAY BILLING ── */}
       <section id="order-section" className="py-12 sm:py-16 px-3.5 sm:px-6 lg:px-10 max-w-5xl mx-auto scroll-mt-16">
         
         <div className="bg-white border-2 border-slate-300 rounded-2xl sm:rounded-3xl p-4 sm:p-10 shadow-2xl space-y-6 sm:space-y-8 relative">
@@ -533,7 +677,7 @@ export default function StandalonePatriotOfferPage() {
               OFFICIAL CONTRACTOR BOGO ORDER FORM
             </span>
             <h2 className="text-2xl sm:text-4xl font-black text-blue-950 uppercase tracking-tight">
-              SELECT YOUR BLADE SIZE & CHECK OUT
+              14" PATRIOT BOGO CHECKOUT
             </h2>
             <p className="text-xs text-slate-600">Pay by Credit Card or Confirm 30-Day Business Account Billing.</p>
           </div>
@@ -632,7 +776,7 @@ export default function StandalonePatriotOfferPage() {
             </div>
           </div>
 
-          {/* Form Fields (text-base on inputs for iOS Safari anti-auto-zoom fix) */}
+          {/* Form Fields */}
           <form onSubmit={handleSubmitOrder} className="space-y-6">
             
             <div className="space-y-4">
@@ -847,7 +991,7 @@ export default function StandalonePatriotOfferPage() {
               <div className="text-center sm:text-left">
                 <div className="text-xs font-bold text-slate-300 uppercase">TOTAL AMOUNT DUE:</div>
                 <div className="text-3xl font-black text-white tracking-tight">${totalPrice}</div>
-                <div className="text-xs text-emerald-400 font-bold">Includes 2x Blades ({selectedSize}" BOGO) + FREE Freight</div>
+                <div className="text-xs text-emerald-400 font-bold">Includes 2x 14" Blades (BOGO Pack) + FREE Freight</div>
               </div>
 
               <button
@@ -930,7 +1074,7 @@ export default function StandalonePatriotOfferPage() {
         <p>© {new Date().getFullYear()} Titan Diamond. All rights reserved.</p>
       </footer>
 
-      {/* ── HIGH-CONVERTING STICKY MOBILE BOTTOM BAR (LIGHT THEME) ── */}
+      {/* ── HIGH-CONVERTING STICKY MOBILE BOTTOM BAR ── */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-2xl border-t border-slate-300 p-3 flex items-center justify-between gap-2.5 shadow-[0_-10px_25px_rgba(0,0,0,0.15)]">
         <div>
           <div className="text-[9px] font-black text-red-600 uppercase tracking-widest">BUY 1 GET 1 FREE</div>
@@ -954,6 +1098,60 @@ export default function StandalonePatriotOfferPage() {
           </a>
         </div>
       </div>
+
+      {/* ── FULLSCREEN BLADE IMAGE PREVIEW MODAL ── */}
+      {fullscreenImage && (
+        <div
+          onClick={() => setFullscreenImage(null)}
+          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative bg-gradient-to-b from-slate-900 to-black border border-slate-700 rounded-3xl max-w-3xl w-full p-6 text-center space-y-4 shadow-2xl cursor-default"
+          >
+            <button
+              onClick={() => setFullscreenImage(null)}
+              className="absolute top-4 right-4 bg-slate-800 text-slate-300 hover:text-white p-2 rounded-full border border-slate-700 shadow-md transition-colors"
+            >
+              <FiX size={22} />
+            </button>
+
+            <div>
+              <span className="bg-red-600 text-white font-black text-[10px] uppercase px-3 py-1 rounded-full tracking-widest shadow">
+                HIGH RESOLUTION PATRIOT RENDER
+              </span>
+              <h3 className="text-xl sm:text-2xl font-black text-white uppercase mt-2">{fullscreenImage.title}</h3>
+              <p className="text-xs text-slate-300 font-medium">{fullscreenImage.subtitle}</p>
+            </div>
+
+            <div className="w-full h-80 sm:h-96 relative flex items-center justify-center py-4 bg-black/40 rounded-2xl border border-slate-800/80">
+              <img
+                src={fullscreenImage.src}
+                alt={fullscreenImage.title}
+                className="max-h-full max-w-full object-contain filter drop-shadow-[0_0_30px_rgba(220,38,38,0.5)] animate-scale-in"
+              />
+            </div>
+
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => setFullscreenImage(null)}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-6 py-3 rounded-xl text-xs uppercase"
+              >
+                CLOSE PREVIEW
+              </button>
+
+              <a
+                href="#order-section"
+                onClick={() => setFullscreenImage(null)}
+                className="bg-gradient-to-r from-red-600 to-blue-600 text-white font-black px-6 py-3 rounded-xl text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg"
+              >
+                <FiShoppingCart size={14} />
+                <span>CLAIM BOGO OFFER NOW ($99.99)</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── ORDER SUCCESS CONFIRMATION MODAL ── */}
       {orderCompleted && (
