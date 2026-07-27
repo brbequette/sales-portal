@@ -15,8 +15,11 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true)
   const redirected = useRef(false)
 
-  // Detect login page synchronously from window.location (immune to Next.js hydration delay)
-  const isLoginPage = typeof window !== "undefined" && window.location.pathname.includes("/login")
+  // Detect public pages (login, intro-offer) synchronously from window.location
+  const isPublicPage = typeof window !== "undefined" && (
+    window.location.pathname.includes("/login") || 
+    window.location.pathname.includes("/intro-offer")
+  )
 
   // Fast-path: if URL carries Zoho merge-field params (email or zohoId),
   // the user is already identified -- authorize immediately
@@ -30,8 +33,8 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Login page always renders -- no auth gating needed
-    if (isLoginPage) {
+    // Public pages (login, intro-offer) always render -- no auth gating needed
+    if (isPublicPage) {
       setIsAuthorized(true)
       setChecking(false)
       return
@@ -105,10 +108,10 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
 
     return () => clearTimeout(timer)
 
-  }, [isInitialized, zohoContext, isLoginPage, status])
+  }, [isInitialized, zohoContext, isPublicPage, status])
 
-  // Login page always renders immediately
-  if (isLoginPage) return <>{children}</>
+  // Public pages always render immediately
+  if (isPublicPage) return <>{children}</>
 
   // Still checking -- show loading
   if (checking || !isAuthorized) {
