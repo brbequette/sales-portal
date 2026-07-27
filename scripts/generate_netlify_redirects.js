@@ -27,7 +27,9 @@ let redirectsToml = `[build]
 // Map hyphens to slashes where appropriate (e.g. admin-users -> /api/admin/users to /.netlify/functions/admin-users)
 funcs.forEach(func => {
   let apiPath = `/api/${func}`;
-  if (func.startsWith('admin-')) {
+  if (func.startsWith('admin-books-')) {
+    apiPath = `/api/admin/books/${func.replace('admin-books-', '')}`;
+  } else if (func.startsWith('admin-')) {
     apiPath = `/api/admin/${func.replace('admin-', '')}`;
   } else if (func.startsWith('timeclock-')) {
     apiPath = `/api/timeclock/${func.replace('timeclock-', '')}`;
