@@ -65,9 +65,34 @@ export const handler: Handler = async (event, context) => {
       const pkgData = await pkgRes.json()
       if (pkgData.code !== 0) throw new Error(`Zoho Books Error creating package: ${pkgData.message}`)
       
+      const createdPkg = pkgData.package || {}
+      try {
+        const { prisma } = require("./lib/prisma")
+        await prisma.package.upsert({
+          where: { zohoId: createdPkg.package_id },
+          update: {
+            packageNumber: createdPkg.package_number || null,
+            salesOrderId: salesOrderId,
+            salesOrderNumber: so.salesorder_number || null,
+            date: createdPkg.date ? new Date(createdPkg.date) : new Date(),
+            status: createdPkg.status || "not_shipped",
+          },
+          create: {
+            zohoId: createdPkg.package_id,
+            packageNumber: createdPkg.package_number || null,
+            salesOrderId: salesOrderId,
+            salesOrderNumber: so.salesorder_number || null,
+            date: createdPkg.date ? new Date(createdPkg.date) : new Date(),
+            status: createdPkg.status || "not_shipped",
+          }
+        })
+      } catch (dbErr: any) {
+        console.error("Failed to save created package to DB:", dbErr.message)
+      }
+
       return {
         statusCode: 200,
-        body: JSON.stringify({ success: true, packageId: pkgData.package.package_id })
+        body: JSON.stringify({ success: true, packageId: createdPkg.package_id })
       }
 
     } else if (action === "CreateDropshipment") {
@@ -83,7 +108,7 @@ export const handler: Handler = async (event, context) => {
           item_id: soItem.item_id,
           name: soItem.name,
           description: soItem.description,
-          rate: soItem.rate, // Usually you'd fetch the vendor cost, but this relies on Zoho Books item defaults if rate is omitted, so let's pass cost if available, otherwise 0
+          rate: soItem.rate,
           quantity: i.quantity,
           salesorder_item_id: soItem.line_item_id
         }
@@ -92,7 +117,7 @@ export const handler: Handler = async (event, context) => {
       // Create a Purchase Order linked to the Sales Order
       const payload = {
         vendor_id: vendorId,
-        delivery_customer_id: so.customer_id, // This marks it as a dropshipment
+        delivery_customer_id: so.customer_id,
         salesorder_id: salesOrderId,
         date: new Date().toISOString().split('T')[0],
         line_items: poLineItems
@@ -109,9 +134,40 @@ export const handler: Handler = async (event, context) => {
       const poData = await poRes.json()
       if (poData.code !== 0) throw new Error(`Zoho Books Error creating Dropshipment (PO): ${poData.message}`)
       
+      const createdPO = poData.purchaseorder || {}
+      try {
+        const { prisma } = require("./lib/prisma")
+        await prisma.purchaseOrder.upsert({
+          where: { zohoId: createdPO.purchaseorder_id },
+          update: {
+            vendorName: createdPO.vendor_name || null,
+            date: createdPO.date ? new Date(createdPO.date) : new Date(),
+            total: createdPO.total || 0,
+            status: createdPO.status || "issued",
+            salesOrderId: salesOrderId,
+            salesOrderNumber: so.salesorder_number || null,
+            isDropshipment: true,
+            trackingNumber: trackingNumber || null,
+          },
+          create: {
+            zohoId: createdPO.purchaseorder_id,
+            vendorName: createdPO.vendor_name || null,
+            date: createdPO.date ? new Date(createdPO.date) : new Date(),
+            total: createdPO.total || 0,
+            status: createdPO.status || "issued",
+            salesOrderId: salesOrderId,
+            salesOrderNumber: so.salesorder_number || null,
+            isDropshipment: true,
+            trackingNumber: trackingNumber || null,
+          }
+        })
+      } catch (dbErr: any) {
+        console.error("Failed to save created dropshipment to DB:", dbErr.message)
+      }
+
       return {
         statusCode: 200,
-        body: JSON.stringify({ success: true, purchaseOrderId: poData.purchaseorder.purchaseorder_id })
+        body: JSON.stringify({ success: true, purchaseOrderId: createdPO.purchaseorder_id })
       }
 
     } else {

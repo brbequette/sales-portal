@@ -49,6 +49,33 @@ export const handler: Handler = async (event) => {
         where: { id: packageId },
         data: updatedData,
       })
+
+      // Push tracking & shipment status to Zoho Books API
+      if (pkg.zohoId && (trackingNumber || carrier)) {
+        try {
+          const { getZohoAccessToken } = require("./lib/zoho-auth")
+          const token = await getZohoAccessToken()
+          const ZOHO_DC = process.env.ZOHO_DC || 'com'
+          const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
+
+          await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/shipmentorders?organization_id=${ORG_ID}`, {
+            method: "POST",
+            headers: {
+              Authorization: `Zoho-oauthtoken ${token}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              package_ids: pkg.zohoId,
+              tracking_number: trackingNumber || pkg.trackingNumber || "",
+              shipping_carrier: carrier || pkg.carrier || "",
+              date: new Date().toISOString().split("T")[0]
+            })
+          })
+        } catch (zohoErr: any) {
+          console.error("Failed to push tracking to Zoho Books:", zohoErr.message)
+        }
+      }
+
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, package: updated }) }
     }
 
