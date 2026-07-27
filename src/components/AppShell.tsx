@@ -31,7 +31,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: "/",            icon: FiHome,          label: "Sales Hub",     color: "text-[var(--primary)]" },
-    { href: "/intro-offer", icon: FiZap,           label: "Intro Offer",   color: "text-amber-400" },
     { href: "/tasks",       icon: FiCheckSquare,   label: "Task Hub",      color: "text-violet-400" },
     { href: "/sales",       icon: FiFileText,      label: "Sales Docs",    color: "text-[var(--accent)]" },
     { href: "/shipping",    icon: FiTruck,         label: "Shipping",      color: "text-orange-400" },

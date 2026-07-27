@@ -7,7 +7,7 @@ import {
   FiUsers, FiClock, FiDollarSign, 
   FiTarget, FiAward, FiCalendar, FiMessageSquare, 
   FiFileText, FiActivity, FiSettings, FiDatabase,
-  FiRefreshCw, FiCheckCircle, FiAlertTriangle
+  FiRefreshCw, FiCheckCircle, FiAlertTriangle, FiZap
 } from "react-icons/fi"
 
 const sections = [
@@ -25,6 +25,7 @@ const sections = [
       { title: "Update Accounts", desc: "Filter and reassign accounts in bulk.", href: "/admin/update-accounts", icon: FiTarget, color: "text-purple-400", bg: "bg-purple-500/10" },
       { title: "Update Configurations", desc: "Set target sub-totals and distribute group rules.", href: "/admin/update-config", icon: FiSettings, color: "text-pink-400", bg: "bg-pink-500/10" },
       { title: "VIG Management", href: "/admin/vig", desc: "Manage Very Important Groups.", icon: FiAward, color: "text-yellow-400", bg: "bg-yellow-500/10" },
+      { title: "Intro Offer Page", href: "/admin/intro-offer", desc: "Access the promotional intro offer order page.", icon: FiZap, color: "text-amber-400", bg: "bg-amber-500/10" },
       { title: "Holidays", desc: "Configure working holidays for time calculations.", href: "/admin/holidays", icon: FiCalendar, color: "text-red-400", bg: "bg-red-500/10" },
     ]
   },
