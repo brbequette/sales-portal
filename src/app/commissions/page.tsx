@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useMemo } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { PayPeriodStatementModal } from "@/components/PayPeriodStatementModal"
+import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { 
   FiDollarSign, FiPercent, FiTrendingUp, FiAward, FiUser, 
   FiCheckCircle, FiClock, FiFileText, FiRefreshCw, FiAlertCircle,
-  FiChevronDown, FiChevronRight, FiCalendar, FiFilter
+  FiChevronDown, FiChevronRight, FiCalendar, FiFilter, FiExternalLink
 } from "react-icons/fi"
 
 function fmt(n: number) {
@@ -50,6 +51,7 @@ export default function CommissionsPage() {
   const [selectedYear, setSelectedYear] = useState<string>(() => new Date().getFullYear().toString())
   const [availableYears, setAvailableYears] = useState<number[]>([])
   const [showStatement, setShowStatement] = useState(false)
+  const [activeInvoiceModal, setActiveInvoiceModal] = useState<any | null>(null)
   const [activeTab, setActiveTab] = useState<"invoices" | "payouts">("invoices")
   const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({})
   const [viewMode, setViewMode] = useState<"weekly" | "flat">("weekly")
@@ -408,12 +410,17 @@ export default function CommissionsPage() {
                             </thead>
                             <tbody className="divide-y divide-[var(--border)]">
                               {group.invoices.map((inv: any) => (
-                                <tr key={inv.id} className="hover:bg-neutral-800/30 transition">
+                                <tr 
+                                  key={inv.id} 
+                                  onClick={() => setActiveInvoiceModal(inv)}
+                                  className="hover:bg-neutral-800/60 cursor-pointer transition group"
+                                >
                                   <td className="py-2.5 px-4 pl-12 whitespace-nowrap text-[var(--muted-foreground)]">
                                     {fmtDate(inv.issueDate)}
                                   </td>
-                                  <td className="py-2.5 px-4 font-mono font-medium text-indigo-400">
-                                    {inv.invoiceNumber || inv.zohoId || "--"}
+                                  <td className="py-2.5 px-4 font-mono font-bold text-indigo-400 group-hover:text-indigo-300 underline-offset-2 group-hover:underline flex items-center gap-1.5">
+                                    <FiFileText size={13} className="shrink-0" />
+                                    <span>#{inv.invoiceNumber || inv.zohoId || "--"}</span>
                                   </td>
                                   <td className="py-2.5 px-4 font-medium text-[var(--foreground)]">
                                     {inv.accountName || inv.name || "Customer"}
@@ -471,12 +478,17 @@ export default function CommissionsPage() {
                   </thead>
                   <tbody className="divide-y divide-[var(--border)]">
                     {(currentRepData.invoices || []).map((inv: any) => (
-                      <tr key={inv.id} className="hover:bg-neutral-800/40 transition">
+                      <tr 
+                        key={inv.id} 
+                        onClick={() => setActiveInvoiceModal(inv)}
+                        className="hover:bg-neutral-800/60 cursor-pointer transition group"
+                      >
                         <td className="py-3 px-4 whitespace-nowrap text-[var(--muted-foreground)]">
                           {fmtDate(inv.issueDate)}
                         </td>
-                        <td className="py-3 px-4 font-mono font-medium text-indigo-400">
-                          {inv.invoiceNumber || inv.zohoId || "--"}
+                        <td className="py-3 px-4 font-mono font-bold text-indigo-400 group-hover:text-indigo-300 underline-offset-2 group-hover:underline flex items-center gap-1.5">
+                          <FiFileText size={13} className="shrink-0" />
+                          <span>#{inv.invoiceNumber || inv.zohoId || "--"}</span>
                         </td>
                         <td className="py-3 px-4 font-medium text-[var(--foreground)]">
                           {inv.accountName || inv.name || "Customer"}
@@ -555,6 +567,15 @@ export default function CommissionsPage() {
         <PayPeriodStatementModal
           rep={currentRepData}
           onClose={() => setShowStatement(false)}
+        />
+      )}
+
+      {/* Invoice Details Modal */}
+      {activeInvoiceModal && (
+        <InvoiceDetailsModal
+          invoice={activeInvoiceModal.zohoId || activeInvoiceModal.id || activeInvoiceModal.invoiceNumber}
+          type="Invoice"
+          onClose={() => setActiveInvoiceModal(null)}
         />
       )}
     </div>
