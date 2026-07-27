@@ -1,0 +1,57 @@
+import { Handler } from "@netlify/functions"
+import { prisma } from "./lib/prisma"
+
+export const handler: Handler = async (event) => {
+  const cors = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type"
+  }
+
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 204, headers: cors, body: "" }
+  }
+
+  try {
+    const params = event.queryStringParameters || {}
+    const userId = params.userId
+    const email = params.email
+    const month = params.month
+
+    let finalUserId = userId
+    if (email) {
+      const dbUser = await prisma.user.findUnique({ where: { email } })
+      if (dbUser) {
+        finalUserId = dbUser.id
+      }
+    }
+
+    const where: any = {}
+    if (finalUserId) where.userId = finalUserId
+    if (month) where.date = { startsWith: month }
+
+    const entries = await prisma.timeEntry.findMany({
+      where,
+      take: 200,
+      orderBy: { date: 'desc' },
+      include: {
+        changeRequests: {
+          orderBy: { createdAt: 'desc' }
+        }
+      }
+    })
+
+    return {
+      statusCode: 200,
+      headers: cors,
+      body: JSON.stringify({ success: true, entries })
+    }
+  } catch (err: any) {
+    console.error("Timeclock Entries Function Error:", err)
+    return {
+      statusCode: 500,
+      headers: cors,
+      body: JSON.stringify({ success: false, error: err.message })
+    }
+  }
+}
