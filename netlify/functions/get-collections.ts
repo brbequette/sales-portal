@@ -1,8 +1,7 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 import { syncRecentBooksInvoices } from "./lib/zoho-books"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 
 export const handler: Handler = async (event) => {
   const cors = {

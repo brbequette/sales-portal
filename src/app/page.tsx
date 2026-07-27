@@ -290,6 +290,10 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: aiPrompt, type: "text", channel: campaignChannel })
       })
+      if (!res.ok) {
+        setCampaignError(`Server error (${res.status}). Failed to generate text.`)
+        return
+      }
       const data = await res.json()
       if (data.success) {
         setCampaignText(data.result)
@@ -313,6 +317,10 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: aiPrompt, type: "image", channel: campaignChannel })
       })
+      if (!res.ok) {
+        setCampaignError(`Server error (${res.status}). Failed to generate image.`)
+        return
+      }
       const data = await res.json()
       if (data.success) {
         setCampaignImageUrl(data.result)

@@ -1,7 +1,6 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 
 export const handler: Handler = async (event) => {
   const cors = {
@@ -33,7 +32,7 @@ export const handler: Handler = async (event) => {
         role: true,
         zohoId: true,
         showOnSalesBoard: true,
-        monthlyVigGoals: true,
+        monthlyVigGoals: { select: { id: true, monthKey: true, profitGoal: true } },
       },
       orderBy: { name: "asc" }
     })

@@ -2,6 +2,11 @@
   command = "npx prisma generate && next build"
   publish = ".next"
 
+[build.environment]
+  DATABASE_URL = "postgresql://netlifydb_owner:npg_jvz7JFbSoEH6@ep-fragrant-salad-aj44trez.c-3.us-east-2.db.netlify.com/netlifydb?sslmode=require"
+  NEXTAUTH_SECRET = "titan_diamond_sales_portal_production_secret_key_2026"
+  ZOHO_DC = "com"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
@@ -26,6 +31,12 @@
     Access-Control-Allow-Headers = "Content-Type, Authorization"
 
 
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/account/:id"

@@ -1,7 +1,7 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient, Prisma } from "@prisma/client"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 
 // Statuses where the FINAL half is earned (invoice has been paid)
 const FINAL_PAID_STATUSES = new Set(['Paid', 'paid', 'Closed', 'closed', 'Fulfilled', 'fulfilled'])

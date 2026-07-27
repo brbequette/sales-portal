@@ -84,8 +84,12 @@ export function SalesBoard() {
           fetch("/api/admin/users"),
           fetch("/api/zoho-invoices")
         ])
-        const usersPayload = await usersRes.json()
-        const payload = await res.json()
+        const usersPayload = usersRes.ok && (usersRes.headers.get("content-type") || "").includes("application/json") 
+          ? await usersRes.json() 
+          : { users: [] }
+        const payload = res.ok && (res.headers.get("content-type") || "").includes("application/json") 
+          ? await res.json() 
+          : { invoices: [] }
         
         // Build reps from users with showOnSalesBoard
         const boardUsers = (usersPayload.users || []).filter((u: any) => u.showOnSalesBoard)

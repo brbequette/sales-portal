@@ -1,8 +1,7 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 import { getStore } from "@netlify/blobs"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 
 /**
  * Zoho Books Webhook Receiver

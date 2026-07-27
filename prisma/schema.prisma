@@ -1,6 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -88,6 +88,8 @@ model Account {
 
   @@index([ownerId])
   @@index([status])
+  @@index([ownerId, quality, status])
+  @@index([billingState, timeZone])
 }
 
 model Contact {
@@ -222,6 +224,7 @@ model Invoice {
   @@index([accountId])
   @@index([status])
   @@index([pendingCostSync])
+  @@index([accountId, issueDate, status])
 }
 
 model Note {
@@ -279,6 +282,7 @@ model Task {
   @@index([ownerId])
   @@index([status])
   @@index([accountId])
+  @@index([ownerId, status, dueDate])
 }
 
 model SystemSetting {

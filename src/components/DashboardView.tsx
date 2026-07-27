@@ -263,8 +263,17 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
     try {
       // Fetch invoices from the existing API
       const res = await fetch("/api/zoho-invoices")
+      if (!res.ok) {
+        console.error("Dashboard zoho-invoices API error:", res.status)
+        return
+      }
+      const contentType = res.headers.get("content-type") || ""
+      if (!contentType.includes("application/json")) {
+        console.error("Dashboard zoho-invoices non-JSON response:", await res.text())
+        return
+      }
       const json = await res.json()
-      if (!json.invoices) throw new Error("No invoice data")
+      if (!json || !json.invoices) throw new Error("No invoice data")
       
       const invoices = json.invoices
       const now = new Date()

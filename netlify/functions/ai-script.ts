@@ -1,20 +1,18 @@
 import type { Context } from "@netlify/functions"
 import OpenAI from "openai"
 import { scriptTemplates } from "./lib/script-templates"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "./lib/prisma"
 
 // Clients are initialized lazily inside the handler so that
 // `next build` does not crash when env vars are absent locally.
 // On Netlify, OPENAI_API_KEY and DATABASE_URL are always present.
 let _openai: OpenAI | null = null
-let _prisma: PrismaClient | null = null
 function getOpenAI() {
   if (!_openai) _openai = new OpenAI()
   return _openai
 }
 function getPrisma() {
-  if (!_prisma) _prisma = new PrismaClient()
-  return _prisma
+  return prisma
 }
 
 export default async (req: Request, context: Context) => {
@@ -48,12 +46,12 @@ export default async (req: Request, context: Context) => {
     let callHistory: any[] = []
     
     try {
-    dbScripts = await getPrisma().callScript.findMany({
+      dbScripts = await prisma.callScript.findMany({
         where: { isActive: true }
       })
 
       if (accountId) {
-        callHistory = await getPrisma().callLog.findMany({
+        callHistory = await prisma.callLog.findMany({
           where: { accountId },
           orderBy: { createdAt: 'desc' },
           take: 10,
@@ -122,6 +120,14 @@ Reference Pitch Guidelines for the recommended product (${recommendedBlade.name}
 - Intended Applications: ${recommendedBlade.applications.join(", ")}
 - Key features: ${recommendedBlade.keyFeatures.join(" | ")}
 
+Titan Diamond Master Objection-Handling Matrix:
+1. "Your price is higher than our current supplier":
+   - Response: "Our diamond segment matrix is sintered under 20% higher heat and pressure. You get twice the linear cut feet per blade, so your cost per cut is actually 40% lower."
+2. "We already have a vendor we're happy with":
+   - Response: "We don't expect you to drop them. We're sending a complimentary manufacturer sample so you can benchmark cut speed and segment life on your next tough job."
+3. "Our blades glaze over or slow down in hard aggregate":
+   - Response: "Glazing happens when the bond is too hard. Our ${recommendedBlade.name} engineered soft-bond matrix continually exposes fresh diamond grit so the segment never slows down."
+
 Titan Diamond Industry Lingo (Use naturally):
 - "like a hot knife through butter"
 - "pull itself through the cut"
@@ -136,10 +142,6 @@ Writing Rules:
 - Do NOT use any brackets or placeholders (e.g., [Client Name]). Use the actual data provided.
 - Provide a clear "Talking Script" section.
 - Provide a "Next-Best Actions / Insights" section at the bottom for the rep.
-
-CRITICAL INSTRUCTIONS based on Call Type:
-- IF Cold Call: Start with fact-finding only. Do NOT pitch products until enough information is collected. Recommend the next appropriate script path.
-- IF Account Update: Provide recommended products to pitch (e.g., ${recommendedBlade.name}), suggest quantities, and suggest pricing. Base recommendations on previous purchases and needs. Give clear talking points.
 `
 
     let contextPrompt = `Client Company: ${accountName}\n`

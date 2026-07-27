@@ -1,7 +1,6 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 
 const initialAssets = [
   { title: "2024 Product Catalog", type: "PDF", category: "Brochures", url: "https://titandiamond.net/catalog2024.pdf", size: "4.2 MB" },

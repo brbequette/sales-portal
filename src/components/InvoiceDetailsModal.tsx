@@ -122,6 +122,10 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
           targetType
         })
       })
+      if (!res.ok) {
+        alert(`Server error (${res.status}) converting document.`)
+        return
+      }
       const data = await res.json()
       if (data.success) {
         alert(`Successfully converted to ${targetType}!`)
@@ -148,6 +152,10 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
           lineItems: editableLineItems
         })
       })
+      if (!res.ok) {
+        alert(`Server error (${res.status}) saving line items.`)
+        return
+      }
       const data = await res.json()
       if (data.success) {
         setIsEditingLineItems(false)
@@ -174,6 +182,10 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
           discountPercentage
         })
       })
+      if (!res.ok) {
+        alert(`Server error (${res.status}) applying discount.`)
+        return
+      }
       const data = await res.json()
       if (data.success) {
         alert("Discount applied successfully!")
@@ -205,6 +217,10 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(bodyPayload)
       })
+      if (!res.ok) {
+        alert(`Server error (${res.status}) sending document email.`)
+        return
+      }
       const data = await res.json()
       if (data.success) {
         alert(`✅ ${type === 'Quote' ? 'Quote' : type === 'SalesOrder' ? 'Sales Order' : 'Invoice'} sent to customer!`)

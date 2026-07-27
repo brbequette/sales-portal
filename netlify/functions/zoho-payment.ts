@@ -1,8 +1,7 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 import { getZohoAccessToken as getAccessToken } from "./lib/zoho-auth"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
 import { getSystemSettings } from "./lib/settings"

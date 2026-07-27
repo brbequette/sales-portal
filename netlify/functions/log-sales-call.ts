@@ -1,7 +1,6 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
 
 export const handler: Handler = async (event) => {

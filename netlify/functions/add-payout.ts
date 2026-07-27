@@ -1,7 +1,6 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 
 export const handler: Handler = async (event) => {
   const cors = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }

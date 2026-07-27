@@ -1,8 +1,7 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
 
@@ -265,7 +264,7 @@ export const handler: Handler = async (event) => {
 }
 
 // ── Helper: look up the current vig rate for a salesperson ──
-async function getVigRate(prisma: PrismaClient, salespersonName: string): Promise<number> {
+async function getVigRate(prisma: any, salespersonName: string): Promise<number> {
   let vigRate = 1.3
   if (!salespersonName) return vigRate
 
@@ -274,7 +273,7 @@ async function getVigRate(prisma: PrismaClient, salespersonName: string): Promis
 
   try {
     const users = await prisma.user.findMany()
-    const user = users.find(u => u.name && (
+    const user = users.find((u: any) => u.name && (
       salespersonName.toLowerCase().includes(u.name.toLowerCase()) ||
       u.name.toLowerCase().includes(salespersonName.toLowerCase())
     ))

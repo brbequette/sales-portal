@@ -170,7 +170,7 @@ export default function AppleStylePatriotOfferPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#05070c] text-slate-100 font-sans selection:bg-red-600 selection:text-white pb-20 md:pb-0 overflow-x-hidden">
+    <div data-theme="light" className="intro-offer-page light-theme relative min-h-screen bg-[#05070c] text-slate-100 font-sans selection:bg-red-600 selection:text-white pb-20 md:pb-0 overflow-x-hidden">
 
       {/* ── TOP SCROLL PROGRESS BAR ── */}
       <div className="fixed top-0 left-0 right-0 h-1 bg-slate-900 z-50">

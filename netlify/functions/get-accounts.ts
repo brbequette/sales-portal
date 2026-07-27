@@ -1,9 +1,8 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 import { syncRecentBooksInvoices } from "./lib/zoho-books"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 

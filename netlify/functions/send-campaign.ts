@@ -1,11 +1,10 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 import fetch from "node-fetch"
 import FormData from "form-data"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 
 export const handler: Handler = async (event, context) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()

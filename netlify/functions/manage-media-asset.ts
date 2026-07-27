@@ -1,8 +1,7 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 import { isAdmin } from "./lib/helpers"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 
 export const handler: Handler = async (event, context) => {
   // Support POST, PUT, DELETE

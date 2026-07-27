@@ -8,7 +8,7 @@
 */
 
 :root {
-  /* ── Core Dark Theme Variables (App Hub Defaults) ── */
+  /* ── Core Dark Theme Variables (App Hub & Portal Defaults) ── */
   --background: #000000;         /* Pure black app canvas */
   --surface: #0a0a0a;            /* Base surface / card */
   --surface-2: #141414;          /* Raised panels */
@@ -54,6 +54,35 @@
   /* ── Fonts ── */
   --font-sans: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* ── Light Theme Scoped Override (For Intro-Offer Page) ── */
+.light-theme, [data-theme="light"], .intro-offer-page {
+  --background: #f8fafc;         /* Crisp, subtle slate canvas */
+  --surface: #ffffff;            /* Pure white surface / card */
+  --surface-2: #f1f5f9;          /* Light grey raised panels / sub-cards */
+  --surface-3: #e2e8f0;          /* Subtle hover backgrounds & borders */
+  --card: #ffffff;               /* Clean white card surface */
+  --card-foreground: #0f172a;    /* Deep slate text for high contrast */
+
+  --neutral-755: #e2e8f0;
+  --neutral-850: #f1f5f9;
+
+  --foreground: #0f172a;         /* Deep slate primary text */
+  --muted: #64748b;              /* Medium slate muted text */
+  --muted-2: #94a3b8;            /* Secondary muted text */
+
+  --border: #e2e8f0;             /* Soft grey border */
+  --border-strong: #cbd5e1;      /* Crisp slate border */
+
+  --primary: #ea580c;            /* Rich Titan Orange */
+  --primary-hover: #c2410c;
+  --primary-foreground: #ffffff;
+  
+  --accent: #0f172a;             /* Dark slate accent */
+  --accent-foreground: #ffffff;
+
+  --info: #2563eb;
 }
 
 @theme inline {
@@ -107,15 +136,15 @@ body {
 
 /* ── Modern Card & Surface Utilities ── */
 .modern-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 1rem;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.2);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .modern-card:hover {
-  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.3);
   transform: translateY(-2px);
 }
 
@@ -135,6 +164,22 @@ body {
   box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.light-theme .glass-panel,
+[data-theme="light"] .glass-panel,
+.intro-offer-page .glass-panel {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 30px 0 rgba(0, 0, 0, 0.04);
+}
+
+.light-theme .glass-panel-strong,
+[data-theme="light"] .glass-panel-strong,
+.intro-offer-page .glass-panel-strong {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .glass-panel:hover,

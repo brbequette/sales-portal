@@ -20,11 +20,10 @@
  */
 
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculations"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
 

@@ -1,7 +1,6 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 
 const VALID_QUALITIES = ["HOT", "WARM", "COLD", "ON_HOLD", "DO_NOT_CALL", "NEVER_STATUSED"]
 

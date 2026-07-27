@@ -76,7 +76,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
 
       // Sync fresh role from DB in background
       fetch(`/api/get-user?email=${encodeURIComponent(email)}`)
-        .then(res => res.json())
+        .then(res => res.ok ? res.json() : null)
         .then(realUser => {
           if (realUser?.email) {
             const updatedUser = { ...portalUser, ...realUser, isZohoUser: true }
@@ -93,7 +93,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // â"€â"€ STEP 2: Existing saved session (standalone / mobile) â"€â"€
+    // ── STEP 2: Existing saved session (standalone / mobile) ──
     try {
       const saved = localStorage.getItem("sales_portal_user")
       if (saved) {
@@ -105,7 +105,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
 
           // Sync fresh role from DB in background (non-blocking)
           fetch(`/api/get-user?email=${encodeURIComponent(parsedUser.email)}`)
-            .then(res => res.json())
+            .then(res => res.ok ? res.json() : null)
             .then(realUser => {
               if (realUser?.email) {
                 const updatedUser = { ...parsedUser, ...realUser, isZohoUser: true }
@@ -159,7 +159,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
 
               // Sync fresh role from DB
               fetch(`/api/get-user?email=${encodeURIComponent(zohoUser.email)}`)
-                .then(res => res.json())
+                .then(res => res.ok ? res.json() : null)
                 .then(realUser => {
                   if (realUser?.email) {
                     const updatedUser = { ...portalUser, ...realUser, isZohoUser: true }

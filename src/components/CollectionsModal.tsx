@@ -1004,16 +1004,24 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
 // â"€â"€ Unified Modal Component â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 interface CollectionsModalProps {
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
-  mode: 'call' | 'card' | 'return' | 'campaign' | null;
+  mode?: 'call' | 'card' | 'return' | 'campaign' | null;
   invoice?: Invoice | null;
   campaignInvoices?: Invoice[];
-  onSuccess: () => void;
+  onSuccess?: () => void;
+  repFilter?: string | null;
 }
 
-export function CollectionsModal({ isOpen, onClose, mode, invoice, campaignInvoices, onSuccess }: CollectionsModalProps) {
-  if (!isOpen || !mode) return null;
+export function CollectionsModal({ 
+  isOpen = true, 
+  onClose, 
+  mode = 'campaign', 
+  invoice, 
+  campaignInvoices = [], 
+  onSuccess = () => {} 
+}: CollectionsModalProps) {
+  if (!isOpen) return null;
 
   if (mode === 'call' && invoice) {
     return <CallModal invoice={invoice} onClose={onClose} onSaved={onSuccess} />

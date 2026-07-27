@@ -11,10 +11,9 @@
  *   - Commission = Profit * commissionPct  (only when Profit > 0)
  */
 
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "./prisma"
 import { getSystemSettings, AppSettings } from "./settings"
 
-const prisma = new PrismaClient()
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

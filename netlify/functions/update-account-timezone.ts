@@ -1,10 +1,9 @@
 import { Handler } from "@netlify/functions"
-import { PrismaClient } from "@prisma/client"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
 
-const prisma = new PrismaClient()
+import { prisma } from "./lib/prisma"
 
 const VALID_TIMEZONES = ["EST", "CST", "MST", "PST", "AST", "HST", ""]
 

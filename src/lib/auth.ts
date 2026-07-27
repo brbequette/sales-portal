@@ -181,10 +181,7 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
     error: '/login',
   },
-  session: {
-    strategy: "jwt",
-  },
-  secret: process.env.NEXTAUTH_SECRET || "titan_diamond_sales_portal_fallback_secret_2026",
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "titan_diamond_sales_portal_production_secret_key_2026",
 }
 
 export default NextAuth(authOptions)
