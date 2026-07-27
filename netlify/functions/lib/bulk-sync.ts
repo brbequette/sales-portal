@@ -210,28 +210,56 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
       if (entity === 'payments') {
         const payId = item.payment_id || ''
         if (!payId) { result.skipped++; continue }
+
+        let invNum: string | null = null
+        if (typeof item.invoice_numbers === 'string') {
+          invNum = item.invoice_numbers.trim()
+        } else if (Array.isArray(item.invoice_numbers) && item.invoice_numbers.length > 0) {
+          const first = item.invoice_numbers[0]
+          invNum = typeof first === 'object' ? (first.invoice_number || null) : String(first).trim()
+        }
+
+        let targetInvoice: any = null
+        if (invNum) {
+          targetInvoice = await prisma.invoice.findFirst({
+            where: {
+              OR: [
+                { zohoId: invNum },
+                { items: { path: ['invoiceNumber'], equals: invNum } },
+                { items: { path: ['booksInvoiceId'], equals: invNum } }
+              ]
+            }
+          })
+        }
+
+        const paymentData = {
+          invoiceId: targetInvoice ? targetInvoice.id : (item.invoice_id || null),
+          invoiceNumber: invNum || item.reference_number || null,
+          amount: parseFloat(item.amount || 0),
+          date: item.date ? new Date(item.date) : null,
+          mode: item.payment_mode || item.payment_mode_formatted || null,
+          status: item.payment_status || item.status || 'paid',
+          referenceNumber: item.reference_number || null,
+          bankCharges: parseFloat(item.bank_charges || 0),
+        }
+
         ops.push(prisma.payment.upsert({
           where: { zohoId: payId },
-          update: {
-            invoiceNumber: item.invoice_numbers?.[0]?.invoice_number || item.reference_number || null,
-            amount: parseFloat(item.amount || 0),
-            date: item.date ? new Date(item.date) : null,
-            mode: item.payment_mode || null,
-            status: item.status || null,
-            referenceNumber: item.reference_number || null,
-            bankCharges: parseFloat(item.bank_charges || 0),
-          },
-          create: {
-            zohoId: payId,
-            invoiceNumber: item.invoice_numbers?.[0]?.invoice_number || item.reference_number || null,
-            amount: parseFloat(item.amount || 0),
-            date: item.date ? new Date(item.date) : null,
-            mode: item.payment_mode || null,
-            status: item.status || null,
-            referenceNumber: item.reference_number || null,
-            bankCharges: parseFloat(item.bank_charges || 0),
-          }
+          update: paymentData,
+          create: { zohoId: payId, ...paymentData }
         }))
+
+        if (targetInvoice) {
+          ops.push(prisma.invoice.update({
+            where: { id: targetInvoice.id },
+            data: {
+              status: 'paid',
+              items: typeof targetInvoice.items === 'object' && targetInvoice.items
+                ? { ...targetInvoice.items, balance: 0, isPaid: true }
+                : { balance: 0, isPaid: true }
+            }
+          }))
+        }
         continue
       }
 
