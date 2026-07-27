@@ -27,6 +27,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/admin/bulk-sync"
+  to = "/.netlify/functions/admin-bulk-sync"
+  status = 200
+
+[[redirects]]
   from = "/api/admin/campaigns"
   to = "/.netlify/functions/admin-campaigns"
   status = 200
