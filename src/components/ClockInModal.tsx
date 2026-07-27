@@ -14,15 +14,19 @@ export function ClockInModal() {
   useEffect(() => {
     if (!currentUser?.id) return
 
+    // Check if dismissed during this browser session
+    if (typeof window !== 'undefined' && sessionStorage.getItem('clockInModalDismissed')) {
+      setShowModal(false)
+      setLoading(false)
+      return
+    }
+
     const checkStatus = async () => {
       try {
-        // We use the sync endpoint to see if they're active.
-        // Wait, sync auto-creates a background session but we want to see if they MANUALLY clocked in?
-        // Let's use get-entries for today to see if manualClockIn is set.
-        const res = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id}&email=${encodeURIComponent(currentUser.email || '')}`)
+        const res = await fetch(`/api/timeclock/get-entries?userId=${currentUser.id}&email=${encodeURIComponent(currentUser.email || '')}`, { cache: 'no-store' })
         const data = await res.json()
-        if (data.success && data.entries.length > 0) {
-          const todayEntry = data.entries[0] // entries are sorted desc, first is today
+        if (data.success && data.entries && data.entries.length > 0) {
+          const todayEntry = data.entries[0] // entries sorted desc
           
           const formatter = new Intl.DateTimeFormat('en-US', {
             timeZone: 'America/Phoenix',
@@ -36,9 +40,12 @@ export function ClockInModal() {
           const da = parts.find(p => p.type === 'day')?.value
           const phoenixDate = `${ye}-${mo}-${da}`
 
-          if (todayEntry.date === phoenixDate && !todayEntry.manualClockIn) {
-            setShowModal(true)
-          } else if (todayEntry.date !== phoenixDate) {
+          // If entry for today exists and is active (not manually clocked out), user is ALREADY clocked in!
+          if (todayEntry.date === phoenixDate) {
+            const isClockedOut = !!(todayEntry.manualClockOut || (todayEntry.clockOut && !todayEntry.active))
+            setShowModal(isClockedOut)
+          } else {
+            // No entry for today yet
             setShowModal(true)
           }
         } else {
@@ -90,11 +97,9 @@ export function ClockInModal() {
       })
 
       const data = await res.json()
-      if (data.success) {
-        toast.success("Clocked in successfully!")
-        setShowModal(false)
-      } else if (data.skipped) {
-        toast.success(data.reason || "Already clocked in.")
+      if (data.success || data.skipped) {
+        if (typeof window !== 'undefined') sessionStorage.setItem('clockInModalDismissed', '1')
+        toast.success(data.skipped ? (data.reason || "Already clocked in.") : "Clocked in successfully!")
         setShowModal(false)
       } else {
         toast.error(data.error || "Failed to clock in")

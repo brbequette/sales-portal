@@ -129,6 +129,7 @@ export async function POST(req: Request) {
           clockIn: now,
           lastActivity: now,
           clockOut: null,
+          manualClockIn: action === 'clockIn' ? now : null,
           manualClockOut: action === 'clockOut' ? now : null,
           ipAddress,
           ...geoData
@@ -150,13 +151,24 @@ export async function POST(req: Request) {
     }
 
     // Toggle existing entry
+    const updateData: Record<string, any> = {
+      ipAddress: ipAddress !== "Unknown" ? ipAddress : existing.ipAddress,
+      ...geoData
+    }
+
+    if (action === 'clockIn') {
+      updateData.manualClockIn = now
+      updateData.manualClockOut = null
+      updateData.clockOut = null
+      updateData.lastActivity = now
+    } else {
+      updateData.manualClockOut = now
+      updateData.clockOut = now
+    }
+
     const entry = await prisma.timeEntry.update({
       where: { id: existing.id },
-      data: {
-        manualClockOut: action === 'clockOut' ? now : null,
-        ipAddress: ipAddress !== "Unknown" ? ipAddress : existing.ipAddress,
-        ...geoData
-      }
+      data: updateData
     })
 
     return NextResponse.json({ success: true, entry, locationStatus, locationName, distanceMeters })
