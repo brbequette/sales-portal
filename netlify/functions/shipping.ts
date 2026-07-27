@@ -183,14 +183,25 @@ export const handler: Handler = async (event) => {
         else shipStatus = "packaged"
       }
 
-      const shippingAddress = items.shipping_address || items.shippingAddress || (so.account?.shippingStreet ? {
-        address: so.account.shippingStreet,
-        city: so.account.shippingCity,
-        state: so.account.shippingState,
-        zip: so.account.shippingZip
+      const rawAddr = items.shipping_address || items.shippingAddress || items._zohoRaw?.shipping_address
+      const hasRawAddr = rawAddr && (rawAddr.address || rawAddr.street || rawAddr.city)
+      
+      const shippingAddress = hasRawAddr ? {
+        address: rawAddr.address || rawAddr.street || rawAddr.street1 || "",
+        street2: rawAddr.street2 || "",
+        city: rawAddr.city || "",
+        state: rawAddr.state || "",
+        zip: rawAddr.zip || rawAddr.code || "",
+        country: rawAddr.country || ""
+      } : (so.account ? {
+        address: so.account.shippingStreet || "",
+        city: so.account.shippingCity || "",
+        state: so.account.shippingState || "",
+        zip: so.account.shippingZip || "",
+        country: ""
       } : null)
 
-      const lineItems = items.line_items || items.lineItems || []
+      const lineItems = items.line_items || items.lineItems || items._zohoRaw?.line_items || []
       const dcBreakdown = items.itemsDcBreakdown || []
       
       let lineItemCount = 0
@@ -198,10 +209,10 @@ export const handler: Handler = async (event) => {
       
       if (Array.isArray(lineItems) && lineItems.length > 0) {
         lineItemCount = lineItems.length
-        lineItemNames = lineItems.slice(0, 3).map((li: any) => li.name || li.itemName || "").filter(Boolean)
+        lineItemNames = lineItems.map((li: any) => li.name || li.itemName || li.item_name || "").filter(Boolean)
       } else if (Array.isArray(dcBreakdown) && dcBreakdown.length > 0) {
         lineItemCount = dcBreakdown.length
-        lineItemNames = dcBreakdown.slice(0, 3).map((str: string) => str.split('|')[0].trim())
+        lineItemNames = dcBreakdown.map((str: string) => str.split('|')[0].trim())
       }
 
       return {

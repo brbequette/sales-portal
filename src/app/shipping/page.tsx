@@ -72,7 +72,8 @@ function getTrackingUrl(carrier: string, tracking: string): string | null {
 function formatAddress(addr: any): string {
   if (!addr) return "--"
   if (typeof addr === "string") return addr
-  const parts = [addr.address, addr.street2, addr.city, addr.state, addr.zip || addr.code, addr.country].filter(Boolean)
+  const street = addr.address || addr.street || addr.street1 || addr.shippingStreet || ""
+  const parts = [street, addr.street2, addr.city, addr.state, addr.zip || addr.code, addr.country].filter(Boolean)
   return parts.join(", ") || "--"
 }
 
