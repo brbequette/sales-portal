@@ -357,8 +357,28 @@
   status = 200
 
 [[redirects]]
+  from = "/api/timeclock/admin"
+  to = "/.netlify/functions/timeclock-admin"
+  status = 200
+
+[[redirects]]
+  from = "/api/timeclock/geofences"
+  to = "/.netlify/functions/timeclock-geofences"
+  status = 200
+
+[[redirects]]
   from = "/api/timeclock/get-entries"
   to = "/.netlify/functions/timeclock-get-entries"
+  status = 200
+
+[[redirects]]
+  from = "/api/timeclock/submit-change"
+  to = "/.netlify/functions/timeclock-submit-change"
+  status = 200
+
+[[redirects]]
+  from = "/api/timeclock/toggle"
+  to = "/.netlify/functions/timeclock-toggle"
   status = 200
 
 [[redirects]]

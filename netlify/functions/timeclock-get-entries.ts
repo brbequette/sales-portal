@@ -18,16 +18,18 @@ export const handler: Handler = async (event) => {
     const email = params.email
     const month = params.month
 
-    let finalUserId = userId
+    const userConditions: any[] = []
+    if (userId) userConditions.push({ userId })
     if (email) {
+      userConditions.push({ user: { email } })
       const dbUser = await prisma.user.findUnique({ where: { email } })
-      if (dbUser) {
-        finalUserId = dbUser.id
-      }
+      if (dbUser) userConditions.push({ userId: dbUser.id })
     }
 
     const where: any = {}
-    if (finalUserId) where.userId = finalUserId
+    if (userConditions.length > 0) {
+      where.OR = userConditions
+    }
     if (month) where.date = { startsWith: month }
 
     const entries = await prisma.timeEntry.findMany({
@@ -41,10 +43,31 @@ export const handler: Handler = async (event) => {
       }
     })
 
+    const processedEntries = entries.map(entry => {
+      let inactivityPeriods = []
+      try {
+        if (entry.inactivityPeriods) {
+          inactivityPeriods = typeof entry.inactivityPeriods === "string" 
+            ? JSON.parse(entry.inactivityPeriods) 
+            : (Array.isArray(entry.inactivityPeriods) ? entry.inactivityPeriods : [])
+        }
+      } catch (e) {}
+
+      const effectiveOut = entry.manualClockOut || entry.clockOut
+      const active = !effectiveOut
+
+      return {
+        ...entry,
+        active,
+        clockOut: effectiveOut,
+        inactivityPeriods
+      }
+    })
+
     return {
       statusCode: 200,
       headers: cors,
-      body: JSON.stringify({ success: true, entries })
+      body: JSON.stringify({ success: true, entries: processedEntries })
     }
   } catch (err: any) {
     console.error("Timeclock Entries Function Error:", err)

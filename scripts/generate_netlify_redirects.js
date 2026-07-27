@@ -29,8 +29,8 @@ funcs.forEach(func => {
   let apiPath = `/api/${func}`;
   if (func.startsWith('admin-')) {
     apiPath = `/api/admin/${func.replace('admin-', '')}`;
-  } else if (func === 'timeclock-get-entries') {
-    apiPath = '/api/timeclock/get-entries';
+  } else if (func.startsWith('timeclock-')) {
+    apiPath = `/api/timeclock/${func.replace('timeclock-', '')}`;
   }
   redirectsToml += `[[redirects]]
   from = "${apiPath}"

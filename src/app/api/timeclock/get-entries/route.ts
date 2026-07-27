@@ -8,27 +8,29 @@ export async function GET(req: Request) {
     const url = new URL(req.url)
     const userId = url.searchParams.get("userId")
     const email = url.searchParams.get("email")
-    const month = url.searchParams.get("month") // Optional: YYYY-MM
+    const month = url.searchParams.get("month")
 
     if (!userId && !email) {
       return NextResponse.json({ success: false, error: "Missing userId or email" }, { status: 400 })
     }
 
-    let finalUserId = userId
+    const userConditions: any[] = []
+    if (userId) userConditions.push({ userId })
     if (email) {
+      userConditions.push({ user: { email } })
       const dbUser = await prisma.user.findUnique({ where: { email } })
-      if (dbUser) {
-        finalUserId = dbUser.id
-      }
+      if (dbUser) userConditions.push({ userId: dbUser.id })
     }
 
-    const where: any = { userId: finalUserId }
-    if (month) {
-      where.date = { startsWith: month }
+    const where: any = {}
+    if (userConditions.length > 0) {
+      where.OR = userConditions
     }
+    if (month) where.date = { startsWith: month }
 
     const entries = await prisma.timeEntry.findMany({
       where,
+      take: 200,
       orderBy: { date: 'desc' },
       include: {
         changeRequests: {
@@ -37,39 +39,26 @@ export async function GET(req: Request) {
       }
     })
 
-    const now = new Date()
-    const processedEntries = []
-    for (const entry of entries) {
-      const isInactive = now.getTime() - new Date(entry.lastActivity).getTime() > 20 * 60000;
-      const active = !isInactive && !entry.manualClockOut;
-
-      let effectiveClockOut = entry.clockOut;
-      if (isInactive && !entry.manualClockOut && !effectiveClockOut) {
-        effectiveClockOut = new Date(entry.lastActivity);
-        try {
-          await prisma.timeEntry.update({
-            where: { id: entry.id },
-            data: { clockOut: effectiveClockOut }
-          })
-        } catch (e) {
-          console.warn('Failed to auto-clockOut entry:', entry.id, e)
-        }
-      }
-
+    const processedEntries = entries.map(entry => {
       let inactivityPeriods = []
       try {
         if (entry.inactivityPeriods) {
-           inactivityPeriods = typeof entry.inactivityPeriods === "string" ? JSON.parse(entry.inactivityPeriods) : (Array.isArray(entry.inactivityPeriods) ? entry.inactivityPeriods : [])
+          inactivityPeriods = typeof entry.inactivityPeriods === "string" 
+            ? JSON.parse(entry.inactivityPeriods) 
+            : (Array.isArray(entry.inactivityPeriods) ? entry.inactivityPeriods : [])
         }
-      } catch (e) { console.warn('Failed to parse inactivityPeriods:', e) }
+      } catch (e) {}
 
-      processedEntries.push({
+      const effectiveOut = entry.manualClockOut || entry.clockOut
+      const active = !effectiveOut
+
+      return {
         ...entry,
         active,
-        clockOut: effectiveClockOut,
+        clockOut: effectiveOut,
         inactivityPeriods
-      })
-    }
+      }
+    })
 
     return NextResponse.json({ success: true, entries: processedEntries })
   } catch (error: any) {
