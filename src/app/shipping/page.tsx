@@ -30,6 +30,7 @@ interface PackageInfo {
   id: string
   zohoId: string
   packageNumber: string
+  salesOrderNumber?: string
   date: string
   status: string
   carrier: string
@@ -492,9 +493,12 @@ export default function ShippingPage() {
                           {order.packages.map(pkg => (
                             <div key={pkg.id} className="bg-black/20/50 border border-white/10/50 rounded-xl p-3 flex flex-col md:flex-row md:items-center gap-3">
                               <div className="flex-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <FiPackage className="text-blue-400 text-xs" />
                                   <span className="text-sm font-bold text-white">{pkg.packageNumber || pkg.zohoId}</span>
+                                  <span className="text-xs text-indigo-400 font-mono bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/50 font-bold">
+                                    SO #{pkg.salesOrderNumber || order.soNumber}
+                                  </span>
                                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
                                     pkg.status === "delivered" ? "text-emerald-400 bg-emerald-950/50" :
                                     pkg.status === "shipped" ? "text-purple-400 bg-purple-950/50" :
@@ -503,8 +507,32 @@ export default function ShippingPage() {
                                     {pkg.status || "created"}
                                   </span>
                                 </div>
+
+                                {/* Items in Shipment */}
+                                <div className="mt-2 bg-neutral-900/60 rounded-lg p-2 border border-white/5">
+                                  <div className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                    <FiBox className="text-xs text-blue-400" /> Items in Shipment
+                                  </div>
+                                  {(() => {
+                                    const pkgItems = pkg.items?.lineItems || pkg.items?.line_items || (Array.isArray(pkg.items) ? pkg.items : null)
+                                    const itemsList = pkgItems && pkgItems.length > 0 
+                                      ? pkgItems.map((li: any) => li.name || li.itemName || li.item_name || "").filter(Boolean)
+                                      : order.lineItemNames
+                                    
+                                    return itemsList && itemsList.length > 0 ? (
+                                      <div className="space-y-0.5">
+                                        {itemsList.map((name: string, idx: number) => (
+                                          <p key={idx} className="text-xs text-neutral-300 font-medium truncate">• {name}</p>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-neutral-500 italic">Order items pending sync</p>
+                                    )
+                                  })()}
+                                </div>
+
                                 {pkg.trackingNumber && (
-                                  <div className="flex items-center gap-2 mt-1">
+                                  <div className="flex items-center gap-2 mt-2">
                                     <span className="text-[10px] text-neutral-500">{pkg.carrier || "Carrier"}</span>
                                     <span className="text-xs text-neutral-300 font-mono">{pkg.trackingNumber}</span>
                                     {(() => {

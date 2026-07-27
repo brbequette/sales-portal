@@ -233,6 +233,7 @@ export const handler: Handler = async (event) => {
           id: p.id,
           zohoId: p.zohoId,
           packageNumber: p.packageNumber,
+          salesOrderNumber: p.salesOrderNumber || soNumber,
           date: p.date,
           status: p.status,
           carrier: p.carrier,
