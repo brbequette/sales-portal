@@ -667,6 +667,22 @@ export const handler: Handler = async (event) => {
     for (const key in finalByRep) {
       if (!validUserIds.has(key)) {
         delete finalByRep[key]
+      } else if (finalByRep[key] && Array.isArray(finalByRep[key].invoices)) {
+        finalByRep[key].invoices = finalByRep[key].invoices.map((inv: any) => ({
+          id: inv.id,
+          zohoId: inv.zohoId || null,
+          invoiceNumber: inv.invoiceNumber || null,
+          name: inv.name || inv.accountName || "Invoice",
+          accountName: inv.accountName || "Customer",
+          amount: inv.amount || 0,
+          profit: inv.profit || 0,
+          deadCost: inv.deadCost || 0,
+          status: inv.status || "Paid",
+          isPaid: !!inv.isPaid,
+          issueDate: inv.issueDate || null,
+          paymentDate: inv.paymentDate || null,
+          commission: inv.commission || { total: 0, upfront: 0, final: 0 }
+        })).slice(0, targetYear === 'all' ? 40 : 80)
       }
     }
 
@@ -674,12 +690,11 @@ export const handler: Handler = async (event) => {
       ? allCommissionRecords.filter(i => i.repId === repId)
       : allCommissionRecords
 
-    // ── Stats ────────────────────────────────────────────────────────────
     const stats = {
       totalInvoices: allInvoices.length,
       totalRevenue: allInvoices.reduce((s, i) => s + i.amount, 0),
       totalProfit: allInvoices.reduce((s, i) => s + i.profit, 0),
-      totalCommissions: allInvoices.reduce((s, i) => s + i.commission.total, 0),
+      totalCommissions: allInvoices.reduce((s, i) => s + (i.commission?.total || 0), 0),
       totalDealsInPipeline: dealRecords.length,
       totalPipelineValue: dealRecords.reduce((s, d) => s + d.amount, 0),
     }
@@ -687,25 +702,11 @@ export const handler: Handler = async (event) => {
     const responseBody = JSON.stringify({
       success: true,
       year: targetYear,
-      invoices: allInvoices,
-      deals: dealRecords,
       byRep: finalByRep,
       users,
       years,
       stats,
     })
-
-    // Safety valve
-    if (responseBody.length > 5 * 1024 * 1024) {
-      return {
-        statusCode: 200,
-        headers: cors,
-        body: JSON.stringify({
-          success: true, year: targetYear, invoices: [], deals: [],
-          byRep: finalByRep, users, years, stats, truncated: true
-        })
-      }
-    }
 
     return { statusCode: 200, headers: cors, body: responseBody }
   } catch (err: any) {

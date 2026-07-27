@@ -23,7 +23,7 @@ export default function CommissionsPage() {
   const [error, setError] = useState<string | null>(null)
   const [byRep, setByRep] = useState<Record<string, any>>({})
   const [selectedRepId, setSelectedRepId] = useState<string>("")
-  const [selectedYear, setSelectedYear] = useState<string>("all")
+  const [selectedYear, setSelectedYear] = useState<string>(() => new Date().getFullYear().toString())
   const [availableYears, setAvailableYears] = useState<number[]>([])
   const [showStatement, setShowStatement] = useState(false)
   const [activeTab, setActiveTab] = useState<"invoices" | "payouts">("invoices")
