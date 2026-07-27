@@ -8,7 +8,7 @@ import Link from "next/link"
 import { 
   FiShield, FiGrid, FiUsers, FiClock, FiDollarSign, 
   FiTarget, FiAward, FiCalendar, FiMessageSquare, 
-  FiFileText, FiActivity, FiSettings, FiChevronLeft, FiMapPin, FiTruck
+  FiFileText, FiActivity, FiSettings, FiChevronLeft, FiMapPin, FiTruck, FiZap
 } from "react-icons/fi"
 
 const adminLinks = [
@@ -26,6 +26,7 @@ const adminLinks = [
     { name: "Update Accounts", href: "/admin/update-accounts", icon: FiTarget },
     { name: "Update Configs", href: "/admin/update-config", icon: FiSettings },
     { name: "VIG Management", href: "/admin/vig", icon: FiAward },
+    { name: "Intro Offer Landing", href: "/admin/intro-offer", icon: FiZap },
     { name: "Holidays", href: "/admin/holidays", icon: FiCalendar },
   ]},
   { group: "Communications", items: [
