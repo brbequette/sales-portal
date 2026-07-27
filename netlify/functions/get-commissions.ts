@@ -96,6 +96,7 @@ export const handler: Handler = async (event) => {
         WHERE i.status NOT IN ('Void','void','Draft','draft')
         ${invDateSql}
         ORDER BY i."issueDate" DESC NULLS LAST
+        LIMIT 500
       `).catch(() => []),
       prisma.$queryRaw<any[]>(Prisma.sql`
         SELECT
@@ -136,6 +137,7 @@ export const handler: Handler = async (event) => {
         WHERE s.status NOT IN ('Void','void','Draft','draft','Cancelled','cancelled','Invoiced','invoiced','Converted','converted')
         ${soDateSql}
         ORDER BY s."orderDate" DESC NULLS LAST
+        LIMIT 200
       `).catch(() => []),
       prisma.deal.findMany({
         where: targetYear !== "all" ? {
@@ -514,6 +516,7 @@ export const handler: Handler = async (event) => {
 
     // ── Group invoice & sales order commissions by rep ───────────────────
     const byRep: Record<string, any> = {}
+    const maxInvoicesPerRep = targetYear === 'all' ? 15 : 50
 
     for (const inv of allCommissionRecords) {
       const key = inv.repId
@@ -534,16 +537,36 @@ export const handler: Handler = async (event) => {
           balance: 0,
         }
       }
-      byRep[key].invoices.push(inv)
-      byRep[key].totalEarned     += inv.commission.total         // upfront + final (if paid)
-      byRep[key].totalProfit     += inv.profit                   // after-VIG profit (commission basis)
-      byRep[key].totalDeadProfit += (inv as any).deadProfit || 0 // raw markup for sales goals
+      
+      // Accrue totals across all records
+      byRep[key].totalEarned     += inv.commission.total
+      byRep[key].totalProfit     += inv.profit
+      byRep[key].totalDeadProfit += (inv as any).deadProfit || 0
       byRep[key].totalSales      += inv.amount
       byRep[key].totalFutures    += inv.commission.future
       byRep[key].totalAtRisk     += inv.commission.atRiskAmount
+
+      // Store lightweight invoice objects up to maxInvoicesPerRep
+      if (byRep[key].invoices.length < maxInvoicesPerRep) {
+        byRep[key].invoices.push({
+          id: inv.id,
+          zohoId: inv.zohoId || null,
+          invoiceNumber: inv.invoiceNumber || null,
+          name: inv.name || inv.accountName || "Invoice",
+          accountName: inv.accountName || "Customer",
+          amount: inv.amount || 0,
+          profit: inv.profit || 0,
+          deadCost: inv.deadCost || 0,
+          status: inv.status || "Paid",
+          isPaid: !!inv.isPaid,
+          issueDate: inv.issueDate || null,
+          paymentDate: inv.paymentDate || null,
+          commission: inv.commission || { total: 0, upfront: 0, final: 0 }
+        })
+      }
     }
 
-    // Attach deal pipeline activity to reps (for display only)
+    // Attach deal pipeline activity to reps (for display only, max 10 per rep)
     for (const deal of dealRecords) {
       const key = deal.repId
       if (!byRep[key]) {
@@ -553,7 +576,9 @@ export const handler: Handler = async (event) => {
           totalEarned: 0, totalPaid: 0, totalProfit: 0, totalSales: 0, totalFutures: 0, totalAtRisk: 0, balance: 0
         }
       }
-      byRep[key].deals.push(deal)
+      if (byRep[key].deals.length < 10) {
+        byRep[key].deals.push(deal)
+      }
     }
 
     // Add payouts and calculate balances
@@ -667,22 +692,6 @@ export const handler: Handler = async (event) => {
     for (const key in finalByRep) {
       if (!validUserIds.has(key)) {
         delete finalByRep[key]
-      } else if (finalByRep[key] && Array.isArray(finalByRep[key].invoices)) {
-        finalByRep[key].invoices = finalByRep[key].invoices.map((inv: any) => ({
-          id: inv.id,
-          zohoId: inv.zohoId || null,
-          invoiceNumber: inv.invoiceNumber || null,
-          name: inv.name || inv.accountName || "Invoice",
-          accountName: inv.accountName || "Customer",
-          amount: inv.amount || 0,
-          profit: inv.profit || 0,
-          deadCost: inv.deadCost || 0,
-          status: inv.status || "Paid",
-          isPaid: !!inv.isPaid,
-          issueDate: inv.issueDate || null,
-          paymentDate: inv.paymentDate || null,
-          commission: inv.commission || { total: 0, upfront: 0, final: 0 }
-        })).slice(0, targetYear === 'all' ? 40 : 80)
       }
     }
 
