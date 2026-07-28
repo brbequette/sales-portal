@@ -161,11 +161,14 @@ export function InvoiceFinancialBreakdown({
 
         {/* Step 5: Commission */}
         <div className="bg-emerald-500/15 border border-emerald-500/30 rounded-xl p-3 text-center flex flex-col justify-between shadow-lg shadow-emerald-950/40">
-          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">5. Commission</span>
-          <div className="my-2">
+          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">5. Deal Commission</span>
+          <div className="my-1">
             <span className="text-xl font-black text-emerald-400">${resolvedCommission.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
-          <span className="text-[10px] text-emerald-400/80 font-bold">{resolvedCommissionPct}% of Profit</span>
+          <div className="text-[9px] text-emerald-300 font-medium space-y-0.5 border-t border-emerald-500/20 pt-1">
+            <div>1st Half Upfront: <span className="font-bold">${(resolvedCommission / 2).toFixed(2)}</span></div>
+            <div>2nd Half Final: <span className="font-bold">${(resolvedCommission / 2).toFixed(2)}</span></div>
+          </div>
         </div>
       </div>
 

@@ -147,12 +147,17 @@ export default function CommissionsPage() {
         }
       }
 
-      const commissionVal = inv.commission?.total || (inv.profit * 0.5) || 0
+      const isPaid = inv.isPaid || inv.status === 'paid' || inv.status === 'Paid'
+      const profit = inv.profit || 0
+      const upfrontHalf = inv.commission?.upfront ?? (profit * 0.25)
+      const secondHalf = inv.commission?.final ?? inv.commission?.future ?? (profit * 0.25)
+      const earnedCommissionVal = isPaid ? (upfrontHalf + secondHalf) : upfrontHalf
+
       groupsMap[weekKey].invoices.push(inv)
       groupsMap[weekKey].totalSales += (inv.amount || 0)
-      groupsMap[weekKey].totalProfit += (inv.profit || 0)
-      groupsMap[weekKey].totalCommission += commissionVal
-      if (inv.isPaid || inv.status === 'paid') {
+      groupsMap[weekKey].totalProfit += profit
+      groupsMap[weekKey].totalCommission += earnedCommissionVal
+      if (isPaid) {
         groupsMap[weekKey].paidCount += 1
       } else {
         groupsMap[weekKey].unpaidCount += 1
@@ -445,8 +450,38 @@ export default function CommissionsPage() {
                                   <td className="py-2.5 px-4 text-right font-medium text-sky-400">
                                     {fmt(inv.profit)}
                                   </td>
-                                  <td className="py-2.5 px-4 text-right font-bold text-emerald-400">
-                                    {fmt(inv.commission?.total || (inv.profit * 0.5))}
+                                  <td className="py-2.5 px-4 text-right whitespace-nowrap">
+                                    {(() => {
+                                      const isPaid = inv.isPaid || inv.status === 'paid' || inv.status === 'Paid'
+                                      const profit = inv.profit || 0
+                                      const upfrontHalf = inv.commission?.upfront ?? (profit * 0.25)
+                                      const secondHalf = inv.commission?.final ?? inv.commission?.future ?? (profit * 0.25)
+                                      const fullCommission = upfrontHalf + secondHalf
+
+                                      if (!isPaid) {
+                                        return (
+                                          <div>
+                                            <div className="font-bold text-amber-400 text-sm">
+                                              {fmt(upfrontHalf)} <span className="text-[10px] font-semibold text-amber-300/90">(1st Half Upfront)</span>
+                                            </div>
+                                            <div className="text-[11px] text-[var(--muted-foreground)] font-normal mt-0.5">
+                                              2nd Half: {fmt(secondHalf)} <span className="text-neutral-400">(Pending Payment)</span>
+                                            </div>
+                                          </div>
+                                        )
+                                      }
+
+                                      return (
+                                        <div>
+                                          <div className="font-bold text-emerald-400 text-sm">
+                                            {fmt(fullCommission)} <span className="text-[10px] font-semibold text-emerald-300/90">(Paid in Full)</span>
+                                          </div>
+                                          <div className="text-[11px] text-emerald-400/80 font-normal mt-0.5">
+                                            1st Half: {fmt(upfrontHalf)} + 2nd Half: {fmt(secondHalf)}
+                                          </div>
+                                        </div>
+                                      )
+                                    })()}
                                   </td>
                                   <td className="py-2.5 px-4 text-center">
                                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
@@ -513,8 +548,38 @@ export default function CommissionsPage() {
                         <td className="py-3 px-4 text-right font-medium text-sky-400">
                           {fmt(inv.profit)}
                         </td>
-                        <td className="py-3 px-4 text-right font-bold text-emerald-400">
-                          {fmt(inv.commission?.total || (inv.profit * 0.5))}
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          {(() => {
+                            const isPaid = inv.isPaid || inv.status === 'paid' || inv.status === 'Paid'
+                            const profit = inv.profit || 0
+                            const upfrontHalf = inv.commission?.upfront ?? (profit * 0.25)
+                            const secondHalf = inv.commission?.final ?? inv.commission?.future ?? (profit * 0.25)
+                            const fullCommission = upfrontHalf + secondHalf
+
+                            if (!isPaid) {
+                              return (
+                                <div>
+                                  <div className="font-bold text-amber-400 text-sm">
+                                    {fmt(upfrontHalf)} <span className="text-[10px] font-semibold text-amber-300/90">(1st Half Upfront)</span>
+                                  </div>
+                                  <div className="text-[11px] text-[var(--muted-foreground)] font-normal mt-0.5">
+                                    2nd Half: {fmt(secondHalf)} <span className="text-neutral-400">(Pending Payment)</span>
+                                  </div>
+                                </div>
+                              )
+                            }
+
+                            return (
+                              <div>
+                                <div className="font-bold text-emerald-400 text-sm">
+                                  {fmt(fullCommission)} <span className="text-[10px] font-semibold text-emerald-300/90">(Paid in Full)</span>
+                                </div>
+                                <div className="text-[11px] text-emerald-400/80 font-normal mt-0.5">
+                                  1st Half: {fmt(upfrontHalf)} + 2nd Half: {fmt(secondHalf)}
+                                </div>
+                              </div>
+                            )
+                          })()}
                         </td>
                         <td className="py-3 px-4 text-center">
                           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
