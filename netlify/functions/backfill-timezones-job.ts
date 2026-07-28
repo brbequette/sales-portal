@@ -1,8 +1,5 @@
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
-
 import { prisma } from "./lib/prisma"
-const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 const areaCodeToState: Record<string, string> = {
   // Pacific
@@ -59,7 +56,7 @@ const areaCodeToState: Record<string, string> = {
   '501': 'AR', '479': 'AR', '870': 'AR'
 };
 
-function getTimezoneByState(state?: string | null) {
+function getTimezoneByState(state?: string | null): string | null {
   if (!state) return null;
   const s = state.toUpperCase().trim();
   
@@ -80,7 +77,7 @@ function getTimezoneByState(state?: string | null) {
   return null;
 }
 
-function getTimezoneByPhone(phone?: string | null) {
+function getTimezoneByPhone(phone?: string | null): string | null {
   if (!phone) return null;
   const cleaned = phone.replace(/\D/g, '');
   if (cleaned.length < 10) return null;
@@ -124,73 +121,53 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const token = await getZohoAccessToken();
-    
-    // Fetch all accounts from database
-    const dbAccounts = await prisma.account.findMany({
-      select: { id: true, zohoId: true, name: true, timeZone: true, tags: true }
-    });
-    
-    let page = 1;
-    let hasMore = true;
-    const crmAccountsMap = new Map();
-    
-    while (hasMore) {
-      const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts?fields=id,Billing_State,Phone&per_page=200&page=${page}`, {
-        headers: { Authorization: `Zoho-oauthtoken ${token}` }
-      });
-      const data: any = await res.json();
-      
-      if (data.code || !data.data || data.data.length === 0) {
-        break;
-      }
-      
-      data.data.forEach((acc: any) => {
-        crmAccountsMap.set(acc.id, acc);
-      });
-      
-      hasMore = data.info?.more_records || false;
-      page++;
-    }
-    
-    const updateOps = [];
-    let updatedCount = 0;
-    
-    for (const dbAcc of dbAccounts) {
-      const crmAcc = crmAccountsMap.get(dbAcc.zohoId);
-      let calculatedTz = null;
-      
-      if (crmAcc) {
-        calculatedTz = getTimezoneByState(crmAcc.Billing_State) || getTimezoneByPhone(crmAcc.Phone);
-      }
-      
-      if (!calculatedTz) {
-        const primaryContact = await prisma.contact.findFirst({
-          where: { accountId: dbAcc.id, isPrimary: true },
-          select: { phone: true, mobilePhone: true }
-        });
-        if (primaryContact) {
-          calculatedTz = getTimezoneByPhone(primaryContact.phone) || getTimezoneByPhone(primaryContact.mobilePhone);
+    const accounts = await prisma.account.findMany({
+      select: {
+        id: true,
+        zohoId: true,
+        name: true,
+        timeZone: true,
+        tags: true,
+        billingState: true,
+        shippingState: true,
+        contacts: {
+          select: { phone: true, mobilePhone: true, mailingState: true, isPrimary: true }
         }
       }
-      
-      if (!calculatedTz) {
-        calculatedTz = dbAcc.timeZone || 'MST';
-      }
-      
-      const newTags = formatTagsWithTimezone(dbAcc.tags, calculatedTz);
+    });
 
-      if (dbAcc.timeZone !== calculatedTz || dbAcc.tags !== newTags) {
+    const updateOps = [];
+    let updatedCount = 0;
+
+    for (const acc of accounts) {
+      let tz = acc.timeZone;
+
+      if (!tz || tz === "" || tz === "None") {
+        tz = getTimezoneByState(acc.billingState) || getTimezoneByState(acc.shippingState);
+      }
+
+      if (!tz && acc.contacts.length > 0) {
+        const primary = acc.contacts.find(c => c.isPrimary) || acc.contacts[0];
+        tz = getTimezoneByState(primary.mailingState) || getTimezoneByPhone(primary.phone) || getTimezoneByPhone(primary.mobilePhone);
+      }
+
+      if (!tz) {
+        tz = "MST"; // Default fallback (Titan Diamond Phoenix HQ)
+      }
+
+      const newTags = formatTagsWithTimezone(acc.tags, tz);
+
+      if (acc.timeZone !== tz || acc.tags !== newTags) {
         updateOps.push(
           prisma.account.update({
-            where: { id: dbAcc.id },
-            data: { timeZone: calculatedTz, tags: newTags }
+            where: { id: acc.id },
+            data: { timeZone: tz, tags: newTags }
           })
         );
         updatedCount++;
       }
     }
-    
+
     if (updateOps.length > 0) {
       for (let i = 0; i < updateOps.length; i += 50) {
         const chunk = updateOps.slice(i, i + 50);
@@ -201,14 +178,19 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 200,
       headers: cors,
-      body: JSON.stringify({ success: true, message: `Successfully updated timezone tags for ${updatedCount} of ${dbAccounts.length} accounts.` })
-    }
-    
+      body: JSON.stringify({
+        success: true,
+        totalAccounts: accounts.length,
+        updatedCount,
+        message: `Successfully updated timezone tags for ${updatedCount} of ${accounts.length} accounts.`
+      })
+    };
   } catch (error: any) {
+    console.error("Backfill timezone tags error:", error);
     return {
       statusCode: 500,
       headers: cors,
       body: JSON.stringify({ success: false, error: error.message })
-    }
+    };
   }
-}
+};
