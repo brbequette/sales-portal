@@ -217,7 +217,7 @@ export default function SalesPage() {
       const userEmail = currentUser?.email || preferences.impersonatedUser?.email || ""
       const emailQuery = userEmail ? `&email=${encodeURIComponent(userEmail)}` : ""
       const roleQuery = effectiveRole ? `&role=${encodeURIComponent(effectiveRole)}` : ""
-      const ownerQuery = (isAdminUser || !userEmail) ? "&ownerIdFilter=all" : `&ownerIdFilter=${encodeURIComponent(ownerFilter || 'all')}`
+      const ownerQuery = "&ownerIdFilter=all"
 
       let allFetchedAccounts: any[] = []
       let currentPage = 1
@@ -287,7 +287,15 @@ export default function SalesPage() {
   const allIndustries = Array.from(new Set(accounts.map(a => a.industry).filter(Boolean))).sort()
 
   const matchesOwnerFilter = (a: any, filterVal: string) => {
-    if (!filterVal || filterVal === "All" || filterVal === "all") return true
+    if (!filterVal || 
+        filterVal === "All" || 
+        filterVal === "all" || 
+        filterVal.toLowerCase().includes("myself") ||
+        filterVal.toLowerCase() === "myself"
+    ) return true
+
+    if (isAdminUser && !preferences.impersonatedUser) return true
+
     const repUser = allDbUsers.find(u => 
       u.id === filterVal || 
       u.zohoId === filterVal || 
@@ -827,17 +835,31 @@ export default function SalesPage() {
                     {activeAccountsList.length === 0 ? (
                       <div className="p-12 text-center">
                         <FiUsers className="mx-auto text-4xl text-neutral-700 mb-3" />
-                        <p className="text-neutral-300 font-bold text-base">No accounts found matching filters</p>
-                        <p className="text-xs text-neutral-500 mt-1">Try clearing filters or selecting another view option.</p>
-                        {(activeFilterCount > 0 || ownerFilter !== "All" || qualityFilter !== "All" || timezoneFilter !== "All" || searchQuery !== "") && (
+                        <p className="text-neutral-300 font-bold text-base">
+                          {accounts.length > 0 ? "No accounts match active filters" : "No accounts loaded"}
+                        </p>
+                        <p className="text-xs text-neutral-500 mt-1 max-w-md mx-auto">
+                          {accounts.length > 0
+                            ? `Loaded ${accounts.length} total accounts in memory, but your current active filters are hiding them all.`
+                            : "Click below to clear filters or pull live data directly from Zoho CRM."}
+                        </p>
+                        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
                           <button
                             onClick={clearAllFilters}
-                            className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer inline-flex items-center gap-1.5"
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer inline-flex items-center gap-1.5"
                           >
                             <FiFilter size={12} />
                             <span>Reset / Clear All Filters</span>
                           </button>
-                        )}
+                          <button
+                            onClick={() => handleSync()}
+                            disabled={loading}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                            <FiRefreshCw size={12} className={loading ? "animate-spin" : ""} />
+                            <span>{loading ? "Syncing..." : "Sync Live CRM Accounts"}</span>
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex flex-col">
