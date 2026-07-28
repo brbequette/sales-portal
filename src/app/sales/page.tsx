@@ -57,6 +57,42 @@ function getAccountBestPhone(account: any): { phone: string; label: string } {
   return { phone: "", label: "" }
 }
 
+function isDoNotCallAccount(account: any): boolean {
+  if (!account) return false
+  
+  // Quality rating check
+  const quality = (account.quality || "").toUpperCase().replace(/_/g, " ")
+  if (quality === "DO NOT CALL" || quality.includes("DNC") || quality.includes("DNR")) return true
+
+  // Tags check
+  const tags = (account.tags || "").toLowerCase()
+  if (
+    tags.includes("do_not_call") ||
+    tags.includes("do not call") ||
+    tags.includes("dnc") ||
+    tags.includes("dnr") ||
+    tags.includes("do_not_resell") ||
+    tags.includes("do not resell") ||
+    tags.includes("do_not_re_sell")
+  ) return true
+
+  // Account name check (e.g. *** DNR *** AM CONCRETE, *** DO NOT RE-SELL ***)
+  const name = (account.name || "").toUpperCase()
+  if (
+    name.includes("DNR") ||
+    name.includes("DO NOT CALL") ||
+    name.includes("DO NOT RE-SELL") ||
+    name.includes("DO NOT RESELL") ||
+    name.includes("DNC")
+  ) return true
+
+  // Status check
+  const status = (account.status || "").toUpperCase()
+  if (status.includes("DO NOT CALL") || status.includes("DNC") || status.includes("DNR")) return true
+
+  return false
+}
+
 export default function SalesPage() {
   const { isInitialized, zohoContext: currentUser } = useZoho()
   const { preferences, updatePreferences } = usePreferences()
@@ -236,7 +272,8 @@ export default function SalesPage() {
   })
 
   const filteredAccounts = filteredByOwnerActive.filter(account => {
-    if (!showDoNotCall && account.tags?.toLowerCase().includes("do_not_call")) return false
+    const isDNC = isDoNotCallAccount(account)
+    if (!showDoNotCall && qualityFilter !== "DO_NOT_CALL" && isDNC) return false
     if (effort === "cold_call" && (account.totalSales || 0) > 0) return false
     if (statusFilter !== "All" && account.status !== statusFilter) return false
     if (industryFilter !== "All" && account.industry !== industryFilter) return false
