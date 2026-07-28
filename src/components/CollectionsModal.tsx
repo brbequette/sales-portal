@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { FiPhoneCall, FiSearch, FiRefreshCw, FiDownload, FiAlertCircle, FiX, FiUser, FiMail, FiCreditCard, FiTruck, FiExternalLink, FiFileText } from "react-icons/fi"
 import { useZoho } from "@/components/ZohoProvider"
 import { toast } from 'react-hot-toast';
+import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 
 // â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export type Invoice = {
@@ -595,6 +596,7 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
   const { zohoContext: user } = useZoho()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedAccountIndex, setSelectedAccountIndex] = useState(0)
+  const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null)
   
   const [outcome, setOutcome] = useState<CallOutcome>("left_voicemail")
   const [callerName, setCallerName] = useState("")
@@ -887,10 +889,21 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
                             onChange={() => {}} // Controlled via row click
                             className="accent-red-500 cursor-pointer"
                           />
-                          <div>
-                            <span className="font-mono font-bold text-emerald-400">#{inv.invoice_number}</span>
-                            {inv.shipping_charge === 0 && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400 ml-2">⚠ No Ship $</span>}
-                            <span className="text-neutral-505 ml-2">Due: {inv.due_date || "--"}</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setDetailInvoice(inv)
+                              }}
+                              className="font-mono font-bold text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1.5 cursor-pointer bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-1 rounded-lg transition-all"
+                              title="Click to view full invoice details, line items, and PDF"
+                            >
+                              <FiFileText size={12} className="text-emerald-400" />
+                              #{inv.invoice_number}
+                            </button>
+                            {inv.shipping_charge === 0 && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400">⚠ No Ship $</span>}
+                            <span className="text-neutral-505">Due: {inv.due_date || "--"}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-4 shrink-0">
@@ -997,6 +1010,14 @@ function CallCampaignModal({ invoices, onClose, onRefresh }: { invoices: Invoice
         </div>
 
       </div>
+
+      {detailInvoice && (
+        <InvoiceDetailsModal
+          invoice={detailInvoice.zohoId || detailInvoice.id || detailInvoice.books_invoice_id || detailInvoice}
+          type="Invoice"
+          onClose={() => setDetailInvoice(null)}
+        />
+      )}
     </div>
   )
 }

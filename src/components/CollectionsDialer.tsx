@@ -10,6 +10,7 @@ import {
 } from "react-icons/fi"
 import { useZoho } from "@/components/ZohoProvider"
 import { toast } from "react-hot-toast"
+import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -104,6 +105,7 @@ export function CollectionsDialer({ invoices, onClose, onRefresh, onRunCard }: C
   // ── Queue state ──────────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm]           = useState("")
   const [selectedAccountIdx, setSelectedAccountIdx] = useState(0)
+  const [detailInvoice, setDetailInvoice]     = useState<CollectionsInvoice | null>(null)
 
   // ── Script state ─────────────────────────────────────────────────────────
   const [scriptStep, setScriptStep]           = useState<ScriptStep>(0)
@@ -524,7 +526,15 @@ Thank you for your time — we appreciate your business and look forward to keep
                         return (
                           <div key={inv.id} className="flex items-center gap-3 glass-panel border border-neutral-800/60 rounded-xl px-3.5 py-2.5 text-[11px]">
                             <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${bucket.dot}`} />
-                            <span className="font-bold text-white font-mono min-w-[90px]">INV-{inv.invoice_number}</span>
+                            <button
+                              type="button"
+                              onClick={() => setDetailInvoice(inv)}
+                              className="font-bold text-emerald-400 font-mono min-w-[90px] hover:text-emerald-300 hover:underline flex items-center gap-1 cursor-pointer bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded transition-all text-left"
+                              title="Click to view full invoice details, line items, and PDF"
+                            >
+                              <FiFileText size={11} className="text-emerald-400" />
+                              INV-{inv.invoice_number}
+                            </button>
                             <span className="text-neutral-500 text-[10px]">Due: {inv.due_date || "N/A"}</span>
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${bucket.cls} ml-auto`}>{inv.days_overdue}d</span>
                             <span className="font-black text-red-400 min-w-[70px] text-right">{fmt(inv.balance)}</span>
@@ -822,6 +832,14 @@ Thank you for your time — we appreciate your business and look forward to keep
 
         </div>
       </div>
+
+      {detailInvoice && (
+        <InvoiceDetailsModal
+          invoice={detailInvoice.zohoId || detailInvoice.id || detailInvoice.books_invoice_id || detailInvoice}
+          type="Invoice"
+          onClose={() => setDetailInvoice(null)}
+        />
+      )}
     </div>
   )
 }
