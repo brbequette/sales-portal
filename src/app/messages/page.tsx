@@ -20,6 +20,11 @@ export default function MessagesPage() {
   const [slideoutAccountId, setSlideoutAccountId] = useState<string | null>(null)
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({})
 
+  const [includeClosedHistory, setIncludeClosedHistory] = useState(false)
+  const [closedMessagesCount, setClosedMessagesCount] = useState(0)
+  const [lastClosedCycleAt, setLastClosedCycleAt] = useState<string | null>(null)
+  const [closingCycle, setClosingCycle] = useState(false)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const [syncing, setSyncing] = useState(false)
@@ -32,7 +37,6 @@ export default function MessagesPage() {
   const handleSync = async (offset = 0) => {
     try {
       setSyncing(true)
-      // Attempt to sync new incoming messages from Zoho Voice
       const res = await fetch('/api/sync-zoho-sms', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -47,7 +51,7 @@ export default function MessagesPage() {
       console.error('Failed to sync Zoho SMS', e)
     } finally {
       setSyncing(false)
-      fetchAccounts() // Always fetch what we have in DB afterwards
+      fetchAccounts()
     }
   }
 
@@ -59,10 +63,10 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (selectedAccountId) {
-      fetchMessages(selectedAccountId)
+      fetchMessages(selectedAccountId, includeClosedHistory)
       setSuggestions([])
     }
-  }, [selectedAccountId])
+  }, [selectedAccountId, includeClosedHistory])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -83,18 +87,46 @@ export default function MessagesPage() {
     }
   }
 
-  const fetchMessages = async (accountId: string) => {
+  const fetchMessages = async (accountId: string, showClosed = includeClosedHistory) => {
     try {
       setLoadingMessages(true)
-      const res = await fetch(`/api/messages/${accountId}`)
+      const res = await fetch(`/api/messages/${accountId}?includeClosedHistory=${showClosed}`)
       const data = await res.json()
       if (data.success) {
-        setMessages(data.messages)
+        setMessages(data.messages || [])
+        setClosedMessagesCount(data.closedMessagesCount || 0)
+        setLastClosedCycleAt(data.lastClosedCycleAt || null)
       }
     } catch (e) {
       console.error(e)
     } finally {
       setLoadingMessages(false)
+    }
+  }
+
+  const handleCloseCycle = async () => {
+    if (!selectedAccountId) return
+    if (!confirm("Are you sure you want to close this sale cycle? All current messages prior to this moment will be hidden from the active text window.")) return
+
+    try {
+      setClosingCycle(true)
+      const res = await fetch(`/api/messages/${selectedAccountId}/close-cycle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success("Sale cycle closed! Active text thread reset for new cycle.")
+        setIncludeClosedHistory(false)
+        fetchMessages(selectedAccountId, false)
+        fetchAccounts()
+      } else {
+        toast.error("Failed to close sale cycle: " + data.error)
+      }
+    } catch (e: any) {
+      toast.error("Error closing sale cycle: " + e.message)
+    } finally {
+      setClosingCycle(false)
     }
   }
 
@@ -274,30 +306,55 @@ export default function MessagesPage() {
           </div>
         ) : (
           <>
-            <div className="h-16 border-b border-white/10 flex items-center px-4 shrink-0 bg-[#0f1013]">
-              <button 
-                className="md:hidden p-2 mr-2 text-neutral-400 hover:text-white"
-                onClick={() => setSelectedAccountId(null)}
-              >
-                <FiArrowLeft size={20} />
-              </button>
-              <div className="w-8 h-8 rounded-full bg-emerald-900/30 text-emerald-500 flex items-center justify-center mr-3">
-                <FiUser size={16} />
-              </div>
+            <div className="h-16 border-b border-white/10 flex items-center justify-between px-4 shrink-0 bg-[#0f1013]">
               <div className="flex items-center gap-3">
+                <button 
+                  className="md:hidden p-2 mr-1 text-neutral-400 hover:text-white"
+                  onClick={() => setSelectedAccountId(null)}
+                >
+                  <FiArrowLeft size={20} />
+                </button>
+                <div className="w-8 h-8 rounded-full bg-emerald-900/30 text-emerald-500 flex items-center justify-center">
+                  <FiUser size={16} />
+                </div>
                 <div>
                   <h2 className="text-white font-bold text-sm">{activeAccount?.name}</h2>
                   <p className="text-neutral-500 text-xs">{activeAccount?.zohoId}</p>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2">
                 {activeAccount?.zohoId && (
-                  <button onClick={() => setSlideoutAccountId(activeAccount.zohoId)} className="flex items-center gap-1 px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-emerald-400 text-xs rounded border border-white/10 transition-colors">
-                    <FiExternalLink /> Open Account
+                  <button onClick={() => setSlideoutAccountId(activeAccount.zohoId)} className="flex items-center gap-1 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-emerald-400 text-xs font-semibold rounded-lg border border-white/10 transition-colors">
+                    <FiExternalLink size={13} /> Account
                   </button>
                 )}
+                <button
+                  onClick={handleCloseCycle}
+                  disabled={closingCycle}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800/60 text-xs font-bold rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                  title="Close current sale cycle and reset active messaging window"
+                >
+                  <span>{closingCycle ? "Closing..." : "Close Sale Cycle"}</span>
+                </button>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-[#0a0a0a]">
+              {/* Closed Sale Cycle Banner / Toggle */}
+              {closedMessagesCount > 0 && (
+                <div className="p-3 bg-neutral-900/90 border border-amber-500/30 rounded-xl text-center text-xs text-neutral-300 space-y-2 mb-2 shadow-md">
+                  <p className="text-amber-400 font-semibold">
+                    🔒 {closedMessagesCount} message(s) from prior closed sale cycles are hidden from active view.
+                  </p>
+                  <button
+                    onClick={() => setIncludeClosedHistory(!includeClosedHistory)}
+                    className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-md border border-white/10 text-[11px] transition-colors"
+                  >
+                    {includeClosedHistory ? "Hide Closed Cycle History" : `Show ${closedMessagesCount} Previous Messages`}
+                  </button>
+                </div>
+              )}
               {loadingMessages ? (
                 <div className="text-center text-neutral-500 text-sm mt-8">Loading messages...</div>
               ) : messages.length === 0 ? (

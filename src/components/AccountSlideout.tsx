@@ -4,6 +4,7 @@
 import { formatPhoneNumber } from "@/lib/formatters"
 import { useState, useEffect } from "react"
 import { FiX, FiUser, FiPhone, FiMail, FiDollarSign, FiClock, FiShoppingBag, FiInfo, FiMapPin, FiExternalLink, FiRefreshCw, FiAlertTriangle, FiFileText, FiSettings } from "react-icons/fi"
+import { PhoneLink } from "@/components/PhoneLink"
 import { OrderBuilder } from "@/components/OrderBuilder"
 import Link from "next/link"
 import { CommunicationsHub } from "@/components/CommunicationsHub"
@@ -166,9 +167,11 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
                         </div>
                         <div className="flex items-center gap-3 text-neutral-400 text-sm mb-1 min-w-0">
                           <FiPhone className="text-neutral-500 shrink-0" />
-                          <a href={`tel:${primaryContact?.phone || primaryContact?.mobilePhone}`} className="hover:text-emerald-400 hover:underline truncate">
-                            {formatPhoneNumber(primaryContact?.phone || primaryContact?.mobilePhone) || 'No Phone'}
-                          </a>
+                          {primaryContact?.phone || primaryContact?.mobilePhone ? (
+                            <PhoneLink phone={primaryContact?.phone || primaryContact?.mobilePhone} className="hover:text-emerald-400 font-mono font-bold truncate" />
+                          ) : (
+                            <span className="text-neutral-500 italic">No Phone</span>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 text-neutral-400 text-sm min-w-0">
                           <FiMail className="text-neutral-500 shrink-0" />

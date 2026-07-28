@@ -27,6 +27,15 @@ import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
 import { prisma } from "./lib/prisma"
+import {
+  extractProfit,
+  extractCommissionAmount,
+  extractVigRate,
+  extractDeadCostTotal,
+  extractCcFees,
+  extractAdditionalCosts,
+  extractInsurance
+} from "../../src/lib/custom-field-extractor"
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
 const BASE_URL = `https://www.zohoapis.${ZOHO_DC}/books/v3`
@@ -577,18 +586,19 @@ export const handler: Handler = async (event) => {
           updatedItems.itemsDcBreakdown = calc.lineItemBreakdownStrings
           updatedItems.isPaid = calc.isPaid
         } else {
-          // Fallback: extract from custom_field_hash
-          updatedItems.profit = parseFloat(cfh.cf_estimated_profit_unformatted ?? cfh.cf_profit_unformatted ?? 0) || 0
-          updatedItems.commission = parseFloat(cfh.cf_commission_amount_unformatted ?? cfh.cf_commision_amount_unformatted ?? 0) || 0
-          updatedItems.vig = parseFloat(cfh.cf_salesperson_vig_unformatted ?? 0) || 1.3
-          updatedItems.deadCostTotal = parseFloat(cfh.cf_dead_cost_total_unformatted ?? 0) || 0
+          // Standardized extraction using canonical field catalog
+          updatedItems.profit = extractProfit(doc)
+          updatedItems.commission = extractCommissionAmount(doc)
+          updatedItems.vig = extractVigRate(doc)
+          updatedItems.deadCostTotal = extractDeadCostTotal(doc)
           updatedItems.deadCostSubjectToVig = parseFloat(cfh.cf_dead_cost_subject_to_vig_unformatted ?? 0) || 0
           updatedItems.deadCostNoVig = parseFloat(cfh.cf_dead_cost_no_vig_unformatted ?? 0) || 0
           updatedItems.deadCostPlusVig = parseFloat(cfh.cf_dead_cost_with_vig_unformatted ?? 0) || 0
-          updatedItems.ccFees = parseFloat(cfh.cf_credit_card_processing_fees_unformatted ?? 0) || 0
-          updatedItems.additionalCosts = parseFloat(cfh.cf_additional_costs_to_order_unformatted ?? 0) || 0
-          updatedItems.insurance = parseFloat(cfh.cf_insurance_unformatted ?? 0) || 0
+          updatedItems.ccFees = extractCcFees(doc)
+          updatedItems.additionalCosts = extractAdditionalCosts(doc)
+          updatedItems.insurance = extractInsurance(doc)
         }
+
 
         // Non-calculated custom fields (user-input, preserve as-is)
         updatedItems.estimateNumber = cfh.cf_estimate_number ?? items.estimateNumber ?? null

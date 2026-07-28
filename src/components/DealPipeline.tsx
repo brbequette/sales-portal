@@ -8,6 +8,8 @@ import {
   FiExternalLink, FiArrowRight
 } from "react-icons/fi"
 import { ClosingChecklist } from "./ClosingChecklist"
+import { extractProfit } from "@/lib/custom-field-extractor"
+
 
 // â"€â"€â"€ Pipeline Stage Definitions â"€â"€â"€
 const STAGES = [
@@ -160,8 +162,9 @@ export function DealPipeline({ onViewInvoice }: { onViewInvoice?: (invoice: any)
         repSet.add(rep)
 
         const amount = parseFloat(inv.sub_total || inv.total || "0")
-        const profit = parseFloat(inv.cf_profit_unformatted || inv.cf_estimated_profit_unformatted || "0")
+        const profit = extractProfit(inv)
         const balance = parseFloat(inv.balance || "0")
+
         const dateStr = inv.salesorder_date || inv.date || ""
         const invDate = new Date(dateStr)
         const daysOld = Math.max(0, Math.floor((now.getTime() - invDate.getTime()) / 86400000))

@@ -2,6 +2,8 @@
 import { useState, useMemo } from "react"
 import { FiPrinter, FiX, FiDollarSign, FiCalendar, FiTrendingUp, FiAward, FiCheckCircle, FiLayers } from "react-icons/fi"
 
+import { LineItemModal } from "./LineItemModal"
+
 interface InvoiceRecord {
   id: string
   zohoId: string
@@ -12,6 +14,7 @@ interface InvoiceRecord {
   deadCost: number
   status: string
   isPaid: boolean
+  isSameDayPaid?: boolean
   issueDate: string | null
   paymentDate: string | null
   commission: { total: number; upfront: number; final: number }
@@ -52,6 +55,8 @@ function fmtDate(s: string | null) {
 }
 
 export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModalProps) {
+  const [selectedLineItem, setSelectedLineItem] = useState<any | null>(null)
+
   // Generate all weekly pay period options from rep's invoices & payouts
   const payPeriodOptions = useMemo(() => {
     const dates: Date[] = []
@@ -98,25 +103,36 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
     return d
   }, [periodStart])
 
-  // 1. Upfront 1st Half Invoices (Created in period)
+  // 1. Same-Day Paid Invoices (Issued AND Paid on same day in period)
+  const sameDayInvoices = useMemo(() => {
+    return rep.invoices.filter(inv => {
+      if (!inv.isSameDayPaid || !inv.issueDate) return false
+      const d = new Date(inv.issueDate)
+      return d >= periodStart && d <= periodEnd
+    })
+  }, [rep.invoices, periodStart, periodEnd])
+
+  // 2. Upfront 1st Half Invoices (Created in period, NOT same-day paid)
   const upfrontInvoices = useMemo(() => {
     return rep.invoices.filter(inv => {
+      if (inv.isSameDayPaid) return false
       if (!inv.issueDate) return false
       const d = new Date(inv.issueDate)
       return d >= periodStart && d <= periodEnd
     })
   }, [rep.invoices, periodStart, periodEnd])
 
-  // 2. Final 2nd Half Invoices (Paid in period)
+  // 3. Final 2nd Half Invoices (Paid in period, NOT same-day paid)
   const finalInvoices = useMemo(() => {
     return rep.invoices.filter(inv => {
+      if (inv.isSameDayPaid) return false
       if (!inv.isPaid || !inv.paymentDate) return false
       const d = new Date(inv.paymentDate)
       return d >= periodStart && d <= periodEnd
     })
   }, [rep.invoices, periodStart, periodEnd])
 
-  // 3. Payouts issued in period
+  // 4. Payouts issued in period
   const periodPayouts = useMemo(() => {
     return rep.payouts.filter(p => {
       const d = new Date(p.date)
@@ -125,9 +141,10 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
   }, [rep.payouts, periodStart, periodEnd])
 
   // Totals for this pay period
+  const totalSameDay = sameDayInvoices.reduce((sum, inv) => sum + (inv.commission.total || (inv.profit * 0.5)), 0)
   const totalUpfront = upfrontInvoices.reduce((sum, inv) => sum + inv.commission.upfront, 0)
   const totalFinal = finalInvoices.reduce((sum, inv) => sum + inv.commission.final, 0)
-  const totalPeriodEarned = totalUpfront + totalFinal
+  const totalPeriodEarned = totalSameDay + totalUpfront + totalFinal
   const totalPeriodPayouts = periodPayouts.reduce((sum, p) => sum + p.amount, 0)
   const periodNetCheck = totalPeriodEarned - totalPeriodPayouts
 
@@ -451,9 +468,13 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
                                   const lineDeadCost = qty * cost
 
                                   return (
-                                    <div key={idx} className="flex items-center justify-between text-[11px] font-mono text-neutral-300 print:text-black/80 pl-3 border-l-2 border-emerald-500/40">
-                                      <span className="font-sans font-medium text-neutral-200 print:text-black">
-                                        {qty}x {item.sku ? `[${item.sku}] ` : ''}{item.name}
+                                    <div 
+                                      key={idx} 
+                                      onClick={() => setSelectedLineItem(item)}
+                                      className="flex items-center justify-between text-[11px] font-mono text-neutral-300 hover:text-white cursor-pointer transition-colors hover:bg-white/5 p-1 rounded border-l-2 border-emerald-500/40"
+                                    >
+                                      <span className="font-sans font-medium">
+                                        {qty}x {item.sku ? `[${item.sku}] ` : ''}{item.name} 🔍
                                       </span>
                                       <div className="flex items-center gap-4">
                                         <span>Rate: ${rate.toFixed(2)}</span>
@@ -475,6 +496,11 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
               </table>
             )}
           </div>
+
+          {/* Render LineItemModal inside statement modal */}
+          {selectedLineItem && (
+            <LineItemModal item={selectedLineItem} onClose={() => setSelectedLineItem(null)} />
+          )}
 
           {/* YTD Summaries & Goal Totals Footer */}
           <div className="border-t border-white/10 pt-6 grid grid-cols-1 md:grid-cols-2 gap-6 print:border-black/20 print:grid-cols-2">

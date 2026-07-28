@@ -1,7 +1,9 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient, Prisma } from "@prisma/client"
-
 import { prisma } from "./lib/prisma"
+import { isNoVigItem } from "./lib/cost-calculations"
+import { extractDeadCostTotal, extractCcFees, extractAdditionalCosts } from "../../src/lib/custom-field-extractor"
+
 
 // Statuses where the FINAL half is earned (invoice has been paid)
 const FINAL_PAID_STATUSES = new Set(['Paid', 'paid', 'Closed', 'closed', 'Fulfilled', 'fulfilled'])
@@ -13,7 +15,7 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
 
   try {
-    const { repId, year, includeHidden } = event.queryStringParameters || {}
+    const { repId, userId, userEmail, year, includeHidden } = event.queryStringParameters || {}
     const showHidden = includeHidden === 'true'
 
     // Default to current year
@@ -308,15 +310,34 @@ export const handler: Handler = async (event) => {
         items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted ||
         items.total_dead_cost || 0
       )
-      if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
-        deadCost = lineItems.reduce((sum: number, li: any) => {
+      
+      let deadCostSubjectToVig = 0
+      let deadCostNoVig = 0
+
+      if (items.deadCostSubjectToVig !== undefined && items.deadCostNoVig !== undefined) {
+        deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig || 0)
+        deadCostNoVig = parseFloat(items.deadCostNoVig || 0)
+        deadCost = deadCostSubjectToVig + deadCostNoVig
+      } else if (lineItems.length > 0) {
+        for (const li of lineItems) {
           const qty = parseFloat(li.quantity) || 1
           const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
-          return sum + (qty * cost)
-        }, 0)
+          const itemCost = qty * cost
+          if (isNoVigItem(li)) {
+            deadCostNoVig += itemCost
+          } else {
+            deadCostSubjectToVig += itemCost
+          }
+        }
+        deadCost = deadCostSubjectToVig + deadCostNoVig
+      } else {
+        deadCostSubjectToVig = deadCost
       }
+
       if ((isNaN(deadCost) || deadCost === 0) && subTotal > 0) {
         deadCost = subTotal * 0.50
+        deadCostSubjectToVig = deadCost
+        deadCostNoVig = 0
       }
       if (isNaN(deadCost)) deadCost = 0
 
@@ -336,11 +357,12 @@ export const handler: Handler = async (event) => {
         items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted,
         !!isMontgomery
       )
-      const deadCostPlusVig = deadCost * vigRate
+      const deadCostPlusVig = (deadCostSubjectToVig * vigRate) + deadCostNoVig
 
-      const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
+      const additionalCosts = extractAdditionalCosts(items)
       const giftsCost = parseFloat(items.gifts || items.gifts_cost || items.giftCost || cfs.find((c: any) => (c.label || '').toUpperCase().includes('GIFT'))?.value || 0) || 0
-      const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
+      const ccFees = extractCcFees(items)
+
 
       // 1. Initial Estimated Profit (no CC fees — used for upfront commission calc)
       const initialProfit = subTotal - deadCostPlusVig - additionalCosts - giftsCost
@@ -368,11 +390,22 @@ export const handler: Handler = async (event) => {
       const total  = upfront + final
 
       const invoiceNumber = items.invoiceNumber || items.invoice_number || null
-      const paymentDate = items.paymentDate || null
+      
+      // Determine payment date
+      let rawPaymentDate = items.paymentDate || items.date_paid || items.paid_date || items.last_payment_date
+      if (!rawPaymentDate && isPaid) {
+        rawPaymentDate = inv.updatedAt || inv.issueDate
+      }
+
+      const issueDateStr = inv.issueDate ? new Date(inv.issueDate).toISOString().split('T')[0] : null
+      const paymentDateStr = rawPaymentDate ? new Date(rawPaymentDate).toISOString().split('T')[0] : null
+      const isSameDayPaid = isPaid && (issueDateStr === paymentDateStr)
 
       const daysOld = inv.issueDate ? (Date.now() - new Date(inv.issueDate).getTime()) / (1000 * 60 * 60 * 24) : 0
       const isAtRisk = !isPaid && daysOld >= 120
       const atRiskAmount = isAtRisk ? (upfront + future) : 0
+
+      const rawLineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
 
       return {
         id: inv.id,
@@ -386,10 +419,14 @@ export const handler: Handler = async (event) => {
         vigRate,
         status: inv.status,
         isPaid,
+        isSameDayPaid,
         daysOld,
         isAtRisk,
         issueDate: inv.issueDate,
-        paymentDate,
+        paymentDate: rawPaymentDate,
+        upfrontDate: inv.issueDate,
+        finalDate: rawPaymentDate,
+        lineItems: rawLineItems,
         repId: matchedRepId || salespersonName?.toLowerCase().trim() || "unassigned",
         repName: matchedRep?.name || salespersonName || "Unassigned",
         accountName: inv.account?.name || "Unknown",
@@ -415,15 +452,34 @@ export const handler: Handler = async (event) => {
         items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted ||
         items.total_dead_cost || 0
       )
-      if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
-        deadCost = lineItems.reduce((sum: number, li: any) => {
+      
+      let deadCostSubjectToVig = 0
+      let deadCostNoVig = 0
+
+      if (items.deadCostSubjectToVig !== undefined && items.deadCostNoVig !== undefined) {
+        deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig || 0)
+        deadCostNoVig = parseFloat(items.deadCostNoVig || 0)
+        deadCost = deadCostSubjectToVig + deadCostNoVig
+      } else if (lineItems.length > 0) {
+        for (const li of lineItems) {
           const qty = parseFloat(li.quantity) || 1
           const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
-          return sum + (qty * cost)
-        }, 0)
+          const itemCost = qty * cost
+          if (isNoVigItem(li)) {
+            deadCostNoVig += itemCost
+          } else {
+            deadCostSubjectToVig += itemCost
+          }
+        }
+        deadCost = deadCostSubjectToVig + deadCostNoVig
+      } else {
+        deadCostSubjectToVig = deadCost
       }
+
       if ((isNaN(deadCost) || deadCost === 0) && subTotal > 0) {
         deadCost = subTotal * 0.50
+        deadCostSubjectToVig = deadCost
+        deadCostNoVig = 0
       }
       if (isNaN(deadCost)) deadCost = 0
 
@@ -440,7 +496,7 @@ export const handler: Handler = async (event) => {
         items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted,
         !!isMontgomery
       )
-      const deadCostPlusVig = deadCost * vigRate
+      const deadCostPlusVig = (deadCostSubjectToVig * vigRate) + deadCostNoVig
 
       const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
       const giftsCost = parseFloat(items.gifts || items.gifts_cost || items.giftCost || cfs.find((c: any) => (c.label || '').toUpperCase().includes('GIFT'))?.value || 0) || 0
@@ -680,17 +736,44 @@ export const handler: Handler = async (event) => {
       if (years.length === 0) years = [new Date().getFullYear()]
     }
 
-    // ── Apply repId filter ───────────────────────────────────────────────
+    // ── Apply repId & user role security filter ──────────────────────────────
     let finalByRep = byRep
-    if (repId) {
+    let finalUsers = users
+
+    const requestingUser = users.find(u => 
+      (userId && u.id === userId) || 
+      (userEmail && u.email?.toLowerCase() === userEmail.toLowerCase()) ||
+      (repId && u.id === repId)
+    )
+
+    const requestingRole = (requestingUser?.role || "").toLowerCase()
+    const isRequestingAdmin = requestingRole.includes("admin") || requestingRole === "administrator" || requestingRole.includes("manager")
+
+    if (repId || (requestingUser && !isRequestingAdmin)) {
+      const targetRepId = repId || requestingUser?.id || requestingUser?.name?.toLowerCase().trim()
       finalByRep = {}
-      if (byRep[repId]) finalByRep[repId] = byRep[repId]
+      if (targetRepId && byRep[targetRepId]) {
+        finalByRep[targetRepId] = byRep[targetRepId]
+      } else if (requestingUser) {
+        // Fallback match by requestingUser name
+        const matchByName = Object.values(byRep).find((r: any) => 
+          r.repName?.toLowerCase().includes(requestingUser.name.toLowerCase()) ||
+          requestingUser.name.toLowerCase().includes(r.repName?.toLowerCase())
+        )
+        if (matchByName) {
+          finalByRep[(matchByName as any).repId] = matchByName
+        }
+      }
+
+      if (!isRequestingAdmin && requestingUser) {
+        finalUsers = [requestingUser]
+      }
     }
 
     // Only include actual system users
-    const validUserIds = new Set(users.map((u: any) => u.id))
+    const validUserIds = new Set(finalUsers.map((u: any) => u.id))
     for (const key in finalByRep) {
-      if (!validUserIds.has(key)) {
+      if (!validUserIds.has(key) && !requestingUser) {
         delete finalByRep[key]
       }
     }

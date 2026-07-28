@@ -8,7 +8,7 @@ import Link from "next/link"
 import { 
   FiShield, FiGrid, FiUsers, FiClock, FiDollarSign, 
   FiTarget, FiAward, FiCalendar, FiMessageSquare, 
-  FiFileText, FiActivity, FiSettings, FiChevronLeft, FiMapPin, FiTruck, FiZap
+  FiFileText, FiActivity, FiSettings, FiChevronLeft, FiMapPin, FiTruck, FiZap, FiDatabase
 } from "react-icons/fi"
 
 const adminLinks = [
@@ -35,9 +35,11 @@ const adminLinks = [
     { name: "Comm Log", href: "/admin/communications", icon: FiActivity },
   ]},
   { group: "System", items: [
+    { name: "Custom Fields", href: "/admin/custom-fields", icon: FiDatabase },
     { name: "Settings", href: "/admin/settings", icon: FiSettings },
   ]}
 ]
+
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { isInitialized, zohoContext: currentUser } = useZoho()

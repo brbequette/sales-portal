@@ -13,56 +13,87 @@ export async function POST(req: Request) {
     const direction = payload.direction || payload.Direction || (payload.type === 'inbound' ? 'INBOUND' : 'OUTBOUND')
     const duration = parseInt(payload.duration || payload.Duration || '0', 10)
     const status = payload.status || payload.Status || payload.call_status
-    const recordingUrl = payload.recording_url || payload.RecordingUrl
-    const zohoSentiment = payload.sentiment || payload.Sentiment
+    const recordingUrl = payload.recording_url || payload.RecordingUrl || payload.recordingUrl
+    const zohoSentiment = payload.sentiment || payload.Sentiment || payload.call_sentiment
+    const transcript = payload.transcript || payload.Transcript || payload.ai_transcript || payload.call_transcript
+    const aiSummary = payload.summary || payload.Summary || payload.ai_summary
+    const agentEmail = payload.agent_email || payload.agentEmail || payload.user_email
 
     if (!zohoCallId) {
       return NextResponse.json({ success: false, error: 'Missing zohoCallId' }, { status: 400 })
     }
 
-    // Try to match the phone number to an account
-    // For inbound, match fromNumber. For outbound, match toNumber.
+    // Try to match agent email to local User
+    let authorId = 'SYSTEM'
+    if (agentEmail) {
+      const user = await prisma.user.findUnique({ where: { email: agentEmail.toLowerCase().trim() } })
+      if (user) authorId = user.id
+    }
+    if (authorId === 'SYSTEM') {
+      const adminUser = await prisma.user.findFirst({ where: { role: { contains: "ADMIN", mode: "insensitive" } } })
+      if (adminUser) authorId = adminUser.id
+    }
+
+    // Try to match the phone number to a contact and account
     const searchNumber = direction.toUpperCase() === 'INBOUND' ? fromNumber : toNumber
-    
-    // Find account by number (this is a simplified search, you might need to clean numbers e.g. remove +1)
-    let accountId = 'UNKNOWN'
+    let accountId = ''
+    let contactId: string | null = null
+
     if (searchNumber) {
       const cleanNumber = searchNumber.replace(/\D/g, '')
-      // This is a rough search across the accounts - you may want to refine this
-      // For now we just find any account with this number in its phone field or contact
-      const contact = await prisma.contact.findFirst({
-        where: {
-          OR: [
-            { phone: { contains: cleanNumber } },
-            { mobilePhone: { contains: cleanNumber } }
-          ]
+      if (cleanNumber.length >= 7) {
+        const last7 = cleanNumber.slice(-7)
+        const contact = await prisma.contact.findFirst({
+          where: {
+            OR: [
+              { phone: { contains: last7 } },
+              { mobilePhone: { contains: last7 } }
+            ]
+          }
+        })
+        if (contact) {
+          accountId = contact.accountId
+          contactId = contact.id
+        } else {
+          // Check raw account shipping/billing phone or notes if contact not found
+          const account = await prisma.account.findFirst({
+            where: {
+              OR: [
+                { name: { contains: cleanNumber } }
+              ]
+            }
+          })
+          if (account) accountId = account.id
         }
-      })
-      if (contact) {
-        accountId = contact.accountId
       }
     }
 
     // Upsert CallLog
-    await prisma.callLog.upsert({
+    const callLog = await prisma.callLog.upsert({
       where: { zohoCallId },
       update: {
         duration,
         status,
         recordingUrl: recordingUrl || undefined,
-        zohoSentiment: zohoSentiment || undefined
+        zohoSentiment: zohoSentiment || undefined,
+        transcript: transcript || undefined,
+        aiSummary: aiSummary || undefined,
+        contactId: contactId || undefined,
       },
       create: {
         zohoCallId,
-        accountId: accountId === 'UNKNOWN' ? '' : accountId, // Fallback if no match
-        authorId: 'SYSTEM', // You might extract the Zoho Agent ID and map to your local user
+        accountId: accountId,
+        contactId: contactId,
+        authorId: authorId,
         fromNumber: fromNumber || 'Unknown',
         toNumber: toNumber || 'Unknown',
         direction: direction.toUpperCase(),
         duration,
         status,
         recordingUrl,
-        zohoSentiment
+        zohoSentiment,
+        transcript,
+        aiSummary
       }
     })
 

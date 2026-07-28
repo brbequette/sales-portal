@@ -30,12 +30,14 @@ export async function POST(req: Request) {
     const fromNumber = fromNumberRaw.replace(/[^\d+]/g, '')
     const toNumber = toNumberRaw.replace(/[^\d+]/g, '')
 
-    // Search for a contact with this phone number
+    const cleanDigits = fromNumber.replace(/\D/g, '').slice(-10)
+
+    // Search for a contact with this phone number (matching trailing 10 digits)
     const contacts = await prisma.contact.findMany({
       where: {
         OR: [
-          { mobilePhone: { contains: fromNumber.replace('+1', '') } },
-          { phone: { contains: fromNumber.replace('+1', '') } }
+          { mobilePhone: { contains: cleanDigits } },
+          { phone: { contains: cleanDigits } }
         ]
       },
       include: { account: true }

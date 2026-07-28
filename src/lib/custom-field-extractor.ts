@@ -1,0 +1,170 @@
+/**
+ * Standardized Custom Field Extractor
+ * 
+ * Provides unified, resilient accessors for Zoho Custom Fields across
+ * raw API responses, custom_field_hash objects, custom_fields arrays, and database JSON items.
+ */
+
+export interface FieldMapping {
+  entity: string;
+  apiName: string;
+  label: string;
+  internalKey: string;
+}
+
+// Canonical Field Definitions Catalog
+export const CANONICAL_FIELD_CATALOG: Record<string, Record<string, string>> = {
+  INVOICE: {
+    salespersonVig: 'cf_salesperson_vig',
+    profit: 'cf_profit',
+    commissionAmount: 'cf_commision_amount', // Zoho Invoice API typo
+    deadCostTotal: 'cf_dead_cost_total',
+    deadCostSubjectToVig: 'cf_dead_cost_subject_to_vig',
+    deadCostNoVig: 'cf_dead_cost_no_vig',
+    deadCostPlusVig: 'cf_dead_cost_with_vig',
+    ccFees: 'cf_credit_card_processing_fees',
+    ccBreakdown: 'cf_cc_charge_s_breakdown',
+    additionalCosts: 'cf_additional_costs_to_order',
+    additionalCostNotes: 'cf_additional_cost_explanation',
+    insurance: 'cf_insurance',
+    purchaseOrderNumbers: 'cf_purchase_order_number_s',
+    estimateNumber: 'cf_estimate_number',
+    estimateDate: 'cf_estimate_date',
+    paidInFullDate: 'cf_paid_in_full_date',
+    commissionStatus: 'cf_commission_status',
+    writtenOff: 'cf_written_off',
+    removeTariffSurcharge: 'cf_remove_tariff_surcharge',
+    itemsDcBreakdown: 'cf_dc_breakdown',
+    reference: 'cf_reference'
+  },
+  SALESORDER: {
+    salespersonVig: 'cf_salesperson_vig',
+    profit: 'cf_estimated_profit',
+    commissionAmount: 'cf_commission_amount',
+    deadCostTotal: 'cf_dead_cost_total',
+    deadCostSubjectToVig: 'cf_dead_cost_subject_to_vig',
+    deadCostNoVig: 'cf_dead_cost_no_vig',
+    deadCostPlusVig: 'cf_total_dead_cost_with_vig',
+    itemsDcBreakdown: 'cf_items_dc_breakdown',
+    removeTariffSurcharge: 'cf_remove_tariff_surcharge'
+  },
+  ITEM: {
+    subjectToVig: 'cf_subject_to_sales_markup',
+    giftItem: 'cf_gift_item',
+    promoItem: 'cf_event_promo_item',
+    salesmanCostMultiplier: 'cf_salesman_cost_multiplier'
+  }
+};
+
+/**
+ * Extract a field value safely from any Zoho record or items JSON
+ */
+export function extractCustomFieldValue(
+  record: any,
+  fieldKey: string,
+  defaultValue: any = null
+): any {
+  if (!record || typeof record !== 'object') return defaultValue;
+
+  // 1. Direct key match on normalized object/JSON
+  if (record[fieldKey] !== undefined && record[fieldKey] !== null) {
+    return record[fieldKey];
+  }
+
+  // 2. Try custom_field_hash (Zoho Detail API)
+  const cfh = record.custom_field_hash || record;
+  if (cfh && typeof cfh === 'object') {
+    // Try unformatted numeric variant first
+    const unformattedKey = `${fieldKey}_unformatted`;
+    if (cfh[unformattedKey] !== undefined && cfh[unformattedKey] !== null) {
+      return cfh[unformattedKey];
+    }
+    const cfKey = fieldKey.startsWith('cf_') ? fieldKey : `cf_${fieldKey}`;
+    const cfUnformattedKey = `${cfKey}_unformatted`;
+    if (cfh[cfUnformattedKey] !== undefined && cfh[cfUnformattedKey] !== null) {
+      return cfh[cfUnformattedKey];
+    }
+    if (cfh[cfKey] !== undefined && cfh[cfKey] !== null) {
+      return cfh[cfKey];
+    }
+    if (cfh[fieldKey] !== undefined && cfh[fieldKey] !== null) {
+      return cfh[fieldKey];
+    }
+  }
+
+  // 3. Try custom_fields array (Zoho List API)
+  const cfs = record.custom_fields || record.item_custom_fields || [];
+  if (Array.isArray(cfs)) {
+    const cfMatch = cfs.find((f: any) => {
+      if (!f) return false;
+      const api = (f.api_name || f.placeholder || '').toLowerCase();
+      const label = (f.label || '').toLowerCase();
+      const target = fieldKey.toLowerCase();
+      return api === target || api === `cf_${target}` || label === target;
+    });
+    if (cfMatch && cfMatch.value !== undefined && cfMatch.value !== null) {
+      return cfMatch.value;
+    }
+  }
+
+  return defaultValue;
+}
+
+/**
+ * Standardized Accessors for Core Sales Metrics
+ */
+export function extractVigRate(docOrItems: any): number {
+  const val = extractCustomFieldValue(docOrItems, 'cf_salesperson_vig', null) 
+    ?? extractCustomFieldValue(docOrItems, 'vig', null)
+    ?? extractCustomFieldValue(docOrItems, 'salespersonVig', null);
+  const parsed = parseFloat(val);
+  return !isNaN(parsed) && parsed > 0 ? parsed : 1.3;
+}
+
+export function extractProfit(docOrItems: any): number {
+  const val = extractCustomFieldValue(docOrItems, 'cf_estimated_profit', null)
+    ?? extractCustomFieldValue(docOrItems, 'cf_profit', null)
+    ?? extractCustomFieldValue(docOrItems, 'profit', null);
+  const parsed = parseFloat(val);
+  return !isNaN(parsed) ? parsed : 0.0;
+}
+
+export function extractCommissionAmount(docOrItems: any): number {
+  const val = extractCustomFieldValue(docOrItems, 'cf_commission_amount', null)
+    ?? extractCustomFieldValue(docOrItems, 'cf_commision_amount', null)
+    ?? extractCustomFieldValue(docOrItems, 'commission', null);
+  const parsed = parseFloat(val);
+  return !isNaN(parsed) ? parsed : 0.0;
+}
+
+export function extractDeadCostTotal(docOrItems: any): number {
+  const val = extractCustomFieldValue(docOrItems, 'cf_dead_cost_total', null)
+    ?? extractCustomFieldValue(docOrItems, 'deadCostTotal', null)
+    ?? extractCustomFieldValue(docOrItems, 'dead_cost_total', null)
+    ?? extractCustomFieldValue(docOrItems, 'deadCost', null);
+  const parsed = parseFloat(val);
+  return !isNaN(parsed) ? parsed : 0.0;
+}
+
+export function extractCcFees(docOrItems: any): number {
+  const val = extractCustomFieldValue(docOrItems, 'cf_credit_card_processing_fees', null)
+    ?? extractCustomFieldValue(docOrItems, 'ccFees', null)
+    ?? extractCustomFieldValue(docOrItems, 'cc_fees', null);
+  const parsed = parseFloat(val);
+  return !isNaN(parsed) ? parsed : 0.0;
+}
+
+export function extractAdditionalCosts(docOrItems: any): number {
+  const val = extractCustomFieldValue(docOrItems, 'cf_additional_costs_to_order', null)
+    ?? extractCustomFieldValue(docOrItems, 'additionalCosts', null)
+    ?? extractCustomFieldValue(docOrItems, 'additional_costs', null);
+  const parsed = parseFloat(val);
+  return !isNaN(parsed) ? parsed : 0.0;
+}
+
+export function extractInsurance(docOrItems: any): number {
+  const val = extractCustomFieldValue(docOrItems, 'cf_insurance', null)
+    ?? extractCustomFieldValue(docOrItems, 'insurance', null);
+  const parsed = parseFloat(val);
+  return !isNaN(parsed) ? parsed : 0.0;
+}

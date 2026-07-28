@@ -1814,9 +1814,10 @@ export default function Dashboard() {
                               {hasPhone ? (
                                 <PhoneLink
                                   phone={primaryPhone}
-                                  className="flex items-center justify-center w-8 h-8 bg-sky-600 hover:bg-sky-500 rounded-full text-white transition-colors"
+                                  showNumberOnDesktop
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-sky-600/20 hover:bg-sky-600/40 border border-sky-500/40 rounded-xl text-sky-300 font-mono text-xs font-bold transition-all shadow-sm"
                                 >
-                                  <FiPhoneCall size={13} />
+                                  <FiPhoneCall size={13} className="text-sky-400" />
                                 </PhoneLink>
                               ) : (
                                 <div

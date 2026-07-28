@@ -8,6 +8,7 @@ import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { FiUser, FiMail, FiPhone, FiSmartphone, FiPlus, FiMessageSquare, FiCheck, FiFileText, FiEdit2 } from "react-icons/fi"
 import { ContactEditModal } from "@/components/ContactEditModal"
+import { PhoneLink } from "@/components/PhoneLink"
 import { toast } from 'react-hot-toast';
 
 export interface Contact {
@@ -225,28 +226,15 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                     )}
                     {(c.phone || c.mobilePhone) && (
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap" onClick={e => e.stopPropagation()}>
-                        <a 
-                          href={`tel:${c.phone || c.mobilePhone}`}
-                          className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-blue-455 cursor-pointer"
+                        <PhoneLink 
+                          phone={c.phone || c.mobilePhone || ""}
+                          showNumberOnDesktop
+                          className="text-xs text-sky-400 hover:text-sky-300 font-mono font-bold"
                         >
-                          <FiPhone className="shrink-0" size={10} />
-                          Call
-                        </a>
-                        <span className="text-neutral-700 text-[10px]">&bull;</span>
-                        <a 
-                          href={`tel:${c.phone || c.mobilePhone}`}
-                          className="flex items-center gap-1 hover:underline hover:text-white transition-colors text-[10px] text-emerald-455 cursor-pointer"
-                      >
-                        <FiMessageSquare className="shrink-0" size={10} />
-                        Text
-                      </a>
-                      <span className="text-neutral-500 font-mono text-[9px] ml-1">
-                        (<a href={`tel:${c.phone || c.mobilePhone}`} className="text-blue-400 hover:underline">
-                          {c.phone || c.mobilePhone}
-                        </a>)
-                      </span>
-                    </div>
-                  )}
+                          <FiPhone className="shrink-0" size={11} />
+                        </PhoneLink>
+                      </div>
+                    )}
                 </button>
                 <button 
                   onClick={() => setEditingContact(c)}
@@ -383,23 +371,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                   <div className="space-y-0.5">
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Office Phone</span>
                     {selectedContact.phone ? (
-                      <div className="flex items-center gap-3">
-                        <a href={`tel:${selectedContact.phone}`}
-                          className="text-xs text-blue-400 hover:underline font-mono"
-                        >
-                          {selectedContact.phone}
-                        </a>
-                        <a href={`tel:${selectedContact.phone}`}
-                          className="text-[10px] text-blue-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
-                        >
-                          Call
-                        </a>
-                        <a href={`tel:${selectedContact.phone}`}
-                          className="text-[10px] text-emerald-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
-                        >
-                          Text
-                        </a>
-                      </div>
+                      <PhoneLink phone={selectedContact.phone} className="text-xs text-sky-400 hover:text-sky-300 font-mono font-bold" />
                     ) : (
                       <span className="text-xs text-neutral-600 block">Not specified</span>
                     )}
@@ -407,23 +379,7 @@ export function ContactsView({ contacts = [], notes = [], accountId, onNoteAdded
                   <div className="space-y-0.5 sm:col-span-2">
                     <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">Mobile Phone</span>
                     {selectedContact.mobilePhone ? (
-                      <div className="flex items-center gap-3">
-                        <a href={`tel:${selectedContact.mobilePhone}`}
-                          className="text-xs text-blue-400 hover:underline font-mono"
-                        >
-                          {selectedContact.mobilePhone}
-                        </a>
-                        <a href={`tel:${selectedContact.mobilePhone}`}
-                          className="text-[10px] text-blue-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
-                        >
-                          Call
-                        </a>
-                        <a href={`tel:${selectedContact.mobilePhone}`}
-                          className="text-[10px] text-emerald-455 hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
-                        >
-                          Text
-                        </a>
-                      </div>
+                      <PhoneLink phone={selectedContact.mobilePhone} className="text-xs text-sky-400 hover:text-sky-300 font-mono font-bold" />
                     ) : (
                       <span className="text-xs text-neutral-600 block">Not specified</span>
                     )}

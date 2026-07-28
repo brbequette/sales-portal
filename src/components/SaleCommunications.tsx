@@ -142,15 +142,23 @@ export function SaleCommunications({ zohoId }: SaleCommunicationsProps) {
                     <div className="text-xs mb-1.5">
                       <span className="font-semibold text-white">Sentiment:</span>{' '}
                       <span className={`font-bold ${
-                        comm.aiSentiment === 'Positive' ? 'text-emerald-400' :
-                        comm.aiSentiment === 'Negative' ? 'text-red-400' : 'text-amber-400'
+                        (comm.aiSentiment || comm.zohoSentiment) === 'Positive' ? 'text-emerald-400' :
+                        (comm.aiSentiment || comm.zohoSentiment) === 'Negative' ? 'text-red-400' : 'text-amber-400'
                       }`}>
-                        {comm.aiSentiment || 'Not Analyzed'}
+                        {comm.aiSentiment || comm.zohoSentiment || 'Not Analyzed'}
                       </span>
                     </div>
                     {comm.aiSummary && (
-                      <div className="text-xs text-neutral-300 leading-relaxed italic glass-panel/50 p-2 rounded">
+                      <div className="text-xs text-neutral-300 leading-relaxed italic glass-panel/50 p-2 rounded mb-2">
                         &quot;{comm.aiSummary}&quot;
+                      </div>
+                    )}
+                    {comm.transcript && (
+                      <div className="mt-2 text-xs">
+                        <span className="font-bold text-neutral-400 uppercase text-[10px] tracking-wider block mb-1">Call Transcript:</span>
+                        <div className="bg-black/50 p-2.5 rounded-lg border border-white/10 text-neutral-300 text-xs font-mono max-h-40 overflow-y-auto whitespace-pre-wrap">
+                          {comm.transcript}
+                        </div>
                       </div>
                     )}
                   </div>

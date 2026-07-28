@@ -13,6 +13,7 @@
 
 import { prisma } from "./prisma"
 import { getSystemSettings, AppSettings } from "./settings"
+import { extractCcFees, extractAdditionalCosts, extractInsurance } from "../../../src/lib/custom-field-extractor"
 
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -53,12 +54,53 @@ export interface CostCalculationResult {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 export function isGiftItem(item: any): boolean {
-  return (item.name?.toLowerCase().includes("gift") || false)
+  const name = (item.name || "").toLowerCase()
+  const sku = (item.sku || item.code || "").toLowerCase()
+  const description = (item.description || "").toLowerCase()
+
+  const giftKeywords = [
+    "gift", "hat", "trucker", "shirt", "t-shirt", "tee", "hoodie", "jacket",
+    "apparel", "swag", "promo", "cup", "mug", "beaver", "sample",
+    "card", "giftcard", "merch", "pant", "beanie", "glove", "pen",
+    "banner", "flyer", "sticker", "decal", "display", "polo", "vest",
+    "sweatshirt", "cap", "bag", "blade bag", "coat", "umbrella", "tumbler",
+    "bottle", "keychain"
+  ]
+
+  const matchesKeyword = giftKeywords.some(k => name.includes(k) || sku.includes(k) || description.includes(k))
+  const isZeroRate = parseFloat(item.rate || 0) === 0
+
+  return matchesKeyword || isZeroRate
 }
 
 export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>): boolean {
   if (isGiftItem(item)) return true
-  const itemID = item.item_id
+  if (item.no_vig || item.noVig || item.is_no_vig) return true
+  
+  // Subject to VIG checks
+  if (item.subject_to_vig === false || item.subjectToVig === false) return true
+  if (item.subject_to_vig === 'false' || item.subjectToVig === 'false' || item.subject_to_vig === 'No' || item.subjectToVig === 'No') return true
+  if (item.subject_to_vig === 0 || item.subjectToVig === 0) return true
+
+  // Subject to Sales Markup checks (Zoho Items field name)
+  if (item.subject_to_sales_markup === false || item.subjectToSalesMarkup === false) return true
+  if (item.subject_to_sales_markup === 'false' || item.subjectToSalesMarkup === 'false' || item.subject_to_sales_markup === 'No' || item.subjectToSalesMarkup === 'No') return true
+  if (item.subject_to_sales_markup === 0 || item.subjectToSalesMarkup === 0) return true
+
+  // Custom fields inspection on line item
+  const cfs = item.item_custom_fields || item.custom_fields || []
+  if (Array.isArray(cfs)) {
+    const markupField = cfs.find((c: any) => {
+      const lbl = (c.label || c.api_name || "").toUpperCase()
+      return lbl.includes("SALES MARKUP") || lbl.includes("SUBJECT TO VIG") || lbl.includes("VIG EXEMPT")
+    })
+    if (markupField) {
+      const val = String(markupField.value || "").toLowerCase().trim()
+      if (val === "false" || val === "no" || val === "0" || val === "exempt") return true
+    }
+  }
+
+  const itemID = item.item_id || item.id
   if (itemID && noVigOverrides && noVigOverrides[itemID]) {
     return true
   }
@@ -181,6 +223,15 @@ export async function calculateDocumentCosts(
   
   const settings = await getSystemSettings(prisma)
 
+  // Pre-fetch DB products for accurate catalog VIG lookup
+  const dbProducts = await prisma.product.findMany().catch(() => [])
+  const skuMap = new Map<string, any>()
+  const nameMap = new Map<string, any>()
+  dbProducts.forEach(p => {
+    if (p.sku) skuMap.set(p.sku.toLowerCase().trim(), p)
+    if (p.name) nameMap.set(p.name.toLowerCase().trim(), p)
+  })
+
   // ─── 1. Dead cost bucketing ─────────────────────────────────────────────────
   let deadCostSubjectToVig = 0
   let deadCostNoVig = 0
@@ -196,8 +247,18 @@ export async function calculateDocumentCosts(
     const itemTotal    = qty * rate
     const itemDeadCost = qty * cost
 
-    const gift  = isGiftItem(item)
-    const noVig = isNoVigItem(item, noVigOverrides)
+    const itemSku = (item.sku || item.code || "").toLowerCase().trim()
+    const itemName = (item.name || "").toLowerCase().trim()
+
+    const catalogProd = skuMap.get(itemSku) || nameMap.get(itemName)
+
+    let gift = isGiftItem(item)
+    let noVig = isNoVigItem(item, noVigOverrides)
+
+    if (catalogProd) {
+      if (catalogProd.giftItem) gift = true
+      if (catalogProd.subjectToVig === false || catalogProd.giftItem === true) noVig = true
+    }
 
     if (noVig) deadCostNoVig       += itemDeadCost
     else       deadCostSubjectToVig += itemDeadCost
@@ -234,13 +295,10 @@ export async function calculateDocumentCosts(
 
   // ─── 5. Profit ──────────────────────────────────────────────────────────────
 
-  const ccFeesField          = doc.custom_fields?.find((f: any) => f.label?.toUpperCase().includes("CREDIT CARD PROCESSING"))
-  const additionalCostsField = doc.custom_fields?.find((f: any) => f.label?.toUpperCase().includes("ADDITIONAL COSTS SEE"))
-  const insuranceField       = doc.custom_fields?.find((f: any) => f.label?.toUpperCase() === "INSURANCE")
+  const ccFees          = extractCcFees(doc)
+  const additionalCosts = extractAdditionalCosts(doc)
+  const insurance       = extractInsurance(doc) // not subtracted
 
-  const ccFees          = ccFeesField          ? parseFloat(ccFeesField.value          || 0) : 0
-  const additionalCosts = additionalCostsField ? parseFloat(additionalCostsField.value || 0) : 0
-  const insurance       = insuranceField       ? parseFloat(insuranceField.value       || 0) : 0 // not subtracted
 
   const totalDeductions  = deadCostPlusVig + ccFees + additionalCosts
   const profit           = subTotal - totalDeductions

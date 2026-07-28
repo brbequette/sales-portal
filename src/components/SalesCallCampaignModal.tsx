@@ -504,12 +504,14 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
               </div>
               <div className="flex gap-1.5 shrink-0 ml-3">
                 {cleanPhone && (
-                  <button
-                    onClick={() => initiateCall(cleanPhone)}
+                  <PhoneLink
+                    phone={cleanPhone}
+                    showNumberOnDesktop
                     className="flex items-center gap-1 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-[10px] rounded-lg shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
+                    onBeforeCall={(ph) => initiateCall(ph)}
                   >
-                    <FiPhoneCall size={12} /> Call
-                  </button>
+                    <FiPhoneCall size={12} />
+                  </PhoneLink>
                 )}
                 {cleanPhone && (
                   <a

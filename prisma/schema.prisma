@@ -56,6 +56,7 @@ model Account {
   tags             String?
   quality          String       @default("NEVER_STATUSED")
   lastCalledAt     DateTime?
+  lastClosedCycleAt DateTime?
   timeZone         String?
   bladeSizes          String?
   materialsCut        String?
@@ -112,6 +113,8 @@ model Contact {
   zohoModifiedTime DateTime?
   rawData          Json?
   account     Account  @relation(fields: [accountId], references: [id])
+  smsMessages SmsMessage[]
+  callLogs    CallLog[]
 }
 
 model Deal {
@@ -292,6 +295,25 @@ model SystemSetting {
   updatedAt DateTime @updatedAt
 }
 
+model CustomFieldMapping {
+  id            String   @id @default(cuid())
+  entity        String   // INVOICE, SALESORDER, ESTIMATE, ITEM, ACCOUNT, DEAL
+  label         String
+  apiName       String
+  customfieldId String?
+  internalKey   String   // Canonical internal key, e.g. "salespersonVig", "profit", "commissionAmount"
+  dataType      String   @default("string") // amount, string, date, check_box, multiline, etc.
+  isActive      Boolean  @default(true)
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([entity, apiName])
+  @@index([entity])
+  @@index([internalKey])
+}
+
+
 model Payout {
   id         String   @id @default(cuid())
   repId      String
@@ -459,6 +481,7 @@ model CampaignLog {
 model SmsMessage {
   id              String   @id @default(cuid())
   accountId       String
+  contactId       String?
   authorId        String?  // null if incoming
   fromNumber      String
   toNumber        String
@@ -471,10 +494,12 @@ model SmsMessage {
   createdAt       DateTime @default(now())
 
   account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact         Contact? @relation(fields: [contactId], references: [id])
   author          User?    @relation(fields: [authorId], references: [id])
   campaignBlast   CampaignBlast? @relation(fields: [campaignBlastId], references: [id])
 
   @@index([accountId])
+  @@index([contactId])
   @@index([campaignBlastId])
 }
 
@@ -491,6 +516,7 @@ model CallScript {
 model CallLog {
   id          String   @id @default(cuid())
   accountId   String
+  contactId   String?
   authorId    String
   fromNumber  String
   toNumber    String
@@ -498,6 +524,7 @@ model CallLog {
   duration    Int      @default(0) // Duration in seconds
   status      String   // "completed", "missed", "voicemail", etc.
   notes       String?
+  transcript  String?
   zohoCallId   String?  @unique
   recordingUrl String?
   zohoSentiment String?
@@ -509,9 +536,11 @@ model CallLog {
   editedAt    DateTime?
 
   account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact     Contact? @relation(fields: [contactId], references: [id])
   author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([accountId])
+  @@index([contactId])
   @@index([authorId])
 }
 

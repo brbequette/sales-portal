@@ -753,6 +753,87 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 )}
               </div>
 
+              {/* --- Document Chain Links (Sales Order, Packages, Shipments) --- */}
+              <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+                <h4 className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider flex items-center gap-1.5">
+                  <FiBox /> Document Chain & Fulfillment Trace
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-black/40 p-3 rounded-xl border border-white/10 text-xs">
+                  {/* Originating Sales Order */}
+                  <div>
+                    <span className="text-neutral-500 block text-[10px] uppercase font-bold">Originating Sales Order</span>
+                    {displayData.salesorder_number || displayData.salesorder_id || displayData.items?.salesorder_number || displayData.rawData?.salesorder_number ? (
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono font-bold text-sky-400">
+                          #{displayData.salesorder_number || displayData.items?.salesorder_number || displayData.rawData?.salesorder_number || displayData.salesorder_id}
+                        </span>
+                        <button
+                          onClick={() => {
+                            const soId = displayData.salesorder_id || displayData.items?.salesorder_id || displayData.rawData?.salesorder_id
+                            if (soId) {
+                              setInternalInvoiceOverride(soId)
+                              setInternalTypeOverride("SalesOrder")
+                              fetchDetails(false)
+                            }
+                          }}
+                          className="text-[9px] px-2 py-0.5 bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 font-bold rounded border border-sky-500/30 transition-colors"
+                        >
+                          View Sales Order ↗
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-neutral-600 italic">Direct Invoice (No Sales Order)</span>
+                    )}
+                  </div>
+
+                  {/* Originating Quote / Estimate */}
+                  <div>
+                    <span className="text-neutral-500 block text-[10px] uppercase font-bold">Originating Quote / Estimate</span>
+                    {displayData.estimate_number || displayData.estimate_id || displayData.items?.estimate_number || displayData.rawData?.estimate_number ? (
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono font-bold text-amber-400">
+                          #{displayData.estimate_number || displayData.items?.estimate_number || displayData.rawData?.estimate_number || displayData.estimate_id}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-neutral-600 italic">N/A</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Packages & Shipments Table */}
+                {((displayData.packages && displayData.packages.length > 0) || (displayData.shipments && displayData.shipments.length > 0) || displayData.tracking_number) && (
+                  <div className="bg-black/40 p-3 rounded-xl border border-white/10 space-y-2">
+                    <span className="text-[10px] text-cyan-400 uppercase font-bold tracking-wider flex items-center gap-1">
+                      <FiTruck /> Packages & Shipment Tracking
+                    </span>
+                    <div className="space-y-1.5">
+                      {(displayData.packages || displayData.items?.packages || []).map((pkg: any, pIdx: number) => (
+                        <div key={pIdx} className="flex items-center justify-between text-xs font-mono bg-white/5 p-2 rounded border border-white/5">
+                          <span className="font-bold text-white">Pkg #{pkg.package_number || pkg.package_id || pIdx+1}</span>
+                          <span className="text-neutral-400">Carrier: {pkg.carrier || "Standard"}</span>
+                          <span className="text-cyan-300 font-bold">Trk: {pkg.tracking_number || "Pending"}</span>
+                          <span className="px-2 py-0.5 text-[9px] rounded uppercase font-bold bg-cyan-950 text-cyan-400 border border-cyan-800">
+                            {pkg.status || "Shipped"}
+                          </span>
+                        </div>
+                      ))}
+                      {displayData.tracking_number && (!displayData.packages || displayData.packages.length === 0) && (
+                        <div className="flex items-center justify-between text-xs font-mono bg-white/5 p-2 rounded border border-white/5">
+                          <span className="font-bold text-white">Direct Shipment</span>
+                          <span className="text-neutral-400">Carrier: {displayData.carrier || "Standard"}</span>
+                          <span className="text-cyan-300 font-bold">Trk: {displayData.tracking_number}</span>
+                          <span className="px-2 py-0.5 text-[9px] rounded uppercase font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                            In Transit
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* --- Payments Made (Zoho Books) --- */}
               {displayData?.payments && displayData.payments.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-white/10">

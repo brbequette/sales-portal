@@ -4,6 +4,11 @@
 
 [build.environment]
   NODE_VERSION = "20.18.0"
+  NEXT_TELEMETRY_DISABLED = "1"
+  NPM_FLAGS = "--prefer-offline --no-audit"
+
+[build.processing]
+  skip_processing = true
 
 [functions]
   directory = "netlify/functions"
@@ -54,6 +59,16 @@
 [[redirects]]
   from = "/api/admin/settings"
   to = "/.netlify/functions/admin-settings"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/run-e2e-test"
+  to = "/.netlify/functions/admin-run-e2e-test"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/verify-so-costs"
+  to = "/.netlify/functions/admin-verify-so-costs"
   status = 200
 
 [[redirects]]

@@ -8,16 +8,43 @@ import FormData from 'form-data'
 export async function GET(req: Request, context: { params: Promise<{ accountId: string }> }) {
   try {
     const params = await context.params
-    // const { userId } = auth()
-    // if (!userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    const url = new URL(req.url)
+    const includeClosedHistory = url.searchParams.get("includeClosedHistory") === "true"
 
-    const messages = await prisma.smsMessage.findMany({
-      where: { accountId: params.accountId },
-      orderBy: { createdAt: 'asc' },
-      include: { author: { select: { name: true } } }
+    const account = await prisma.account.findUnique({
+      where: { id: params.accountId },
+      select: { lastClosedCycleAt: true }
     })
 
-    return NextResponse.json({ success: true, messages })
+    const lastClosedCycleAt = account?.lastClosedCycleAt || null
+
+    let whereClause: any = { accountId: params.accountId }
+    if (!includeClosedHistory && lastClosedCycleAt) {
+      whereClause.createdAt = { gte: lastClosedCycleAt }
+    }
+
+    const messages = await prisma.smsMessage.findMany({
+      where: whereClause,
+      orderBy: { createdAt: 'asc' },
+      include: {
+        author: { select: { name: true } },
+        contact: { select: { firstName: true, lastName: true, phone: true, mobilePhone: true } }
+      }
+    })
+
+    let closedMessagesCount = 0
+    if (lastClosedCycleAt) {
+      closedMessagesCount = await prisma.smsMessage.count({
+        where: { accountId: params.accountId, createdAt: { lt: lastClosedCycleAt } }
+      })
+    }
+
+    return NextResponse.json({
+      success: true,
+      messages,
+      lastClosedCycleAt,
+      closedMessagesCount
+    })
   } catch (error: any) {
     console.error('Fetch Account Messages Error:', error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -27,18 +54,20 @@ export async function GET(req: Request, context: { params: Promise<{ accountId: 
 export async function POST(req: Request, context: { params: Promise<{ accountId: string }> }) {
   try {
     const params = await context.params
-    // const { userId } = auth()
-    // if (!userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-
-    const dbUser = await prisma.user.findFirst()
-    if (!dbUser) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
 
     const body = await req.json()
-    const { text, fromNumber } = body
+    const { text, fromNumber, contactId, userId, userEmail } = body
 
     if (!text || !fromNumber) {
       return NextResponse.json({ success: false, error: 'Message text and sender number are required' }, { status: 400 })
     }
+
+    let dbUser = null
+    if (userId) dbUser = await prisma.user.findUnique({ where: { id: userId } })
+    if (!dbUser && userEmail) dbUser = await prisma.user.findUnique({ where: { email: userEmail } })
+    if (!dbUser) dbUser = await prisma.user.findFirst()
+
+    if (!dbUser) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
 
     const account = await prisma.account.findUnique({
       where: { id: params.accountId },
@@ -47,11 +76,18 @@ export async function POST(req: Request, context: { params: Promise<{ accountId:
 
     if (!account) return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 })
 
-    const contact = account.contacts.find((c: any) => c.isPrimary) || account.contacts[0]
-    const rawPhoneNumber = contact?.mobilePhone || contact?.phone
+    let selectedContact = null
+    if (contactId) {
+      selectedContact = account.contacts.find((c: any) => c.id === contactId)
+    }
+    if (!selectedContact) {
+      selectedContact = account.contacts.find((c: any) => c.isPrimary) || account.contacts[0]
+    }
+
+    const rawPhoneNumber = selectedContact?.mobilePhone || selectedContact?.phone
 
     if (!rawPhoneNumber) {
-      return NextResponse.json({ success: false, error: 'Account has no phone number' }, { status: 400 })
+      return NextResponse.json({ success: false, error: 'Account/Contact has no phone number' }, { status: 400 })
     }
 
     let phoneNumber = rawPhoneNumber.replace(/[^\d+]/g, '')
@@ -89,6 +125,7 @@ export async function POST(req: Request, context: { params: Promise<{ accountId:
       const msg = await prisma.smsMessage.create({
         data: {
           accountId: account.id,
+          contactId: selectedContact?.id || null,
           authorId: dbUser.id,
           fromNumber: fromNumber,
           toNumber: phoneNumber,

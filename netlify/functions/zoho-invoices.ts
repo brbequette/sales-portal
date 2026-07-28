@@ -1,5 +1,7 @@
 import { Handler } from "@netlify/functions"
 import { prisma } from "./lib/prisma"
+import { extractProfit, extractCommissionAmount, extractVigRate } from "../../src/lib/custom-field-extractor"
+
 import { zohoCache } from "../../src/lib/services/zohoCache"
 
 export const handler: Handler = async (event) => {
@@ -78,10 +80,10 @@ export const handler: Handler = async (event) => {
         salesorder_date: items.salesorder_date || null,
         salesorder_salesperson_name: items.salesorder_salesperson_name || null,
         reference_number: items.reference_number || null,
-        cf_profit_unformatted: items.profit ?? items.cf_profit_unformatted ?? extractCustomField(items, 'cf_estimated_profit_unformatted') ?? 0,
+        cf_profit_unformatted: extractProfit(items),
         deadProfit: (items.sub_total ?? inv.amount ?? 0) - (items.deadCostTotal ?? 0),
-        cf_commision_amount_unformatted: items.commission ?? items.cf_commision_amount_unformatted ?? extractCustomField(items, 'cf_commission_amount_unformatted') ?? 0,
-        cf_salesperson_vig_unformatted: items.vig ?? items.cf_salesperson_vig_unformatted ?? extractCustomField(items, 'cf_salesperson_vig_unformatted') ?? 1.3,
+        cf_commision_amount_unformatted: extractCommissionAmount(items),
+        cf_salesperson_vig_unformatted: extractVigRate(items),
         line_items: items.line_items || [],
         custom_fields: items.custom_fields || [],
         shipping_charge: items.shippingCharge ?? 0,
@@ -106,15 +108,16 @@ export const handler: Handler = async (event) => {
         salesorder_date: so.orderDate?.toISOString().split('T')[0] || null,
         salesorder_salesperson_name: items.salesperson || null,
         reference_number: items.reference_number || null,
-        cf_profit_unformatted: items.profit ?? items.cf_profit_unformatted ?? extractCustomField(items, 'cf_estimated_profit_unformatted') ?? 0,
+        cf_profit_unformatted: extractProfit(items),
         deadProfit: (items.sub_total ?? so.amount ?? 0) - (items.deadCostTotal ?? 0),
-        cf_commision_amount_unformatted: items.commission ?? items.cf_commision_amount_unformatted ?? extractCustomField(items, 'cf_commission_amount_unformatted') ?? 0,
-        cf_salesperson_vig_unformatted: items.vig ?? items.cf_salesperson_vig_unformatted ?? extractCustomField(items, 'cf_salesperson_vig_unformatted') ?? 1.3,
+        cf_commision_amount_unformatted: extractCommissionAmount(items),
+        cf_salesperson_vig_unformatted: extractVigRate(items),
         line_items: items.line_items || [],
         custom_fields: items.custom_fields || [],
         shipping_charge: items.shippingCharge ?? 0,
       }
     })
+
 
     const combined = [...invoicesMapped, ...sosMapped].sort((a: any, b: any) => {
       const dateA = a.salesorder_date || a.date

@@ -5,6 +5,7 @@ import { formatPhoneNumber } from "@/lib/formatters"
 
 import { useState } from "react"
 import { FiPhoneCall, FiMail, FiMessageSquare, FiFileText, FiCheckSquare } from "react-icons/fi"
+import { PhoneLink } from "@/components/PhoneLink"
 
 export function SalesAssistant({ accountId, accountData }: { accountId: string, accountData?: any }) {
   const [isGenerating, setIsGenerating] = useState(false)
@@ -113,13 +114,13 @@ export function SalesAssistant({ accountId, accountData }: { accountId: string, 
         <div className="flex items-center gap-2 pt-2 border-t border-white/10">
           <span className="text-xs text-neutral-500 font-semibold mr-2">QUICK ACTIONS:</span>
           {accountData?.booksContact?.phone && (
-            <a 
-              href={"tel:" + accountData.booksContact.phone.replace(/[^0-9+]/g, '')}
+            <PhoneLink 
+              phone={accountData.booksContact.phone}
+              showNumberOnDesktop
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded transition-colors text-xs font-bold"
-              title="Click to Call (ZDialer)"
             >
-              <FiPhoneCall size={14} /> Call
-            </a>
+              <FiPhoneCall size={14} />
+            </PhoneLink>
           )}
           {accountData?.booksContact?.email && (
             <a 

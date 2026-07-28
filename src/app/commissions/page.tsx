@@ -63,7 +63,13 @@ export default function CommissionsPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/get-commissions?includeHidden=true&year=${selectedYear}`)
+      const queryParams = new URLSearchParams({
+        includeHidden: "true",
+        year: selectedYear,
+        userId: user?.id || "",
+        userEmail: user?.email || "",
+      })
+      const res = await fetch(`/api/get-commissions?${queryParams.toString()}`)
       const data = await res.json()
       if (data.success) {
         setByRep(data.byRep || {})
@@ -72,8 +78,16 @@ export default function CommissionsPage() {
         const repsList = Object.keys(data.byRep || {})
         if (repsList.length > 0) {
           const userEmail = (user?.email || "").toLowerCase()
-          const matchedRep = repsList.find(r => r.toLowerCase().includes(userEmail.split('@')[0])) || repsList[0]
-          if (!selectedRepId) setSelectedRepId(matchedRep)
+          const userId = user?.id
+          const userName = (user?.name || "").toLowerCase()
+
+          // Match by ID first, then by email prefix, then by name
+          let matchedRep = repsList.find(r => r === userId) ||
+                           repsList.find(r => (data.byRep[r]?.repName || "").toLowerCase().includes(userName) || userName.includes((data.byRep[r]?.repName || "").toLowerCase())) ||
+                           repsList.find(r => r.toLowerCase().includes(userEmail.split('@')[0])) ||
+                           repsList[0]
+
+          setSelectedRepId(matchedRep)
         }
       } else {
         setError(data.error || "Failed to load commission data")
@@ -87,7 +101,7 @@ export default function CommissionsPage() {
 
   useEffect(() => {
     fetchCommissions()
-  }, [selectedYear])
+  }, [selectedYear, user?.id, user?.email])
 
   const repOptions = useMemo(() => {
     return Object.values(byRep).map((r: any) => ({ id: r.repId, name: r.repName }))

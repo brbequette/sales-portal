@@ -12,6 +12,8 @@ import {
 } from "recharts"
 import { useZoho } from "@/components/ZohoProvider"
 import { MetricDerivationModal, MetricDerivationInfo } from "@/components/MetricDerivationModal"
+import { extractProfit, extractCommissionAmount } from "@/lib/custom-field-extractor"
+
 
 // â"€â"€â"€ Types â"€â"€â"€
 interface DashboardData {
@@ -343,9 +345,10 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
       for (const inv of invoices) {
         const amount = parseFloat(inv.sub_total || inv.total || "0")
-        const profit = parseFloat(inv.cf_profit_unformatted || inv.cf_estimated_profit_unformatted || "0")
-        const commission = parseFloat(inv.cf_commision_amount_unformatted || "0")
+        const profit = extractProfit(inv)
+        const commission = extractCommissionAmount(inv)
         const dateStr = inv.salesorder_date || inv.date || ""
+
         const invDate = new Date(dateStr)
         const status = (inv.status || "").toLowerCase()
         const rep = inv.salesorder_salesperson_name || inv.salesperson_name || "Unknown"

@@ -2,6 +2,15 @@ import { Handler } from "@netlify/functions"
 import { getStore } from "@netlify/blobs"
 
 import { prisma } from "./lib/prisma"
+import {
+  extractProfit,
+  extractCommissionAmount,
+  extractVigRate,
+  extractDeadCostTotal,
+  extractCcFees,
+  extractAdditionalCosts,
+  extractInsurance
+} from "../../src/lib/custom-field-extractor"
 
 /**
  * Zoho Books Webhook Receiver
@@ -200,23 +209,17 @@ export const handler: Handler = async (event) => {
       booksSalesOrderId: type === 'SalesOrder' ? booksId : currentItems.booksSalesOrderId,
       booksEstimateId: type === 'Quote' ? booksId : currentItems.booksEstimateId,
       // ── Calculated cost fields ──
-      profit: cfh.cf_estimated_profit_unformatted !== undefined
-        ? parseFloat(cfh.cf_estimated_profit_unformatted) || 0
-        : cfh.cf_profit_unformatted !== undefined
-          ? parseFloat(cfh.cf_profit_unformatted) || 0
-          : cfh.cf_dead_cost_total_unformatted !== undefined
-            ? parseFloat(doc.sub_total || 0) - parseFloat(cfh.cf_dead_cost_total_unformatted)
-            : currentItems.profit ?? 0,
-      commission: parseFloat(cfh.cf_commission_amount_unformatted ?? cfh.cf_commision_amount_unformatted ?? currentItems.commission ?? 0) || 0,
+      profit: extractProfit(doc) || currentItems.profit || 0,
+      commission: extractCommissionAmount(doc) || currentItems.commission || 0,
       commissionPercent: parseFloat(cfh.cf_commision_from_profit_unformatted ?? currentItems.commissionPercent ?? 50) || 50,
-      vig: parseFloat(cfh.cf_salesperson_vig_unformatted ?? currentItems.vig ?? 1.3) || 1.3,
-      deadCostTotal: parseFloat(cfh.cf_dead_cost_total_unformatted ?? currentItems.deadCostTotal ?? 0) || 0,
+      vig: extractVigRate(doc) || currentItems.vig || 1.3,
+      deadCostTotal: extractDeadCostTotal(doc) || currentItems.deadCostTotal || 0,
       deadCostSubjectToVig: parseFloat(cfh.cf_dead_cost_subject_to_vig_unformatted ?? currentItems.deadCostSubjectToVig ?? 0) || 0,
       deadCostNoVig: parseFloat(cfh.cf_dead_cost_no_vig_unformatted ?? currentItems.deadCostNoVig ?? 0) || 0,
       deadCostPlusVig: parseFloat(cfh.cf_dead_cost_with_vig_unformatted ?? currentItems.deadCostPlusVig ?? 0) || 0,
-      ccFees: parseFloat(cfh.cf_credit_card_processing_fees_unformatted ?? currentItems.ccFees ?? 0) || 0,
-      additionalCosts: parseFloat(cfh.cf_additional_costs_to_order_unformatted ?? currentItems.additionalCosts ?? 0) || 0,
-      insurance: parseFloat(cfh.cf_insurance_unformatted ?? currentItems.insurance ?? 0) || 0,
+      ccFees: extractCcFees(doc) || currentItems.ccFees || 0,
+      additionalCosts: extractAdditionalCosts(doc) || currentItems.additionalCosts || 0,
+      insurance: extractInsurance(doc) || currentItems.insurance || 0,
       // ── Non-calculated user-input fields ──
       estimateNumberRef: cfh.cf_estimate_number ?? currentItems.estimateNumberRef ?? null,
       estimateDate: cfh.cf_estimate_date ?? currentItems.estimateDate ?? null,

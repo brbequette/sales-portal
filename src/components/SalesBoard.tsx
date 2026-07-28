@@ -1,7 +1,11 @@
 "use client"
 
 import React, { useEffect, useState, useMemo, useRef } from "react"
-import { FiTrendingUp, FiDollarSign, FiTarget, FiActivity, FiAward, FiClock, FiStar, FiMaximize, FiMinimize, FiPlay, FiPause, FiChevronLeft, FiChevronRight, FiAlertCircle } from "react-icons/fi"
+import { FiTrendingUp, FiDollarSign, FiTarget, FiActivity, FiAward, FiClock, FiStar, FiMaximize, FiMinimize, FiPlay, FiPause, FiChevronLeft, FiChevronRight, FiAlertCircle, FiSliders } from "react-icons/fi"
+
+import { KpiBreakdownModal } from "./KpiBreakdownModal"
+import SalesBoardCustomizer, { WidgetConfig, DEFAULT_WIDGET_LAYOUT } from "./SalesBoardCustomizer"
+import { RevenueVsGoalWidget, VigCostAllocationWidget, PipelineFunnelWidget, ZDialerActivityWidget, TimeclockStatusWidget } from "./DashboardWidgetCatalog"
 
 const REP_GRADIENTS = [
   "from-purple-500 to-indigo-500",
@@ -39,6 +43,102 @@ export function SalesBoard() {
   const [isPaused, setIsPaused] = useState(false)
   const [progress, setProgress] = useState(0)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+
+  // Layout Customizer state
+  const [isCustomizerOpen, setIsCustomizerOpen] = useState(false)
+  const [widgets, setWidgets] = useState<WidgetConfig[]>(DEFAULT_WIDGET_LAYOUT)
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("salesboard_widget_layout")
+      if (saved) {
+        setWidgets(JSON.parse(saved))
+      }
+    } catch (e) {
+      console.error("Failed to load saved layout", e)
+    }
+  }, [])
+
+  const handleUpdateWidgets = (updated: WidgetConfig[]) => {
+    setWidgets(updated)
+    try {
+      localStorage.setItem("salesboard_widget_layout", JSON.stringify(updated))
+    } catch (e) {
+      console.error("Failed to save layout", e)
+    }
+  }
+
+  const handleResetLayout = () => {
+    setWidgets(DEFAULT_WIDGET_LAYOUT)
+    try {
+      localStorage.removeItem("salesboard_widget_layout")
+    } catch (e) {
+      console.error("Failed to reset layout", e)
+    }
+  }
+
+  // KPI Breakdown Modal state
+  const [kpiModalOpen, setKpiModalOpen] = useState(false)
+  const [kpiModalTitle, setKpiModalTitle] = useState("")
+  const [kpiModalFormula, setKpiModalFormula] = useState("")
+  const [kpiModalDocs, setKpiModalDocs] = useState<any[]>([])
+
+  useEffect(() => {
+    const handleMetricEvent = (e: any) => {
+      const key = e.detail?.key
+      if (!data || !data.rawInvoices) return
+
+      let title = "KPI Calculation Breakdown"
+      let formula = "Sum of matching documents"
+      let docs: any[] = []
+
+      const now = new Date()
+      const currentMonth = now.getMonth()
+      const currentYear = now.getFullYear()
+
+      if (key === "weeklyGoal") {
+        title = "Weekly Sales Revenue Derivation"
+        formula = "Sum of invoice subtotals issued between Monday and Friday of current week"
+        docs = data.rawInvoices.filter((inv: any) => {
+          const d = new Date(inv.date || inv.issueDate)
+          return !isNaN(d.getTime()) && (now.getTime() - d.getTime()) <= 7 * 24 * 60 * 60 * 1000
+        })
+      } else if (key === "totalRevenue") {
+        title = "MTD Total Revenue Derivation"
+        formula = "Sum of all active invoice subtotals created in current month"
+        docs = data.rawInvoices.filter((inv: any) => {
+          const d = new Date(inv.date || inv.issueDate)
+          return d.getMonth() === currentMonth && d.getFullYear() === currentYear
+        })
+      } else if (key === "monthlyProfit") {
+        title = "Monthly Net Profit & Commission Derivation"
+        formula = "Sum of (Subtotal - DeadCostPlusVIG - CCFees - AdditionalCosts) for current month invoices"
+        docs = data.rawInvoices.filter((inv: any) => {
+          const d = new Date(inv.date || inv.issueDate)
+          return d.getMonth() === currentMonth && d.getFullYear() === currentYear
+        })
+      } else if (key === "activePipeline") {
+        title = "Active Pipeline & Overdue Derivation"
+        formula = "Sum of unpaid balances on non-draft, non-void invoices"
+        docs = data.rawInvoices.filter((inv: any) => {
+          const status = (inv.status || "").toLowerCase()
+          return status !== "paid" && status !== "void" && status !== "draft" && parseFloat(inv.balance || 0) > 0
+        })
+      } else {
+        title = "Sales Performance Document Derivation"
+        formula = "All matching period invoices"
+        docs = data.rawInvoices || []
+      }
+
+      setKpiModalTitle(title)
+      setKpiModalFormula(formula)
+      setKpiModalDocs(docs)
+      setKpiModalOpen(true)
+    }
+
+    window.addEventListener("open-metric-derivation", handleMetricEvent)
+    return () => window.removeEventListener("open-metric-derivation", handleMetricEvent)
+  }, [data])
 
   // Collapse all rows when screen changes
   useEffect(() => {
@@ -79,17 +179,17 @@ export function SalesBoard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch users and invoices in parallel
-        const [usersRes, res] = await Promise.all([
+        // Fetch users, invoices, sales orders, and quotes in parallel
+        const [usersRes, docsRes] = await Promise.all([
           fetch("/api/admin/users"),
-          fetch("/api/zoho-invoices")
+          fetch("/api/get-documents?pageSize=1000&type=All")
         ])
         const usersPayload = usersRes.ok && (usersRes.headers.get("content-type") || "").includes("application/json") 
           ? await usersRes.json() 
           : { users: [] }
-        const payload = res.ok && (res.headers.get("content-type") || "").includes("application/json") 
-          ? await res.json() 
-          : { invoices: [] }
+        const docsPayload = docsRes.ok && (docsRes.headers.get("content-type") || "").includes("application/json") 
+          ? await docsRes.json() 
+          : { documents: [] }
         
         // Build reps from users with showOnSalesBoard
         const boardUsers = (usersPayload.users || []).filter((u: any) => u.showOnSalesBoard)
@@ -132,84 +232,174 @@ export function SalesBoard() {
         dynamicReps.forEach((r: any) => {
           repsMap[r.id] = { 
             ...r, 
-            weekly: { sales: [0,0,0,0,0], profit: [0,0,0,0,0], totalSales: 0, totalProfit: 0, dealsClosed: 0, commission: 0, invoices: [] },
-            mtd: { sales: 0, profit: 0, commission: 0, dealsClosed: 0, invoices: [] },
-            ytd: { sales: 0, profit: 0, commission: 0, dealsClosed: 0, invoices: [] }
+            weekly: { sales: [0,0,0,0,0], profit: [0,0,0,0,0], deadCostNoVig: 0, deadCostSubjectToVig: 0, totalSales: 0, totalProfit: 0, dealsClosed: 0, commission: 0, invoices: [] },
+            mtd: { sales: 0, profit: 0, deadCostNoVig: 0, deadCostSubjectToVig: 0, commission: 0, dealsClosed: 0, invoices: [] },
+            ytd: { sales: 0, profit: 0, deadCostNoVig: 0, deadCostSubjectToVig: 0, commission: 0, dealsClosed: 0, invoices: [] },
+            activePipeline: { estimateCount: 0, estimateAmount: 0, salesOrderCount: 0, salesOrderAmount: 0 }
           }
         })
 
-        let teamWeekly = { sales: 0, profit: 0, commission: 0, target: dynamicReps.reduce((sum: number, r: any) => sum + r.weeklyTarget, 0) }
+        let teamWeekly = { 
+          sales: 0, 
+          profit: 0, 
+          deadCostNoVig: 0,
+          deadCostSubjectToVig: 0,
+          commission: 0, 
+          target: dynamicReps.reduce((sum: number, r: any) => sum + r.weeklyTarget, 0) 
+        }
         const overdueInvoices: any[] = []
-        
         let totalOverdueBalance = 0
+        const rawDocs = docsPayload.documents || []
 
-        const invoices = payload.invoices || []
-        invoices.forEach((inv: any) => {
-          const spName = (inv.salesorder_salesperson_name || inv.salesperson_name || "").toUpperCase()
+        rawDocs.forEach((doc: any) => {
+          const raw = doc.raw || {}
+          const items = raw.items || {}
+          const spName = (raw.salesorder_salesperson_name || raw.salesperson_name || doc.salesperson || "").toUpperCase()
           if (spName.includes("PAUL") && (spName.includes("GENCUSKI") || spName.includes("GENKUSKI"))) return
 
-          const saleDate = inv.salesorder_date || inv.date
-          if (!saleDate) return
+          const docType = doc.type || 'Invoice'
+          const matchedRep = Object.values(repsMap).find(r => r.name.toUpperCase().includes(spName) || spName.includes(r.name.toUpperCase()))
 
-          const invDateObj = new Date(saleDate)
-          const amount = Number(inv.sub_total !== undefined ? inv.sub_total : (inv.total || 0))
-          const profit = Number(inv.deadProfit || 0)
-          const commission = Number(inv.cf_commision_amount_unformatted || inv.custom_field_hash?.cf_commision_amount_unformatted || 0)
-          const balance = Number(inv.balance !== undefined ? inv.balance : 0)
+          // --- 1. ESTIMATES / QUOTES (48 Hours active on board or until SO) ---
+          if (docType === 'Quote') {
+            const quoteDate = doc.date ? new Date(doc.date) : new Date(raw.createdAt || Date.now())
+            const ageHours = (today.getTime() - quoteDate.getTime()) / (1000 * 3600)
+            const isConvertedToSO = raw.status === 'Converted' || raw.salesorder_id || raw.salesorder_number
+            if (ageHours <= 48 && !isConvertedToSO && matchedRep) {
+              matchedRep.activePipeline.estimateCount += 1
+              matchedRep.activePipeline.estimateAmount += parseFloat(raw.total || raw.amount || doc.amount || 0)
+            }
+            return
+          }
 
-          // Check overdue
-          const dueDate = inv.due_date ? new Date(inv.due_date) : null
-          if (dueDate && inv.status === 'overdue' && balance > 0) {
-             const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24))
-             if (daysOverdue > 0) {
+          // --- 2. SALES ORDERS (Active on board until Invoiced) ---
+          if (docType === 'SalesOrder') {
+            const isInvoiced = raw.status === 'Invoiced' || raw.invoice_id || raw.invoice_number
+            if (!isInvoiced && matchedRep) {
+              matchedRep.activePipeline.salesOrderCount += 1
+              matchedRep.activePipeline.salesOrderAmount += parseFloat(raw.total || raw.amount || doc.amount || 0)
+            }
+            return
+          }
+
+          // --- 3. INVOICES (50% Commission on Issue Date + 50% Commission on Paid Date) ---
+          if (docType === 'Invoice') {
+            const saleDate = raw.salesorder_date || raw.date || doc.date ? new Date(raw.salesorder_date || raw.date || doc.date).toISOString().split('T')[0] : ''
+            if (!saleDate) return
+
+            const invDateObj = new Date(saleDate)
+            const amount = Number(raw.sub_total !== undefined ? raw.sub_total : (raw.total || doc.amount || 0))
+            const profit = Number(raw.deadProfit || items.profit || doc.profit || 0)
+            const deadCostNoVig = Number(items.deadCostNoVig || raw.deadCostNoVig || 0)
+            const deadCostSubjectToVig = Number(items.deadCostSubjectToVig || raw.deadCostSubjectToVig || 0)
+
+            // Commission 50/50 split calculation
+            const fullComm = Number(raw.cf_commision_amount_unformatted || items.salesCommission || (profit * 0.5) || 0)
+            const isPaid = (raw.status || "").toLowerCase() === "paid" || items.paymentDate != null
+            const isSameDayPaid = items.isSameDayPaid || false
+
+            // Upfront 50% commission on invoice issue date
+            let commissionEarned = fullComm * 0.5
+            // Second 50% commission if paid
+            if (isPaid || isSameDayPaid) {
+              commissionEarned = fullComm // 100%
+            }
+
+            const balance = Number(raw.balance !== undefined ? raw.balance : 0)
+
+            // Check overdue
+            const dueDate = raw.due_date ? new Date(raw.due_date) : null
+            if (dueDate && raw.status === 'overdue' && balance > 0) {
+              const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24))
+              if (daysOverdue > 0) {
                 totalOverdueBalance += balance
                 overdueInvoices.push({
-                   customer: inv.customer_name,
-                   invoiceNumber: inv.invoice_number,
-                   balance: balance,
-                   saleDate: saleDate,
-                   daysOverdue: daysOverdue,
-                   repName: spName
+                  customer: raw.customer_name || doc.accountName,
+                  invoiceNumber: raw.invoice_number || doc.invoiceNumber,
+                  balance: balance,
+                  saleDate: saleDate,
+                  daysOverdue: daysOverdue,
+                  repName: spName
                 })
-             }
-          }
+              }
+            }
 
-          const inCurrentWeek = weekDays.includes(saleDate)
-          const isMTD = invDateObj.getFullYear() === currentYear && invDateObj.getMonth() === currentMonth
-          const isYTD = invDateObj.getFullYear() === currentYear
+            const inCurrentWeek = weekDays.includes(saleDate)
+            const isMTD = invDateObj.getFullYear() === currentYear && invDateObj.getMonth() === currentMonth
+            const isYTD = invDateObj.getFullYear() === currentYear
 
-          const matchedRep = Object.values(repsMap).find(r => r.name.toUpperCase().includes(spName) || spName.includes(r.name.toUpperCase()))
-          
-          if (inCurrentWeek) {
-            teamWeekly.sales += amount
-            teamWeekly.profit += profit
-            teamWeekly.commission += commission
+            if (inCurrentWeek) {
+              teamWeekly.sales += amount
+              teamWeekly.profit += profit
+              teamWeekly.deadCostNoVig += deadCostNoVig
+              teamWeekly.deadCostSubjectToVig += deadCostSubjectToVig
+              teamWeekly.commission += commissionEarned
+
+              if (matchedRep) {
+                const dayIdx = weekDays.indexOf(saleDate)
+                if (dayIdx >= 0) {
+                  matchedRep.weekly.sales[dayIdx] += amount
+                  matchedRep.weekly.profit[dayIdx] += profit
+                }
+                matchedRep.weekly.totalSales += amount
+                matchedRep.weekly.totalProfit += profit
+                matchedRep.weekly.deadCostNoVig += deadCostNoVig
+                matchedRep.weekly.deadCostSubjectToVig += deadCostSubjectToVig
+                matchedRep.weekly.commission += commissionEarned
+                matchedRep.weekly.dealsClosed += 1
+                matchedRep.weekly.invoices.push({ 
+                  id: raw.invoice_id || raw.id || doc.id, 
+                  date: saleDate, 
+                  customer: raw.customer_name || doc.accountName, 
+                  amount, 
+                  profit, 
+                  deadCostNoVig,
+                  deadCostSubjectToVig,
+                  commission: commissionEarned, 
+                  invoiceNumber: raw.invoice_number || doc.invoiceNumber 
+                })
+              }
+            }
+
             if (matchedRep) {
-               const dayIdx = weekDays.indexOf(saleDate)
-               matchedRep.weekly.sales[dayIdx] += amount
-               matchedRep.weekly.profit[dayIdx] += profit
-               matchedRep.weekly.totalSales += amount
-               matchedRep.weekly.totalProfit += profit
-               matchedRep.weekly.commission += commission
-               matchedRep.weekly.dealsClosed += 1
-               matchedRep.weekly.invoices.push({ id: inv.invoice_id || inv.id, date: saleDate, customer: inv.customer_name, amount, profit, commission, invoiceNumber: inv.invoice_number })
-            }
-          }
-
-          if (matchedRep) {
-            if (isMTD) {
-               matchedRep.mtd.sales += amount
-               matchedRep.mtd.profit += profit
-               matchedRep.mtd.commission += commission
-               matchedRep.mtd.dealsClosed += 1
-               matchedRep.mtd.invoices.push({ id: inv.invoice_id || inv.id, date: saleDate, customer: inv.customer_name, amount, profit, commission, invoiceNumber: inv.invoice_number })
-            }
-            if (isYTD) {
-               matchedRep.ytd.sales += amount
-               matchedRep.ytd.profit += profit
-               matchedRep.ytd.commission += commission
-               matchedRep.ytd.dealsClosed += 1
-               matchedRep.ytd.invoices.push({ id: inv.invoice_id || inv.id, date: saleDate, customer: inv.customer_name, amount, profit, commission, invoiceNumber: inv.invoice_number })
+              if (isMTD) {
+                matchedRep.mtd.sales += amount
+                matchedRep.mtd.profit += profit
+                matchedRep.mtd.deadCostNoVig += deadCostNoVig
+                matchedRep.mtd.deadCostSubjectToVig += deadCostSubjectToVig
+                matchedRep.mtd.commission += commissionEarned
+                matchedRep.mtd.dealsClosed += 1
+                matchedRep.mtd.invoices.push({ 
+                  id: raw.invoice_id || raw.id || doc.id, 
+                  date: saleDate, 
+                  customer: raw.customer_name || doc.accountName, 
+                  amount, 
+                  profit, 
+                  deadCostNoVig,
+                  deadCostSubjectToVig,
+                  commission: commissionEarned, 
+                  invoiceNumber: raw.invoice_number || doc.invoiceNumber 
+                })
+              }
+              if (isYTD) {
+                matchedRep.ytd.sales += amount
+                matchedRep.ytd.profit += profit
+                matchedRep.ytd.deadCostNoVig += deadCostNoVig
+                matchedRep.ytd.deadCostSubjectToVig += deadCostSubjectToVig
+                matchedRep.ytd.commission += commissionEarned
+                matchedRep.ytd.dealsClosed += 1
+                matchedRep.ytd.invoices.push({ 
+                  id: raw.invoice_id || raw.id || doc.id, 
+                  date: saleDate, 
+                  customer: raw.customer_name || doc.accountName, 
+                  amount, 
+                  profit, 
+                  deadCostNoVig,
+                  deadCostSubjectToVig,
+                  commission: commissionEarned, 
+                  invoiceNumber: raw.invoice_number || doc.invoiceNumber 
+                })
+              }
             }
           }
         })
@@ -316,6 +506,13 @@ export function SalesBoard() {
             {isPaused ? <FiPlay size={16} /> : <FiPause size={16} />}
           </button>
           <button onClick={nextScreen} className="text-neutral-400 hover:text-white transition-colors"><FiChevronRight size={18} /></button>
+          <button 
+            onClick={() => setIsCustomizerOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/30 transition-all shadow-[0_0_10px_rgba(52,211,153,0.15)]"
+            title="Customize Dashboard Layout"
+          >
+            <FiSliders size={14} /> Customize Layout
+          </button>
           <div className="w-[1px] h-4 bg-white/10"></div>
           <button onClick={toggleFullscreen} className="text-neutral-400 hover:text-white transition-colors pr-2">
             {isFullscreen ? <FiMinimize size={16} /> : <FiMaximize size={16} />}
@@ -333,13 +530,38 @@ export function SalesBoard() {
         
         {/* SCREEN 1: WEEKLY GRID */}
         <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "WEEKLY_GRID" ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0 pointer-events-none"}`}>
-          <div className="flex items-center justify-between mb-8">
-             <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase flex items-center gap-2">
-                <FiActivity className="text-emerald-400" /> Weekly Board
-             </h3>
-             <div className="text-right">
-                <div className="text-2xl font-black text-white">{formatCurrency(data.teamWeekly.sales)}</div>
-                <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Team Subtotal</div>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+             <div>
+                <h3 className="text-neutral-400 text-xs font-bold tracking-widest uppercase flex items-center gap-2">
+                   <FiActivity className="text-emerald-400 animate-pulse" /> Live Weekly Sales & Financial Performance
+                </h3>
+                <p className="text-[11px] text-neutral-500 font-semibold mt-0.5">
+                  Pipeline: <span className="text-cyan-400 font-bold">48h Estimates</span> &amp; <span className="text-amber-400 font-bold">Uninvoiced Sales Orders</span>
+                </p>
+             </div>
+             
+             {/* --- 5-Badge Financial Metric Strip --- */}
+             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full md:w-auto">
+                <div className="bg-gradient-to-br from-sky-950/60 to-blue-950/60 p-3 rounded-xl border border-sky-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)] hover:scale-[1.02] transition-transform">
+                   <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">Gross Sales</span>
+                   <span className="text-base font-black text-white block mt-0.5">{formatCurrency(data.teamWeekly.sales)}</span>
+                </div>
+                <div className="bg-gradient-to-br from-amber-950/60 to-orange-950/60 p-3 rounded-xl border border-amber-500/20 shadow-[0_0_15px_rgba(251,191,36,0.1)] hover:scale-[1.02] transition-transform">
+                   <span className="text-[9px] uppercase font-bold text-amber-400 tracking-wider block">DC (Subject VIG)</span>
+                   <span className="text-base font-black text-amber-200 block mt-0.5">{formatCurrency(data.teamWeekly.deadCostSubjectToVig)}</span>
+                </div>
+                <div className="bg-gradient-to-br from-purple-950/60 to-fuchsia-950/60 p-3 rounded-xl border border-purple-500/20 shadow-[0_0_15px_rgba(232,121,249,0.1)] hover:scale-[1.02] transition-transform">
+                   <span className="text-[9px] uppercase font-bold text-purple-300 tracking-wider block">🎁 DC (No VIG)</span>
+                   <span className="text-base font-black text-purple-200 block mt-0.5">{formatCurrency(data.teamWeekly.deadCostNoVig)}</span>
+                </div>
+                <div className="bg-gradient-to-br from-emerald-950/60 to-teal-950/60 p-3 rounded-xl border border-emerald-500/20 shadow-[0_0_15px_rgba(52,211,153,0.1)] hover:scale-[1.02] transition-transform">
+                   <span className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider block">Net Profit</span>
+                   <span className="text-base font-black text-emerald-300 block mt-0.5">{formatCurrency(data.teamWeekly.profit)}</span>
+                </div>
+                <div className="bg-gradient-to-br from-rose-950/60 to-pink-950/60 p-3 rounded-xl border border-rose-500/20 shadow-[0_0_15px_rgba(251,113,133,0.1)] hover:scale-[1.02] transition-transform">
+                   <span className="text-[9px] uppercase font-bold text-rose-300 tracking-wider block">Commission (50/50)</span>
+                   <span className="text-base font-black text-rose-200 block mt-0.5">{formatCurrency(data.teamWeekly.commission)}</span>
+                </div>
              </div>
           </div>
 
@@ -489,17 +711,40 @@ export function SalesBoard() {
                        <span>{quota}% of Goal</span>
                        <span>Target: {formatCurrency(rep.weeklyTarget)}</span>
                     </div>
+                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/10 text-xs">
+                      <div>
+                        <span className="text-[9px] uppercase font-bold text-neutral-500 block">DC Subject to VIG</span>
+                        <span className="text-amber-300 font-bold">{formatCurrency(rep.weekly.deadCostSubjectToVig)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase font-bold text-purple-400 block">🎁 DC (No VIG)</span>
+                        <span className="text-purple-300 font-bold">{formatCurrency(rep.weekly.deadCostNoVig)}</span>
+                      </div>
+                    </div>
+
+                    {/* Active Pipeline Badges (48h Estimates & Uninvoiced SOs) */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                      <div className="flex-1 bg-cyan-950/40 p-2 rounded-lg border border-cyan-500/20 text-[10px]">
+                        <span className="text-cyan-400 font-bold block uppercase">48h Estimates</span>
+                        <span className="text-white font-bold">{rep.activePipeline.estimateCount} ({formatCurrency(rep.activePipeline.estimateAmount)})</span>
+                      </div>
+                      <div className="flex-1 bg-amber-950/40 p-2 rounded-lg border border-amber-500/20 text-[10px]">
+                        <span className="text-amber-400 font-bold block uppercase">Uninvoiced SOs</span>
+                        <span className="text-white font-bold">{rep.activePipeline.salesOrderCount} ({formatCurrency(rep.activePipeline.salesOrderAmount)})</span>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-3 gap-4 pt-2 border-t border-white/10">
                       <div>
                          <div className="text-lg font-bold text-white">{rep.weekly.dealsClosed}</div>
                          <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Deals</div>
                       </div>
                       <div>
-                         <div className="text-lg font-bold text-emerald-400">{formatCurrency(rep.weekly.commission)}</div>
-                         <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Comm</div>
+                         <div className="text-lg font-bold text-rose-400">{formatCurrency(rep.weekly.commission)}</div>
+                         <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">50/50 Comm</div>
                       </div>
                       <div>
-                         <div className="text-lg font-bold text-white">{formatPercent(profitMargin)}</div>
+                         <div className="text-lg font-bold text-emerald-400">{formatPercent(profitMargin)}</div>
                          <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Margin</div>
                       </div>
                     </div>
@@ -777,6 +1022,28 @@ export function SalesBoard() {
           </div>
         </div>
       </div>
+
+      {/* KPI Derivation Document Breakdown Modal */}
+      {kpiModalOpen && (
+        <KpiBreakdownModal
+          isOpen={kpiModalOpen}
+          onClose={() => setKpiModalOpen(false)}
+          title={kpiModalTitle}
+          formula={kpiModalFormula}
+          documents={kpiModalDocs}
+        />
+      )}
+
+      {/* Dashboard Layout Customizer Modal */}
+      {isCustomizerOpen && (
+        <SalesBoardCustomizer
+          isOpen={isCustomizerOpen}
+          onClose={() => setIsCustomizerOpen(false)}
+          widgets={widgets}
+          onUpdateWidgets={handleUpdateWidgets}
+          onReset={handleResetLayout}
+        />
+      )}
     </div>
   )
 }
