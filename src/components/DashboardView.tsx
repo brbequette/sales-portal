@@ -52,6 +52,57 @@ interface DashboardViewProps {
   repEmail?: string | null   // For matching user to invoices
 }
 
+function parseLocalDate(dateStr: any): Date | null {
+  if (!dateStr) return null
+  if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr
+  const s = String(dateStr).trim()
+  if (!s) return null
+  const clean = s.split('T')[0]
+  const parts = clean.split('-')
+  if (parts.length === 3) {
+    const y = parseInt(parts[0], 10)
+    const m = parseInt(parts[1], 10) - 1
+    const d = parseInt(parts[2], 10)
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      return new Date(y, m, d, 12, 0, 0)
+    }
+  }
+  const dt = new Date(s)
+  return isNaN(dt.getTime()) ? null : dt
+}
+
+function matchesRep(invoiceRep: string, filterName?: string | null, repEmail?: string | null): boolean {
+  if (!filterName) return true
+  const filter = filterName.trim().toUpperCase()
+  if (!filter || filter.includes("ADMIN") || filter.includes("MYSELF") || filter === "ALL") return true
+
+  const rep = (invoiceRep || "").trim().toUpperCase()
+  if (!rep) return false
+
+  if (rep.includes(filter) || filter.includes(rep)) return true
+
+  const filterParts = filter.split(/\s+/).filter(Boolean)
+  const repParts = rep.split(/\s+/).filter(Boolean)
+
+  if (filterParts.length > 0 && repParts.length > 0) {
+    const filterFirst = filterParts[0]
+    const repFirst = repParts[0]
+    if (filterFirst.length >= 3 && (filterFirst === repFirst || repFirst.startsWith(filterFirst) || filterFirst.startsWith(repFirst))) {
+      return true
+    }
+  }
+
+  if (repEmail) {
+    const emailUpper = repEmail.trim().toUpperCase()
+    const emailPrefix = emailUpper.split("@")[0].split(".")[0]
+    if (emailPrefix.length >= 3 && (rep.includes(emailPrefix) || emailPrefix.includes(repParts[0]))) {
+      return true
+    }
+  }
+
+  return false
+}
+
 // â"€â"€â"€ Chart Colors â"€â"€â"€
 const CHART_COLORS = {
   primary: "#f97316",
@@ -375,8 +426,8 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
       const repData: Record<string, { sales: number; profit: number; deals: number; commission: number; weeklySales: number }> = {}
 
       // Determine filter -- case-insensitive
-      const filterUpper = filterRepName ? filterRepName.trim().toUpperCase() : null
-      const isAllOrAdminFilter = !filterUpper || filterUpper.includes("ADMIN") || filterUpper.includes("MYSELF") || filterUpper === "ALL"
+      const activeRepFilter = filterRepName || repName
+      const isAllOrAdminFilter = !activeRepFilter || activeRepFilter.trim().toUpperCase().includes("ADMIN") || activeRepFilter.trim().toUpperCase().includes("MYSELF") || activeRepFilter.trim().toUpperCase() === "ALL"
 
       for (const inv of invoices) {
         const amount = parseFloat(inv.sub_total || inv.total || "0")
@@ -384,7 +435,8 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         const commission = extractCommissionAmount(inv)
         const dateStr = inv.salesorder_date || inv.date || ""
 
-        const invDate = new Date(dateStr)
+        const invDate = parseLocalDate(dateStr)
+        if (!invDate) continue
         const status = (inv.status || "").toLowerCase()
         const rep = inv.salesorder_salesperson_name || inv.salesperson_name || "Unknown"
 
@@ -401,8 +453,8 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         }
 
         // Per-rep filtering: if a specific rep is filtered, skip invoices that don't match
-        if (!isAllOrAdminFilter && filterUpper) {
-          const matchRep = repUpper.includes(filterUpper) || (repEmail && repEmail.toUpperCase().includes(filterUpper))
+        if (!isAllOrAdminFilter && activeRepFilter) {
+          const matchRep = matchesRep(rep, activeRepFilter, repEmail)
           if (!matchRep) continue
         }
 
