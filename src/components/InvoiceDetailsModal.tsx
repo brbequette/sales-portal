@@ -1167,7 +1167,6 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                                   </div>
                                 </div>
                               )
-                            })}                )
                             })}
                           </div>
                           {/* Totals footer */}
