@@ -33,9 +33,9 @@ function formatLastCalled(dateStr: string | null) {
   return `Called ${diffDays} days ago`
 }
 
-function getAccountBestPhone(account: any): { phone: string; contactName?: string } {
+function getAccountBestPhone(account: any): { phone: string; label: string } {
   if (account.phone && String(account.phone).trim()) {
-    return { phone: String(account.phone).trim() }
+    return { phone: String(account.phone).trim(), label: "Company Phone" }
   }
   const contacts = account.contacts || []
   const primary = contacts.find((c: any) => c.isPrimary || c.is_primary)
@@ -43,17 +43,18 @@ function getAccountBestPhone(account: any): { phone: string; contactName?: strin
     const ph = primary.phone || primary.mobilePhone || primary.mobile || primary.phone_number
     if (ph && String(ph).trim()) {
       const name = [primary.firstName || primary.first_name, primary.lastName || primary.last_name].filter(Boolean).join(" ") || primary.name || "Primary Contact"
-      return { phone: String(ph).trim(), contactName: name }
+      return { phone: String(ph).trim(), label: `${name}, Primary` }
     }
   }
   for (const c of contacts) {
     const ph = c.phone || c.mobilePhone || c.mobile || c.phone_number
     if (ph && String(ph).trim()) {
       const name = [c.firstName || c.first_name, c.lastName || c.last_name].filter(Boolean).join(" ") || c.name || "Contact"
-      return { phone: String(ph).trim(), contactName: name }
+      const isPrimary = c.isPrimary || c.is_primary
+      return { phone: String(ph).trim(), label: isPrimary ? `${name}, Primary` : name }
     }
   }
-  return { phone: "" }
+  return { phone: "", label: "" }
 }
 
 export default function SalesPage() {
@@ -1042,10 +1043,10 @@ export default function SalesPage() {
                                     {hasPhone && (
                                       <PhoneLink
                                         phone={callPhone}
-                                        showNumberOnDesktop
-                                        className="p-2 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 rounded-xl text-emerald-300 font-mono text-xs font-bold transition-all"
+                                        subLabel={bestPhoneInfo.label}
+                                        className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 rounded-xl text-emerald-300 transition-all"
                                       >
-                                        <FiPhoneCall size={14} />
+                                        <FiPhoneCall size={15} className="shrink-0 text-emerald-400" />
                                       </PhoneLink>
                                     )}
                                     <Link href={`/account?id=${account.zohoId}`} className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-full text-neutral-400 hover:text-white transition-colors">

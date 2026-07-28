@@ -13,6 +13,7 @@ export interface PhoneLinkProps {
   children?: React.ReactNode
   type?: 'phone' | 'sms'
   onBeforeCall?: (phone: string) => void
+  subLabel?: React.ReactNode
 }
 
 /**
@@ -28,7 +29,8 @@ export function PhoneLink({
   showNumberOnDesktop = false,
   children, 
   type = 'phone',
-  onBeforeCall 
+  onBeforeCall,
+  subLabel
 }: PhoneLinkProps) {
   const [isMobile, setIsMobile] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -90,12 +92,11 @@ export function PhoneLink({
         className={`inline-flex items-center gap-1.5 hover:text-emerald-400 transition-colors ${className}`}
         onClick={() => onBeforeCall?.(cleanPhone)}
       >
-        {children ? children : (
-          <>
-            {icon && (isSms ? <FiMessageSquare className="shrink-0" /> : <FiPhone className="shrink-0" />)}
-            <span className="font-mono font-bold">{displayPhone}</span>
-          </>
-        )}
+        {children ? children : (icon && (isSms ? <FiMessageSquare className="shrink-0" /> : <FiPhone className="shrink-0" />))}
+        <span className="flex flex-col text-left leading-tight">
+          <span className="font-mono font-bold text-xs">{displayPhone}</span>
+          {subLabel && <span className="text-[10px] text-neutral-400 font-normal no-mono opacity-80 truncate">{subLabel}</span>}
+        </span>
       </a>
     )
   }
@@ -109,19 +110,19 @@ export function PhoneLink({
       data-phone-number={cleanPhone}
       onClick={handleDesktopClick}
       title={isSms ? `ZDialer SMS: ${cleanPhone} (Click to open / copy)` : `ZDialer Call: ${cleanPhone} (Click to copy)`}
-      className={`inline-flex items-center gap-1.5 cursor-pointer font-mono font-bold tracking-wide select-all transition-colors ${className}`}
+      className={`inline-flex items-center gap-2 cursor-pointer select-all transition-colors ${className}`}
     >
-      {children ? (
-        <span className="flex items-center gap-1.5">
-          {children}
-          {showNumberOnDesktop && <span className="font-mono text-xs ml-1 font-bold">{displayPhone}</span>}
-        </span>
-      ) : (
-        <>
-          {icon && (copied ? <FiCheck className="shrink-0 text-emerald-400" /> : isSms ? <FiMessageSquare className="shrink-0" /> : <FiPhone className="shrink-0" />)}
-          <span>{displayPhone}</span>
-        </>
+      {children ? children : (
+        icon && (copied ? <FiCheck className="shrink-0 text-emerald-400" /> : isSms ? <FiMessageSquare className="shrink-0" /> : <FiPhone className="shrink-0" />)
       )}
+      <span className="flex flex-col text-left leading-tight">
+        <span className="font-mono text-xs font-bold tracking-wide">{displayPhone}</span>
+        {subLabel && (
+          <span className="text-[10px] text-neutral-400 font-normal font-sans opacity-85 truncate max-w-[200px]">
+            {subLabel}
+          </span>
+        )}
+      </span>
     </span>
   )
 }
