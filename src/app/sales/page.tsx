@@ -432,11 +432,8 @@ export default function SalesPage() {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] flex-col">
-      <GlobalTopBar />
-
-      <main className="flex-1 overflow-y-auto p-4 md:p-6">
-        <div className="mx-auto max-w-7xl space-y-6">
+    <>
+      <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
           
           {/* Header & Sub-header Tabs */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
@@ -891,7 +888,6 @@ export default function SalesPage() {
           )}
 
         </div>
-      </main>
 
       {/* Invoice Details Modal */}
       {viewingInvoice && (
@@ -990,6 +986,6 @@ export default function SalesPage() {
         document.body
       )}
 
-    </div>
+    </>
   )
 }
