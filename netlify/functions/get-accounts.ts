@@ -947,9 +947,10 @@ export const handler: Handler = async (event, context) => {
     // To support this, we must fetch accounts, quotes, and salesOrders, plus the items inside invoices.
     
     let dbAccounts: any[] = [];
-    if (isSalesOnly) {
-      // Sales rep: only fetch accounts they own
-      const salesRepWhere: any = { ownerId: user.id };
+    if (isSalesOnly && user) {
+      // Sales rep: fetch accounts owned by user id or zohoId
+      const ownerIds = [user.id, user.zohoId].filter(Boolean) as string[];
+      const salesRepWhere: any = { ownerId: { in: ownerIds } };
       if (search) salesRepWhere.name = { contains: search, mode: 'insensitive' };
       if (statusFilter) salesRepWhere.status = statusFilter;
       const totalCount = await prisma.account.count({ where: salesRepWhere });
@@ -995,8 +996,23 @@ export const handler: Handler = async (event, context) => {
     } else {
       // Admin / Manager / Collections: can see all
       let adminWhere: any = {};
-      if (ownerIdFilter && ownerIdFilter !== "all" && ownerIdFilter !== "All") {
-        adminWhere = { ownerId: ownerIdFilter };
+      if (ownerIdFilter && ownerIdFilter !== "all" && ownerIdFilter !== "All" && ownerIdFilter !== "myself") {
+        const matchUser = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { id: ownerIdFilter },
+              { zohoId: ownerIdFilter },
+              { email: { equals: ownerIdFilter, mode: 'insensitive' } },
+              { name: { contains: ownerIdFilter, mode: 'insensitive' } }
+            ]
+          }
+        });
+        if (matchUser) {
+          const ids = [matchUser.id, matchUser.zohoId].filter(Boolean) as string[];
+          adminWhere.ownerId = { in: ids };
+        } else {
+          adminWhere.ownerId = ownerIdFilter;
+        }
       }
       
       if (search) adminWhere.name = { contains: search, mode: 'insensitive' };
