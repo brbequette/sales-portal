@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { FiPhone, FiCheck, FiMessageSquare } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
+import { formatPhoneNumber } from '@/lib/formatters'
 
 export interface PhoneLinkProps {
   phone: string
@@ -45,7 +46,7 @@ export function PhoneLink({
   if (!phone) return null
 
   const cleanPhone = phone.replace(/[^\d+]/g, '')
-  const displayPhone = phone.trim()
+  const displayPhone = formatPhoneNumber(phone) || phone.trim()
   const isSms = type === 'sms'
 
   const handleDesktopClick = (e: React.MouseEvent) => {
