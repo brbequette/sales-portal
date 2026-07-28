@@ -33,6 +33,29 @@ function formatLastCalled(dateStr: string | null) {
   return `Called ${diffDays} days ago`
 }
 
+function getAccountBestPhone(account: any): { phone: string; contactName?: string } {
+  if (account.phone && String(account.phone).trim()) {
+    return { phone: String(account.phone).trim() }
+  }
+  const contacts = account.contacts || []
+  const primary = contacts.find((c: any) => c.isPrimary || c.is_primary)
+  if (primary) {
+    const ph = primary.phone || primary.mobilePhone || primary.mobile || primary.phone_number
+    if (ph && String(ph).trim()) {
+      const name = [primary.firstName || primary.first_name, primary.lastName || primary.last_name].filter(Boolean).join(" ") || primary.name || "Primary Contact"
+      return { phone: String(ph).trim(), contactName: name }
+    }
+  }
+  for (const c of contacts) {
+    const ph = c.phone || c.mobilePhone || c.mobile || c.phone_number
+    if (ph && String(ph).trim()) {
+      const name = [c.firstName || c.first_name, c.lastName || c.last_name].filter(Boolean).join(" ") || c.name || "Contact"
+      return { phone: String(ph).trim(), contactName: name }
+    }
+  }
+  return { phone: "" }
+}
+
 export default function SalesPage() {
   const { isInitialized, zohoContext: currentUser } = useZoho()
   const { preferences, updatePreferences } = usePreferences()
@@ -43,6 +66,7 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true)
   const [apiError, setApiError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [expandedContactsAccountIds, setExpandedContactsAccountIds] = useState<string[]>([])
   const [statusFilter, setStatusFilter] = useState("All")
   const [industryFilter, setIndustryFilter] = useState("All")
   const [mobileTab, setMobileTab] = useState<"accounts" | "tasks">("accounts")
@@ -760,8 +784,11 @@ export default function SalesPage() {
                           {accountsPagination.paginatedItems.map(account => {
                             const isSelected = selectedAccountIds.includes(account.id)
                             const ltv = account.totalSales || 0
-                            const hasPhone = !!account.phone || (account.contacts || []).some((c: any) => c.phone || c.mobilePhone)
-                            const primaryPhone = account.phone || (account.contacts || [])[0]?.phone || ''
+                            const bestPhoneInfo = getAccountBestPhone(account)
+                            const hasPhone = !!bestPhoneInfo.phone
+                            const callPhone = bestPhoneInfo.phone
+                            const contactsCount = (account.contacts || []).length
+                            const isContactsExpanded = expandedContactsAccountIds.includes(account.id)
 
                             return (
                               <li key={account.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? "bg-emerald-950/20" : ""}`}>
@@ -805,6 +832,29 @@ export default function SalesPage() {
                                             setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, timeZone: newTz } : a))
                                           }
                                         />
+                                        {contactsCount > 0 && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setExpandedContactsAccountIds(prev =>
+                                                prev.includes(account.id)
+                                                  ? prev.filter(id => id !== account.id)
+                                                  : [...prev, account.id]
+                                              )
+                                            }}
+                                            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                                              isContactsExpanded
+                                                ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
+                                                : "bg-neutral-800 text-neutral-400 border-neutral-700 hover:text-white hover:border-neutral-600"
+                                            }`}
+                                            title="Click to view all account contacts and communication options"
+                                          >
+                                            <FiUsers size={11} className={isContactsExpanded ? "text-sky-400" : "text-neutral-500"} />
+                                            <span>{contactsCount} Contact{contactsCount !== 1 ? 's' : ''}</span>
+                                            <span className={`inline-block transition-transform duration-200 ${isContactsExpanded ? "rotate-180" : ""}`}>▾</span>
+                                          </button>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
@@ -817,7 +867,7 @@ export default function SalesPage() {
                                   <div className="flex items-center gap-2 shrink-0">
                                     {hasPhone && (
                                       <PhoneLink
-                                        phone={primaryPhone}
+                                        phone={callPhone}
                                         showNumberOnDesktop
                                         className="p-2 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 rounded-xl text-emerald-300 font-mono text-xs font-bold transition-all"
                                       >
@@ -829,6 +879,81 @@ export default function SalesPage() {
                                     </Link>
                                   </div>
                                 </div>
+
+                                {/* Collapsible Contacts Drawer */}
+                                {isContactsExpanded && account.contacts && account.contacts.length > 0 && (
+                                  <div className="px-4 pb-3.5 pt-2 bg-black/40 border-t border-white/5 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider flex items-center gap-1.5">
+                                        <FiUsers size={12} className="text-sky-400" />
+                                        <span>All Account Contacts ({account.contacts.length})</span>
+                                      </span>
+                                      <span className="text-[10px] text-neutral-500 font-medium">
+                                        Click to call / SMS / email
+                                      </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      {account.contacts.map((contact: any, cIdx: number) => {
+                                        const contactName = [contact.firstName || contact.first_name, contact.lastName || contact.last_name].filter(Boolean).join(" ") || contact.name || `Contact #${cIdx + 1}`
+                                        const cPhone = contact.phone || contact.mobilePhone || contact.mobile || contact.phone_number
+                                        const cEmail = contact.email
+
+                                        return (
+                                          <div key={contact.id || contact.zohoId || cIdx} className="glass-panel border border-neutral-750/70 rounded-xl p-3 flex flex-col justify-between gap-2 bg-neutral-900/80">
+                                            <div>
+                                              <div className="flex items-center justify-between gap-2">
+                                                <span className="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+                                                  <FiUser size={12} className="text-neutral-400 shrink-0" />
+                                                  <span className="truncate">{contactName}</span>
+                                                </span>
+                                                {contact.isPrimary && (
+                                                  <span className="text-[8px] uppercase font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                                                    Primary
+                                                  </span>
+                                                )}
+                                              </div>
+                                              {(contact.title || contact.designation || contact.department) && (
+                                                <p className="text-[10px] text-neutral-400 mt-0.5 truncate">{contact.title || contact.designation || contact.department}</p>
+                                              )}
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-white/5">
+                                              {cPhone && (
+                                                <PhoneLink
+                                                  phone={cPhone}
+                                                  showNumberOnDesktop
+                                                  className="px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-cyan-300 font-mono text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                                >
+                                                  <FiPhoneCall size={10} />
+                                                </PhoneLink>
+                                              )}
+                                              {cPhone && (
+                                                <PhoneLink
+                                                  phone={cPhone}
+                                                  type="sms"
+                                                  className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-emerald-400 font-bold text-[10px] flex items-center gap-1 transition-all cursor-pointer"
+                                                >
+                                                  💬 SMS
+                                                </PhoneLink>
+                                              )}
+                                              {cEmail && (
+                                                <a
+                                                  href={`mailto:${cEmail}`}
+                                                  className="px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-300 text-[10px] font-mono font-bold flex items-center gap-1 transition-all truncate max-w-[170px]"
+                                                  title={cEmail}
+                                                >
+                                                  <FiMail size={10} />
+                                                  <span className="truncate">{cEmail}</span>
+                                                </a>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
                               </li>
                             )
                           })}

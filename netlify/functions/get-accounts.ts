@@ -1047,7 +1047,7 @@ export const handler: Handler = async (event, context) => {
           } : {}),
           contacts: {
             select: {
-              phone: true, mobilePhone: true, isPrimary: true, firstName: true, lastName: true, mailingStreet: true, mailingCity: true, mailingState: true, mailingZip: true
+              id: true, zohoId: true, email: true, phone: true, mobilePhone: true, isPrimary: true, firstName: true, lastName: true, designation: true, mailingStreet: true, mailingCity: true, mailingState: true, mailingZip: true
             }
           },
           owner: {
