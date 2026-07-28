@@ -4,7 +4,7 @@
 import { useEffect, useState, useRef } from "react"
 import {
   FiTarget, FiDollarSign, FiTrendingUp, FiClock, FiLayers,
-  FiArrowUpRight, FiArrowDownRight, FiCheckCircle, FiAlertCircle
+  FiArrowUpRight, FiArrowDownRight, FiCheckCircle, FiAlertCircle, FiTrendingDown
 } from "react-icons/fi"
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
@@ -12,7 +12,7 @@ import {
 } from "recharts"
 import { useZoho } from "@/components/ZohoProvider"
 import { MetricDerivationModal, MetricDerivationInfo } from "@/components/MetricDerivationModal"
-import { extractProfit, extractCommissionAmount } from "@/lib/custom-field-extractor"
+import { extractProfit, extractCommissionAmount, extractVigRate, extractDeadCostTotal, extractCustomFieldValue } from "@/lib/custom-field-extractor"
 
 
 // â"€â"€â"€ Types â"€â"€â"€
@@ -25,6 +25,10 @@ interface DashboardData {
   monthlyProfit: number
   monthlyCommission: number
   monthlyDeals: number
+  monthlyProfitGoal: number
+  monthlySubtotalGoal: number
+  currentVigRate: number
+  monthlyVigPenaltyLoss: number
   pipelineValue: number
   pipelineCount: number
   overdueCount: number
@@ -295,9 +299,37 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
       let weeklyTotal = 0, monthlyTotal = 0, monthlyProfit = 0, monthlyCommission = 0
       let monthlyDeals = 0, pipelineValue = 0, pipelineCount = 0
       let overdueCount = 0, overdueBalance = 0
+      let monthlyVigPenaltyLoss = 0
       
       let companyWeeklyTotal = 0
       let companyMonthlyTotal = 0
+
+      // Fetch Rep VIG / Goal Configurations
+      let repProfitGoal = 20000
+      let repSubtotalGoal = 40000
+      let repVigRate = 1.3
+
+      try {
+        const vigRes = await fetch("/api/admin/users/vig")
+        if (vigRes.ok) {
+          const vigData = await vigRes.json()
+          if (vigData.success && Array.isArray(vigData.repConfigs)) {
+            const activeFilter = filterRepName || repName
+            const matchRep = vigData.repConfigs.find((r: any) => 
+              (activeFilter && r.name.toLowerCase().includes(activeFilter.toLowerCase())) ||
+              (repEmail && r.email.toLowerCase() === repEmail.toLowerCase())
+            )
+            if (matchRep) {
+              if (matchRep.dailyProfitGoal > 0) repProfitGoal = matchRep.dailyProfitGoal * 20
+              if (matchRep.dailySubtotalGoal > 0) repSubtotalGoal = matchRep.dailySubtotalGoal * 20
+              if (matchRep.constantVigValue) repVigRate = parseFloat(matchRep.constantVigValue)
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load rep VIG/Goal configs", e)
+      }
+
       
       let totalDealsWon = 0
       let totalDealsLost = 0
@@ -419,7 +451,21 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           repData[rep].profit += profit
           repData[rep].deals++
           repData[rep].commission += commission
+
+          // Calculate 1.5x VIG Penalty Loss vs 1.3x Standard
+          const invVig = extractVigRate(inv) || repVigRate
+          const deadCostTotal = extractDeadCostTotal(inv)
+          const deadCostNoVig = parseFloat(extractCustomFieldValue(inv, 'cf_dead_cost_no_vig', 0) || 0)
+          const deadCostSubjectToVig = parseFloat(
+            extractCustomFieldValue(inv, 'cf_dead_cost_subject_to_vig', null) ?? Math.max(0, deadCostTotal - deadCostNoVig)
+          )
+
+          if ((invVig >= 1.45 || repVigRate >= 1.45) && deadCostSubjectToVig > 0) {
+            const activeRate = invVig >= 1.45 ? invVig : repVigRate
+            monthlyVigPenaltyLoss += deadCostSubjectToVig * (activeRate - 1.3)
+          }
         }
+
 
         // Pipeline (unpaid, non-draft)
         if (status !== "paid" && status !== "void" && status !== "draft") {
@@ -519,6 +565,10 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         monthlyProfit: Math.round(monthlyProfit),
         monthlyCommission: Math.round(monthlyCommission),
         monthlyDeals,
+        monthlyProfitGoal: repProfitGoal,
+        monthlySubtotalGoal: repSubtotalGoal,
+        currentVigRate: repVigRate,
+        monthlyVigPenaltyLoss,
         pipelineValue: Math.round(pipelineValue),
         pipelineCount,
         overdueCount,
@@ -541,7 +591,8 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
       setData({
         companyWeeklyTotal: 0, companyMonthlyTotal: 0,
         weeklyTotal: 0, weeklyTarget: 64000, monthlyTotal: 0, monthlyProfit: 0,
-        monthlyCommission: 0, monthlyDeals: 0, pipelineValue: 0, pipelineCount: 0,
+        monthlyCommission: 0, monthlyDeals: 0, monthlyProfitGoal: 20000, monthlySubtotalGoal: 40000,
+        currentVigRate: 1.3, monthlyVigPenaltyLoss: 0, pipelineValue: 0, pipelineCount: 0,
         overdueCount: 0, overdueBalance: 0, revenueByMonth: [], weeklyTrend: [],
         dealsByStatus: [], commissionByMonth: [], topReps: [], allRepData: [],
         dealsWon: 0, dealsLost: 0, avgDealSize: 0, winLossData: [], avgDealSizeTrend: []
@@ -711,6 +762,118 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
             </div>
           )}
         </KPICard>
+      </div>
+
+      {/* --- Goal Progress & 1.5x VIG Penalty Tracker --- */}
+      <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-4 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              <FiTarget size={22} />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                Monthly Goal Progress & VIG Tracker
+              </h3>
+              <p className="text-xs text-neutral-400">
+                Track progress towards monthly goals and monitor your VIG tier rate.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {data.currentVigRate >= 1.45 ? (
+              <span className="px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1.5 shadow-lg shadow-red-900/20">
+                <FiAlertCircle size={14} /> 1.5x VIG Penalty Active
+              </span>
+            ) : (
+              <span className="px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 shadow-lg shadow-emerald-900/20">
+                <FiCheckCircle size={14} /> 1.3x Standard VIG Active
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Monthly Profit Goal Progress */}
+          <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-bold text-neutral-300 uppercase tracking-wider">Monthly Profit Goal</span>
+              <span className="font-mono font-bold text-purple-400">
+                ${data.monthlyProfit.toLocaleString()} / ${data.monthlyProfitGoal.toLocaleString()}
+              </span>
+            </div>
+            <div className="h-3 w-full bg-black/60 rounded-full overflow-hidden p-0.5 border border-white/5">
+              <div 
+                className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-500" 
+                style={{ width: `${Math.min(100, Math.round((data.monthlyProfit / (data.monthlyProfitGoal || 1)) * 100))}%` }} 
+              />
+            </div>
+            <div className="flex justify-between items-center text-[11px] text-neutral-400">
+              <span>Completion: {Math.round((data.monthlyProfit / (data.monthlyProfitGoal || 1)) * 100)}%</span>
+              <span className="text-purple-300 font-semibold">
+                {data.monthlyProfit >= data.monthlyProfitGoal ? "Goal Reached! 🎉" : `$${(data.monthlyProfitGoal - data.monthlyProfit).toLocaleString()} remaining`}
+              </span>
+            </div>
+          </div>
+
+          {/* Monthly Subtotal Goal Progress */}
+          <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-bold text-neutral-300 uppercase tracking-wider">Monthly Subtotal Goal</span>
+              <span className="font-mono font-bold text-sky-400">
+                ${data.monthlyTotal.toLocaleString()} / ${data.monthlySubtotalGoal.toLocaleString()}
+              </span>
+            </div>
+            <div className="h-3 w-full bg-black/60 rounded-full overflow-hidden p-0.5 border border-white/5">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-500" 
+                style={{ width: `${Math.min(100, Math.round((data.monthlyTotal / (data.monthlySubtotalGoal || 1)) * 100))}%` }} 
+              />
+            </div>
+            <div className="flex justify-between items-center text-[11px] text-neutral-400">
+              <span>Completion: {Math.round((data.monthlyTotal / (data.monthlySubtotalGoal || 1)) * 100)}%</span>
+              <span className="text-sky-300 font-semibold">
+                {data.monthlyTotal >= data.monthlySubtotalGoal ? "Goal Reached! 🎉" : `$${(data.monthlySubtotalGoal - data.monthlyTotal).toLocaleString()} remaining`}
+              </span>
+            </div>
+          </div>
+
+          {/* Money Lost (1.5x VIG Penalty) Box */}
+          <div 
+            onClick={() => setSelectedMetricInfo(buildMetricInfo("vigPenalty", data, timeEntry, repName))}
+            className={`p-4 rounded-xl border cursor-pointer transition-all hover:scale-[1.01] ${
+              data.monthlyVigPenaltyLoss > 0 || data.currentVigRate >= 1.45
+                ? 'bg-gradient-to-br from-red-950/40 via-rose-900/20 to-black/60 border-red-500/40 shadow-lg shadow-red-950/30'
+                : 'bg-gradient-to-br from-emerald-950/20 via-black/40 to-black/60 border-emerald-500/20'
+            }`}
+          >
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg ${data.monthlyVigPenaltyLoss > 0 || data.currentVigRate >= 1.45 ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                  <FiTrendingDown size={16} />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-200">
+                  Money Lost (1.5x VIG)
+                </span>
+              </div>
+              <span className="text-[10px] text-neutral-400 underline">Details →</span>
+            </div>
+
+            <div className="text-2xl font-black font-mono tracking-tight text-white mb-1">
+              {data.monthlyVigPenaltyLoss > 0 
+                ? `-$${data.monthlyVigPenaltyLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : `$0.00`
+              }
+            </div>
+
+            <p className="text-[11px] text-neutral-400 leading-tight">
+              {data.monthlyVigPenaltyLoss > 0 || data.currentVigRate >= 1.45
+                ? "Lost this month due to 1.5x VIG penalty rate from not hitting last month's goal."
+                : "Standard 1.3x VIG rate maintained — no penalty losses this month!"
+              }
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* --- Charts Row 1: Revenue & Status --- */}
@@ -1093,6 +1256,25 @@ function buildMetricInfo(key: string, data: DashboardData, timeEntry: any, repNa
           { label: "Won Deals Count", value: `${data.dealsWon}`, description: "Total count of closed deals" },
           { label: "Avg Deal Size", value: `$${data.avgDealSize.toLocaleString()}`, description: "Result of Division" }
         ]
+      }
+    }
+    case "vigPenalty": {
+      return {
+        title: "1.5x VIG Penalty Money Lost",
+        value: `-$${data.monthlyVigPenaltyLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        subtitle: data.monthlyVigPenaltyLoss > 0 
+          ? `Penalty active: 1.5x VIG multiplier applied due to missing prior month's goal`
+          : `No penalty: Standard 1.3x VIG rate maintained`,
+        color: data.monthlyVigPenaltyLoss > 0 ? CHART_COLORS.rose : CHART_COLORS.accent,
+        formula: "VIG Penalty Loss = Σ [ Dead Cost Subject to VIG × (Current VIG Rate - 1.3) ]",
+        explanation: "When last month's sales goal is missed, the salesperson's VIG multiplier increases from 1.3x to 1.5x. This box shows the exact money lost on this month's commissions as a result of that 0.2x penalty difference.",
+        dataSource: "Calculated from invoice dead cost subject to VIG vs standard 1.3x baseline VIG.",
+        calculationDetails: [
+          { label: "Current VIG Rate", value: `${data.currentVigRate}x`, description: data.currentVigRate >= 1.45 ? "Penalty rate applied" : "Standard rate" },
+          { label: "Penalty Difference", value: "0.20x", description: "1.5x penalty rate minus 1.3x standard rate" },
+          { label: "Total Money Lost", value: `-$${data.monthlyVigPenaltyLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, description: "Net commission reduction this month" }
+        ],
+        notes: "Achieving your monthly goal will restore your VIG multiplier back to 1.3x for the next month."
       }
     }
     case "activePipeline": {
