@@ -1589,65 +1589,11 @@ export default function SalesPage() {
 
       {/* Call Campaign Modal */}
       {showCallCampaignModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-md" onClick={() => setShowCallCampaignModal(false)} />
-          <div className="relative w-full max-w-lg glass-panel border border-indigo-500/40 rounded-2xl p-6 text-white z-[9999] shadow-2xl bg-neutral-900/95 space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-white/10">
-              <h3 className="font-bold text-base text-white flex items-center gap-2">
-                <FiPhone className="text-indigo-400" size={18} /> Create Phone Call Campaign
-              </h3>
-              <button onClick={() => setShowCallCampaignModal(false)} className="text-neutral-400 hover:text-white p-1">
-                <FiX size={18} />
-              </button>
-            </div>
-
-            <p className="text-xs text-neutral-300">
-              Launch a priority phone calling queue for <span className="font-bold text-indigo-400">{selectedAccountIds.length} selected accounts</span>.
-            </p>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-neutral-300 mb-1">Campaign Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Priority Account Follow-Up Calls"
-                  value={campaignName}
-                  onChange={e => setCampaignName(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-200">
-                <p className="font-bold mb-1">📞 Smart Call Queue Integration</p>
-                <p className="text-[11px] text-neutral-300">
-                  Starting this call campaign will queue all selected accounts with one-click click-to-dial, contact action history, and call outcome logging.
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-white/10 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowCallCampaignModal(false)}
-                className="px-4 py-2 rounded-lg bg-neutral-800 text-xs font-bold text-neutral-300 hover:text-white"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCallCampaignModal(false)
-                  setEffort("call_list")
-                  toast.success(`Call Campaign "${campaignName || 'Calling Queue'}" created for ${selectedAccountIds.length} accounts!`)
-                }}
-                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg flex items-center gap-1.5 cursor-pointer"
-              >
-                <FiPhone size={14} />
-                <span>Start Call Campaign</span>
-              </button>
-            </div>
-          </div>
-        </div>,
+        <SalesCallCampaignModal
+          accounts={accounts.filter(a => selectedAccountIds.includes(a.id))}
+          onClose={() => setShowCallCampaignModal(false)}
+          onRefresh={() => fetchLocalData(1, false)}
+        />,
         document.body
       )}
 
