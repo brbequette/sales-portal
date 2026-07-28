@@ -46,6 +46,9 @@ export const handler: Handler = async (event, context) => {
           status: item.status || "active"
         })
 
+        const isSubjectToSalesMarkup = item.cf_subject_to_sales_markup !== 'false' && item.cf_subject_to_sales_markup !== false && item.cf_subject_to_sales_markup !== 'No' && item.cf_subject_to_sales_markup !== 0;
+        const isGift = item.cf_gift_item === 'true' || item.cf_gift_item === true || item.cf_gift_item === 'Yes' || item.cf_gift_item === 1;
+
         return prisma.product.upsert({
           where: { sku: sku },
           update: {
@@ -53,7 +56,9 @@ export const handler: Handler = async (event, context) => {
             description: info,
             price: item.rate || 0,
             category: item.category_name || "Uncategorized",
-            stock: item.available_stock || item.stock_on_hand || 0
+            stock: item.available_stock || item.stock_on_hand || 0,
+            subjectToVig: isSubjectToSalesMarkup,
+            giftItem: isGift
           },
           create: {
             sku: sku,
@@ -61,7 +66,9 @@ export const handler: Handler = async (event, context) => {
             description: info,
             price: item.rate || 0,
             category: item.category_name || "Uncategorized",
-            stock: item.available_stock || item.stock_on_hand || 0
+            stock: item.available_stock || item.stock_on_hand || 0,
+            subjectToVig: isSubjectToSalesMarkup,
+            giftItem: isGift
           }
         })
       })

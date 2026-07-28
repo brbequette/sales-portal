@@ -66,6 +66,7 @@ export function isItemExemptFromVig(item: any): boolean {
   // 1. Direct explicit boolean / string flag checks
   if (item.noVig === true || item.no_vig === true || item.isNoVig === true || item.is_no_vig === true) return true;
   if (item.noVig === 'true' || item.no_vig === 'true' || item.isNoVig === 'true') return true;
+  if (item.subjectToVig === false || item.subject_to_vig === false || item.subjectToSalesMarkup === false) return true;
 
   // 2. Inspect cf_subject_to_sales_markup and variants (if false/0/No -> Exempt)
   const markupKeys = [
@@ -102,8 +103,14 @@ export function isItemExemptFromVig(item: any): boolean {
     }
   }
 
-  // 4. Gift / Zero-Rate / Promo Item Keyword fallback
-  const name = (item.name || item.sku || item.code || "").toLowerCase();
+  // 4. SKU / Item Name catalog override check (UPC24L30S, etc.)
+  const sku = (item.sku || item.code || "").toUpperCase().trim();
+  const name = (item.name || "").toUpperCase().trim();
+  if (sku === "UPC24L30S" || sku.includes("UPC24L30S") || name.includes("UPC24L30S")) {
+    return true;
+  }
+
+  // 5. Gift / Zero-Rate / Promo Item Keyword fallback
   const description = (item.description || "").toLowerCase();
   const giftKeywords = [
     "gift", "hat", "trucker", "shirt", "t-shirt", "tee", "hoodie", "jacket",
@@ -113,7 +120,7 @@ export function isItemExemptFromVig(item: any): boolean {
     "sweatshirt", "cap", "bag", "blade bag", "coat", "umbrella", "tumbler",
     "bottle", "keychain"
   ];
-  if (giftKeywords.some(k => name.includes(k) || description.includes(k)) || parseFloat(item.rate || 0) === 0) {
+  if (giftKeywords.some(k => name.toLowerCase().includes(k) || description.includes(k)) || parseFloat(item.rate || 0) === 0) {
     return true;
   }
 

@@ -77,7 +77,8 @@ export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>)
   if (isGiftItem(item)) return true
   if (item.no_vig === true || item.noVig === true || item.is_no_vig === true || item.isNoVig === true) return true
   if (item.no_vig === 'true' || item.noVig === 'true' || item.is_no_vig === 'true') return true
-  
+  if (item.subjectToVig === false || item.subject_to_vig === false || item.subjectToSalesMarkup === false) return true
+
   // Direct inspect cf_subject_to_sales_markup and variants
   const markupKeys = [
     'cf_subject_to_sales_markup',
@@ -110,6 +111,12 @@ export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>)
       if (val === "false" || val === "no" || val === "0" || val === "exempt") return true
       if (val === "true" || val === "yes" || val === "1") return false
     }
+  }
+
+  const sku = (item.sku || item.code || "").toUpperCase().trim()
+  const name = (item.name || "").toUpperCase().trim()
+  if (sku === "UPC24L30S" || sku.includes("UPC24L30S") || name.includes("UPC24L30S")) {
+    return true
   }
 
   const itemID = item.item_id || item.id
