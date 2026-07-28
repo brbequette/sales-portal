@@ -81,11 +81,25 @@ export const handler: Handler = async (event) => {
     const startOfMonth = new Date(`${monthKey}-01T00:00:00Z`)
     const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0, 23, 59, 59, 999)
 
-    // Find user by repId
-    const repUser = await prisma.user.findUnique({ where: { id: repId } })
+    // Find user by repId or fallback to name/email search
+    let repUser = await prisma.user.findUnique({ where: { id: repId } })
     if (!repUser) {
-      return { statusCode: 404, headers: cors, body: JSON.stringify({ error: "Rep not found" }) }
+      repUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { name: { equals: repId, mode: 'insensitive' } },
+            { name: { contains: repId, mode: 'insensitive' } },
+            { email: { startsWith: repId, mode: 'insensitive' } }
+          ]
+        }
+      })
     }
+
+    if (!repUser) {
+      return { statusCode: 404, headers: cors, body: JSON.stringify({ success: false, error: `Sales rep "${repId}" not found in database` }) }
+    }
+
+    const targetRepId = repUser.id
 
     // Since our local Invoices map to Zoho Books invoices and contain the salesperson name
     const localInvoices = await prisma.invoice.findMany({
@@ -109,13 +123,15 @@ export const handler: Handler = async (event) => {
       const salespersonName = items?.salesperson?.toLowerCase().trim()
       
       let matches = false
-      if (salespersonName === repNameLower) matches = true
+      if (salespersonName && (salespersonName === repNameLower || salespersonName.includes(repNameLower) || repNameLower.includes(salespersonName))) {
+        matches = true
+      }
       
       if (!matches) {
         // Check account owner as fallback
         if (inv.accountId) {
           const acc = await prisma.account.findUnique({ where: { id: inv.accountId } })
-          if (acc?.ownerId === repId) matches = true
+          if (acc?.ownerId === targetRepId) matches = true
         }
       }
 
@@ -133,10 +149,10 @@ export const handler: Handler = async (event) => {
 
     // Update MonthlyVigGoal tracking record in DB
     await prisma.monthlyVigGoal.upsert({
-      where: { repId_monthKey: { repId, monthKey } },
+      where: { repId_monthKey: { repId: targetRepId, monthKey } },
       update: { lastSyncedVigRate: parseFloat(newVigRate), lastSyncedAt: new Date() },
-      create: { repId, monthKey, manualVigRate: parseFloat(newVigRate), lastSyncedVigRate: parseFloat(newVigRate), lastSyncedAt: new Date() }
-    })
+      create: { repId: targetRepId, monthKey, manualVigRate: parseFloat(newVigRate), lastSyncedVigRate: parseFloat(newVigRate), lastSyncedAt: new Date() }
+    }).catch(err => console.warn("MonthlyVigGoal upsert warning:", err.message))
 
     return { 
       statusCode: 200, 

@@ -169,18 +169,28 @@ export default function VigManagementPage() {
     try {
       const res = await fetch("/api/sync-vig-to-zoho", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           repId: repId,
           monthKey,
           newVigRate: monthData.vigRate
         })
       })
-      const data = await res.json()
-      if (data.success) {
-        toast.success(data.message, { duration: 6000 })
+
+      const contentType = res.headers.get("content-type") || ""
+      let data: any = {}
+      if (contentType.includes("application/json")) {
+        data = await res.json()
+      } else {
+        const text = await res.text()
+        throw new Error(`Server HTTP ${res.status}: ${text.replace(/<[^>]*>?/gm, '').substring(0, 120)}`)
+      }
+
+      if (res.ok && data.success) {
+        toast.success(data.message || "Synced VIG rate to Zoho Books successfully!", { duration: 6000 })
         fetchStats()
       } else {
-        toast.error("Error: " + data.error)
+        toast.error("Error: " + (data.error || data.message || `Server returned status ${res.status}`))
       }
     } catch (err: any) {
       toast.error("Failed to sync: " + err.message)
