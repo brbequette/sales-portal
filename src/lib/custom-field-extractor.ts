@@ -56,9 +56,11 @@ export const CANONICAL_FIELD_CATALOG: Record<string, Record<string, string>> = {
   }
 };
 
+import exemptCatalog from "./exempt-catalog.json";
+
 /**
  * Check if a line item is exempt from VIG (No VIG) based on cf_subject_to_sales_markup,
- * gift status, zero rate, or explicit noVig flags.
+ * gift status, zero rate, catalog exemption, or explicit noVig flags.
  */
 export function isItemExemptFromVig(item: any): boolean {
   if (!item || typeof item !== 'object') return false;
@@ -103,10 +105,13 @@ export function isItemExemptFromVig(item: any): boolean {
     }
   }
 
-  // 4. SKU / Item Name catalog override check (UPC24L30S, etc.)
+  // 4. Catalog SKUs / Item Names exempt from sales markup
   const sku = (item.sku || item.code || "").toUpperCase().trim();
   const name = (item.name || "").toUpperCase().trim();
-  if (sku === "UPC24L30S" || sku.includes("UPC24L30S") || name.includes("UPC24L30S")) {
+  if (
+    exemptCatalog.exemptSkus.some((s: string) => sku === s || name === s) ||
+    exemptCatalog.exemptPrefixes.some((p: string) => (sku && sku.startsWith(p)) || (name && name.startsWith(p)))
+  ) {
     return true;
   }
 
