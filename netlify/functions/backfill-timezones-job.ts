@@ -98,6 +98,25 @@ function getTimezoneByPhone(phone?: string | null) {
   return getTimezoneByState(state);
 }
 
+function formatTagsWithTimezone(existingTags?: string | null, tz?: string | null): string {
+  const allTimezones = ['EST', 'CST', 'MST', 'PST', 'AST', 'HST'];
+  let tagsList: string[] = [];
+
+  if (existingTags) {
+    tagsList = existingTags.split(',').map(t => t.trim()).filter(Boolean);
+  }
+
+  // Remove existing timezone tags
+  tagsList = tagsList.filter(t => !allTimezones.includes(t.toUpperCase()));
+
+  // Add the new timezone tag at the end
+  if (tz && !tagsList.includes(tz)) {
+    tagsList.push(tz);
+  }
+
+  return tagsList.join(', ');
+}
+
 export const handler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
@@ -109,7 +128,7 @@ export const handler: Handler = async (event) => {
     
     // Fetch all accounts from database
     const dbAccounts = await prisma.account.findMany({
-      select: { id: true, zohoId: true, name: true, timeZone: true }
+      select: { id: true, zohoId: true, name: true, timeZone: true, tags: true }
     });
     
     let page = 1;
@@ -156,14 +175,16 @@ export const handler: Handler = async (event) => {
       }
       
       if (!calculatedTz) {
-        calculatedTz = 'MST';
+        calculatedTz = dbAcc.timeZone || 'MST';
       }
       
-      if (dbAcc.timeZone !== calculatedTz) {
+      const newTags = formatTagsWithTimezone(dbAcc.tags, calculatedTz);
+
+      if (dbAcc.timeZone !== calculatedTz || dbAcc.tags !== newTags) {
         updateOps.push(
           prisma.account.update({
             where: { id: dbAcc.id },
-            data: { timeZone: calculatedTz }
+            data: { timeZone: calculatedTz, tags: newTags }
           })
         );
         updatedCount++;
@@ -180,7 +201,7 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 200,
       headers: cors,
-      body: JSON.stringify({ success: true, message: `Successfully updated standard timezone codes for ${updatedCount} of ${dbAccounts.length} accounts.` })
+      body: JSON.stringify({ success: true, message: `Successfully updated timezone tags for ${updatedCount} of ${dbAccounts.length} accounts.` })
     }
     
   } catch (error: any) {

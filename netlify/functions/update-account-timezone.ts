@@ -43,10 +43,21 @@ export const handler: Handler = async (event) => {
         return { statusCode: 404, headers: cors, body: JSON.stringify({ success: false, error: "Account not found" }) }
       }
 
-      // Update timezone in DB
+      const allTimezones = ['EST', 'CST', 'MST', 'PST', 'AST', 'HST'];
+      let tagsList: string[] = [];
+      if (account.tags) {
+        tagsList = account.tags.split(',').map(t => t.trim()).filter(Boolean);
+      }
+      tagsList = tagsList.filter(t => !allTimezones.includes(t.toUpperCase()));
+      if (timeZone && !tagsList.includes(timeZone)) {
+        tagsList.push(timeZone);
+      }
+      const newTags = tagsList.join(', ');
+
+      // Update timezone and tags in DB
       const updated = await prisma.account.update({
         where: { id: account.id },
-        data: { timeZone }
+        data: { timeZone, tags: newTags }
       })
 
       // Push to Zoho CRM
