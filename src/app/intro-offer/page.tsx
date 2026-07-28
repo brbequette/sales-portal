@@ -896,8 +896,8 @@ export default function AppleStylePatriotOfferPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
-                  <div className="sm:col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs min-w-0 overflow-hidden">
+                  <div className="sm:col-span-5 min-w-0">
                     <label className="block font-bold text-slate-400 mb-1">SHIPPING STREET ADDRESS *</label>
                     <input
                       type="text"
@@ -906,11 +906,11 @@ export default function AppleStylePatriotOfferPage() {
                       value={formData.address}
                       onChange={handleInputChange}
                       placeholder="123 Industrial Parkway"
-                      className="w-full bg-slate-900 border border-white/15 rounded-xl px-4 py-3 text-base sm:text-xs text-white focus:outline-none focus:border-red-500 font-medium"
+                      className="w-full bg-slate-900 border border-white/15 rounded-xl px-3.5 py-3 text-base sm:text-xs text-white focus:outline-none focus:border-red-500 font-medium"
                     />
                   </div>
 
-                  <div>
+                  <div className="sm:col-span-4 min-w-0">
                     <label className="block font-bold text-slate-400 mb-1">CITY *</label>
                     <input
                       type="text"
@@ -919,13 +919,13 @@ export default function AppleStylePatriotOfferPage() {
                       value={formData.city}
                       onChange={handleInputChange}
                       placeholder="Dallas"
-                      className="w-full bg-slate-900 border border-white/15 rounded-xl px-4 py-3 text-base sm:text-xs text-white focus:outline-none focus:border-red-500 font-medium"
+                      className="w-full bg-slate-900 border border-white/15 rounded-xl px-3.5 py-3 text-base sm:text-xs text-white focus:outline-none focus:border-red-500 font-medium"
                     />
                   </div>
 
-                  <div>
+                  <div className="sm:col-span-3 min-w-0">
                     <label className="block font-bold text-slate-400 mb-1">STATE / ZIP *</label>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5 min-w-0 w-full">
                       <input
                         type="text"
                         name="state"
@@ -933,7 +933,7 @@ export default function AppleStylePatriotOfferPage() {
                         value={formData.state}
                         onChange={handleInputChange}
                         placeholder="TX"
-                        className="w-16 bg-slate-900 border border-white/15 rounded-xl px-3 py-3 text-base sm:text-xs text-white text-center font-bold focus:outline-none focus:border-red-500 uppercase"
+                        className="w-12 sm:w-14 shrink-0 bg-slate-900 border border-white/15 rounded-xl px-2 py-3 text-base sm:text-xs text-white text-center font-bold focus:outline-none focus:border-red-500 uppercase"
                       />
                       <input
                         type="text"
@@ -942,11 +942,12 @@ export default function AppleStylePatriotOfferPage() {
                         value={formData.zip}
                         onChange={handleInputChange}
                         placeholder="75001"
-                        className="flex-1 bg-slate-900 border border-white/15 rounded-xl px-3 py-3 text-base sm:text-xs text-white text-center font-medium focus:outline-none focus:border-red-500"
+                        className="min-w-0 flex-1 bg-slate-900 border border-white/15 rounded-xl px-2 py-3 text-base sm:text-xs text-white text-center font-medium focus:outline-none focus:border-red-500"
                       />
                     </div>
                   </div>
                 </div>
+
               </div>
 
               {activeTab === "credit_card" ? (

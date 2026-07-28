@@ -336,9 +336,10 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
   const balanceDue = parseFloat(displayData?.balance || 0)
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 animate-fade-in overflow-hidden">
       <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative glass-panel border border-white/10 w-full max-w-6xl h-[85dvh] max-h-[calc(100dvh-2rem)] rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[51] animate-scale-in">
+      <div className="relative glass-panel border border-white/10 w-full max-w-6xl max-h-[90vh] my-auto rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[10000] animate-scale-in">
+
         
         {/* Modals */}
         {showPackageModal && displayData?.line_items && (
