@@ -373,7 +373,8 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
       const repData: Record<string, { sales: number; profit: number; deals: number; commission: number; weeklySales: number }> = {}
 
       // Determine filter -- case-insensitive
-      const filterUpper = filterRepName ? filterRepName.toUpperCase() : null
+      const filterUpper = filterRepName ? filterRepName.trim().toUpperCase() : null
+      const isAllOrAdminFilter = !filterUpper || filterUpper.includes("ADMIN") || filterUpper.includes("MYSELF") || filterUpper === "ALL"
 
       for (const inv of invoices) {
         const amount = parseFloat(inv.sub_total || inv.total || "0")
@@ -397,8 +398,11 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           companyMonthlyTotal += amount
         }
 
-        // Per-rep filtering: if a rep filter is active, skip invoices that don't match
-        if (filterUpper && !repUpper.includes(filterUpper)) continue
+        // Per-rep filtering: if a specific rep is filtered, skip invoices that don't match
+        if (!isAllOrAdminFilter && filterUpper) {
+          const matchRep = repUpper.includes(filterUpper) || (repEmail && repEmail.toUpperCase().includes(filterUpper))
+          if (!matchRep) continue
+        }
 
         // Rep aggregation (always track for company breakdown, even when filtered)
         if (!repData[rep]) repData[rep] = { sales: 0, profit: 0, deals: 0, commission: 0, weeklySales: 0 }

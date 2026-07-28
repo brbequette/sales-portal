@@ -6,7 +6,7 @@ import { useState } from "react"
 import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
 import {
-  FiHome, FiPhoneCall, FiDollarSign, FiTool, FiZap,
+  FiHome, FiPhoneCall, FiDollarSign, FiTool, FiZap, FiTrendingUp,
   FiMenu, FiX, FiFileText, FiLogOut, FiBarChart2, FiSettings, FiBookOpen, FiMessageSquare, FiArrowLeft, FiCheckSquare, FiClock, FiGrid, FiTruck
 } from "react-icons/fi"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
@@ -30,16 +30,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
 
   const navItems = [
-    { href: "/",            icon: FiHome,          label: "Sales Hub",     color: "text-[var(--primary)]" },
-    { href: "/tasks",       icon: FiCheckSquare,   label: "Task Hub",      color: "text-violet-400" },
-    { href: "/sales",       icon: FiFileText,      label: "Sales Docs",    color: "text-[var(--accent)]" },
-    { href: "/shipping",    icon: FiTruck,         label: "Shipping",      color: "text-orange-400" },
-    { href: "/messages",    icon: FiMessageSquare, label: "Messages",      color: "text-[var(--info)]" },
-    { href: "/collections", icon: FiPhoneCall,     label: "Collections",   color: "text-[var(--danger)]" },
-    { href: "/commissions", icon: FiDollarSign,    label: "Commissions",   color: "text-[var(--success)]" },
-    { href: "/stats",       icon: FiBarChart2,     label: "Rep Stats",     color: "text-neutral-100" },
-    { href: "/tools",       icon: FiTool,          label: "Tools & Media", color: "text-[var(--accent)]" },
-    { href: "/training",    icon: FiBookOpen,      label: "Training Hub",  color: "text-[var(--primary)]" },
+    { href: "/",            icon: FiHome,          label: "Dashboard",      color: "text-[var(--primary)]" },
+    { href: "/sales",       icon: FiTrendingUp,    label: "Sales Pipeline", color: "text-emerald-400" },
+    { href: "/tasks",       icon: FiCheckSquare,   label: "Task Hub",       color: "text-violet-400" },
+    { href: "/shipping",    icon: FiTruck,         label: "Shipping",       color: "text-orange-400" },
+    { href: "/messages",    icon: FiMessageSquare, label: "Messages",       color: "text-[var(--info)]" },
+    { href: "/collections", icon: FiPhoneCall,     label: "Collections",    color: "text-[var(--danger)]" },
+    { href: "/commissions", icon: FiDollarSign,    label: "Commissions",    color: "text-[var(--success)]" },
+    { href: "/stats",       icon: FiBarChart2,     label: "Rep Stats",      color: "text-neutral-100" },
+    { href: "/tools",       icon: FiTool,          label: "Tools & Media",  color: "text-[var(--accent)]" },
+    { href: "/training",    icon: FiBookOpen,      label: "Training Hub",   color: "text-[var(--primary)]" },
   ]
 
   if (isAdmin) {
