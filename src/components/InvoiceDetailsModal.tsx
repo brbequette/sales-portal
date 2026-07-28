@@ -12,6 +12,8 @@ import { DocumentLifecycle } from "./DocumentLifecycle"
 import { SaleCommunications } from "./SaleCommunications"
 import { DocumentTasks } from "./DocumentTasks"
 import { InvoiceFinancialBreakdown } from "./InvoiceFinancialBreakdown"
+import { isItemExemptFromVig } from "@/lib/custom-field-extractor"
+
 
 interface InvoiceDetailsModalProps {
   invoice: any | string; // Can be an invoice object or just the zohoId string
@@ -1130,11 +1132,11 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                             <span className="text-right">VIG-DC</span>
                             <span className="text-right">Flags</span>
                           </div>
-                          <div className="divide-y divide-neutral-800/60">
-                            {lineItems.map((li: any, idx: number) => {
+                                                       {lineItems.map((li: any, idx: number) => {
                               const dcPerUnit = li.deadCost != null ? li.deadCost / (li.quantity || 1) : null
+                              const isExempt = li.noVig || isItemExemptFromVig(li)
                               return (
-                                <div key={idx} className="grid px-3 py-2 text-xs hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30 transition-colors" style={{gridTemplateColumns:'1fr 48px 56px 56px 56px 40px'}}>
+                                <div key={idx} className="grid px-3 py-2 text-xs hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30 transition-colors" style={{gridTemplateColumns:'1fr 48px 56px 56px 56px 50px'}}>
                                   <div className="min-w-0">
                                     <div className="font-semibold text-white truncate">{li.name || li.sku || `Item ${idx+1}`}</div>
                                     {li.sku && <div className="text-[9px] text-neutral-500 font-mono">{li.sku}</div>}
@@ -1149,18 +1151,23 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                                     ) : '--'}
                                   </div>
                                   <div className="text-right self-center">
-                                    {li.deadCost != null && !li.noVig ? (
+                                    {li.deadCost != null && !isExempt ? (
                                       <span className="text-emerald-400 font-bold">${(parseFloat(li.deadCost) * (parseFloat((displayData?.items as any)?.vigRate || costResult?.vigRate || 1.3))).toFixed(2)}</span>
-                                    ) : li.noVig ? (
-                                      <span className="text-neutral-400 text-[9px]">No VIG</span>
+                                    ) : isExempt ? (
+                                      <span className="text-amber-400 text-[9px] font-bold">No VIG</span>
                                     ) : '--'}
                                   </div>
                                   <div className="text-right self-center flex justify-end gap-0.5 flex-wrap">
-                                    {li.noVig && <span className="text-[8px] bg-blue-500/20 text-blue-300 px-1 rounded font-bold">NV</span>}
-                                    {li.gift && <span className="text-[8px] bg-pink-500/20 text-pink-300 px-1 rounded font-bold">GIFT</span>}
+                                    {isExempt ? (
+                                      <span className="text-[8px] bg-amber-500/20 text-amber-300 px-1 py-0.5 rounded font-bold border border-amber-500/30">NV</span>
+                                    ) : (
+                                      <span className="text-[8px] bg-emerald-500/20 text-emerald-300 px-1 py-0.5 rounded font-bold border border-emerald-500/30">VIG</span>
+                                    )}
+                                    {li.gift && <span className="text-[8px] bg-pink-500/20 text-pink-300 px-1 py-0.5 rounded font-bold">GIFT</span>}
                                   </div>
                                 </div>
                               )
+                            })}                )
                             })}
                           </div>
                           {/* Totals footer */}
@@ -1313,10 +1320,18 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                                 </div>
                               )
                             }
+                            const isExempt = isItemExemptFromVig(item)
                             return (
                               <div key={item.line_item_id || i} className="glass-panel border border-white/10 rounded-lg p-3 shadow-sm">
                                 <div className="flex justify-between gap-2 font-bold text-white text-sm">
-                                  <span className="truncate min-w-0">{item.name}</span>
+                                  <span className="truncate min-w-0 flex items-center gap-2">
+                                    {item.name}
+                                    {isExempt ? (
+                                      <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">No VIG (Exempt)</span>
+                                    ) : (
+                                      <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Subject to VIG</span>
+                                    )}
+                                  </span>
                                   <span className="text-emerald-400 shrink-0">${parseFloat(item.item_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-[10px] text-neutral-400">

@@ -75,28 +75,40 @@ export function isGiftItem(item: any): boolean {
 
 export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>): boolean {
   if (isGiftItem(item)) return true
-  if (item.no_vig || item.noVig || item.is_no_vig) return true
+  if (item.no_vig === true || item.noVig === true || item.is_no_vig === true || item.isNoVig === true) return true
+  if (item.no_vig === 'true' || item.noVig === 'true' || item.is_no_vig === 'true') return true
   
-  // Subject to VIG checks
-  if (item.subject_to_vig === false || item.subjectToVig === false) return true
-  if (item.subject_to_vig === 'false' || item.subjectToVig === 'false' || item.subject_to_vig === 'No' || item.subjectToVig === 'No') return true
-  if (item.subject_to_vig === 0 || item.subjectToVig === 0) return true
+  // Direct inspect cf_subject_to_sales_markup and variants
+  const markupKeys = [
+    'cf_subject_to_sales_markup',
+    'cf_subject_to_sales_markup_unformatted',
+    'subject_to_sales_markup',
+    'subjectToSalesMarkup',
+    'subject_to_vig',
+    'subjectToVig',
+    'cf_subject_to_vig',
+    'cf_subject_to_vig_unformatted'
+  ]
 
-  // Subject to Sales Markup checks (Zoho Items field name)
-  if (item.subject_to_sales_markup === false || item.subjectToSalesMarkup === false) return true
-  if (item.subject_to_sales_markup === 'false' || item.subjectToSalesMarkup === 'false' || item.subject_to_sales_markup === 'No' || item.subjectToSalesMarkup === 'No') return true
-  if (item.subject_to_sales_markup === 0 || item.subjectToSalesMarkup === 0) return true
+  for (const k of markupKeys) {
+    if (item[k] !== undefined && item[k] !== null) {
+      const val = String(item[k]).toLowerCase().trim()
+      if (val === 'false' || val === 'no' || val === '0' || val === 'exempt') return true
+      if (val === 'true' || val === 'yes' || val === '1') return false
+    }
+  }
 
   // Custom fields inspection on line item
   const cfs = item.item_custom_fields || item.custom_fields || []
   if (Array.isArray(cfs)) {
     const markupField = cfs.find((c: any) => {
-      const lbl = (c.label || c.api_name || "").toUpperCase()
-      return lbl.includes("SALES MARKUP") || lbl.includes("SUBJECT TO VIG") || lbl.includes("VIG EXEMPT")
+      const lbl = (c.label || c.api_name || c.placeholder || "").toUpperCase()
+      return lbl.includes("SALES MARKUP") || lbl.includes("SUBJECT TO VIG") || lbl.includes("VIG EXEMPT") || lbl.includes("CF_SUBJECT_TO_SALES_MARKUP")
     })
     if (markupField) {
       const val = String(markupField.value || "").toLowerCase().trim()
       if (val === "false" || val === "no" || val === "0" || val === "exempt") return true
+      if (val === "true" || val === "yes" || val === "1") return false
     }
   }
 

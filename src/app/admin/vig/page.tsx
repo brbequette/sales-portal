@@ -287,148 +287,149 @@ export default function VigManagementPage() {
                   </div>
                 </div>
 
-                {/* EXPANDABLE CONTENT DIV */}
+                {/* EXPANDABLE CONTENT DIV (Multi-row per record responsive cards) */}
                 {isExpanded && (
-                  <div className="p-6 bg-black/20 border-t border-white/5">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm whitespace-nowrap">
-                        <thead>
-                          <tr className="bg-black/60 text-neutral-400 border-b border-white/10">
-                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Month</th>
-                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Metric</th>
-                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Subtotal Goal</th>
-                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Profit Goal</th>
-                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Actual Subtotal</th>
-                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Actual Dead Profit</th>
-                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs">Manual VIG Override</th>
-                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs text-center">VIG Rate</th>
-                            <th className="px-6 py-3.5 font-bold tracking-wider uppercase text-xs text-right">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-neutral-800/40">
-                          {historicalRates.map((h) => {
-                            const monthData = h.reps?.[rep.repId] || h.reps?.[rep.id] || (rep.repName ? h.reps?.[rep.repName] : null) || (rep.repName ? h.reps?.[rep.repName.toLowerCase().trim()] : null) || {
-                              metric: "PROFIT",
-                              target: 20000,
-                              subtotalGoal: 40000,
-                              profitGoal: 20000,
-                              sales: 0,
-                              profit: 0,
-                              subtotal: 0,
-                              vigRate: 1.3,
-                              manualVigRate: null,
-                              lastSyncedVigRate: null,
-                              metGoal: false
-                            }
+                  <div className="p-4 sm:p-6 bg-black/30 border-t border-white/5 space-y-3">
+                    <div className="flex items-center justify-between text-xs font-bold text-neutral-400 uppercase tracking-wider px-1 pb-1 border-b border-white/10">
+                      <span>Historical Monthly Rate Records</span>
+                      <span>72-Month Timeline</span>
+                    </div>
 
-                            const isConstant = rep.constantVigEnabled
-                            const isManual = monthData.manualVigRate !== null
-                            const syncKey = `${rep.repId}_${h.monthKey}`
+                    <div className="space-y-3">
+                      {historicalRates.map((h) => {
+                        const monthData = h.reps?.[rep.repId] || h.reps?.[rep.id] || (rep.repName ? h.reps?.[rep.repName] : null) || (rep.repName ? h.reps?.[rep.repName.toLowerCase().trim()] : null) || {
+                          metric: "PROFIT",
+                          target: 20000,
+                          subtotalGoal: 40000,
+                          profitGoal: 20000,
+                          sales: 0,
+                          profit: 0,
+                          subtotal: 0,
+                          vigRate: 1.3,
+                          manualVigRate: null,
+                          lastSyncedVigRate: null,
+                          metGoal: false
+                        }
 
-                            return (
-                              <tr key={h.monthKey} className="hover:bg-white/5 transition">
-                                <td className="px-6 py-3.5">
-                                  <div className="font-bold text-white">{h.monthName}</div>
-                                  <div className="text-xs text-neutral-500">{h.monthKey}</div>
-                                </td>
-                                <td className="px-6 py-3.5">
+                        const isConstant = rep.constantVigEnabled
+                        const isManual = monthData.manualVigRate !== null
+                        const syncKey = `${rep.repId}_${h.monthKey}`
+
+                        return (
+                          <div 
+                            key={h.monthKey} 
+                            className="glass-panel border border-white/10 rounded-xl p-3.5 space-y-3 hover:border-emerald-500/30 transition-all duration-200"
+                          >
+                            {/* Row 1: Header (Month, Metric Selector, VIG Rate Badge, Sync Button) */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 pb-2.5">
+                              <div className="flex items-center gap-3">
+                                <div className="font-bold text-white text-sm">
+                                  {h.monthName} <span className="text-xs font-normal text-neutral-400">({h.monthKey})</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 bg-black/50 px-2 py-1 rounded-md border border-white/10">
+                                  <span className="text-[10px] uppercase font-bold text-neutral-400">Target:</span>
                                   <select 
                                     value={monthData.metric || "PROFIT"}
                                     onChange={(e) => handleUpdateMonthlyGoal(rep.repId, h.monthKey, "metric", e.target.value)}
                                     disabled={isConstant}
-                                    className="bg-black border border-white/10 rounded px-2 py-1 text-xs text-white disabled:opacity-50"
+                                    className="bg-transparent text-xs font-bold text-emerald-400 focus:outline-none disabled:opacity-50"
                                   >
-                                    <option value="PROFIT">Profit</option>
-                                    <option value="SUBTOTAL">Subtotal</option>
+                                    <option value="PROFIT" className="bg-neutral-900 text-white">Profit Goal</option>
+                                    <option value="SUBTOTAL" className="bg-neutral-900 text-white">Subtotal Goal</option>
                                   </select>
-                                </td>
-                                <td className="px-6 py-3.5">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-neutral-500">$</span>
-                                    <input 
-                                      type="number" 
-                                      defaultValue={monthData.subtotalGoal || 40000}
-                                      onBlur={(e) => handleUpdateMonthlyGoal(rep.repId, h.monthKey, "subtotalGoal", e.target.value)}
-                                      disabled={isConstant}
-                                      className="w-24 bg-transparent border-b border-transparent hover:border-neutral-700 focus:border-emerald-500 focus:outline-none text-white disabled:opacity-50 px-1 py-0.5 text-xs font-mono"
-                                    />
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                {/* VIG Rate Badge */}
+                                <div className="flex items-center gap-2">
+                                  <div className={`px-2.5 py-1 rounded-lg border text-xs font-black flex items-center gap-1 ${isConstant ? 'border-indigo-500/40 text-indigo-300 bg-indigo-500/10' : isManual ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : monthData.vigRate === 1.3 ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-rose-500/40 text-rose-300 bg-rose-500/10'}`}>
+                                    <span>VIG: {monthData.vigRate.toFixed(1)}x</span>
                                   </div>
-                                  <div className="text-[10px] text-neutral-500 mt-0.5">Act: ${(monthData.subtotal || 0).toLocaleString()}</div>
-                                </td>
-                                <td className="px-6 py-3.5">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-neutral-500">$</span>
-                                    <input 
-                                      type="number" 
-                                      defaultValue={monthData.profitGoal || 20000}
-                                      onBlur={(e) => handleUpdateMonthlyGoal(rep.repId, h.monthKey, "profitGoal", e.target.value)}
-                                      disabled={isConstant}
-                                      className="w-24 bg-transparent border-b border-transparent hover:border-neutral-700 focus:border-emerald-500 focus:outline-none text-white disabled:opacity-50 px-1 py-0.5 text-xs font-mono"
-                                    />
-                                  </div>
-                                  <div className="text-[10px] text-neutral-500 mt-0.5">Act: ${(monthData.profit || 0).toLocaleString()}</div>
-                                </td>
-                                <td className="px-6 py-3.5">
-                                  {/* Actual Subtotal */}
-                                  <div className={`font-mono text-xs font-bold ${(monthData.subtotal || 0) >= (monthData.subtotalGoal || 40000) ? 'text-emerald-400' : 'text-sky-300'}`}>
-                                    ${(monthData.subtotal || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                                  </div>
-                                  <div className="text-[10px] text-neutral-500 mt-0.5">Goal: ${(monthData.subtotalGoal || 40000).toLocaleString()}</div>
-                                </td>
-                                <td className="px-6 py-3.5">
-                                  {/* Actual Dead Profit */}
-                                  <div className={`font-mono text-xs font-bold ${(monthData.deadProfit || monthData.profit || 0) >= (monthData.profitGoal || 20000) ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                    ${(monthData.deadProfit ?? monthData.profit ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                                  </div>
-                                  <div className="text-[10px] text-neutral-500 mt-0.5">Goal: ${(monthData.profitGoal || 20000).toLocaleString()}</div>
-                                </td>
-                                <td className="px-6 py-3.5">
-                                  <div className="flex items-center gap-2">
-                                    <input 
-                                      type="number"
-                                      step="0.1"
-                                      placeholder="Auto"
-                                      defaultValue={monthData.manualVigRate || ""}
-                                      onBlur={(e) => handleUpdateMonthlyGoal(rep.repId, h.monthKey, "manualVigRate", e.target.value)}
-                                      disabled={isConstant}
-                                      className="w-16 bg-black border border-white/10 rounded px-2 py-1 text-center text-xs text-amber-400 placeholder-neutral-700 disabled:opacity-50 focus:outline-none focus:border-amber-500 font-bold"
-                                    />
-                                    {isManual && <span className="text-[9px] text-amber-400 uppercase font-bold px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded">Override</span>}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-3.5 text-center">
-                                  <div className="flex flex-col items-center gap-1">
-                                    <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full border-2 ${isConstant ? 'border-indigo-500/30 text-indigo-400 bg-indigo-500/10' : isManual ? 'border-amber-500/30 text-amber-400 bg-amber-500/10' : monthData.vigRate === 1.3 ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-rose-500/30 text-rose-400 bg-rose-500/10'} font-black text-sm`}>
-                                      {monthData.vigRate.toFixed(1)}
-                                    </div>
-                                    {monthData.lastSyncedVigRate !== undefined && monthData.lastSyncedVigRate !== monthData.vigRate && (
-                                      <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-semibold animate-pulse">
-                                        🟡 Rate Changed
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-3.5 text-right">
-                                  <button
-                                    onClick={() => handleSyncToZoho(rep.repId, h.monthKey)}
-                                    disabled={syncing[syncKey]}
-                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900 disabled:text-blue-400 text-white text-xs font-bold rounded shadow-lg transition flex items-center justify-center gap-2 ml-auto"
-                                  >
-                                    {syncing[syncKey] ? (
-                                      <>
-                                        <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                        Syncing...
-                                      </>
-                                    ) : (
-                                      monthData.lastSyncedVigRate !== undefined && monthData.lastSyncedVigRate !== monthData.vigRate ? "Push New Rate to Books" : "Push VIG to Zoho"
-                                    )}
-                                  </button>
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
+                                  {monthData.lastSyncedVigRate !== undefined && monthData.lastSyncedVigRate !== monthData.vigRate && (
+                                    <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold animate-pulse">
+                                      🟡 Changed
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Sync Button */}
+                                <button
+                                  onClick={() => handleSyncToZoho(rep.repId, h.monthKey)}
+                                  disabled={syncing[syncKey]}
+                                  className="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900 disabled:text-blue-400 text-white text-xs font-bold rounded-lg shadow-md transition flex items-center gap-1.5 shrink-0"
+                                >
+                                  {syncing[syncKey] ? (
+                                    <>
+                                      <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                      <span>Syncing...</span>
+                                    </>
+                                  ) : (
+                                    <span>{monthData.lastSyncedVigRate !== undefined && monthData.lastSyncedVigRate !== monthData.vigRate ? "Push New Rate" : "Push VIG to Zoho"}</span>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Row 2: Metrics Grid (Subtotal Goal/Act, Profit Goal/Act, Manual Override) */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 bg-black/40 p-3 rounded-lg border border-white/5 text-xs">
+                              {/* Subtotal Goal & Actual */}
+                              <div className="space-y-1">
+                                <div className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Subtotal Goal & Actual</div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-neutral-500 font-bold">$</span>
+                                  <input 
+                                    type="number" 
+                                    defaultValue={monthData.subtotalGoal || 40000}
+                                    onBlur={(e) => handleUpdateMonthlyGoal(rep.repId, h.monthKey, "subtotalGoal", e.target.value)}
+                                    disabled={isConstant}
+                                    className="w-24 bg-black/60 border border-white/10 rounded px-2 py-0.5 text-white disabled:opacity-50 focus:outline-none focus:border-emerald-500 font-mono text-xs font-bold"
+                                  />
+                                </div>
+                                <div className={`font-mono text-xs font-bold pt-0.5 ${(monthData.subtotal || 0) >= (monthData.subtotalGoal || 40000) ? 'text-emerald-400' : 'text-sky-300'}`}>
+                                  Actual: ${(monthData.subtotal || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                </div>
+                              </div>
+
+                              {/* Profit Goal & Actual */}
+                              <div className="space-y-1">
+                                <div className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Profit Goal & Actual</div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-neutral-500 font-bold">$</span>
+                                  <input 
+                                    type="number" 
+                                    defaultValue={monthData.profitGoal || 20000}
+                                    onBlur={(e) => handleUpdateMonthlyGoal(rep.repId, h.monthKey, "profitGoal", e.target.value)}
+                                    disabled={isConstant}
+                                    className="w-24 bg-black/60 border border-white/10 rounded px-2 py-0.5 text-white disabled:opacity-50 focus:outline-none focus:border-emerald-500 font-mono text-xs font-bold"
+                                  />
+                                </div>
+                                <div className={`font-mono text-xs font-bold pt-0.5 ${(monthData.deadProfit || monthData.profit || 0) >= (monthData.profitGoal || 20000) ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                  Actual Dead Profit: ${(monthData.deadProfit ?? monthData.profit ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                </div>
+                              </div>
+
+                              {/* Manual VIG Override */}
+                              <div className="space-y-1">
+                                <div className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Manual VIG Override</div>
+                                <div className="flex items-center gap-2 pt-0.5">
+                                  <input 
+                                    type="number"
+                                    step="0.1"
+                                    placeholder="Auto"
+                                    defaultValue={monthData.manualVigRate || ""}
+                                    onBlur={(e) => handleUpdateMonthlyGoal(rep.repId, h.monthKey, "manualVigRate", e.target.value)}
+                                    disabled={isConstant}
+                                    className="w-20 bg-black/60 border border-white/10 rounded px-2 py-0.5 text-center text-xs text-amber-400 placeholder-neutral-600 disabled:opacity-50 focus:outline-none focus:border-amber-500 font-bold"
+                                  />
+                                  {isManual && <span className="text-[9px] text-amber-300 uppercase font-bold px-1.5 py-0.5 bg-amber-500/20 border border-amber-500/30 rounded">Override Active</span>}
+                                </div>
+                                <div className="text-[10px] text-neutral-500">Default rate calculated from goals</div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}

@@ -57,6 +57,71 @@ export const CANONICAL_FIELD_CATALOG: Record<string, Record<string, string>> = {
 };
 
 /**
+ * Check if a line item is exempt from VIG (No VIG) based on cf_subject_to_sales_markup,
+ * gift status, zero rate, or explicit noVig flags.
+ */
+export function isItemExemptFromVig(item: any): boolean {
+  if (!item || typeof item !== 'object') return false;
+
+  // 1. Direct explicit boolean / string flag checks
+  if (item.noVig === true || item.no_vig === true || item.isNoVig === true || item.is_no_vig === true) return true;
+  if (item.noVig === 'true' || item.no_vig === 'true' || item.isNoVig === 'true') return true;
+
+  // 2. Inspect cf_subject_to_sales_markup and variants (if false/0/No -> Exempt)
+  const markupKeys = [
+    'cf_subject_to_sales_markup',
+    'cf_subject_to_sales_markup_unformatted',
+    'subject_to_sales_markup',
+    'subjectToSalesMarkup',
+    'subject_to_vig',
+    'subjectToVig',
+    'cf_subject_to_vig',
+    'cf_subject_to_vig_unformatted'
+  ];
+
+  for (const k of markupKeys) {
+    if (item[k] !== undefined && item[k] !== null) {
+      const val = String(item[k]).toLowerCase().trim();
+      if (val === 'false' || val === 'no' || val === '0' || val === 'exempt') return true;
+      if (val === 'true' || val === 'yes' || val === '1') return false;
+    }
+  }
+
+  // 3. Custom fields array inspection
+  const cfs = item.item_custom_fields || item.custom_fields || [];
+  if (Array.isArray(cfs)) {
+    const field = cfs.find((c: any) => {
+      if (!c) return false;
+      const name = (c.api_name || c.label || c.placeholder || '').toLowerCase();
+      return name.includes('subject_to_sales_markup') || name.includes('sales_markup') || name.includes('subject_to_vig') || name.includes('vig_exempt');
+    });
+    if (field) {
+      const val = String(field.value || '').toLowerCase().trim();
+      if (val === 'false' || val === 'no' || val === '0' || val === 'exempt') return true;
+      if (val === 'true' || val === 'yes' || val === '1') return false;
+    }
+  }
+
+  // 4. Gift / Zero-Rate / Promo Item Keyword fallback
+  const name = (item.name || item.sku || item.code || "").toLowerCase();
+  const description = (item.description || "").toLowerCase();
+  const giftKeywords = [
+    "gift", "hat", "trucker", "shirt", "t-shirt", "tee", "hoodie", "jacket",
+    "apparel", "swag", "promo", "cup", "mug", "beaver", "sample",
+    "card", "giftcard", "merch", "pant", "beanie", "glove", "pen",
+    "banner", "flyer", "sticker", "decal", "display", "polo", "vest",
+    "sweatshirt", "cap", "bag", "blade bag", "coat", "umbrella", "tumbler",
+    "bottle", "keychain"
+  ];
+  if (giftKeywords.some(k => name.includes(k) || description.includes(k)) || parseFloat(item.rate || 0) === 0) {
+    return true;
+  }
+
+  return false;
+}
+
+
+/**
  * Extract a field value safely from any Zoho record or items JSON
  */
 export function extractCustomFieldValue(
