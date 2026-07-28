@@ -217,7 +217,7 @@ export default function SalesPage() {
       const userEmail = currentUser?.email || preferences.impersonatedUser?.email || ""
       const emailQuery = userEmail ? `&email=${encodeURIComponent(userEmail)}` : ""
       const roleQuery = effectiveRole ? `&role=${encodeURIComponent(effectiveRole)}` : ""
-      const ownerQuery = `&ownerIdFilter=${encodeURIComponent(ownerFilter || 'all')}`
+      const ownerQuery = isAdminUser ? "&ownerIdFilter=all" : `&ownerIdFilter=${encodeURIComponent(ownerFilter || 'all')}`
 
       let allFetchedAccounts: any[] = []
       let currentPage = 1
@@ -832,6 +832,15 @@ export default function SalesPage() {
                         <FiUsers className="mx-auto text-4xl text-neutral-700 mb-3" />
                         <p className="text-neutral-300 font-bold text-base">No accounts found matching filters</p>
                         <p className="text-xs text-neutral-500 mt-1">Try clearing filters or selecting another view option.</p>
+                        {(activeFilterCount > 0 || ownerFilter !== "All" || qualityFilter !== "All" || timezoneFilter !== "All" || searchQuery !== "") && (
+                          <button
+                            onClick={clearAllFilters}
+                            className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer inline-flex items-center gap-1.5"
+                          >
+                            <FiFilter size={12} />
+                            <span>Reset / Clear All Filters</span>
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <div className="flex flex-col">

@@ -1005,7 +1005,7 @@ export const handler: Handler = async (event, context) => {
       // Admin / Manager / Collections: can see all
       let adminWhere: any = {};
       if (ownerIdFilter && ownerIdFilter !== "all" && ownerIdFilter !== "All" && ownerIdFilter !== "myself") {
-        const matchUser = await prisma.user.findFirst({
+        const matchingUsers = await prisma.user.findMany({
           where: {
             OR: [
               { id: ownerIdFilter },
@@ -1015,11 +1015,17 @@ export const handler: Handler = async (event, context) => {
             ]
           }
         });
-        if (matchUser) {
-          const ids = [matchUser.id, matchUser.zohoId].filter(Boolean) as string[];
-          adminWhere.ownerId = { in: ids };
+        if (matchingUsers.length > 0) {
+          const ids = matchingUsers.flatMap(u => [u.id, u.zohoId, u.email]).filter(Boolean) as string[];
+          adminWhere.OR = [
+            { ownerId: { in: ids } },
+            { owner: { name: { contains: ownerIdFilter, mode: 'insensitive' } } }
+          ];
         } else {
-          adminWhere.ownerId = ownerIdFilter;
+          adminWhere.OR = [
+            { ownerId: ownerIdFilter },
+            { owner: { name: { contains: ownerIdFilter, mode: 'insensitive' } } }
+          ];
         }
       }
       
