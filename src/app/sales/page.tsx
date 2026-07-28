@@ -788,15 +788,16 @@ export default function SalesPage() {
                 </button>
               </div>
 
-              {/* Main 2-column Layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Main Layout Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
                 {/* Accounts Table Column */}
-                <div className={`lg:col-span-2 space-y-3 ${mobileTab === "tasks" ? "hidden sm:block" : ""}`}>
+                <div className={`space-y-3 ${filteredTasksList.length > 0 ? "lg:col-span-8" : "lg:col-span-12"} ${mobileTab === "tasks" ? "hidden sm:block" : ""}`}>
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <h2 className="text-base font-bold text-white whitespace-nowrap flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
                       <span>{isAdminUser ? "All Pipeline Accounts" : "My Pipeline Accounts"}</span>
+                      <span className="text-xs font-normal text-neutral-400">({activeAccountsList.length})</span>
                     </h2>
                     
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
@@ -825,11 +826,12 @@ export default function SalesPage() {
                   </div>
 
                   {/* Account List Box */}
-                  <div className="bg-neutral-800/30 rounded-xl border border-[var(--border)] overflow-hidden">
+                  <div className="bg-neutral-900/60 rounded-2xl border border-white/10 overflow-hidden shadow-xl">
                     {activeAccountsList.length === 0 ? (
-                      <div className="p-8 text-center">
-                        <FiUsers className="mx-auto text-3xl text-neutral-700 mb-2" />
-                        <p className="text-neutral-400 text-sm">No accounts found matching filters.</p>
+                      <div className="p-12 text-center">
+                        <FiUsers className="mx-auto text-4xl text-neutral-700 mb-3" />
+                        <p className="text-neutral-300 font-bold text-base">No accounts found matching filters</p>
+                        <p className="text-xs text-neutral-500 mt-1">Try clearing filters or selecting another view option.</p>
                       </div>
                     ) : (
                       <div className="flex flex-col">
@@ -1056,7 +1058,7 @@ export default function SalesPage() {
                         )}
 
                         {/* List Items */}
-                        <ul className="divide-y divide-neutral-800">
+                        <ul className="divide-y divide-white/5">
                           {accountsPagination.paginatedItems.map(account => {
                             const isSelected = selectedAccountIds.includes(account.id)
                             const ltv = account.totalSales || 0
@@ -1067,7 +1069,7 @@ export default function SalesPage() {
                             const isContactsExpanded = expandedContactsAccountIds.includes(account.id)
 
                             return (
-                              <li key={account.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? "bg-emerald-950/20" : ""}`}>
+                              <li key={account.id} className={`hover:bg-white/[0.03] transition-colors ${isSelected ? "bg-emerald-950/20" : ""}`}>
                                 <div className="flex items-center justify-between px-4 py-3.5 gap-4">
                                   <input
                                     type="checkbox"
@@ -1208,9 +1210,10 @@ export default function SalesPage() {
                                                 <PhoneLink
                                                   phone={cPhone}
                                                   type="sms"
-                                                  className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-emerald-400 font-bold text-[10px] flex items-center gap-1 transition-all cursor-pointer"
+                                                  className="px-2 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-lg text-sky-300 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
                                                 >
-                                                  💬 SMS
+                                                  <FiMessageSquare size={10} />
+                                                  <span>SMS</span>
                                                 </PhoneLink>
                                               )}
                                               {cEmail && (
