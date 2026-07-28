@@ -230,7 +230,16 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Apply status filter
+    // Calculate Status counts across all tabs BEFORE filtering by active tab status
+    const counts = {
+      all: results.length,
+      needs_packaging: results.filter(r => r.shipStatus === "needs_packaging").length,
+      packaged: results.filter(r => r.shipStatus === "packaged").length,
+      shipped: results.filter(r => r.shipStatus === "shipped").length,
+      delivered: results.filter(r => r.shipStatus === "delivered").length,
+    }
+
+    // Apply active tab status filter
     if (status !== "all") {
       results = results.filter(r => r.shipStatus === status)
     }
@@ -259,15 +268,6 @@ export async function GET(req: NextRequest) {
     // Pagination
     const total = results.length
     const paginated = results.slice((page - 1) * limit, page * limit)
-
-    // Status counts for tabs
-    const counts = {
-      all: results.length,
-      needs_packaging: results.filter(r => r.shipStatus === "needs_packaging").length,
-      packaged: results.filter(r => r.shipStatus === "packaged").length,
-      shipped: results.filter(r => r.shipStatus === "shipped").length,
-      delivered: results.filter(r => r.shipStatus === "delivered").length,
-    }
 
     return NextResponse.json({
       success: true,
