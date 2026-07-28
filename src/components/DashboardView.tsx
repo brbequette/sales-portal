@@ -326,13 +326,40 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           const contentType = res.headers.get("content-type") || ""
           if (contentType.includes("application/json")) {
             const json = await res.json()
-            if (json && Array.isArray(json.invoices)) {
+            if (json && Array.isArray(json.invoices) && json.invoices.length > 0) {
               invoices = json.invoices
             }
           }
         }
       } catch (e) {
         console.error("Dashboard invoice fetch failed:", e)
+      }
+
+      // Fallback: If /api/zoho-invoices returns empty or fails, load from /api/get-commissions?year=all
+      if (invoices.length === 0) {
+        try {
+          const commRes = await fetch("/api/get-commissions?year=all&includeHidden=true")
+          if (commRes.ok) {
+            const commData = await commRes.json()
+            if (commData.success && commData.byRep) {
+              const allRepInvoices = Object.values(commData.byRep).flatMap((r: any) => r.invoices || [])
+              invoices = allRepInvoices.map((inv: any) => ({
+                sub_total: inv.amount || 0,
+                total: inv.amount || 0,
+                cf_profit_unformatted: inv.profit || 0,
+                cf_commision_amount_unformatted: inv.commission?.total || (inv.profit * 0.5) || 0,
+                salesperson_name: inv.repName || inv.salesperson || "Unknown",
+                salesorder_salesperson_name: inv.repName || inv.salesperson || "Unknown",
+                date: inv.issueDate || inv.paymentDate || inv.createdAt,
+                salesorder_date: inv.issueDate || inv.paymentDate || inv.createdAt,
+                status: inv.isPaid || inv.status === 'paid' || inv.status === 'Paid' ? 'paid' : (inv.status?.toLowerCase() || 'sent'),
+                ...inv
+              }))
+            }
+          }
+        } catch (e) {
+          console.error("Dashboard fallback commission fetch failed:", e)
+        }
       }
       
       const now = new Date()

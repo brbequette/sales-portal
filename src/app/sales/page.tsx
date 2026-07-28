@@ -20,7 +20,7 @@ import { usePreferences } from "@/components/PreferencesProvider"
 import { DealPipeline } from "@/components/DealPipeline"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 
-import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiMail, FiMessageSquare, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiAlertCircle, FiBox, FiLayers, FiEye, FiTarget } from "react-icons/fi"
+import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiPhone, FiMail, FiMessageSquare, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiAlertCircle, FiBox, FiLayers, FiEye, FiTarget } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
 import { useCampaignProgress } from "@/components/CampaignProgressProvider"
 
@@ -812,9 +812,10 @@ export default function SalesPage() {
                       </div>
                     ) : (
                       <div className="flex flex-col">
-                        {/* Selection & Toolbar */}
-                        <div className="glass-panel border-b border-[var(--border)] px-4 py-3 flex items-center justify-between gap-3 text-xs sm:text-sm flex-wrap">
-                          <div className="flex items-center gap-2 flex-1 min-w-[280px] flex-wrap">
+                        {/* Header Filter Bar */}
+                        <div className="p-3 bg-neutral-900/90 border-b border-[var(--border)] space-y-2.5">
+                          {/* Row 1: Search & Inline Filter Dropdowns */}
+                          <div className="flex flex-wrap items-center gap-2">
                             <input 
                               type="checkbox"
                               checked={accountsPagination.paginatedItems.length > 0 && accountsPagination.paginatedItems.every(a => selectedAccountIds.includes(a.id))}
@@ -831,7 +832,7 @@ export default function SalesPage() {
                             />
                             
                             {/* Search box */}
-                            <div className="relative flex-1 min-w-[160px] max-w-xs">
+                            <div className="relative flex-1 min-w-[200px]">
                               <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
                               <input 
                                 type="text"
@@ -847,7 +848,7 @@ export default function SalesPage() {
                               <select
                                 value={ownerFilter}
                                 onChange={(e) => setOwnerFilter(e.target.value)}
-                                className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none cursor-pointer max-w-[140px] truncate"
+                                className="bg-neutral-800 border border-neutral-700 rounded-md px-2.5 py-1.5 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none cursor-pointer max-w-[140px] truncate"
                               >
                                 <option value="All">All Reps</option>
                                 {owners.map(o => (
@@ -895,15 +896,40 @@ export default function SalesPage() {
                             </select>
                           </div>
 
+                          {/* Row 2: Selected Accounts Action Bar (When items are checked) */}
                           {selectedAccountIds.length > 0 && (
-                            <div className="flex items-center gap-2">
-                              <button 
-                                onClick={() => setShowCampaignModal(true)}
-                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center gap-1.5 text-xs cursor-pointer"
-                              >
-                                <FiMail size={14} />
-                                <span>Create Campaign ({selectedAccountIds.length})</span>
-                              </button>
+                            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-emerald-950/40 border border-emerald-500/40 rounded-xl">
+                              <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                <span className="text-xs font-bold text-emerald-300">
+                                  {selectedAccountIds.length} Account{selectedAccountIds.length !== 1 ? 's' : ''} Selected
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <button 
+                                  onClick={() => setShowCampaignModal(true)}
+                                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center gap-1.5 text-xs cursor-pointer shadow-md"
+                                >
+                                  <FiMail size={14} />
+                                  <span>Create Message Campaign ({selectedAccountIds.length})</span>
+                                </button>
+
+                                <button 
+                                  onClick={() => setShowCallCampaignModal(true)}
+                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all flex items-center gap-1.5 text-xs cursor-pointer shadow-md"
+                                >
+                                  <FiPhone size={14} />
+                                  <span>Create Call Campaign ({selectedAccountIds.length})</span>
+                                </button>
+
+                                <button 
+                                  onClick={() => setSelectedAccountIds([])}
+                                  className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold transition-colors border border-neutral-700 cursor-pointer"
+                                >
+                                  Deselect All
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1543,6 +1569,70 @@ export default function SalesPage() {
                 className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all shadow-lg shadow-emerald-950/50 flex items-center gap-1.5 cursor-pointer"
               >
                 <span>View {filteredAccounts.length} Matching Account{filteredAccounts.length !== 1 ? 's' : ''}</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Call Campaign Modal */}
+      {showCallCampaignModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-md" onClick={() => setShowCallCampaignModal(false)} />
+          <div className="relative w-full max-w-lg glass-panel border border-indigo-500/40 rounded-2xl p-6 text-white z-[9999] shadow-2xl bg-neutral-900/95 space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-white/10">
+              <h3 className="font-bold text-base text-white flex items-center gap-2">
+                <FiPhone className="text-indigo-400" size={18} /> Create Phone Call Campaign
+              </h3>
+              <button onClick={() => setShowCallCampaignModal(false)} className="text-neutral-400 hover:text-white p-1">
+                <FiX size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-neutral-300">
+              Launch a priority phone calling queue for <span className="font-bold text-indigo-400">{selectedAccountIds.length} selected accounts</span>.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-neutral-300 mb-1">Campaign Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Priority Account Follow-Up Calls"
+                  value={campaignName}
+                  onChange={e => setCampaignName(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-200">
+                <p className="font-bold mb-1">📞 Smart Call Queue Integration</p>
+                <p className="text-[11px] text-neutral-300">
+                  Starting this call campaign will queue all selected accounts with one-click click-to-dial, contact action history, and call outcome logging.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-white/10 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCallCampaignModal(false)}
+                className="px-4 py-2 rounded-lg bg-neutral-800 text-xs font-bold text-neutral-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCallCampaignModal(false)
+                  setEffort("call_list")
+                  toast.success(`Call Campaign "${campaignName || 'Calling Queue'}" created for ${selectedAccountIds.length} accounts!`)
+                }}
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg flex items-center gap-1.5 cursor-pointer"
+              >
+                <FiPhone size={14} />
+                <span>Start Call Campaign</span>
               </button>
             </div>
           </div>
