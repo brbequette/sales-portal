@@ -213,19 +213,34 @@ export default function SalesPage() {
       if (!isLoadMore) setLoading(true)
       const userEmail = currentUser?.email || preferences.impersonatedUser?.email || ""
       const emailQuery = userEmail ? `&email=${encodeURIComponent(userEmail)}` : ""
-      const res = await fetch(`/api/get-accounts?page=${pageNum}&limit=1000${emailQuery}`)
-      const data = await res.json()
-      if (data.accounts || data.success) {
-        if (isLoadMore) {
-          setAccounts(prev => [...prev, ...(data.accounts || [])])
+
+      let allFetchedAccounts: any[] = []
+      let currentPage = 1
+      let hasMoreToFetch = true
+
+      while (hasMoreToFetch) {
+        const res = await fetch(`/api/get-accounts?page=${currentPage}&limit=5000${emailQuery}`)
+        const data = await res.json()
+
+        if (data.accounts || data.success) {
+          const batch = data.accounts || []
+          allFetchedAccounts = [...allFetchedAccounts, ...batch]
+
+          const serverHasMore = data.pagination?.hasMore || data.hasMore || false
+          if (serverHasMore && batch.length > 0 && currentPage < 10) {
+            currentPage++
+          } else {
+            hasMoreToFetch = false
+          }
         } else {
-          setAccounts(data.accounts || [])
+          hasMoreToFetch = false
         }
-        setAccountsTotalCount(data.total || (data.accounts?.length || 0))
-        setAccountsHasMore(data.hasMore || false)
-        setAccountsPage(pageNum)
       }
-      
+
+      setAccounts(allFetchedAccounts)
+      setAccountsTotalCount(allFetchedAccounts.length)
+      setAccountsHasMore(false)
+
       const tRes = await fetch("/api/get-tasks")
       const tData = await tRes.json()
       if (tData.tasks) setTasks(tData.tasks)

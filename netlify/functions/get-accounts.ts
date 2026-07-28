@@ -13,10 +13,11 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { zohoId, email, refresh, force, ownerIdFilter, statusFilter, role: passedRole, page: pageParam, search, includeDocs, includeHidden } = event.queryStringParameters || {}
+    const { zohoId, email, refresh, force, ownerIdFilter, statusFilter, role: passedRole, page: pageParam, limit: limitParam, search, includeDocs, includeHidden } = event.queryStringParameters || {}
     const wantDocs = includeDocs === 'true'
     const showHidden = includeHidden === 'true'
-    const PAGE_SIZE = 400
+    const parsedLimit = parseInt(limitParam || '2000', 10)
+    const PAGE_SIZE = isNaN(parsedLimit) || parsedLimit <= 0 ? 2000 : Math.min(parsedLimit, 10000)
     const page = parseInt(pageParam || '1', 10)
     let user = null
 
