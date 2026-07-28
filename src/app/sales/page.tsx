@@ -312,6 +312,23 @@ export default function SalesPage() {
   const accountsPagination = usePagination(activeAccountsList, 50)
   const drillPagination = usePagination(drillItems || [], 25)
 
+  const clearAllFilters = () => {
+    setOwnerFilter("All")
+    setStatusFilter("All")
+    setIndustryFilter("All")
+    setTimezoneFilter("All")
+    setQualityFilter("All")
+    setYearFilter("All")
+    setOnlyWithSales(false)
+    setLtvMin("")
+    setLtvMax("")
+    setProductSearch("")
+    setShowDoNotCall(false)
+    setMissingInfoFilter({ noPhone: false, noEmail: false, noContacts: false })
+    setSearchQuery("")
+    setSortBy("default")
+  }
+
   // Active filters count
   const activeFilterCount = (ownerFilter !== "All" ? 1 : 0) +
     (statusFilter !== "All" ? 1 : 0) +
@@ -321,7 +338,12 @@ export default function SalesPage() {
     (yearFilter !== "All" ? 1 : 0) +
     (onlyWithSales ? 1 : 0) +
     (productSearch ? 1 : 0) +
-    (missingInfoFilter.noPhone || missingInfoFilter.noEmail || missingInfoFilter.noContacts ? 1 : 0)
+    (ltvMin ? 1 : 0) +
+    (ltvMax ? 1 : 0) +
+    (showDoNotCall ? 1 : 0) +
+    (missingInfoFilter.noPhone ? 1 : 0) +
+    (missingInfoFilter.noEmail ? 1 : 0) +
+    (missingInfoFilter.noContacts ? 1 : 0)
 
   // Tasks filter
   const effortTasks = tasks.filter(t => {
@@ -737,7 +759,7 @@ export default function SalesPage() {
                       <div className="flex flex-col">
                         {/* Selection & Toolbar */}
                         <div className="glass-panel border-b border-[var(--border)] px-4 py-3 flex items-center justify-between gap-3 text-xs sm:text-sm flex-wrap">
-                          <div className="flex items-center gap-3 flex-1 min-w-[250px]">
+                          <div className="flex items-center gap-2 flex-1 min-w-[280px] flex-wrap">
                             <input 
                               type="checkbox"
                               checked={accountsPagination.paginatedItems.length > 0 && accountsPagination.paginatedItems.every(a => selectedAccountIds.includes(a.id))}
@@ -754,16 +776,68 @@ export default function SalesPage() {
                             />
                             
                             {/* Search box */}
-                            <div className="relative flex-1 max-w-xs">
+                            <div className="relative flex-1 min-w-[160px] max-w-xs">
                               <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
                               <input 
                                 type="text"
-                                placeholder="Search accounts..."
+                                placeholder="Search accounts, cities, contacts..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full bg-neutral-800/80 border border-[var(--border)] rounded-md pl-8 pr-8 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors"
                               />
                             </div>
+
+                            {/* Inline Rep Filter */}
+                            {owners.length > 1 && (
+                              <select
+                                value={ownerFilter}
+                                onChange={(e) => setOwnerFilter(e.target.value)}
+                                className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none cursor-pointer max-w-[140px] truncate"
+                              >
+                                <option value="All">All Reps</option>
+                                {owners.map(o => (
+                                  <option key={o.id} value={o.id}>{o.name || o.email || o.id}</option>
+                                ))}
+                              </select>
+                            )}
+
+                            {/* Inline Quality Filter */}
+                            <select
+                              value={qualityFilter}
+                              onChange={(e) => setQualityFilter(e.target.value)}
+                              className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-sky-500 focus:outline-none cursor-pointer max-w-[130px]"
+                            >
+                              <option value="All">All Qualities</option>
+                              <option value="HOT">🔥 Hot</option>
+                              <option value="WARM">☀️ Warm</option>
+                              <option value="COLD">❄️ Cold</option>
+                              <option value="ON_HOLD">⏸️ On Hold</option>
+                              <option value="DO_NOT_CALL">🚫 DNC</option>
+                              <option value="NEVER_STATUSED">⚪ Never</option>
+                            </select>
+
+                            {/* Inline Timezone Filter */}
+                            <select
+                              value={timezoneFilter}
+                              onChange={(e) => setTimezoneFilter(e.target.value)}
+                              className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-sky-500 focus:outline-none cursor-pointer max-w-[120px]"
+                            >
+                              <option value="All">All Time Zones</option>
+                              {allTimezones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                            </select>
+
+                            {/* Inline Sort By */}
+                            <select
+                              value={sortBy}
+                              onChange={(e) => setSortBy(e.target.value as any)}
+                              className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none cursor-pointer max-w-[140px]"
+                            >
+                              <option value="default">Sort: Default</option>
+                              <option value="ltv_desc">Sort: High LTV ($)</option>
+                              <option value="ltv_asc">Sort: Low LTV ($)</option>
+                              <option value="timezone_asc">Sort: Time Zone</option>
+                              <option value="recentOrders_desc">Sort: Recent Order</option>
+                            </select>
                           </div>
 
                           {selectedAccountIds.length > 0 && (
@@ -778,6 +852,106 @@ export default function SalesPage() {
                             </div>
                           )}
                         </div>
+
+                        {/* Active Filters Tag Bar */}
+                        {activeFilterCount > 0 && (
+                          <div className="px-4 py-2 bg-neutral-900/60 border-b border-white/5 flex items-center gap-1.5 flex-wrap text-xs">
+                            <span className="text-[10px] uppercase font-bold text-neutral-500 mr-1 flex items-center gap-1">
+                              <FiFilter size={10} className="text-emerald-400" /> Active Filters:
+                            </span>
+
+                            {ownerFilter !== "All" && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[11px] font-medium">
+                                Rep: {owners.find(o => o.id === ownerFilter)?.name || ownerFilter}
+                                <button onClick={() => setOwnerFilter("All")} className="hover:text-white ml-0.5">×</button>
+                              </span>
+                            )}
+
+                            {qualityFilter !== "All" && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[11px] font-medium">
+                                Quality: {qualityFilter}
+                                <button onClick={() => setQualityFilter("All")} className="hover:text-white ml-0.5">×</button>
+                              </span>
+                            )}
+
+                            {timezoneFilter !== "All" && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[11px] font-medium">
+                                Timezone: {timezoneFilter}
+                                <button onClick={() => setTimezoneFilter("All")} className="hover:text-white ml-0.5">×</button>
+                              </span>
+                            )}
+
+                            {statusFilter !== "All" && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20 text-[11px] font-medium">
+                                Status: {statusFilter}
+                                <button onClick={() => setStatusFilter("All")} className="hover:text-white ml-0.5">×</button>
+                              </span>
+                            )}
+
+                            {industryFilter !== "All" && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[11px] font-medium">
+                                Industry: {industryFilter}
+                                <button onClick={() => setIndustryFilter("All")} className="hover:text-white ml-0.5">×</button>
+                              </span>
+                            )}
+
+                            {ltvMin && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[11px] font-medium">
+                                Min LTV: ${ltvMin}
+                                <button onClick={() => setLtvMin("")} className="hover:text-white ml-0.5">×</button>
+                              </span>
+                            )}
+
+                            {ltvMax && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[11px] font-medium">
+                                Max LTV: ${ltvMax}
+                                <button onClick={() => setLtvMax("")} className="hover:text-white ml-0.5">×</button>
+                              </span>
+                            )}
+
+                            {productSearch && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-pink-500/10 text-pink-300 border border-pink-500/20 text-[11px] font-medium">
+                                Product: {productSearch}
+                                <button onClick={() => setProductSearch("")} className="hover:text-white ml-0.5">×</button>
+                              </span>
+                            )}
+
+                            {missingInfoFilter.noPhone && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[11px] font-medium">
+                                No Phone
+                                <button onClick={() => setMissingInfoFilter(prev => ({ ...prev, noPhone: false }))} className="hover:text-white ml-0.5">×</button>
+                              </span>
+                            )}
+
+                            {missingInfoFilter.noEmail && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[11px] font-medium">
+                                No Email
+                                <button onClick={() => setMissingInfoFilter(prev => ({ ...prev, noEmail: false }))} className="hover:text-white ml-0.5">×</button>
+                              </span>
+                            )}
+
+                            {missingInfoFilter.noContacts && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[11px] font-medium">
+                                No Contacts
+                                <button onClick={() => setMissingInfoFilter(prev => ({ ...prev, noContacts: false }))} className="hover:text-white ml-0.5">×</button>
+                              </span>
+                            )}
+
+                            {showDoNotCall && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[11px] font-medium">
+                                DNC Included
+                                <button onClick={() => setShowDoNotCall(false)} className="hover:text-white ml-0.5">×</button>
+                              </span>
+                            )}
+
+                            <button
+                              onClick={clearAllFilters}
+                              className="text-[10px] font-bold text-neutral-400 hover:text-amber-400 underline ml-auto cursor-pointer"
+                            >
+                              Clear All
+                            </button>
+                          </div>
+                        )}
 
                         {/* List Items */}
                         <ul className="divide-y divide-neutral-800">
@@ -1062,50 +1236,258 @@ export default function SalesPage() {
         document.body
       )}
 
-      {/* Filters Drawer */}
+      {/* Filters Modal */}
       {showFiltersDrawer && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowFiltersDrawer(false)} />
-          <div className="relative w-full max-w-md glass-panel border border-[var(--border)] rounded-xl p-6 text-white z-[9999]">
-            <div className="flex justify-between items-center pb-4 border-b border-[var(--border)] mb-4">
-              <h3 className="font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2">
-                <FiFilter className="text-emerald-400" /> Filters
-              </h3>
-              <button onClick={() => setShowFiltersDrawer(false)} className="text-neutral-400 hover:text-white p-1 rounded-full">
-                <FiX size={16} />
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-md" onClick={() => setShowFiltersDrawer(false)} />
+          <div className="relative w-full max-w-2xl glass-panel border border-neutral-700/80 rounded-2xl p-6 text-white z-[9999] shadow-2xl max-h-[90vh] flex flex-col bg-neutral-900/95">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center pb-4 border-b border-neutral-800">
+              <div>
+                <h3 className="font-bold text-base text-white tracking-wide flex items-center gap-2">
+                  <FiFilter className="text-emerald-400" size={18} /> Account Filters & Sorting
+                </h3>
+                <p className="text-xs text-neutral-400 mt-0.5">Filter pipeline accounts by rep, quality, location, revenue, and data completeness</p>
+              </div>
+              <button onClick={() => setShowFiltersDrawer(false)} className="text-neutral-400 hover:text-white p-1.5 rounded-full hover:bg-neutral-800 transition-colors">
+                <FiX size={18} />
               </button>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Time Zone</label>
-                <select
-                  value={timezoneFilter}
-                  onChange={e => setTimezoneFilter(e.target.value)}
-                  className="w-full bg-neutral-800 border border-[var(--border)] rounded-lg p-2 text-xs text-white"
-                >
-                  <option value="All">All Time Zones</option>
-                  {allTimezones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
-                </select>
+
+            {/* Modal Body */}
+            <div className="overflow-y-auto py-4 space-y-5 pr-1 flex-1">
+              
+              {/* Section 1: Sales Rep & Account Info */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                  <FiUser size={13} /> Rep & Basic Info
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-300 mb-1">Sales Rep / Owner</label>
+                    <select
+                      value={ownerFilter}
+                      onChange={e => setOwnerFilter(e.target.value)}
+                      className="w-full bg-neutral-800/90 border border-neutral-700 rounded-lg px-2.5 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                    >
+                      <option value="All">All Reps</option>
+                      {owners.map(o => (
+                        <option key={o.id} value={o.id}>{o.name || o.email || o.id}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-300 mb-1">Account Status</label>
+                    <select
+                      value={statusFilter}
+                      onChange={e => setStatusFilter(e.target.value)}
+                      className="w-full bg-neutral-800/90 border border-neutral-700 rounded-lg px-2.5 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                    >
+                      <option value="All">All Statuses</option>
+                      {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-300 mb-1">Industry</label>
+                    <select
+                      value={industryFilter}
+                      onChange={e => setIndustryFilter(e.target.value)}
+                      className="w-full bg-neutral-800/90 border border-neutral-700 rounded-lg px-2.5 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                    >
+                      <option value="All">All Industries</option>
+                      {allIndustries.map(ind => <option key={ind} value={ind}>{ind}</option>)}
+                    </select>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Quality</label>
-                <select
-                  value={qualityFilter}
-                  onChange={e => setQualityFilter(e.target.value)}
-                  className="w-full bg-neutral-800 border border-[var(--border)] rounded-lg p-2 text-xs text-white"
-                >
-                  <option value="All">All Qualities</option>
-                  <option value="HOT">Hot</option>
-                  <option value="WARM">Warm</option>
-                  <option value="COLD">Cold</option>
-                  <option value="ON_HOLD">On Hold</option>
-                  <option value="NEVER_STATUSED">Never Statused</option>
-                </select>
+
+              {/* Section 2: Quality & Timezone */}
+              <div className="space-y-3 pt-2 border-t border-neutral-800/80">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                  <FiClock size={13} /> Rating & Timezone
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-300 mb-1">Account Quality</label>
+                    <select
+                      value={qualityFilter}
+                      onChange={e => setQualityFilter(e.target.value)}
+                      className="w-full bg-neutral-800/90 border border-neutral-700 rounded-lg px-2.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
+                    >
+                      <option value="All">All Qualities</option>
+                      <option value="HOT">🔥 Hot Account</option>
+                      <option value="WARM">☀️ Warm Account</option>
+                      <option value="COLD">❄️ Cold Account</option>
+                      <option value="ON_HOLD">⏸️ On Hold</option>
+                      <option value="DO_NOT_CALL">🚫 Do Not Call</option>
+                      <option value="NEVER_STATUSED">⚪ Never Statused</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-300 mb-1">Time Zone</label>
+                    <select
+                      value={timezoneFilter}
+                      onChange={e => setTimezoneFilter(e.target.value)}
+                      className="w-full bg-neutral-800/90 border border-neutral-700 rounded-lg px-2.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
+                    >
+                      <option value="All">All Time Zones</option>
+                      {allTimezones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-300 mb-1">Sort Accounts By</label>
+                    <select
+                      value={sortBy}
+                      onChange={e => setSortBy(e.target.value as any)}
+                      className="w-full bg-neutral-800/90 border border-neutral-700 rounded-lg px-2.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
+                    >
+                      <option value="default">Default Order</option>
+                      <option value="ltv_desc">Highest Total Sales ($)</option>
+                      <option value="ltv_asc">Lowest Total Sales ($)</option>
+                      <option value="timezone_asc">Time Zone (A-Z)</option>
+                      <option value="recentOrders_desc">Recent Order Date</option>
+                    </select>
+                  </div>
+                </div>
               </div>
+
+              {/* Section 3: Revenue & Purchases */}
+              <div className="space-y-3 pt-2 border-t border-neutral-800/80">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                  <FiDollarSign size={13} /> Revenue & Purchases
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-300 mb-1">Min Total Sales ($)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 1000"
+                      value={ltvMin}
+                      onChange={e => setLtvMin(e.target.value)}
+                      className="w-full bg-neutral-800/90 border border-neutral-700 rounded-lg px-2.5 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-300 mb-1">Max Total Sales ($)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 50000"
+                      value={ltvMax}
+                      onChange={e => setLtvMax(e.target.value)}
+                      className="w-full bg-neutral-800/90 border border-neutral-700 rounded-lg px-2.5 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-300 mb-1">Purchased Year</label>
+                    <select
+                      value={yearFilter}
+                      onChange={e => setYearFilter(e.target.value)}
+                      className="w-full bg-neutral-800/90 border border-neutral-700 rounded-lg px-2.5 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                    >
+                      <option value="All">All Years</option>
+                      {allYears.map(y => <option key={y} value={String(y)}>{y}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="onlyWithSales"
+                    checked={onlyWithSales}
+                    onChange={e => setOnlyWithSales(e.target.checked)}
+                    className="w-4 h-4 rounded border-neutral-700 text-amber-500 focus:ring-amber-500 bg-neutral-800 cursor-pointer"
+                  />
+                  <label htmlFor="onlyWithSales" className="text-xs text-neutral-300 font-medium cursor-pointer">
+                    Only show accounts with existing sales history ($0+)
+                  </label>
+                </div>
+              </div>
+
+              {/* Section 4: Purchased Product Search & Data Quality */}
+              <div className="space-y-3 pt-2 border-t border-neutral-800/80">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                  <FiAlertCircle size={13} /> Product & Data Quality Filters
+                </h4>
+                
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-300 mb-1">Purchased Product Name / SKU Search</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 14 inch Diamond Blade, CW-14..."
+                    value={productSearch}
+                    onChange={e => setProductSearch(e.target.value)}
+                    className="w-full bg-neutral-800/90 border border-neutral-700 rounded-lg px-2.5 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <label className="flex items-center gap-2 text-xs text-neutral-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={missingInfoFilter.noPhone}
+                      onChange={e => setMissingInfoFilter(prev => ({ ...prev, noPhone: e.target.checked }))}
+                      className="w-3.5 h-3.5 rounded border-neutral-700 text-purple-500 bg-neutral-800 cursor-pointer"
+                    />
+                    <span>Missing Phone Number</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs text-neutral-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={missingInfoFilter.noEmail}
+                      onChange={e => setMissingInfoFilter(prev => ({ ...prev, noEmail: e.target.checked }))}
+                      className="w-3.5 h-3.5 rounded border-neutral-700 text-purple-500 bg-neutral-800 cursor-pointer"
+                    />
+                    <span>Missing Email Address</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs text-neutral-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={missingInfoFilter.noContacts}
+                      onChange={e => setMissingInfoFilter(prev => ({ ...prev, noContacts: e.target.checked }))}
+                      className="w-3.5 h-3.5 rounded border-neutral-700 text-purple-500 bg-neutral-800 cursor-pointer"
+                    />
+                    <span>No Contacts Linked</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs text-neutral-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showDoNotCall}
+                      onChange={e => setShowDoNotCall(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-neutral-700 text-rose-500 bg-neutral-800 cursor-pointer"
+                    />
+                    <span>Include "Do Not Call" Accounts</span>
+                  </label>
+                </div>
+              </div>
+
             </div>
-            <div className="pt-6 flex justify-end">
-              <button onClick={() => setShowFiltersDrawer(false)} className="px-5 py-2 rounded-lg bg-emerald-600 text-white font-bold text-xs">
-                Apply Filters
+
+            {/* Modal Footer */}
+            <div className="pt-4 border-t border-neutral-800 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-bold transition-all border border-neutral-700 cursor-pointer"
+              >
+                Reset All Filters
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowFiltersDrawer(false)}
+                className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all shadow-lg shadow-emerald-950/50 flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>View {filteredAccounts.length} Matching Account{filteredAccounts.length !== 1 ? 's' : ''}</span>
               </button>
             </div>
           </div>
