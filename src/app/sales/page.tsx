@@ -196,9 +196,12 @@ export default function SalesPage() {
   const isAdminUser = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
 
   useEffect(() => {
-    fetchLocalData(1, false)
     fetchUsers()
   }, [])
+
+  useEffect(() => {
+    fetchLocalData(1, false)
+  }, [preferences.impersonatedUser, currentUser?.email])
 
   const fetchUsers = async () => {
     try {
@@ -283,10 +286,28 @@ export default function SalesPage() {
   const allStatuses = Array.from(new Set(accounts.map(a => a.status).filter(Boolean))).sort()
   const allIndustries = Array.from(new Set(accounts.map(a => a.industry).filter(Boolean))).sort()
 
-  const filteredByOwnerActive = accounts.filter(a => {
-    if (ownerFilter !== "All" && a.ownerId !== ownerFilter) return false
-    return true
-  })
+  const matchesOwnerFilter = (a: any, filterVal: string) => {
+    if (!filterVal || filterVal === "All" || filterVal === "all") return true
+    const repUser = allDbUsers.find(u => 
+      u.id === filterVal || 
+      u.zohoId === filterVal || 
+      (u.email && u.email.toLowerCase() === filterVal.toLowerCase()) ||
+      (u.name && u.name.toLowerCase().includes(filterVal.toLowerCase()))
+    )
+    const validOwnerIds = repUser 
+      ? [repUser.id, repUser.zohoId, repUser.email, repUser.name].filter(Boolean).map(s => String(s).toLowerCase()) 
+      : [String(filterVal).toLowerCase()]
+
+    const accOwnerId = String(a.ownerId || a.owner?.id || a.owner?.zohoId || '').toLowerCase()
+    const accOwnerEmail = String(a.owner?.email || '').toLowerCase()
+    const accOwnerName = String(a.owner?.name || '').toLowerCase()
+
+    return validOwnerIds.some(id => 
+      id && (accOwnerId === id || accOwnerEmail === id || (accOwnerName && (accOwnerName.includes(id) || id.includes(accOwnerName))))
+    )
+  }
+
+  const filteredByOwnerActive = accounts.filter(a => matchesOwnerFilter(a, ownerFilter))
 
   const filteredAccounts = filteredByOwnerActive.filter(account => {
     const isDNC = isDoNotCallAccount(account)
@@ -691,7 +712,7 @@ export default function SalesPage() {
                 <button
                   onClick={() => {
                     const recentPaid = accounts
-                      .filter(a => ownerFilter === "All" || a.ownerId === ownerFilter)
+                      .filter(a => matchesOwnerFilter(a, ownerFilter))
                       .filter(a => (a.totalSales || 0) > 0)
                       .map(a => {
                         let maxPaidDate = 0
@@ -719,13 +740,13 @@ export default function SalesPage() {
                 >
                   <FiCheckCircle size={13} />
                   <span>Recent Paid Accounts</span>
-                  <span className="bg-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{Math.min(50, accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && (a.totalSales || 0) > 0).length)}</span>
+                  <span className="bg-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{Math.min(50, accounts.filter(a => matchesOwnerFilter(a, ownerFilter) && (a.totalSales || 0) > 0).length)}</span>
                 </button>
 
                 <button
                   onClick={() => {
                     const unpaidAccounts = accounts
-                      .filter(a => ownerFilter === "All" || a.ownerId === ownerFilter)
+                      .filter(a => matchesOwnerFilter(a, ownerFilter))
                       .filter(a => (a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)
                       .sort((a: any, b: any) => (b.unpaidBalance || 0) - (a.unpaidBalance || 0))
                     setDrillType("accounts")
@@ -736,13 +757,13 @@ export default function SalesPage() {
                 >
                   <FiAlertCircle size={13} />
                   <span>Accounts with Unpaid</span>
-                  <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)).length}</span>
+                  <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => matchesOwnerFilter(a, ownerFilter) && ((a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)).length}</span>
                 </button>
 
                 <button
                   onClick={() => {
                     const overdueAccounts = accounts
-                      .filter(a => ownerFilter === "All" || a.ownerId === ownerFilter)
+                      .filter(a => matchesOwnerFilter(a, ownerFilter))
                       .filter(a => (a.overdueCount || 0) > 0)
                       .sort((a: any, b: any) => (b.overdueBalance || 0) - (a.overdueBalance || 0))
                     setDrillType("accounts")
