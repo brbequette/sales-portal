@@ -2,10 +2,13 @@
 
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox, FiClock, FiTrendingUp, FiAlertCircle } from "react-icons/fi"
+import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox, FiClock, FiTrendingUp, FiAlertCircle, FiList, FiCheck, FiCalendar, FiCheckCircle, FiX } from "react-icons/fi"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { toast } from "react-hot-toast"
 import { useProductModal } from "@/components/ProductModalProvider"
 import { NewCustomerModal } from "@/components/NewCustomerModal"
+import { TaskModal } from "@/components/TaskModal"
 import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { NotificationCenter } from "@/components/NotificationCenter"
@@ -25,6 +28,34 @@ export function GlobalTopBar() {
   const [showResults, setShowResults] = useState(false)
   
   const [showAddAccount, setShowAddAccount] = useState(false)
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false)
+  const [showTaskDrawer, setShowTaskDrawer] = useState(false)
+  const [taskDrawerTab, setTaskDrawerTab] = useState<"due" | "all" | "completed">("due")
+
+  const [topBarTasks, setTopBarTasks] = useState<any[]>([])
+
+  const fetchTopBarTasks = useCallback(async () => {
+    try {
+      const res = await fetch("/api/get-tasks")
+      const data = await res.json()
+      if (data.tasks) {
+        setTopBarTasks(data.tasks)
+      }
+    } catch (e) {
+      console.error("Failed to fetch topbar tasks", e)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchTopBarTasks()
+    const handleTaskUpdated = () => fetchTopBarTasks()
+    window.addEventListener("task-updated", handleTaskUpdated)
+    const interval = setInterval(fetchTopBarTasks, 60000)
+    return () => {
+      window.removeEventListener("task-updated", handleTaskUpdated)
+      clearInterval(interval)
+    }
+  }, [fetchTopBarTasks])
 
   const searchRef = useRef<HTMLDivElement>(null)
 
@@ -558,12 +589,255 @@ export function GlobalTopBar() {
         >
           <FiBox size={14} /> <span className="hidden sm:inline">Catalog Lookup</span>
         </button>
-        <button
-          onClick={() => router.push("/tasks/new")}
-          className="hidden sm:flex bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all items-center gap-2 border border-white/10"
-        >
-          <FiCheckSquare size={14} /> <span className="hidden sm:inline">Add Task</span>
-        </button>
+
+        {/* Task List Button with Glowing Visual Badge */}
+        {(() => {
+          const nowTime = new Date()
+          const overdueTasksList = topBarTasks.filter(t => {
+            if (t.status === "Completed") return false
+            if (!t.dueDate) return true
+            return new Date(t.dueDate) <= nowTime
+          })
+          const pendingTasksList = topBarTasks.filter(t => t.status !== "Completed")
+          const completedTasksList = topBarTasks.filter(t => t.status === "Completed")
+
+          const overdueCount = overdueTasksList.length
+          const pendingCount = pendingTasksList.length
+
+          const drawerDisplayedTasks = taskDrawerTab === "due"
+            ? overdueTasksList
+            : taskDrawerTab === "completed"
+              ? completedTasksList
+              : pendingTasksList
+
+          return (
+            <>
+              <button
+                onClick={() => setShowTaskDrawer(true)}
+                className="relative hidden sm:flex bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all items-center gap-2 border border-white/10 cursor-pointer"
+                title="Click to view task list and due reminders"
+              >
+                <FiList size={14} className="text-sky-400" /> 
+                <span className="hidden sm:inline">Tasks</span>
+                {overdueCount > 0 ? (
+                  <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black bg-rose-500 text-white shadow-[0_0_10px_rgba(244,63,94,0.6)] animate-pulse">
+                    {overdueCount} Due
+                  </span>
+                ) : pendingCount > 0 ? (
+                  <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                    {pendingCount}
+                  </span>
+                ) : null}
+              </button>
+
+              <button
+                onClick={() => setShowAddTaskModal(true)}
+                className="hidden sm:flex bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all items-center gap-2 border border-white/10 cursor-pointer"
+              >
+                <FiPlus size={14} className="text-emerald-400" /> <span className="hidden sm:inline">Add Task</span>
+              </button>
+
+              {/* Task List Slide-over Drawer */}
+              {showTaskDrawer && (
+                <div className="fixed inset-0 z-50 flex justify-end">
+                  <div 
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+                    onClick={() => setShowTaskDrawer(false)} 
+                  />
+
+                  <div className="relative w-full max-w-md bg-neutral-900 border-l border-white/10 shadow-2xl z-50 flex flex-col h-full overflow-hidden">
+                    {/* Header */}
+                    <div className="p-4 border-b border-white/10 flex items-center justify-between bg-neutral-950/80">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2.5 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                          <FiCheckSquare size={20} />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                            <span>Task List & Reminders</span>
+                            {overdueCount > 0 && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
+                                {overdueCount} Due
+                              </span>
+                            )}
+                          </h3>
+                          <p className="text-xs text-neutral-400 mt-0.5">
+                            {pendingCount} total pending task{pendingCount !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setShowAddTaskModal(true)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center gap-1 shadow-md cursor-pointer"
+                        >
+                          <FiPlus size={13} />
+                          <span>Add</span>
+                        </button>
+                        <button
+                          onClick={() => setShowTaskDrawer(false)}
+                          className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors cursor-pointer"
+                        >
+                          <FiX size={18} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="px-4 py-2.5 bg-neutral-900/90 border-b border-white/5 flex items-center gap-1.5 text-xs">
+                      <button
+                        onClick={() => setTaskDrawerTab("due")}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                          taskDrawerTab === "due"
+                            ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                            : "text-neutral-400 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        Due / Overdue ({overdueCount})
+                      </button>
+                      <button
+                        onClick={() => setTaskDrawerTab("all")}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                          taskDrawerTab === "all"
+                            ? "bg-sky-500/20 text-sky-300 border border-sky-500/40"
+                            : "text-neutral-400 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        All Pending ({pendingCount})
+                      </button>
+                      <button
+                        onClick={() => setTaskDrawerTab("completed")}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                          taskDrawerTab === "completed"
+                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                            : "text-neutral-400 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        Completed
+                      </button>
+                    </div>
+
+                    {/* List */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
+                      {drawerDisplayedTasks.length === 0 ? (
+                        <div className="py-16 text-center">
+                          <FiCheckCircle className="mx-auto text-4xl text-neutral-700 mb-3" />
+                          <p className="text-neutral-300 font-bold text-sm">No tasks in this view</p>
+                          <p className="text-xs text-neutral-500 mt-1">All caught up on your reminders!</p>
+                        </div>
+                      ) : (
+                        drawerDisplayedTasks.map((t: any) => {
+                          const isCompleted = t.status === "Completed"
+                          const isOverdue = !isCompleted && t.dueDate && new Date(t.dueDate) <= nowTime
+
+                          return (
+                            <div 
+                              key={t.id} 
+                              className={`glass-panel border rounded-xl p-3.5 flex flex-col gap-2.5 transition-all ${
+                                isOverdue 
+                                  ? "border-rose-500/30 bg-rose-950/10 hover:border-rose-500/50" 
+                                  : "border-white/10 hover:border-white/20 bg-neutral-900/80"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border uppercase ${
+                                    t.priority === "High" 
+                                      ? "bg-rose-500/20 text-rose-300 border-rose-500/30" 
+                                      : t.priority === "Low" 
+                                        ? "bg-neutral-800 text-neutral-400 border-neutral-700" 
+                                        : "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                                  }`}>
+                                    {t.priority || "Normal"}
+                                  </span>
+                                  {t.dueDate && (
+                                    <span className={`text-[10px] font-medium flex items-center gap-1 ${
+                                      isOverdue ? "text-rose-400 font-bold" : "text-neutral-400"
+                                    }`}>
+                                      <FiCalendar size={10} />
+                                      {new Date(t.dueDate).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {!isCompleted ? (
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await fetch("/api/update-task", {
+                                          method: "POST",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ id: t.id, status: "Completed" })
+                                        })
+                                        toast.success("Task completed!")
+                                        fetchTopBarTasks()
+                                        window.dispatchEvent(new Event("task-updated"))
+                                      } catch (e) {
+                                        toast.error("Failed to complete task")
+                                      }
+                                    }}
+                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow"
+                                  >
+                                    <FiCheck size={12} />
+                                    <span>Complete</span>
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                                    <FiCheck size={12} /> Completed
+                                  </span>
+                                )}
+                              </div>
+
+                              <div>
+                                <h4 className={`text-sm font-bold ${isCompleted ? "line-through text-neutral-500" : "text-white"}`}>
+                                  {t.subject || t.title || "Untitled Task"}
+                                </h4>
+                                {t.description && (
+                                  <p className="text-xs text-neutral-400 mt-1 line-clamp-2">{t.description}</p>
+                                )}
+                              </div>
+
+                              {t.account && (
+                                <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px]">
+                                  <Link 
+                                    href={`/account?id=${t.account.zohoId}`} 
+                                    onClick={() => setShowTaskDrawer(false)}
+                                    className="text-sky-400 hover:underline font-medium truncate"
+                                  >
+                                    🏢 {t.account.name}
+                                  </Link>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="p-3.5 border-t border-white/10 bg-neutral-950/90 flex items-center justify-between">
+                      <button
+                        onClick={() => {
+                          setShowTaskDrawer(false)
+                          router.push("/tasks")
+                        }}
+                        className="text-xs font-bold text-sky-400 hover:text-sky-300 underline cursor-pointer flex items-center gap-1"
+                      >
+                        <span>View Full Tasks Dashboard</span>
+                        <span>→</span>
+                      </button>
+                      <span className="text-[10px] text-neutral-500 font-mono">
+                        Updated live
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )
+        })()}
+
         <button
           onClick={() => setShowAddAccount(true)}
           className="bg-[var(--primary)] hover:brightness-110 text-black font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center gap-2 whitespace-nowrap"
@@ -575,6 +849,17 @@ export function GlobalTopBar() {
       {/* Modals */}
       {showAddAccount && (
         <NewCustomerModal isOpen={showAddAccount} onClose={() => setShowAddAccount(false)} currentUserId={currentUser?.id} />
+      )}
+
+      {showAddTaskModal && (
+        <TaskModal
+          onClose={() => setShowAddTaskModal(false)}
+          onSaved={() => {
+            setShowAddTaskModal(false)
+            fetchTopBarTasks()
+            window.dispatchEvent(new Event("task-updated"))
+          }}
+        />
       )}
     </div>
 
