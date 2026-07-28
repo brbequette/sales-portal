@@ -75,13 +75,20 @@ export const handler: Handler = async (event, context) => {
       });
     }
 
-    const normalizedRole = user?.role?.toLowerCase() || "";
-    // Only restrict visibility if the user's role explicitly contains "sales" but NOT "admin", "manager", or "collections"
-    const isSalesOnly = user ? (normalizedRole.includes("sales") && 
-                        !normalizedRole.includes("admin") && 
-                        !normalizedRole.includes("administrator") && 
-                        !normalizedRole.includes("manager") && 
-                        !normalizedRole.includes("collections")) : false;
+    const passedRoleLower = (passedRole || "").toLowerCase();
+    const userRoleLower = user?.role?.toLowerCase() || "";
+    // Allow full dataset access if passedRole is admin/manager/collections or ownerIdFilter is 'all'
+    const isSalesOnly = (
+      userRoleLower.includes("sales") && 
+      !userRoleLower.includes("admin") && 
+      !userRoleLower.includes("administrator") && 
+      !userRoleLower.includes("manager") && 
+      !userRoleLower.includes("collections") &&
+      !passedRoleLower.includes("admin") &&
+      !passedRoleLower.includes("administrator") &&
+      !passedRoleLower.includes("manager") &&
+      !passedRoleLower.includes("collections")
+    ) && (ownerIdFilter !== "all" && ownerIdFilter !== "All");
     const isAdmin = !isSalesOnly;
 
     // 3. Only sync LIVE accounts from Zoho CRM if explicitly requested via refresh=true.
