@@ -1186,9 +1186,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                             )
                           })()}
                         </div>
-                      </div>
-                    )
-                  })()}
+                      )
+                    })()}
 
                   {/* â"€â"€ Zoho Line Items (from live fetch) â"€â"€ */}
                   {displayData?.line_items && displayData.line_items.filter((li: any) => !(li.name || "").toUpperCase().includes("TRACKING")).length > 0 && (
