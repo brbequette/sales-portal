@@ -224,7 +224,7 @@ export default function SalesPage() {
       let hasMoreToFetch = true
 
       while (hasMoreToFetch) {
-        const res = await fetch(`/api/get-accounts?page=${currentPage}&limit=5000&ownerIdFilter=all`)
+        const res = await fetch(`/api/get-accounts?page=${currentPage}&limit=1000&ownerIdFilter=all`)
         const data = await res.json()
 
         if (data.accounts || data.success) {
@@ -232,7 +232,7 @@ export default function SalesPage() {
           allFetchedAccounts = [...allFetchedAccounts, ...batch]
 
           const serverHasMore = data.pagination?.hasMore || data.hasMore || false
-          if (serverHasMore && batch.length > 0 && currentPage < 10) {
+          if (serverHasMore && batch.length > 0 && currentPage < 20) {
             currentPage++
           } else {
             hasMoreToFetch = false

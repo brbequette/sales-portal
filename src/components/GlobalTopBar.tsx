@@ -2,6 +2,7 @@
 
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox, FiClock, FiTrendingUp, FiAlertCircle, FiList, FiCheck, FiCalendar, FiCheckCircle, FiX } from "react-icons/fi"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -638,7 +639,7 @@ export function GlobalTopBar() {
               </button>
 
               {/* Task List Slide-over Drawer */}
-              {showTaskDrawer && (
+              {showTaskDrawer && typeof window !== "undefined" && createPortal(
                 <div className="fixed inset-0 z-50 flex justify-end">
                   <div 
                     className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
@@ -833,7 +834,7 @@ export function GlobalTopBar() {
                     </div>
                   </div>
                 </div>
-              )}
+              , document.body)}
             </>
           )
         })()}
@@ -847,11 +848,12 @@ export function GlobalTopBar() {
       </div>
 
       {/* Modals */}
-      {showAddAccount && (
-        <NewCustomerModal isOpen={showAddAccount} onClose={() => setShowAddAccount(false)} currentUserId={currentUser?.id} />
+      {showAddAccount && typeof window !== "undefined" && createPortal(
+        <NewCustomerModal isOpen={showAddAccount} onClose={() => setShowAddAccount(false)} currentUserId={currentUser?.id} />,
+        document.body
       )}
 
-      {showAddTaskModal && (
+      {showAddTaskModal && typeof window !== "undefined" && createPortal(
         <TaskModal
           onClose={() => setShowAddTaskModal(false)}
           onSaved={() => {
@@ -859,7 +861,8 @@ export function GlobalTopBar() {
             fetchTopBarTasks()
             window.dispatchEvent(new Event("task-updated"))
           }}
-        />
+        />,
+        document.body
       )}
     </div>
 
