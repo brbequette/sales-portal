@@ -38,6 +38,13 @@ export const handler: Handler = async (event) => {
     const body = JSON.parse(event.body || "{}")
     const { invoiceNumber, invoiceId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard } = body
 
+    if (skipLoopGuard) {
+      const appSettings = await getSystemSettings(prisma)
+      if (appSettings.pause_mass_zoho_updates) {
+        return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "Mass Zoho updates are currently PAUSED in System Settings to conserve API calls." }) }
+      }
+    }
+
     if (!invoiceNumber && !invoiceId) {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing invoiceNumber or invoiceId" }) }
     }

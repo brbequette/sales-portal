@@ -69,6 +69,11 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    const appSettings = await getSystemSettings(prisma)
+    if (appSettings.pause_mass_zoho_updates) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "Mass Zoho updates are currently PAUSED in System Settings to conserve API calls." }) }
+    }
+
     const data = JSON.parse(event.body || "{}")
     const { repId, monthKey, newVigRate } = data
 
