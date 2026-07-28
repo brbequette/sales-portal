@@ -268,20 +268,22 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
   async function fetchDashboardData() {
     try {
       // Fetch invoices from the existing API
-      const res = await fetch("/api/zoho-invoices")
-      if (!res.ok) {
-        console.error("Dashboard zoho-invoices API error:", res.status)
-        return
+      let invoices: any[] = []
+      try {
+        const res = await fetch("/api/zoho-invoices")
+        if (res.ok) {
+          const contentType = res.headers.get("content-type") || ""
+          if (contentType.includes("application/json")) {
+            const json = await res.json()
+            if (json && Array.isArray(json.invoices)) {
+              invoices = json.invoices
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Dashboard invoice fetch failed:", e)
       }
-      const contentType = res.headers.get("content-type") || ""
-      if (!contentType.includes("application/json")) {
-        console.error("Dashboard zoho-invoices non-JSON response:", await res.text())
-        return
-      }
-      const json = await res.json()
-      if (!json || !json.invoices) throw new Error("No invoice data")
       
-      const invoices = json.invoices
       const now = new Date()
       const currentMonth = now.getMonth()
       const currentYear = now.getFullYear()
@@ -606,24 +608,22 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
     }
   }
 
-  if (loading) {
+  if (loading || !data) {
     return (
-      <div className="space-y-4 animate-fade-in">
+      <div className="space-y-4 animate-fade-in p-2">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="glass-panel rounded-2xl h-36 skeleton" />
+            <div key={i} className="glass-panel rounded-2xl h-36 skeleton bg-neutral-900/60 border border-white/5" />
           ))}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="glass-panel rounded-2xl h-64 skeleton" />
+            <div key={i} className="glass-panel rounded-2xl h-64 skeleton bg-neutral-900/60 border border-white/5" />
           ))}
         </div>
       </div>
     )
   }
-
-  if (!data) return null
 
   const goalPct = data.weeklyTarget > 0 ? Math.round((data.weeklyTotal / data.weeklyTarget) * 100) : 0
 

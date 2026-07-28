@@ -150,15 +150,17 @@ export default function SalesPage() {
   const fetchLocalData = async (pageNum = 1, isLoadMore = false) => {
     try {
       if (!isLoadMore) setLoading(true)
-      const res = await fetch(`/api/get-accounts?page=${pageNum}&limit=1000`)
+      const userEmail = currentUser?.email || preferences.impersonatedUser?.email || ""
+      const emailQuery = userEmail ? `&email=${encodeURIComponent(userEmail)}` : ""
+      const res = await fetch(`/api/get-accounts?page=${pageNum}&limit=1000${emailQuery}`)
       const data = await res.json()
-      if (data.success) {
+      if (data.accounts || data.success) {
         if (isLoadMore) {
           setAccounts(prev => [...prev, ...(data.accounts || [])])
         } else {
           setAccounts(data.accounts || [])
         }
-        setAccountsTotalCount(data.total || 0)
+        setAccountsTotalCount(data.total || (data.accounts?.length || 0))
         setAccountsHasMore(data.hasMore || false)
         setAccountsPage(pageNum)
       }

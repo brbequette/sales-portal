@@ -18,14 +18,6 @@ export const handler: Handler = async (event, context) => {
     const showHidden = includeHidden === 'true'
     const PAGE_SIZE = 400
     const page = parseInt(pageParam || '1', 10)
-
-    if (!zohoId && !email) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ success: false, message: "Missing zohoId or email parameter" })
-      }
-    }
-
     let user = null
 
     // 1. Try to find the user by their Zoho CRM User ID or Prisma CUID
@@ -82,20 +74,20 @@ export const handler: Handler = async (event, context) => {
       });
     }
 
-    const normalizedRole = user.role?.toLowerCase() || "";
+    const normalizedRole = user?.role?.toLowerCase() || "";
     // Only restrict visibility if the user's role explicitly contains "sales" but NOT "admin", "manager", or "collections"
-    const isSalesOnly = normalizedRole.includes("sales") && 
+    const isSalesOnly = user ? (normalizedRole.includes("sales") && 
                         !normalizedRole.includes("admin") && 
                         !normalizedRole.includes("administrator") && 
                         !normalizedRole.includes("manager") && 
-                        !normalizedRole.includes("collections");
+                        !normalizedRole.includes("collections")) : false;
     const isAdmin = !isSalesOnly;
 
     // 3. Only sync LIVE accounts from Zoho CRM if explicitly requested via refresh=true.
     let shouldSync = false
     if (refresh === 'true') {
       const lastUpdatedAccount = await prisma.account.findFirst({
-        where: isSalesOnly ? { ownerId: user.id } : {},
+        where: isSalesOnly && user ? { ownerId: user.id } : {},
         orderBy: { updatedAt: 'desc' }
       })
 
