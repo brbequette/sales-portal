@@ -43,6 +43,8 @@ export interface OrderBuilderProps {
   orderLines?: OrderLine[]
   setOrderLines?: (lines: OrderLine[] | ((prev: OrderLine[]) => OrderLine[])) => void
   catalogProducts?: any[]
+  accountPurchases?: any[]
+  factFinding?: any
   vigRate?: number
   commissionPct?: number
   /** Optional: customer name shown in mock Sales Order */
@@ -229,6 +231,8 @@ export function OrderBuilder({
   orderLines: externalOrderLines,
   setOrderLines: externalSetOrderLines,
   catalogProducts: externalCatalogProducts,
+  accountPurchases: externalAccountPurchases,
+  factFinding,
   vigRate = 1.3,
   commissionPct = 50,
   accountName = "",
@@ -242,12 +246,24 @@ export function OrderBuilder({
   const isControlled = externalSetOrderLines !== undefined
   const [internalOrderLines, setInternalOrderLines] = useState<OrderLine[]>(externalOrderLines || [])
   const [internalCatalogProducts, setInternalCatalogProducts] = useState<any[]>([])
+  const [fetchedPurchases, setFetchedPurchases] = useState<any[]>([])
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const orderLines = isControlled ? (externalOrderLines as OrderLine[]) : internalOrderLines
   const setOrderLines = isControlled ? (externalSetOrderLines as any) : setInternalOrderLines
   const catalogProducts = externalCatalogProducts ?? internalCatalogProducts
+
+  const targetAccountId = accountId || accountDetail?.zohoId || accountDetail?.id || accountDetail?.accountId
+
+  useEffect(() => {
+    if (!externalAccountPurchases && targetAccountId) {
+      fetch(`/api/get-account-purchases?accountId=${encodeURIComponent(targetAccountId)}`)
+        .then(r => r.json())
+        .then(d => { setFetchedPurchases(d.purchasedProducts || d.products || []) })
+        .catch(e => console.error("Failed to load account purchases for OrderBuilder", e))
+    }
+  }, [externalAccountPurchases, targetAccountId])
 
   useEffect(() => {
     if (!externalCatalogProducts) {
@@ -380,6 +396,63 @@ export function OrderBuilder({
   }, [catalogProducts])
 
   const topBladeProducts = useMemo(() => activeBlades.slice(0, 10), [activeBlades])
+
+  /** Filter past purchased products excluding gifts */
+  const previousPurchasesNoGifts = useMemo(() => {
+    const raw = externalAccountPurchases || fetchedPurchases || []
+    if (raw.length === 0) return []
+    
+    const isGiftItem = (name: string, sku?: string, cost?: number, price?: number) => {
+      const hay = ((name || '') + ' ' + (sku || '')).toLowerCase()
+      if (/gift|shirt|hat|hoodie|swag|promo|beanie|jacket|cap\b/i.test(hay)) return true
+      if (hay.includes('[gift]') || hay.includes('no vig [gift]')) return true
+      if (cost === 0 && price === 0) return true
+      return false
+    }
+
+    const seen = new Set<string>()
+    const result: any[] = []
+
+    for (const item of raw) {
+      const itemName = item.name || item.item_name || ''
+      const itemSku = item.sku || item.item_id || itemName
+      if (!itemName) continue
+      if (isGiftItem(itemName, itemSku, item.cost, item.price || item.rate)) continue
+
+      const key = (itemSku || itemName).toLowerCase()
+      if (!seen.has(key)) {
+        seen.add(key)
+        result.push({
+          name: itemName,
+          sku: itemSku,
+          price: item.price || item.rate || item.unitPrice || 0,
+          cost: item.cost || 0,
+          quantity: item.quantity || item.qty || 1
+        })
+      }
+    }
+    return result
+  }, [externalAccountPurchases, fetchedPurchases])
+
+  /** Extract blades that fit customer's equipment & usage */
+  const usageMatchedBlades = useMemo(() => {
+    const eq = filterEquipment !== "None" ? filterEquipment : (factFinding?.equipment || accountDetail?.equipment || "")
+    const app = filterApp !== "All" ? filterApp : (factFinding?.application || factFinding?.primaryApplication || accountDetail?.industry || "")
+    
+    let targetSize: string | null = null
+    if (eq) {
+      const m = eq.match(/\((.*?)\)/)
+      if (m) targetSize = m[1]
+    }
+
+    const matched = activeBlades.filter(b => {
+      if (targetSize && b.size && b.size !== targetSize) return false
+      if (app && app !== "All" && b.application && b.application !== "General Purpose" && !b.application.toLowerCase().includes(app.toLowerCase())) return false
+      return true
+    })
+
+    return matched.length > 0 ? matched.slice(0, 12) : activeBlades.slice(0, 12)
+  }, [activeBlades, filterEquipment, filterApp, factFinding, accountDetail])
 
   /** Blades filtered by the lookup dropdowns */
   const filteredBlades = useMemo(() => {
@@ -621,7 +694,7 @@ export function OrderBuilder({
         )}
       </div>
 
-      {/* â"€â"€ Product Search â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
+      {/* ── Product Search ────────────────────────────────────────────────────────────────────────── */}
       <div ref={productSearchRef} className="relative">
         <div className="flex items-center gap-2 glass-panel border border-neutral-700 rounded-lg px-3 py-2 focus-within:border-violet-500 transition-colors">
           <FiSearch size={12} className="text-neutral-500 shrink-0" />
@@ -639,6 +712,59 @@ export function OrderBuilder({
             </button>
           )}
         </div>
+
+      {/* ── Quick Add -- Past Products & Usage Matched Blades ── */}
+      <div className="space-y-3">
+        <p className="text-[10px] text-neutral-400 uppercase tracking-wider font-extrabold flex items-center gap-1.5">
+          ⚡ Quick Add -- Past Products & Blades Matching Usage
+        </p>
+
+        {/* 1. All Previously Purchased Products (No Gifts) */}
+        {previousPurchasesNoGifts.length > 0 && (
+          <div className="space-y-1.5 glass-panel/40 border border-emerald-500/20 p-2.5 rounded-xl">
+            <p className="text-[9px] text-emerald-400 uppercase tracking-wider font-extrabold flex items-center gap-1">
+              📦 All Previous Purchased Products (No Gifts) ({previousPurchasesNoGifts.length})
+            </p>
+            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto scrollbar-thin pr-1">
+              {previousPurchasesNoGifts.map((p, idx) => (
+                <button
+                  key={`${p.sku}-${idx}`}
+                  type="button"
+                  onClick={() => openAddItemModal({ name: p.name, sku: p.sku, price: p.price, cost: p.cost })}
+                  className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer bg-emerald-950/40 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500 hover:text-black hover:border-emerald-300 flex items-center gap-1.5 shadow-sm"
+                  title={`Re-order past item: ${p.name} (${p.sku}) - $${(p.price || 0).toFixed(2)}`}
+                >
+                  <span>🛍️ {p.name}</span>
+                  {p.price > 0 && <span className="text-[9px] font-mono opacity-80">${(p.price || 0).toFixed(0)}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 2. Blades Matching Usage & Equipment */}
+        {usageMatchedBlades.length > 0 && (
+          <div className="space-y-1.5 glass-panel/40 border border-cyan-500/20 p-2.5 rounded-xl">
+            <p className="text-[9px] text-cyan-400 uppercase tracking-wider font-extrabold flex items-center gap-1">
+              ⚙️ Blades Matching Usage & Equipment ({usageMatchedBlades.length})
+            </p>
+            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto scrollbar-thin pr-1">
+              {usageMatchedBlades.map(bp => (
+                <button
+                  key={bp.sku}
+                  type="button"
+                  onClick={() => openAddItemModal(bp)}
+                  className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer glass-panel border-cyan-500/30 text-cyan-300 hover:bg-cyan-500 hover:text-black hover:border-cyan-300 flex items-center gap-1 shadow-sm"
+                  title={`Add blade matching usage: ${bp.name}`}
+                >
+                  <span>⚡ {bp.name}</span>
+                  {bp.size && <span className="text-[9px] font-mono text-cyan-200/80">({bp.size})</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
         {showProductDropdown && searchResults.length > 0 && (
           <div className="absolute z-50 top-full mt-1 left-0 right-0 glass-panel border border-neutral-700 rounded-xl shadow-2xl max-h-52 overflow-y-auto">

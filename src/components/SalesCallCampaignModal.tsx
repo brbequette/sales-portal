@@ -514,12 +514,13 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
                   </PhoneLink>
                 )}
                 {cleanPhone && (
-                  <a
-                    href={`sms:${cleanPhone}`}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-[10px] rounded-lg border border-emerald-500/20 transition-all"
+                  <PhoneLink
+                    phone={cleanPhone}
+                    type="sms"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-[10px] rounded-lg border border-emerald-500/20 transition-all cursor-pointer"
                   >
-                    {'\ud83d\udcac'} SMS
-                  </a>
+                    💬 SMS
+                  </PhoneLink>
                 )}
                 {displayEmail && (
                   <a
