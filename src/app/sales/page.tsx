@@ -191,9 +191,9 @@ export default function SalesPage() {
     setPrefsLoaded(true)
   }, [preferences, prefsLoaded])
 
-  const effectiveRole = preferences.impersonatedUser ? preferences.impersonatedUser.role : (dbUser?.role || currentUser?.role || "")
-  const normalizedRole = effectiveRole.toLowerCase()
-  const isAdminUser = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
+  const effectiveRole = preferences.impersonatedUser ? preferences.impersonatedUser.role : (dbUser?.role || currentUser?.role || "Administrator")
+  const normalizedRole = (effectiveRole || "").toLowerCase()
+  const isAdminUser = !normalizedRole.includes("sales") || normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager") || !currentUser?.email
 
   useEffect(() => {
     fetchUsers()
@@ -201,7 +201,7 @@ export default function SalesPage() {
 
   useEffect(() => {
     fetchLocalData(1, false)
-  }, [preferences.impersonatedUser, currentUser?.email])
+  }, [preferences.impersonatedUser, currentUser?.email, currentUser?.role, dbUser?.role, isAdminUser])
 
   const fetchUsers = async () => {
     try {
@@ -217,7 +217,7 @@ export default function SalesPage() {
       const userEmail = currentUser?.email || preferences.impersonatedUser?.email || ""
       const emailQuery = userEmail ? `&email=${encodeURIComponent(userEmail)}` : ""
       const roleQuery = effectiveRole ? `&role=${encodeURIComponent(effectiveRole)}` : ""
-      const ownerQuery = isAdminUser ? "&ownerIdFilter=all" : `&ownerIdFilter=${encodeURIComponent(ownerFilter || 'all')}`
+      const ownerQuery = (isAdminUser || !userEmail) ? "&ownerIdFilter=all" : `&ownerIdFilter=${encodeURIComponent(ownerFilter || 'all')}`
 
       let allFetchedAccounts: any[] = []
       let currentPage = 1
@@ -788,11 +788,8 @@ export default function SalesPage() {
                 </button>
               </div>
 
-              {/* Main Layout Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-
-                {/* Accounts Table Column */}
-                <div className={`space-y-3 ${filteredTasksList.length > 0 ? "lg:col-span-8" : "lg:col-span-12"} ${mobileTab === "tasks" ? "hidden sm:block" : ""}`}>
+              {/* Main Accounts Container */}
+              <div className="w-full space-y-3">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <h2 className="text-base font-bold text-white whitespace-nowrap flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
@@ -1258,47 +1255,6 @@ export default function SalesPage() {
                     )}
                   </div>
                 </div>
-
-                {/* Tasks Column */}
-                <div className={`space-y-3 ${mobileTab === "accounts" ? "hidden sm:block" : ""}`}>
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-base font-bold text-white flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
-                      <span>Task List ({filteredTasksList.length})</span>
-                    </h2>
-                  </div>
-
-                  <div className="bg-neutral-800/30 rounded-xl border border-[var(--border)] p-3">
-                    {filteredTasksList.length === 0 ? (
-                      <div className="text-center py-8">
-                        <FiCheckCircle className="mx-auto text-3xl text-neutral-600 mb-2" />
-                        <p className="text-neutral-300 font-bold text-sm">All caught up!</p>
-                        <p className="text-xs text-neutral-500 mt-1">No tasks in this filter view.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {tasksPagination.paginatedItems.map(task => (
-                          <div key={task.id} className="glass-panel border border-[var(--border)] rounded-xl p-3.5 flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 uppercase">
-                                {task.status}
-                              </span>
-                              {task.status !== "Completed" && (
-                                <button onClick={() => handleCompleteTask(task)} className="text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded px-2 py-0.5">
-                                  Complete
-                                </button>
-                              )}
-                            </div>
-                            <h4 className="text-sm font-bold text-white">{task.title}</h4>
-                            {task.description && <p className="text-xs text-neutral-400">{task.description}</p>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-              </div>
             </>
           )}
 

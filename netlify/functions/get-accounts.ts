@@ -1004,7 +1004,12 @@ export const handler: Handler = async (event, context) => {
     } else {
       // Admin / Manager / Collections: can see all
       let adminWhere: any = {};
-      if (ownerIdFilter && ownerIdFilter !== "all" && ownerIdFilter !== "All" && ownerIdFilter !== "myself") {
+      if (ownerIdFilter && 
+          ownerIdFilter !== "all" && 
+          ownerIdFilter !== "All" && 
+          ownerIdFilter.toLowerCase() !== "myself" && 
+          !ownerIdFilter.toLowerCase().includes("myself")
+      ) {
         const matchingUsers = await prisma.user.findMany({
           where: {
             OR: [
