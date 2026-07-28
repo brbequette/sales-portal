@@ -753,6 +753,19 @@ export function SalesBoard() {
               )
             })}
           </div>
+
+          {/* Dynamic Grid Layout for Custom Catalog Widgets */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            {widgets.filter(w => w.visible).map(w => {
+              const colClass = w.size === "3" ? "md:col-span-3" : w.size === "2" ? "md:col-span-2" : "md:col-span-1"
+              if (w.id === "REVENUE_VS_GOAL") return <div key={w.id} className={colClass}><RevenueVsGoalWidget data={data} /></div>
+              if (w.id === "VIG_COST_DONUT") return <div key={w.id} className={colClass}><VigCostAllocationWidget data={data} /></div>
+              if (w.id === "PIPELINE_FUNNEL") return <div key={w.id} className={colClass}><PipelineFunnelWidget data={data} /></div>
+              if (w.id === "ZDIALER_FEED") return <div key={w.id} className={colClass}><ZDialerActivityWidget data={data} /></div>
+              if (w.id === "TIMECLOCK_STATUS") return <div key={w.id} className={colClass}><TimeclockStatusWidget data={data} /></div>
+              return null
+            })}
+          </div>
         </div>
 
         {/* SCREEN 3: MTD */}
