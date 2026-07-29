@@ -14,7 +14,7 @@ async function executeNetlifyFunction(req: NextRequest) {
     }
 
     const role = (session?.user as any)?.role || "Sales Representative"
-    const isAdmin = role.toLowerCase() === "admin"
+    const isAdmin = role.toLowerCase().includes("admin")
 
     if (req.method === 'POST') {
       const bodyText = await req.text()

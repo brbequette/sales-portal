@@ -163,7 +163,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
   const displayData = fullInvoiceDetails || initialData
 
-  const isAdmin = session?.user?.role?.toLowerCase() === "admin"
+  const isAdmin = !!session?.user?.role?.toLowerCase().includes("admin")
   const isSalesOrderInvoiced = 
     currentType === "SalesOrder" && 
     (displayData?.status?.toLowerCase() === "invoiced" || 
