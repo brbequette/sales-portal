@@ -109,6 +109,46 @@ export default function ShippingPage() {
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<string | null>(null)
 
+  const handleSyncSalesOrderDetail = async (zohoId: string) => {
+    setFetchingLineItems(zohoId)
+    try {
+      const res = await fetch("/api/shipping", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "syncSalesOrder",
+          salesOrderId: zohoId
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        await fetchOrders()
+      } else {
+        toast.error("Failed to sync items: " + data.error)
+      }
+    } catch (e: any) {
+      console.error("Failed to sync items:", e)
+      toast.error("Failed to sync items: " + e.message)
+    } finally {
+      setFetchingLineItems(null)
+    }
+  }
+
+  const handleExpandOrder = async (orderId: string) => {
+    const isExpanded = expandedOrder === orderId
+    if (isExpanded) {
+      setExpandedOrder(null)
+      return
+    }
+
+    setExpandedOrder(orderId)
+
+    const order = orders.find(o => o.id === orderId)
+    if (order && (!order.lineItems || order.lineItems.length === 0)) {
+      await handleSyncSalesOrderDetail(order.zohoId)
+    }
+  }
+
   const fetchOrders = useCallback(async () => {
     setLoading(true)
     try {
@@ -461,7 +501,7 @@ export default function ShippingPage() {
                 {/* Main Row */}
                 <div
                   className="flex items-center gap-3 px-4 py-3 cursor-pointer"
-                  onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
+                  onClick={() => handleExpandOrder(order.id)}
                 >
                   {/* Status Badge */}
                   <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${currentColor}`}>
@@ -527,18 +567,45 @@ export default function ShippingPage() {
 
                       {/* Items Preview */}
                       <div className="flex-1 bg-black/20/50 rounded-xl p-3 border border-white/10/50">
-                        <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Line Items</div>
-                        {order.lineItemNames.length > 0 ? (
-                          <div className="space-y-1">
-                            {order.lineItemNames.map((name, i) => (
-                              <p key={i} className="text-sm text-neutral-300 truncate">{name}</p>
+                        <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+                          <span>Line Items</span>
+                          {fetchingLineItems === order.zohoId && (
+                            <span className="text-[10px] text-orange-400 font-bold animate-pulse flex items-center gap-1">
+                              <FiRefreshCw className="animate-spin text-[8px]" /> Syncing Zoho...
+                            </span>
+                          )}
+                        </div>
+                        {fetchingLineItems === order.zohoId ? (
+                          <div className="flex items-center gap-2 py-4 text-xs text-neutral-500">
+                            <div className="w-3.5 h-3.5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                            Loading details from Zoho...
+                          </div>
+                        ) : order.lineItems && order.lineItems.length > 0 ? (
+                          <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
+                            {order.lineItems.map((li, i) => (
+                              <div key={i} className="flex items-center justify-between text-sm hover:bg-white/5 p-1 rounded transition-colors">
+                                <span className="text-neutral-300 font-medium truncate pr-2" title={li.name}>
+                                  {li.sku ? `[${li.sku}] ` : ""}{li.name}
+                                </span>
+                                <span className="flex-shrink-0 bg-neutral-800 text-neutral-300 font-bold px-2 py-0.5 rounded text-xs min-w-[20px] text-center">
+                                  {li.quantity}
+                                </span>
+                              </div>
                             ))}
-                            {order.lineItemCount > 3 && (
-                              <p className="text-[10px] text-neutral-600">+{order.lineItemCount - 3} more</p>
-                            )}
                           </div>
                         ) : (
-                          <p className="text-sm text-neutral-600">No item data</p>
+                          <div className="text-xs text-neutral-500 flex flex-col gap-1 py-2">
+                            <span>No item data cached locally.</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleSyncSalesOrderDetail(order.zohoId)
+                              }}
+                              className="text-left text-[10px] text-orange-400 hover:text-orange-300 font-bold underline cursor-pointer"
+                            >
+                              Fetch Items from Zoho
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -573,17 +640,35 @@ export default function ShippingPage() {
                                   </div>
                                   {(() => {
                                     const pkgItems = pkg.items?.lineItems || pkg.items?.line_items || (Array.isArray(pkg.items) ? pkg.items : null)
-                                    const itemsList = pkgItems && pkgItems.length > 0 
-                                      ? pkgItems.map((li: any) => li.name || li.itemName || li.item_name || "").filter(Boolean)
-                                      : order.lineItemNames
+                                    if (pkgItems && pkgItems.length > 0) {
+                                      return (
+                                        <div className="space-y-0.5">
+                                          {pkgItems.map((li: any, idx: number) => {
+                                            const name = li.name || li.itemName || li.item_name || ""
+                                            const qty = li.quantity || li.quantity_packed || ""
+                                            return (
+                                              <p key={idx} className="text-xs text-neutral-300 font-medium truncate">
+                                                • {qty ? `${qty}x ` : ""}{name}
+                                              </p>
+                                            )
+                                          })}
+                                        </div>
+                                      )
+                                    }
                                     
-                                    return itemsList && itemsList.length > 0 ? (
-                                      <div className="space-y-0.5">
-                                        {itemsList.map((name: string, idx: number) => (
-                                          <p key={idx} className="text-xs text-neutral-300 font-medium truncate">• {name}</p>
-                                        ))}
-                                      </div>
-                                    ) : (
+                                    if (order.lineItems && order.lineItems.length > 0) {
+                                      return (
+                                        <div className="space-y-0.5">
+                                          {order.lineItems.map((li: any, idx: number) => (
+                                            <p key={idx} className="text-xs text-neutral-300 font-medium truncate">
+                                              • {li.quantity}x {li.name}
+                                            </p>
+                                          ))}
+                                        </div>
+                                      )
+                                    }
+
+                                    return (
                                       <p className="text-xs text-neutral-500 italic">Order items pending sync</p>
                                     )
                                   })()}

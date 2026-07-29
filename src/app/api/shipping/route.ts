@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { PrismaClient } from "@prisma/client"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { getZohoAccessToken } from "@/lib/zoho-auth"
 
 const prisma = new PrismaClient()
 
@@ -314,7 +315,59 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json()
-    const { action, packageId, carrier, trackingNumber, status } = body
+    const { action, packageId, carrier, trackingNumber, status, salesOrderId } = body
+
+    if (action === "syncSalesOrder") {
+      if (!salesOrderId) {
+        return NextResponse.json({ error: "Missing salesOrderId" }, { status: 400 })
+      }
+      
+      const token = await getZohoAccessToken()
+      const ZOHO_DC = process.env.ZOHO_DC || "com"
+      const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
+      const url = `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders/${salesOrderId}?organization_id=${ORG_ID}`
+      
+      const res = await fetch(url, {
+        headers: { Authorization: `Zoho-oauthtoken ${token}` }
+      })
+      if (!res.ok) {
+        return NextResponse.json({ error: `Failed to fetch from Zoho: ${res.status}` }, { status: 500 })
+      }
+      const data = await res.json()
+      if (data.code !== 0 || !data.salesorder) {
+        return NextResponse.json({ error: data.message || "Failed to load SO from Zoho" }, { status: 500 })
+      }
+      
+      const doc = data.salesorder
+      const dbDoc = await prisma.salesOrder.findFirst({ where: { zohoId: salesOrderId } })
+      const currentItems = dbDoc ? (dbDoc.items as any || {}) : {}
+      
+      const updatedItems = {
+        ...currentItems,
+        salesOrderNumber: doc.salesorder_number || currentItems.salesOrderNumber,
+        sub_total: parseFloat(doc.sub_total || 0),
+        balance: doc.balance ?? 0,
+        shippingCharge: parseFloat(doc.shipping_charge || 0),
+        customer_name: doc.customer_name || currentItems.customer_name,
+        salesperson: doc.salesperson_name ? doc.salesperson_name.toUpperCase().trim() : currentItems.salesperson,
+        line_items: doc.line_items || currentItems.line_items || [],
+        custom_fields: doc.custom_fields || currentItems.custom_fields || [],
+        lastSyncedAt: new Date().toISOString(),
+      }
+      
+      if (dbDoc) {
+        await prisma.salesOrder.update({
+          where: { id: dbDoc.id },
+          data: {
+            amount: parseFloat(doc.sub_total || doc.total || 0),
+            status: doc.status || dbDoc.status,
+            items: updatedItems
+          }
+        })
+      }
+      
+      return NextResponse.json({ success: true })
+    }
 
     if (!packageId) {
       return NextResponse.json({ error: "Missing packageId" }, { status: 400 })

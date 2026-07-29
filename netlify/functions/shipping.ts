@@ -25,7 +25,56 @@ export const handler: Handler = async (event) => {
 
     if (event.httpMethod === "PUT") {
       const body = JSON.parse(event.body || "{}")
-      const { action, packageId, carrier, trackingNumber } = body
+      const { action, packageId, carrier, trackingNumber, salesOrderId } = body
+
+      if (action === "syncSalesOrder") {
+        if (!salesOrderId) {
+          return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing salesOrderId" }) }
+        }
+        const { getZohoAccessToken } = require("./lib/zoho-auth")
+        const token = await getZohoAccessToken()
+        const ZOHO_DC = process.env.ZOHO_DC || "com"
+        const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
+        const url = `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders/${salesOrderId}?organization_id=${ORG_ID}`
+        const res = await fetch(url, {
+          headers: { Authorization: `Zoho-oauthtoken ${token}` }
+        })
+        if (!res.ok) {
+          return { statusCode: 500, headers: cors, body: JSON.stringify({ error: `Failed to fetch from Zoho: ${res.status}` }) }
+        }
+        const data = await res.json()
+        if (data.code !== 0 || !data.salesorder) {
+          return { statusCode: 500, headers: cors, body: JSON.stringify({ error: data.message || "Failed to load SO from Zoho" }) }
+        }
+        const doc = data.salesorder
+        const dbDoc = await prisma.salesOrder.findFirst({ where: { zohoId: salesOrderId } })
+        const currentItems = dbDoc ? (dbDoc.items as any || {}) : {}
+
+        const updatedItems = {
+          ...currentItems,
+          salesOrderNumber: doc.salesorder_number || currentItems.salesOrderNumber,
+          sub_total: parseFloat(doc.sub_total || 0),
+          balance: doc.balance ?? 0,
+          shippingCharge: parseFloat(doc.shipping_charge || 0),
+          customer_name: doc.customer_name || currentItems.customer_name,
+          salesperson: doc.salesperson_name ? doc.salesperson_name.toUpperCase().trim() : currentItems.salesperson,
+          line_items: doc.line_items || currentItems.line_items || [],
+          custom_fields: doc.custom_fields || currentItems.custom_fields || [],
+          lastSyncedAt: new Date().toISOString(),
+        }
+
+        if (dbDoc) {
+          await prisma.salesOrder.update({
+            where: { id: dbDoc.id },
+            data: {
+              amount: parseFloat(doc.sub_total || doc.total || 0),
+              status: doc.status || dbDoc.status,
+              items: updatedItems
+            }
+          })
+        }
+        return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true }) }
+      }
 
       if (!packageId) {
         return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing packageId" }) }
