@@ -53,7 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/messages",    icon: FiMessageSquare, label: "Msgs",        color: "text-sky-400" },
   ]
 
-  if (pathname === "/login" || pathname === "/intro-offer") return <>{children}</>
+  if (pathname === "/login" || pathname === "/intro-offer" || pathname.startsWith("/tv")) return <>{children}</>
 
   const handleLogout = () => {
     try { localStorage.removeItem("sales_portal_user") } catch {}

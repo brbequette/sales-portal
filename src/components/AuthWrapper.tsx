@@ -18,7 +18,8 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   // Detect public pages (login, intro-offer) synchronously from window.location
   const isPublicPage = typeof window !== "undefined" && (
     window.location.pathname.includes("/login") || 
-    window.location.pathname.includes("/intro-offer")
+    window.location.pathname.includes("/intro-offer") ||
+    window.location.pathname.startsWith("/tv")
   )
 
   // Fast-path: if URL carries Zoho merge-field params (email or zohoId),
