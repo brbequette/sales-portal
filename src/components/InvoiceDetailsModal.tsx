@@ -2,6 +2,7 @@
 
 
 import { useState, useEffect, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
 import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight, FiCheckSquare, FiExternalLink } from "react-icons/fi"
@@ -26,6 +27,7 @@ interface InvoiceDetailsModalProps {
 }
 
 export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoiceList, currentIndex, onNavigate }: InvoiceDetailsModalProps) {
+  const { data: session } = useSession()
   const [internalInvoiceOverride, setInternalInvoiceOverride] = useState<any | null>(null)
   const [internalTypeOverride, setInternalTypeOverride] = useState<"Quote" | "SalesOrder" | "Invoice" | null>(null)
   const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
@@ -135,6 +137,22 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
   }, [handleKeyDown])
 
   const displayData = fullInvoiceDetails || initialData
+
+  const isAdmin = session?.user?.role?.toLowerCase() === "admin"
+  const isSalesOrderInvoiced = 
+    currentType === "SalesOrder" && 
+    (displayData?.status?.toLowerCase() === "invoiced" || 
+     displayData?.invoiced === true || 
+     (displayData?.invoices && displayData.invoices.length > 0))
+
+  const spName = (displayData?.salesperson_name || displayData?.salespersonName || "").toLowerCase().trim()
+  const matchedRep = usersList.find(u => u.name.toLowerCase().trim() === spName || u.zohoName?.toLowerCase().trim() === spName)
+  const isSalespersonOwner = 
+    spName && 
+    ((matchedRep && matchedRep.email?.toLowerCase().trim() === session?.user?.email?.toLowerCase().trim()) || 
+     (spName === session?.user?.name?.toLowerCase().trim()))
+
+  const canEdit = isAdmin || (isSalespersonOwner && currentType === "SalesOrder" && !isSalesOrderInvoiced)
 
   const handleConvert = async (targetType: "SalesOrder" | "Invoice") => {
     setIsConverting(true)
@@ -1266,7 +1284,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Line Items</h4>
-                        {!isVoided && statusLower !== 'paid' && (
+                        {!isVoided && statusLower !== 'paid' && canEdit && (
                           <button
                             onClick={() => {
                               if (isEditingLineItems) {

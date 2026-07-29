@@ -23,9 +23,10 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Invalid JSON" }) }
   }
 
-  const { documentId, type = "Invoice", lineItems } = body
+  const documentId = body.documentId || body.zohoId
+  const { type = "Invoice", lineItems } = body
   if (!documentId || !lineItems || !Array.isArray(lineItems)) {
-    return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing documentId or lineItems" }) }
+    return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing documentId (or zohoId) or lineItems" }) }
   }
 
   try {
