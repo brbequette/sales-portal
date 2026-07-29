@@ -355,7 +355,7 @@ export function OrderBuilder({
   const [showMockOrder, setShowMockOrder] = useState(false)
   
   // Pending Add Item State
-  const [pendingItem, setPendingItem] = useState<{name: string, sku: string, cost: number, defaultPrice: number} | null>(null)
+  const [pendingItem, setPendingItem] = useState<{name: string, sku: string, cost: number, defaultPrice: number, giftItem?: boolean} | null>(null)
   const [addPaidQty, setAddPaidQty] = useState(1)
   const [addFreeQty, setAddFreeQty] = useState(0)
   const [addPrice, setAddPrice] = useState(0)
@@ -396,6 +396,28 @@ export function OrderBuilder({
   }, [catalogProducts])
 
   const topBladeProducts = useMemo(() => activeBlades.slice(0, 10), [activeBlades])
+
+  const popularGifts = useMemo(() => {
+    return (catalogProducts || [])
+      .filter(p => {
+        if (p.giftItem) return true
+        const name = (p.name || "").toLowerCase()
+        const sku = (p.sku || "").toLowerCase()
+        const cat = (p.category || "").toLowerCase()
+        return cat.includes("gift") || cat.includes("promo") || name.includes("t-shirt") || name.includes("hoodie") || name.includes("jacket") || name.includes("hat") || name.includes("beanie") || name.includes("cap") || name.includes("knife") || name.includes("tumbler") || name.includes("pen")
+      })
+      .map(p => {
+        const desc = parseDesc(p.description)
+        return {
+          id: p.id,
+          name: p.name as string,
+          sku: p.sku as string,
+          price: (p.price || 0) as number,
+          cost: (desc.cost || 0) as number,
+          giftItem: true,
+        }
+      })
+  }, [catalogProducts])
 
   /** Filter past purchased products excluding gifts */
   const previousPurchasesNoGifts = useMemo(() => {
@@ -502,11 +524,12 @@ export function OrderBuilder({
 
   // â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
-  const openAddItemModal = (p: { name: string; sku: string; price: number; cost: number }) => {
-    setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost })
-    setAddPaidQty(1)
-    setAddFreeQty(0)
-    setAddPrice(p.price)
+  const openAddItemModal = (p: { name: string; sku: string; price: number; cost: number; giftItem?: boolean }) => {
+    const isGift = p.giftItem || /gift|shirt|hat|hoodie|swag|promo|beanie|jacket|cap|knife|tumbler|pen\b/i.test((p.name || "") + " " + (p.sku || ""))
+    setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost, giftItem: isGift })
+    setAddPaidQty(isGift ? 0 : 1)
+    setAddFreeQty(isGift ? 1 : 0)
+    setAddPrice(isGift ? 0 : p.price)
     setProductSearch("")
     setShowProductDropdown(false)
   }
@@ -792,7 +815,7 @@ export function OrderBuilder({
 
       {/* â"€â"€ Quick Add -- Top Blades â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
       {topBladeProducts.length > 0 && (
-        <div>
+        <div className="space-y-1.5">
           <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold mb-1.5">Quick Add -- Top Blades</p>
           <div className="flex flex-wrap gap-1.5">
             {topBladeProducts.map(bp => {
@@ -804,6 +827,28 @@ export function OrderBuilder({
                   className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer glass-panel border-neutral-700 text-neutral-400 hover:border-violet-500/50 hover:text-violet-300"
                 >
                   ⚡ {bp.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {popularGifts.length > 0 && (
+        <div className="pt-2.5 border-t border-white/5 space-y-1.5">
+          <p className="text-[9px] text-purple-400 uppercase tracking-wider font-bold mb-1.5 flex items-center gap-1">
+            <span>🎁 Quick Add -- Popular Gifts (No VIG)</span>
+          </p>
+          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto scrollbar-thin pr-1">
+            {popularGifts.map(gift => {
+              return (
+                <button
+                  key={gift.sku}
+                  type="button"
+                  onClick={() => openAddItemModal(gift)}
+                  className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer bg-purple-950/20 border-purple-500/30 text-purple-300 hover:bg-purple-500 hover:text-black hover:border-purple-300 flex items-center gap-1 shadow-sm"
+                >
+                  <span>🎁 {gift.name}</span>
                 </button>
               )
             })}
