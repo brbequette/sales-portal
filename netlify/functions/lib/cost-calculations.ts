@@ -68,9 +68,8 @@ export function isGiftItem(item: any): boolean {
   ]
 
   const matchesKeyword = giftKeywords.some(k => name.includes(k) || sku.includes(k) || description.includes(k))
-  const isZeroRate = parseFloat(item.rate || 0) === 0
 
-  return matchesKeyword || isZeroRate
+  return matchesKeyword
 }
 
 import exemptCatalog from "../../../src/lib/exempt-catalog.json"

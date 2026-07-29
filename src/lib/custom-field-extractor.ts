@@ -125,7 +125,7 @@ export function isItemExemptFromVig(item: any): boolean {
     "sweatshirt", "cap", "bag", "blade bag", "coat", "umbrella", "tumbler",
     "bottle", "keychain"
   ];
-  if (giftKeywords.some(k => name.toLowerCase().includes(k) || description.includes(k)) || parseFloat(item.rate || 0) === 0) {
+  if (giftKeywords.some(k => name.toLowerCase().includes(k) || description.includes(k))) {
     return true;
   }
 

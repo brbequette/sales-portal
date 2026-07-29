@@ -37,6 +37,8 @@ export type OrderLine = {
   unitPrice: number
   cost: number
   isPromo: boolean
+  giftItem?: boolean
+  subjectToVig?: boolean
 }
 
 export interface OrderBuilderProps {
@@ -356,7 +358,7 @@ export function OrderBuilder({
   const [showMockOrder, setShowMockOrder] = useState(false)
   
   // Pending Add Item State
-  const [pendingItem, setPendingItem] = useState<{name: string, sku: string, cost: number, defaultPrice: number, giftItem?: boolean} | null>(null)
+  const [pendingItem, setPendingItem] = useState<{name: string, sku: string, cost: number, defaultPrice: number, giftItem?: boolean, subjectToVig?: boolean} | null>(null)
   const [addPaidQty, setAddPaidQty] = useState(1)
   const [addFreeQty, setAddFreeQty] = useState(0)
   const [addPrice, setAddPrice] = useState(0)
@@ -515,8 +517,14 @@ export function OrderBuilder({
   const financials = useMemo(() => {
     if (orderLines.length === 0) return null
     const subTotal = orderLines.reduce((s, l) => s + (!l.isPromo ? l.quantity * l.unitPrice : 0), 0)
-    const deadCostSubjectToVig = orderLines.reduce((s, l) => s + (!l.isPromo ? l.cost * l.quantity : 0), 0)
-    const deadCostNoVig = orderLines.reduce((s, l) => s + (l.isPromo ? l.cost * l.quantity : 0), 0)
+    
+    const isExempt = (l: any) => {
+      if (l.subjectToVig === false) return true
+      return !!l.giftItem
+    }
+    
+    const deadCostSubjectToVig = orderLines.reduce((s, l) => s + (!isExempt(l) ? l.cost * l.quantity : 0), 0)
+    const deadCostNoVig = orderLines.reduce((s, l) => s + (isExempt(l) ? l.cost * l.quantity : 0), 0)
     const deadCostTotal = deadCostSubjectToVig + deadCostNoVig
     const deadCostPlusVig = deadCostSubjectToVig * vigRate + deadCostNoVig
     const deadProfit = subTotal - deadCostTotal
@@ -528,9 +536,9 @@ export function OrderBuilder({
 
   // â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
-  const openAddItemModal = (p: { name: string; sku: string; price: number; cost: number; giftItem?: boolean }) => {
+  const openAddItemModal = (p: { name: string; sku: string; price: number; cost: number; giftItem?: boolean; subjectToVig?: boolean }) => {
     const isGift = p.giftItem || /gift|shirt|hat|hoodie|swag|promo|beanie|jacket|cap|knife|tumbler|pen\b/i.test((p.name || "") + " " + (p.sku || ""))
-    setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost, giftItem: isGift })
+    setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost, giftItem: isGift, subjectToVig: p.subjectToVig !== false })
     setAddPaidQty(isGift ? 0 : 1)
     setAddFreeQty(isGift ? 1 : 0)
     setAddPrice(isGift ? 0 : p.price)
@@ -551,7 +559,9 @@ export function OrderBuilder({
         quantity: addPaidQty,
         unitPrice: addPrice,
         cost: pendingItem.cost,
-        isPromo: false
+        isPromo: false,
+        giftItem: pendingItem.giftItem,
+        subjectToVig: pendingItem.subjectToVig,
       })
     }
     
@@ -564,7 +574,9 @@ export function OrderBuilder({
         quantity: addFreeQty,
         unitPrice: 0,
         cost: pendingItem.cost,
-        isPromo: true
+        isPromo: true,
+        giftItem: pendingItem.giftItem,
+        subjectToVig: pendingItem.subjectToVig,
       })
     }
 
