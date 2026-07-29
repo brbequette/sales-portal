@@ -123,9 +123,23 @@ export async function GET(req: NextRequest) {
 
       const hasFulfillment = soPkgs.length > 0 || soDrops.length > 0
 
+      const rawLines = items.line_items || items.lineItems || items._zohoRaw?.line_items || []
+      const isFullyDropshipped = rawLines.length > 0 && rawLines.every((li: any) => {
+        if (li.product_type === "service" || li.line_item_type === "service") return true
+        const totalQty = parseFloat(li.quantity || 0)
+        const dropshippedQty = parseFloat(li.quantity_dropshipped || 0)
+        return dropshippedQty >= totalQty
+      })
+
       // Derive shipping status considering both packages AND dropshipments
       let shipStatus: "needs_packaging" | "packaged" | "shipped" | "delivered" = "needs_packaging"
-      if (hasFulfillment) {
+      
+      if (isFullyDropshipped) {
+        const allDropDelivered = soDrops.length > 0 && soDrops.every((po: any) =>
+          po.status?.toLowerCase() === "received" || po.status?.toLowerCase() === "delivered" || po.status?.toLowerCase() === "billed"
+        )
+        shipStatus = allDropDelivered ? "delivered" : "shipped"
+      } else if (hasFulfillment) {
         // Check packages
         const allPkgDelivered = soPkgs.length === 0 || soPkgs.every((p: any) => p.status?.toLowerCase() === "delivered")
         const anyPkgShipped = soPkgs.some((p: any) =>
@@ -166,13 +180,20 @@ export async function GET(req: NextRequest) {
       let mappedLineItems: any[] = []
       
       if (Array.isArray(lineItems) && lineItems.length > 0) {
-        lineItemCount = lineItems.length
-        lineItemNames = lineItems.slice(0, 3).map((li: any) => li.name || li.itemName || "").filter(Boolean)
-        mappedLineItems = lineItems.map((li: any) => ({
-          name: li.name || li.itemName || li.item_name || "",
-          sku: li.sku || li.sku_code || "",
-          quantity: parseFloat(li.quantity || 0)
-        }))
+        const filteredLines = lineItems.map((li: any) => {
+          const totalQty = parseFloat(li.quantity || 0)
+          const dropshippedQty = parseFloat(li.quantity_dropshipped || 0)
+          const remainingQty = Math.max(0, totalQty - dropshippedQty)
+          return {
+            name: li.name || li.itemName || li.item_name || "",
+            sku: li.sku || li.sku_code || "",
+            quantity: remainingQty
+          }
+        }).filter((li: any) => li.quantity > 0)
+
+        lineItemCount = filteredLines.length
+        lineItemNames = filteredLines.slice(0, 3).map((li: any) => li.name).filter(Boolean)
+        mappedLineItems = filteredLines
       } else if (Array.isArray(dcBreakdown) && dcBreakdown.length > 0) {
         lineItemCount = dcBreakdown.length
         lineItemNames = dcBreakdown.slice(0, 3).map((str: string) => str.split('|')[0].trim())
