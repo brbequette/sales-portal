@@ -66,6 +66,31 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
   const [isEditingLineItems, setIsEditingLineItems] = useState(false)
   const [editableLineItems, setEditableLineItems] = useState<any[]>([])
   const [isSavingLineItems, setIsSavingLineItems] = useState(false)
+  const [productsCatalog, setProductsCatalog] = useState<any[]>([])
+  const [selectedProductId, setSelectedProductId] = useState("")
+  const [newProductQty, setNewProductQty] = useState(1)
+  const [newProductPrice, setNewProductPrice] = useState(0)
+
+  useEffect(() => {
+    if (isEditingLineItems && productsCatalog.length === 0) {
+      fetch("/api/get-products")
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            const activeProducts = (data.products || []).filter((p: any) => {
+              try {
+                const desc = JSON.parse(p.description || "{}")
+                return desc.status !== "inactive"
+              } catch {
+                return true
+              }
+            })
+            setProductsCatalog(activeProducts)
+          }
+        })
+        .catch(err => console.error("Failed to load products", err))
+    }
+  }, [isEditingLineItems, productsCatalog.length])
 
   // Determine the base zoho ID and any existing data
   const currentInvoice = internalInvoiceOverride || invoice
@@ -1382,6 +1407,83 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                                 </div>
                               )
                             })}
+                            {/* Add Item Row */}
+                            <div className="bg-neutral-900/60 border border-dashed border-sky-500/30 rounded-xl p-3 mt-2 space-y-2">
+                              <div className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">Add Item to Order</div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div>
+                                  <label className="text-[9px] text-neutral-500 uppercase font-bold">Select Product</label>
+                                  <select
+                                    value={selectedProductId}
+                                    onChange={(e) => {
+                                      const pId = e.target.value
+                                      setSelectedProductId(pId)
+                                      const prod = productsCatalog.find(p => p.id === pId)
+                                      if (prod) {
+                                        setNewProductPrice(prod.price || 0)
+                                      }
+                                    }}
+                                    className="bg-black/50 border border-neutral-700 rounded px-2 py-1 w-full text-xs text-neutral-300 focus:border-sky-500 focus:outline-none h-8 cursor-pointer"
+                                  >
+                                    <option value="">-- Choose Product --</option>
+                                    {productsCatalog.map(p => (
+                                      <option key={p.id} value={p.id}>
+                                        {p.sku ? `[${p.sku}] ` : ""}{p.name} (${p.price ? `$${p.price}` : "Free"})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="text-[9px] text-neutral-500 uppercase font-bold">Qty</label>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      value={newProductQty}
+                                      onChange={(e) => setNewProductQty(parseInt(e.target.value) || 1)}
+                                      className="bg-black/50 border border-neutral-700 rounded px-2 py-1 w-full text-xs text-neutral-300 focus:border-sky-500 focus:outline-none h-8 font-bold"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[9px] text-neutral-500 uppercase font-bold">Price</label>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step="0.01"
+                                      value={newProductPrice}
+                                      onChange={(e) => setNewProductPrice(parseFloat(e.target.value) || 0)}
+                                      className="bg-black/50 border border-neutral-700 rounded px-2 py-1 w-full text-xs text-neutral-300 focus:border-sky-500 focus:outline-none h-8 font-bold"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={!selectedProductId}
+                                onClick={() => {
+                                  const prod = productsCatalog.find(p => p.id === selectedProductId)
+                                  if (!prod) return
+                                  
+                                  const newItem = {
+                                    line_item_id: "new_" + Date.now(),
+                                    name: prod.name,
+                                    description: `SKU: ${prod.sku}`,
+                                    rate: newProductPrice,
+                                    quantity: newProductQty,
+                                    item_id: prod.zohoId || prod.sku,
+                                  }
+                                  
+                                  setEditableLineItems(prev => [...prev, newItem])
+                                  setSelectedProductId("")
+                                  setNewProductQty(1)
+                                  setNewProductPrice(0)
+                                }}
+                                className="w-full bg-sky-900/40 hover:bg-sky-500 hover:text-black border border-sky-500/30 hover:border-sky-500 text-sky-300 font-bold py-1.5 rounded text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-1"
+                              >
+                                + Append Product to List
+                              </button>
+                            </div>
+
                             <button
                               onClick={handleSaveLineItems}
                               disabled={isSavingLineItems}

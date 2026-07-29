@@ -94,10 +94,28 @@ export const handler: Handler = async (event) => {
       return existingItem
     })
 
+    // Find and append new line items that don't exist in doc.line_items
+    const newItems = lineItems.filter((li: any) => {
+      if (!li.line_item_id || String(li.line_item_id).startsWith("new_")) {
+        return true
+      }
+      return !doc.line_items.some((existingItem: any) => existingItem.line_item_id === li.line_item_id)
+    })
+
+    const formattedNewItems = newItems.map((li: any) => ({
+      item_id: li.item_id || undefined,
+      name: li.name,
+      description: li.description || "",
+      rate: parseFloat(li.rate || 0),
+      quantity: parseInt(li.quantity || 0),
+    }))
+
+    const combinedLineItems = [...updatedLineItems, ...formattedNewItems]
+
     // 3. Update the document in Zoho Books
     const payload = {
       customer_id: doc.customer_id,
-      line_items: updatedLineItems,
+      line_items: combinedLineItems,
       shipping_charge: doc.shipping_charge || 0,
       adjustment: doc.adjustment || 0,
       adjustment_description: doc.adjustment_description || ""
