@@ -26,6 +26,8 @@ import {
   FiDollarSign, FiFileText, FiTrendingUp, FiFilter,
   FiPackage, FiChevronDown,
 } from "react-icons/fi"
+import { useZoho } from "@/components/ZohoProvider"
+import { usePreferences } from "@/components/PreferencesProvider"
 
 // â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
@@ -245,6 +247,9 @@ export function OrderBuilder({
   onCancel,
   onSuccess,
 }: OrderBuilderProps) {
+  const { zohoContext: user } = useZoho()
+  const { preferences } = usePreferences()
+  const [transactionType, setTransactionType] = useState<"SalesOrder" | "Quote">("SalesOrder")
   const isControlled = externalSetOrderLines !== undefined
   const [internalOrderLines, setInternalOrderLines] = useState<OrderLine[]>(externalOrderLines || [])
   const [internalCatalogProducts, setInternalCatalogProducts] = useState<any[]>([])
@@ -303,28 +308,31 @@ export function OrderBuilder({
         description: `SKU: ${i.sku}` + (i.isPromo ? " (PROMO FREE)" : "")
       }))
 
+      const effectiveEmail = preferences?.impersonatedUser ? preferences.impersonatedUser.email : (user?.email || "")
+
       const res = await fetch("/api/create-transaction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accountId,
           dealId,
-          type: "SalesOrder",
+          type: transactionType,
+          userEmail: effectiveEmail,
           amount: orderTotal,
           items: itemsFormatted,
           lineItems: lineItems,
-          processingNotes: "Order created via Standalone OrderBuilder",
+          processingNotes: `Order created via Standalone OrderBuilder (${transactionType})`,
         }),
       })
 
       if (res.ok) {
-        alert("SalesOrder created successfully!")
+        alert(`${transactionType === "SalesOrder" ? "Sales Order" : "Quote (Estimate)"} created successfully!`)
         if (onSuccess) onSuccess()
         setShowMockOrder(false)
         if (!externalOrderLines) setInternalOrderLines([])
       } else {
         const data = await res.json()
-        alert(data.error || data.message || "Failed to create order")
+        alert(data.error || data.message || "Failed to create transaction")
       }
     } catch (e: any) {
       alert("Error: " + e.message)
@@ -1102,7 +1110,7 @@ export function OrderBuilder({
           onClick={() => setShowMockOrder(true)}
           className="w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs font-black uppercase tracking-wider hover:from-violet-500 hover:to-purple-500 transition-all cursor-pointer flex items-center justify-center gap-2"
         >
-          <FiFileText size={14} /> Preview Sales Order
+          <FiFileText size={14} /> Preview Order / Quote
         </button>
       )}
 
@@ -1119,7 +1127,9 @@ export function OrderBuilder({
             {/* Modal header */}
             <div className="sticky top-0 glass-panel border-b border-white/10 px-6 py-4 flex items-center justify-between rounded-t-2xl">
               <div>
-                <h3 className="text-white font-black text-base">Sales Order Preview</h3>
+                <h3 className="text-white font-black text-base">
+                  {transactionType === "SalesOrder" ? "Sales Order Preview" : "Quote / Estimate Preview"}
+                </h3>
                 <p className="text-[10px] text-neutral-500 mt-0.5">
                   {accountName || "Customer"} . {new Date().toLocaleDateString()}
                 </p>
@@ -1130,6 +1140,32 @@ export function OrderBuilder({
             </div>
 
             <div className="px-6 py-4 space-y-5">
+              {/* Transaction Type Choice */}
+              <div className="flex bg-neutral-900 border border-white/10 rounded-xl p-1 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setTransactionType("SalesOrder")}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    transactionType === "SalesOrder"
+                      ? "bg-violet-600 text-white shadow animate-in fade-in duration-200"
+                      : "text-neutral-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  📄 Sales Order
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTransactionType("Quote")}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    transactionType === "Quote"
+                      ? "bg-violet-600 text-white shadow animate-in fade-in duration-200"
+                      : "text-neutral-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  📝 Quote / Estimate
+                </button>
+              </div>
+
               {/* Customer info */}
               {(accountName || accountDetail) && (
                 <div className="grid grid-cols-2 gap-3 text-[10px]">
@@ -1269,10 +1305,10 @@ export function OrderBuilder({
                 {isSubmitting ? (
                   <>
                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Creating Order...
+                    {transactionType === "SalesOrder" ? "Creating Order..." : "Creating Quote..."}
                   </>
                 ) : (
-                  "Confirm Order"
+                  transactionType === "SalesOrder" ? "Confirm Order" : "Confirm Quote"
                 )}
               </button>
             </div>
