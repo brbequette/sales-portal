@@ -230,7 +230,7 @@ export const handler: Handler = async (event) => {
               body: JSON.stringify({
                 customer_id: doc.customer_id,
                 adjustment: tariffAmount,
-                adjustment_description: "Tariff Surcharge (12.5%)",
+                adjustment_description: "TARIFF SURCHARGE",
               }),
             }
           )
