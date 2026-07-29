@@ -644,6 +644,7 @@ export const handler: Handler = async (event) => {
           accountName: inv.accountName || "Customer",
           amount: inv.amount || 0,
           profit: inv.deadProfit || inv.profit || 0,
+          deadProfit: inv.deadProfit || inv.profit || 0,
           deadCost: inv.deadCost || 0,
           status: inv.status || "Paid",
           isPaid: !!inv.isPaid,

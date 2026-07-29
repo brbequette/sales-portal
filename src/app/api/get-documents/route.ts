@@ -100,7 +100,10 @@ export async function GET(request: Request) {
       if (items && !Array.isArray(items)) {
         // Calculate raw non-VIG profit (Dead Profit)
         const subTotal = parseFloat(items.sub_total ?? items.subTotal ?? raw.amount ?? 0)
-        const deadCostTotal = parseFloat(items.deadCostTotal ?? items.dead_cost_total ?? items.cf_dead_cost_total ?? extractField(items, 'cf_dead_cost_total') ?? 0)
+        let deadCostTotal = parseFloat(items.deadCostTotal ?? items.dead_cost_total ?? items.cf_dead_cost_total ?? extractField(items, 'cf_dead_cost_total') ?? 0)
+        if ((isNaN(deadCostTotal) || deadCostTotal === 0) && subTotal > 0) {
+          deadCostTotal = subTotal * 0.50
+        }
         const additionalCosts = parseFloat(items.additionalCosts ?? items.additional_costs ?? items.cf_additional_costs_to_order ?? extractField(items, 'cf_additional_costs_to_order') ?? 0)
         const ccFees = parseFloat(items.ccFees ?? items.cc_fees ?? items.cf_credit_card_processing_fees ?? extractField(items, 'cf_credit_card_processing_fees') ?? 0)
         const giftCost = parseFloat(items.giftCost ?? items.gifts_cost ?? items.gifts ?? extractField(items, 'cf_gifts') ?? 0)

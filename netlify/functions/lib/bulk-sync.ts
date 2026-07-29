@@ -290,11 +290,12 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
           salesorder_number: item.salesorder_number || null,
           shipping_address: item.shipping_address || null,
           billing_address: item.billing_address || null,
+          sub_total: parseFloat(item.sub_total || item.total || 0),
         }
         ops.push(prisma.invoice.upsert({
           where: { zohoId: item.invoice_id },
           update: {
-            amount: parseFloat(item.total || item.sub_total || 0),
+            amount: parseFloat(item.sub_total || item.total || 0),
             status: item.status || 'draft',
             issueDate: new Date(item.date || item.created_time),
             dueDate: item.due_date ? new Date(item.due_date) : null,
@@ -304,7 +305,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
           create: {
             zohoId: item.invoice_id,
             accountId: dbAccountId,
-            amount: parseFloat(item.total || item.sub_total || 0),
+            amount: parseFloat(item.sub_total || item.total || 0),
             status: item.status || 'draft',
             issueDate: new Date(item.date || item.created_time),
             dueDate: item.due_date ? new Date(item.due_date) : null,
@@ -323,6 +324,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
           shipping_address: item.shipping_address || null,
           billing_address: item.billing_address || null,
           delivery_method: item.delivery_method || null,
+          sub_total: parseFloat(item.sub_total || item.total || 0),
         }
         ops.push(prisma.salesOrder.upsert({
           where: { zohoId: item.salesorder_id },

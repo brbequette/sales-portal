@@ -63,7 +63,12 @@ export async function GET(request: Request) {
         salesorder_salesperson_name: items.salesorder_salesperson_name || items.salesperson || null,
         reference_number: items.reference_number || null,
         cf_profit_unformatted: extractProfit(items),
-        deadProfit: (items.sub_total ?? inv.amount ?? 0) - (items.deadCostTotal ?? 0),
+        deadProfit: (() => {
+          const sub = (items.sub_total ?? inv.amount ?? 0)
+          let dc = (items.deadCostTotal ?? 0)
+          if ((isNaN(dc) || dc === 0) && sub > 0) dc = sub * 0.50
+          return sub - dc
+        })(),
         cf_commision_amount_unformatted: extractCommissionAmount(items),
         cf_salesperson_vig_unformatted: extractVigRate(items),
         line_items: items.line_items || [],
@@ -95,7 +100,12 @@ export async function GET(request: Request) {
         salesorder_salesperson_name: items.salesperson || items.salesperson_name || null,
         reference_number: items.reference_number || null,
         cf_profit_unformatted: extractProfit(items),
-        deadProfit: (items.sub_total ?? so.amount ?? 0) - (items.deadCostTotal ?? 0),
+        deadProfit: (() => {
+          const sub = (items.sub_total ?? so.amount ?? 0)
+          let dc = (items.deadCostTotal ?? 0)
+          if ((isNaN(dc) || dc === 0) && sub > 0) dc = sub * 0.50
+          return sub - dc
+        })(),
         cf_commision_amount_unformatted: extractCommissionAmount(items),
         cf_salesperson_vig_unformatted: extractVigRate(items),
         line_items: items.line_items || [],
