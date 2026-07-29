@@ -112,6 +112,7 @@ export const handler: Handler = async (event, context) => {
 
     let booksRefId = null
     let booksDocNumber = null
+    let zohoDoc: any = null
 
     if (type === "Quote") {
       const res = await fetch(`${baseUrl}/estimates?organization_id=${ORG_ID}`, {
@@ -126,6 +127,7 @@ export const handler: Handler = async (event, context) => {
       if (data.code !== 0) throw new Error(`Zoho Books Error: ${data.message}`)
       booksRefId = data.estimate?.estimate_id
       booksDocNumber = data.estimate?.estimate_number
+      zohoDoc = data.estimate
     } else if (type === "SalesOrder") {
       const res = await fetch(`${baseUrl}/salesorders?organization_id=${ORG_ID}`, {
         method: "POST",
@@ -139,32 +141,63 @@ export const handler: Handler = async (event, context) => {
       if (data.code !== 0) throw new Error(`Zoho Books Error: ${data.message}`)
       booksRefId = data.salesorder?.salesorder_id
       booksDocNumber = data.salesorder?.salesorder_number
+      zohoDoc = data.salesorder
     } else {
        return { statusCode: 400, body: JSON.stringify({ success: false, message: "Invalid type" }) }
     }
 
+    // Resolve full line items array
+    const responseLineItems = zohoDoc?.line_items || lineItems || []
+    const resolvedLineItems = responseLineItems.map((li: any) => ({
+      name: li.name,
+      sku: li.sku || li.description?.replace("SKU: ", "")?.replace(" (PROMO FREE)", "") || "",
+      rate: parseFloat(li.rate || 0),
+      quantity: parseInt(li.quantity || 0),
+      description: li.description || ""
+    }))
+
     // Now save to Prisma database
     let transaction: any;
     if (type === "Quote") {
-      const itemsPayload = Array.isArray(items) ? { lineItems: items, estimateNumber: booksDocNumber || "EST-PENDING" } : items;
+      const itemsPayload = {
+        estimateNumber: booksDocNumber || "EST-PENDING",
+        sub_total: amount,
+        balance: amount,
+        shippingCharge: 0,
+        customer_name: account.name,
+        salesperson: author?.name ? author.name.toUpperCase().trim() : "SYSTEM ADMIN",
+        line_items: resolvedLineItems,
+        custom_fields: [],
+        lastSyncedAt: new Date().toISOString(),
+      }
       transaction = await prisma.quote.create({
         data: {
           zohoId: booksRefId,
           accountId: dbAccountId,
           amount,
-          items: itemsPayload || {},
+          items: itemsPayload,
           status: "Draft",
           validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
         }
       })
     } else if (type === "SalesOrder") {
-      const itemsPayload = Array.isArray(items) ? { lineItems: items, salesOrderNumber: booksDocNumber || "SO-PENDING" } : items;
+      const itemsPayload = {
+        salesOrderNumber: booksDocNumber || "SO-PENDING",
+        sub_total: amount,
+        balance: amount,
+        shippingCharge: 0,
+        customer_name: account.name,
+        salesperson: author?.name ? author.name.toUpperCase().trim() : "SYSTEM ADMIN",
+        line_items: resolvedLineItems,
+        custom_fields: [],
+        lastSyncedAt: new Date().toISOString(),
+      }
       transaction = await prisma.salesOrder.create({
         data: {
           zohoId: booksRefId,
           accountId: dbAccountId,
           amount,
-          items: itemsPayload || {},
+          items: itemsPayload,
           status: "Pending",
         }
       })

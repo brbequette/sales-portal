@@ -293,6 +293,7 @@ export function OrderBuilder({
 
       const lineItems = orderLines.map((i) => ({
         name: i.name,
+        sku: i.sku,
         itemId: null,
         rate: i.unitPrice,
         discount: 0,
@@ -1250,8 +1251,20 @@ export function OrderBuilder({
               <button type="button" onClick={() => setShowMockOrder(false)} className="flex-1 py-2 rounded-lg bg-neutral-800 text-neutral-400 text-xs font-bold hover:bg-neutral-700 transition-colors cursor-pointer">
                 Edit Order
               </button>
-              <button type="button" onClick={() => setShowMockOrder(false)} className="flex-1 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs font-black hover:from-violet-500 hover:to-purple-500 transition-all cursor-pointer">
-                Confirm Order
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleConfirmOrder}
+                className="flex-1 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs font-black hover:from-violet-500 hover:to-purple-500 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Creating Order...
+                  </>
+                ) : (
+                  "Confirm Order"
+                )}
               </button>
             </div>
           </div>
