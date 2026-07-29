@@ -331,7 +331,7 @@ export const handler: Handler = async (event) => {
         const cfs = items.custom_fields || []
         // Subtotal = invoice line-item total (sub_total), NOT the balance due (amount)
         const amount = parseFloat(items.sub_total) || parseFloat(inv.amount as any) || 0
-        const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || 0)
+        const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || 0) || 0
         const docDate = inv.issueDate ? new Date(inv.issueDate) : new Date()
         const year = docDate.getFullYear()
         const salespersonName = items.salesperson || ""
@@ -341,10 +341,10 @@ export const handler: Handler = async (event) => {
         // - Up to end of 2024: Monty = 1.0, Everyone else = 1.3
         // - 2025 onwards: Monty = 1.0, Everyone else = 1.3 baseline (or items.vigRate / 1.5 penalty)
         const vigRate = (year <= 2024 || isMontgomery) ? (isMontgomery ? 1.0 : 1.3) : (parseFloat(items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted) || 1.3)
-        const deadCostPlusVig = parseFloat(items.deadCostPlusVig || items.dead_cost_plus_vig || 0) || (deadCost * vigRate)
+        const deadCostPlusVig = (parseFloat(items.deadCostPlusVig || items.dead_cost_plus_vig || 0) || (deadCost * vigRate)) || 0
 
-        const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0)
-        const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0)
+        const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
+        const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
         
         // Dead Profit = sub_total - deadCostTotal - additionalCosts - ccFees (strictly used for Sales Goals)
         const deadProfit = amount - deadCost - additionalCosts - ccFees
@@ -353,11 +353,11 @@ export const handler: Handler = async (event) => {
         const profit = amount - deadCostPlusVig - additionalCosts - ccFees
 
         // Commission = 50% of After-VIG profit (or explicit custom field)
-        const zohoCommission = parseFloat((inv.items as any)?.commission) 
+        const zohoCommission = (parseFloat((inv.items as any)?.commission) 
           || parseFloat((inv.items as any)?.cf_commission_amount_unformatted) 
           || parseFloat((inv.items as any)?.cf_commision_amount_unformatted) 
           || parseFloat((inv.items as any)?.Commission_Amount)
-          || (profit * 0.50)
+          || (profit * 0.50)) || 0
         const issueDate = inv.issueDate ? new Date(inv.issueDate) : (inv.createdAt ? new Date(inv.createdAt) : null)
 
         // Find salesperson on invoice
