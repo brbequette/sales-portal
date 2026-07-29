@@ -20,6 +20,8 @@ export interface InvoiceFinancialBreakdownProps {
   commissionPct?: number
   salesCommission?: number
   salespersonName?: string
+  isPaid?: boolean
+  paymentDate?: string | null
   lineItemDetails?: Array<{
     name: string
     quantity: number
@@ -46,6 +48,8 @@ export function InvoiceFinancialBreakdown({
   commissionPct = 50,
   salesCommission,
   salespersonName = "",
+  isPaid = false,
+  paymentDate = null,
   lineItemDetails = [],
   customFields = []
 }: InvoiceFinancialBreakdownProps) {
@@ -165,9 +169,20 @@ export function InvoiceFinancialBreakdown({
           <div className="my-1">
             <span className="text-xl font-black text-emerald-400">${resolvedCommission.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
-          <div className="text-[9px] text-emerald-300 font-medium space-y-0.5 border-t border-emerald-500/20 pt-1">
-            <div>1st Half Upfront: <span className="font-bold">${(resolvedCommission / 2).toFixed(2)}</span></div>
-            <div>2nd Half Final: <span className="font-bold">${(resolvedCommission / 2).toFixed(2)}</span></div>
+          <div className="text-[9px] text-emerald-300 font-medium space-y-0.5 border-t border-emerald-500/20 pt-1 text-left">
+            <div className="flex justify-between items-center">
+              <span>1st Half:</span>
+              <span className="font-bold text-white">${(resolvedCommission / 2).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>2nd Half:</span>
+              <span className={`font-bold ${isPaid ? 'text-white' : 'text-amber-400'}`}>
+                ${(resolvedCommission / 2).toFixed(2)}
+              </span>
+            </div>
+            <div className="text-[8px] opacity-75 text-center pt-0.5 text-neutral-400">
+              {isPaid ? "✅ Fully Earned" : "⏳ 2nd Half Pending"}
+            </div>
           </div>
         </div>
       </div>
@@ -248,21 +263,50 @@ export function InvoiceFinancialBreakdown({
             </div>
           </div>
 
-          {/* Row 6 */}
-          <div className="p-3.5 flex items-center justify-between bg-emerald-500/10">
+          {/* Row 6: First Half */}
+          <div className="p-3.5 flex items-center justify-between bg-emerald-500/[0.04] border-l-2 border-l-amber-500">
             <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold text-[10px]">★</span>
+              <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-[10px]">½</span>
               <div>
-                <span className="font-bold text-emerald-400 text-sm">Final Payout Commission</span>
-                <p className="text-[11px] text-emerald-300/70">
-                  {resolvedProfit > 0 
-                    ? `Net Profit ($${resolvedProfit.toFixed(2)}) × ${resolvedCommissionPct}% Commission Payout Rate`
-                    : "No commission paid on negative or zero profit deals"
-                  }
+                <span className="font-bold text-amber-300 text-xs uppercase tracking-wider">1st Half Upfront Commission (Earned)</span>
+                <p className="text-[11px] text-neutral-400">
+                  50% of commission paid upfront. Credited on invoice creation.
                 </p>
               </div>
             </div>
-            <span className="font-mono font-black text-emerald-400 text-lg">${resolvedCommission.toFixed(2)}</span>
+            <div className="text-right">
+              <span className="font-mono font-bold text-amber-300 text-sm">${(resolvedCommission / 2).toFixed(2)}</span>
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1 py-0.5 rounded font-black block mt-0.5">EARNED</span>
+            </div>
+          </div>
+
+          {/* Row 7: Second Half */}
+          <div className={`p-3.5 flex items-center justify-between ${isPaid ? 'bg-emerald-500/[0.08] border-l-2 border-l-emerald-500' : 'bg-neutral-800/20 border-l-2 border-l-neutral-600'}`}>
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">½</span>
+              <div>
+                <span className={`font-bold text-xs uppercase tracking-wider ${isPaid ? 'text-emerald-400' : 'text-neutral-400'}`}>
+                  2nd Half Final Commission ({isPaid ? 'Earned' : 'Pending'})
+                </span>
+                <p className="text-[11px] text-neutral-400">
+                  Remaining 50% commission. Credited when the invoice is paid and settled.
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className={`font-mono font-bold text-sm ${isPaid ? 'text-emerald-400' : 'text-neutral-500'}`}>
+                ${(resolvedCommission / 2).toFixed(2)}
+              </span>
+              {isPaid ? (
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1 py-0.5 rounded font-black block mt-0.5">
+                  EARNED {paymentDate ? `(${new Date(paymentDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})})` : ''}
+                </span>
+              ) : (
+                <span className="text-[9px] bg-neutral-800 text-neutral-500 border border-neutral-700 px-1 py-0.5 rounded font-black block mt-0.5">
+                  PENDING INVOICE PAYMENT
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>

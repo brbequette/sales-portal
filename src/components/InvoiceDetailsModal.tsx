@@ -664,6 +664,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               const vigRateVal = parseFloat(src.vigRate || displayData.vigRate || 1.3)
               const profitVal = parseFloat(src.profit || displayData.profit || 0)
               const commVal = parseFloat(src.commission || src.salesCommission || displayData.salesCommission || 0)
+              const isPaidVal = statusLower === 'paid' || displayData.status === 'Paid' || displayData.isPaid
 
               return (
                 <InvoiceFinancialBreakdown
@@ -675,6 +676,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                   profit={profitVal}
                   salesCommission={commVal}
                   salespersonName={displayData.salesperson_name || displayData.salespersonName || ""}
+                  isPaid={isPaidVal}
+                  paymentDate={displayData.paymentDate || displayData.paidDate || displayData.payment_date || src.paymentDate || null}
                   lineItemDetails={
                     // Prefer pre-calculated lineItemDetails from DB (has correct deadCost from purchase_rate)
                     // Fall back to building from raw line_items using purchase_rate
@@ -997,6 +1000,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 const vigRateVal = parseFloat(src.vigRate || displayData.vigRate || 1.3)
                 const profitVal = parseFloat(src.profit || displayData.profit || 0)
                 const commVal = parseFloat(src.commission || src.salesCommission || displayData.salesCommission || 0)
+                const isPaidVal = statusLower === 'paid' || displayData.status === 'Paid' || displayData.isPaid
 
                 return (
                   <InvoiceFinancialBreakdown
@@ -1008,6 +1012,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                     profit={profitVal}
                     salesCommission={commVal}
                     salespersonName={displayData.salesperson_name || displayData.salespersonName || ""}
+                    isPaid={isPaidVal}
+                    paymentDate={displayData.paymentDate || displayData.paidDate || displayData.payment_date || src.paymentDate || null}
                     lineItemDetails={
                       // Prefer pre-calculated lineItemDetails from DB (has correct deadCost from purchase_rate)
                       // Fall back to building from raw line_items using purchase_rate
@@ -1080,11 +1086,35 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                             </div>
                           )}
                           {!isNaN(commission) && (
-                            <div>
-                              <div className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Commission</div>
-                              <div className="text-sm font-black text-sky-400">
+                            <div className="col-span-2 border-t border-white/10 pt-3">
+                              <div className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Commission Payout Breakdown</div>
+                              <div className="text-sm font-black text-sky-400 mb-1.5">
                                 ${commission.toLocaleString(undefined,{minimumFractionDigits:2})}
-                                {!isNaN(commPct) && <span className="ml-1 text-[10px] font-bold opacity-70">({commPct}%)</span>}
+                                {!isNaN(commPct) && <span className="ml-1 text-[10px] font-bold opacity-70 font-sans font-normal">({commPct}% payout)</span>}
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-neutral-950/60 p-2.5 rounded-lg border border-white/5 text-[11px] font-sans">
+                                <div className="space-y-0.5">
+                                  <div className="text-[9px] uppercase tracking-wider text-amber-400 font-black">1st Half (Upfront)</div>
+                                  <div className="font-bold text-white font-mono">${(commission / 2).toLocaleString(undefined,{minimumFractionDigits:2})}</div>
+                                  <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                                    <FiCheckCircle size={10} className="shrink-0" /> Earned on Creation
+                                  </div>
+                                </div>
+                                <div className="space-y-0.5 border-t sm:border-t-0 sm:border-l border-white/10 pt-2 sm:pt-0 sm:pl-2.5">
+                                  <div className="text-[9px] uppercase tracking-wider text-emerald-400 font-black">2nd Half (Final)</div>
+                                  <div className="font-bold text-white font-mono">${(commission / 2).toLocaleString(undefined,{minimumFractionDigits:2})}</div>
+                                  <div>
+                                    {isPaid ? (
+                                      <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                                        <FiCheckCircle size={10} className="shrink-0" /> Earned (Invoice Paid)
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] text-amber-400 font-semibold flex items-center gap-1">
+                                        ⏳ Pending Invoice Payment
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           )}
