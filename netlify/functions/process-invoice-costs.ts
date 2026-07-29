@@ -1,6 +1,6 @@
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
-import { calculateDocumentCosts } from "./lib/cost-calculations"
+import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculations"
 import { getSystemSettings } from "./lib/settings"
 
 import { prisma } from "./lib/prisma"
@@ -97,49 +97,9 @@ export const handler: Handler = async (event) => {
     console.log(`  Insurance: $${insurance.toFixed(2)} (not deducted) | Commission: $${salesCommission.toFixed(2)}`)
 
     // 5. Build custom field updates — only fields that changed
-    const existingFields = invoice.custom_fields || []
-    const existingPaidDate = existingFields.find((f: any) => f.label.toUpperCase().includes("PAID IN FULL DATE"))
-    const fieldsToUpdate: any[] = []
-
-    const fieldMap: Record<string, any> = {
-      "DEAD COST TOTAL": deadCostTotal.toFixed(2),
-      "DEAD COST SUBJECT TO VIG": deadCostSubjectToVig.toFixed(2),
-      "DEAD COST NO VIG": deadCostNoVig.toFixed(2),
-      "SALESPERSON VIG": vigRate,
-      "DEAD COST PLUS VIG": deadCostPlusVig.toFixed(2),
-      "PROFIT": profit.toFixed(2),
-      "COMMISSION FROM PROFIT %": commissionPct,
-      "SALES COMMISSION": salesCommission.toFixed(2),
-      "ITEMS DC BREAKDOWN": lineItemBreakdownStrings.join("\n"),
-    }
-    const apiNameMap: Record<string, any> = { cf_dead_profit_actual: deadProfitActual.toFixed(2) }
-    if (isPaid && existingPaidDate && !existingPaidDate.value) {
-      fieldMap["PAID IN FULL DATE"] = new Date().toISOString().split("T")[0]
-    }
-
-    let changesDetected = 0
-    for (const [label, value] of Object.entries(fieldMap)) {
-      const field = existingFields.find((f: any) => f.label.toUpperCase().trim() === label)
-      if (field) {
-        if (String(field.value || "").trim() !== String(value).trim()) {
-          fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
-          changesDetected++
-        }
-      } else {
-        console.warn(`Custom field "${label}" not found on invoice`)
-      }
-    }
-    for (const [apiName, value] of Object.entries(apiNameMap)) {
-      const field = existingFields.find((f: any) => f.api_name === apiName)
-      if (field && String(field.value || "").trim() !== String(value).trim()) {
-        if (!fieldsToUpdate.some((f: any) => f.customfield_id === field.customfield_id)) {
-          fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
-          changesDetected++
-        }
-      } else if (!field) {
-        console.warn(`Custom field api_name "${apiName}" not found on invoice`)
-      }
-    }
+    // 5. Build custom field updates — only fields that changed
+    const fieldsToUpdate = buildFieldsToUpdate(calc, invoice, "invoices")
+    const changesDetected = fieldsToUpdate.length
 
     // 6. PUT to Zoho Books — only if changes exist
     let zohoUpdateResult: any = null
@@ -177,7 +137,7 @@ export const handler: Handler = async (event) => {
             commission: salesCommission, commissionPercent: commissionPct, vigRate,
             lineItemDetails,
             itemsDcBreakdown: lineItemBreakdownStrings,
-            custom_fields: existingFields,
+            custom_fields: invoice.custom_fields || [],
             ...(isPaid && !currentItems.paidInFullDate ? { paidInFullDate: new Date().toISOString().split("T")[0] } : {}),
           },
         },
