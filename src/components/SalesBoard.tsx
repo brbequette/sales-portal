@@ -478,7 +478,7 @@ export function SalesBoard() {
   const teamQuotaPct = data.teamWeekly.target > 0 ? Math.min(100, Math.round((data.teamWeekly.profit / data.teamWeekly.target) * 100)) : 0
 
   return (
-    <div ref={boardRef} className="w-full h-full min-h-[700px] bg-black/20 rounded-2xl border border-white/10 text-white shadow-2xl relative flex flex-col font-sans overflow-hidden">
+    <div ref={boardRef} className="w-full h-full bg-black/20 rounded-2xl border border-white/10 text-white shadow-2xl relative flex flex-col font-sans overflow-hidden flex-1 min-h-0">
       
       {/* Top Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-black/40 backdrop-blur-md z-20">
@@ -657,86 +657,85 @@ export function SalesBoard() {
           </div>
         </div>
 
-        {/* SCREEN 2: REPS KPIs */}
         <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "REPS_KPI" ? "translate-x-0 opacity-100" : (SCREENS.indexOf(currentScreen) > 1 ? "-translate-x-full opacity-0 pointer-events-none" : "translate-x-full opacity-0 pointer-events-none")}`}>
-          <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase mb-8 flex items-center gap-3">
+          <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase mb-4 flex items-center gap-3">
             <FiStar className="text-amber-400" /> Weekly Top Performers
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 auto-rows-max">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-max">
             {data.reps.sort((a:any, b:any) => b.weekly.totalProfit - a.weekly.totalProfit).map((rep: any, idx: number) => {
               const quota = rep.weeklyTarget > 0 ? Math.min(100, Math.round((rep.weekly.totalProfit / rep.weeklyTarget) * 100)) : 0
               const profitMargin = rep.weekly.totalSales > 0 ? (rep.weekly.totalProfit / rep.weekly.totalSales) * 100 : 0
               return (
-                <div key={rep.id} className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 relative overflow-hidden group">
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${rep.gradient} flex items-center justify-center text-white font-black text-xl shadow-lg`}>
+                <div key={rep.id} className="bg-white/[0.02] border border-white/10 rounded-2xl p-4 relative overflow-hidden group">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${rep.gradient} flex items-center justify-center text-white font-black text-lg shadow-lg`}>
                         {rep.name.charAt(0)}
                       </div>
                       <div>
-                        <h4 className="font-bold text-lg text-white">{rep.name}</h4>
-                        <p className="text-[10px] text-neutral-500 uppercase tracking-wider">{rep.role}</p>
+                        <h4 className="font-bold text-base text-white">{rep.name}</h4>
+                        <p className="text-[9px] text-neutral-500 uppercase tracking-wider">{rep.role}</p>
                       </div>
                     </div>
-                    {idx === 0 && <FiAward size={28} className="text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]" />}
+                    {idx === 0 && <FiAward size={24} className="text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]" />}
                   </div>
                   
-                  <div className="space-y-5">
+                  <div className="space-y-3.5">
                     <div className="flex items-end justify-between">
                       <div>
-                        <div className="text-3xl font-black tracking-tight text-white">{formatCurrency(rep.weekly.totalProfit)}</div>
-                        <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mt-1">Weekly Dead Profit</div>
+                        <div className="text-2xl font-black tracking-tight text-white">{formatCurrency(rep.weekly.totalProfit)}</div>
+                        <div className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest mt-0.5">Weekly Dead Profit</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xl font-bold tracking-tight text-neutral-400">{formatCurrency(rep.weekly.totalSales)}</div>
-                        <div className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest mt-1">Gross Sales</div>
+                        <div className="text-lg font-bold tracking-tight text-neutral-400">{formatCurrency(rep.weekly.totalSales)}</div>
+                        <div className="text-[9px] text-neutral-600 font-bold uppercase tracking-widest mt-0.5">Gross Sales</div>
                       </div>
                     </div>
-                    <div className="w-full bg-white/5 h-2.5 rounded-full overflow-hidden border border-white/10 relative">
+                    <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/10 relative">
                       <div className="absolute inset-y-0 bg-white/10" style={{ left: '0', width: '100%' }}></div>
                       <div className={`absolute inset-y-0 bg-gradient-to-r ${rep.gradient} transition-all duration-1000`} style={{ left: '0', width: `${quota}%` }}></div>
                       {/* Target Indicator */}
                       <div className="absolute top-0 bottom-0 w-0.5 bg-white z-10" style={{ left: '100%' }}></div>
                     </div>
-                    <div className="flex justify-between items-center text-[10px] text-neutral-500 uppercase tracking-widest font-bold">
+                    <div className="flex justify-between items-center text-[9px] text-neutral-500 uppercase tracking-widest font-bold">
                        <span>{quota}% of Goal</span>
                        <span>Target: {formatCurrency(rep.weeklyTarget)}</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/10 text-xs">
+                    <div className="grid grid-cols-2 gap-3 pt-1.5 border-t border-white/10 text-xs">
                       <div>
-                        <span className="text-[9px] uppercase font-bold text-neutral-500 block">DC Subject to VIG</span>
+                        <span className="text-[8px] uppercase font-bold text-neutral-500 block">DC Subject to VIG</span>
                         <span className="text-amber-300 font-bold">{formatCurrency(rep.weekly.deadCostSubjectToVig)}</span>
                       </div>
                       <div>
-                        <span className="text-[9px] uppercase font-bold text-purple-400 block">🎁 DC (No VIG)</span>
+                        <span className="text-[8px] uppercase font-bold text-purple-400 block">🎁 DC (No VIG)</span>
                         <span className="text-purple-300 font-bold">{formatCurrency(rep.weekly.deadCostNoVig)}</span>
                       </div>
                     </div>
 
                     {/* Active Pipeline Badges (48h Estimates & Uninvoiced SOs) */}
-                    <div className="flex items-center gap-2 pt-2 border-t border-white/10">
-                      <div className="flex-1 bg-cyan-950/40 p-2 rounded-lg border border-cyan-500/20 text-[10px]">
+                    <div className="flex items-center gap-1.5 pt-1.5 border-t border-white/10">
+                      <div className="flex-1 bg-cyan-950/40 p-1.5 rounded-lg border border-cyan-500/20 text-[9px]">
                         <span className="text-cyan-400 font-bold block uppercase">48h Estimates</span>
                         <span className="text-white font-bold">{rep.activePipeline.estimateCount} ({formatCurrency(rep.activePipeline.estimateAmount)})</span>
                       </div>
-                      <div className="flex-1 bg-amber-950/40 p-2 rounded-lg border border-amber-500/20 text-[10px]">
+                      <div className="flex-1 bg-amber-950/40 p-1.5 rounded-lg border border-amber-500/20 text-[9px]">
                         <span className="text-amber-400 font-bold block uppercase">Uninvoiced SOs</span>
                         <span className="text-white font-bold">{rep.activePipeline.salesOrderCount} ({formatCurrency(rep.activePipeline.salesOrderAmount)})</span>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4 pt-2 border-t border-white/10">
+                    <div className="grid grid-cols-3 gap-3 pt-1.5 border-t border-white/10">
                       <div>
-                         <div className="text-lg font-bold text-white">{rep.weekly.dealsClosed}</div>
-                         <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Deals</div>
+                         <div className="text-base font-bold text-white">{rep.weekly.dealsClosed}</div>
+                         <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold">Deals</div>
                       </div>
                       <div>
-                         <div className="text-lg font-bold text-rose-400">{formatCurrency(rep.weekly.commission)}</div>
-                         <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">50/50 Comm</div>
+                         <div className="text-base font-bold text-rose-400">{formatCurrency(rep.weekly.commission)}</div>
+                         <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold">50/50 Comm</div>
                       </div>
                       <div>
-                         <div className="text-lg font-bold text-emerald-400">{formatPercent(profitMargin)}</div>
-                         <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Margin</div>
+                         <div className="text-base font-bold text-emerald-400">{formatPercent(profitMargin)}</div>
+                         <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold">Margin</div>
                       </div>
                     </div>
                   </div>

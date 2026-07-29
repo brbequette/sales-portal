@@ -177,7 +177,7 @@ export default function TVPage() {
 
   // TV Dashboard - verified
   return (
-    <div className="min-h-screen bg-black">
+    <div className="h-full bg-black p-4 flex flex-col min-h-0 overflow-hidden">
       <SalesBoard />
     </div>
   )
