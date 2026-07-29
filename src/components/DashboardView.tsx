@@ -4,7 +4,8 @@
 import { useEffect, useState, useRef } from "react"
 import {
   FiTarget, FiDollarSign, FiTrendingUp, FiClock, FiLayers,
-  FiArrowUpRight, FiArrowDownRight, FiCheckCircle, FiAlertCircle, FiTrendingDown
+  FiArrowUpRight, FiArrowDownRight, FiCheckCircle, FiAlertCircle, FiTrendingDown,
+  FiSliders, FiX, FiEye, FiEyeOff
 } from "react-icons/fi"
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
@@ -213,6 +214,33 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
   const [clockLoading, setClockLoading] = useState(false)
   const [selectedMetricInfo, setSelectedMetricInfo] = useState<MetricDerivationInfo | null>(null)
   const [rawInvoicesList, setRawInvoicesList] = useState<any[]>([])
+
+  const [repWidgets, setRepWidgets] = useState<RepWidgetConfig[]>(DEFAULT_REP_DASHBOARD_LAYOUT)
+  const [isRepCustomizerOpen, setIsRepCustomizerOpen] = useState(false)
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("rep_dashboard_widget_layout")
+      if (saved) {
+        setRepWidgets(JSON.parse(saved))
+      }
+    } catch (e) {
+      console.error("Failed to load rep layout", e)
+    }
+  }, [])
+
+  const handleUpdateRepWidgets = (updated: RepWidgetConfig[]) => {
+    setRepWidgets(updated)
+    try {
+      localStorage.setItem("rep_dashboard_widget_layout", JSON.stringify(updated))
+    } catch (e) {
+      console.error("Failed to save rep layout", e)
+    }
+  }
+
+  const isVisible = (id: string) => {
+    return repWidgets.find(w => w.id === id)?.visible !== false
+  }
 
   useEffect(() => {
     const handleGlobalMetricEvent = (e: any) => {
@@ -720,6 +748,25 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
   return (
     <div className="space-y-4 animate-fade-in">
+      {/* Display Settings Toolbar */}
+      <div className="flex items-center justify-between p-3.5 bg-neutral-900/60 border border-white/10 rounded-2xl shadow-md">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20">
+            <FiSliders size={15} />
+          </div>
+          <div>
+            <h3 className="text-xs font-black text-white uppercase tracking-wider">Dashboard Settings</h3>
+            <p className="text-[10px] text-neutral-500 font-semibold mt-0.5">Toggle visible widgets, charts, and tables</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setIsRepCustomizerOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-bold rounded-lg border border-white/10 transition-colors"
+        >
+          ⚙️ Customize Layout
+        </button>
+      </div>
+
       {/* --- Company Totals Banner (For Reps Only) --- */}
       {!showCompanyWide && (
         <div className="glass-panel p-4 rounded-2xl border border-white/[0.06] flex flex-col md:flex-row items-center justify-between gap-4">
@@ -753,7 +800,8 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
       )}
 
       {/* --- KPI Cards --- */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3">
+      {isVisible("KPI_CARDS") && (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3">
         {/* Weekly Goal Progress */}
         <KPICard 
           icon={FiTarget} 
@@ -858,9 +906,11 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           )}
         </KPICard>
       </div>
+      )}
 
       {/* --- Goal Progress & 1.5x VIG Penalty Tracker --- */}
-      <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-4 shadow-xl">
+      {isVisible("GOAL_TRACKERS") && (
+        <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-4 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
@@ -970,9 +1020,11 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           </div>
         </div>
       </div>
+      )}
 
       {/* --- Charts Row 1: Revenue & Status --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+      {isVisible("CHARTS_REVENUE_RATIO") && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
         {/* Revenue vs Goal -- spans 2 cols */}
         <div className="lg:col-span-2 glass-panel rounded-2xl p-5 border border-white/[0.06]">
           <div className="flex items-center justify-between mb-4">
@@ -1064,9 +1116,11 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           </div>
         </div>
       </div>
+      )}
 
       {/* --- Charts Row 2: Weekly Trend & Commission --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {isVisible("CHARTS_TRENDS") && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Weekly Sales Trend */}
         <div className="glass-panel rounded-2xl p-5 border border-white/[0.06]">
           <h3 className="text-sm font-bold text-white mb-1">Weekly Sales Trend</h3>
@@ -1136,9 +1190,10 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           </ResponsiveContainer>
         </div>
       </div>
+      )}
 
-      {/* â"€â"€â"€ Top Performers (admin only) â"€â"€â"€ */}
-      {showTopPerformers && data.topReps.length > 0 && (
+      {/* ─── Top Performers (admin only) ─── */}
+      {showTopPerformers && isVisible("LEADERBOARD") && data.topReps.length > 0 && (
         <div className="glass-panel rounded-2xl p-5 border border-white/[0.06]">
           <h3 className="text-sm font-bold text-white mb-4">Top Performers -- This Month</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -1177,8 +1232,8 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         </div>
       )}
 
-      {/* â"€â"€â"€ Company Breakdown (admin only) â"€â"€â"€ */}
-      {showCompanyBreakdown && data.allRepData.length > 0 && (
+      {/* ─── Company Breakdown (admin only) ─── */}
+      {showCompanyBreakdown && isVisible("LEADERBOARD") && data.allRepData.length > 0 && (
         <div className="glass-panel rounded-2xl p-5 border border-white/[0.06]">
           <h3 className="text-sm font-bold text-white mb-4">Company Breakdown</h3>
           <div className="overflow-x-auto">
@@ -1234,6 +1289,103 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         info={selectedMetricInfo}
         onClose={() => setSelectedMetricInfo(null)}
       />
+
+      {/* --- Rep Dashboard Layout Customizer Modal --- */}
+      <RepDashboardCustomizer
+        isOpen={isRepCustomizerOpen}
+        onClose={() => setIsRepCustomizerOpen(false)}
+        widgets={repWidgets}
+        onUpdateWidgets={handleUpdateRepWidgets}
+      />
+    </div>
+  )
+}
+
+export interface RepWidgetConfig {
+  id: string
+  title: string
+  visible: boolean
+}
+
+export const DEFAULT_REP_DASHBOARD_LAYOUT: RepWidgetConfig[] = [
+  { id: "KPI_CARDS", title: "Top KPI Cards Grid (Goal, Sales, Profit, Timeclock, Pipeline)", visible: true },
+  { id: "GOAL_TRACKERS", title: "Monthly Goals & VIG Penalty Tracker Block", visible: true },
+  { id: "CHARTS_REVENUE_RATIO", title: "📊 Revenue vs Goal & Win/Loss Charts", visible: true },
+  { id: "CHARTS_TRENDS", title: "📈 Weekly Trend, Deal Size & Commission Graphs", visible: true },
+  { id: "LEADERBOARD", title: "🏆 Sales Leaderboard & Rep Performance Table", visible: true }
+]
+
+interface RepDashboardCustomizerProps {
+  isOpen: boolean
+  onClose: () => void
+  widgets: RepWidgetConfig[]
+  onUpdateWidgets: (updated: RepWidgetConfig[]) => void
+}
+
+function RepDashboardCustomizer({ isOpen, onClose, widgets, onUpdateWidgets }: RepDashboardCustomizerProps) {
+  if (!isOpen) return null
+
+  const toggleVisibility = (id: string) => {
+    const updated = widgets.map(w => w.id === id ? { ...w, visible: !w.visible } : w)
+    onUpdateWidgets(updated)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+      <div 
+        className="w-full max-w-md bg-neutral-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-scale-up"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-5 border-b border-white/10 bg-white/[0.02]">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-black text-white">Customize Home Dashboard</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white flex items-center justify-center transition-colors"
+          >
+            <FiX className="text-lg" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <p className="text-xs text-neutral-400 leading-relaxed">
+            Select the metrics, goals, and graphs you would like to display on your performance dashboard.
+          </p>
+          <div className="space-y-2">
+            {widgets.map(w => (
+              <div 
+                key={w.id} 
+                className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-colors"
+              >
+                <div>
+                  <span className="text-xs font-bold text-white block">{w.title}</span>
+                  <span className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Widget ID: {w.id}</span>
+                </div>
+                <button
+                  onClick={() => toggleVisibility(w.id)}
+                  className={`p-2 rounded-lg transition-colors ${
+                    w.visible 
+                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20" 
+                      : "bg-neutral-800 text-neutral-500 border border-neutral-700/50 hover:bg-neutral-700"
+                  }`}
+                >
+                  {w.visible ? <FiEye size={14} /> : <FiEyeOff size={14} />}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-white/10 bg-white/[0.02] flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition-colors"
+          >
+            Save & Close
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -180,17 +180,31 @@ export function SalesBoard() {
     const fetchData = async () => {
       try {
         const startOfYearStr = `${new Date().getFullYear()}-01-01`
+        const threeDaysAgoStr = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         // Fetch users, invoices, sales orders, and quotes in parallel
-        const [usersRes, docsRes] = await Promise.all([
+        const [usersRes, invoicesRes, salesOrdersRes, quotesRes] = await Promise.all([
           fetch("/api/admin/users"),
-          fetch(`/api/get-documents?pageSize=5000&type=All&loadAll=true&startDate=${startOfYearStr}`)
+          fetch(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&startDate=${startOfYearStr}`),
+          fetch(`/api/get-documents?pageSize=8000&type=SalesOrder&loadAll=true&startDate=${startOfYearStr}`),
+          fetch(`/api/get-documents?pageSize=1000&type=Quote&loadAll=true&startDate=${threeDaysAgoStr}`)
         ])
         const usersPayload = usersRes.ok && (usersRes.headers.get("content-type") || "").includes("application/json") 
           ? await usersRes.json() 
           : { users: [] }
-        const docsPayload = docsRes.ok && (docsRes.headers.get("content-type") || "").includes("application/json") 
-          ? await docsRes.json() 
+        const invoicesPayload = invoicesRes.ok && (invoicesRes.headers.get("content-type") || "").includes("application/json")
+          ? await invoicesRes.json()
           : { documents: [] }
+        const salesOrdersPayload = salesOrdersRes.ok && (salesOrdersRes.headers.get("content-type") || "").includes("application/json")
+          ? await salesOrdersRes.json()
+          : { documents: [] }
+        const quotesPayload = quotesRes.ok && (quotesRes.headers.get("content-type") || "").includes("application/json")
+          ? await quotesRes.json()
+          : { documents: [] }
+        const combinedDocuments = [
+          ...(invoicesPayload.documents || []),
+          ...(salesOrdersPayload.documents || []),
+          ...(quotesPayload.documents || [])
+        ]
         
         // Build reps from users with showOnSalesBoard
         const boardUsers = (usersPayload.users || []).filter((u: any) => u.showOnSalesBoard)
@@ -251,7 +265,7 @@ export function SalesBoard() {
         }
         const overdueInvoices: any[] = []
         let totalOverdueBalance = 0
-        const rawDocs = docsPayload.documents || []
+        const rawDocs = combinedDocuments
 
         rawDocs.forEach((doc: any) => {
           const raw = doc.raw || {}
