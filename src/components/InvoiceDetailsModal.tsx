@@ -1,7 +1,7 @@
 "use client"
 
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useSession } from "next-auth/react"
 import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
@@ -74,6 +74,18 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
   const [selectedProductId, setSelectedProductId] = useState("")
   const [newProductQty, setNewProductQty] = useState(1)
   const [newProductPrice, setNewProductPrice] = useState(0)
+  const [productSearch, setProductSearch] = useState("")
+  const [showProductDropdown, setShowProductDropdown] = useState(false)
+
+  const filteredProducts = useMemo(() => {
+    if (!productSearch) return productsCatalog
+    const query = productSearch.toLowerCase()
+    return productsCatalog.filter(
+      p =>
+        (p.name && p.name.toLowerCase().includes(query)) ||
+        (p.sku && p.sku.toLowerCase().includes(query))
+    )
+  }, [productSearch, productsCatalog])
 
   useEffect(() => {
     if (isEditingLineItems && productsCatalog.length === 0) {
@@ -1326,6 +1338,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                             onClick={() => {
                               if (isEditingLineItems) {
                                 setIsEditingLineItems(false)
+                                setProductSearch("")
+                                setSelectedProductId("")
                               } else {
                                 setEditableLineItems(displayData.line_items.filter((li: any) => !(li.name || "").toUpperCase().includes("TRACKING")))
                                 setIsEditingLineItems(true)
@@ -1425,25 +1439,50 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div>
                                   <label className="text-[9px] text-neutral-500 uppercase font-bold">Select Product</label>
-                                  <select
-                                    value={selectedProductId}
-                                    onChange={(e) => {
-                                      const pId = e.target.value
-                                      setSelectedProductId(pId)
-                                      const prod = productsCatalog.find(p => p.id === pId)
-                                      if (prod) {
-                                        setNewProductPrice(prod.price || 0)
-                                      }
-                                    }}
-                                    className="bg-black/50 border border-neutral-700 rounded px-2 py-1 w-full text-xs text-neutral-300 focus:border-sky-500 focus:outline-none h-8 cursor-pointer"
-                                  >
-                                    <option value="">-- Choose Product --</option>
-                                    {productsCatalog.map(p => (
-                                      <option key={p.id} value={p.id}>
-                                        {p.sku ? `[${p.sku}] ` : ""}{p.name} (${p.price ? `$${p.price}` : "Free"})
-                                      </option>
-                                    ))}
-                                  </select>
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      placeholder="Type SKU or Name to search..."
+                                      value={productSearch}
+                                      onFocus={() => setShowProductDropdown(true)}
+                                      onChange={(e) => {
+                                        setProductSearch(e.target.value)
+                                        setShowProductDropdown(true)
+                                      }}
+                                      className="bg-black/50 border border-neutral-700 rounded px-2.5 py-1.5 w-full text-xs text-neutral-350 focus:border-sky-500 focus:outline-none h-8 font-semibold placeholder:text-neutral-600 cursor-pointer"
+                                    />
+                                    {showProductDropdown && (
+                                      <>
+                                        <div 
+                                          className="fixed inset-0 z-40" 
+                                          onClick={() => setShowProductDropdown(false)}
+                                        />
+                                        <div className="absolute bottom-full left-0 right-0 mb-1 max-h-60 overflow-y-auto bg-neutral-950 border border-neutral-700 rounded-lg shadow-2xl z-50 divide-y divide-neutral-850">
+                                          {filteredProducts.length === 0 ? (
+                                            <div className="px-3 py-2 text-xs text-neutral-500 italic">No products found</div>
+                                          ) : (
+                                            filteredProducts.map(p => (
+                                              <button
+                                                key={p.id}
+                                                type="button"
+                                                onClick={() => {
+                                                  setSelectedProductId(p.id)
+                                                  setNewProductPrice(p.price || 0)
+                                                  setProductSearch(p.sku ? `[${p.sku}] ${p.name}` : p.name)
+                                                  setShowProductDropdown(false)
+                                                }}
+                                                className="w-full text-left px-3 py-2 text-xs text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
+                                              >
+                                                <span className="font-bold text-sky-400 font-mono">{p.sku ? `[${p.sku}] ` : ""}</span>
+                                                <span>{p.name}</span>
+                                                <span className="text-neutral-500 ml-1">(${p.price ? p.price.toFixed(2) : "Free"})</span>
+                                              </button>
+                                            ))
+                                          )}
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                   <div>
@@ -1487,6 +1526,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                                   
                                   setEditableLineItems(prev => [...prev, newItem])
                                   setSelectedProductId("")
+                                  setProductSearch("")
                                   setNewProductQty(1)
                                   setNewProductPrice(0)
                                 }}
