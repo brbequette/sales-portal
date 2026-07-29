@@ -212,17 +212,18 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
   const [timeEntry, setTimeEntry] = useState<any | null>(null)
   const [clockLoading, setClockLoading] = useState(false)
   const [selectedMetricInfo, setSelectedMetricInfo] = useState<MetricDerivationInfo | null>(null)
+  const [rawInvoicesList, setRawInvoicesList] = useState<any[]>([])
 
   useEffect(() => {
     const handleGlobalMetricEvent = (e: any) => {
       if (e.detail?.key && data) {
-        const info = buildMetricInfo(e.detail.key, data, timeEntry, repName)
+        const info = buildMetricInfo(e.detail.key, data, timeEntry, repName, repEmail, rawInvoicesList)
         if (info) setSelectedMetricInfo(info)
       }
     }
     window.addEventListener("open-metric-derivation", handleGlobalMetricEvent as any)
     return () => window.removeEventListener("open-metric-derivation", handleGlobalMetricEvent as any)
-  }, [data, timeEntry, repName])
+  }, [data, timeEntry, rawInvoicesList, repName, repEmail])
   const filterRepName = repName || null
   const showTopPerformers = isAdmin === true
   const showCompanyBreakdown = isAdmin === true
@@ -361,6 +362,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           console.error("Dashboard fallback commission fetch failed:", e)
         }
       }
+      setRawInvoicesList(invoices)
       
       const now = new Date()
       const currentMonth = now.getMonth()
@@ -751,7 +753,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           color={CHART_COLORS.primary}
           trend={`${goalPct}%`} 
           trendUp={goalPct >= 50}
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("weeklyGoal", data, timeEntry, repName))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("weeklyGoal", data, timeEntry, repName, repEmail, rawInvoicesList))}
         >
           <QuotaRing current={data.weeklyTotal} target={data.weeklyTarget} color={CHART_COLORS.primary} />
         </KPICard>
@@ -765,7 +767,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           color={CHART_COLORS.primary}
           trend={`${data.monthlyDeals} deals`} 
           trendUp={true} 
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("totalRevenue", data, timeEntry, repName))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("totalRevenue", data, timeEntry, repName, repEmail, rawInvoicesList))}
         />
           
         {/* Monthly Profit */}
@@ -775,7 +777,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           value={`$${data.monthlyProfit.toLocaleString()}`}
           subtitle={`Commission: $${data.monthlyCommission.toLocaleString()}`} 
           color={CHART_COLORS.purple} 
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("monthlyProfit", data, timeEntry, repName))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("monthlyProfit", data, timeEntry, repName, repEmail, rawInvoicesList))}
         />
           
         {/* Timeclock */}
@@ -784,7 +786,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           title="Timeclock" 
           value={(!timeEntry || timeEntry.manualClockOut) ? "Off Clock" : `${calculateHours(timeEntry)}h`}
           color={(!timeEntry || timeEntry.manualClockOut) ? CHART_COLORS.text : CHART_COLORS.accent}
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("timeclock", data, timeEntry, repName))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("timeclock", data, timeEntry, repName, repEmail, rawInvoicesList))}
         >
           <button
             onClick={(e) => { e.stopPropagation(); handleToggleClock(); }}
@@ -806,7 +808,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           value={`${data.dealsWon}`}
           subtitle="Total successful deals" 
           color={CHART_COLORS.accent} 
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("dealsWon", data, timeEntry, repName))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("dealsWon", data, timeEntry, repName, repEmail, rawInvoicesList))}
         />
 
         {/* Deals Lost */}
@@ -816,7 +818,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           value={`${data.dealsLost}`}
           subtitle="Total void/lost deals" 
           color={CHART_COLORS.rose} 
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("dealsLost", data, timeEntry, repName))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("dealsLost", data, timeEntry, repName, repEmail, rawInvoicesList))}
         />
 
         {/* Avg Deal Size */}
@@ -826,7 +828,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           value={`$${data.avgDealSize.toLocaleString()}`}
           subtitle="Revenue per won deal" 
           color={CHART_COLORS.sky} 
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("avgDealSize", data, timeEntry, repName))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("avgDealSize", data, timeEntry, repName, repEmail, rawInvoicesList))}
         />
 
         {/* Pipeline */}
@@ -836,7 +838,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           value={`$${data.pipelineValue.toLocaleString()}`}
           subtitle={`${data.pipelineCount} open invoices`} 
           color={CHART_COLORS.sky}
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("activePipeline", data, timeEntry, repName))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("activePipeline", data, timeEntry, repName, repEmail, rawInvoicesList))}
         >
           {data.overdueCount > 0 && (
             <div className="mt-2 flex items-center gap-1.5 text-xs text-red-400">
@@ -923,7 +925,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
           {/* Money Lost (1.5x VIG Penalty) Box */}
           <div 
-            onClick={() => setSelectedMetricInfo(buildMetricInfo("vigPenalty", data, timeEntry, repName))}
+            onClick={() => setSelectedMetricInfo(buildMetricInfo("vigPenalty", data, timeEntry, repName, repEmail, rawInvoicesList))}
             className={`p-4 rounded-xl border cursor-pointer transition-all hover:scale-[1.01] ${
               data.monthlyVigPenaltyLoss > 0 || data.currentVigRate >= 1.45
                 ? 'bg-gradient-to-br from-red-950/40 via-rose-900/20 to-black/60 border-red-500/40 shadow-lg shadow-red-950/30'
@@ -1226,12 +1228,52 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
   )
 }
 
-function buildMetricInfo(key: string, data: DashboardData, timeEntry: any, repName?: string | null): MetricDerivationInfo | null {
+function buildMetricInfo(
+  key: string, 
+  data: DashboardData, 
+  timeEntry: any, 
+  repName?: string | null,
+  repEmail?: string | null,
+  invoices: any[] = []
+): MetricDerivationInfo | null {
   const repLabel = repName || "All Sales Representatives"
+  
+  const activeRepFilter = repName
+  const isAllOrAdminFilter = !activeRepFilter || activeRepFilter.trim().toUpperCase().includes("ADMIN") || activeRepFilter.trim().toUpperCase().includes("MYSELF") || activeRepFilter.trim().toUpperCase() === "ALL"
+
+  // Filter invoices for the rep first
+  const repInvoices = invoices.filter(inv => {
+    const rep = inv.salesorder_salesperson_name || inv.salesperson_name || "Unknown"
+    const repUpper = rep.toUpperCase()
+    if (repUpper.includes("PAUL") && (repUpper.includes("GENCUSKI") || repUpper.includes("GENKUSKI"))) return false
+    if (!isAllOrAdminFilter && activeRepFilter) {
+      return matchesRep(rep, activeRepFilter, repEmail)
+    }
+    return true
+  })
+
+  const now = new Date()
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
+
+  // Calculate current week (Mon-Fri)
+  const dayOfWeek = now.getDay()
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+  const monday = new Date(now)
+  monday.setDate(now.getDate() + mondayOffset)
+  monday.setHours(0, 0, 0, 0)
+  const friday = new Date(monday)
+  friday.setDate(monday.getDate() + 4)
+  friday.setHours(23, 59, 59, 999)
 
   switch (key) {
     case "weeklyGoal": {
       const pct = data.weeklyTarget > 0 ? Math.round((data.weeklyTotal / data.weeklyTarget) * 100) : 0
+      const matchingDocs = repInvoices.filter(inv => {
+        const dateStr = inv.salesorder_date || inv.date || ""
+        const invDate = parseLocalDate(dateStr)
+        return invDate && invDate >= monday && invDate <= friday
+      })
       return {
         title: "Weekly Goal Progress",
         value: `$${data.weeklyTotal.toLocaleString()} / $${data.weeklyTarget.toLocaleString()} (${pct}%)`,
@@ -1245,10 +1287,16 @@ function buildMetricInfo(key: string, data: DashboardData, timeEntry: any, repNa
           { label: "Weekly Quota Target", value: `$${data.weeklyTarget.toLocaleString()}`, description: "Rep target assigned in system settings" },
           { label: "Completion Rate", value: `${pct}%`, description: "Calculated progress ratio" }
         ],
-        notes: "Quotes and draft orders are excluded from goal progress until converted to active Sales Orders or Invoices."
+        notes: "Quotes and draft orders are excluded from goal progress until converted to active Sales Orders or Invoices.",
+        documents: matchingDocs
       }
     }
     case "totalRevenue": {
+      const matchingDocs = repInvoices.filter(inv => {
+        const dateStr = inv.salesorder_date || inv.date || ""
+        const invDate = parseLocalDate(dateStr)
+        return invDate && invDate.getMonth() === currentMonth && invDate.getFullYear() === currentYear
+      })
       return {
         title: "Month-to-Date (MTD) Total Revenue",
         value: `$${data.monthlyTotal.toLocaleString()}`,
@@ -1261,10 +1309,16 @@ function buildMetricInfo(key: string, data: DashboardData, timeEntry: any, repNa
           { label: "MTD Gross Subtotal", value: `$${data.monthlyTotal.toLocaleString()}`, description: "Sum of items subtotal before VIG or deductions" },
           { label: "Completed Deals", value: `${data.monthlyDeals}`, description: "Number of active invoices/orders this month" },
           { label: "Average Order Value", value: data.monthlyDeals > 0 ? `$${Math.round(data.monthlyTotal / data.monthlyDeals).toLocaleString()}` : "$0", description: "MTD Revenue / Deals Count" }
-        ]
+        ],
+        documents: matchingDocs
       }
     }
     case "monthlyProfit": {
+      const matchingDocs = repInvoices.filter(inv => {
+        const dateStr = inv.salesorder_date || inv.date || ""
+        const invDate = parseLocalDate(dateStr)
+        return invDate && invDate.getMonth() === currentMonth && invDate.getFullYear() === currentYear
+      })
       return {
         title: "Monthly Profit & Commission",
         value: `$${data.monthlyProfit.toLocaleString()}`,
@@ -1278,7 +1332,8 @@ function buildMetricInfo(key: string, data: DashboardData, timeEntry: any, repNa
           { label: "Net Profit Total", value: `$${data.monthlyProfit.toLocaleString()}`, description: "Profit after VIG cost deduction & CC fees" },
           { label: "Estimated Commission", value: `$${data.monthlyCommission.toLocaleString()}`, description: "Salesperson payout based on tier %" }
         ],
-        notes: "Montgomery Morgan invoices enforce a 1.0 VIG multiplier. Insurance items are retained as company revenue and not deducted from rep profit."
+        notes: "Montgomery Morgan invoices enforce a 1.0 VIG multiplier. Insurance items are retained as company revenue and not deducted from rep profit.",
+        documents: matchingDocs
       }
     }
     case "timeclock": {
@@ -1286,7 +1341,7 @@ function buildMetricInfo(key: string, data: DashboardData, timeEntry: any, repNa
       return {
         title: "Timeclock & Logged Shift Hours",
         value: statusText,
-        subtitle: "Automated & manual shift tracking",
+        subtitle: "Shift details and tracking info",
         color: CHART_COLORS.accent,
         formula: "Shift Hours = (Clock Out Time - Clock In Time) - Total Logged Inactivity Periods",
         explanation: "Calculates total active working hours. Inactivity detection flags periods over 20 minutes without system interaction, deducting them from total paid time unless approved by admin.",
@@ -1298,6 +1353,10 @@ function buildMetricInfo(key: string, data: DashboardData, timeEntry: any, repNa
       }
     }
     case "dealsWon": {
+      const matchingDocs = repInvoices.filter(inv => {
+        const status = (inv.status || "").toLowerCase()
+        return status === "paid" || status === "sent" || status === "partially_paid" || status === "overdue"
+      })
       return {
         title: "Deals Won",
         value: `${data.dealsWon}`,
@@ -1308,10 +1367,15 @@ function buildMetricInfo(key: string, data: DashboardData, timeEntry: any, repNa
         dataSource: "Prisma `Deal` and `Invoice` records.",
         calculationDetails: [
           { label: "Total Closed Won", value: `${data.dealsWon}`, description: "Count of successful deals" }
-        ]
+        ],
+        documents: matchingDocs
       }
     }
     case "dealsLost": {
+      const matchingDocs = repInvoices.filter(inv => {
+        const status = (inv.status || "").toLowerCase()
+        return status === "void"
+      })
       return {
         title: "Deals Lost",
         value: `${data.dealsLost}`,
@@ -1322,10 +1386,15 @@ function buildMetricInfo(key: string, data: DashboardData, timeEntry: any, repNa
         dataSource: "Prisma `Deal` and `SalesOrder` records.",
         calculationDetails: [
           { label: "Total Void/Lost", value: `${data.dealsLost}`, description: "Count of lost opportunities" }
-        ]
+        ],
+        documents: matchingDocs
       }
     }
     case "avgDealSize": {
+      const matchingDocs = repInvoices.filter(inv => {
+        const status = (inv.status || "").toLowerCase()
+        return status === "paid" || status === "sent" || status === "partially_paid" || status === "overdue"
+      })
       return {
         title: "Average Deal Size",
         value: `$${data.avgDealSize.toLocaleString()}`,
@@ -1338,10 +1407,24 @@ function buildMetricInfo(key: string, data: DashboardData, timeEntry: any, repNa
           { label: "Won Revenue Sum", value: `$${(data.avgDealSize * (data.dealsWon || 1)).toLocaleString()}`, description: "Total won deal value" },
           { label: "Won Deals Count", value: `${data.dealsWon}`, description: "Total count of closed deals" },
           { label: "Avg Deal Size", value: `$${data.avgDealSize.toLocaleString()}`, description: "Result of Division" }
-        ]
+        ],
+        documents: matchingDocs
       }
     }
     case "vigPenalty": {
+      const matchingDocs = repInvoices.filter(inv => {
+        const dateStr = inv.salesorder_date || inv.date || ""
+        const invDate = parseLocalDate(dateStr)
+        if (!invDate || invDate.getMonth() !== currentMonth || invDate.getFullYear() !== currentYear) return false
+        
+        const invVig = extractVigRate(inv) || data.currentVigRate
+        const deadCostTotal = extractDeadCostTotal(inv)
+        const deadCostNoVig = parseFloat(extractCustomFieldValue(inv, 'cf_dead_cost_no_vig', 0) || 0)
+        const deadCostSubjectToVig = parseFloat(
+          extractCustomFieldValue(inv, 'cf_dead_cost_subject_to_vig', null) ?? Math.max(0, deadCostTotal - deadCostNoVig)
+        )
+        return invVig >= 1.45 && deadCostSubjectToVig > 0
+      })
       return {
         title: "1.5x VIG Penalty Money Lost",
         value: `-$${data.monthlyVigPenaltyLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
@@ -1357,10 +1440,15 @@ function buildMetricInfo(key: string, data: DashboardData, timeEntry: any, repNa
           { label: "Penalty Difference", value: "0.20x", description: "1.5x penalty rate minus 1.3x standard rate" },
           { label: "Total Money Lost", value: `-$${data.monthlyVigPenaltyLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, description: "Net commission reduction this month" }
         ],
-        notes: "Achieving your monthly goal will restore your VIG multiplier back to 1.3x for the next month."
+        notes: "Achieving your monthly goal will restore your VIG multiplier back to 1.3x for the next month.",
+        documents: matchingDocs
       }
     }
     case "activePipeline": {
+      const matchingDocs = repInvoices.filter(inv => {
+        const status = (inv.status || "").toLowerCase()
+        return status !== "paid" && status !== "void" && status !== "draft"
+      })
       return {
         title: "Active Pipeline & Overdue Balances",
         value: `$${data.pipelineValue.toLocaleString()}`,
@@ -1374,7 +1462,8 @@ function buildMetricInfo(key: string, data: DashboardData, timeEntry: any, repNa
           { label: "Total Open Balance", value: `$${data.pipelineValue.toLocaleString()}`, description: "Sum of unpaid balances" },
           { label: "Overdue Invoices", value: `${data.overdueCount}`, description: "Invoices past due date" },
           { label: "Overdue Balance", value: `$${data.overdueBalance.toLocaleString()}`, description: "Past due collection amount" }
-        ]
+        ],
+        documents: matchingDocs
       }
     }
     default:

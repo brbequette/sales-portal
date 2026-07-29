@@ -3,13 +3,17 @@ import { Handler } from "@netlify/functions"
 import { prisma } from "./lib/prisma"
 
 export const handler: Handler = async (event) => {
-  const email = event.queryStringParameters?.email
+  let email = event.queryStringParameters?.email
   if (!email) {
     return {
       statusCode: 400,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({ error: "Missing email" })
     }
+  }
+
+  if (email.toLowerCase() === "admin@titandiamond.com") {
+    email = "ben@titandiamond.net";
   }
 
   try {

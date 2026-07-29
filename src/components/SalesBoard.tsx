@@ -210,7 +210,8 @@ export function SalesBoard() {
             expectedVig: 1.5,
             weeklyTarget: monthlyTarget / 4,
             monthlyTarget: monthlyTarget,
-            gradient: REP_GRADIENTS[i % REP_GRADIENTS.length]
+            gradient: REP_GRADIENTS[i % REP_GRADIENTS.length],
+            payoutStructure: u.payoutStructure || "two_payment"
           }
         })
 
@@ -298,11 +299,15 @@ export function SalesBoard() {
             const isPaid = (raw.status || "").toLowerCase() === "paid" || items.paymentDate != null
             const isSameDayPaid = items.isSameDayPaid || false
 
-            // Upfront 50% commission on invoice issue date
-            let commissionEarned = fullComm * 0.5
-            // Second 50% commission if paid
-            if (isPaid || isSameDayPaid) {
-              commissionEarned = fullComm // 100%
+            const isSinglePayment = matchedRep?.payoutStructure === 'single_payment'
+            let commissionEarned = 0
+            if (isSinglePayment) {
+              commissionEarned = (isPaid || isSameDayPaid) ? fullComm : 0
+            } else {
+              commissionEarned = fullComm * 0.5
+              if (isPaid || isSameDayPaid) {
+                commissionEarned = fullComm
+              }
             }
 
             const balance = Number(raw.balance !== undefined ? raw.balance : 0)

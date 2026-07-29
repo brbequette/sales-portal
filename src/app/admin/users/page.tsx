@@ -23,10 +23,10 @@ export default function AdminUsersPage() {
   const [savingUser, setSavingUser] = useState<string | null>(null)
   const [editedPermissions, setEditedPermissions] = useState<Record<string, UserPermissions>>({})
   const [showAddUser, setShowAddUser] = useState(false)
-  const [newUser, setNewUser] = useState({ name: "", email: "", role: "Sales Representative", zohoId: "" })
+  const [newUser, setNewUser] = useState({ name: "", email: "", role: "Sales Representative", zohoId: "", payoutStructure: "two_payment" })
   const [addingUser, setAddingUser] = useState(false)
   const [addError, setAddError] = useState("")
-  const [editedUserInfo, setEditedUserInfo] = useState<Record<string, { name: string; email: string; zohoId: string; role: string }>>({})
+  const [editedUserInfo, setEditedUserInfo] = useState<Record<string, { name: string; email: string; zohoId: string; role: string; payoutStructure: string }>>({})
 
   // New state for search, sort, filter
   const [searchQuery, setSearchQuery] = useState("")
@@ -129,7 +129,7 @@ export default function AdminUsersPage() {
       if (user && !editedUserInfo[userId]) {
         setEditedUserInfo(prev => ({
           ...prev,
-          [userId]: { name: user.name || "", email: user.email || "", zohoId: user.zohoId || "", role: user.role || "Sales Representative" }
+          [userId]: { name: user.name || "", email: user.email || "", zohoId: user.zohoId || "", role: user.role || "Sales Representative", payoutStructure: user.payoutStructure || "two_payment" }
         }))
       }
     }
@@ -167,7 +167,7 @@ export default function AdminUsersPage() {
           id: userId, 
           permissions: perms,
           canSendCampaigns: perms.sendCampaigns,
-          ...(info ? { name: info.name, email: info.email, zohoId: info.zohoId, role: info.role } : {})
+          ...(info ? { name: info.name, email: info.email, zohoId: info.zohoId, role: info.role, payoutStructure: info.payoutStructure } : {})
         })
       })
       const data = await res.json()
@@ -189,7 +189,7 @@ export default function AdminUsersPage() {
     const user = users.find(u => u.id === userId)
     if (!user) return false
     const permChanged = edited && JSON.stringify(edited) !== JSON.stringify(getEffectivePermissions(user))
-    const infoChanged = info && (info.name !== (user.name || "") || info.email !== (user.email || "") || info.zohoId !== (user.zohoId || "") || info.role !== (user.role || ""))
+    const infoChanged = info && (info.name !== (user.name || "") || info.email !== (user.email || "") || info.zohoId !== (user.zohoId || "") || info.role !== (user.role || "") || info.payoutStructure !== (user.payoutStructure || "two_payment"))
     return permChanged || infoChanged
   }
 
@@ -279,7 +279,7 @@ export default function AdminUsersPage() {
       let allFetched: AccountItem[] = []
       let hasMore = true
       while (hasMore) {
-        const res = await fetch(`/api/get-accounts?email=admin@titandiamond.com&role=Admin&page=${page}`)
+        const res = await fetch(`/api/get-accounts?email=ben@titandiamond.net&role=Administrator&page=${page}`)
         const data = await res.json()
         if (data.success && data.accounts) {
           allFetched = [...allFetched, ...data.accounts.map((a: any) => ({
@@ -418,7 +418,7 @@ export default function AdminUsersPage() {
               <FiRefreshCw size={14} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync from Zoho'}
             </button>
             <button
-              onClick={() => { setShowAddUser(true); setAddError(""); setNewUser({ name: "", email: "", role: "Sales Representative", zohoId: "" }) }}
+              onClick={() => { setShowAddUser(true); setAddError(""); setNewUser({ name: "", email: "", role: "Sales Representative", zohoId: "", payoutStructure: "two_payment" }) }}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors cursor-pointer"
             >
               <FiUserPlus size={14} /> Add User
@@ -612,6 +612,17 @@ export default function AdminUsersPage() {
                             <option value="Admin">Admin</option>
                           </select>
                         </div>
+                        <div>
+                          <label className="text-[10px] text-neutral-500 font-semibold block mb-1">Payout Plan</label>
+                          <select
+                            value={editedUserInfo[user.id]?.payoutStructure || "two_payment"}
+                            onChange={e => setEditedUserInfo(prev => ({ ...prev, [user.id]: { ...prev[user.id], payoutStructure: e.target.value } }))}
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
+                          >
+                            <option value="two_payment">2 Payments (Upfront & Paid)</option>
+                            <option value="single_payment">1 Payment (Paid Only)</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
 
@@ -776,6 +787,17 @@ export default function AdminUsersPage() {
                 >
                   <option value="Sales Representative">Sales Representative</option>
                   <option value="Admin">Admin</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-neutral-400 font-semibold block mb-1">Commission Payout Plan</label>
+                <select
+                  value={newUser.payoutStructure}
+                  onChange={e => setNewUser(prev => ({ ...prev, payoutStructure: e.target.value }))}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
+                >
+                  <option value="two_payment">2 Payments (Upfront & Paid)</option>
+                  <option value="single_payment">1 Payment (Paid Only)</option>
                 </select>
               </div>
               <div>

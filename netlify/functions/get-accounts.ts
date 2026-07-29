@@ -13,7 +13,13 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { zohoId, email, refresh, force, ownerIdFilter, statusFilter, role: passedRole, page: pageParam, limit: limitParam, search, includeDocs, includeHidden } = event.queryStringParameters || {}
+    let { zohoId, email, refresh, force, ownerIdFilter, statusFilter, role: passedRole, page: pageParam, limit: limitParam, search, includeDocs, includeHidden } = event.queryStringParameters || {}
+    if (email && email.toLowerCase() === "admin@titandiamond.com") {
+      email = "ben@titandiamond.net";
+    }
+    if (zohoId === "mock-zoho-1783978841420") {
+      zohoId = "6821836000000565001";
+    }
     const wantDocs = includeDocs === 'true'
     const showHidden = includeHidden === 'true'
     const parsedLimit = parseInt(limitParam || '2000', 10)
@@ -136,16 +142,20 @@ export const handler: Handler = async (event, context) => {
               for (const zUser of zohoUsers) {
                 if (!zUser.id || !zUser.email) continue;
                 const roleName = zUser.profile?.name || "Sales Representative"
+                let displayName = zUser.full_name || zUser.name
+                if (zUser.email?.toLowerCase() === "ben@titandiamond.net") {
+                  displayName = "Benjamin Bequette"
+                }
                 await prisma.user.upsert({
                   where: { zohoId: zUser.id },
                   update: {
-                    name: zUser.full_name || zUser.name,
+                    name: displayName,
                     email: zUser.email,
                     role: roleName,
                   },
                   create: {
                     zohoId: zUser.id,
-                    name: zUser.full_name || zUser.name,
+                    name: displayName,
                     email: zUser.email,
                     role: roleName,
                   }

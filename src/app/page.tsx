@@ -61,7 +61,7 @@ export default function HomeDashboard() {
               className="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-orange-500 cursor-pointer"
             >
               <option value="">Myself (Admin)</option>
-              {allDbUsers.filter(u => u.role !== 'ADMIN' && u.name).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')).map((u: any) => (
+              {allDbUsers.filter(u => u.role !== 'ADMIN' && u.name && u.email?.toLowerCase() !== currentUser?.email?.toLowerCase()).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')).map((u: any) => (
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
             </select>

@@ -73,8 +73,13 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
+        let lookupEmail = credentials.email;
+        if (lookupEmail && lookupEmail.toLowerCase() === "admin@titandiamond.com") {
+          lookupEmail = "ben@titandiamond.net";
+        }
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
+          where: { email: lookupEmail }
         })
 
         if (!user || !user.password) {
@@ -97,15 +102,22 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === "zoho") {
-        const email = user.email
+        let email = user.email
         if (!email) return false
+        if (email.toLowerCase() === "admin@titandiamond.com") {
+          email = "ben@titandiamond.net";
+        }
 
         const zohoProfile: any = profile
-        const fullName = user.name ||
+        let fullName = user.name ||
           zohoProfile?.Display_Name ||
           zohoProfile?.display_name ||
           [zohoProfile?.First_Name, zohoProfile?.Last_Name].filter(Boolean).join(" ") ||
           email.split("@")[0]
+
+        if (fullName === "BEN BEQUETTE") {
+          fullName = "Benjamin Bequette";
+        }
 
         const rawZuid = zohoProfile?.ZUID || zohoProfile?.zuid || null
         const zohoUserId = rawZuid ? String(rawZuid) : null

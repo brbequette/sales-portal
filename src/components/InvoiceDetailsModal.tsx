@@ -48,6 +48,18 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
   // Discount state
   const [discountPercentage, setDiscountPercentage] = useState<number>(5)
 
+  const [usersList, setUsersList] = useState<any[]>([])
+  useEffect(() => {
+    fetch('/api/admin/users')
+      .then(res => res.json())
+      .then(data => {
+        if (data.users) {
+          setUsersList(data.users)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   // Line item editing state
   const [isEditingLineItems, setIsEditingLineItems] = useState(false)
   const [editableLineItems, setEditableLineItems] = useState<any[]>([])
@@ -666,8 +678,17 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               const commVal = parseFloat(src.commission || src.salesCommission || displayData.salesCommission || 0)
               const isPaidVal = statusLower === 'paid' || displayData.status === 'Paid' || displayData.isPaid
 
+              const matchedRep = usersList.find(u => {
+                const spName = (displayData.salesperson_name || displayData.salespersonName || "").toLowerCase().trim()
+                return u.id === displayData.ownerId || 
+                       u.zohoId === displayData.ownerId || 
+                       (u.name && u.name.toLowerCase().trim() === spName)
+              })
+              const payoutStructureVal = matchedRep?.payoutStructure || 'two_payment'
+
               return (
                 <InvoiceFinancialBreakdown
+                  payoutStructure={payoutStructureVal}
                   subTotal={subTotalVal}
                   deadCostTotal={deadCostTotalVal}
                   deadCostSubjectToVig={deadCostSubjectVal}
@@ -1002,8 +1023,17 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 const commVal = parseFloat(src.commission || src.salesCommission || displayData.salesCommission || 0)
                 const isPaidVal = statusLower === 'paid' || displayData.status === 'Paid' || displayData.isPaid
 
+                const matchedRep = usersList.find(u => {
+                  const spName = (displayData.salesperson_name || displayData.salespersonName || "").toLowerCase().trim()
+                  return u.id === displayData.ownerId || 
+                         u.zohoId === displayData.ownerId || 
+                         (u.name && u.name.toLowerCase().trim() === spName)
+                })
+                const payoutStructureVal = matchedRep?.payoutStructure || 'two_payment'
+
                 return (
                   <InvoiceFinancialBreakdown
+                    payoutStructure={payoutStructureVal}
                     subTotal={subTotalVal}
                     deadCostTotal={deadCostTotalVal}
                     deadCostSubjectToVig={deadCostSubjectVal}

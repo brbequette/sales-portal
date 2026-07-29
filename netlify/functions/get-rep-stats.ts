@@ -114,6 +114,7 @@ export const handler: Handler = async (event) => {
           role: true,
           constantVigEnabled: true,
           constantVigValue: true,
+          payoutStructure: true,
           monthlyVigGoals: {
             select: {
               id: true,
@@ -255,6 +256,7 @@ export const handler: Handler = async (event) => {
         constantVigEnabled: u.constantVigEnabled,
         constantVigValue: u.constantVigValue,
         monthlyVigGoals: u.monthlyVigGoals,
+        payoutStructure: u.payoutStructure,
         // All-time totals
         revenue: 0,
         profit: 0,

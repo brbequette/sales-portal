@@ -157,7 +157,7 @@ export const handler: Handler = async (event) => {
         orderBy: { closingDate: "desc" }
       }).catch(() => []),
       prisma.user.findMany({
-        select: { id: true, name: true, email: true, role: true },
+        select: { id: true, name: true, email: true, role: true, payoutStructure: true },
         orderBy: { name: "asc" }
       }).catch(() => []),
       prisma.systemSetting.findUnique({ where: { key: "visible_reps" } }).catch(() => null),
@@ -382,12 +382,28 @@ export const handler: Handler = async (event) => {
       const safeProfit = isNaN(profit) ? 0 : profit
       const safeDeadProfit = isNaN(deadProfit) ? 0 : deadProfit
 
-      const upfront = safeInitialProfit * 0.25
-      const finalTotalTarget = safeProfit * 0.50
+      const repPayoutStructure = matchedRep?.payoutStructure || 'two_payment'
+      const isSinglePayment = repPayoutStructure === 'single_payment'
 
-      const final  = isPaid ? (finalTotalTarget - upfront) : 0
-      const future = !isPaid ? (finalTotalTarget - upfront) : 0
-      const total  = upfront + final
+      let upfront = 0
+      let final = 0
+      let future = 0
+
+      if (isSinglePayment) {
+        // Single Payment structure: only paid when invoice is paid (isPaid = true)
+        const totalCommission = safeProfit * 0.50
+        upfront = 0
+        final = isPaid ? totalCommission : 0
+        future = !isPaid ? totalCommission : 0
+      } else {
+        // Two-Stage 50/50 split structure
+        upfront = safeInitialProfit * 0.25
+        const finalTotalTarget = safeProfit * 0.50
+        final = isPaid ? (finalTotalTarget - upfront) : 0
+        future = !isPaid ? (finalTotalTarget - upfront) : 0
+      }
+
+      const total = upfront + final
 
       const invoiceNumber = items.invoiceNumber || items.invoice_number || null
       
@@ -512,12 +528,28 @@ export const handler: Handler = async (event) => {
       const safeProfit = isNaN(profit) ? 0 : profit
       const safeDeadProfit = isNaN(deadProfit) ? 0 : deadProfit
 
-      const upfront = safeInitialProfit * 0.25
-      const finalTotalTarget = safeProfit * 0.50
+      const repPayoutStructure = matchedRep?.payoutStructure || 'two_payment'
+      const isSinglePayment = repPayoutStructure === 'single_payment'
 
-      const final  = isPaid ? (finalTotalTarget - upfront) : 0
-      const future = !isPaid ? (finalTotalTarget - upfront) : 0
-      const total  = upfront + final
+      let upfront = 0
+      let final = 0
+      let future = 0
+
+      if (isSinglePayment) {
+        // Single Payment structure: only paid when order is paid/fulfilled
+        const totalCommission = safeProfit * 0.50
+        upfront = 0
+        final = isPaid ? totalCommission : 0
+        future = !isPaid ? totalCommission : 0
+      } else {
+        // Two-Stage 50/50 split structure
+        upfront = safeInitialProfit * 0.25
+        const finalTotalTarget = safeProfit * 0.50
+        final = isPaid ? (finalTotalTarget - upfront) : 0
+        future = !isPaid ? (finalTotalTarget - upfront) : 0
+      }
+
+      const total = upfront + final
 
       const soNumber = items.salesorder_number || items.salesorderNumber || so.zohoId || null
 

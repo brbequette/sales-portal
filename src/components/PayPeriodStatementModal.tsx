@@ -38,6 +38,7 @@ interface RepSummary {
   totalProfit: number
   totalSales: number
   balance: number
+  payoutStructure?: string
 }
 
 interface PayPeriodStatementModalProps {
@@ -117,6 +118,7 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
     return rep.invoices.filter(inv => {
       if (inv.isSameDayPaid) return false
       if (!inv.issueDate) return false
+      if (inv.commission?.upfront === 0) return false
       const d = new Date(inv.issueDate)
       return d >= periodStart && d <= periodEnd
     })
@@ -258,22 +260,21 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
 
           {/* Pay Period Summary Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 print:grid-cols-4 print:gap-2">
-            
-            <div className="bg-neutral-900/60 p-4 rounded-xl border border-white/10 print:border-black/20 print:bg-gray-50">
+                         <div className="bg-neutral-900/60 p-4 rounded-xl border border-white/10 print:border-black/20 print:bg-gray-50">
               <div className="text-[10px] font-black uppercase text-amber-400 print:text-black/60 tracking-wider">
-                1st Half (Upfront 25%)
+                {rep.payoutStructure === 'single_payment' ? 'Upfront (N/A)' : '1st Half (Upfront 25%)'}
               </div>
               <div className="text-lg font-mono font-bold text-amber-300 print:text-black mt-1">
-                {fmt(totalUpfront)}
+                {rep.payoutStructure === 'single_payment' ? '$0.00' : fmt(totalUpfront)}
               </div>
               <div className="text-[10px] text-neutral-500 print:text-black/60 mt-0.5">
-                {upfrontInvoices.length} New Invoices
+                {rep.payoutStructure === 'single_payment' ? '1-Payment Plan' : `${upfrontInvoices.length} New Invoices`}
               </div>
             </div>
 
             <div className="bg-neutral-900/60 p-4 rounded-xl border border-white/10 print:border-black/20 print:bg-gray-50">
               <div className="text-[10px] font-black uppercase text-emerald-400 print:text-black/60 tracking-wider">
-                2nd Half (Paid 25%)
+                {rep.payoutStructure === 'single_payment' ? 'Earned Comm (50%)' : '2nd Half (Paid 25%)'}
               </div>
               <div className="text-lg font-mono font-bold text-emerald-300 print:text-black mt-1">
                 {fmt(totalFinal)}
@@ -312,7 +313,7 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
           {/* Itemized 1st Half Upfront Table */}
           <div className="space-y-3">
             <h3 className="text-xs font-black uppercase tracking-widest text-amber-400 print:text-black flex items-center gap-1.5">
-              <FiLayers /> 1. First Half Upfront Commissions (New Invoices Created)
+              <FiLayers /> {rep.payoutStructure === 'single_payment' ? '1. First Half Upfront (N/A)' : '1. First Half Upfront Commissions (New Invoices Created)'}
             </h3>
 
             {upfrontInvoices.length === 0 ? (
@@ -328,7 +329,7 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
                     <th className="py-2.5 px-4">Issue Date</th>
                     <th className="py-2.5 px-4 text-right">Subtotal</th>
                     <th className="py-2.5 px-4 text-right">Est. Profit</th>
-                    <th className="py-2.5 px-4 text-right">1st Half Upfront (25%)</th>
+                    <th className="py-2.5 px-4 text-right">{rep.payoutStructure === 'single_payment' ? 'Upfront (N/A)' : '1st Half Upfront (25%)'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-neutral-200 print:divide-black/10 print:text-black font-mono text-[11px]">
@@ -404,7 +405,7 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
           {/* Itemized 2nd Half Final Settlement Table */}
           <div className="space-y-3">
             <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400 print:text-black flex items-center gap-1.5">
-              <FiCheckCircle /> 2. Second Half Final Commissions (Invoices Paid & CC Fees Reconciled)
+              <FiCheckCircle /> {rep.payoutStructure === 'single_payment' ? '2. Earned Commissions (Invoices Paid & CC Fees Reconciled)' : '2. Second Half Final Commissions (Invoices Paid & CC Fees Reconciled)'}
             </h3>
 
             {finalInvoices.length === 0 ? (
@@ -420,7 +421,7 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
                     <th className="py-2.5 px-4">Payment Date</th>
                     <th className="py-2.5 px-4 text-right">Subtotal</th>
                     <th className="py-2.5 px-4 text-right">Final Profit</th>
-                    <th className="py-2.5 px-4 text-right">2nd Half Final (Balance)</th>
+                    <th className="py-2.5 px-4 text-right">{rep.payoutStructure === 'single_payment' ? 'Earned Commission (50%)' : '2nd Half Final (Balance)'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-neutral-200 print:divide-black/10 print:text-black font-mono text-[11px]">

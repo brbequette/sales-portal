@@ -24,6 +24,7 @@ export const handler: Handler = async (event) => {
           zohoId: true,
           canSendCampaigns: true,
           showOnSalesBoard: true,
+          payoutStructure: true,
           permissions: true,
           _count: { select: { accounts: true } }
         }
@@ -34,7 +35,7 @@ export const handler: Handler = async (event) => {
 
     if (event.httpMethod === "PUT") {
       const body = JSON.parse(event.body || "{}")
-      const { id, canSendCampaigns, showOnSalesBoard, permissions, role, name, email, zohoId } = body
+      const { id, canSendCampaigns, showOnSalesBoard, permissions, role, name, email, zohoId, payoutStructure } = body
 
       if (!id) {
         return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing user ID" }) }
@@ -48,6 +49,7 @@ export const handler: Handler = async (event) => {
       if (name !== undefined) updateData.name = name
       if (email !== undefined) updateData.email = email
       if (zohoId !== undefined) updateData.zohoId = zohoId || null
+      if (payoutStructure !== undefined) updateData.payoutStructure = payoutStructure
 
       const user = await prisma.user.update({
         where: { id },
@@ -59,7 +61,7 @@ export const handler: Handler = async (event) => {
 
     if (event.httpMethod === "POST") {
       const body = JSON.parse(event.body || "{}")
-      const { name, email, role, zohoId, permissions } = body
+      const { name, email, role, zohoId, permissions, payoutStructure } = body
 
       if (!email) {
         return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Email is required" }) }
@@ -72,6 +74,7 @@ export const handler: Handler = async (event) => {
           role: role || "Sales Representative",
           zohoId: zohoId || null,
           permissions: permissions || undefined,
+          payoutStructure: payoutStructure || "two_payment",
         }
       })
 

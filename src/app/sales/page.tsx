@@ -712,82 +712,8 @@ export default function SalesPage() {
             </div>
           ) : (
             <>
-              {/* Quick Invoice View Toolbar */}
-              <div className="flex flex-wrap gap-2.5 glass-panel p-3 rounded-xl border border-[var(--border)]">
-                <span className="text-xs text-neutral-400 font-semibold flex items-center gap-1.5 mr-2 self-center">
-                  Quick Invoice View:
-                </span>
-                <button
-                  onClick={() => {
-                    const recentPaid = accounts
-                      .filter(a => matchesOwnerFilter(a, ownerFilter))
-                      .filter(a => (a.totalSales || 0) > 0)
-                      .map(a => {
-                        let maxPaidDate = 0
-                        if (a.invoices && Array.isArray(a.invoices)) {
-                          a.invoices.forEach((inv: any) => {
-                            if (inv.status === 'Paid' || inv.status === 'Closed') {
-                              const pDateStr = (inv.items as any)?.paymentDate || inv.issueDate
-                              if (pDateStr) {
-                                const pTime = new Date(pDateStr).getTime()
-                                if (pTime > maxPaidDate) maxPaidDate = pTime
-                              }
-                            }
-                          })
-                        }
-                        return { ...a, _latestPaymentTime: maxPaidDate }
-                      })
-                      .filter(a => a._latestPaymentTime > 0)
-                      .sort((a, b) => b._latestPaymentTime - a._latestPaymentTime)
-                      .slice(0, 50)
-                    setDrillType("accounts")
-                    setDrillTitle("Recent Paid Accounts (Last 50)")
-                    setDrillItems(recentPaid)
-                  }}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer"
-                >
-                  <FiCheckCircle size={13} />
-                  <span>Recent Paid Accounts</span>
-                  <span className="bg-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{Math.min(50, accounts.filter(a => matchesOwnerFilter(a, ownerFilter) && (a.totalSales || 0) > 0).length)}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    const unpaidAccounts = accounts
-                      .filter(a => matchesOwnerFilter(a, ownerFilter))
-                      .filter(a => (a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)
-                      .sort((a: any, b: any) => (b.unpaidBalance || 0) - (a.unpaidBalance || 0))
-                    setDrillType("accounts")
-                    setDrillTitle("Accounts with Unpaid Invoices")
-                    setDrillItems(unpaidAccounts)
-                  }}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-all cursor-pointer"
-                >
-                  <FiAlertCircle size={13} />
-                  <span>Accounts with Unpaid</span>
-                  <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => matchesOwnerFilter(a, ownerFilter) && ((a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)).length}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    const overdueAccounts = accounts
-                      .filter(a => matchesOwnerFilter(a, ownerFilter))
-                      .filter(a => (a.overdueCount || 0) > 0)
-                      .sort((a: any, b: any) => (b.overdueBalance || 0) - (a.overdueBalance || 0))
-                    setDrillType("accounts")
-                    setDrillTitle("Accounts with Overdue Invoices")
-                    setDrillItems(overdueAccounts)
-                  }}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-all cursor-pointer"
-                >
-                  <FiAlertCircle size={13} />
-                  <span>All Overdue Accounts</span>
-                  <span className="bg-rose-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.overdueCount || 0) > 0)).length}</span>
-                </button>
-              </div>
-
               {/* Mobile tab switcher */}
-              <div className="flex sm:hidden bg-neutral-800 rounded-lg p-0.5 gap-0.5">
+              <div className="flex sm:hidden bg-neutral-800 rounded-lg p-0.5 gap-0.5 mb-4">
                 <button onClick={() => setMobileTab("accounts")} className={`flex-1 py-2 text-xs font-bold rounded-md transition-colors ${mobileTab === "accounts" ? "bg-neutral-700 text-white" : "text-neutral-400"}`}>
                   Accounts ({filteredAccounts.length})
                 </button>
@@ -796,487 +722,713 @@ export default function SalesPage() {
                 </button>
               </div>
 
-              {/* Main Accounts Container */}
-              <div className="w-full space-y-3">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <h2 className="text-base font-bold text-white whitespace-nowrap flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                      <span>{isAdminUser ? "All Pipeline Accounts" : "My Pipeline Accounts"}</span>
-                      <span className="text-xs font-normal text-neutral-400">({activeAccountsList.length})</span>
-                    </h2>
-                    
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                      <button
-                        onClick={() => setShowFiltersDrawer(true)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-[var(--border)] glass-panel hover:bg-white/10 transition-all text-neutral-300 hover:text-white cursor-pointer"
-                      >
-                        <FiFilter size={12} className={activeFilterCount > 0 ? "text-emerald-400" : ""} />
-                        <span>Filters</span>
-                        {activeFilterCount > 0 && (
-                          <span className="flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                            {activeFilterCount}
-                          </span>
-                        )}
-                      </button>
+              <div className="flex flex-col lg:flex-row gap-6 items-start">
+                
+                {/* Left Column: Accounts List */}
+                <div className={`w-full lg:flex-1 space-y-4 ${mobileTab === 'accounts' ? 'block' : 'hidden lg:block'}`}>
+                  {/* Quick Invoice View Toolbar */}
+                  <div className="flex flex-wrap gap-2.5 glass-panel p-3 rounded-xl border border-[var(--border)]">
+                    <span className="text-xs text-neutral-400 font-semibold flex items-center gap-1.5 mr-2 self-center">
+                      Quick Invoice View:
+                    </span>
+                    <button
+                      onClick={() => {
+                        const recentPaid = accounts
+                          .filter(a => matchesOwnerFilter(a, ownerFilter))
+                          .filter(a => (a.totalSales || 0) > 0)
+                          .map(a => {
+                            let maxPaidDate = 0
+                            if (a.invoices && Array.isArray(a.invoices)) {
+                              a.invoices.forEach((inv: any) => {
+                                if (inv.status === 'Paid' || inv.status === 'Closed') {
+                                  const pDateStr = (inv.items as any)?.paymentDate || inv.issueDate
+                                  if (pDateStr) {
+                                    const pTime = new Date(pDateStr).getTime()
+                                    if (pTime > maxPaidDate) maxPaidDate = pTime
+                                  }
+                                }
+                              })
+                            }
+                            return { ...a, _latestPaymentTime: maxPaidDate }
+                          })
+                          .filter(a => a._latestPaymentTime > 0)
+                          .sort((a, b) => b._latestPaymentTime - a._latestPaymentTime)
+                          .slice(0, 50)
+                        setDrillType("accounts")
+                        setDrillTitle("Recent Paid Accounts (Last 50)")
+                        setDrillItems(recentPaid)
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer"
+                    >
+                      <FiCheckCircle size={13} />
+                      <span>Recent Paid Accounts</span>
+                      <span className="bg-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{Math.min(50, accounts.filter(a => matchesOwnerFilter(a, ownerFilter) && (a.totalSales || 0) > 0).length)}</span>
+                    </button>
 
-                      <button
-                        onClick={handleSync}
-                        disabled={loading}
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-emerald-500/30 bg-emerald-950/20 hover:bg-emerald-950/40 text-emerald-400 transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        <FiRefreshCw size={12} className={loading ? "animate-spin" : ""} />
-                        <span>{loading ? "Syncing..." : "Sync CRM"}</span>
-                      </button>
+                    <button
+                      onClick={() => {
+                        const unpaidAccounts = accounts
+                          .filter(a => matchesOwnerFilter(a, ownerFilter))
+                          .filter(a => (a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)
+                          .sort((a: any, b: any) => (b.unpaidBalance || 0) - (a.unpaidBalance || 0))
+                        setDrillType("accounts")
+                        setDrillTitle("Accounts with Unpaid Invoices")
+                        setDrillItems(unpaidAccounts)
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-all cursor-pointer"
+                    >
+                      <FiAlertCircle size={13} />
+                      <span>Accounts with Unpaid</span>
+                      <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => matchesOwnerFilter(a, ownerFilter) && ((a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)).length}</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const overdueAccounts = accounts
+                          .filter(a => matchesOwnerFilter(a, ownerFilter))
+                          .filter(a => (a.overdueCount || 0) > 0)
+                          .sort((a: any, b: any) => (b.overdueBalance || 0) - (a.overdueBalance || 0))
+                        setDrillType("accounts")
+                        setDrillTitle("Accounts with Overdue Invoices")
+                        setDrillItems(overdueAccounts)
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-all cursor-pointer"
+                    >
+                      <FiAlertCircle size={13} />
+                      <span>All Overdue Accounts</span>
+                      <span className="bg-rose-500/20 px-1.5 py-0.5 rounded text-[10px] font-black">{accounts.filter(a => (ownerFilter === "All" || a.ownerId === ownerFilter) && ((a.overdueCount || 0) > 0)).length}</span>
+                    </button>
+                  </div>
+
+                  {/* Main Accounts Container */}
+                  <div className="w-full space-y-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <h2 className="text-base font-bold text-white whitespace-nowrap flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                        <span>{isAdminUser ? "All Pipeline Accounts" : "My Pipeline Accounts"}</span>
+                        <span className="text-xs font-normal text-neutral-400">({activeAccountsList.length})</span>
+                      </h2>
+                      
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                        <button
+                          onClick={() => setShowFiltersDrawer(true)}
+                          className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-[var(--border)] glass-panel hover:bg-white/10 transition-all text-neutral-300 hover:text-white cursor-pointer"
+                        >
+                          <FiFilter size={12} className={activeFilterCount > 0 ? "text-emerald-400" : ""} />
+                          <span>Filters</span>
+                          {activeFilterCount > 0 && (
+                            <span className="flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              {activeFilterCount}
+                            </span>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={handleSync}
+                          disabled={loading}
+                          className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-emerald-500/30 bg-emerald-950/20 hover:bg-emerald-950/40 text-emerald-400 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <FiRefreshCw size={12} className={loading ? "animate-spin" : ""} />
+                          <span>{loading ? "Syncing..." : "Sync CRM"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Account List Box */}
+                    <div className="bg-neutral-900/60 rounded-2xl border border-white/10 overflow-hidden shadow-xl">
+                      {activeAccountsList.length === 0 ? (
+                        <div className="p-12 text-center">
+                          <FiUsers className="mx-auto text-4xl text-neutral-700 mb-3" />
+                          <p className="text-neutral-300 font-bold text-base">
+                            {accounts.length > 0 ? "No accounts match active filters" : "No accounts loaded"}
+                          </p>
+                          <p className="text-xs text-neutral-500 mt-1 max-w-md mx-auto">
+                            {accounts.length > 0
+                              ? `Loaded ${accounts.length} total accounts in memory, but your current active filters are hiding them all.`
+                              : "Click below to clear filters or pull live data directly from Zoho CRM."}
+                          </p>
+                          <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                            <button
+                              onClick={clearAllFilters}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer inline-flex items-center gap-1.5"
+                            >
+                              <FiFilter size={12} />
+                              <span>Reset / Clear All Filters</span>
+                            </button>
+                            <button
+                              onClick={() => handleSync()}
+                              disabled={loading}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
+                            >
+                              <FiRefreshCw size={12} className={loading ? "animate-spin" : ""} />
+                              <span>{loading ? "Syncing..." : "Sync Live CRM Accounts"}</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col">
+                          {/* Header Filter Bar */}
+                          <div className="p-3 bg-neutral-900/90 border-b border-[var(--border)] space-y-2.5">
+                            {/* Row 1: Search & Inline Filter Dropdowns */}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <input 
+                                type="checkbox"
+                                checked={accountsPagination.paginatedItems.length > 0 && accountsPagination.paginatedItems.every(a => selectedAccountIds.includes(a.id))}
+                                onChange={() => {
+                                  const pageIds = accountsPagination.paginatedItems.map(a => a.id)
+                                  const allPageSelected = pageIds.length > 0 && pageIds.every(id => selectedAccountIds.includes(id))
+                                  if (allPageSelected) {
+                                    setSelectedAccountIds(prev => prev.filter(id => !pageIds.includes(id)))
+                                  } else {
+                                    setSelectedAccountIds(prev => [...new Set([...prev, ...pageIds])])
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-[var(--border)] text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer shrink-0"
+                              />
+                              
+                              {/* Search box */}
+                              <div className="relative flex-1 min-w-[200px]">
+                                <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
+                                <input 
+                                  type="text"
+                                  placeholder="Search accounts, cities, contacts..."
+                                  value={searchQuery}
+                                  onChange={(e) => setSearchQuery(e.target.value)}
+                                  className="w-full bg-neutral-800/80 border border-[var(--border)] rounded-md pl-8 pr-8 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors"
+                                />
+                              </div>
+
+                              {/* Inline Rep Filter */}
+                              {owners.length > 1 && (
+                                <select
+                                  value={ownerFilter}
+                                  onChange={(e) => setOwnerFilter(e.target.value)}
+                                  className="bg-neutral-800 border border-neutral-700 rounded-md px-2.5 py-1.5 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none cursor-pointer max-w-[140px] truncate"
+                                >
+                                  <option value="All">All Reps</option>
+                                  {owners.map(o => (
+                                    <option key={o.id} value={o.id}>{o.name || o.email || o.id}</option>
+                                  ))}
+                                </select>
+                              )}
+
+                              {/* Inline Quality Filter */}
+                              <select
+                                value={qualityFilter}
+                                onChange={(e) => setQualityFilter(e.target.value)}
+                                className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-sky-500 focus:outline-none cursor-pointer max-w-[130px]"
+                              >
+                                  <option value="All">All Qualities</option>
+                                  <option value="HOT">🔥 Hot</option>
+                                  <option value="WARM">☀️ Warm</option>
+                                  <option value="COLD">❄️ Cold</option>
+                                  <option value="ON_HOLD">⏸️ On Hold</option>
+                                  <option value="DO_NOT_CALL">🚫 DNC</option>
+                                  <option value="NEVER_STATUSED">⚪ Never</option>
+                                </select>
+
+                                {/* Inline Timezone Filter */}
+                                <select
+                                  value={timezoneFilter}
+                                  onChange={(e) => setTimezoneFilter(e.target.value)}
+                                  className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-sky-500 focus:outline-none cursor-pointer max-w-[120px]"
+                                >
+                                  <option value="All">All Time Zones</option>
+                                  {allTimezones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                                </select>
+
+                                {/* Inline Sort By */}
+                                <select
+                                  value={sortBy}
+                                  onChange={(e) => setSortBy(e.target.value as any)}
+                                  className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none cursor-pointer max-w-[140px]"
+                                >
+                                  <option value="default">Sort: Default</option>
+                                  <option value="ltv_desc">Sort: High LTV ($)</option>
+                                  <option value="ltv_asc">Sort: Low LTV ($)</option>
+                                  <option value="timezone_asc">Sort: Time Zone</option>
+                                  <option value="recentOrders_desc">Sort: Recent Order</option>
+                                </select>
+                              </div>
+
+                              {/* Row 2: Selected Accounts Action Bar (When items are checked) */}
+                              {selectedAccountIds.length > 0 && (
+                                <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-emerald-950/40 border border-emerald-500/40 rounded-xl">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                    <span className="text-xs font-bold text-emerald-300">
+                                      {selectedAccountIds.length} Account{selectedAccountIds.length !== 1 ? 's' : ''} Selected
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <button 
+                                      onClick={() => setShowCampaignModal(true)}
+                                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center gap-1.5 text-xs cursor-pointer shadow-md"
+                                    >
+                                      <FiMail size={14} />
+                                      <span>Create Message Campaign ({selectedAccountIds.length})</span>
+                                    </button>
+
+                                    <button 
+                                      onClick={() => setShowCallCampaignModal(true)}
+                                      className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all flex items-center gap-1.5 text-xs cursor-pointer shadow-md"
+                                    >
+                                      <FiPhone size={14} />
+                                      <span>Create Call Campaign ({selectedAccountIds.length})</span>
+                                    </button>
+
+                                    <button 
+                                      onClick={() => setSelectedAccountIds([])}
+                                      className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold transition-colors border border-neutral-700 cursor-pointer"
+                                    >
+                                      Deselect All
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Active Filters Tag Bar */}
+                            {activeFilterCount > 0 && (
+                              <div className="px-4 py-2 bg-neutral-900/60 border-b border-white/5 flex items-center gap-1.5 flex-wrap text-xs">
+                                <span className="text-[10px] uppercase font-bold text-neutral-500 mr-1 flex items-center gap-1">
+                                  <FiFilter size={10} className="text-emerald-400" /> Active Filters:
+                                </span>
+
+                                {ownerFilter !== "All" && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[11px] font-medium">
+                                    Rep: {owners.find(o => o.id === ownerFilter)?.name || ownerFilter}
+                                    <button onClick={() => setOwnerFilter("All")} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                {qualityFilter !== "All" && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[11px] font-medium">
+                                    Quality: {qualityFilter}
+                                    <button onClick={() => setQualityFilter("All")} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                {timezoneFilter !== "All" && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[11px] font-medium">
+                                    Timezone: {timezoneFilter}
+                                    <button onClick={() => setTimezoneFilter("All")} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                {statusFilter !== "All" && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20 text-[11px] font-medium">
+                                    Status: {statusFilter}
+                                    <button onClick={() => setStatusFilter("All")} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                {industryFilter !== "All" && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[11px] font-medium">
+                                    Industry: {industryFilter}
+                                    <button onClick={() => setIndustryFilter("All")} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                {ltvMin && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[11px] font-medium">
+                                    Min LTV: ${ltvMin}
+                                    <button onClick={() => setLtvMin("")} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                {ltvMax && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[11px] font-medium">
+                                    Max LTV: ${ltvMax}
+                                    <button onClick={() => setLtvMax("")} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                {productSearch && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-pink-500/10 text-pink-300 border border-pink-500/20 text-[11px] font-medium">
+                                    Product: {productSearch}
+                                    <button onClick={() => setProductSearch("")} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                {missingInfoFilter.noPhone && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[11px] font-medium">
+                                    No Phone
+                                    <button onClick={() => setMissingInfoFilter(prev => ({ ...prev, noPhone: false }))} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                {missingInfoFilter.noEmail && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[11px] font-medium">
+                                    No Email
+                                    <button onClick={() => setMissingInfoFilter(prev => ({ ...prev, noEmail: false }))} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                {missingInfoFilter.noContacts && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[11px] font-medium">
+                                    No Contacts
+                                    <button onClick={() => setMissingInfoFilter(prev => ({ ...prev, noContacts: false }))} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                {showDoNotCall && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[11px] font-medium">
+                                    DNC Included
+                                    <button onClick={() => setShowDoNotCall(false)} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                <button
+                                  onClick={clearAllFilters}
+                                  className="text-[10px] font-bold text-neutral-400 hover:text-amber-400 underline ml-auto cursor-pointer"
+                                >
+                                  Clear All
+                                </button>
+                              </div>
+                            )}
+
+                            {/* List Items */}
+                            <ul className="divide-y divide-white/5">
+                              {accountsPagination.paginatedItems.map(account => {
+                                const isSelected = selectedAccountIds.includes(account.id)
+                                const ltv = account.totalSales || 0
+                                const bestPhoneInfo = getAccountBestPhone(account)
+                                const hasPhone = !!bestPhoneInfo.phone
+                                const callPhone = bestPhoneInfo.phone
+                                const contactsCount = (account.contacts || []).length
+                                const isContactsExpanded = expandedContactsAccountIds.includes(account.id)
+
+                                return (
+                                  <li key={account.id} className={`hover:bg-white/[0.03] transition-colors ${isSelected ? "bg-emerald-950/20" : ""}`}>
+                                    <div className="flex items-center justify-between px-4 py-3.5 gap-4">
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() =>
+                                          setSelectedAccountIds(prev =>
+                                            prev.includes(account.id)
+                                              ? prev.filter(id => id !== account.id)
+                                              : [...prev, account.id]
+                                          )
+                                        }
+                                        className="w-4 h-4 rounded border-[var(--border)] text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer shrink-0"
+                                      />
+                                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                                        <Link href={`/account?id=${account.zohoId}`} className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-300 font-bold text-sm border border-[var(--border)] shrink-0 hover:border-emerald-500 transition-colors">
+                                          {account.name.charAt(0)}
+                                        </Link>
+                                        <div className="min-w-0">
+                                          <Link href={`/account?id=${account.zohoId}`} className="text-sm font-bold text-white truncate block hover:text-emerald-400 transition-colors">
+                                            {account.name}
+                                          </Link>
+                                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                            <QualityPicker
+                                              zohoId={account.zohoId}
+                                              accountId={account.id}
+                                              currentQuality={account.quality || "NEVER_STATUSED"}
+                                              compact
+                                              onUpdated={(newQuality) =>
+                                                setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, quality: newQuality } : a))
+                                              }
+                                            />
+                                            <TimezonePicker
+                                              zohoId={account.zohoId}
+                                              accountId={account.id}
+                                              currentTimezone={account.timeZone || ""}
+                                              compact
+                                              onUpdated={(newTz) =>
+                                                setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, timeZone: newTz } : a))
+                                              }
+                                            />
+                                            {contactsCount > 0 && (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  setExpandedContactsAccountIds(prev =>
+                                                    prev.includes(account.id)
+                                                      ? prev.filter(id => id !== account.id)
+                                                      : [...prev, account.id]
+                                                  )
+                                                }}
+                                                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                                                  isContactsExpanded
+                                                    ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
+                                                    : "bg-neutral-800 text-neutral-400 border-neutral-700 hover:text-white hover:border-neutral-600"
+                                                }`}
+                                                title="Click to view all account contacts and communication options"
+                                              >
+                                                <FiUsers size={11} className={isContactsExpanded ? "text-sky-400" : "text-neutral-500"} />
+                                                <span>{contactsCount} Contact{contactsCount !== 1 ? 's' : ''}</span>
+                                                <span className={`inline-block transition-transform duration-200 ${isContactsExpanded ? "rotate-180" : ""}`}>▾</span>
+                                              </button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="hidden sm:flex flex-col text-right shrink-0 min-w-[110px]">
+                                        <p className="text-sm font-bold text-emerald-400">
+                                          ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)}
+                                        </p>
+                                        <p className="text-[10px] text-neutral-500 mt-0.5">Total Sales</p>
+                                      </div>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        {hasPhone && (
+                                          <PhoneLink
+                                            phone={callPhone}
+                                            subLabel={bestPhoneInfo.label}
+                                            className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 rounded-xl text-emerald-300 transition-all"
+                                          >
+                                            <FiPhoneCall size={15} className="shrink-0 text-emerald-400" />
+                                          </PhoneLink>
+                                        )}
+                                        <Link href={`/account?id=${account.zohoId}`} className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-full text-neutral-400 hover:text-white transition-colors">
+                                          <FiChevronRight size={16} />
+                                        </Link>
+                                      </div>
+                                    </div>
+
+                                    {/* Collapsible Contacts Drawer */}
+                                    {isContactsExpanded && account.contacts && account.contacts.length > 0 && (
+                                      <div className="px-4 pb-3.5 pt-2 bg-black/40 border-t border-white/5 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider flex items-center gap-1.5">
+                                            <FiUsers size={12} className="text-sky-400" />
+                                            <span>All Account Contacts ({account.contacts.length})</span>
+                                          </span>
+                                          <span className="text-[10px] text-neutral-500 font-medium">
+                                            Click to call / SMS / email
+                                          </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                          {account.contacts.map((contact: any, cIdx: number) => {
+                                            const contactName = [contact.firstName || contact.first_name, contact.lastName || contact.last_name].filter(Boolean).join(" ") || contact.name || `Contact #${cIdx + 1}`
+                                            const cPhone = contact.phone || contact.mobilePhone || contact.mobile || contact.phone_number
+                                            const cEmail = contact.email
+
+                                            return (
+                                              <div key={contact.id || contact.zohoId || cIdx} className="glass-panel border border-neutral-750/70 rounded-xl p-3 flex flex-col justify-between gap-2 bg-neutral-900/80">
+                                                <div>
+                                                  <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+                                                      <FiUser size={12} className="text-neutral-400 shrink-0" />
+                                                      <span className="truncate">{contactName}</span>
+                                                    </span>
+                                                    {contact.isPrimary && (
+                                                      <span className="text-[8px] uppercase font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                                                        Primary
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  {(contact.title || contact.designation || contact.department) && (
+                                                    <p className="text-[10px] text-neutral-400 mt-0.5 truncate">{contact.title || contact.designation || contact.department}</p>
+                                                  )}
+                                                </div>
+
+                                                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-white/5">
+                                                  {cPhone && (
+                                                    <PhoneLink
+                                                      phone={cPhone}
+                                                      showNumberOnDesktop
+                                                      className="px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-cyan-300 font-mono text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                                    >
+                                                      <FiPhoneCall size={10} />
+                                                    </PhoneLink>
+                                                  )}
+                                                  {cPhone && (
+                                                    <PhoneLink
+                                                      phone={cPhone}
+                                                      type="sms"
+                                                      className="px-2 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-lg text-sky-300 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                                    >
+                                                      <FiMessageSquare size={10} />
+                                                      <span>SMS</span>
+                                                    </PhoneLink>
+                                                  )}
+                                                  {cEmail && (
+                                                    <a
+                                                      href={`mailto:${cEmail}`}
+                                                      className="px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-300 text-[10px] font-mono font-bold flex items-center gap-1 transition-all truncate max-w-[170px]"
+                                                      title={cEmail}
+                                                    >
+                                                      <FiMail size={10} />
+                                                      <span className="truncate">{cEmail}</span>
+                                                    </a>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </li>
+                                )
+                              })}
+                            </ul>
+
+                            <Pagination 
+                              currentPage={accountsPagination.currentPage}
+                              pageSize={accountsPagination.pageSize}
+                              totalItems={activeAccountsList.length}
+                              onPageChange={accountsPagination.setCurrentPage}
+                              onPageSizeChange={accountsPagination.setPageSize}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Account List Box */}
-                  <div className="bg-neutral-900/60 rounded-2xl border border-white/10 overflow-hidden shadow-xl">
-                    {activeAccountsList.length === 0 ? (
-                      <div className="p-12 text-center">
-                        <FiUsers className="mx-auto text-4xl text-neutral-700 mb-3" />
-                        <p className="text-neutral-300 font-bold text-base">
-                          {accounts.length > 0 ? "No accounts match active filters" : "No accounts loaded"}
-                        </p>
-                        <p className="text-xs text-neutral-500 mt-1 max-w-md mx-auto">
-                          {accounts.length > 0
-                            ? `Loaded ${accounts.length} total accounts in memory, but your current active filters are hiding them all.`
-                            : "Click below to clear filters or pull live data directly from Zoho CRM."}
-                        </p>
-                        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                          <button
-                            onClick={clearAllFilters}
-                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer inline-flex items-center gap-1.5"
-                          >
-                            <FiFilter size={12} />
-                            <span>Reset / Clear All Filters</span>
-                          </button>
-                          <button
-                            onClick={() => handleSync()}
-                            disabled={loading}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-50"
-                          >
-                            <FiRefreshCw size={12} className={loading ? "animate-spin" : ""} />
-                            <span>{loading ? "Syncing..." : "Sync Live CRM Accounts"}</span>
-                          </button>
+                  {/* Right Column: Tasks List */}
+                <div className={`w-full lg:w-96 shrink-0 space-y-4 ${mobileTab === 'tasks' ? 'block' : 'hidden lg:block'}`}>
+                  <div className="bg-neutral-900/60 rounded-2xl border border-white/10 p-4 space-y-4 shadow-xl">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-base font-bold text-white flex items-center gap-2">
+                        <FiCheckCircle className="text-emerald-400" />
+                        <span>Call Tasks & Follow-ups</span>
+                        <span className="text-xs font-normal text-neutral-400">({effortTasks.length})</span>
+                      </h2>
+                      <button
+                        onClick={() => {
+                          setEditingTask(null)
+                          setTaskSubject("")
+                          setTaskDescription("")
+                          setTaskPriority("Normal")
+                          setTaskStatus("Not Started")
+                          setTaskWhatId("")
+                          setTaskInvoiceId("")
+                          setTaskSalesOrderId("")
+                          setTaskQuoteId("")
+                          setTaskEstimateId("")
+                          setTaskDueDate(new Date().toISOString().split("T")[0])
+                          setTaskDueTime("12:00")
+                          setShowEditTaskModal(true)
+                        }}
+                        className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer flex items-center justify-center shrink-0"
+                        title="Add New Task"
+                      >
+                        <FiPlus size={14} />
+                      </button>
+                    </div>
+
+                    {/* Task Filters tabs */}
+                    <div className="grid grid-cols-4 bg-black/40 border border-white/5 p-0.5 rounded-lg text-[10px] font-bold text-center">
+                      {["due", "pending", "completed", "all"].map((tab) => (
+                        <button
+                          key={tab}
+                          onClick={() => setTaskFilterTab(tab as any)}
+                          className={`py-1 rounded capitalize transition-all ${
+                            taskFilterTab === tab 
+                              ? "bg-neutral-800 text-white shadow-sm" 
+                              : "text-neutral-500 hover:text-neutral-300"
+                          }`}
+                        >
+                          {tab}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Tasks List */}
+                    <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+                      {tasksPagination.paginatedItems.length === 0 ? (
+                        <div className="p-8 text-center text-xs text-neutral-500 font-medium">
+                          No tasks in this category.
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col">
-                        {/* Header Filter Bar */}
-                        <div className="p-3 bg-neutral-900/90 border-b border-[var(--border)] space-y-2.5">
-                          {/* Row 1: Search & Inline Filter Dropdowns */}
-                          <div className="flex flex-wrap items-center gap-2">
-                            <input 
-                              type="checkbox"
-                              checked={accountsPagination.paginatedItems.length > 0 && accountsPagination.paginatedItems.every(a => selectedAccountIds.includes(a.id))}
-                              onChange={() => {
-                                const pageIds = accountsPagination.paginatedItems.map(a => a.id)
-                                const allPageSelected = pageIds.length > 0 && pageIds.every(id => selectedAccountIds.includes(id))
-                                if (allPageSelected) {
-                                  setSelectedAccountIds(prev => prev.filter(id => !pageIds.includes(id)))
-                                } else {
-                                  setSelectedAccountIds(prev => [...new Set([...prev, ...pageIds])])
-                                }
-                              }}
-                              className="w-4 h-4 rounded border-[var(--border)] text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer shrink-0"
-                            />
-                            
-                            {/* Search box */}
-                            <div className="relative flex-1 min-w-[200px]">
-                              <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
-                              <input 
-                                type="text"
-                                placeholder="Search accounts, cities, contacts..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full bg-neutral-800/80 border border-[var(--border)] rounded-md pl-8 pr-8 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors"
-                              />
-                            </div>
-
-                            {/* Inline Rep Filter */}
-                            {owners.length > 1 && (
-                              <select
-                                value={ownerFilter}
-                                onChange={(e) => setOwnerFilter(e.target.value)}
-                                className="bg-neutral-800 border border-neutral-700 rounded-md px-2.5 py-1.5 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none cursor-pointer max-w-[140px] truncate"
-                              >
-                                <option value="All">All Reps</option>
-                                {owners.map(o => (
-                                  <option key={o.id} value={o.id}>{o.name || o.email || o.id}</option>
-                                ))}
-                              </select>
-                            )}
-
-                            {/* Inline Quality Filter */}
-                            <select
-                              value={qualityFilter}
-                              onChange={(e) => setQualityFilter(e.target.value)}
-                              className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-sky-500 focus:outline-none cursor-pointer max-w-[130px]"
-                            >
-                              <option value="All">All Qualities</option>
-                              <option value="HOT">🔥 Hot</option>
-                              <option value="WARM">☀️ Warm</option>
-                              <option value="COLD">❄️ Cold</option>
-                              <option value="ON_HOLD">⏸️ On Hold</option>
-                              <option value="DO_NOT_CALL">🚫 DNC</option>
-                              <option value="NEVER_STATUSED">⚪ Never</option>
-                            </select>
-
-                            {/* Inline Timezone Filter */}
-                            <select
-                              value={timezoneFilter}
-                              onChange={(e) => setTimezoneFilter(e.target.value)}
-                              className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-sky-500 focus:outline-none cursor-pointer max-w-[120px]"
-                            >
-                              <option value="All">All Time Zones</option>
-                              {allTimezones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
-                            </select>
-
-                            {/* Inline Sort By */}
-                            <select
-                              value={sortBy}
-                              onChange={(e) => setSortBy(e.target.value as any)}
-                              className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none cursor-pointer max-w-[140px]"
-                            >
-                              <option value="default">Sort: Default</option>
-                              <option value="ltv_desc">Sort: High LTV ($)</option>
-                              <option value="ltv_asc">Sort: Low LTV ($)</option>
-                              <option value="timezone_asc">Sort: Time Zone</option>
-                              <option value="recentOrders_desc">Sort: Recent Order</option>
-                            </select>
-                          </div>
-
-                          {/* Row 2: Selected Accounts Action Bar (When items are checked) */}
-                          {selectedAccountIds.length > 0 && (
-                            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-emerald-950/40 border border-emerald-500/40 rounded-xl">
-                              <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                <span className="text-xs font-bold text-emerald-300">
-                                  {selectedAccountIds.length} Account{selectedAccountIds.length !== 1 ? 's' : ''} Selected
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <button 
-                                  onClick={() => setShowCampaignModal(true)}
-                                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all flex items-center gap-1.5 text-xs cursor-pointer shadow-md"
+                      ) : (
+                        tasksPagination.paginatedItems.map((t: any) => {
+                          const isOverdue = t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "Completed"
+                          const associatedAcc = accounts.find(a => a.id === t.accountId || a.zohoId === t.accountId)
+                          return (
+                            <div key={t.id} className="p-3 bg-white/[0.02] border border-white/5 rounded-xl space-y-2 hover:border-white/10 transition-colors">
+                              <div className="flex items-start gap-2.5">
+                                <button
+                                  onClick={() => handleCompleteTask(t)}
+                                  disabled={t.status === "Completed"}
+                                  className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 cursor-pointer transition-all ${
+                                    t.status === "Completed" 
+                                      ? "bg-emerald-500 border-emerald-500 text-white" 
+                                      : "border-neutral-600 hover:border-neutral-400"
+                                  }`}
                                 >
-                                  <FiMail size={14} />
-                                  <span>Create Message Campaign ({selectedAccountIds.length})</span>
+                                  {t.status === "Completed" && <FiCheck size={10} />}
                                 </button>
-
-                                <button 
-                                  onClick={() => setShowCallCampaignModal(true)}
-                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all flex items-center gap-1.5 text-xs cursor-pointer shadow-md"
-                                >
-                                  <FiPhone size={14} />
-                                  <span>Create Call Campaign ({selectedAccountIds.length})</span>
-                                </button>
-
-                                <button 
-                                  onClick={() => setSelectedAccountIds([])}
-                                  className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold transition-colors border border-neutral-700 cursor-pointer"
-                                >
-                                  Deselect All
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Active Filters Tag Bar */}
-                        {activeFilterCount > 0 && (
-                          <div className="px-4 py-2 bg-neutral-900/60 border-b border-white/5 flex items-center gap-1.5 flex-wrap text-xs">
-                            <span className="text-[10px] uppercase font-bold text-neutral-500 mr-1 flex items-center gap-1">
-                              <FiFilter size={10} className="text-emerald-400" /> Active Filters:
-                            </span>
-
-                            {ownerFilter !== "All" && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[11px] font-medium">
-                                Rep: {owners.find(o => o.id === ownerFilter)?.name || ownerFilter}
-                                <button onClick={() => setOwnerFilter("All")} className="hover:text-white ml-0.5">×</button>
-                              </span>
-                            )}
-
-                            {qualityFilter !== "All" && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[11px] font-medium">
-                                Quality: {qualityFilter}
-                                <button onClick={() => setQualityFilter("All")} className="hover:text-white ml-0.5">×</button>
-                              </span>
-                            )}
-
-                            {timezoneFilter !== "All" && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[11px] font-medium">
-                                Timezone: {timezoneFilter}
-                                <button onClick={() => setTimezoneFilter("All")} className="hover:text-white ml-0.5">×</button>
-                              </span>
-                            )}
-
-                            {statusFilter !== "All" && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20 text-[11px] font-medium">
-                                Status: {statusFilter}
-                                <button onClick={() => setStatusFilter("All")} className="hover:text-white ml-0.5">×</button>
-                              </span>
-                            )}
-
-                            {industryFilter !== "All" && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[11px] font-medium">
-                                Industry: {industryFilter}
-                                <button onClick={() => setIndustryFilter("All")} className="hover:text-white ml-0.5">×</button>
-                              </span>
-                            )}
-
-                            {ltvMin && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[11px] font-medium">
-                                Min LTV: ${ltvMin}
-                                <button onClick={() => setLtvMin("")} className="hover:text-white ml-0.5">×</button>
-                              </span>
-                            )}
-
-                            {ltvMax && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[11px] font-medium">
-                                Max LTV: ${ltvMax}
-                                <button onClick={() => setLtvMax("")} className="hover:text-white ml-0.5">×</button>
-                              </span>
-                            )}
-
-                            {productSearch && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-pink-500/10 text-pink-300 border border-pink-500/20 text-[11px] font-medium">
-                                Product: {productSearch}
-                                <button onClick={() => setProductSearch("")} className="hover:text-white ml-0.5">×</button>
-                              </span>
-                            )}
-
-                            {missingInfoFilter.noPhone && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[11px] font-medium">
-                                No Phone
-                                <button onClick={() => setMissingInfoFilter(prev => ({ ...prev, noPhone: false }))} className="hover:text-white ml-0.5">×</button>
-                              </span>
-                            )}
-
-                            {missingInfoFilter.noEmail && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[11px] font-medium">
-                                No Email
-                                <button onClick={() => setMissingInfoFilter(prev => ({ ...prev, noEmail: false }))} className="hover:text-white ml-0.5">×</button>
-                              </span>
-                            )}
-
-                            {missingInfoFilter.noContacts && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[11px] font-medium">
-                                No Contacts
-                                <button onClick={() => setMissingInfoFilter(prev => ({ ...prev, noContacts: false }))} className="hover:text-white ml-0.5">×</button>
-                              </span>
-                            )}
-
-                            {showDoNotCall && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[11px] font-medium">
-                                DNC Included
-                                <button onClick={() => setShowDoNotCall(false)} className="hover:text-white ml-0.5">×</button>
-                              </span>
-                            )}
-
-                            <button
-                              onClick={clearAllFilters}
-                              className="text-[10px] font-bold text-neutral-400 hover:text-amber-400 underline ml-auto cursor-pointer"
-                            >
-                              Clear All
-                            </button>
-                          </div>
-                        )}
-
-                        {/* List Items */}
-                        <ul className="divide-y divide-white/5">
-                          {accountsPagination.paginatedItems.map(account => {
-                            const isSelected = selectedAccountIds.includes(account.id)
-                            const ltv = account.totalSales || 0
-                            const bestPhoneInfo = getAccountBestPhone(account)
-                            const hasPhone = !!bestPhoneInfo.phone
-                            const callPhone = bestPhoneInfo.phone
-                            const contactsCount = (account.contacts || []).length
-                            const isContactsExpanded = expandedContactsAccountIds.includes(account.id)
-
-                            return (
-                              <li key={account.id} className={`hover:bg-white/[0.03] transition-colors ${isSelected ? "bg-emerald-950/20" : ""}`}>
-                                <div className="flex items-center justify-between px-4 py-3.5 gap-4">
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() =>
-                                      setSelectedAccountIds(prev =>
-                                        prev.includes(account.id)
-                                          ? prev.filter(id => id !== account.id)
-                                          : [...prev, account.id]
-                                      )
-                                    }
-                                    className="w-4 h-4 rounded border-[var(--border)] text-emerald-600 focus:ring-emerald-500 bg-neutral-800 cursor-pointer shrink-0"
-                                  />
-                                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    <Link href={`/account?id=${account.zohoId}`} className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-300 font-bold text-sm border border-[var(--border)] shrink-0 hover:border-emerald-500 transition-colors">
-                                      {account.name.charAt(0)}
-                                    </Link>
-                                    <div className="min-w-0">
-                                      <Link href={`/account?id=${account.zohoId}`} className="text-sm font-bold text-white truncate block hover:text-emerald-400 transition-colors">
-                                        {account.name}
-                                      </Link>
-                                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                        <QualityPicker
-                                          zohoId={account.zohoId}
-                                          accountId={account.id}
-                                          currentQuality={account.quality || "NEVER_STATUSED"}
-                                          compact
-                                          onUpdated={(newQuality) =>
-                                            setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, quality: newQuality } : a))
-                                          }
-                                        />
-                                        <TimezonePicker
-                                          zohoId={account.zohoId}
-                                          accountId={account.id}
-                                          currentTimezone={account.timeZone || ""}
-                                          compact
-                                          onUpdated={(newTz) =>
-                                            setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, timeZone: newTz } : a))
-                                          }
-                                        />
-                                        {contactsCount > 0 && (
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              setExpandedContactsAccountIds(prev =>
-                                                prev.includes(account.id)
-                                                  ? prev.filter(id => id !== account.id)
-                                                  : [...prev, account.id]
-                                              )
-                                            }}
-                                            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
-                                              isContactsExpanded
-                                                ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
-                                                : "bg-neutral-800 text-neutral-400 border-neutral-700 hover:text-white hover:border-neutral-600"
-                                            }`}
-                                            title="Click to view all account contacts and communication options"
-                                          >
-                                            <FiUsers size={11} className={isContactsExpanded ? "text-sky-400" : "text-neutral-500"} />
-                                            <span>{contactsCount} Contact{contactsCount !== 1 ? 's' : ''}</span>
-                                            <span className={`inline-block transition-transform duration-200 ${isContactsExpanded ? "rotate-180" : ""}`}>▾</span>
-                                          </button>
-                                        )}
-                                      </div>
-                                    </div>
+                                
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <h4 className={`text-xs font-bold text-white truncate ${t.status === "Completed" ? "line-through text-neutral-500" : ""}`}>
+                                      {t.subject || t.title}
+                                    </h4>
+                                    <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase shrink-0 ${
+                                      t.priority === "High" ? "bg-red-500/10 text-red-400 border-red-500/20" :
+                                      t.priority === "Low" ? "bg-neutral-800 text-neutral-400 border-neutral-700" :
+                                      "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                                    }`}>
+                                      {t.priority}
+                                    </span>
                                   </div>
-                                  <div className="hidden sm:flex flex-col text-right shrink-0 min-w-[110px]">
-                                    <p className="text-sm font-bold text-emerald-400">
-                                      ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)}
+
+                                  {t.description && (
+                                    <p className="text-[10px] text-neutral-400 mt-1 leading-relaxed line-clamp-2">
+                                      {t.description}
                                     </p>
-                                    <p className="text-[10px] text-neutral-500 mt-0.5">Total Sales</p>
-                                  </div>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    {hasPhone && (
-                                      <PhoneLink
-                                        phone={callPhone}
-                                        subLabel={bestPhoneInfo.label}
-                                        className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 rounded-xl text-emerald-300 transition-all"
+                                  )}
+
+                                  {/* Associated entity metadata */}
+                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-[9px] text-neutral-500 font-medium">
+                                    {associatedAcc && (
+                                      <Link 
+                                        href={`/account?id=${associatedAcc.zohoId}`} 
+                                        className="text-emerald-400 hover:underline flex items-center gap-0.5"
                                       >
-                                        <FiPhoneCall size={15} className="shrink-0 text-emerald-400" />
-                                      </PhoneLink>
+                                        <FiUser size={10} />
+                                        <span className="truncate max-w-[120px]">{associatedAcc.name}</span>
+                                      </Link>
                                     )}
-                                    <Link href={`/account?id=${account.zohoId}`} className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-full text-neutral-400 hover:text-white transition-colors">
-                                      <FiChevronRight size={16} />
-                                    </Link>
+
+                                    {t.dueDate && (
+                                      <span className={`flex items-center gap-0.5 ${isOverdue ? "text-red-400 font-bold" : ""}`}>
+                                        <FiCalendar size={10} />
+                                        {new Date(t.dueDate).toLocaleDateString(undefined, {month: "short", day: "numeric"})}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
+                              </div>
 
-                                {/* Collapsible Contacts Drawer */}
-                                {isContactsExpanded && account.contacts && account.contacts.length > 0 && (
-                                  <div className="px-4 pb-3.5 pt-2 bg-black/40 border-t border-white/5 space-y-2">
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider flex items-center gap-1.5">
-                                        <FiUsers size={12} className="text-sky-400" />
-                                        <span>All Account Contacts ({account.contacts.length})</span>
-                                      </span>
-                                      <span className="text-[10px] text-neutral-500 font-medium">
-                                        Click to call / SMS / email
-                                      </span>
-                                    </div>
+                              <div className="flex justify-end gap-1.5 pt-1.5 border-t border-white/5">
+                                <button
+                                  onClick={() => handleOpenEditTask(t)}
+                                  className="px-2 py-0.5 rounded text-[9px] font-bold bg-neutral-850 hover:bg-neutral-750 text-neutral-300 transition-colors cursor-pointer border border-white/5"
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                      {account.contacts.map((contact: any, cIdx: number) => {
-                                        const contactName = [contact.firstName || contact.first_name, contact.lastName || contact.last_name].filter(Boolean).join(" ") || contact.name || `Contact #${cIdx + 1}`
-                                        const cPhone = contact.phone || contact.mobilePhone || contact.mobile || contact.phone_number
-                                        const cEmail = contact.email
-
-                                        return (
-                                          <div key={contact.id || contact.zohoId || cIdx} className="glass-panel border border-neutral-750/70 rounded-xl p-3 flex flex-col justify-between gap-2 bg-neutral-900/80">
-                                            <div>
-                                              <div className="flex items-center justify-between gap-2">
-                                                <span className="text-xs font-bold text-white flex items-center gap-1.5 truncate">
-                                                  <FiUser size={12} className="text-neutral-400 shrink-0" />
-                                                  <span className="truncate">{contactName}</span>
-                                                </span>
-                                                {contact.isPrimary && (
-                                                  <span className="text-[8px] uppercase font-black px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
-                                                    Primary
-                                                  </span>
-                                                )}
-                                              </div>
-                                              {(contact.title || contact.designation || contact.department) && (
-                                                <p className="text-[10px] text-neutral-400 mt-0.5 truncate">{contact.title || contact.designation || contact.department}</p>
-                                              )}
-                                            </div>
-
-                                            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-white/5">
-                                              {cPhone && (
-                                                <PhoneLink
-                                                  phone={cPhone}
-                                                  showNumberOnDesktop
-                                                  className="px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-cyan-300 font-mono text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
-                                                >
-                                                  <FiPhoneCall size={10} />
-                                                </PhoneLink>
-                                              )}
-                                              {cPhone && (
-                                                <PhoneLink
-                                                  phone={cPhone}
-                                                  type="sms"
-                                                  className="px-2 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-lg text-sky-300 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
-                                                >
-                                                  <FiMessageSquare size={10} />
-                                                  <span>SMS</span>
-                                                </PhoneLink>
-                                              )}
-                                              {cEmail && (
-                                                <a
-                                                  href={`mailto:${cEmail}`}
-                                                  className="px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-300 text-[10px] font-mono font-bold flex items-center gap-1 transition-all truncate max-w-[170px]"
-                                                  title={cEmail}
-                                                >
-                                                  <FiMail size={10} />
-                                                  <span className="truncate">{cEmail}</span>
-                                                </a>
-                                              )}
-                                            </div>
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-                              </li>
-                            )
-                          })}
-                        </ul>
-
-                        <Pagination 
-                          currentPage={accountsPagination.currentPage}
-                          pageSize={accountsPagination.pageSize}
-                          totalItems={activeAccountsList.length}
-                          onPageChange={accountsPagination.setCurrentPage}
-                          onPageSizeChange={accountsPagination.setPageSize}
+                    {/* Tasks Pagination */}
+                    {filteredTasksList.length > 25 && (
+                      <div className="pt-2 border-t border-white/5">
+                        <Pagination
+                          currentPage={tasksPagination.currentPage}
+                          pageSize={tasksPagination.pageSize}
+                          totalItems={filteredTasksList.length}
+                          onPageChange={tasksPagination.setCurrentPage}
+                          onPageSizeChange={tasksPagination.setPageSize}
                         />
                       </div>
                     )}
                   </div>
                 </div>
+
+              </div>
             </>
           )}
 

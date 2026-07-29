@@ -22,6 +22,7 @@ model User {
   canSendCampaigns   Boolean          @default(false)
   permissions        Json?
   showOnSalesBoard   Boolean          @default(false)
+  payoutStructure    String           @default("two_payment")
   accounts           Account[]
   campaignBlasts     CampaignBlast[]
   campaignJobs       CampaignJob[]
