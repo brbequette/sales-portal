@@ -100,25 +100,71 @@ export const handler: Handler = async (event, context) => {
         return { statusCode: 400, body: JSON.stringify({ success: false, message: "Vendor ID required for dropshipments" }) }
       }
 
-      // Map SO line items to PO line items
-      const poLineItems = items.map((i: any) => {
+      const { prisma } = require("./lib/prisma")
+
+      // Map SO line items to PO line items using their cost instead of retail price
+      const poLineItems = await Promise.all(items.map(async (i: any) => {
         const soItem = so.line_items.find((li: any) => li.line_item_id === i.lineItemId)
         if (!soItem) throw new Error(`Line item ${i.lineItemId} not found on SO`)
+
+        let purchaseRate = 0
+        try {
+          const dbProd = await prisma.product.findFirst({
+            where: {
+              OR: [
+                { sku: soItem.sku },
+                { name: soItem.name }
+              ]
+            }
+          })
+          if (dbProd) {
+            try {
+              const desc = JSON.parse(dbProd.description || "{}")
+              purchaseRate = parseFloat(desc.cost || dbProd.price * 0.50) || 0
+            } catch {
+              purchaseRate = dbProd.price * 0.50
+            }
+          }
+        } catch (dbErr) {
+          console.warn("Could not fetch purchase rate from DB:", dbErr)
+        }
+
+        // Fetch live from Zoho live as fallback
+        if (purchaseRate === 0 && soItem.item_id) {
+          try {
+            const itemRes = await fetch(`${baseUrl}/items/${soItem.item_id}?organization_id=${ORG_ID}`, {
+              headers: { Authorization: `Zoho-oauthtoken ${token}` }
+            })
+            const itemData = await itemRes.json()
+            if (itemData.code === 0 && itemData.item) {
+              purchaseRate = parseFloat(itemData.item.purchase_rate || 0)
+            }
+          } catch (zohoErr) {
+            console.warn("Could not fetch purchase rate from Zoho:", zohoErr)
+          }
+        }
+
+        // Fallback to 50% of the sales rate
+        if (purchaseRate === 0) {
+          purchaseRate = parseFloat(soItem.rate) * 0.50
+        }
+
         return {
           item_id: soItem.item_id,
           name: soItem.name,
           description: soItem.description,
-          rate: soItem.rate,
+          rate: purchaseRate,
           quantity: i.quantity,
           salesorder_item_id: soItem.line_item_id
         }
-      })
+      }))
 
       // Create a Purchase Order linked to the Sales Order
       const payload = {
         vendor_id: vendorId,
         delivery_customer_id: so.customer_id,
         salesorder_id: salesOrderId,
+        is_drop_shipment: true,
         date: new Date().toISOString().split('T')[0],
         line_items: poLineItems
       }

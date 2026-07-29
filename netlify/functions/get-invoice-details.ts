@@ -225,20 +225,35 @@ export const handler: Handler = async (event) => {
     const vigRate = await getVigRate(prisma, returnedDoc.salesperson_name || '')
 
     // ── Step 7: Fetch related packages & dropshipments ──
-    let packages = dbDoc?.packages || []
-    let dropshipments = dbDoc?.dropshipments || []
-    
-    if (type !== "SalesOrder") {
-      const soZohoId = returnedDoc.salesorder_id || (dbDoc?.items as any)?.booksSalesOrderId || (dbDoc?.items as any)?.salesOrderNumber
+    let packages: any[] = []
+    let dropshipments: any[] = []
+
+    try {
+      const soZohoId = type === "SalesOrder" 
+        ? (returnedDoc.salesorder_id || booksDocId) 
+        : (returnedDoc.salesorder_id || (dbDoc?.items as any)?.booksSalesOrderId || (dbDoc?.items as any)?.salesOrderNumber)
+
       if (soZohoId) {
-        const localSo = await prisma.salesOrder.findFirst({
-          where: { OR: [{ zohoId: soZohoId }, { zohoId: { contains: soZohoId } }] }
+        packages = await prisma.package.findMany({
+          where: {
+            OR: [
+              { salesOrderId: soZohoId },
+              { salesOrderNumber: soZohoId }
+            ]
+          }
         })
-        if (localSo) {
-          packages = await prisma.package.findMany({ where: { salesOrderId: localSo.id } })
-          dropshipments = await prisma.purchaseOrder.findMany({ where: { salesOrderId: localSo.id, isDropshipment: true } })
-        }
+        dropshipments = await prisma.purchaseOrder.findMany({
+          where: {
+            isDropshipment: true,
+            OR: [
+              { salesOrderId: soZohoId },
+              { salesOrderNumber: soZohoId }
+            ]
+          }
+        })
       }
+    } catch (e) {
+      console.error("Failed to fetch packages/dropshipments for details:", e)
     }
 
     return {
