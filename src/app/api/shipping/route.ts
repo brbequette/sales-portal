@@ -162,13 +162,36 @@ export async function GET(req: NextRequest) {
       
       let lineItemCount = 0
       let lineItemNames: string[] = []
+      let mappedLineItems: any[] = []
       
       if (Array.isArray(lineItems) && lineItems.length > 0) {
         lineItemCount = lineItems.length
         lineItemNames = lineItems.slice(0, 3).map((li: any) => li.name || li.itemName || "").filter(Boolean)
+        mappedLineItems = lineItems.map((li: any) => ({
+          name: li.name || li.itemName || li.item_name || "",
+          sku: li.sku || li.sku_code || "",
+          quantity: parseFloat(li.quantity || 0)
+        }))
       } else if (Array.isArray(dcBreakdown) && dcBreakdown.length > 0) {
         lineItemCount = dcBreakdown.length
         lineItemNames = dcBreakdown.slice(0, 3).map((str: string) => str.split('|')[0].trim())
+        mappedLineItems = dcBreakdown.map((str: string) => {
+          const parts = str.split('|')
+          const firstPart = parts[0].trim()
+          const match = firstPart.match(/^(\d+)x\s+(.*)$/)
+          if (match) {
+            return {
+              name: match[2].trim(),
+              sku: match[2].trim(),
+              quantity: parseFloat(match[1])
+            }
+          }
+          return {
+            name: firstPart,
+            sku: firstPart,
+            quantity: 1
+          }
+        })
       }
 
       return {
@@ -184,6 +207,7 @@ export async function GET(req: NextRequest) {
         shippingAddress,
         lineItemCount,
         lineItemNames,
+        lineItems: mappedLineItems,
         salesperson,
         packages: soPkgs.map((p: any) => ({
           id: p.id,

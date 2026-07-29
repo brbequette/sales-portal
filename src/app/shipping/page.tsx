@@ -21,6 +21,7 @@ interface ShippingOrder {
   shippingAddress: any
   lineItemCount: number
   lineItemNames: string[]
+  lineItems?: { name: string; sku: string; quantity: number }[]
   salesperson: string
   packages: PackageInfo[]
   dropshipments: DropshipInfo[]
@@ -235,6 +236,29 @@ export default function ShippingPage() {
     }
   }
 
+  // Compilation of items that are packaged but need shipped
+  const getPackagedButNeedShippedItemsCompilation = () => {
+    const compilation: Record<string, { sku: string; name: string; quantity: number }> = {}
+    orders.forEach(order => {
+      if (order.shipStatus === "packaged" && Array.isArray(order.lineItems)) {
+        order.lineItems.forEach(item => {
+          const sku = item.sku || item.name || "Unknown SKU"
+          if (!compilation[sku]) {
+            compilation[sku] = {
+              sku,
+              name: item.name || item.sku || "Unknown Item",
+              quantity: 0
+            }
+          }
+          compilation[sku].quantity += item.quantity || 0
+        })
+      }
+    })
+    return Object.values(compilation).sort((a, b) => b.quantity - a.quantity)
+  }
+
+  const compilationList = getPackagedButNeedShippedItemsCompilation()
+
   return (
     <div className="min-h-screen p-4 md:p-6 max-w-[1400px] mx-auto">
       {/* Header */}
@@ -365,6 +389,40 @@ export default function ShippingPage() {
           </button>
         </div>
       </div>
+      
+      {/* Packaged Items Compilation Summary */}
+      {!loading && compilationList.length > 0 && (
+        <div className="mb-6 bg-gradient-to-br from-neutral-900 via-neutral-900 to-indigo-950/20 border border-indigo-500/20 rounded-2xl p-4 shadow-xl">
+          <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
+                <FiPackage className="text-indigo-400 text-sm" />
+              </div>
+              <div>
+                <h2 className="text-sm font-black text-white tracking-tight">Packaged Items Awaiting Shipment</h2>
+                <p className="text-[10px] text-neutral-500">Consolidated list of items packed and ready to go out</p>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase bg-indigo-950/60 border border-indigo-500/30 text-indigo-300">
+              {compilationList.reduce((sum, item) => sum + item.quantity, 0)} Total Units
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-[220px] overflow-y-auto pr-1">
+            {compilationList.map((item, idx) => (
+              <div key={idx} className="bg-neutral-900/40 border border-white/5 rounded-xl p-3 flex items-center justify-between hover:border-indigo-500/30 transition-all duration-300">
+                <div className="min-w-0 pr-2">
+                  <p className="text-xs font-black text-white font-mono truncate" title={item.sku}>{item.sku}</p>
+                  <p className="text-[10px] text-neutral-500 truncate" title={item.name}>{item.name}</p>
+                </div>
+                <span className="flex-shrink-0 min-w-[28px] h-7 rounded-lg bg-indigo-600/15 text-indigo-400 font-black text-xs flex items-center justify-center border border-indigo-500/20 px-2">
+                  {item.quantity}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Orders Table */}
       {loading ? (
