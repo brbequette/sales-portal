@@ -31,7 +31,8 @@ export function MetricDerivationModal({ info, onClose }: MetricDerivationModalPr
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
       <div 
-        className="w-full max-w-2xl bg-neutral-900/95 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-up"
+        className="w-full max-w-2xl bg-neutral-900/95 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-scale-up"
+        style={{ maxHeight: "90vh", display: "flex", flexDirection: "column" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -62,7 +63,7 @@ export function MetricDerivationModal({ info, onClose }: MetricDerivationModalPr
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto space-y-6">
+        <div className="p-6 overflow-y-auto space-y-6 flex-1 min-h-0">
           {/* Current Value Hero */}
           <div 
             className="p-5 rounded-xl border flex items-center justify-between"
