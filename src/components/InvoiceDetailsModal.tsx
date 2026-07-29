@@ -3,6 +3,8 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
+import { useZoho } from "@/components/ZohoProvider"
+import { usePreferences } from "@/components/PreferencesProvider"
 import { createPortal } from "react-dom"
 import Link from "next/link"
 import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight, FiCheckSquare, FiExternalLink } from "react-icons/fi"
@@ -28,6 +30,8 @@ interface InvoiceDetailsModalProps {
 
 export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoiceList, currentIndex, onNavigate }: InvoiceDetailsModalProps) {
   const { data: session } = useSession()
+  const { zohoContext: user } = useZoho()
+  const { preferences } = usePreferences()
   const [internalInvoiceOverride, setInternalInvoiceOverride] = useState<any | null>(null)
   const [internalTypeOverride, setInternalTypeOverride] = useState<"Quote" | "SalesOrder" | "Invoice" | null>(null)
   const [fullInvoiceDetails, setFullInvoiceDetails] = useState<any | null>(null)
@@ -163,7 +167,12 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
   const displayData = fullInvoiceDetails || initialData
 
-  const isAdmin = !!session?.user?.role?.toLowerCase().includes("admin")
+  const effectiveRole = preferences?.impersonatedUser ? preferences.impersonatedUser.role : (user?.role || "")
+  const effectiveEmail = preferences?.impersonatedUser ? preferences.impersonatedUser.email : (user?.email || "")
+  const effectiveName = preferences?.impersonatedUser ? preferences.impersonatedUser.name : (user?.name || "")
+
+  const normalizedRole = effectiveRole.toLowerCase()
+  const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
   const isSalesOrderInvoiced = 
     currentType === "SalesOrder" && 
     (displayData?.status?.toLowerCase() === "invoiced" || 
@@ -174,8 +183,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
   const matchedRep = usersList.find(u => u.name.toLowerCase().trim() === spName || u.zohoName?.toLowerCase().trim() === spName)
   const isSalespersonOwner = 
     spName && 
-    ((matchedRep && matchedRep.email?.toLowerCase().trim() === session?.user?.email?.toLowerCase().trim()) || 
-     (spName === session?.user?.name?.toLowerCase().trim()))
+    ((matchedRep && matchedRep.email?.toLowerCase().trim() === effectiveEmail.toLowerCase().trim()) || 
+     (spName === effectiveName.toLowerCase().trim()))
 
   const canEdit = isAdmin || (isSalespersonOwner && currentType === "SalesOrder" && !isSalesOrderInvoiced)
 
@@ -803,7 +812,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                     <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Salesperson</label>
                     <div className="text-sm text-white font-semibold truncate">{displayData.salesperson_name}</div>
                     <div className="text-[9px] text-sky-400 font-mono mt-1">
-                      Session: user={session?.user?.name || "none"} role={session?.user?.role || "none"} email={session?.user?.email || "none"} (isAdmin={String(isAdmin)} canEdit={String(canEdit)})
+                      Session: user={effectiveName || "none"} role={effectiveRole || "none"} email={effectiveEmail || "none"} (isAdmin={String(isAdmin)} canEdit={String(canEdit)})
                     </div>
                   </div>
                 )}
