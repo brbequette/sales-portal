@@ -277,15 +277,15 @@ export function SalesBoard() {
           // --- 2. SALES ORDERS (Active on board until Invoiced) ---
           if (docType === 'SalesOrder') {
             const isInvoiced = raw.status === 'Invoiced' || raw.invoice_id || raw.invoice_number
-            if (!isInvoiced && matchedRep) {
+            if (isInvoiced) return // Skip converted Sales Orders to avoid double-counting
+            if (matchedRep) {
               matchedRep.activePipeline.salesOrderCount += 1
               matchedRep.activePipeline.salesOrderAmount += parseFloat(doc.amount || raw.total || raw.amount || 0)
             }
-            return
           }
 
-          // --- 3. INVOICES (50% Commission on Issue Date + 50% Commission on Paid Date) ---
-          if (docType === 'Invoice') {
+          // --- 3. INVOICES & SALES ORDERS (Weekly/MTD/YTD totals) ---
+          if (docType === 'Invoice' || docType === 'SalesOrder') {
             const saleDate = doc.date ? doc.date.split('T')[0] : ''
             if (!saleDate) return
 

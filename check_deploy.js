@@ -1,6 +1,6 @@
 const { execSync } = require('child_process');
 try {
-  const result = execSync(`npx.cmd netlify api listSiteDeploys --data "{ \\"site_id\\": \\"61a15791-b7ec-4746-b495-7772abd22840\\" }"`, { encoding: 'utf8' });
+  const result = execSync(`npx.cmd netlify api listSiteDeploys --data "{ \\"site_id\\": \\"61a15791-b7ec-4746-b495-7772abd22840\\" }"`, { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 });
   const deploys = JSON.parse(result);
   const latestDeploy = deploys[0];
   console.log("Latest Deploy State:", latestDeploy.state);

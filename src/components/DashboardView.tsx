@@ -470,7 +470,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
       for (const inv of invoices) {
         const amount = parseFloat(inv.sub_total || inv.total || "0")
-        const profit = extractProfit(inv)
+        const profit = inv.deadProfit !== undefined ? Number(inv.deadProfit) : extractProfit(inv)
         const commission = extractCommissionAmount(inv)
         const dateStr = inv.salesorder_date || inv.date || ""
 
