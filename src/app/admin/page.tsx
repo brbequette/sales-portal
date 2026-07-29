@@ -119,6 +119,53 @@ export default function AdminDashboardPage() {
     setSyncProgress("")
   }
 
+  const [processingCosts, setProcessingCosts] = useState(false)
+  const [costProgress, setCostProgress] = useState("")
+  const [costSuccess, setCostSuccess] = useState<string | null>(null)
+  const [costError, setCostError] = useState<string | null>(null)
+
+  const handleRecalculateCosts = async () => {
+    setProcessingCosts(true)
+    setCostError(null)
+    setCostSuccess(null)
+    setCostProgress("Starting recalculation of missing costs...")
+
+    try {
+      let totalProcessed = 0
+      while (true) {
+        const res = await fetch("/api/admin/recalculate-missing-costs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || `Server error ${res.status}`)
+        }
+        const data = await res.json()
+        if (!data.success) {
+          throw new Error(data.error || "Recalculation failed")
+        }
+
+        if (data.processedCount === 0) {
+          break
+        }
+
+        totalProcessed += data.processedCount
+        if (data.remainingCount > 0) {
+          setCostProgress(`Processed ${totalProcessed} invoices. Remaining: ${data.remainingCount}...`)
+        } else {
+          break
+        }
+      }
+      setCostSuccess(`Successfully recalculated and synced costs for all missing invoices (${totalProcessed} processed).`)
+    } catch (err: any) {
+      setCostError(err.message || "Failed to process costs")
+    } finally {
+      setProcessingCosts(false)
+      setCostProgress("")
+    }
+  }
+
   const entityLabels: Record<string, { label: string, color: string, bg: string }> = {
     contacts: { label: 'Accounts', color: 'text-emerald-400', bg: 'bg-emerald-600' },
     invoices: { label: 'Invoices', color: 'text-blue-400', bg: 'bg-blue-600' },
@@ -236,6 +283,54 @@ export default function AdminDashboardPage() {
               <div className="bg-red-950/30 border border-red-500/20 rounded-lg p-3 flex items-center gap-2 text-red-400 text-xs">
                 <FiAlertTriangle size={14} />
                 <span>{syncError}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Recalculate Missing Costs Section */}
+        <div>
+          <h2 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-4">
+            Maintenance & Costs
+          </h2>
+          <div className="p-5 rounded-xl border border-white/10 bg-white/[0.02] space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-amber-500/10 text-amber-400">
+                <FiActivity size={20} className={processingCosts ? "animate-pulse" : ""} />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-white mb-1">Recalculate Missing Invoice Costs & Commissions</h3>
+                <p className="text-xs text-neutral-400 leading-relaxed mb-3">
+                  Scans all active invoices in the database. For any that are missing dead costs, profits, or commissions data, this will automatically recalculate them, push updates to Zoho Books, and sync the local database.
+                </p>
+                <button
+                  onClick={handleRecalculateCosts}
+                  disabled={processingCosts}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {processingCosts ? "Processing..." : "🔄 Recalculate & Sync Missing Invoices"}
+                </button>
+              </div>
+            </div>
+
+            {costProgress && (
+              <div className="flex items-center gap-2 text-amber-400 text-xs font-medium bg-amber-950/30 border border-amber-500/20 rounded-lg p-3">
+                <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
+                {costProgress}
+              </div>
+            )}
+
+            {costSuccess && (
+              <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-lg p-3 flex items-center gap-2 text-emerald-400 text-xs font-bold">
+                <FiCheckCircle size={14} className="shrink-0" />
+                <span>{costSuccess}</span>
+              </div>
+            )}
+
+            {costError && (
+              <div className="bg-red-950/30 border border-red-500/20 rounded-lg p-3 flex items-center gap-2 text-red-400 text-xs font-bold">
+                <FiAlertTriangle size={14} className="shrink-0" />
+                <span>{costError}</span>
               </div>
             )}
           </div>

@@ -85,6 +85,18 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
         setFullInvoiceDetails(doc)
         setDataSource(data._source === 'local_db' ? 'local_db' : 'zoho_live')
         setCachedAt(doc._cachedAt || null)
+
+        // Proactive cost calculation if deadCostTotal is missing/null/0
+        const statusLower = (doc.status || '').toLowerCase()
+        if (statusLower !== 'void' && statusLower !== 'voided' && statusLower !== 'draft') {
+          const items = doc.items || {}
+          const deadCost = parseFloat(items.deadCostTotal || 0)
+          if (isNaN(deadCost) || deadCost === 0) {
+            setTimeout(() => {
+              handleProcessCosts(true)
+            }, 100)
+          }
+        }
       }
     } catch (e) {
       console.error("Failed to load full document details", e)
@@ -300,9 +312,9 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
     }
   }
 
-  const handleProcessCosts = async () => {
+  const handleProcessCosts = async (silent = false) => {
     const docLabel = type === 'Quote' ? 'quote/estimate' : type === 'SalesOrder' ? 'sales order' : 'invoice'
-    if (!confirm(`Calculate and write all costs, profit, and commission fields for this ${docLabel}?`)) return
+    if (!silent && !confirm(`Calculate and write all costs, profit, and commission fields for this ${docLabel}?`)) return
     setActionLoading("process-costs")
     setCostResult(null)
     try {
@@ -332,11 +344,11 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
         // Store result to show inline; key varies by doc type
         const result = data.invoice || data.salesorder || data.estimate || data
         setCostResult(result)
-      } else {
+      } else if (!silent) {
         alert(`Failed: ${data.error}`)
       }
     } catch (e: any) {
-      alert(`Error: ${e.message}`)
+      if (!silent) alert(`Error: ${e.message}`)
     } finally {
       setActionLoading("")
     }
@@ -568,7 +580,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
               {/* Process Costs -- all document types */}
               {!isVoided && (
                 <button
-                  onClick={handleProcessCosts}
+                  onClick={() => handleProcessCosts()}
                   disabled={!!actionLoading}
                   className="bg-amber-600/80 hover:bg-amber-500 text-white font-bold px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs transition-colors flex items-center gap-1 whitespace-nowrap disabled:opacity-50"
                 >
