@@ -166,7 +166,7 @@ export default function VigManagementBuilder() {
           </div>
           <h2 className="text-2xl font-black text-white">Sales Rep VIG & Dead Profit Management</h2>
           <p className="text-xs text-neutral-400 mt-1 max-w-2xl">
-            All profit goals are strictly calculated using <span className="text-white font-bold">Dead Profit</span> (Subtotal − Base Inventory Cost − CC Fees).
+            All profit goals are strictly calculated using <span className="text-white font-bold">Dead Profit</span> (Subtotal − Base Inventory Cost − CC Fees − Additional Costs).
           </p>
         </div>
 

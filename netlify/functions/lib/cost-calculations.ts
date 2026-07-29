@@ -334,7 +334,7 @@ export async function calculateDocumentCosts(
   const totalDeductions  = deadCostPlusVig + ccFees + additionalCosts
   const profit           = subTotal - totalDeductions
   const marginPercent    = subTotal > 0 ? (profit / subTotal) * 100 : 0
-  const deadProfitActual = subTotal - deadCostTotal
+  const deadProfitActual = subTotal - deadCostTotal - ccFees - additionalCosts
 
   // ─── 6. Commission ──────────────────────────────────────────────────────────
   const commissionPct   = resolveCommissionPct(doc, settings, manualCommPct)

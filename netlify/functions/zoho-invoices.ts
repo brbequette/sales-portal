@@ -1,6 +1,6 @@
 import { Handler } from "@netlify/functions"
 import { prisma } from "./lib/prisma"
-import { extractProfit, extractCommissionAmount, extractVigRate } from "../../src/lib/custom-field-extractor"
+import { extractProfit, extractCommissionAmount, extractVigRate, extractCcFees, extractAdditionalCosts } from "../../src/lib/custom-field-extractor"
 
 import { zohoCache } from "../../src/lib/services/zohoCache"
 
@@ -106,7 +106,9 @@ export const handler: Handler = async (event) => {
           const sub = subTotalVal
           let dc = (items.deadCostTotal ?? 0)
           if ((isNaN(dc) || dc === 0) && sub > 0) dc = sub * 0.50
-          return sub - dc
+          const cc = extractCcFees(items)
+          const add = extractAdditionalCosts(items)
+          return sub - dc - cc - add
         })(),
         cf_commision_amount_unformatted: extractCommissionAmount(items),
         cf_salesperson_vig_unformatted: extractVigRate(items),
@@ -141,7 +143,9 @@ export const handler: Handler = async (event) => {
           const sub = subTotalVal
           let dc = (items.deadCostTotal ?? 0)
           if ((isNaN(dc) || dc === 0) && sub > 0) dc = sub * 0.50
-          return sub - dc
+          const cc = extractCcFees(items)
+          const add = extractAdditionalCosts(items)
+          return sub - dc - cc - add
         })(),
         cf_commision_amount_unformatted: extractCommissionAmount(items),
         cf_salesperson_vig_unformatted: extractVigRate(items),
