@@ -400,6 +400,9 @@ export function OrderBuilder({
   const popularGifts = useMemo(() => {
     return (catalogProducts || [])
       .filter(p => {
+        const desc = parseDesc(p.description)
+        if (desc.status === "inactive") return false
+
         if (p.giftItem) return true
         const name = (p.name || "").toLowerCase()
         const sku = (p.sku || "").toLowerCase()
