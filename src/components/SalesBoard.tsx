@@ -255,7 +255,8 @@ export function SalesBoard() {
         rawDocs.forEach((doc: any) => {
           const raw = doc.raw || {}
           const items = raw.items || {}
-          const spName = (raw.salesorder_salesperson_name || raw.salesperson_name || doc.salesperson || "").toUpperCase()
+          const spName = (doc.salesperson || "").toUpperCase()
+          if (!spName) return
           if (spName.includes("PAUL") && (spName.includes("GENCUSKI") || spName.includes("GENKUSKI"))) return
 
           const docType = doc.type || 'Invoice'
@@ -268,7 +269,7 @@ export function SalesBoard() {
             const isConvertedToSO = raw.status === 'Converted' || raw.salesorder_id || raw.salesorder_number
             if (ageHours <= 48 && !isConvertedToSO && matchedRep) {
               matchedRep.activePipeline.estimateCount += 1
-              matchedRep.activePipeline.estimateAmount += parseFloat(raw.total || raw.amount || doc.amount || 0)
+              matchedRep.activePipeline.estimateAmount += parseFloat(doc.amount || raw.total || raw.amount || 0)
             }
             return
           }
@@ -278,24 +279,24 @@ export function SalesBoard() {
             const isInvoiced = raw.status === 'Invoiced' || raw.invoice_id || raw.invoice_number
             if (!isInvoiced && matchedRep) {
               matchedRep.activePipeline.salesOrderCount += 1
-              matchedRep.activePipeline.salesOrderAmount += parseFloat(raw.total || raw.amount || doc.amount || 0)
+              matchedRep.activePipeline.salesOrderAmount += parseFloat(doc.amount || raw.total || raw.amount || 0)
             }
             return
           }
 
           // --- 3. INVOICES (50% Commission on Issue Date + 50% Commission on Paid Date) ---
           if (docType === 'Invoice') {
-            const saleDate = raw.salesorder_date || raw.date || doc.date ? new Date(raw.salesorder_date || raw.date || doc.date).toISOString().split('T')[0] : ''
+            const saleDate = doc.date ? doc.date.split('T')[0] : ''
             if (!saleDate) return
 
             const invDateObj = new Date(saleDate)
-            const amount = Number(raw.sub_total !== undefined ? raw.sub_total : (raw.total || doc.amount || 0))
-            const profit = Number(raw.deadProfit || items.profit || doc.profit || 0)
-            const deadCostNoVig = Number(items.deadCostNoVig || raw.deadCostNoVig || 0)
-            const deadCostSubjectToVig = Number(items.deadCostSubjectToVig || raw.deadCostSubjectToVig || 0)
+            const amount = Number(doc.amount || 0)
+            const profit = Number(doc.profit || 0)
+            const deadCostNoVig = Number(doc.deadCostNoVig || 0)
+            const deadCostSubjectToVig = Number(doc.deadCostSubjectToVig || 0)
 
             // Commission 50/50 split calculation
-            const fullComm = Number(raw.cf_commision_amount_unformatted || items.salesCommission || (profit * 0.5) || 0)
+            const fullComm = Number(doc.commission || 0)
             const isPaid = (raw.status || "").toLowerCase() === "paid" || items.paymentDate != null
             const isSameDayPaid = items.isSameDayPaid || false
 
@@ -614,23 +615,7 @@ export function SalesBoard() {
                            ))}
                            <td className="p-4 text-sm font-bold text-emerald-400/70 text-right border-b border-white/10 bg-emerald-500/5">{formatCurrency(rep.weekly.totalProfit)}</td>
                         </tr>
-                        {/* Commission Row */}
-                        <tr className="group hover:bg-white/10 hover:shadow-lg transition-all duration-300 cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
-                           <td className="p-4 text-xs font-medium text-blue-500/70 border-b border-white/10">Commission</td>
-                           {rep.weekly.profit.map((val: number, i: number) => (
-                              <td key={i} className="p-4 text-sm font-medium text-blue-400/70 text-right border-b border-white/10">{rep.weekly.invoices?.filter((inv:any) => inv.date === data.weekDays[i]).reduce((sum:number, inv:any) => sum + inv.commission, 0) > 0 ? formatCurrency(rep.weekly.invoices?.filter((inv:any) => inv.date === data.weekDays[i]).reduce((sum:number, inv:any) => sum + inv.commission, 0)) : '-'}</td>
-                           ))}
-                           <td className="p-4 text-sm font-bold text-blue-400 text-right border-b border-white/10 bg-blue-500/5">{formatCurrency(rep.weekly.commission)}</td>
-                        </tr>
-                        {/* Deals Row */}
-                        <tr className="group hover:bg-white/10 hover:shadow-lg transition-all duration-300 cursor-pointer transition-colors" onClick={() => toggleRow(`weekly-${rep.id}`)}>
-                           <td className="p-4 text-xs font-medium text-purple-500/70 border-b border-white/10">Deals Closed</td>
-                           {rep.weekly.profit.map((val: number, i: number) => {
-                              const count = rep.weekly.invoices?.filter((inv:any) => inv.date === data.weekDays[i]).length || 0;
-                              return <td key={i} className="p-4 text-sm font-medium text-purple-400/70 text-right border-b border-white/10">{count > 0 ? count : '-'}</td>
-                           })}
-                           <td className="p-4 text-sm font-bold text-purple-400 text-right border-b border-white/10 bg-purple-500/5">{rep.weekly.dealsClosed}</td>
-                        </tr>
+
                         {isExpanded && rep.weekly.invoices?.length > 0 && (
                            <tr className="bg-black/40">
                               <td colSpan={8} className="p-4 border-b border-white/10">

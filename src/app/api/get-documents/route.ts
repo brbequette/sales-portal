@@ -63,12 +63,52 @@ export async function GET(request: Request) {
     ])
 
     const buildDoc = (raw: any, t: "Quote" | "SalesOrder" | "Invoice") => {
-      let profit = 0
       const items = raw.items as any
-      if (items && !Array.isArray(items) && items.profit) {
-        profit = parseFloat(items.profit)
+      
+      const extractField = (obj: any, key: string): number => {
+        if (!obj || typeof obj !== 'object') return 0
+        if (obj[key] !== undefined && obj[key] !== null) return parseFloat(obj[key]) || 0
+        const cfs = obj.custom_fields || []
+        if (Array.isArray(cfs)) {
+          const found = cfs.find((f: any) => {
+            const apiName = (f.api_name || f.placeholder || '').toLowerCase()
+            const labelName = (f.label || '').toLowerCase()
+            const target = key.toLowerCase()
+            return apiName === target || apiName === `cf_${target}` || labelName === target
+          })
+          if (found && found.value !== undefined && found.value !== null) {
+            return parseFloat(found.value) || 0
+          }
+        }
+        return 0
+      }
+
+      let profit = 0
+      let deadCostNoVig = 0
+      let deadCostSubjectToVig = 0
+      let commission = 0
+      
+      if (items && !Array.isArray(items)) {
+        // Calculate raw non-VIG profit (Dead Profit)
+        const subTotal = parseFloat(items.sub_total ?? items.subTotal ?? raw.amount ?? 0)
+        const deadCostTotal = parseFloat(items.deadCostTotal ?? items.dead_cost_total ?? items.cf_dead_cost_total ?? extractField(items, 'cf_dead_cost_total') ?? 0)
+        const additionalCosts = parseFloat(items.additionalCosts ?? items.additional_costs ?? items.cf_additional_costs_to_order ?? extractField(items, 'cf_additional_costs_to_order') ?? 0)
+        const ccFees = parseFloat(items.ccFees ?? items.cc_fees ?? items.cf_credit_card_processing_fees ?? extractField(items, 'cf_credit_card_processing_fees') ?? 0)
+        const giftCost = parseFloat(items.giftCost ?? items.gifts_cost ?? items.gifts ?? extractField(items, 'cf_gifts') ?? 0)
+        profit = subTotal - deadCostTotal - additionalCosts - ccFees - giftCost
+        
+        deadCostNoVig = parseFloat(items.deadCostNoVig ?? items.cf_dead_cost_no_vig ?? extractField(items, 'cf_dead_cost_no_vig') ?? 0)
+        deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig ?? items.cf_dead_cost_subject_to_vig ?? extractField(items, 'cf_dead_cost_subject_to_vig') ?? 0)
+        const rawComm = items.commission ?? items.cf_commision_amount ?? items.salesCommission ?? null
+        const parsedComm = rawComm !== null ? parseFloat(rawComm) : extractField(items, 'cf_commision_amount')
+        commission = parsedComm || (profit * 0.5) || 0
       } else if (Array.isArray(items)) {
-        profit = items.reduce((sum: number, it: any) => sum + parseFloat(it.profit || 0), 0)
+        // Fallback for arrays
+        profit = items.reduce((sum: number, it: any) => {
+          const sub = parseFloat(it.sub_total ?? it.subTotal ?? it.amount ?? 0)
+          const dc = parseFloat(it.deadCostTotal ?? it.dead_cost_total ?? it.cf_dead_cost_total ?? 0)
+          return sum + (sub - dc)
+        }, 0)
       }
       
       const dateStr = raw.issueDate?.toISOString() || raw.orderDate?.toISOString() || raw.createdAt?.toISOString() || new Date().toISOString()
@@ -85,6 +125,10 @@ export async function GET(request: Request) {
         date: dateStr,
         amount: parseFloat(raw.amount || 0),
         profit,
+        deadCostNoVig,
+        deadCostSubjectToVig,
+        commission,
+        salesperson: items?.salesperson || items?.salesperson_name || null,
         invoiceNumber: items?.invoiceNumber || items?.invoice_number || items?.estimateNumber || items?.estimate_number || items?.salesOrderNumber || items?.salesorder_number || items?.quoteNumber || (raw.zohoId || raw.id).slice(-6),
         raw
       }

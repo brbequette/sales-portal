@@ -343,14 +343,24 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           if (commRes.ok) {
             const commData = await commRes.json()
             if (commData.success && commData.byRep) {
-              const allRepInvoices = Object.values(commData.byRep).flatMap((r: any) => r.invoices || [])
+              const allRepInvoices = Object.entries(commData.byRep).flatMap(([repId, r]: [string, any]) => {
+                return (r.invoices || []).map((inv: any) => ({
+                  ...inv,
+                  repName: r.repName || "Unknown",
+                  salesperson: r.repName || "Unknown",
+                  salesperson_name: r.repName || "Unknown",
+                  salesorder_salesperson_name: r.repName || "Unknown",
+                  profit: inv.profit || 0,
+                  cf_profit: inv.profit || 0,
+                  cf_profit_unformatted: inv.profit || 0,
+                  commission: inv.commission?.total || (inv.profit * 0.5) || 0,
+                  cf_commision_amount: inv.commission?.total || (inv.profit * 0.5) || 0,
+                  cf_commision_amount_unformatted: inv.commission?.total || (inv.profit * 0.5) || 0
+                }))
+              })
               invoices = allRepInvoices.map((inv: any) => ({
                 sub_total: inv.amount || 0,
                 total: inv.amount || 0,
-                cf_profit_unformatted: inv.profit || 0,
-                cf_commision_amount_unformatted: inv.commission?.total || (inv.profit * 0.5) || 0,
-                salesperson_name: inv.repName || inv.salesperson || "Unknown",
-                salesorder_salesperson_name: inv.repName || inv.salesperson || "Unknown",
                 date: inv.issueDate || inv.paymentDate || inv.createdAt,
                 salesorder_date: inv.issueDate || inv.paymentDate || inv.createdAt,
                 status: inv.isPaid || inv.status === 'paid' || inv.status === 'Paid' ? 'paid' : (inv.status?.toLowerCase() || 'sent'),

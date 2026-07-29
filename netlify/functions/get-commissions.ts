@@ -649,7 +649,9 @@ export const handler: Handler = async (event) => {
           isPaid: !!inv.isPaid,
           issueDate: inv.issueDate || null,
           paymentDate: inv.paymentDate || null,
-          commission: inv.commission || { total: 0, upfront: 0, final: 0 }
+          commission: inv.commission || { total: 0, upfront: 0, final: 0 },
+          repName: inv.repName || byRep[key].repName || null,
+          salesperson: inv.repName || byRep[key].repName || null
         })
       }
     }
