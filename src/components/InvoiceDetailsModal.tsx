@@ -799,9 +799,12 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                   </div>
                 )}
                 {displayData.salesperson_name && (
-                  <div>
+                  <div className="flex flex-col">
                     <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Salesperson</label>
                     <div className="text-sm text-white font-semibold truncate">{displayData.salesperson_name}</div>
+                    <div className="text-[9px] text-sky-400 font-mono mt-1">
+                      Session: user={session?.user?.name || "none"} role={session?.user?.role || "none"} email={session?.user?.email || "none"} (isAdmin={String(isAdmin)} canEdit={String(canEdit)})
+                    </div>
                   </div>
                 )}
                 {(displayData.customer_name || displayData.customer_id) && (
