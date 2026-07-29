@@ -63,15 +63,36 @@ export const handler: Handler = async (event) => {
       }),
     ])
 
+    const getSubTotal = (items: any, amount: number) => {
+      let sub = parseFloat(items.sub_total ?? items.subTotal ?? 0)
+      if (isNaN(sub) || sub === 0) {
+        const details = items.lineItemDetails || items.line_items || items.items
+        if (Array.isArray(details)) {
+          sub = details.reduce((sum: number, it: any) => {
+            if (it.line_item_category === "header" || it.line_item_category === "subtotal") return sum;
+            const qty = parseFloat(it.quantity || 0)
+            const rate = parseFloat(it.rate || it.itemTotal || it.item_total || 0)
+            return sum + (qty * rate)
+          }, 0)
+        }
+      }
+      if (isNaN(sub) || sub === 0) {
+        sub = amount || 0
+      }
+      return sub
+    }
+
     const invoicesMapped = invoices.map(inv => {
       const items = (inv.items as any) || {}
+      const subTotalVal = getSubTotal(items, inv.amount)
+
       return {
         invoice_id: inv.zohoId,
         invoice_number: items.invoiceNumber || `INV-${inv.zohoId?.slice(-6)}`,
         customer_name: items.customer_name || inv.account?.name || 'Unknown',
         salesperson_name: items.salesperson || null,
-        sub_total: items.sub_total ?? inv.amount ?? 0,
-        total: items.sub_total ?? inv.amount ?? 0,
+        sub_total: subTotalVal,
+        total: subTotalVal,
         balance: items.balance ?? 0,
         date: inv.issueDate?.toISOString().split('T')[0] || '',
         due_date: inv.dueDate?.toISOString().split('T')[0] || '',
@@ -82,7 +103,7 @@ export const handler: Handler = async (event) => {
         reference_number: items.reference_number || null,
         cf_profit_unformatted: extractProfit(items),
         deadProfit: (() => {
-          const sub = (items.sub_total ?? inv.amount ?? 0)
+          const sub = subTotalVal
           let dc = (items.deadCostTotal ?? 0)
           if ((isNaN(dc) || dc === 0) && sub > 0) dc = sub * 0.50
           return sub - dc
@@ -98,13 +119,15 @@ export const handler: Handler = async (event) => {
 
     const sosMapped = salesOrders.map(so => {
       const items = (so.items as any) || {}
+      const subTotalVal = getSubTotal(items, so.amount)
+
       return {
         invoice_id: so.zohoId || so.id,
         invoice_number: `SO-${items.salesOrderNumber || so.zohoId?.slice(-6) || so.id.slice(-6)}`,
         customer_name: items.customer_name || so.account?.name || 'Unknown',
         salesperson_name: items.salesperson || null,
-        sub_total: items.sub_total ?? so.amount ?? 0,
-        total: items.sub_total ?? so.amount ?? 0,
+        sub_total: subTotalVal,
+        total: subTotalVal,
         balance: items.balance ?? so.amount ?? 0,
         date: so.orderDate?.toISOString().split('T')[0] || '',
         due_date: null,
@@ -115,7 +138,7 @@ export const handler: Handler = async (event) => {
         reference_number: items.reference_number || null,
         cf_profit_unformatted: extractProfit(items),
         deadProfit: (() => {
-          const sub = (items.sub_total ?? so.amount ?? 0)
+          const sub = subTotalVal
           let dc = (items.deadCostTotal ?? 0)
           if ((isNaN(dc) || dc === 0) && sub > 0) dc = sub * 0.50
           return sub - dc

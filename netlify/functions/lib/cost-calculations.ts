@@ -290,7 +290,15 @@ export async function calculateDocumentCosts(
     lineItemDetails.push({ name: item.name, sku: item.sku || null, quantity: qty, rate, cost, itemTotal, deadCost: itemDeadCost, noVig, gift })
   }
 
-  const subTotal = parseFloat(doc.sub_total || 0)
+  let subTotal = parseFloat(doc.sub_total || 0)
+  if ((isNaN(subTotal) || subTotal === 0) && doc.line_items && Array.isArray(doc.line_items)) {
+    subTotal = doc.line_items.reduce((sum: number, item: any) => {
+      if (item.line_item_category === "header" || item.line_item_category === "subtotal") return sum;
+      const qty = parseFloat(item.quantity || 0)
+      const rate = parseFloat(item.rate || 0)
+      return sum + (qty * rate)
+    }, 0)
+  }
   let deadCostTotal = deadCostSubjectToVig + deadCostNoVig
 
   // Fallback: If document has subTotal > 0 but zero line items or missing cost data in Books,

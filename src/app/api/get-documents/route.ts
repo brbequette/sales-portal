@@ -97,9 +97,29 @@ export async function GET(request: Request) {
       let deadCostSubjectToVig = 0
       let commission = 0
       
+      let subTotal = parseFloat(raw.amount || 0)
       if (items && !Array.isArray(items)) {
+        subTotal = parseFloat(items.sub_total ?? items.subTotal ?? 0)
+        if ((isNaN(subTotal) || subTotal === 0) && items.lineItemDetails && Array.isArray(items.lineItemDetails)) {
+          subTotal = items.lineItemDetails.reduce((sum: number, it: any) => {
+            const qty = parseFloat(it.quantity || 0)
+            const rate = parseFloat(it.rate || 0)
+            return sum + (qty * rate)
+          }, 0)
+        }
+        if ((isNaN(subTotal) || subTotal === 0) && items.line_items && Array.isArray(items.line_items)) {
+          subTotal = items.line_items.reduce((sum: number, it: any) => {
+            if (it.line_item_category === "header" || it.line_item_category === "subtotal") return sum;
+            const qty = parseFloat(it.quantity || 0)
+            const rate = parseFloat(it.rate || 0)
+            return sum + (qty * rate)
+          }, 0)
+        }
+        if (isNaN(subTotal) || subTotal === 0) {
+          subTotal = parseFloat(raw.amount || 0)
+        }
+
         // Calculate raw non-VIG profit (Dead Profit)
-        const subTotal = parseFloat(items.sub_total ?? items.subTotal ?? raw.amount ?? 0)
         let deadCostTotal = parseFloat(items.deadCostTotal ?? items.dead_cost_total ?? items.cf_dead_cost_total ?? extractField(items, 'cf_dead_cost_total') ?? 0)
         if ((isNaN(deadCostTotal) || deadCostTotal === 0) && subTotal > 0) {
           deadCostTotal = subTotal * 0.50
@@ -135,7 +155,7 @@ export async function GET(request: Request) {
         accountOwnerId: raw.account?.ownerId || '',
         status: statusStr,
         date: dateStr,
-        amount: parseFloat(raw.amount || 0),
+        amount: subTotal,
         profit,
         deadCostNoVig,
         deadCostSubjectToVig,

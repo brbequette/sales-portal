@@ -10,6 +10,25 @@ const FINAL_PAID_STATUSES = new Set(['Paid', 'paid', 'Closed', 'closed', 'Fulfil
 // Statuses where at least the UPFRONT half is earned (invoice created/open)
 const SKIP_STATUSES = new Set(['Void', 'void', 'Draft', 'draft'])
 
+function getSubTotal(items: any, amount: number) {
+  let sub = parseFloat(items?.sub_total ?? items?.subTotal ?? 0)
+  if (isNaN(sub) || sub === 0) {
+    const details = items?.lineItemDetails || items?.line_items || items?.items
+    if (Array.isArray(details)) {
+      sub = details.reduce((sum: number, it: any) => {
+        if (it.line_item_category === "header" || it.line_item_category === "subtotal") return sum;
+        const qty = parseFloat(it.quantity || 0)
+        const rate = parseFloat(it.rate || it.itemTotal || it.item_total || 0)
+        return sum + (qty * rate)
+      }, 0)
+    }
+  }
+  if (isNaN(sub) || sub === 0) {
+    sub = amount || 0
+  }
+  return sub
+}
+
 export const handler: Handler = async (event) => {
   const cors = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
@@ -301,7 +320,7 @@ export const handler: Handler = async (event) => {
       const items = inv.items as any || {}
       const cfs = items.custom_fields || []
       const salespersonName = items.salesperson as string | null
-      const subTotal = parseFloat(items.sub_total || items.subTotal) || inv.amount || 0
+      const subTotal = getSubTotal(items, inv.amount)
       const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
 
       // Dead cost: try all known Zoho field name variants, then fall back to line item costs, then 50% estimate
@@ -428,7 +447,7 @@ export const handler: Handler = async (event) => {
         zohoId: inv.zohoId,
         invoiceNumber,
         name: invoiceNumber ? `${inv.account?.name || 'Unknown'} | INV-${invoiceNumber}` : (inv.account?.name || 'Unknown'),
-        amount: parseFloat(items.sub_total) || inv.amount || 0,
+        amount: subTotal,
         profit: safeProfit,
         deadProfit: safeDeadProfit,
         deadCost,
@@ -460,7 +479,7 @@ export const handler: Handler = async (event) => {
       const items = (so.items as any) || {}
       const cfs = items.custom_fields || []
       const salespersonName = items.salesperson as string | null
-      const subTotal = parseFloat(items.sub_total || items.subTotal) || so.amount || 0
+      const subTotal = getSubTotal(items, so.amount)
       const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
 
       let deadCost = parseFloat(
@@ -558,7 +577,7 @@ export const handler: Handler = async (event) => {
         zohoId: so.zohoId,
         invoiceNumber: soNumber ? `SO-${soNumber}` : null,
         name: soNumber ? `${so.account?.name || 'Unknown'} | SO-${soNumber}` : (so.account?.name || 'Unknown'),
-        amount: parseFloat(items.sub_total) || so.amount || 0,
+        amount: subTotal,
         profit: safeProfit,
         deadProfit: safeDeadProfit,
         deadCost,
