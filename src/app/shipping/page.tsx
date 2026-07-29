@@ -511,7 +511,17 @@ export default function ShippingPage() {
                   {/* SO Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-bold text-sm">{order.soNumber || "--"}</span>
+                      <a
+                        href={`/api/get-invoice-pdf?id=${order.zohoId}&type=SalesOrder`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-white hover:text-orange-400 hover:underline font-bold text-sm cursor-pointer z-10"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                        }}
+                      >
+                        {order.soNumber || "--"}
+                      </a>
                       <span className="text-neutral-600 text-xs">-</span>
                       <span className="text-neutral-400 text-sm truncate">{order.customerName}</span>
                     </div>
@@ -621,9 +631,15 @@ export default function ShippingPage() {
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <FiPackage className="text-blue-400 text-xs" />
                                   <span className="text-sm font-bold text-white">{pkg.packageNumber || pkg.zohoId}</span>
-                                  <span className="text-xs text-indigo-400 font-mono bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/50 font-bold">
+                                  <a
+                                    href={`/api/get-invoice-pdf?id=${order.zohoId}&type=SalesOrder`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-indigo-400 font-mono bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/50 font-bold hover:text-orange-400 hover:underline transition-colors cursor-pointer"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
                                     SO #{pkg.salesOrderNumber || order.soNumber}
-                                  </span>
+                                  </a>
                                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
                                     pkg.status === "delivered" ? "text-emerald-400 bg-emerald-950/50" :
                                     pkg.status === "shipped" ? "text-purple-400 bg-purple-950/50" :
