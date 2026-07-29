@@ -13,6 +13,8 @@ export async function GET(request: Request) {
     const sortBy = searchParams.get('sortBy') || 'date-desc'
     const ownerId = searchParams.get('ownerId')
     const loadAll = searchParams.get('loadAll') === 'true'
+    const startDateParam = searchParams.get('startDate')
+    const startDate = startDateParam ? new Date(startDateParam) : null
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
@@ -27,7 +29,9 @@ export async function GET(request: Request) {
       ...(Object.keys(accountWhere).length > 0 ? { account: accountWhere } : {})
     }
 
-    if (!loadAll) {
+    if (startDate) {
+      invoiceWhere.issueDate = { gte: startDate }
+    } else if (!loadAll) {
       // Default initial view: Only open invoices OR paid invoices less than 30 days old
       invoiceWhere.OR = [
         { status: { notIn: ['paid', 'Paid', 'PAID', 'void', 'Void'] } },
@@ -48,6 +52,11 @@ export async function GET(request: Request) {
     // Build Quote & SalesOrder WHERE clauses
     const quoteWhere: any = Object.keys(accountWhere).length > 0 ? { account: accountWhere } : {}
     const salesOrderWhere: any = Object.keys(accountWhere).length > 0 ? { account: accountWhere } : {}
+
+    if (startDate) {
+      quoteWhere.createdAt = { gte: startDate }
+      salesOrderWhere.orderDate = { gte: startDate }
+    }
 
     // Fetch data from local database in parallel
     const [quotes, salesOrders, invoices] = await Promise.all([

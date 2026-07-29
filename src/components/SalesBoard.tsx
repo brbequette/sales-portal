@@ -179,10 +179,11 @@ export function SalesBoard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const startOfYearStr = `${new Date().getFullYear()}-01-01`
         // Fetch users, invoices, sales orders, and quotes in parallel
         const [usersRes, docsRes] = await Promise.all([
           fetch("/api/admin/users"),
-          fetch("/api/get-documents?pageSize=1000&type=All")
+          fetch(`/api/get-documents?pageSize=5000&type=All&loadAll=true&startDate=${startOfYearStr}`)
         ])
         const usersPayload = usersRes.ok && (usersRes.headers.get("content-type") || "").includes("application/json") 
           ? await usersRes.json() 
