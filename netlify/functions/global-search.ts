@@ -131,13 +131,39 @@ export const handler: Handler = async (event) => {
           OR: [
             { zohoId: { contains: query } },
             { status: { contains: query, mode: "insensitive" } },
+            {
+              items: {
+                path: ['estimateNumber'],
+                string_contains: query
+              }
+            },
+            {
+              items: {
+                path: ['estimate_number'],
+                string_contains: query
+              }
+            }
           ]
         },
         include: { account: { select: { name: true } } },
         take: 10
       })
     } catch (e) {
-      console.warn("Quote search failed:", e)
+      console.warn("Quote search failed, attempting fallback query:", e)
+      try {
+        quotes = await prisma.quote.findMany({
+          where: {
+            OR: [
+              { zohoId: { contains: query } },
+              { status: { contains: query, mode: "insensitive" } }
+            ]
+          },
+          include: { account: { select: { name: true } } },
+          take: 10
+        })
+      } catch (fallbackErr) {
+        console.error("Quote fallback query failed:", fallbackErr)
+      }
     }
 
     // 6. Search Sales Orders (Prisma)
@@ -148,13 +174,39 @@ export const handler: Handler = async (event) => {
           OR: [
             { zohoId: { contains: query } },
             { status: { contains: query, mode: "insensitive" } },
+            {
+              items: {
+                path: ['salesOrderNumber'],
+                string_contains: query
+              }
+            },
+            {
+              items: {
+                path: ['salesorder_number'],
+                string_contains: query
+              }
+            }
           ]
         },
         include: { account: { select: { name: true } } },
         take: 10
       })
     } catch (e) {
-      console.warn("SalesOrder search failed:", e)
+      console.warn("SalesOrder search failed, attempting fallback query:", e)
+      try {
+        salesOrders = await prisma.salesOrder.findMany({
+          where: {
+            OR: [
+              { zohoId: { contains: query } },
+              { status: { contains: query, mode: "insensitive" } }
+            ]
+          },
+          include: { account: { select: { name: true } } },
+          take: 10
+        })
+      } catch (fallbackErr) {
+        console.error("SalesOrder fallback query failed:", fallbackErr)
+      }
     }
 
     // Enrich invoices with invoiceNumber extracted from items JSON
