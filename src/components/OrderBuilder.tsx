@@ -406,11 +406,7 @@ export function OrderBuilder({
         const desc = parseDesc(p.description)
         if (desc.status === "inactive") return false
 
-        if (p.giftItem) return true
-        const name = (p.name || "").toLowerCase()
-        const sku = (p.sku || "").toLowerCase()
-        const cat = (p.category || "").toLowerCase()
-        return cat.includes("gift") || cat.includes("promo") || name.includes("t-shirt") || name.includes("hoodie") || name.includes("jacket") || name.includes("hat") || name.includes("beanie") || name.includes("cap") || name.includes("knife") || name.includes("tumbler") || name.includes("pen")
+        return !!p.giftItem
       })
       .map(p => {
         const desc = parseDesc(p.description)
@@ -430,11 +426,12 @@ export function OrderBuilder({
     const raw = externalAccountPurchases || fetchedPurchases || []
     if (raw.length === 0) return []
     
-    const isGiftItem = (name: string, sku?: string, cost?: number, price?: number) => {
-      const hay = ((name || '') + ' ' + (sku || '')).toLowerCase()
-      if (/gift|shirt|hat|hoodie|swag|promo|beanie|jacket|cap\b/i.test(hay)) return true
-      if (hay.includes('[gift]') || hay.includes('no vig [gift]')) return true
-      if (cost === 0 && price === 0) return true
+    const isGiftItem = (name: string, sku?: string) => {
+      const targetSku = (sku || '').trim().toUpperCase()
+      const found = catalogProducts.find(p => p.sku.toUpperCase().trim() === targetSku)
+      if (found) {
+        return !!found.giftItem
+      }
       return false
     }
 
@@ -445,7 +442,7 @@ export function OrderBuilder({
       const itemName = item.name || item.item_name || ''
       const itemSku = item.sku || item.item_id || itemName
       if (!itemName) continue
-      if (isGiftItem(itemName, itemSku, item.cost, item.price || item.rate)) continue
+      if (isGiftItem(itemName, itemSku)) continue
 
       const key = (itemSku || itemName).toLowerCase()
       if (!seen.has(key)) {
@@ -537,7 +534,7 @@ export function OrderBuilder({
   // â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
   const openAddItemModal = (p: { name: string; sku: string; price: number; cost: number; giftItem?: boolean; subjectToVig?: boolean }) => {
-    const isGift = p.giftItem || /gift|shirt|hat|hoodie|swag|promo|beanie|jacket|cap|knife|tumbler|pen\b/i.test((p.name || "") + " " + (p.sku || ""))
+    const isGift = !!p.giftItem
     setPendingItem({ name: p.name, sku: p.sku, defaultPrice: p.price, cost: p.cost, giftItem: isGift, subjectToVig: p.subjectToVig !== false })
     setAddPaidQty(isGift ? 0 : 1)
     setAddFreeQty(isGift ? 1 : 0)
