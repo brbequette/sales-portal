@@ -2,6 +2,9 @@ import { Handler } from "@netlify/functions"
 import { getStore } from "@netlify/blobs"
 
 import { prisma } from "./lib/prisma"
+import { handler as processInvoiceCosts } from "./process-invoice-costs"
+import { handler as processQuoteCosts } from "./process-quote-costs"
+import { handler as processSalesOrderCosts } from "./process-salesorder-costs"
 import {
   extractProfit,
   extractCommissionAmount,
@@ -243,13 +246,25 @@ export const handler: Handler = async (event) => {
     else if (zStatus === 'draft') status = 'Draft'
     else if (doc.status) status = doc.status.charAt(0).toUpperCase() + doc.status.slice(1)
 
-    // Write to DB
+    // Write to DB and trigger cost/tariff processing
     if (type === 'Invoice') {
       await prisma.invoice.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems } })
+      await processInvoiceCosts({
+        httpMethod: "POST",
+        body: JSON.stringify({ invoiceId: booksId })
+      } as any, {} as any).catch(e => console.error("Webhook error auto-processing invoice costs:", e))
     } else if (type === 'SalesOrder') {
       await prisma.salesOrder.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems } })
+      await processSalesOrderCosts({
+        httpMethod: "POST",
+        body: JSON.stringify({ invoiceId: booksId })
+      } as any, {} as any).catch(e => console.error("Webhook error auto-processing salesorder costs:", e))
     } else {
       await prisma.quote.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems } })
+      await processQuoteCosts({
+        httpMethod: "POST",
+        body: JSON.stringify({ invoiceId: booksId })
+      } as any, {} as any).catch(e => console.error("Webhook error auto-processing quote costs:", e))
     }
 
     console.log(`✅ Webhook: Updated ${type} ${booksId} in local DB (status: ${status}, ${(updatedItems.line_items || []).length} line items)`)

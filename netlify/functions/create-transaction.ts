@@ -2,6 +2,8 @@ import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
 import { prisma } from "./lib/prisma"
+import { handler as processQuoteCosts } from "./process-quote-costs"
+import { handler as processSalesOrderCosts } from "./process-salesorder-costs"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
 
@@ -201,6 +203,23 @@ export const handler: Handler = async (event, context) => {
           status: "Pending",
         }
       })
+    }
+
+    // ── Auto-process costs & sync back to Books ──
+    try {
+      if (type === "Quote") {
+        await processQuoteCosts({
+          httpMethod: "POST",
+          body: JSON.stringify({ invoiceId: booksRefId, skipLoopGuard: true })
+        } as any, {} as any)
+      } else if (type === "SalesOrder") {
+        await processSalesOrderCosts({
+          httpMethod: "POST",
+          body: JSON.stringify({ invoiceId: booksRefId, skipLoopGuard: true })
+        } as any, {} as any)
+      }
+    } catch (costErr: any) {
+      console.error("Failed to auto-process costs after creation:", costErr.message)
     }
 
     // Automatically create a processing Task if notes or assignee are set
