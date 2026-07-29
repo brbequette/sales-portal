@@ -331,9 +331,25 @@ export const handler: Handler = async (event) => {
       invoices.forEach((inv: any) => {
         const items = inv.items as any || {}
         const cfs = items.custom_fields || []
+        const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
+
         // Subtotal = invoice line-item total (sub_total), NOT the balance due (amount)
-        const amount = parseFloat(items.sub_total) || parseFloat(inv.amount as any) || 0
-        const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || 0) || 0
+        const amount = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
+
+        // Try all known variants first, then fall back to line items
+        let deadCost = parseFloat(
+          items.deadCostTotal || items.dead_cost_total || items.deadCost ||
+          items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0
+        )
+        if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
+          deadCost = lineItems.reduce((sum: number, li: any) => {
+            const qty = parseFloat(li.quantity) || 1
+            const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
+            return sum + (qty * cost)
+          }, 0)
+        }
+        if (isNaN(deadCost)) deadCost = 0
+
         const docDate = inv.issueDate ? new Date(inv.issueDate) : new Date()
         const year = docDate.getFullYear()
         const salespersonName = items.salesperson || ""
@@ -527,7 +543,7 @@ export const handler: Handler = async (event) => {
         const metGoal = actual >= target;
         // Keep Montgomery hardcode fallback if constantVig is not enabled yet
         const isMontgomery = rep.repName && rep.repName.toLowerCase().includes("montgomery") && rep.repName.toLowerCase().includes("morgan");
-        rep.monthly.vigRate = isMontgomery ? 1.0 : (metGoal ? appSettings.default_vig_rate : appSettings.default_vig_rate);
+        rep.monthly.vigRate = isMontgomery ? 1.0 : (metGoal ? appSettings.default_vig_rate : 1.5);
       }
     })
 

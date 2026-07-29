@@ -401,8 +401,8 @@ export default function StatsPage() {
                   const progressPct = periodStats.target > 0 ? (periodStats.profit / periodStats.target) * 100 : 0
                   
                   // Monthly vig rate computation
-                  const metGoal = rep.monthly.profit >= rep.monthly.target
-                  const vigRate = metGoal ? 1.3 : 1.5
+                  const metGoal = periodStats.profit >= periodStats.target
+                  const vigRate = periodStats.vigRate ?? (metGoal ? 1.3 : 1.5)
 
                   return (
                     <tr
@@ -452,7 +452,7 @@ export default function StatsPage() {
                       <td className="px-4 py-3 text-center">
                         <span
                           className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${
-                            vigRate === 1.3
+                            vigRate <= 1.3
                               ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/30"
                               : "bg-red-950/40 text-red-400 border-red-500/30"
                           }`}
@@ -667,7 +667,7 @@ export default function StatsPage() {
                           <td key={h.monthKey} className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                vig === 1.3
+                                vig <= 1.3
                                   ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/30"
                                   : "bg-red-950/40 text-red-400 border-red-500/30"
                               }`}
