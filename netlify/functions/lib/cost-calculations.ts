@@ -54,25 +54,18 @@ export interface CostCalculationResult {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 export function isGiftItem(item: any): boolean {
-  const name = (item.name || "").toLowerCase()
-  const sku = (item.sku || item.code || "").toLowerCase()
-  const description = (item.description || "").toLowerCase()
-
-  const giftKeywords = [
-    "gift", "hat", "trucker", "shirt", "t-shirt", "tee", "hoodie", "jacket",
-    "apparel", "swag", "promo", "cup", "mug", "beaver", "sample",
-    "card", "giftcard", "merch", "pant", "beanie", "glove", "pen",
-    "banner", "flyer", "sticker", "decal", "display", "polo", "vest",
-    "sweatshirt", "cap", "bag", "blade bag", "coat", "umbrella", "tumbler",
-    "bottle", "keychain"
-  ]
-
-  const matchesKeyword = giftKeywords.some(k => name.includes(k) || sku.includes(k) || description.includes(k))
-
-  return matchesKeyword
+  const cfs = item.item_custom_fields || item.custom_fields || []
+  if (Array.isArray(cfs)) {
+    const giftField = cfs.find((c: any) => {
+      const lbl = (c.label || c.api_name || c.placeholder || "").toUpperCase()
+      return lbl.includes("GIFT")
+    })
+    if (giftField) {
+      return giftField.value === true || giftField.value === "true" || giftField.value === "Yes" || giftField.value === 1
+    }
+  }
+  return false
 }
-
-import exemptCatalog from "../../../src/lib/exempt-catalog.json"
 
 export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>): boolean {
   if (isGiftItem(item)) return true
@@ -112,15 +105,6 @@ export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>)
       if (val === "false" || val === "no" || val === "0" || val === "exempt") return true
       if (val === "true" || val === "yes" || val === "1") return false
     }
-  }
-
-  const sku = (item.sku || item.code || "").toUpperCase().trim()
-  const name = (item.name || "").toUpperCase().trim()
-  if (
-    exemptCatalog.exemptSkus.some((s: string) => sku === s || name === s) ||
-    exemptCatalog.exemptPrefixes.some((p: string) => (sku && sku.startsWith(p)) || (name && name.startsWith(p)))
-  ) {
-    return true
   }
 
   const itemID = item.item_id || item.id
@@ -411,10 +395,6 @@ export function buildFieldsToUpdate(
       if (currentVal !== newVal || currentVal === "" || currentVal === "0") {
         fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
       }
-    } else {
-      // Field not yet on this doc — write it by label so Zoho matches it
-      // to the org-level custom field definition. Zoho accepts label+value on PUT.
-      fieldsToUpdate.push({ label, value })
     }
   }
 
@@ -427,11 +407,6 @@ export function buildFieldsToUpdate(
         if (!fieldsToUpdate.some((f: any) => f.customfield_id === field.customfield_id)) {
           fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
         }
-      }
-    } else {
-      // Not on doc yet — write by api_name fallback
-      if (!fieldsToUpdate.some((f: any) => f.api_name === apiName)) {
-        fieldsToUpdate.push({ api_name: apiName, value })
       }
     }
   }

@@ -105,30 +105,6 @@ export function isItemExemptFromVig(item: any): boolean {
     }
   }
 
-  // 4. Catalog SKUs / Item Names exempt from sales markup
-  const sku = (item.sku || item.code || "").toUpperCase().trim();
-  const name = (item.name || "").toUpperCase().trim();
-  if (
-    exemptCatalog.exemptSkus.some((s: string) => sku === s || name === s) ||
-    exemptCatalog.exemptPrefixes.some((p: string) => (sku && sku.startsWith(p)) || (name && name.startsWith(p)))
-  ) {
-    return true;
-  }
-
-  // 5. Gift / Zero-Rate / Promo Item Keyword fallback
-  const description = (item.description || "").toLowerCase();
-  const giftKeywords = [
-    "gift", "hat", "trucker", "shirt", "t-shirt", "tee", "hoodie", "jacket",
-    "apparel", "swag", "promo", "cup", "mug", "beaver", "sample",
-    "card", "giftcard", "merch", "pant", "beanie", "glove", "pen",
-    "banner", "flyer", "sticker", "decal", "display", "polo", "vest",
-    "sweatshirt", "cap", "bag", "blade bag", "coat", "umbrella", "tumbler",
-    "bottle", "keychain"
-  ];
-  if (giftKeywords.some(k => name.toLowerCase().includes(k) || description.includes(k))) {
-    return true;
-  }
-
   return false;
 }
 
