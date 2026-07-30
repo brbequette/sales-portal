@@ -2,7 +2,7 @@
   package = "@netlify/plugin-nextjs"
 
 [build]
-  command = "npm run build"
+  command = "npx prisma db push --accept-data-loss && npm run build"
   publish = ".next"
 
 
@@ -55,6 +55,16 @@
 [[redirects]]
   from = "/api/admin/campaigns"
   to = "/.netlify/functions/admin-campaigns"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/sales-stages"
+  to = "/.netlify/functions/admin-sales-stages"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/notification-templates"
+  to = "/.netlify/functions/admin-notification-templates"
   status = 200
 
 [[redirects]]

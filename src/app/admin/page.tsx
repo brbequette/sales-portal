@@ -22,8 +22,10 @@ const sections = [
   {
     category: "CRM & Operations",
     cards: [
-      { title: "Update Accounts", desc: "Filter and reassign accounts in bulk.", href: "/admin/update-accounts", icon: FiTarget, color: "text-purple-400", bg: "bg-purple-500/10" },
+      { title: "Update Accounts", desc: "Filter and reassign accounts in bulk.", href: "/admin/update-accounts", icon: FiTarget, color: "text-blue-400", bg: "bg-blue-500/10" },
       { title: "Update Configurations", desc: "Set target sub-totals and distribute group rules.", href: "/admin/update-config", icon: FiSettings, color: "text-pink-400", bg: "bg-pink-500/10" },
+      { title: "Sales Flow Builder", desc: "Configure pipeline sales stages and sort order.", href: "/admin/sales-stages", icon: FiTarget, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+      { title: "Notification Rules", desc: "Configure automated customer SMS & Email templates.", href: "/admin/notification-templates", icon: FiMessageSquare, color: "text-cyan-400", bg: "bg-cyan-500/10" },
       { title: "VIG Management", href: "/admin/vig", desc: "Manage Very Important Groups.", icon: FiAward, color: "text-yellow-400", bg: "bg-yellow-500/10" },
       { title: "Intro Offer Page", href: "/admin/intro-offer", desc: "Access the promotional intro offer order page.", icon: FiZap, color: "text-amber-400", bg: "bg-amber-500/10" },
       { title: "Holidays", desc: "Configure working holidays for time calculations.", href: "/admin/holidays", icon: FiCalendar, color: "text-red-400", bg: "bg-red-500/10" },

@@ -94,9 +94,33 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
 
     result.hasMore = data.page_context?.has_more_page || false
 
-    // Upsert records
-    // Guard: Only accept records from the correct Zoho Books organization (664670946).
-    const VALID_ORG_PREFIX = '1254360'
+    // Fetch all existing database records for this page batch to preserve computed fields (profits, costs, commission, correct subtotals)
+    const invoiceIds = items.map((i: any) => i.invoice_id).filter(Boolean)
+    const existingInvoices = (entity === 'invoices' && invoiceIds.length > 0)
+      ? await prisma.invoice.findMany({
+          where: { zohoId: { in: invoiceIds } },
+          select: { zohoId: true, amount: true, items: true }
+        })
+      : []
+    const existingInvoicesMap = new Map(existingInvoices.map(i => [i.zohoId, i]))
+
+    const salesOrderIds = items.map((i: any) => i.salesorder_id).filter(Boolean)
+    const existingSalesOrders = (entity === 'salesorders' && salesOrderIds.length > 0)
+      ? await prisma.salesOrder.findMany({
+          where: { zohoId: { in: salesOrderIds } },
+          select: { zohoId: true, amount: true, items: true }
+        })
+      : []
+    const existingSalesOrdersMap = new Map(existingSalesOrders.map(so => [so.zohoId, so]))
+
+    const estimateIds = items.map((i: any) => i.estimate_id).filter(Boolean)
+    const existingEstimates = (entity === 'estimates' && estimateIds.length > 0)
+      ? await prisma.quote.findMany({
+          where: { zohoId: { in: estimateIds } },
+          select: { zohoId: true, amount: true, items: true }
+        })
+      : []
+    const existingEstimatesMap = new Map(existingEstimates.map(q => [q.zohoId, q]))
 
     const ops = []
     for (const item of items) {
@@ -277,6 +301,14 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
 
       if (entity === 'invoices') {
         if (!item.invoice_id) { result.skipped++; continue }
+        const existingInv = existingInvoicesMap.get(item.invoice_id)
+        const existingItems = (existingInv?.items as any) || {}
+        const isProcessed = existingItems.deadCostTotal !== undefined || existingItems.profit !== undefined
+
+        const savedSubtotal = isProcessed
+          ? parseFloat(existingItems.sub_total || existingItems.subTotal || existingInv?.amount || 0)
+          : parseFloat(item.sub_total || item.total || 0)
+
         const invoiceItems = {
           invoiceNumber: item.invoice_number,
           booksInvoiceId: item.invoice_id,
@@ -290,12 +322,15 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
           salesorder_number: item.salesorder_number || null,
           shipping_address: item.shipping_address || null,
           billing_address: item.billing_address || null,
-          sub_total: parseFloat(item.sub_total || item.total || 0),
+          sub_total: savedSubtotal,
+          ...existingItems, // merge calculated fields (profit, deadCostTotal, ccFees, etc.)
+          sub_total: savedSubtotal, // enforce subtotal is not overwritten by spread
         }
+
         ops.push(prisma.invoice.upsert({
           where: { zohoId: item.invoice_id },
           update: {
-            amount: parseFloat(item.sub_total || item.total || 0),
+            amount: savedSubtotal,
             status: item.status || 'draft',
             issueDate: new Date(item.date || item.created_time),
             dueDate: item.due_date ? new Date(item.due_date) : null,
@@ -305,7 +340,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
           create: {
             zohoId: item.invoice_id,
             accountId: dbAccountId,
-            amount: parseFloat(item.sub_total || item.total || 0),
+            amount: savedSubtotal,
             status: item.status || 'draft',
             issueDate: new Date(item.date || item.created_time),
             dueDate: item.due_date ? new Date(item.due_date) : null,
@@ -315,6 +350,14 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
         }))
       } else if (entity === 'salesorders') {
         if (!item.salesorder_id) { result.skipped++; continue }
+        const existingSO = existingSalesOrdersMap.get(item.salesorder_id)
+        const existingSOItems = (existingSO?.items as any) || {}
+        const isSOProcessed = existingSOItems.deadCostTotal !== undefined || existingSOItems.profit !== undefined
+
+        const savedSOSubtotal = isSOProcessed
+          ? parseFloat(existingSOItems.sub_total || existingSOItems.subTotal || existingSO?.amount || 0)
+          : parseFloat(item.sub_total || item.total || 0)
+
         const soItems = {
           salesOrderNumber: item.salesorder_number,
           salesperson: item.salesperson_name || null,
@@ -324,12 +367,15 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
           shipping_address: item.shipping_address || null,
           billing_address: item.billing_address || null,
           delivery_method: item.delivery_method || null,
-          sub_total: parseFloat(item.sub_total || item.total || 0),
+          sub_total: savedSOSubtotal,
+          ...existingSOItems, // merge calculated fields
+          sub_total: savedSOSubtotal, // enforce subtotal is not overwritten by spread
         }
+
         ops.push(prisma.salesOrder.upsert({
           where: { zohoId: item.salesorder_id },
           update: {
-            amount: parseFloat(item.sub_total || item.total || 0),
+            amount: savedSOSubtotal,
             status: item.order_status || item.status || 'Pending',
             orderDate: new Date(item.date || item.created_time),
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
@@ -338,7 +384,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
           create: {
             zohoId: item.salesorder_id,
             accountId: dbAccountId,
-            amount: parseFloat(item.sub_total || item.total || 0),
+            amount: savedSOSubtotal,
             status: item.order_status || item.status || 'Pending',
             orderDate: new Date(item.date || item.created_time),
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
@@ -347,21 +393,36 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
         }))
       } else if (entity === 'estimates') {
         if (!item.estimate_id) { result.skipped++; continue }
+        const existingEst = existingEstimatesMap.get(item.estimate_id)
+        const existingEstItems = (existingEst?.items as any) || {}
+        const isEstProcessed = existingEstItems.deadCostTotal !== undefined || existingEstItems.profit !== undefined
+
+        const savedEstSubtotal = isEstProcessed
+          ? parseFloat(existingEstItems.sub_total || existingEstItems.subTotal || existingEst?.amount || 0)
+          : parseFloat(item.sub_total || item.total || 0)
+
+        const estItems = {
+          estimateNumber: item.estimate_number,
+          salesperson: item.salesperson_name || null,
+          ...existingEstItems, // merge calculated fields
+          sub_total: savedEstSubtotal, // enforce subtotal is not overwritten by spread
+        }
+
         ops.push(prisma.quote.upsert({
           where: { zohoId: item.estimate_id },
           update: {
-            amount: parseFloat(item.sub_total || item.total || 0),
+            amount: savedEstSubtotal,
             status: item.status || 'Draft',
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
-            items: { estimateNumber: item.estimate_number, salesperson: item.salesperson_name || null }
+            items: estItems,
           },
           create: {
             zohoId: item.estimate_id,
             accountId: dbAccountId,
-            amount: parseFloat(item.sub_total || item.total || 0),
+            amount: savedEstSubtotal,
             status: item.status || 'Draft',
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
-            items: { estimateNumber: item.estimate_number, salesperson: item.salesperson_name || null }
+            items: estItems,
           }
         }))
       }
