@@ -216,14 +216,16 @@ export function SalesBoard() {
 
         const dynamicReps = boardUsers.map((u: any, i: number) => {
           const currentGoal = u.monthlyVigGoals?.find((g: any) => g.monthKey === monthKey)
-          const monthlyTarget = currentGoal?.profitGoal || 0
+          const dailyGoal = u.dailyProfitGoal || 0
+          const weeklyTarget = 5 * dailyGoal
+          const monthlyTarget = currentGoal?.profitGoal || (dailyGoal * 22)
           
           return {
             id: u.id,
             name: u.name || u.email,
             role: u.role || "Sales Representative",
             expectedVig: 1.5,
-            weeklyTarget: monthlyTarget / 4,
+            weeklyTarget: weeklyTarget,
             monthlyTarget: monthlyTarget,
             gradient: REP_GRADIENTS[i % REP_GRADIENTS.length],
             payoutStructure: u.payoutStructure || "two_payment"

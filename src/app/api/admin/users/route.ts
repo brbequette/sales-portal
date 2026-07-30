@@ -3,21 +3,44 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
-    const users = await prisma.user.findMany({
-      orderBy: { name: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        zohoId: true,
-        canSendCampaigns: true,
-        showOnSalesBoard: true,
-        permissions: true,
-        _count: { select: { accounts: true } }
-      }
-    })
-    const mapped = users.map(u => ({ ...u, accountCount: (u as any)._count?.accounts || 0, _count: undefined }))
+    const [users, settings] = await Promise.all([
+      prisma.user.findMany({
+        orderBy: { name: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          zohoId: true,
+          canSendCampaigns: true,
+          showOnSalesBoard: true,
+          permissions: true,
+          payoutStructure: true,
+          monthlyVigGoals: {
+            select: {
+              id: true,
+              monthKey: true,
+              profitGoal: true,
+              subtotalGoal: true
+            }
+          },
+          _count: { select: { accounts: true } }
+        }
+      }),
+      prisma.systemSetting.findMany()
+    ])
+
+    const settingsMap = new Map(settings.map(s => [s.key, s.value]))
+    const salesTargets: Record<string, number> = JSON.parse(settingsMap.get("sales_targets") || "{}")
+    const subtotalTargets: Record<string, number> = JSON.parse(settingsMap.get("subtotal_targets") || "{}")
+
+    const mapped = users.map(u => ({
+      ...u,
+      dailyProfitGoal: salesTargets[u.id] ?? 1000,
+      dailySubtotalGoal: subtotalTargets[u.id] ?? 2000,
+      accountCount: (u as any)._count?.accounts || 0,
+      _count: undefined
+    }))
     return NextResponse.json({ success: true, users: mapped })
   } catch (error: any) {
     console.error("Error fetching users:", error)
