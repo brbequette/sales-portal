@@ -28,6 +28,16 @@
     Access-Control-Allow-Headers = "Content-Type, Authorization"
 
 [[redirects]]
+  from = "/api/add-note"
+  to = "/.netlify/functions/add-note"
+  status = 200
+
+[[redirects]]
+  from = "/api/send-sms"
+  to = "/.netlify/functions/send-sms"
+  status = 200
+
+[[redirects]]
   from = "/api/add-payout"
   to = "/.netlify/functions/add-payout"
   status = 200

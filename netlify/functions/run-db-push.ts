@@ -4,7 +4,14 @@ import { execSync } from 'child_process'
 
 export const handler: Handler = async () => {
   try {
-    const output = execSync('npx prisma db push --accept-data-loss', { encoding: 'utf8' })
+    const output = execSync('node ./node_modules/prisma/build/index.js db push --accept-data-loss', {
+      env: {
+        ...process.env,
+        HOME: '/tmp',
+        PRISMA_CACHE_DIR: '/tmp'
+      },
+      encoding: 'utf8'
+    })
     return {
       statusCode: 200,
       body: JSON.stringify({ success: true, output })
