@@ -94,6 +94,8 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
 
     result.hasMore = data.page_context?.has_more_page || false
 
+    const VALID_ORG_PREFIX = '1254360'
+
     // Fetch all existing database records for this page batch to preserve computed fields (profits, costs, commission, correct subtotals)
     const invoiceIds = items.map((i: any) => i.invoice_id).filter(Boolean)
     const existingInvoices = (entity === 'invoices' && invoiceIds.length > 0)
