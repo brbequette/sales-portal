@@ -197,6 +197,7 @@ export default function SalesPage() {
 
   useEffect(() => {
     fetchUsers()
+    fetchCampaignTemplates()
   }, [])
 
   useEffect(() => {
@@ -208,6 +209,16 @@ export default function SalesPage() {
       const res = await fetch("/api/get-users")
       const d = await res.json()
       if (d.users) setAllDbUsers(d.users)
+    } catch (e) {}
+  }
+
+  const fetchCampaignTemplates = async () => {
+    try {
+      const res = await fetch("/api/admin/campaigns")
+      const data = await res.json()
+      if (data.success) {
+        setCampaignTemplates(data.templates || [])
+      }
     } catch (e) {}
   }
 
@@ -1457,7 +1468,67 @@ export default function SalesPage() {
             </div>
             <form onSubmit={handleSendCampaign} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-neutral-300 uppercase mb-1">Message</label>
+                <label className="block text-xs font-bold text-neutral-300 uppercase mb-1">Campaign Name</label>
+                <input
+                  type="text"
+                  value={campaignName}
+                  onChange={e => setCampaignName(e.target.value)}
+                  className="w-full bg-black/30 border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="e.g. July Promo Blast"
+                />
+              </div>
+
+              {campaignTemplates.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-neutral-300 uppercase mb-1">Use Predefined Template</label>
+                  <select
+                    onChange={(e) => {
+                      const t = campaignTemplates.find(x => x.id === e.target.value)
+                      if (t) {
+                        setCampaignText(t.content || "")
+                        setCampaignImageUrl(t.imageUrl || "")
+                        setCampaignChannel(t.channel || "SMS")
+                      }
+                    }}
+                    defaultValue=""
+                    className="w-full bg-black/30 border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="" disabled>-- Select a template --</option>
+                    {campaignTemplates.map(t => (
+                      <option key={t.id} value={t.id}>{t.name} ({t.channel})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-300 uppercase mb-1">Channel</label>
+                <select
+                  value={campaignChannel}
+                  onChange={e => setCampaignChannel(e.target.value as any)}
+                  className="w-full bg-black/30 border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="SMS">SMS / MMS</option>
+                  <option value="EMAIL">Email</option>
+                  <option value="WHATSAPP">WhatsApp</option>
+                </select>
+              </div>
+
+              {campaignChannel === 'SMS' && (
+                <div>
+                  <label className="block text-xs font-bold text-neutral-300 uppercase mb-1">Image URL (Optional for MMS)</label>
+                  <input
+                    type="text"
+                    value={campaignImageUrl}
+                    onChange={e => setCampaignImageUrl(e.target.value)}
+                    className="w-full bg-black/30 border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-300 uppercase mb-1">Message Content</label>
                 <textarea
                   value={campaignText}
                   onChange={e => setCampaignText(e.target.value)}
