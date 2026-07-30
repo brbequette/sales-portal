@@ -70,13 +70,32 @@ export async function POST(req: Request) {
       accountId = unknownAccount.id
     }
 
+    // Look up if this account was part of a recent campaign
+    // to associate the inbound message to that campaign blast
+    const recentOutbound = await prisma.smsMessage.findFirst({
+      where: {
+        accountId,
+        direction: 'OUTBOUND',
+        campaignBlastId: { not: null }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+
+    let campaignBlastId = null
+    if (recentOutbound && recentOutbound.campaignBlastId) {
+      campaignBlastId = recentOutbound.campaignBlastId
+    }
+
     await prisma.smsMessage.create({
       data: {
         accountId: accountId,
         fromNumber: fromNumber,
         toNumber: toNumber,
         body: messageContent,
-        direction: 'INBOUND'
+        direction: 'INBOUND',
+        campaignBlastId: campaignBlastId
       }
     })
 

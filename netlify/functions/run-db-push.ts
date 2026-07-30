@@ -1,9 +1,19 @@
 import { Handler } from "@netlify/functions"
 
+import { execSync } from 'child_process'
+
 export const handler: Handler = async () => {
-  return {
-    statusCode: 404,
-    body: JSON.stringify({ error: "Disabled for security" })
+  try {
+    const output = execSync('npx prisma db push --accept-data-loss', { encoding: 'utf8' })
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ success: true, output })
+    }
+  } catch (error: any) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ success: false, error: error.message, stderr: error.stderr })
+    }
   }
 }
 

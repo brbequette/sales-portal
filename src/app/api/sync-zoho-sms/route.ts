@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     const debugLog: any[] = []
 
     while (hasMore) {
-      const res = await fetch(`https://voice.zoho.com/rest/json/v1/sms/logs?from=${fromIdx}&size=100&messageType=incoming`, {
+      const res = await fetch(`https://voice.zoho.com/rest/json/v1/sms/logs?from=${fromIdx}&size=100`, {
         headers: {
           'Authorization': `Zoho-oauthtoken ${accessToken}`,
           'Accept': 'application/json'
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       const data = await res.json()
       const logs = data.smsLogQuery || []
       
-      debugLog.push({ step: 'fetched_page', fromIdx, data })
+      debugLog.push({ step: 'fetched_page', fromIdx, count: logs.length })
 
       if (logs.length < 100) {
         hasMore = false
@@ -53,104 +53,121 @@ export async function POST(req: Request) {
           continue
         }
 
-      // Check if this log was already synced
-      const existing = await prisma.smsMessage.findFirst({
-        where: { zohoLogId }
-      })
-
-      if (existing) {
-        debugLog.push({ step: 'skip_existing', zohoLogId })
-        continue
-      }
-
-      const fromNumber = log.customerNumber || log.from
-      const messageContent = log.message || log.text
-      const mediaUrl = log.mediaUrl || null
-      // the timestamp might be in log.time or log.createdTime
-
-      if (!fromNumber || !messageContent) {
-        debugLog.push({ step: 'skip_no_from_or_msg', zohoLogId, fromNumber, messageContent })
-        continue
-      }
-
-      const cleanFromNumber = fromNumber.toString().replace(/[^\d+]/g, '')
-
-      // Find the account
-      const contacts = await prisma.contact.findMany({
-        where: {
-          OR: [
-            { mobilePhone: { contains: cleanFromNumber.replace('+1', '') } },
-            { phone: { contains: cleanFromNumber.replace('+1', '') } }
-          ]
-        },
-        include: { account: true }
-      })
-
-      let accountId = null
-
-      if (contacts.length > 0) {
-        accountId = contacts[0].accountId
-      } else {
-        // Fallback to unknown account
-        let unknownAccount = await prisma.account.findFirst({
-          where: { name: 'Unknown SMS Sender' }
+        // Check if this log was already synced
+        const existing = await prisma.smsMessage.findFirst({
+          where: { zohoLogId }
         })
 
-        if (!unknownAccount) {
-          let userOwner = await prisma.user.findFirst({ where: { role: 'ADMIN' } })
-          if (!userOwner) userOwner = await prisma.user.findFirst() // fallback to ANY user
-          if (userOwner) {
-            unknownAccount = await prisma.account.create({
-              data: {
-                name: 'Unknown SMS Sender',
-                zohoId: 'unknown-sms-' + Date.now(),
-                status: 'Lead',
-                ownerId: userOwner.id
-              }
-            })
+        if (existing) {
+          debugLog.push({ step: 'skip_existing', zohoLogId })
+          continue
+        }
+
+        const messageContent = log.message || log.text
+        const mediaUrl = log.mediaUrl || null
+
+        if (!messageContent) {
+          debugLog.push({ step: 'skip_no_msg', zohoLogId })
+          continue
+        }
+
+        const direction = log.messageType === 'INCOMING' ? 'INBOUND' : 'OUTBOUND'
+        const rawFromNumber = direction === 'INBOUND' ? log.customerNumber : log.senderId
+        const rawToNumber = direction === 'INBOUND' ? log.senderId : log.customerNumber
+
+        if (!rawFromNumber || !rawToNumber) {
+          debugLog.push({ step: 'skip_no_numbers', zohoLogId, rawFromNumber, rawToNumber })
+          continue
+        }
+
+        const cleanFromNumber = rawFromNumber.toString().replace(/[^\d+]/g, '')
+        const cleanToNumber = rawToNumber.toString().replace(/[^\d+]/g, '')
+        const customerNumberClean = direction === 'INBOUND' ? cleanFromNumber : cleanToNumber
+
+        // Find the account based on the customer number
+        const contacts = await prisma.contact.findMany({
+          where: {
+            OR: [
+              { mobilePhone: { contains: customerNumberClean.replace('+1', '') } },
+              { phone: { contains: customerNumberClean.replace('+1', '') } }
+            ]
+          },
+          include: { account: true }
+        })
+
+        let accountId = null
+
+        if (contacts.length > 0) {
+          accountId = contacts[0].accountId
+        } else {
+          // Fallback to unknown account
+          let unknownAccount = await prisma.account.findFirst({
+            where: { name: 'Unknown SMS Sender' }
+          })
+
+          if (!unknownAccount) {
+            let userOwner = await prisma.user.findFirst({ where: { role: 'ADMIN' } })
+            if (!userOwner) userOwner = await prisma.user.findFirst() // fallback to ANY user
+            if (userOwner) {
+              unknownAccount = await prisma.account.create({
+                data: {
+                  name: 'Unknown SMS Sender',
+                  zohoId: 'unknown-sms-' + Date.now(),
+                  status: 'Lead',
+                  ownerId: userOwner.id
+                }
+              })
+            }
           }
+          accountId = unknownAccount?.id
         }
-        accountId = unknownAccount?.id
-      }
 
-      if (!accountId) continue
+        if (!accountId) continue
 
-      // Look up if this account was part of a recent campaign
-      // to associate the inbound message to that campaign blast
-      const recentOutbound = await prisma.smsMessage.findFirst({
-        where: {
-          accountId,
-          direction: 'OUTBOUND',
-          campaignBlastId: { not: null }
-        },
-        orderBy: {
-          createdAt: 'desc'
+        // Look up if this account was part of a recent campaign
+        // to associate the inbound/outbound message to that campaign blast
+        const recentOutbound = await prisma.smsMessage.findFirst({
+          where: {
+            accountId,
+            direction: 'OUTBOUND',
+            campaignBlastId: { not: null }
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        })
+
+        let campaignBlastId = null
+        if (recentOutbound && recentOutbound.campaignBlastId) {
+          campaignBlastId = recentOutbound.campaignBlastId
         }
-      })
 
-      let campaignBlastId = null
-      if (recentOutbound && recentOutbound.campaignBlastId) {
-        // Associate with the most recent outbound campaign without time restriction
-        campaignBlastId = recentOutbound.campaignBlastId
-      }
-
-      await prisma.smsMessage.create({
-        data: {
-          accountId,
-          fromNumber: cleanFromNumber,
-          toNumber: log.senderId || log.longCode || log.to || '',
-          body: messageContent,
-          direction: 'INBOUND',
-          zohoLogId,
-          mediaUrl,
-          campaignBlastId,
-          // Use submittedTime (ms) or sentTime string
-          createdAt: log.submittedTime ? new Date(log.submittedTime) : (log.sentTime ? new Date(log.sentTime) : new Date())
+        // Look up agent user by emailId if outbound
+        let authorId = null
+        if (direction === 'OUTBOUND' && log.emailId) {
+          const agent = await prisma.user.findUnique({
+            where: { email: log.emailId }
+          })
+          if (agent) authorId = agent.id
         }
-      })
 
-      debugLog.push({ step: 'created', zohoLogId })
-      syncedCount++
+        await prisma.smsMessage.create({
+          data: {
+            accountId,
+            fromNumber: cleanFromNumber,
+            toNumber: cleanToNumber,
+            body: messageContent,
+            direction,
+            zohoLogId,
+            mediaUrl,
+            campaignBlastId,
+            authorId,
+            createdAt: log.submittedTime ? new Date(log.submittedTime) : (log.sentTime ? new Date(log.sentTime) : new Date())
+          }
+        })
+
+        debugLog.push({ step: 'created', zohoLogId })
+        syncedCount++
       }
     }
 

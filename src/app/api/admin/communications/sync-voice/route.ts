@@ -29,9 +29,8 @@ export async function POST(req: Request) {
     const debugLog: any[] = []
 
     while (hasMore) {
-      // Zoho Voice call logs API endpoint (guessed from typical structure, v1/calllogs)
-      // We will try `v1/calllogs` and if it fails, fallback.
-      const res = await fetch(`https://voice.zoho.com/rest/json/v1/calllogs?from=${fromIdx}&size=100`, {
+      // Zoho Voice call logs API endpoint (zv/logs)
+      const res = await fetch(`https://voice.zoho.com/rest/json/zv/logs?from=${fromIdx}&size=100`, {
         headers: {
           'Authorization': `Zoho-oauthtoken ${accessToken}`,
           'Accept': 'application/json'
@@ -43,8 +42,7 @@ export async function POST(req: Request) {
       }
 
       const data = await res.json()
-      // e.g. data.calllogs
-      const logs = data.calllogs || data.callLogs || data.data || []
+      const logs = data.callLogQuery || []
       
       debugLog.push({ step: 'fetched_page', fromIdx, count: logs.length })
 
@@ -54,18 +52,27 @@ export async function POST(req: Request) {
       fromIdx += 100
 
       for (const log of logs) {
-        // Find matching contact/account based on phone number
-        // 'caller' or 'called' or 'fromNumber' or 'toNumber'
-        const zohoCallId = log.callid?.toString() || log.callId?.toString() || log.id?.toString()
-        const fromNumber = log.fromNumber || log.caller || ''
-        const toNumber = log.toNumber || log.called || ''
-        const duration = parseInt(log.duration || log.callDuration) || 0
-        const status = log.status || log.callStatus || 'completed'
-        const direction = log.direction || log.callDirection || (log.type === 'incoming' ? 'INBOUND' : 'OUTBOUND')
+        const zohoCallId = log.logid?.toString() || log.logId?.toString() || log.id?.toString()
+        if (!zohoCallId) continue
+
+        const fromNumber = log.caller_id_number || log.fromNumber || log.caller || ''
+        const toNumber = log.destination_number || log.toNumber || log.called || ''
+        
+        let duration = 0
+        if (log.start_time && log.end_time) {
+          duration = Math.round((parseInt(log.end_time) - parseInt(log.start_time)) / 1000)
+        } else if (log.duration && typeof log.duration === 'string') {
+          const parts = log.duration.split(':')
+          duration = parts.reduce((acc: number, val: string) => (acc * 60) + (parseInt(val, 10) || 0), 0)
+        }
+        
+        const status = log.hangup_cause_displayname === 'Successful call' ? 'completed' : (log.status || 'completed')
+        const direction = log.call_type === 'incoming' || log.direction === 'INBOUND' ? 'INBOUND' : 'OUTBOUND'
         
         let relatedNumber = direction === 'INBOUND' ? fromNumber : toNumber
         if (relatedNumber.startsWith('+1')) relatedNumber = relatedNumber.substring(2)
         if (relatedNumber.startsWith('1') && relatedNumber.length === 11) relatedNumber = relatedNumber.substring(1)
+        relatedNumber = relatedNumber.replace(/[^\d]/g, '')
         
         let accountId = null
         if (relatedNumber) {
@@ -80,8 +87,8 @@ export async function POST(req: Request) {
           if (contact) accountId = contact.accountId
         }
 
-        if (accountId && zohoCallId) {
-          const createdAtDate = log.callTime || log.startTime || log.createdTime ? new Date(log.callTime || log.startTime || log.createdTime) : new Date()
+        if (accountId) {
+          const createdAtDate = log.start_time ? new Date(parseInt(log.start_time)) : new Date()
           
           await prisma.callLog.upsert({
             where: { zohoCallId: zohoCallId },
@@ -92,7 +99,7 @@ export async function POST(req: Request) {
             },
             create: {
               accountId,
-              authorId: 'system', // or match with user
+              authorId: 'system', // system fallback
               fromNumber,
               toNumber,
               direction,
