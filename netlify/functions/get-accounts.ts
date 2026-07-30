@@ -978,7 +978,11 @@ export const handler: Handler = async (event, context) => {
       const ownerIds = [user.id, user.zohoId].filter(Boolean) as string[];
       const salesRepWhere: any = { ownerId: { in: ownerIds } };
       if (search) salesRepWhere.name = { contains: search, mode: 'insensitive' };
-      if (statusFilter) salesRepWhere.status = statusFilter;
+      if (statusFilter) {
+        salesRepWhere.status = statusFilter;
+      } else {
+        salesRepWhere.status = { notIn: ["Inactive", "Do Not Contact", "DNR"] };
+      }
       const totalCount = await prisma.account.count({ where: salesRepWhere });
       dbAccounts = await prisma.account.findMany({
         where: salesRepWhere,
@@ -1053,7 +1057,11 @@ export const handler: Handler = async (event, context) => {
       }
       
       if (search) adminWhere.name = { contains: search, mode: 'insensitive' };
-      if (statusFilter) adminWhere.status = statusFilter;
+      if (statusFilter) {
+        adminWhere.status = statusFilter;
+      } else {
+        adminWhere.status = { notIn: ["Inactive", "Do Not Contact", "DNR"] };
+      }
       const totalCount = await prisma.account.count({ where: adminWhere });
       dbAccounts = await prisma.account.findMany({
         where: adminWhere,

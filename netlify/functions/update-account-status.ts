@@ -2,7 +2,7 @@ import { Handler } from "@netlify/functions"
 
 import { prisma } from "./lib/prisma"
 
-const VALID_STATUSES = ["Personal", "Open", "Update Status", "Inactive", "VIP", "New Lead", "Hot Lead", "Do Not Contact"]
+const VALID_STATUSES = ["Personal", "Open", "Update Status", "Inactive", "VIP", "New Lead", "Hot Lead", "Do Not Contact", "DNR"]
 
 export const handler: Handler = async (event) => {
   const cors = {

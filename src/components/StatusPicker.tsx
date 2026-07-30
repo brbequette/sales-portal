@@ -12,6 +12,7 @@ export const ACCOUNT_STATUSES = [
   { value: "Update Status",  color: "bg-orange-900/40 text-orange-400 border-orange-500/30" },
   { value: "Inactive",       color: "bg-neutral-800 text-neutral-500 border-neutral-700" },
   { value: "Do Not Contact", color: "bg-red-950 text-red-600 border-red-900/50" },
+  { value: "DNR",            color: "bg-red-950/60 text-red-500 border-red-900/60" },
 ]
 
 export function statusStyle(status: string) {
