@@ -99,18 +99,18 @@ export const handler: Handler = async (event, context) => {
     }
 
     const getSubTotal = (items: any, amount: number) => {
-      let sub = parseFloat(items?.sub_total ?? items?.subTotal ?? 0)
-      if (isNaN(sub) || sub === 0) {
-        const details = items?.lineItemDetails || items?.line_items || items?.items
-        if (Array.isArray(details)) {
-          sub = details.reduce((sum: number, it: any) => {
-            if (it.line_item_category === "header" || it.line_item_category === "subtotal") return sum;
-            const qty = parseFloat(it.quantity || 0)
-            const rate = parseFloat(it.rate || it.itemTotal || it.item_total || 0)
-            return sum + (qty * rate)
-          }, 0)
-        }
+      const details = items?.lineItemDetails || items?.line_items || items?.items
+      if (Array.isArray(details)) {
+        const sum = details.reduce((sum: number, it: any) => {
+          if (it.line_item_category === "header" || it.line_item_category === "subtotal") return sum;
+          const qty = parseFloat(it.quantity || 0)
+          const rate = parseFloat(it.rate || it.itemTotal || it.item_total || 0)
+          return sum + (qty * rate)
+        }, 0)
+        if (sum > 0) return sum
       }
+
+      let sub = parseFloat(items?.sub_total ?? items?.subTotal ?? 0)
       if (isNaN(sub) || sub === 0) {
         sub = amount || 0
       }

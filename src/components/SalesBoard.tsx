@@ -97,7 +97,7 @@ export function SalesBoard() {
       const currentYear = now.getFullYear()
 
       if (key === "weeklyGoal") {
-        title = "Weekly Sales Revenue Derivation"
+        title = "Weekly Subtotal Derivation"
         formula = "Sum of invoice subtotals issued between Monday and Friday of current week"
         docs = data.rawInvoices.filter((inv: any) => {
           const d = new Date(inv.date || inv.issueDate)
@@ -388,8 +388,9 @@ export function SalesBoard() {
                 matchedRep.weekly.deadCostSubjectToVig += deadCostSubjectToVig
                 matchedRep.weekly.commission += commissionEarned
                 matchedRep.weekly.dealsClosed += 1
-                matchedRep.weekly.invoices.push({ 
+                 matchedRep.weekly.invoices.push({ 
                   id: raw.invoice_id || raw.id || doc.id, 
+                  zohoId: doc.zohoId,
                   date: saleDate, 
                   customer: raw.customer_name || doc.accountName, 
                   amount, 
@@ -412,6 +413,7 @@ export function SalesBoard() {
                 matchedRep.mtd.dealsClosed += 1
                 matchedRep.mtd.invoices.push({ 
                   id: raw.invoice_id || raw.id || doc.id, 
+                  zohoId: doc.zohoId,
                   date: saleDate, 
                   customer: raw.customer_name || doc.accountName, 
                   amount, 
@@ -431,6 +433,7 @@ export function SalesBoard() {
                 matchedRep.ytd.dealsClosed += 1
                 matchedRep.ytd.invoices.push({ 
                   id: raw.invoice_id || raw.id || doc.id, 
+                  zohoId: doc.zohoId,
                   date: saleDate, 
                   customer: raw.customer_name || doc.accountName, 
                   amount, 
@@ -574,7 +577,7 @@ export function SalesBoard() {
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
              <div>
                 <h3 className="text-neutral-400 text-xs font-bold tracking-widest uppercase flex items-center gap-2">
-                   <FiActivity className="text-emerald-400 animate-pulse" /> Live Weekly Sales & Financial Performance
+                   <FiActivity className="text-emerald-400 animate-pulse" /> Live Weekly Subtotal & Financial Performance
                 </h3>
                 <p className="text-[11px] text-neutral-500 font-semibold mt-0.5">
                   Pipeline: <span className="text-cyan-400 font-bold">48h Estimates</span> &amp; <span className="text-amber-400 font-bold">Uninvoiced Sales Orders</span>
@@ -584,7 +587,7 @@ export function SalesBoard() {
              {/* --- 4-Badge Financial Metric Strip --- */}
              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full md:w-auto">
                 <div className="bg-gradient-to-br from-sky-950/60 to-blue-950/60 p-3 rounded-xl border border-sky-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)] hover:scale-[1.02] transition-transform">
-                   <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">Gross Sales</span>
+                   <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">Subtotal</span>
                    <span className="text-base font-black text-white block mt-0.5">{formatCurrency(data.teamWeekly.sales)}</span>
                 </div>
                 <div className="bg-gradient-to-br from-amber-950/60 to-orange-950/60 p-3 rounded-xl border border-amber-500/20 shadow-[0_0_15px_rgba(251,191,36,0.1)] hover:scale-[1.02] transition-transform">
@@ -632,7 +635,7 @@ export function SalesBoard() {
                                  {rep.name}
                               </div>
                            </td>
-                           <td className="p-4 text-xs font-medium text-neutral-400 border-b border-white/10">Gross Sales</td>
+                           <td className="p-4 text-xs font-medium text-neutral-400 border-b border-white/10">Subtotal</td>
                            {rep.weekly.sales.map((val: number, i: number) => (
                               <td key={i} className="p-4 text-sm font-medium text-white text-right border-b border-white/10">{val > 0 ? formatCurrency(val) : '-'}</td>
                            ))}
@@ -656,7 +659,7 @@ export function SalesBoard() {
                                        <tr className="bg-white/[0.02]">
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
-                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Gross Sales</th>
+                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Subtotal</th>
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
                                        </tr>
                                      </thead>
@@ -665,8 +668,22 @@ export function SalesBoard() {
                                          <tr key={inv.id} className="border-t border-white/10 hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                                            <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                            <td className="p-2">
-                                              <div className="text-xs font-bold text-white">{inv.customer}</div>
-                                              <div className="text-[10px] text-neutral-500 font-medium">{inv.invoiceNumber}</div>
+                                              <a 
+                                                href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
+                                              >
+                                                {inv.customer}
+                                              </a>
+                                              <a 
+                                                href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"
+                                              >
+                                                {inv.invoiceNumber}
+                                              </a>
                                            </td>
                                            <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
                                            <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
@@ -716,7 +733,7 @@ export function SalesBoard() {
                       </div>
                       <div className="text-right">
                         <div className="text-lg font-bold tracking-tight text-neutral-400">{formatCurrency(rep.weekly.totalSales)}</div>
-                        <div className="text-[9px] text-neutral-600 font-bold uppercase tracking-widest mt-0.5">Gross Sales</div>
+                        <div className="text-[9px] text-neutral-600 font-bold uppercase tracking-widest mt-0.5">Subtotal</div>
                       </div>
                     </div>
                     <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/10 relative">
@@ -792,7 +809,7 @@ export function SalesBoard() {
                <thead>
                   <tr className="bg-white/[0.03]">
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Sales Rep</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Gross Sales</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Subtotal</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Dead Profit</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Deals</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Avg Deal</th>
@@ -828,7 +845,7 @@ export function SalesBoard() {
                                     <tr className="bg-white/[0.02]">
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
-                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Gross Sales</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Subtotal</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
                                     </tr>
                                   </thead>
@@ -837,8 +854,22 @@ export function SalesBoard() {
                                       <tr key={inv.id} className="border-t border-white/10 hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                                         <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                         <td className="p-2">
-                                           <div className="text-xs font-bold text-white">{inv.customer}</div>
-                                           <div className="text-[10px] text-neutral-500 font-medium">{inv.invoiceNumber}</div>
+                                           <a 
+                                             href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                             target="_blank" 
+                                             rel="noopener noreferrer"
+                                             className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
+                                           >
+                                             {inv.customer}
+                                           </a>
+                                           <a 
+                                             href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                             target="_blank" 
+                                             rel="noopener noreferrer"
+                                             className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"
+                                           >
+                                             {inv.invoiceNumber}
+                                           </a>
                                         </td>
                                         <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
                                         <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
@@ -903,7 +934,7 @@ export function SalesBoard() {
                                     <tr className="bg-white/[0.02]">
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
-                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Gross Sales</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Subtotal</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
                                     </tr>
                                   </thead>
@@ -912,8 +943,22 @@ export function SalesBoard() {
                                       <tr key={inv.id} className="border-t border-white/10 hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                                         <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                         <td className="p-2">
-                                           <div className="text-xs font-bold text-white">{inv.customer}</div>
-                                           <div className="text-[10px] text-neutral-500 font-medium">{inv.invoiceNumber}</div>
+                                           <a 
+                                             href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                             target="_blank" 
+                                             rel="noopener noreferrer"
+                                             className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
+                                           >
+                                             {inv.customer}
+                                           </a>
+                                           <a 
+                                             href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                             target="_blank" 
+                                             rel="noopener noreferrer"
+                                             className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"
+                                           >
+                                             {inv.invoiceNumber}
+                                           </a>
                                         </td>
                                         <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
                                         <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
@@ -1018,7 +1063,7 @@ export function SalesBoard() {
             <FiDollarSign className="text-emerald-400 text-xl" />
           </div>
           <div>
-            <h3 className="text-sm font-black tracking-widest text-white uppercase">Weekly Sales Totals</h3>
+            <h3 className="text-sm font-black tracking-widest text-white uppercase">Weekly Subtotal Totals</h3>
             <p className="text-[10px] text-emerald-400 font-bold tracking-widest uppercase mt-0.5 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               Live Tracking
@@ -1027,7 +1072,7 @@ export function SalesBoard() {
         </div>
         <div className="flex items-center gap-10">
           <div className="flex flex-col items-end">
-            <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-0.5">Total Sales</div>
+            <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-0.5">Total Subtotal</div>
             <div className="text-2xl font-black text-emerald-400 drop-shadow-md">{formatCurrency(data.teamWeekly.sales)}</div>
           </div>
           <div className="w-[1px] h-8 bg-white/10"></div>

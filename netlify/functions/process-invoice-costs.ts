@@ -130,8 +130,11 @@ export const handler: Handler = async (event) => {
       await prisma.invoice.update({
         where: { id: localInvoice.id },
         data: {
+          amount: subTotal,
           items: {
             ...currentItems,
+            sub_total: subTotal,
+            subTotal: subTotal,
             deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
             deadProfitActual, profit,
             commission: salesCommission, commissionPercent: commissionPct, vigRate,

@@ -263,6 +263,7 @@ async function processDocType(
         // Write to DB
         const now = new Date()
         const updateData = {
+          amount: subTotal,
           items: updatedItems,
           costsCalculatedAt: now,
           pendingCostSync: pendingZohoFields.length > 0,
