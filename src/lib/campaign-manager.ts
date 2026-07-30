@@ -11,6 +11,7 @@ const POLL_INTERVAL_MS = 3000
 
 export interface CampaignState {
   jobId: string | null
+  blastId: string | null
   status: "idle" | "running" | "done" | "cancelled" | "error"
   progress: number
   total: number
@@ -44,6 +45,7 @@ export interface SampleSendConfig {
 
 const DEFAULT_STATE: CampaignState = {
   jobId: null,
+  blastId: null,
   status: "idle",
   progress: 0,
   total: 0,
@@ -67,7 +69,8 @@ class CampaignManager {
 
     const savedJobId = localStorage.getItem(STORAGE_KEY)
     if (savedJobId) {
-      this.state = { ...DEFAULT_STATE, jobId: savedJobId, status: "running" }
+      const savedBlastId = localStorage.getItem(STORAGE_KEY + "_blastId")
+      this.state = { ...DEFAULT_STATE, jobId: savedJobId, blastId: savedBlastId, status: "running" }
       this.notify()
       this.schedulePoll()
     }
@@ -111,6 +114,7 @@ class CampaignManager {
         this.state = {
           ...this.state,
           status: "done",
+          blastId: data.blastId || this.state.blastId,
           progress: data.total,
           total: data.total,
           sentCount: data.sentCount || 0,
@@ -132,6 +136,7 @@ class CampaignManager {
         this.state = {
           ...this.state,
           status: "running",
+          blastId: data.blastId || this.state.blastId,
           progress: data.progress ?? this.state.progress,
           total: data.total ?? this.state.total,
           sentCount: data.sentCount ?? this.state.sentCount,
@@ -167,10 +172,15 @@ class CampaignManager {
       }
 
       const jobId = data.jobId
-      if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, jobId)
+      const blastId = data.blastId || null
+      if (typeof window !== "undefined") {
+        localStorage.setItem(STORAGE_KEY, jobId)
+        if (blastId) localStorage.setItem(STORAGE_KEY + "_blastId", blastId)
+      }
 
       this.state = {
         jobId,
+        blastId,
         status: data.progress >= data.total ? "done" : "running",
         progress: data.progress || 0,
         total: data.total || config.accountIds.length,
@@ -229,7 +239,10 @@ class CampaignManager {
 
   private clear() {
     if (this.pollTimer) { clearTimeout(this.pollTimer); this.pollTimer = null }
-    if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY)
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(STORAGE_KEY + "_blastId")
+    }
     this.state = { ...DEFAULT_STATE }
     this.notify()
   }

@@ -23,7 +23,7 @@ export const handler: Handler = async (event) => {
       return {
         statusCode: 200,
         headers: corsHeaders,
-        body: JSON.stringify({ success: true, status: job.status, progress: job.currentIndex, total: job.total, sentCount: job.sentCount, failedCount: job.failedCount, name: job.campaignName, error: job.errorMessage }),
+        body: JSON.stringify({ success: true, status: job.status, blastId: job.blastId, progress: job.currentIndex, total: job.total, sentCount: job.sentCount, failedCount: job.failedCount, name: job.campaignName, error: job.errorMessage }),
       }
     }
 
@@ -33,7 +33,7 @@ export const handler: Handler = async (event) => {
       return {
         statusCode: 200,
         headers: corsHeaders,
-        body: JSON.stringify({ success: true, status: "DONE", progress: job.total, total: job.total, sentCount: job.sentCount, failedCount: job.failedCount, name: job.campaignName }),
+        body: JSON.stringify({ success: true, status: "DONE", blastId: job.blastId, progress: job.total, total: job.total, sentCount: job.sentCount, failedCount: job.failedCount, name: job.campaignName }),
       }
     }
 
@@ -172,7 +172,7 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({ success: true, status: isDone ? "DONE" : "RUNNING", progress: Math.min(newIndex, job.total), total: job.total, sentCount: job.sentCount + successfulCount, failedCount: job.failedCount + failedCount, name: job.campaignName }),
+      body: JSON.stringify({ success: true, status: isDone ? "DONE" : "RUNNING", blastId: job.blastId, progress: Math.min(newIndex, job.total), total: job.total, sentCount: job.sentCount + successfulCount, failedCount: job.failedCount + failedCount, name: job.campaignName }),
     }
   } catch (error: any) {
     console.error("campaign-job-status error:", error)

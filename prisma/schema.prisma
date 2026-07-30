@@ -689,6 +689,7 @@ model SalesStage {
   autoActions     Json?
   notifications   Json?
   transitionRule  Json?
+  isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

@@ -233,7 +233,7 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({ success: true, jobId: job.id, progress: newIndex, total: accountIds.length, sentCount: successfulCount, failedCount }),
+      body: JSON.stringify({ success: true, jobId: job.id, blastId: blast.id, progress: newIndex, total: accountIds.length, sentCount: successfulCount, failedCount }),
     }
   } catch (error: any) {
     console.error("campaign-job-create error:", error)

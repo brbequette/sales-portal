@@ -1,6 +1,5 @@
 "use client"
 
-
 /**
  * OrderBuilder.tsx
  *
@@ -9,27 +8,20 @@
  *   - AccountDialer (account page dialer)
  *   - CommunicationCenter (account page comm hub)
  *
- * Features:
- *   ✅ Blade Lookup -- filter by Application, Size, Type â†' Good/Better/Best cards
- *   ✅ Product search (full catalog)
- *   ✅ Quick-Add top 10 blades
- *   ✅ Sold Items section (paidQty > 0) -- editable qty input + +/- buttons
- *   ✅ Promotional Items section (freeQty > 0) -- separated, green, gift items
- *   ✅ Editable unit price per line
- *   ✅ Live financials (Dead Cost, Profit, VIG, Commission, Margin)
- *   ✅ Sales Order preview modal
+ * Overhauled with premium dark glassmorphism, responsive tactile controls,
+ * custom card glows, and a gorgeous grid dashboard for profit metrics.
  */
 
 import { useState, useRef, useMemo, useEffect } from "react"
 import {
   FiSearch, FiX, FiPlus, FiShoppingCart, FiTag,
   FiDollarSign, FiFileText, FiTrendingUp, FiFilter,
-  FiPackage, FiChevronDown,
+  FiPackage, FiChevronDown, FiAlertCircle, FiPercent, FiCheck,
 } from "react-icons/fi"
 import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
 
-// â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 export type OrderLine = {
   id: string
@@ -51,11 +43,8 @@ export interface OrderBuilderProps {
   factFinding?: any
   vigRate?: number
   commissionPct?: number
-  /** Optional: customer name shown in mock Sales Order */
   accountName?: string
-  /** Optional: full account/address object for Sales Order */
   accountDetail?: any
-  /** Accent colour class prefix (e.g. "violet", "cyan") -- defaults to "violet" */
   accent?: "violet" | "cyan" | "emerald" | "sky"
   accountId?: string
   dealId?: string
@@ -63,7 +52,7 @@ export interface OrderBuilderProps {
   onSuccess?: () => void
 }
 
-// â"€â"€â"€ Blade lookup config â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ─── Blade lookup config ──────────────────────────────────────────────────────
 
 const APPLICATIONS = [
   "All",
@@ -104,7 +93,6 @@ const EQUIPMENT_LIST = [
   "9\" Angle Grinder (9\")",
 ]
 
-/** Keywords used to match product names to Application categories */
 const APPLICATION_KEYWORDS: Record<string, string[]> = {
   "Asphalt":              ["asphalt", "asp", "pavement", "road"],
   "Concrete":             ["concrete", "conc"],
@@ -114,7 +102,6 @@ const APPLICATION_KEYWORDS: Record<string, string[]> = {
   "General Purpose":      ["general", "gp", "all purpose", "multipurpose", "titan", "medusa", "dark knight", "champion", "wizard"],
 }
 
-/** Keywords to match Type */
 const TYPE_KEYWORDS: Record<string, string[]> = {
   "Segmented":      ["segment", "sgmt"],
   "Turbo":          ["turbo"],
@@ -123,7 +110,6 @@ const TYPE_KEYWORDS: Record<string, string[]> = {
   "Abrasive":       ["abrasive", "abra", "cup", "wheel"],
 }
 
-/** Extract inch size from product name (e.g. "MEDUSA 14" â†' "14\"") */
 function extractSize(name: string): string | null {
   const m = name.match(/\b(4\.5|4-1\/2|7|9|10|12|14|16|18|20|24)\b/)
   if (!m) return null
@@ -132,7 +118,6 @@ function extractSize(name: string): string | null {
   return `${n}"`
 }
 
-/** Match product name/category to an application */
 function matchApplication(name: string, category: string): string {
   const hay = (name + " " + category).toLowerCase()
   for (const [app, keywords] of Object.entries(APPLICATION_KEYWORDS)) {
@@ -141,18 +126,14 @@ function matchApplication(name: string, category: string): string {
   return "General Purpose"
 }
 
-/** Match product name to a blade type */
 function matchType(name: string, category: string): string {
   const hay = (name + " " + category).toLowerCase()
-  // Check longest/most specific first
   for (const [type, keywords] of Object.entries(TYPE_KEYWORDS)) {
     if (keywords.some(k => hay.includes(k))) return type
   }
-  if (hay.includes("blade")) return "Segmented" // default for plain blades
+  if (hay.includes("blade")) return "Segmented"
   return "Segmented"
 }
-
-// â"€â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function parseDesc(raw: string | null | undefined): Record<string, any> {
   try { return JSON.parse(raw || "{}") } catch { return {} }
@@ -160,19 +141,34 @@ function parseDesc(raw: string | null | undefined): Record<string, any> {
 
 const TIER_LABELS = ["Good", "Better", "Best"] as const
 const TIER_COLORS = {
-  Good:   { bg: "bg-neutral-800", border: "border-neutral-600", badge: "bg-neutral-700 text-neutral-300", price: "text-neutral-300" },
-  Better: { bg: "bg-sky-950/40",  border: "border-sky-700/50",  badge: "bg-sky-800/60 text-sky-300",     price: "text-sky-300" },
-  Best:   { bg: "bg-amber-950/40",border: "border-amber-600/50",badge: "bg-amber-700/60 text-amber-300", price: "text-amber-300" },
+  Good: { 
+    bg: "bg-neutral-900/60 hover:bg-neutral-800/80", 
+    border: "border-neutral-800 hover:border-neutral-700", 
+    badge: "bg-neutral-800 text-neutral-300 border border-neutral-700", 
+    price: "text-neutral-200" 
+  },
+  Better: { 
+    bg: "bg-sky-950/20 hover:bg-sky-950/30",  
+    border: "border-sky-900/40 hover:border-sky-500/50 hover:shadow-[0_0_15px_rgba(14,165,233,0.05)]",  
+    badge: "bg-sky-500/10 text-sky-400 border border-sky-500/20",     
+    price: "text-sky-400" 
+  },
+  Best: { 
+    bg: "bg-amber-950/10 hover:bg-amber-950/20",
+    border: "border-amber-900/30 hover:border-amber-500/50 hover:shadow-[0_0_15px_rgba(245,158,11,0.05)]",
+    badge: "bg-amber-500/10 text-amber-400 border border-amber-500/20", 
+    price: "text-amber-400 font-extrabold" 
+  },
 }
 
-// â"€â"€â"€ Sub-components â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function QtyInput({
   value,
   onChange,
   colorClass = "text-white",
   bgClass = "bg-neutral-800",
-  btnClass = "bg-neutral-800 hover:bg-neutral-700 text-neutral-400",
+  btnClass = "bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 text-neutral-400 hover:text-white",
 }: {
   value: number
   onChange: (n: number) => void
@@ -193,11 +189,11 @@ function QtyInput({
   }
 
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-1">
       <button
         type="button"
         onClick={() => onChange(Math.max(0, value - 1))}
-        className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center transition-colors cursor-pointer ${btnClass}`}
+        className={`w-6 h-6 rounded-md font-bold flex items-center justify-center transition-all cursor-pointer select-none active:scale-95 ${btnClass}`}
       >-</button>
       {editing ? (
         <input
@@ -207,14 +203,14 @@ function QtyInput({
           onChange={e => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setEditing(false) } }}
-          className={`w-10 h-5 text-center text-[11px] font-black rounded outline-none border border-violet-500 ${bgClass} ${colorClass}`}
+          className={`w-12 h-6 text-center text-xs font-black rounded-md outline-none border border-violet-500/70 focus:border-violet-500 ${bgClass} ${colorClass}`}
           autoFocus
         />
       ) : (
         <button
           type="button"
           onClick={() => { setEditing(true); setDraft(String(value)) }}
-          className={`w-10 h-5 text-center text-[11px] font-black rounded cursor-text ${bgClass} ${colorClass} hover:border hover:border-violet-500/50 transition-all`}
+          className={`w-12 h-6 text-center text-xs font-black rounded-md cursor-text border border-transparent transition-all flex items-center justify-center ${bgClass} ${colorClass} hover:border-white/20 hover:bg-white/10`}
           title="Click to edit"
         >
           {value}
@@ -223,13 +219,13 @@ function QtyInput({
       <button
         type="button"
         onClick={() => onChange(value + 1)}
-        className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center transition-colors cursor-pointer ${btnClass}`}
+        className={`w-6 h-6 rounded-md font-bold flex items-center justify-center transition-all cursor-pointer select-none active:scale-95 ${btnClass}`}
       >+</button>
     </div>
   )
 }
 
-// â"€â"€â"€ Main Component â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export function OrderBuilder({
   orderLines: externalOrderLines,
@@ -340,6 +336,7 @@ export function OrderBuilder({
       setIsSubmitting(false)
     }
   }
+
   // Product search
   const [productSearch, setProductSearch] = useState("")
   const [showProductDropdown, setShowProductDropdown] = useState(false)
@@ -382,7 +379,7 @@ export function OrderBuilder({
     return () => document.removeEventListener("mousedown", handler)
   }, [])
 
-  // â"€â"€ Derived product lists â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  // ─── Derived product lists ──────────────────────────────────────────────────
 
   const activeBlades = useMemo(() => {
     return catalogProducts
@@ -402,6 +399,7 @@ export function OrderBuilder({
           application: matchApplication(p.name, p.category || ""),
           size: extractSize(p.name),
           type: matchType(p.name, p.category || ""),
+          subjectToVig: p.subjectToVig !== false
         }
       })
   }, [catalogProducts])
@@ -413,7 +411,6 @@ export function OrderBuilder({
       .filter(p => {
         const desc = parseDesc(p.description)
         if (desc.status === "inactive") return false
-
         return !!p.giftItem
       })
       .map(p => {
@@ -425,11 +422,11 @@ export function OrderBuilder({
           price: (p.price || 0) as number,
           cost: (desc.cost || 0) as number,
           giftItem: true,
+          subjectToVig: false
         }
       })
   }, [catalogProducts])
 
-  /** Filter past purchased products excluding gifts */
   const previousPurchasesNoGifts = useMemo(() => {
     const raw = externalAccountPurchases || fetchedPurchases || []
     if (raw.length === 0) return []
@@ -455,19 +452,20 @@ export function OrderBuilder({
       const key = (itemSku || itemName).toLowerCase()
       if (!seen.has(key)) {
         seen.add(key)
+        const foundProd = catalogProducts.find(p => p.sku.toLowerCase() === key)
         result.push({
           name: itemName,
           sku: itemSku,
           price: item.price || item.rate || item.unitPrice || 0,
-          cost: item.cost || 0,
-          quantity: item.quantity || item.qty || 1
+          cost: item.cost || foundProd?.cost || 0,
+          quantity: item.quantity || item.qty || 1,
+          subjectToVig: foundProd?.subjectToVig !== false
         })
       }
     }
     return result
-  }, [externalAccountPurchases, fetchedPurchases])
+  }, [externalAccountPurchases, fetchedPurchases, catalogProducts])
 
-  /** Extract blades that fit customer's equipment & usage */
   const usageMatchedBlades = useMemo(() => {
     const eq = filterEquipment !== "None" ? filterEquipment : (factFinding?.equipment || accountDetail?.equipment || "")
     const app = filterApp !== "All" ? filterApp : (factFinding?.application || factFinding?.primaryApplication || accountDetail?.industry || "")
@@ -487,7 +485,6 @@ export function OrderBuilder({
     return matched.length > 0 ? matched.slice(0, 12) : activeBlades.slice(0, 12)
   }, [activeBlades, filterEquipment, filterApp, factFinding, accountDetail])
 
-  /** Blades filtered by the lookup dropdowns */
   const filteredBlades = useMemo(() => {
     return activeBlades.filter(b => {
       if (filterApp !== "All" && b.application !== filterApp) return false
@@ -497,10 +494,6 @@ export function OrderBuilder({
     })
   }, [activeBlades, filterApp, filterSize, filterType])
 
-  /**
-   * Assign Good/Better/Best tiers by price (ascending = Good â†' Best).
-   * If only 1 or 2 results, label them accordingly.
-   */
   const tieredBlades = useMemo(() => {
     const sorted = [...filteredBlades].sort((a, b) => a.price - b.price)
     if (sorted.length === 0) return []
@@ -509,7 +502,6 @@ export function OrderBuilder({
       { ...sorted[0], tier: "Good" as const },
       { ...sorted[1], tier: "Best" as const },
     ]
-    // 3+ items: divide into thirds
     const third = Math.floor(sorted.length / 3)
     return sorted.map((b, i) => ({
       ...b,
@@ -517,7 +509,7 @@ export function OrderBuilder({
     }))
   }, [filteredBlades])
 
-  // â"€â"€ Financials â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  // ─── Financials ─────────────────────────────────────────────────────────────
 
   const financials = useMemo(() => {
     if (orderLines.length === 0) return null
@@ -539,7 +531,7 @@ export function OrderBuilder({
     return { subTotal, deadCostTotal, deadCostPlusVig, deadProfit, profitAfterVig, salesCommission, marginPct }
   }, [orderLines, vigRate, commissionPct])
 
-  // â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  // ─── Helpers ────────────────────────────────────────────────────────────────
 
   const openAddItemModal = (p: { name: string; sku: string; price: number; cost: number; giftItem?: boolean; subjectToVig?: boolean }) => {
     const isGift = !!p.giftItem
@@ -555,10 +547,9 @@ export function OrderBuilder({
     if (!pendingItem) return
     const newLines: OrderLine[] = []
     
-    // Create paid line if qty > 0
     if (addPaidQty > 0) {
       newLines.push({
-        id: Date.now().toString() + pendingItem.sku + '-paid',
+        id: Date.now().toString() + '-' + pendingItem.sku + '-paid',
         name: pendingItem.name,
         sku: pendingItem.sku,
         quantity: addPaidQty,
@@ -570,10 +561,9 @@ export function OrderBuilder({
       })
     }
     
-    // Create free line if qty > 0
     if (addFreeQty > 0) {
       newLines.push({
-        id: Date.now().toString() + pendingItem.sku + '-free',
+        id: Date.now().toString() + '-' + pendingItem.sku + '-free',
         name: pendingItem.name,
         sku: pendingItem.sku,
         quantity: addFreeQty,
@@ -601,7 +591,7 @@ export function OrderBuilder({
   const promoLines = orderLines.filter(l => l.isPromo)
   const orderTotal = paidLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0)
 
-  // â"€â"€ Filtered search results â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  // ─── Filtered search results ────────────────────────────────────────────────
 
   const searchResults = useMemo(() => {
     if (productSearch.length < 2) return []
@@ -618,49 +608,50 @@ export function OrderBuilder({
       .slice(0, 8)
   }, [productSearch, catalogProducts])
 
-  // â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  // ────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 text-neutral-200">
 
-      {/* â"€â"€ Header â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
-          <FiShoppingCart size={11} /> Build Order
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+        <span className="text-xs font-black uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
+          <FiShoppingCart size={14} className="text-violet-500 animate-pulse" />
+          Build Order
         </span>
         {orderLines.length > 0 && (
-          <span className="text-[10px] font-black text-violet-300">
-            {orderLines.length} item{orderLines.length !== 1 ? "s" : ""} . ${orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          <span className="text-[11px] font-black bg-violet-500/10 text-violet-300 border border-violet-500/20 px-2 py-0.5 rounded-full">
+            {orderLines.length} item{orderLines.length !== 1 ? "s" : ""} · ${orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </span>
         )}
       </div>
 
-      {/* â"€â"€ Blade Lookup â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
-      <div className="border border-white/10 rounded-xl overflow-hidden">
+      {/* ── Blade Lookup Accordion ── */}
+      <div className="glass-panel border border-white/10 rounded-2xl overflow-hidden shadow-xl transition-all duration-300">
         <button
           type="button"
           onClick={() => setShowBladeLookup(v => !v)}
-          className="w-full flex items-center justify-between px-3 py-2.5 glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/80 transition-colors cursor-pointer"
+          className="w-full flex items-center justify-between px-4 py-3 bg-white/[0.02] hover:bg-white/[0.05] transition-all cursor-pointer"
         >
-          <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-            <FiFilter size={11} />
-            Blade Lookup -- Equipment . Application . Size . Type
+          <span className="flex items-center gap-2.5 text-[11px] font-bold uppercase tracking-wider text-neutral-300">
+            <FiFilter size={13} className="text-violet-400" />
+            Blade Lookup Tiers
           </span>
           <FiChevronDown
-            size={12}
-            className={`text-neutral-500 transition-transform duration-200 ${showBladeLookup ? "rotate-180" : ""}`}
+            size={16}
+            className={`text-neutral-400 transition-transform duration-300 ${showBladeLookup ? "rotate-180 text-violet-400" : ""}`}
           />
         </button>
 
         {showBladeLookup && (
-          <div className="px-3 pb-3 pt-2 glass-panel/60 space-y-3 border-t border-white/10">
-            {/* Filter dropdowns */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          <div className="px-4 pb-4 pt-3 bg-black/40 space-y-4 border-t border-white/10 animate-in fade-in duration-200">
+            {/* Filter selection grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <p className="text-[8px] font-bold uppercase tracking-wider text-neutral-600 mb-1">Equipment</p>
+                <p className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1.5">Equipment</p>
                 <select
                   value={filterEquipment}
                   onChange={e => handleEquipmentChange(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-violet-500 cursor-pointer"
+                  className="w-full bg-[#121318] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500/80 transition-all cursor-pointer"
                 >
                   {EQUIPMENT_LIST.map(o => <option key={o}>{o}</option>)}
                 </select>
@@ -671,14 +662,14 @@ export function OrderBuilder({
                 ["Type", TYPES, filterType, setFilterType],
               ] as [string, string[], string, (v: string) => void][]).map(([label, opts, val, setter]) => (
                 <div key={label}>
-                  <p className="text-[8px] font-bold uppercase tracking-wider text-neutral-600 mb-1">{label}</p>
+                  <p className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1.5">{label}</p>
                   <select
                     value={val}
                     onChange={e => {
                       setter(e.target.value)
                       if (label === "Size") setFilterEquipment("None")
                     }}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-violet-500 cursor-pointer"
+                    className="w-full bg-[#121318] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500/80 transition-all cursor-pointer"
                   >
                     {opts.map(o => <option key={o}>{o}</option>)}
                   </select>
@@ -688,46 +679,40 @@ export function OrderBuilder({
 
             {/* Tier cards */}
             {tieredBlades.length === 0 ? (
-              <p className="text-[10px] text-neutral-600 italic text-center py-2">
-                No blades match those filters. Try "All" for Application or Type.
-              </p>
+              <div className="text-center py-6 border border-dashed border-white/5 rounded-xl text-neutral-500 text-xs italic">
+                No blades match those filters. Try selecting "All" for Application or Type.
+              </div>
             ) : (
-              <div className="space-y-1.5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {(["Good", "Better", "Best"] as const).map(tier => {
                   const blades = tieredBlades.filter(b => b.tier === tier)
                   if (blades.length === 0) return null
                   const colors = TIER_COLORS[tier]
                   return (
-                    <div key={tier}>
-                      <p className="text-[8px] font-bold uppercase tracking-wider text-neutral-500 mb-1">{tier}</p>
-                      <div className="space-y-1">
-                        {blades.map(b => {
-                          const already = orderLines.some(l => l.sku === b.sku)
-                          return (
-                            <div
-                              key={b.sku}
-                              className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border ${colors.bg} ${colors.border} transition-all`}
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${colors.badge} shrink-0`}>{tier}</span>
-                                <div className="min-w-0">
-                                  <p className="text-[11px] font-bold text-white truncate">{b.name}</p>
-                                  <p className="text-[8px] text-neutral-500">{b.sku} . {b.size ?? "?"} . {b.type}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className={`text-[11px] font-black ${colors.price}`}>${b.price.toFixed(2)}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => openAddItemModal(b)}
-                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black transition-all cursor-pointer bg-violet-600 hover:bg-violet-500 text-white"
-                                >
-                                  <FiPlus size={9} /> Add
-                                </button>
-                              </div>
+                    <div key={tier} className="space-y-2 flex flex-col h-full bg-black/20 p-2.5 rounded-xl border border-white/5">
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md inline-block w-max tracking-wider ${colors.badge}`}>{tier}</span>
+                      <div className="space-y-2 flex-1">
+                        {blades.map(b => (
+                          <div
+                            key={b.sku}
+                            className={`flex flex-col justify-between p-3 rounded-xl border transition-all duration-300 ${colors.bg} ${colors.border}`}
+                          >
+                            <div className="min-w-0 pb-2">
+                              <p className="text-xs font-bold text-white leading-tight truncate" title={b.name}>{b.name}</p>
+                              <p className="text-[9px] text-neutral-500 mt-0.5 font-mono">{b.sku} · {b.size ?? "?"} · {b.type}</p>
                             </div>
-                          )
-                        })}
+                            <div className="flex items-center justify-between pt-2 border-t border-white/5 shrink-0">
+                              <span className={`text-sm font-black ${colors.price}`}>${b.price.toFixed(2)}</span>
+                              <button
+                                type="button"
+                                onClick={() => openAddItemModal(b)}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer bg-violet-600 hover:bg-violet-500 hover:shadow-[0_0_10px_rgba(139,92,246,0.3)] hover:-translate-y-0.5 active:translate-y-0 text-white"
+                              >
+                                <FiPlus size={10} /> Add
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )
@@ -738,10 +723,10 @@ export function OrderBuilder({
         )}
       </div>
 
-      {/* ── Product Search ────────────────────────────────────────────────────────────────────────── */}
+      {/* ── Product Search ── */}
       <div ref={productSearchRef} className="relative">
-        <div className="flex items-center gap-2 glass-panel border border-neutral-700 rounded-lg px-3 py-2 focus-within:border-violet-500 transition-colors">
-          <FiSearch size={12} className="text-neutral-500 shrink-0" />
+        <div className="flex items-center gap-2.5 bg-[#121318] border border-white/10 rounded-xl px-3.5 py-2.5 focus-within:border-violet-500/80 focus-within:shadow-[0_0_15px_rgba(139,92,246,0.05)] transition-all">
+          <FiSearch size={14} className="text-neutral-400 shrink-0" />
           <input
             type="text"
             value={productSearch}
@@ -751,82 +736,33 @@ export function OrderBuilder({
             className="flex-1 bg-transparent text-xs text-white placeholder-neutral-600 outline-none"
           />
           {productSearch && (
-            <button type="button" onClick={() => { setProductSearch(""); setShowProductDropdown(false) }} className="text-neutral-500 hover:text-white cursor-pointer">
-              <FiX size={12} />
+            <button type="button" onClick={() => { setProductSearch(""); setShowProductDropdown(false) }} className="text-neutral-400 hover:text-white transition-colors cursor-pointer">
+              <FiX size={14} />
             </button>
           )}
         </div>
 
-      {/* ── Quick Add -- Past Products & Usage Matched Blades ── */}
-      <div className="space-y-3">
-        <p className="text-[10px] text-neutral-400 uppercase tracking-wider font-extrabold flex items-center gap-1.5">
-          ⚡ Quick Add -- Past Products & Blades Matching Usage
-        </p>
-
-        {/* 1. All Previously Purchased Products (No Gifts) */}
-        {previousPurchasesNoGifts.length > 0 && (
-          <div className="space-y-1.5 glass-panel/40 border border-emerald-500/20 p-2.5 rounded-xl">
-            <p className="text-[9px] text-emerald-400 uppercase tracking-wider font-extrabold flex items-center gap-1">
-              📦 All Previous Purchased Products (No Gifts) ({previousPurchasesNoGifts.length})
-            </p>
-            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto scrollbar-thin pr-1">
-              {previousPurchasesNoGifts.map((p, idx) => (
-                <button
-                  key={`${p.sku}-${idx}`}
-                  type="button"
-                  onClick={() => openAddItemModal({ name: p.name, sku: p.sku, price: p.price, cost: p.cost })}
-                  className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer bg-emerald-950/40 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500 hover:text-black hover:border-emerald-300 flex items-center gap-1.5 shadow-sm"
-                  title={`Re-order past item: ${p.name} (${p.sku}) - $${(p.price || 0).toFixed(2)}`}
-                >
-                  <span>🛍️ {p.name}</span>
-                  {p.price > 0 && <span className="text-[9px] font-mono opacity-80">${(p.price || 0).toFixed(0)}</span>}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 2. Blades Matching Usage & Equipment */}
-        {usageMatchedBlades.length > 0 && (
-          <div className="space-y-1.5 glass-panel/40 border border-cyan-500/20 p-2.5 rounded-xl">
-            <p className="text-[9px] text-cyan-400 uppercase tracking-wider font-extrabold flex items-center gap-1">
-              ⚙️ Blades Matching Usage & Equipment ({usageMatchedBlades.length})
-            </p>
-            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto scrollbar-thin pr-1">
-              {usageMatchedBlades.map(bp => (
-                <button
-                  key={bp.sku}
-                  type="button"
-                  onClick={() => openAddItemModal(bp)}
-                  className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer glass-panel border-cyan-500/30 text-cyan-300 hover:bg-cyan-500 hover:text-black hover:border-cyan-300 flex items-center gap-1 shadow-sm"
-                  title={`Add blade matching usage: ${bp.name}`}
-                >
-                  <span>⚡ {bp.name}</span>
-                  {bp.size && <span className="text-[9px] font-mono text-cyan-200/80">({bp.size})</span>}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
         {showProductDropdown && searchResults.length > 0 && (
-          <div className="absolute z-50 top-full mt-1 left-0 right-0 glass-panel border border-neutral-700 rounded-xl shadow-2xl max-h-52 overflow-y-auto">
+          <div className="absolute z-50 top-full mt-1.5 left-0 right-0 bg-[#0f1013]/95 border border-white/10 rounded-xl shadow-2xl max-h-60 overflow-y-auto divide-y divide-white/5 scrollbar-thin">
             {searchResults.map(p => {
               const desc = parseDesc(p.description)
               return (
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => openAddItemModal({ name: p.name, sku: p.sku, price: p.price || 0, cost: desc.cost || 0 })}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors border-b border-white/10/50 last:border-0 cursor-pointer"
+                  onClick={() => openAddItemModal({ name: p.name, sku: p.sku, price: p.price || 0, cost: desc.cost || 0, subjectToVig: p.subjectToVig !== false, giftItem: !!p.giftItem })}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/[0.04] transition-colors cursor-pointer"
                 >
-                  <FiPlus size={12} className="text-violet-400" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-bold text-white truncate">{p.name}</p>
-                    <p className="text-[9px] text-neutral-500">{p.sku} . {p.category}</p>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0">
+                      <FiPlus size={14} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white truncate" title={p.name}>{p.name}</p>
+                      <p className="text-[10px] text-neutral-500 font-mono mt-0.5">{p.sku} · {p.category}</p>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-mono font-bold text-amber-400 shrink-0">${(p.price || 0).toFixed(2)}</span>
+                  <span className="text-xs font-mono font-black text-amber-400 shrink-0">${(p.price || 0).toFixed(2)}</span>
                 </button>
               )
             })}
@@ -834,85 +770,140 @@ export function OrderBuilder({
         )}
       </div>
 
-      {/* â"€â"€ Quick Add -- Top Blades â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
-      {topBladeProducts.length > 0 && (
-        <div className="space-y-1.5">
-          <p className="text-[9px] text-neutral-600 uppercase tracking-wider font-bold mb-1.5">Quick Add -- Top Blades</p>
-          <div className="flex flex-wrap gap-1.5">
-            {topBladeProducts.map(bp => {
-              return (
+      {/* ── Quick Add Rails ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Previous Purchases */}
+        {previousPurchasesNoGifts.length > 0 && (
+          <div className="space-y-2 glass-panel border border-emerald-500/20 p-3.5 rounded-2xl bg-emerald-950/[0.02]">
+            <p className="text-[9px] text-emerald-400 uppercase tracking-widest font-black flex items-center gap-1.5">
+              <FiPackage size={11} className="text-emerald-500" />
+              Previous Purchases ({previousPurchasesNoGifts.length})
+            </p>
+            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto scrollbar-thin pr-1">
+              {previousPurchasesNoGifts.map((p, idx) => (
+                <button
+                  key={`${p.sku}-${idx}`}
+                  type="button"
+                  onClick={() => openAddItemModal({ name: p.name, sku: p.sku, price: p.price, cost: p.cost, subjectToVig: p.subjectToVig })}
+                  className="px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer bg-emerald-950/20 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500 hover:text-black hover:border-emerald-300 hover:-translate-y-0.5 shadow-sm active:translate-y-0"
+                  title={`Re-order past item: ${p.name} - $${(p.price || 0).toFixed(2)}`}
+                >
+                  <span>🛍️ {p.name}</span>
+                  {p.price > 0 && <span className="text-[9px] font-mono opacity-80 ml-1.5 border-l border-emerald-500/30 pl-1.5">${(p.price || 0).toFixed(0)}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Blades Matching Usage */}
+        {usageMatchedBlades.length > 0 && (
+          <div className="space-y-2 glass-panel border border-cyan-500/20 p-3.5 rounded-2xl bg-cyan-950/[0.02]">
+            <p className="text-[9px] text-cyan-400 uppercase tracking-widest font-black flex items-center gap-1.5">
+              <FiFilter size={11} className="text-cyan-500" />
+              Matching Equipment ({usageMatchedBlades.length})
+            </p>
+            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto scrollbar-thin pr-1">
+              {usageMatchedBlades.map(bp => (
                 <button
                   key={bp.sku}
                   type="button"
                   onClick={() => openAddItemModal(bp)}
-                  className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer glass-panel border-neutral-700 text-neutral-400 hover:border-violet-500/50 hover:text-violet-300"
+                  className="px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer bg-cyan-950/20 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500 hover:text-black hover:border-cyan-300 hover:-translate-y-0.5 shadow-sm active:translate-y-0 flex items-center gap-1"
+                  title={`Add matching blade: ${bp.name}`}
+                >
+                  <span>⚡ {bp.name}</span>
+                  {bp.size && <span className="text-[9px] font-mono text-cyan-200/70 ml-1">({bp.size})</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Top 10 Blades & Popular Gifts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 border-t border-white/5">
+        {/* Top 10 */}
+        {topBladeProducts.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[9px] text-neutral-500 uppercase tracking-widest font-extrabold">Top Catalog Blades</p>
+            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto scrollbar-thin pr-1">
+              {topBladeProducts.map(bp => (
+                <button
+                  key={bp.sku}
+                  type="button"
+                  onClick={() => openAddItemModal(bp)}
+                  className="px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer bg-[#121318] border-white/10 text-neutral-300 hover:border-violet-500/50 hover:text-violet-300 hover:-translate-y-0.5 active:translate-y-0"
                 >
                   ⚡ {bp.name}
                 </button>
-              )
-            })}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {popularGifts.length > 0 && (
-        <div className="pt-2.5 border-t border-white/5 space-y-1.5">
-          <p className="text-[9px] text-purple-400 uppercase tracking-wider font-bold mb-1.5 flex items-center gap-1">
-            <span>🎁 Quick Add -- Popular Gifts (No VIG)</span>
-          </p>
-          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto scrollbar-thin pr-1">
-            {popularGifts.map(gift => {
-              return (
+        {/* Popular Gifts */}
+        {popularGifts.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[9px] text-purple-400 uppercase tracking-widest font-extrabold flex items-center gap-1.5">
+              🎁 Popular Gifts (No VIG)
+            </p>
+            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto scrollbar-thin pr-1">
+              {popularGifts.map(gift => (
                 <button
                   key={gift.sku}
                   type="button"
                   onClick={() => openAddItemModal(gift)}
-                  className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer bg-purple-950/20 border-purple-500/30 text-purple-300 hover:bg-purple-500 hover:text-black hover:border-purple-300 flex items-center gap-1 shadow-sm"
+                  className="px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer bg-purple-950/20 border-purple-500/30 text-purple-300 hover:bg-purple-500 hover:text-black hover:border-purple-300 hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-1 shadow-sm"
                 >
                   <span>🎁 {gift.name}</span>
                 </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* â"€â"€ Add Item Pending Modal â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
-      {pendingItem && (
-        <div className="bg-violet-950/40 border border-violet-500/40 rounded-xl p-3 space-y-3">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">Add Item</p>
-              <p className="text-sm font-bold text-white truncate">{pendingItem.name}</p>
-              <p className="text-[9px] text-neutral-400">{pendingItem.sku}</p>
+              ))}
             </div>
-            <button type="button" onClick={() => setPendingItem(null)} className="text-neutral-500 hover:text-white">
-              <FiX size={14} />
+          </div>
+        )}
+      </div>
+
+      {/* ── Pending Add Item Modal/Card ── */}
+      {pendingItem && (
+        <div className="bg-[#12101b] border border-violet-500/30 rounded-2xl p-4 space-y-4 shadow-xl animate-in slide-in-from-top-4 fade-in duration-300 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent pointer-events-none" />
+          <div className="flex items-start justify-between relative z-10">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">Configure Item Details</p>
+              <p className="text-sm font-black text-white mt-0.5">{pendingItem.name}</p>
+              <p className="text-[10px] text-neutral-500 font-mono">{pendingItem.sku}</p>
+            </div>
+            <button type="button" onClick={() => setPendingItem(null)} className="p-1 text-neutral-500 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer">
+              <FiX size={16} />
             </button>
           </div>
           
-          <div className="grid grid-cols-3 gap-2">
-            <div className="glass-panel/60 border border-white/10 rounded p-2 text-center space-y-1">
-              <p className="text-[8px] font-bold uppercase tracking-wider text-amber-500">Paid Qty</p>
+          <div className="grid grid-cols-3 gap-3 relative z-10">
+            <div className="bg-black/40 border border-white/5 rounded-xl p-3 text-center space-y-1.5">
+              <p className="text-[9px] font-black uppercase tracking-wider text-amber-500">Paid Qty</p>
               <div className="flex justify-center">
-                <QtyInput value={addPaidQty} onChange={setAddPaidQty} colorClass="text-amber-400 border-amber-500/30 focus:border-amber-500" bgClass="bg-black/20" />
+                <QtyInput value={addPaidQty} onChange={setAddPaidQty} colorClass="text-amber-400 border-amber-500/30 bg-[#121318]" />
               </div>
             </div>
-            <div className="glass-panel/60 border border-white/10 rounded p-2 text-center space-y-1">
-              <p className="text-[8px] font-bold uppercase tracking-wider text-emerald-500">Free Qty</p>
+            <div className="bg-black/40 border border-white/5 rounded-xl p-3 text-center space-y-1.5">
+              <p className="text-[9px] font-black uppercase tracking-wider text-emerald-500">Free Qty</p>
               <div className="flex justify-center">
-                <QtyInput value={addFreeQty} onChange={setAddFreeQty} colorClass="text-emerald-400 border-emerald-500/30 focus:border-emerald-500" bgClass="bg-black/20" />
+                <QtyInput value={addFreeQty} onChange={setAddFreeQty} colorClass="text-emerald-400 border-emerald-500/30 bg-[#121318]" />
               </div>
             </div>
-            <div className="glass-panel/60 border border-white/10 rounded p-2 text-center space-y-1">
-              <p className="text-[8px] font-bold uppercase tracking-wider text-violet-400">Unit Price</p>
-              <input
-                type="number"
-                value={addPrice}
-                onChange={e => setAddPrice(parseFloat(e.target.value) || 0)}
-                className="w-16 mx-auto bg-black/20 border border-neutral-700 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-white text-center focus:border-violet-500 outline-none"
-                step="0.01"
-              />
+            <div className="bg-black/40 border border-white/5 rounded-xl p-3 text-center space-y-2 flex flex-col justify-center items-center">
+              <p className="text-[9px] font-black uppercase tracking-wider text-violet-400">Unit Price</p>
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-xs">$</span>
+                <input
+                  type="number"
+                  value={addPrice}
+                  onChange={e => setAddPrice(parseFloat(e.target.value) || 0)}
+                  className="w-20 pl-6 pr-2 py-1 bg-[#121318] border border-white/10 rounded-lg text-xs font-mono font-black text-white text-center focus:border-violet-500 outline-none"
+                  step="0.01"
+                />
+              </div>
             </div>
           </div>
           
@@ -920,371 +911,413 @@ export function OrderBuilder({
             type="button"
             onClick={confirmAddItem}
             disabled={addPaidQty === 0 && addFreeQty === 0}
-            className="w-full py-2 rounded bg-violet-600 hover:bg-violet-500 text-white text-[11px] font-black tracking-widest uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 hover:shadow-[0_4px_15px_rgba(139,92,246,0.3)] text-white text-xs font-black tracking-wider uppercase transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99] relative z-10"
           >
             Add to Order
           </button>
         </div>
       )}
 
-      {/* â"€â"€ Sold Items â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
-      {paidLines.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <FiDollarSign size={11} className="text-amber-400" />
-            <p className="text-[9px] font-bold uppercase tracking-wider text-amber-400">
-              Sold Items ({paidLines.length})
-            </p>
-          </div>
-
-          {/* Header */}
-          <div className="grid grid-cols-[1fr_64px_70px_24px] gap-1.5 px-2 text-[8px] font-bold text-neutral-600 uppercase tracking-wider">
-            <span>Item</span>
-            <span className="text-center">Qty</span>
-            <span className="text-right">Price / Line $</span>
-            <span />
-          </div>
-
-          {paidLines.map(line => (
-            <div
-              key={line.id}
-              className="grid grid-cols-[1fr_64px_70px_24px] gap-1.5 items-center glass-panel/50 border border-white/10/50 rounded-lg px-2 py-1.5"
-            >
-              <div className="min-w-0">
-                <span className="text-[11px] font-bold text-white truncate block">{line.name}</span>
-                {line.sku && <span className="text-[8px] text-neutral-600 block">{line.sku}</span>}
-              </div>
-
-              <div className="flex justify-center">
-                <QtyInput
-                  value={line.quantity}
-                  onChange={n => updateLine(line.id, { quantity: n })}
-                  colorClass="text-white"
-                  bgClass="bg-neutral-800"
-                  btnClass="bg-neutral-800 hover:bg-neutral-700 text-neutral-400"
-                />
-              </div>
-
-              <div className="text-right space-y-0.5">
-                <input
-                  type="number"
-                  value={line.unitPrice}
-                  onChange={e => updateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded px-1.5 py-0.5 text-[10px] font-mono font-bold text-white text-right focus:border-violet-500 outline-none"
-                  step="0.01"
-                />
-                <span className="text-[10px] font-black text-amber-400 block">
-                  ${(line.quantity * line.unitPrice).toFixed(2)}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => removeLine(line.id)}
-                className="w-5 h-5 rounded bg-red-900/20 text-red-400 text-[10px] font-bold flex items-center justify-center hover:bg-red-900/40 cursor-pointer"
-              >×</button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* â"€â"€ Promotional / Gift Items â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
-      {promoLines.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <FiTag size={11} className="text-emerald-400" />
-            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-400">
-              🎁 Promotional Items ({promoLines.length})
-            </p>
-          </div>
-
-          {/* Header */}
-          <div className="grid grid-cols-[1fr_64px_24px] gap-1.5 px-2 text-[8px] font-bold text-emerald-800 uppercase tracking-wider">
-            <span>Item</span>
-            <span className="text-center">Free Qty</span>
-            <span />
-          </div>
-
-          {promoLines.map(line => (
-            <div
-              key={`promo-${line.id}`}
-              className="grid grid-cols-[1fr_64px_24px] gap-1.5 items-center bg-emerald-950/20 border border-emerald-900/40 rounded-lg px-2 py-1.5"
-            >
-              <div className="min-w-0">
-                <span className="text-[11px] font-bold text-emerald-300 truncate block">{line.name}</span>
-                <span className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL -- FREE . {line.sku}</span>
-              </div>
-
-              <div className="flex justify-center">
-                <QtyInput
-                  value={line.quantity}
-                  onChange={n => updateLine(line.id, { quantity: n })}
-                  colorClass="text-emerald-300"
-                  bgClass="bg-emerald-950/40"
-                  btnClass="bg-emerald-900/30 hover:bg-emerald-900/50 text-emerald-400"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => removeLine(line.id)}
-                className="w-5 h-5 rounded bg-red-900/20 text-red-400 text-[10px] font-bold flex items-center justify-center hover:bg-red-900/40 cursor-pointer"
-                title="Remove promotional item"
-              >×</button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* â"€â"€ Empty State â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
-      {orderLines.length === 0 && (
-        <div className="flex flex-col items-center justify-center gap-2 py-6 text-neutral-600">
-          <FiShoppingCart size={22} />
-          <p className="text-[10px] italic">Use Blade Lookup, search, or quick-add to start building the order</p>
-        </div>
-      )}
-
-      {/* â"€â"€ Order Summary â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
+      {/* ── Active Order Cart List ── */}
       {orderLines.length > 0 && (
-        <div className="border-t border-violet-500/20 pt-2 space-y-1">
-          <div className="flex justify-between px-1">
-            <span className="text-[10px] text-neutral-400">Sold Items</span>
-            <span className="text-[11px] font-bold text-white">
-              {paidLines.reduce((s, l) => s + l.quantity, 0)} items
-            </span>
-          </div>
-          {promoLines.length > 0 && (
-            <div className="flex justify-between px-1">
-              <span className="text-[10px] text-emerald-500">🎁 Promotional</span>
-              <span className="text-[11px] font-bold text-emerald-400">
-                {promoLines.reduce((s, l) => s + l.quantity, 0)} free
-              </span>
+        <div className="space-y-4">
+          {/* Sold Items */}
+          {paidLines.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 border-b border-white/5 pb-1">
+                <FiDollarSign size={13} className="text-amber-500" />
+                <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">
+                  Sold Items ({paidLines.length})
+                </p>
+              </div>
+
+              {/* Grid headers */}
+              <div className="grid grid-cols-[1fr_74px_90px_28px] gap-2 px-3 text-[9px] font-black text-neutral-500 uppercase tracking-widest">
+                <span>Product Name</span>
+                <span className="text-center">Qty</span>
+                <span className="text-right">Price overrides</span>
+                <span />
+              </div>
+
+              <div className="space-y-1.5">
+                {paidLines.map(line => (
+                  <div
+                    key={line.id}
+                    className="grid grid-cols-[1fr_74px_90px_28px] gap-2 items-center bg-[#121318]/40 border border-white/5 hover:border-white/10 hover:bg-[#121318]/60 transition-colors rounded-xl px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-white truncate block leading-tight" title={line.name}>{line.name}</span>
+                      {line.sku && <span className="text-[9px] text-neutral-500 font-mono block mt-0.5">{line.sku}</span>}
+                    </div>
+
+                    <div className="flex justify-center">
+                      <QtyInput
+                        value={line.quantity}
+                        onChange={n => updateLine(line.id, { quantity: n })}
+                        colorClass="text-white"
+                        bgClass="bg-[#121318]"
+                      />
+                    </div>
+
+                    <div className="text-right space-y-1">
+                      <div className="relative inline-block w-20">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-500 font-bold text-[10px] font-mono">$</span>
+                        <input
+                          type="number"
+                          value={line.unitPrice}
+                          onChange={e => updateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+                          className="w-full pl-5 pr-2 py-0.5 bg-[#121318] border border-white/10 rounded-md text-[11px] font-mono font-bold text-white text-right focus:border-violet-500 outline-none"
+                          step="0.01"
+                        />
+                      </div>
+                      <span className="text-xs font-black text-amber-400 block pr-1">
+                        ${(line.quantity * line.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => removeLine(line.id)}
+                        className="w-6 h-6 rounded-lg bg-rose-500/10 text-rose-400 hover:text-white hover:bg-rose-500/80 transition-all flex items-center justify-center cursor-pointer font-bold text-xs"
+                      >×</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-          <div className="flex justify-between px-1 pt-1 border-t border-white/10">
-            <span className="text-xs font-bold text-violet-300">Order Total</span>
-            <span className="text-sm font-black text-amber-400">
-              ${orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </span>
-          </div>
-        </div>
-      )}
 
-      {/* â"€â"€ Financials â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
-      {financials && (
-        <div className="border-t border-amber-500/20 pt-2 space-y-1">
-          <p className="text-[8px] font-bold uppercase tracking-wider text-amber-500/60 px-1 mb-1">💰 Profit Estimates</p>
-          {[
-            ["Dead Cost", `-$${financials.deadCostTotal.toFixed(2)}`, "text-red-400"],
-            ["Dead Profit", `$${financials.deadProfit.toFixed(2)}`, financials.deadProfit >= 0 ? "text-emerald-400" : "text-red-400"],
-            [`VIG (${vigRate}×)`, `-$${financials.deadCostPlusVig.toFixed(2)}`, "text-red-400"],
-          ].map(([label, val, color]) => (
-            <div key={label as string} className="flex justify-between px-1">
-              <span className="text-[10px] text-neutral-500">{label}</span>
-              <span className={`text-[10px] font-bold ${color}`}>{val}</span>
+          {/* Promotional / Gift Items */}
+          {promoLines.length > 0 && (
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center gap-1.5 border-b border-white/5 pb-1">
+                <FiTag size={13} className="text-emerald-400" />
+                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                  🎁 Promotional Gifts ({promoLines.length})
+                </p>
+              </div>
+
+              {/* Grid headers */}
+              <div className="grid grid-cols-[1fr_74px_28px] gap-2 px-3 text-[9px] font-black text-neutral-500 uppercase tracking-widest">
+                <span>Gift Name</span>
+                <span className="text-center">Free Qty</span>
+                <span />
+              </div>
+
+              <div className="space-y-1.5">
+                {promoLines.map(line => (
+                  <div
+                    key={`promo-${line.id}`}
+                    className="grid grid-cols-[1fr_74px_28px] gap-2 items-center bg-emerald-950/[0.05] border border-emerald-500/15 hover:border-emerald-500/30 hover:bg-emerald-950/[0.08] transition-colors rounded-xl px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-emerald-300 truncate block leading-tight" title={line.name}>{line.name}</span>
+                      <span className="text-[9px] text-emerald-700/90 font-bold font-mono mt-0.5">PROMOTIONAL FREE · {line.sku}</span>
+                    </div>
+
+                    <div className="flex justify-center">
+                      <QtyInput
+                        value={line.quantity}
+                        onChange={n => updateLine(line.id, { quantity: n })}
+                        colorClass="text-emerald-300"
+                        bgClass="bg-emerald-950/20"
+                        btnClass="bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/20 text-emerald-400 hover:text-white"
+                      />
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => removeLine(line.id)}
+                        className="w-6 h-6 rounded-lg bg-rose-500/10 text-rose-400 hover:text-white hover:bg-rose-500/80 transition-all flex items-center justify-center cursor-pointer font-bold text-xs"
+                        title="Remove promo item"
+                      >×</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-          <div className="flex justify-between px-1 pt-1 border-t border-white/10">
-            <span className="text-[10px] font-bold text-amber-300">Profit after VIG</span>
-            <span className={`text-[11px] font-black ${financials.profitAfterVig >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              ${financials.profitAfterVig.toFixed(2)}
-            </span>
+          )}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {orderLines.length === 0 && (
+        <div className="flex flex-col items-center justify-center gap-3 py-10 glass-panel border border-white/5 rounded-2xl text-neutral-500 bg-white/[0.01]">
+          <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 border border-white/5">
+            <FiShoppingCart size={18} />
           </div>
-          <div className="flex justify-between px-1">
-            <span className="text-[10px] text-neutral-500">Commission ({commissionPct}%)</span>
-            <span className="text-[11px] font-black text-green-400">${financials.salesCommission.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between px-1">
-            <span className="text-[9px] text-neutral-600">Margin</span>
-            <span className={`text-[9px] font-bold ${financials.marginPct >= 30 ? "text-emerald-500" : financials.marginPct >= 15 ? "text-amber-500" : "text-red-500"}`}>
-              {financials.marginPct.toFixed(1)}%
-            </span>
+          <div className="text-center">
+            <p className="text-xs font-bold text-neutral-400">Order Cart is Empty</p>
+            <p className="text-[10px] text-neutral-600 mt-1">Use Blade Lookup, search or Quick Add above to add items</p>
           </div>
         </div>
       )}
 
-      {/* â"€â"€ Preview Button â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
+      {/* ── Dashboard Metrics Grid & Checkout Panel ── */}
       {orderLines.length > 0 && (
-        <button
-          type="button"
-          onClick={() => setShowMockOrder(true)}
-          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs font-black uppercase tracking-wider hover:from-violet-500 hover:to-purple-500 transition-all cursor-pointer flex items-center justify-center gap-2"
-        >
-          <FiFileText size={14} /> Preview Order / Quote
-        </button>
+        <div className="space-y-4 pt-3 border-t border-white/10">
+          
+          {/* Dashboard Metrics Grid */}
+          {financials && (
+            <div className="space-y-2">
+              <p className="text-[9px] font-black uppercase tracking-widest text-amber-500/70 flex items-center gap-1.5 px-1">
+                <FiTrendingUp size={11} className="text-amber-500 animate-pulse" />
+                Live Financials Dashboard
+              </p>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {/* Margin */}
+                <div className="bg-black/30 border border-white/5 rounded-xl p-3 text-center flex flex-col justify-center items-center shadow-inner relative overflow-hidden">
+                  <div className="absolute top-1 right-2 text-neutral-600/30"><FiPercent size={24} /></div>
+                  <span className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-500">Margin</span>
+                  <span className={`text-base font-black mt-1 ${financials.marginPct >= 30 ? "text-emerald-400" : financials.marginPct >= 15 ? "text-amber-400" : "text-rose-400"}`}>
+                    {financials.marginPct.toFixed(1)}%
+                  </span>
+                </div>
+
+                {/* Dead Cost */}
+                <div className="bg-black/30 border border-white/5 rounded-xl p-3 text-center flex flex-col justify-center items-center shadow-inner relative overflow-hidden">
+                  <div className="absolute top-1 right-2 text-neutral-600/30"><FiAlertCircle size={24} /></div>
+                  <span className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-500">Dead Cost (COGS)</span>
+                  <span className="text-base font-black text-rose-400 mt-1">
+                    ${financials.deadCostTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+
+                {/* Profit after VIG */}
+                <div className="bg-violet-500/[0.02] border border-violet-500/15 rounded-xl p-3 text-center flex flex-col justify-center items-center shadow-inner relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.02] to-transparent pointer-events-none" />
+                  <span className="text-[9px] font-extrabold uppercase tracking-wider text-violet-400">Profit (VIG {vigRate}x)</span>
+                  <span className={`text-base font-black mt-1 ${financials.profitAfterVig >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    ${financials.profitAfterVig.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                {/* Commission */}
+                <div className="bg-emerald-500/[0.03] border border-emerald-500/20 rounded-xl p-3 text-center flex flex-col justify-center items-center shadow-[0_0_15px_rgba(16,185,129,0.02)] relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] to-transparent pointer-events-none" />
+                  <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-400">Rep Payout ({commissionPct}%)</span>
+                  <span className="text-base font-black text-emerald-400 mt-1 font-mono tracking-tight glow-emerald">
+                    ${financials.salesCommission.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Collapsible details for math context */}
+              <div className="bg-[#121318]/50 border border-white/5 rounded-xl p-3 text-[10px] space-y-1 text-neutral-400 leading-relaxed font-mono">
+                <div className="flex justify-between">
+                  <span>Gross Sales Subtotal:</span>
+                  <span className="text-white font-bold">${financials.subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Direct Dead Cost (No markup):</span>
+                  <span>${financials.deadCostTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between border-t border-white/5 pt-1 mt-1 font-sans">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-neutral-500">Estimate Dead Profit (LTV - direct cost)</span>
+                  <span className="text-white font-black">${financials.deadProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Checkout Preview Button */}
+          <button
+            type="button"
+            onClick={() => setShowMockOrder(true)}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:via-purple-500 hover:to-indigo-500 text-white text-xs font-black uppercase tracking-wider hover:shadow-[0_4px_20px_rgba(139,92,246,0.35)] transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-[0.99] border border-violet-500/20"
+          >
+            <FiFileText size={14} /> Preview Order / Quote
+          </button>
+        </div>
       )}
 
-      {/* â"€â"€ Sales Order Preview Modal â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */}
+      {/* ── Sales Order Preview Modal ── */}
       {showMockOrder && orderLines.length > 0 && (
         <div
-          className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[200] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setShowMockOrder(false)}
         >
           <div
-            className="glass-panel border border-neutral-700 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-2xl"
+            className="glass-panel border border-neutral-700 bg-[#0c0d12]/95 rounded-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}
           >
             {/* Modal header */}
-            <div className="sticky top-0 glass-panel border-b border-white/10 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+            <div className="sticky top-0 bg-[#0f1016]/90 backdrop-blur border-b border-white/10 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
               <div>
-                <h3 className="text-white font-black text-base">
+                <h3 className="text-white font-black text-base flex items-center gap-2">
+                  <FiFileText className="text-violet-500" />
                   {transactionType === "SalesOrder" ? "Sales Order Preview" : "Quote / Estimate Preview"}
                 </h3>
-                <p className="text-[10px] text-neutral-500 mt-0.5">
-                  {accountName || "Customer"} . {new Date().toLocaleDateString()}
+                <p className="text-[10px] text-neutral-400 mt-0.5">
+                  {accountName || "Customer"} · {new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
                 </p>
               </div>
-              <button type="button" onClick={() => setShowMockOrder(false)} className="text-neutral-500 hover:text-white cursor-pointer">
+              <button type="button" onClick={() => setShowMockOrder(false)} className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-white/5 transition-all cursor-pointer">
                 <FiX size={18} />
               </button>
             </div>
 
-            <div className="px-6 py-4 space-y-5">
-              {/* Transaction Type Choice */}
-              <div className="flex bg-neutral-900 border border-white/10 rounded-xl p-1 gap-1">
+            <div className="px-6 py-5 space-y-6">
+              {/* Transaction Type Toggle Tabs */}
+              <div className="flex bg-neutral-900/80 border border-white/10 rounded-2xl p-1 gap-1">
                 <button
                   type="button"
                   onClick={() => setTransactionType("SalesOrder")}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                     transactionType === "SalesOrder"
-                      ? "bg-violet-600 text-white shadow animate-in fade-in duration-200"
-                      : "text-neutral-400 hover:text-white hover:bg-white/5"
+                      ? "bg-violet-600 text-white shadow-lg shadow-violet-500/20"
+                      : "text-neutral-400 hover:text-white hover:bg-white/[0.03]"
                   }`}
                 >
-                  📄 Sales Order
+                  <FiFileText size={12} />
+                  Sales Order
                 </button>
                 <button
                   type="button"
                   onClick={() => setTransactionType("Quote")}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                     transactionType === "Quote"
-                      ? "bg-violet-600 text-white shadow animate-in fade-in duration-200"
-                      : "text-neutral-400 hover:text-white hover:bg-white/5"
+                      ? "bg-violet-600 text-white shadow-lg shadow-violet-500/20"
+                      : "text-neutral-400 hover:text-white hover:bg-white/[0.03]"
                   }`}
                 >
-                  📝 Quote / Estimate
+                  <FiTag size={12} />
+                  Quote / Estimate
                 </button>
               </div>
 
-              {/* Customer info */}
+              {/* Billing/Shipping Address Grid */}
               {(accountName || accountDetail) && (
-                <div className="grid grid-cols-2 gap-3 text-[10px]">
+                <div className="grid grid-cols-2 gap-4 bg-white/[0.01] border border-white/5 p-4 rounded-2xl text-[10px]">
                   <div>
-                    <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Bill To</p>
-                    <p className="text-white font-bold">{accountName}</p>
-                    {accountDetail?.billingStreet && <p className="text-neutral-400">{accountDetail.billingStreet}</p>}
+                    <p className="text-neutral-500 uppercase tracking-widest font-black mb-1 border-b border-white/5 pb-0.5">Bill To</p>
+                    <p className="text-white font-bold text-xs">{accountName}</p>
+                    {accountDetail?.billingStreet && <p className="text-neutral-400 mt-1 leading-relaxed">{accountDetail.billingStreet}</p>}
                   </div>
                   <div>
-                    <p className="text-neutral-500 uppercase tracking-wider font-bold mb-0.5">Ship To</p>
-                    <p className="text-white font-bold">{accountName}</p>
+                    <p className="text-neutral-500 uppercase tracking-widest font-black mb-1 border-b border-white/5 pb-0.5">Ship To</p>
+                    <p className="text-white font-bold text-xs">{accountName}</p>
                     {(accountDetail?.shippingStreet || accountDetail?.billingStreet) && (
-                      <p className="text-neutral-400">{accountDetail.shippingStreet || accountDetail.billingStreet}</p>
+                      <p className="text-neutral-400 mt-1 leading-relaxed">{accountDetail.shippingStreet || accountDetail.billingStreet}</p>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Sold Items table */}
+              {/* Sold Items Preview Table */}
               {paidLines.length > 0 && (
-                <div>
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-neutral-500 mb-2 flex items-center gap-1.5">
-                    <FiDollarSign size={10} /> Sold Items
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-400/90 flex items-center gap-1.5">
+                    <FiDollarSign size={12} className="text-amber-500" /> Sold Items Summary
                   </p>
-                  <div className="border border-white/10 rounded-lg overflow-hidden">
-                    <div className="grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-1.5 bg-neutral-800/50 text-[8px] font-bold text-neutral-500 uppercase">
-                      <span>Item</span><span className="text-center">Qty</span><span className="text-right">Unit</span><span className="text-right">Amount</span>
+                  <div className="border border-white/10 rounded-2xl overflow-hidden shadow-md">
+                    <div className="grid grid-cols-[1fr_50px_80px_90px] gap-2 px-4 py-2 bg-neutral-800/40 text-[9px] font-black text-neutral-400 uppercase tracking-wider">
+                      <span>Item</span>
+                      <span className="text-center">Qty</span>
+                      <span className="text-right">Unit Price</span>
+                      <span className="text-right">Total Amount</span>
                     </div>
-                    {paidLines.map((line, i) => (
-                      <div key={`so-paid-${line.id}`} className={`grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-2 ${i % 2 === 0 ? "glass-panel/50" : ""}`}>
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-bold text-white truncate">{line.name}</p>
-                          {line.sku && <p className="text-[8px] text-neutral-600">{line.sku}</p>}
+                    <div className="divide-y divide-white/5">
+                      {paidLines.map((line, idx) => (
+                        <div key={`so-paid-${line.id}`} className={`grid grid-cols-[1fr_50px_80px_90px] gap-2 px-4 py-3 items-center ${idx % 2 === 0 ? "bg-white/[0.01]" : ""}`}>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-white truncate" title={line.name}>{line.name}</p>
+                            {line.sku && <p className="text-[9px] text-neutral-500 font-mono mt-0.5">{line.sku}</p>}
+                          </div>
+                          <span className="text-xs font-black text-white text-center">{line.quantity}</span>
+                          <span className="text-xs font-mono text-neutral-400 text-right">${line.unitPrice.toFixed(2)}</span>
+                          <span className="text-xs font-mono font-black text-white text-right">${(line.quantity * line.unitPrice).toFixed(2)}</span>
                         </div>
-                        <span className="text-[11px] font-black text-white text-center">{line.quantity}</span>
-                        <span className="text-[10px] font-mono text-neutral-400 text-right">${line.unitPrice.toFixed(2)}</span>
-                        <span className="text-[11px] font-black text-white text-right">${(line.quantity * line.unitPrice).toFixed(2)}</span>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Promotional Items table */}
+              {/* Promotional Items Preview Table */}
               {promoLines.length > 0 && (
-                <div>
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-500 mb-2 flex items-center gap-1.5">
-                    <FiTag size={10} /> 🎁 Promotional Items
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400/90 flex items-center gap-1.5">
+                    <FiTag size={12} className="text-emerald-400" /> 🎁 Promotional Items Summary
                   </p>
-                  <div className="border border-emerald-900/50 rounded-lg overflow-hidden">
-                    <div className="grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-1.5 bg-emerald-950/30 text-[8px] font-bold text-emerald-700 uppercase">
-                      <span>Item</span><span className="text-center">Free Qty</span><span className="text-right">Unit</span><span className="text-right">Amount</span>
+                  <div className="border border-emerald-500/15 rounded-2xl overflow-hidden shadow-md">
+                    <div className="grid grid-cols-[1fr_60px_80px_90px] gap-2 px-4 py-2 bg-emerald-950/20 text-[9px] font-black text-emerald-400/70 uppercase tracking-wider">
+                      <span>Item</span>
+                      <span className="text-center">Free Qty</span>
+                      <span className="text-right">Unit Price</span>
+                      <span className="text-right">Total Amount</span>
                     </div>
-                    {promoLines.map((line, i) => (
-                      <div key={`so-promo-${line.id}`} className={`grid grid-cols-[1fr_50px_70px_80px] gap-2 px-3 py-2 ${i % 2 === 0 ? "bg-emerald-950/10" : ""}`}>
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-bold text-emerald-300 truncate">{line.name}</p>
-                          <p className="text-[8px] text-emerald-700 font-bold">PROMOTIONAL -- FREE</p>
+                    <div className="divide-y divide-white/5 bg-emerald-950/[0.02]">
+                      {promoLines.map((line, idx) => (
+                        <div key={`so-promo-${line.id}`} className={`grid grid-cols-[1fr_60px_80px_90px] gap-2 px-4 py-3 items-center ${idx % 2 === 0 ? "bg-emerald-950/[0.04]" : ""}`}>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-emerald-300 truncate" title={line.name}>{line.name}</p>
+                            <p className="text-[9px] text-emerald-700/80 font-bold font-mono mt-0.5">PROMOTIONAL FREE</p>
+                          </div>
+                          <span className="text-xs font-black text-emerald-400 text-center">{line.quantity}</span>
+                          <span className="text-xs font-mono text-emerald-700 text-right">$0.00</span>
+                          <span className="text-xs font-mono font-black text-emerald-400 text-right">$0.00</span>
                         </div>
-                        <span className="text-[11px] font-black text-emerald-400 text-center">{line.quantity}</span>
-                        <span className="text-[10px] font-mono text-emerald-700 text-right">$0.00</span>
-                        <span className="text-[11px] font-black text-emerald-400 text-right">$0.00</span>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Order totals */}
-              <div className="border-t border-white/10 pt-3 space-y-1.5">
+              {/* Checkout Financial Calculations Summary */}
+              <div className="border-t border-white/10 pt-4 space-y-2">
                 <div className="flex justify-between px-1">
-                  <span className="text-[10px] text-neutral-500">Subtotal (Paid)</span>
+                  <span className="text-xs text-neutral-400">Subtotal (Gross Sales)</span>
                   <span className="text-xs font-bold text-white">${paidLines.reduce((s, l) => s + l.quantity * l.unitPrice, 0).toFixed(2)}</span>
                 </div>
                 {promoLines.length > 0 && (
                   <div className="flex justify-between px-1">
-                    <span className="text-[10px] text-emerald-500">🎁 Promotional Value</span>
+                    <span className="text-xs text-emerald-500">🎁 Promotional Value</span>
                     <span className="text-xs font-bold text-emerald-400">$0.00</span>
                   </div>
                 )}
                 <div className="flex justify-between px-1">
-                  <span className="text-[10px] text-neutral-500">Total Items Shipping</span>
-                  <span className="text-xs font-bold text-white">{orderLines.reduce((s, l) => s + l.quantity, 0)} items</span>
+                  <span className="text-xs text-neutral-400">Total Items Shipping</span>
+                  <span className="text-xs font-bold text-white">{orderLines.reduce((s, l) => s + l.quantity, 0)} units</span>
                 </div>
-                <div className="flex justify-between px-1 pt-2 border-t border-white/10">
-                  <span className="text-sm font-black text-white">ORDER TOTAL</span>
-                  <span className="text-lg font-black text-amber-400">${orderTotal.toFixed(2)}</span>
+                <div className="flex justify-between px-1 pt-2.5 border-t border-white/10">
+                  <span className="text-xs font-black text-white">ORDER TOTAL</span>
+                  <span className="text-base font-black text-amber-400 tracking-tight">${orderTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
-              {/* Profit breakdown */}
+              {/* Profit breakdown for internal review */}
               {financials && (
-                <div className="border-t border-amber-500/30 pt-3 space-y-1.5">
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1.5 mb-1">
-                    <FiTrendingUp size={10} /> Profit Breakdown
+                <div className="border-t border-amber-500/20 pt-4 space-y-2">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5 mb-1.5">
+                    <FiTrendingUp size={11} className="text-amber-500" /> Internal Commissions & Profits
                   </p>
-                  <div className="bg-neutral-800/50 rounded-lg p-3 space-y-1.5">
+                  <div className="bg-[#121318]/70 border border-white/5 rounded-2xl p-4 space-y-2 font-mono text-xs">
                     {[
-                      ["Dead Cost (All Items)", `-$${financials.deadCostTotal.toFixed(2)}`, "text-red-400"],
-                      ["Dead Profit", `$${financials.deadProfit.toFixed(2)}`, financials.deadProfit >= 0 ? "text-emerald-400" : "text-red-400"],
-                      [`Cost + VIG (${vigRate}× paid, 1× free)`, `-$${financials.deadCostPlusVig.toFixed(2)}`, "text-red-400"],
+                      ["Direct Dead Cost (All Items)", `-$${financials.deadCostTotal.toFixed(2)}`, "text-rose-400"],
+                      ["Direct Dead Profit", `$${financials.deadProfit.toFixed(2)}`, financials.deadProfit >= 0 ? "text-emerald-400" : "text-rose-400"],
+                      [`Total Cost + Rep VIG (${vigRate}×)`, `-$${financials.deadCostPlusVig.toFixed(2)}`, "text-rose-400"],
                     ].map(([label, val, color]) => (
-                      <div key={label as string} className="flex justify-between">
-                        <span className="text-[10px] text-neutral-500">{label}</span>
-                        <span className={`text-[10px] font-bold ${color}`}>{val}</span>
+                      <div key={label as string} className="flex justify-between text-[11px]">
+                        <span className="text-neutral-500">{label}</span>
+                        <span className={`font-bold ${color}`}>{val}</span>
                       </div>
                     ))}
-                    <div className="flex justify-between pt-1.5 border-t border-neutral-700">
+                    <div className="flex justify-between pt-2 border-t border-white/5 font-sans">
                       <span className="text-xs font-bold text-amber-300">Profit after VIG</span>
-                      <span className={`text-sm font-black ${financials.profitAfterVig >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      <span className={`text-xs font-black ${financials.profitAfterVig >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                         ${financials.profitAfterVig.toFixed(2)}
-                        <span className={`text-[9px] ml-1 ${financials.marginPct >= 30 ? "text-emerald-500" : financials.marginPct >= 15 ? "text-amber-500" : "text-red-500"}`}>
+                        <span className={`text-[10px] ml-1.5 font-bold ${financials.marginPct >= 30 ? "text-emerald-500" : financials.marginPct >= 15 ? "text-amber-500" : "text-rose-500"}`}>
                           ({financials.marginPct.toFixed(1)}%)
                         </span>
                       </span>
                     </div>
-                    <div className="flex justify-between pt-1.5 border-t border-neutral-700">
-                      <span className="text-xs font-bold text-green-300">Commission ({commissionPct}%)</span>
-                      <span className="text-sm font-black text-green-400">${financials.salesCommission.toFixed(2)}</span>
+                    <div className="flex justify-between pt-2 border-t border-white/5 font-sans">
+                      <span className="text-xs font-bold text-green-300">Sales Payout ({commissionPct}%)</span>
+                      <span className="text-xs font-black text-green-400">${financials.salesCommission.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -1292,23 +1325,27 @@ export function OrderBuilder({
             </div>
 
             {/* Footer */}
-            <div className="sticky bottom-0 glass-panel border-t border-white/10 px-6 py-3 flex gap-2 rounded-b-2xl">
-              <button type="button" onClick={() => setShowMockOrder(false)} className="flex-1 py-2 rounded-lg bg-neutral-800 text-neutral-400 text-xs font-bold hover:bg-neutral-700 transition-colors cursor-pointer">
-                Edit Order
+            <div className="sticky bottom-0 bg-[#0f1016]/90 backdrop-blur border-t border-white/10 px-6 py-4 flex gap-3 rounded-b-2xl z-10">
+              <button
+                type="button"
+                onClick={() => setShowMockOrder(false)}
+                className="flex-1 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white text-xs font-bold transition-all cursor-pointer"
+              >
+                Back to Edit
               </button>
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleConfirmOrder}
-                className="flex-1 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs font-black hover:from-violet-500 hover:to-purple-500 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:via-purple-500 hover:to-indigo-500 hover:shadow-[0_4px_15px_rgba(139,92,246,0.3)] text-white text-xs font-black transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 active:scale-[0.99]"
               >
                 {isSubmitting ? (
                   <>
                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    {transactionType === "SalesOrder" ? "Creating Order..." : "Creating Quote..."}
+                    Processing Transaction...
                   </>
                 ) : (
-                  transactionType === "SalesOrder" ? "Confirm Order" : "Confirm Quote"
+                  transactionType === "SalesOrder" ? "Confirm & Push Order" : "Confirm & Push Quote"
                 )}
               </button>
             </div>
@@ -1318,5 +1355,3 @@ export function OrderBuilder({
     </div>
   )
 }
-
-
