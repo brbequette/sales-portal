@@ -343,11 +343,11 @@ export function SalesBoard() {
               }
             }
 
-            const balance = Number(raw.balance !== undefined ? raw.balance : 0)
+            const balance = Number(doc.balance !== undefined ? doc.balance : 0)
 
             // Check overdue
-            const dueDate = raw.due_date ? new Date(raw.due_date) : null
-            if (dueDate && raw.status === 'overdue' && balance > 0) {
+            const dueDate = doc.dueDate ? new Date(doc.dueDate) : null
+            if (dueDate && (doc.status === 'overdue' || raw.status === 'overdue') && balance > 0) {
               const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24))
               if (daysOverdue > 0) {
                 totalOverdueBalance += balance

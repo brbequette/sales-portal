@@ -167,6 +167,8 @@ export const handler: Handler = async (event, context) => {
         deadCostNoVig,
         deadCostSubjectToVig,
         commission,
+        balance: parseFloat(items?.balance ?? raw.balance ?? 0),
+        dueDate: raw.dueDate?.toISOString() || items?.due_date || null,
         salesperson: items?.salesperson || items?.salesperson_name || null,
         invoiceNumber: items?.invoiceNumber || items?.invoice_number || items?.estimateNumber || items?.estimate_number || items?.salesOrderNumber || items?.salesorder_number || items?.quoteNumber || (raw.zohoId || raw.id).slice(-6),
         raw
