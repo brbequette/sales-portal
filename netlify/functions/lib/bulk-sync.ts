@@ -324,7 +324,6 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
           salesorder_number: item.salesorder_number || null,
           shipping_address: item.shipping_address || null,
           billing_address: item.billing_address || null,
-          sub_total: savedSubtotal,
           ...existingItems, // merge calculated fields (profit, deadCostTotal, ccFees, etc.)
           sub_total: savedSubtotal, // enforce subtotal is not overwritten by spread
         }
@@ -369,7 +368,6 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
           shipping_address: item.shipping_address || null,
           billing_address: item.billing_address || null,
           delivery_method: item.delivery_method || null,
-          sub_total: savedSOSubtotal,
           ...existingSOItems, // merge calculated fields
           sub_total: savedSOSubtotal, // enforce subtotal is not overwritten by spread
         }
