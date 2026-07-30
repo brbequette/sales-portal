@@ -111,8 +111,8 @@ export const handler: Handler = async (event) => {
         accounts.map(async (account, index) => {
           await new Promise((resolve) => setTimeout(resolve, index * 100))
           const recentLogs = recentLogsMap.get(account.id) || 0
-          if (recentLogs >= accountDailyLimit) {
-            logsToCreate.push({ campaignBlastId: blast.id, accountId: account.id, status: "FAILED", errorMessage: "Daily blast limit reached", zohoNumberUsed: fromNumber })
+          if (recentLogs >= 1) {
+            logsToCreate.push({ campaignBlastId: blast.id, accountId: account.id, status: "FAILED", errorMessage: "Daily blast limit reached (maximum 1 campaign message per day)", zohoNumberUsed: fromNumber })
             failedCount++
             return
           }

@@ -209,16 +209,15 @@ export const handler: Handler = async (event, context) => {
         // Stagger the start time slightly to avoid bursting the Zoho API exactly simultaneously
         await new Promise(resolve => setTimeout(resolve, index * 100));
 
-        // Check daily limit for this account
         const recentLogs = recentLogsMap.get(account.id) || 0
 
-        if (recentLogs >= accountDailyLimit) {
-          console.log(`Account ${account.name} has reached the daily limit of ${accountDailyLimit}. Skipping.`)
+        if (recentLogs >= 1) {
+          console.log(`Account ${account.name} has already received a campaign message today. Skipping.`)
           logsToCreate.push({
             campaignBlastId: blast!.id,
             accountId: account.id,
             status: 'FAILED',
-            errorMessage: 'Daily blast limit reached for this account',
+            errorMessage: 'Daily blast limit reached (maximum 1 campaign message per day)',
             zohoNumberUsed: fromNumber
           })
           failedCount++
