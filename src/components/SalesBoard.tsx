@@ -578,8 +578,8 @@ export function SalesBoard() {
                 </p>
              </div>
              
-             {/* --- 5-Badge Financial Metric Strip --- */}
-             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full md:w-auto">
+             {/* --- 4-Badge Financial Metric Strip --- */}
+             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full md:w-auto">
                 <div className="bg-gradient-to-br from-sky-950/60 to-blue-950/60 p-3 rounded-xl border border-sky-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)] hover:scale-[1.02] transition-transform">
                    <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">Gross Sales</span>
                    <span className="text-base font-black text-white block mt-0.5">{formatCurrency(data.teamWeekly.sales)}</span>
@@ -595,10 +595,6 @@ export function SalesBoard() {
                 <div className="bg-gradient-to-br from-emerald-950/60 to-teal-950/60 p-3 rounded-xl border border-emerald-500/20 shadow-[0_0_15px_rgba(52,211,153,0.1)] hover:scale-[1.02] transition-transform">
                    <span className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider block">Net Profit</span>
                    <span className="text-base font-black text-emerald-300 block mt-0.5">{formatCurrency(data.teamWeekly.profit)}</span>
-                </div>
-                <div className="bg-gradient-to-br from-rose-950/60 to-pink-950/60 p-3 rounded-xl border border-rose-500/20 shadow-[0_0_15px_rgba(251,113,133,0.1)] hover:scale-[1.02] transition-transform">
-                   <span className="text-[9px] uppercase font-bold text-rose-300 tracking-wider block">Commission (50/50)</span>
-                   <span className="text-base font-black text-rose-200 block mt-0.5">{formatCurrency(data.teamWeekly.commission)}</span>
                 </div>
              </div>
           </div>
@@ -659,7 +655,6 @@ export function SalesBoard() {
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Gross Sales</th>
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
-                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Commission</th>
                                        </tr>
                                      </thead>
                                      <tbody>
@@ -672,7 +667,6 @@ export function SalesBoard() {
                                            </td>
                                            <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
                                            <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
-                                           <td className="p-2 text-xs font-bold text-emerald-400 text-right">{formatCurrency(inv.commission)}</td>
                                          </tr>
                                        ))}
                                      </tbody>
@@ -755,14 +749,10 @@ export function SalesBoard() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3 pt-1.5 border-t border-white/10">
+                    <div className="grid grid-cols-2 gap-3 pt-1.5 border-t border-white/10">
                       <div>
                          <div className="text-base font-bold text-white">{rep.weekly.dealsClosed}</div>
                          <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold">Deals</div>
-                      </div>
-                      <div>
-                         <div className="text-base font-bold text-rose-400">{formatCurrency(rep.weekly.commission)}</div>
-                         <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold">50/50 Comm</div>
                       </div>
                       <div>
                          <div className="text-base font-bold text-emerald-400">{formatPercent(profitMargin)}</div>
@@ -801,7 +791,6 @@ export function SalesBoard() {
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Sales Rep</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Gross Sales</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Dead Profit</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Commission</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Deals</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Avg Deal</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Dead Profit %</th>
@@ -823,14 +812,13 @@ export function SalesBoard() {
                         </td>
                         <td className="p-4 text-sm font-black text-white text-right border-b border-white/10">{formatCurrency(rep.mtd.sales)}</td>
                         <td className="p-4 text-sm font-medium text-neutral-300 text-right border-b border-white/10">{formatCurrency(rep.mtd.profit)}</td>
-                        <td className="p-4 text-sm font-bold text-emerald-400 text-right border-b border-white/10">{formatCurrency(rep.mtd.commission)}</td>
                         <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{rep.mtd.dealsClosed}</td>
                         <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{formatCurrency(avgDeal)}</td>
                         <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{formatPercent(profitMargin)}</td>
                      </tr>
                      {isExpanded && rep.mtd.invoices?.length > 0 && (
                         <tr className="bg-black/40">
-                           <td colSpan={7} className="p-4 border-b border-white/10">
+                           <td colSpan={6} className="p-4 border-b border-white/10">
                               <div className="pl-12">
                                 <table className="w-full text-left border-collapse glass-panel-strong rounded-lg overflow-hidden border border-white/10">
                                   <thead>
@@ -839,7 +827,6 @@ export function SalesBoard() {
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Gross Sales</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
-                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Commission</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -852,7 +839,6 @@ export function SalesBoard() {
                                         </td>
                                         <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
                                         <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
-                                        <td className="p-2 text-xs font-bold text-emerald-400 text-right">{formatCurrency(inv.commission)}</td>
                                       </tr>
                                     ))}
                                   </tbody>
@@ -880,7 +866,6 @@ export function SalesBoard() {
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Sales Rep</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Gross Sales</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Dead Profit</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Commission</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Deals</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Avg Deal</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Dead Profit %</th>
@@ -902,14 +887,13 @@ export function SalesBoard() {
                         </td>
                         <td className="p-4 text-sm font-black text-white text-right border-b border-white/10">{formatCurrency(rep.ytd.sales)}</td>
                         <td className="p-4 text-sm font-medium text-neutral-300 text-right border-b border-white/10">{formatCurrency(rep.ytd.profit)}</td>
-                        <td className="p-4 text-sm font-bold text-emerald-400 text-right border-b border-white/10">{formatCurrency(rep.ytd.commission)}</td>
                         <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{rep.ytd.dealsClosed}</td>
                         <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{formatCurrency(avgDeal)}</td>
                         <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{formatPercent(profitMargin)}</td>
                      </tr>
                      {isExpanded && rep.ytd.invoices?.length > 0 && (
                         <tr className="bg-black/40">
-                           <td colSpan={7} className="p-4 border-b border-white/10">
+                           <td colSpan={6} className="p-4 border-b border-white/10">
                               <div className="pl-12">
                                 <table className="w-full text-left border-collapse glass-panel-strong rounded-lg overflow-hidden border border-white/10">
                                   <thead>
@@ -918,7 +902,6 @@ export function SalesBoard() {
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Gross Sales</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
-                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Commission</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -931,7 +914,6 @@ export function SalesBoard() {
                                         </td>
                                         <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
                                         <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
-                                        <td className="p-2 text-xs font-bold text-emerald-400 text-right">{formatCurrency(inv.commission)}</td>
                                       </tr>
                                     ))}
                                   </tbody>
@@ -1049,11 +1031,6 @@ export function SalesBoard() {
           <div className="flex flex-col items-end">
             <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-0.5">Total Dead Profit</div>
             <div className="text-2xl font-black text-white">{formatCurrency(data.teamWeekly.profit)}</div>
-          </div>
-          <div className="w-[1px] h-8 bg-white/10"></div>
-          <div className="flex flex-col items-end">
-            <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-0.5">Total Commission</div>
-            <div className="text-2xl font-black text-white">{formatCurrency(data.teamWeekly.commission)}</div>
           </div>
           <div className="w-[1px] h-8 bg-white/10"></div>
           <div className="flex flex-col items-end">
