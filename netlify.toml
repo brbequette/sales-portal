@@ -58,6 +58,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/debug-invoice"
+  to = "/.netlify/functions/debug-invoice"
+  status = 200
+
+[[redirects]]
   from = "/api/admin/sales-stages"
   to = "/.netlify/functions/admin-sales-stages"
   status = 200
