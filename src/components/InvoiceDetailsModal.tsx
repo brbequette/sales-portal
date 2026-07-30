@@ -93,14 +93,16 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
         .then(res => res.json())
         .then(data => {
           if (data.success) {
-            const activeProducts = (data.products || []).filter((p: any) => {
-              try {
-                const desc = JSON.parse(p.description || "{}")
-                return desc.status !== "inactive"
-              } catch {
-                return true
-              }
-            })
+            const activeProducts = (data.products || [])
+              .map((p: any) => {
+                try {
+                  const desc = JSON.parse(p.description || "{}")
+                  return { ...p, zohoId: desc.itemId, status: desc.status }
+                } catch {
+                  return { ...p, zohoId: undefined, status: "active" }
+                }
+              })
+              .filter((p: any) => p.status !== "inactive")
             setProductsCatalog(activeProducts)
           }
         })

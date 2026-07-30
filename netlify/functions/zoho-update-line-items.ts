@@ -128,13 +128,16 @@ export const handler: Handler = async (event) => {
       return !doc.line_items.some((existingItem: any) => existingItem.line_item_id === li.line_item_id)
     })
 
-    const formattedNewItems = newItems.map((li: any) => sanitizeLineItem({
-      item_id: li.item_id || undefined,
-      name: li.name,
-      description: li.description || "",
-      rate: parseFloat(li.rate || 0),
-      quantity: parseInt(li.quantity || 0),
-    }))
+    const formattedNewItems = newItems.map((li: any) => {
+      const isNumericId = li.item_id && /^\d+$/.test(String(li.item_id))
+      return sanitizeLineItem({
+        item_id: isNumericId ? String(li.item_id) : undefined,
+        name: li.name,
+        description: li.description || "",
+        rate: parseFloat(li.rate || 0),
+        quantity: parseInt(li.quantity || 0),
+      })
+    })
 
     const combinedLineItems = [...updatedLineItems, ...formattedNewItems]
 
