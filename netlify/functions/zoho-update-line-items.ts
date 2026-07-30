@@ -80,18 +80,44 @@ export const handler: Handler = async (event) => {
     // The UI sends an array of line items with rate, quantity, and name updated.
     // Also manual dead cost can be sent and saved in custom fields. 
     // We update the rate, quantity, and name, and preserve other required fields like item_id, tax_id, etc.
-    const updatedLineItems = doc.line_items.map((existingItem: any) => {
-      const updateData = lineItems.find((li: any) => li.line_item_id === existingItem.line_item_id)
-      if (updateData) {
-        return {
-          ...existingItem,
-          rate: updateData.rate !== undefined ? updateData.rate : existingItem.rate,
-          quantity: updateData.quantity !== undefined ? updateData.quantity : existingItem.quantity,
-          name: updateData.name !== undefined ? updateData.name : existingItem.name,
-          description: updateData.description !== undefined ? updateData.description : existingItem.description
+    const sanitizeLineItem = (item: any) => {
+      const allowedKeys = [
+        "line_item_id",
+        "item_id",
+        "name",
+        "description",
+        "rate",
+        "quantity",
+        "discount",
+        "discount_amount",
+        "tax_id",
+        "tax_name",
+        "tax_percentage",
+        "tax_type",
+        "header_id",
+        "line_item_category"
+      ]
+      const cleanItem: any = {}
+      for (const key of allowedKeys) {
+        if (item[key] !== undefined) {
+          cleanItem[key] = item[key]
         }
       }
-      return existingItem
+      return cleanItem
+    }
+
+    const updatedLineItems = doc.line_items.map((existingItem: any) => {
+      const updateData = lineItems.find((li: any) => li.line_item_id === existingItem.line_item_id)
+      const merged = updateData
+        ? {
+            ...existingItem,
+            rate: updateData.rate !== undefined ? updateData.rate : existingItem.rate,
+            quantity: updateData.quantity !== undefined ? updateData.quantity : existingItem.quantity,
+            name: updateData.name !== undefined ? updateData.name : existingItem.name,
+            description: updateData.description !== undefined ? updateData.description : existingItem.description
+          }
+        : existingItem
+      return sanitizeLineItem(merged)
     })
 
     // Find and append new line items that don't exist in doc.line_items
@@ -102,7 +128,7 @@ export const handler: Handler = async (event) => {
       return !doc.line_items.some((existingItem: any) => existingItem.line_item_id === li.line_item_id)
     })
 
-    const formattedNewItems = newItems.map((li: any) => ({
+    const formattedNewItems = newItems.map((li: any) => sanitizeLineItem({
       item_id: li.item_id || undefined,
       name: li.name,
       description: li.description || "",
