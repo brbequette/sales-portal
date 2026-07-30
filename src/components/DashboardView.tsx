@@ -245,13 +245,13 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
   useEffect(() => {
     const handleGlobalMetricEvent = (e: any) => {
       if (e.detail?.key && data) {
-        const info = buildMetricInfo(e.detail.key, data, timeEntry, repName, repEmail, rawInvoicesList)
+        const info = buildMetricInfo(e.detail.key, data, timeEntry, repName, repEmail, rawInvoicesList, isAdmin)
         if (info) setSelectedMetricInfo(info)
       }
     }
     window.addEventListener("open-metric-derivation", handleGlobalMetricEvent as any)
     return () => window.removeEventListener("open-metric-derivation", handleGlobalMetricEvent as any)
-  }, [data, timeEntry, rawInvoicesList, repName, repEmail])
+  }, [data, timeEntry, rawInvoicesList, repName, repEmail, isAdmin])
   const filterRepName = repName || null
   const showTopPerformers = isAdmin === true
   const showCompanyBreakdown = isAdmin === true
@@ -811,7 +811,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           color={CHART_COLORS.primary}
           trend={`${goalPct}%`} 
           trendUp={goalPct >= 50}
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("weeklyGoal", data, timeEntry, repName, repEmail, rawInvoicesList))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("weeklyGoal", data, timeEntry, repName, repEmail, rawInvoicesList, isAdmin))}
         >
           <QuotaRing current={data.weeklyTotal} target={data.weeklyTarget} color={CHART_COLORS.primary} />
         </KPICard>
@@ -825,7 +825,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           color={CHART_COLORS.primary}
           trend={`${data.monthlyDeals} deals`} 
           trendUp={true} 
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("totalRevenue", data, timeEntry, repName, repEmail, rawInvoicesList))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("totalRevenue", data, timeEntry, repName, repEmail, rawInvoicesList, isAdmin))}
         />
           
         {/* Monthly Profit */}
@@ -835,7 +835,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           value={`$${data.monthlyProfit.toLocaleString()}`}
           subtitle={`Commission: $${data.monthlyCommission.toLocaleString()}`} 
           color={CHART_COLORS.purple} 
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("monthlyProfit", data, timeEntry, repName, repEmail, rawInvoicesList))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("monthlyProfit", data, timeEntry, repName, repEmail, rawInvoicesList, isAdmin))}
         />
           
         {/* Timeclock */}
@@ -844,7 +844,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           title="Timeclock" 
           value={(!timeEntry || timeEntry.manualClockOut) ? "Off Clock" : `${calculateHours(timeEntry)}h`}
           color={(!timeEntry || timeEntry.manualClockOut) ? CHART_COLORS.text : CHART_COLORS.accent}
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("timeclock", data, timeEntry, repName, repEmail, rawInvoicesList))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("timeclock", data, timeEntry, repName, repEmail, rawInvoicesList, isAdmin))}
         >
           <button
             onClick={(e) => { e.stopPropagation(); handleToggleClock(); }}
@@ -866,7 +866,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           value={`${data.dealsWon}`}
           subtitle="Total successful deals" 
           color={CHART_COLORS.accent} 
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("dealsWon", data, timeEntry, repName, repEmail, rawInvoicesList))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("dealsWon", data, timeEntry, repName, repEmail, rawInvoicesList, isAdmin))}
         />
 
         {/* Deals Lost */}
@@ -876,7 +876,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           value={`${data.dealsLost}`}
           subtitle="Total void/lost deals" 
           color={CHART_COLORS.rose} 
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("dealsLost", data, timeEntry, repName, repEmail, rawInvoicesList))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("dealsLost", data, timeEntry, repName, repEmail, rawInvoicesList, isAdmin))}
         />
 
         {/* Avg Deal Size */}
@@ -886,7 +886,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           value={`$${data.avgDealSize.toLocaleString()}`}
           subtitle="Revenue per won deal" 
           color={CHART_COLORS.sky} 
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("avgDealSize", data, timeEntry, repName, repEmail, rawInvoicesList))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("avgDealSize", data, timeEntry, repName, repEmail, rawInvoicesList, isAdmin))}
         />
 
         {/* Pipeline */}
@@ -896,7 +896,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           value={`$${data.pipelineValue.toLocaleString()}`}
           subtitle={`${data.pipelineCount} open invoices`} 
           color={CHART_COLORS.sky}
-          onClick={() => setSelectedMetricInfo(buildMetricInfo("activePipeline", data, timeEntry, repName, repEmail, rawInvoicesList))}
+          onClick={() => setSelectedMetricInfo(buildMetricInfo("activePipeline", data, timeEntry, repName, repEmail, rawInvoicesList, isAdmin))}
         >
           {data.overdueCount > 0 && (
             <div className="mt-2 flex items-center gap-1.5 text-xs text-red-400">
@@ -985,7 +985,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
           {/* Money Lost (1.5x VIG Penalty) Box */}
           <div 
-            onClick={() => setSelectedMetricInfo(buildMetricInfo("vigPenalty", data, timeEntry, repName, repEmail, rawInvoicesList))}
+            onClick={() => setSelectedMetricInfo(buildMetricInfo("vigPenalty", data, timeEntry, repName, repEmail, rawInvoicesList, isAdmin))}
             className={`p-4 rounded-xl border cursor-pointer transition-all hover:scale-[1.01] ${
               data.monthlyVigPenaltyLoss > 0 || data.currentVigRate >= 1.45
                 ? 'bg-gradient-to-br from-red-950/40 via-rose-900/20 to-black/60 border-red-500/40 shadow-lg shadow-red-950/30'
@@ -1396,7 +1396,8 @@ function buildMetricInfo(
   timeEntry: any, 
   repName?: string | null,
   repEmail?: string | null,
-  invoices: any[] = []
+  invoices: any[] = [],
+  isAdmin?: boolean
 ): MetricDerivationInfo | null {
   const repLabel = repName || "All Sales Representatives"
   
@@ -1494,7 +1495,7 @@ function buildMetricInfo(
           { label: "Net Profit Total", value: `$${data.monthlyProfit.toLocaleString()}`, description: "Profit after VIG cost deduction & CC fees" },
           { label: "Estimated Commission", value: `$${data.monthlyCommission.toLocaleString()}`, description: "Salesperson payout based on tier %" }
         ],
-        notes: "Montgomery Morgan invoices enforce a 1.0 VIG multiplier. Insurance items are retained as company revenue and not deducted from rep profit.",
+        notes: isAdmin ? "Montgomery Morgan invoices enforce a 1.0 VIG multiplier. Insurance items are retained as company revenue and not deducted from rep profit." : undefined,
         documents: matchingDocs
       }
     }
