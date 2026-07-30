@@ -165,11 +165,11 @@ export default function AppleStylePatriotOfferPage() {
           address: `${formData.address}, ${formData.city}, ${formData.state} ${formData.zip}`,
         })
       } else {
-        alert(data.error || "Order submission failed. Please verify your details or call (800) 848-2634.")
+        alert(data.error || "Order submission failed. Please verify your details or call (480) 470-2577.")
       }
     } catch (err) {
       console.error("Order error:", err)
-      alert("Order submission error. Please try again or call (800) 848-2634 directly.")
+      alert("Order submission error. Please try again or call (480) 470-2577 directly.")
     } finally {
       setIsSubmitting(false)
     }
@@ -238,11 +238,11 @@ export default function AppleStylePatriotOfferPage() {
             </div>
 
             <a
-              href="tel:18008482634"
+              href="tel:14804702577"
               className="hidden sm:flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white border border-white/15 px-4 py-2 rounded-full text-xs font-black transition-all shadow-md"
             >
               <FiPhone size={13} className="text-blue-400 animate-pulse" />
-              <span>(800) 848-2634</span>
+              <span>(480) 470-2577</span>
             </a>
 
             <a
@@ -1033,11 +1033,11 @@ export default function AppleStylePatriotOfferPage() {
 
                     <div className="flex items-end">
                       <a
-                        href="tel:18008482634"
+                        href="tel:14804702577"
                         className="w-full bg-blue-900 hover:bg-blue-800 text-white rounded-xl px-4 py-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors active:scale-95 shadow-md"
                       >
                         <FiPhone className="text-amber-300 animate-pulse" />
-                        <span>CALL IN: (800) 848-2634</span>
+                        <span>CALL IN: (480) 470-2577</span>
                       </a>
                     </div>
                   </div>
@@ -1087,7 +1087,7 @@ export default function AppleStylePatriotOfferPage() {
           <div className="flex items-center justify-center gap-3 font-black text-slate-300 flex-wrap">
             <span>TITAN DIAMOND TOOLS USA</span>
             <span>•</span>
-            <a href="tel:18008482634" className="hover:text-white transition-colors">(800) 848-2634</a>
+            <a href="tel:14804702577" className="hover:text-white transition-colors">(480) 470-2577</a>
             <span>•</span>
             <span>INDUSTRIAL CONTRACTOR GRADE</span>
           </div>
@@ -1104,7 +1104,7 @@ export default function AppleStylePatriotOfferPage() {
 
           <div className="flex items-center gap-2">
             <a
-              href="tel:18008482634"
+              href="tel:14804702577"
               className="w-10 h-10 bg-slate-900 border border-white/20 text-blue-400 rounded-xl flex items-center justify-center shrink-0 active:scale-95 shadow-md"
             >
               <FiPhone size={18} />
