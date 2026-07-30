@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap, FiExternalLink, FiChevronDown, FiChevronRight } from "react-icons/fi"
+import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap, FiExternalLink, FiChevronDown, FiChevronRight, FiCheckCircle, FiAlertCircle } from "react-icons/fi"
 import { AccountSlideout } from "@/components/AccountSlideout"
 import { toast } from 'react-hot-toast';
 
@@ -30,9 +30,56 @@ export default function MessagesPage() {
   const [syncing, setSyncing] = useState(false)
   const [syncOffset, setSyncOffset] = useState(0)
 
+  // Campaign & Search States
+  const [searchQuery, setSearchQuery] = useState("")
+  const [activeTab, setActiveTab] = useState<"all" | "campaigns">("all")
+  const [campaigns, setCampaigns] = useState<any[]>([])
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
+  const [loadingCampaigns, setLoadingCampaigns] = useState(false)
+  const [zohoNumbers, setOutboundNumbers] = useState<any[]>([])
+  const [selectedOutboundNumber, setSelectedOutboundNumber] = useState("")
+
+  // Check URL parameters on mount
   useEffect(() => {
-    handleSync(0)
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search)
+      const campaignBlastId = params.get("campaignBlastId")
+      if (campaignBlastId) {
+        setActiveTab("campaigns")
+        setSelectedCampaignId(campaignBlastId)
+      } else {
+        handleSync(0)
+      }
+    }
   }, [])
+
+  // Sync available Zoho numbers
+  useEffect(() => {
+    fetch("/api/manage-zoho-numbers")
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.numbers?.length > 0) {
+          setOutboundNumbers(d.numbers)
+          const def = d.numbers.find((n: any) => n.isDefault)
+          setSelectedOutboundNumber(def ? def.number : d.numbers[0].number)
+        }
+      })
+      .catch(console.error)
+  }, [])
+
+  // Fetch campaigns list
+  useEffect(() => {
+    fetchCampaigns()
+  }, [])
+
+  // Refetch accounts list whenever activeTab or selectedCampaignId changes
+  useEffect(() => {
+    if (selectedCampaignId) {
+      fetchCampaignAccounts(selectedCampaignId)
+    } else if (activeTab === "all") {
+      fetchAccounts()
+    }
+  }, [selectedCampaignId, activeTab])
 
   const handleSync = async (offset = 0) => {
     try {
@@ -51,7 +98,11 @@ export default function MessagesPage() {
       console.error('Failed to sync Zoho SMS', e)
     } finally {
       setSyncing(false)
-      fetchAccounts()
+      if (selectedCampaignId) {
+        fetchCampaignAccounts(selectedCampaignId)
+      } else {
+        fetchAccounts()
+      }
     }
   }
 
@@ -78,7 +129,37 @@ export default function MessagesPage() {
       const res = await fetch('/api/messages')
       const data = await res.json()
       if (data.success) {
-        setAccounts(data.accounts)
+        setAccounts(data.accounts || [])
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoadingAccounts(false)
+    }
+  }
+
+  const fetchCampaigns = async () => {
+    try {
+      setLoadingCampaigns(true)
+      const res = await fetch('/api/messages?getCampaigns=true')
+      const data = await res.json()
+      if (data.success) {
+        setCampaigns(data.campaigns || [])
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoadingCampaigns(false)
+    }
+  }
+
+  const fetchCampaignAccounts = async (campaignId: string) => {
+    try {
+      setLoadingAccounts(true)
+      const res = await fetch(`/api/messages?campaignBlastId=${campaignId}`)
+      const data = await res.json()
+      if (data.success) {
+        setAccounts(data.accounts || [])
       }
     } catch (e) {
       console.error(e)
@@ -119,7 +200,11 @@ export default function MessagesPage() {
         toast.success("Sale cycle closed! Active text thread reset for new cycle.")
         setIncludeClosedHistory(false)
         fetchMessages(selectedAccountId, false)
-        fetchAccounts()
+        if (selectedCampaignId) {
+          fetchCampaignAccounts(selectedCampaignId)
+        } else {
+          fetchAccounts()
+        }
       } else {
         toast.error("Failed to close sale cycle: " + data.error)
       }
@@ -133,14 +218,11 @@ export default function MessagesPage() {
   const handleSend = async () => {
     if (!textInput.trim() || !selectedAccountId) return
     
-    // We need to know which fromNumber to use. 
-    // Ideally we'd have a dropdown, but for simplicity let's find the most recent fromNumber we used with them, 
-    // or fallback to the first one in their history.
     const lastOurMsg = [...messages].reverse().find(m => m.direction === 'OUTBOUND')
-    const fromNumber = lastOurMsg?.fromNumber || ''
+    const fromNumber = selectedOutboundNumber || lastOurMsg?.fromNumber || ''
     
     if (!fromNumber) {
-      toast.success('Could not determine which number to send from. Please use the campaign sender first.')
+      toast.error('Could not determine which number to send from. Please select a sender phone number.')
       return
     }
 
@@ -190,105 +272,259 @@ export default function MessagesPage() {
   }
 
   const activeAccount = accounts.find(a => a.id === selectedAccountId)
+  const activeCampaign = campaigns.find(c => c.id === selectedCampaignId)
 
+  // Filter accounts list based on search and active tab
   const filteredAccounts = accounts.filter(account => {
-    if (showIncomingOnly) {
+    const matchesSearch = searchQuery
+      ? account.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        account.zohoId?.toLowerCase().includes(searchQuery.toLowerCase())
+      : true
+
+    if (activeTab === "all" && showIncomingOnly) {
       const lastMsg = account.smsMessages?.[0]
-      return lastMsg && lastMsg.direction === 'INBOUND'
+      return matchesSearch && lastMsg && lastMsg.direction === 'INBOUND'
     }
-    return true
+    return matchesSearch
   })
 
-  const groupedByCampaign = filteredAccounts.reduce((acc, account) => {
+  // Group direct inbox chats by campaign name for All Chats
+  const groupedByCampaign = activeTab === "all" ? filteredAccounts.reduce((acc, account) => {
     const lastMsg = account.smsMessages?.[0]
     const campaignName = lastMsg?.campaignBlast?.name || "Direct / Organic"
     if (!acc[campaignName]) acc[campaignName] = []
     acc[campaignName].push(account)
     return acc
-  }, {} as Record<string, any[]>)
+  }, {} as Record<string, any[]>) : {}
 
   return (
-    <div className="flex h-full bg-[#0a0a0a] overflow-hidden">
+    <div className="flex h-full bg-[#0a0a0a] overflow-hidden text-neutral-200">
       
       {/* LEFT PANE - Account List */}
       <div className={`w-full md:w-80 flex-shrink-0 flex flex-col border-r border-white/10 ${selectedAccountId ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold text-white">Messages</h1>
+            <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+              <FiMessageSquare className="text-emerald-500" /> Messages
+            </h1>
             {syncing && <div className="text-xs text-emerald-500 animate-pulse flex items-center gap-1"><FiZap /> Syncing...</div>}
           </div>
+
+          {/* Segmented Control Selector Tabs */}
+          <div className="flex bg-neutral-900/60 p-1 rounded-lg border border-white/10 mb-4 select-none">
+            <button
+              onClick={() => {
+                setActiveTab("all")
+                setSelectedCampaignId(null)
+              }}
+              className={`flex-1 text-center py-1.5 text-xs font-bold rounded-md transition-all ${
+                activeTab === "all"
+                  ? "bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 font-extrabold"
+                  : "text-neutral-400 hover:text-white"
+              }`}
+            >
+              All Chats
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("campaigns")
+                fetchCampaigns()
+              }}
+              className={`flex-1 text-center py-1.5 text-xs font-bold rounded-md transition-all ${
+                activeTab === "campaigns"
+                  ? "bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 font-extrabold"
+                  : "text-neutral-400 hover:text-white"
+              }`}
+            >
+              Campaigns
+            </button>
+          </div>
+
           <div className="relative mb-3">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
             <input 
               type="text"
-              placeholder="Search accounts..."
-              className="w-full pl-9 pr-4 py-2 glass-panel border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+              placeholder={activeTab === "campaigns" && !selectedCampaignId ? "Search campaigns..." : "Search accounts..."}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <input 
-              type="checkbox" 
-              id="incomingFilter"
-              checked={showIncomingOnly}
-              onChange={(e) => setShowIncomingOnly(e.target.checked)}
-              className="rounded border-white/10 glass-panel text-emerald-500 focus:ring-emerald-500 focus:ring-offset-neutral-900"
-            />
-            <label htmlFor="incomingFilter" className="text-sm text-neutral-400 cursor-pointer">
-              Only show incoming messages
-            </label>
-          </div>
+
+          {activeTab === "all" && (
+            <div className="flex items-center gap-2 select-none">
+              <input 
+                type="checkbox" 
+                id="incomingFilter"
+                checked={showIncomingOnly}
+                onChange={(e) => setShowIncomingOnly(e.target.checked)}
+                className="rounded border-white/10 bg-black/40 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-neutral-900"
+              />
+              <label htmlFor="incomingFilter" className="text-xs text-neutral-400 cursor-pointer font-bold">
+                Only show incoming messages
+              </label>
+            </div>
+          )}
         </div>
         
         <div className="flex-1 overflow-y-auto">
-          {loadingAccounts ? (
-            <div className="p-8 text-center text-neutral-500 text-sm">Loading conversations...</div>
-          ) : Object.keys(groupedByCampaign).length === 0 ? (
-            <div className="p-8 text-center text-neutral-500 text-sm">No messages yet.</div>
-          ) : (
-            (Object.entries(groupedByCampaign) as [string, any[]][]).map(([campaignName, campaignAccounts]) => (
-              <div key={campaignName} className="mb-4">
-                <div 
-                  className="px-4 py-2 glass-panel/80 text-[10px] font-bold text-neutral-500 uppercase tracking-wider sticky top-0 backdrop-blur z-10 border-y border-white/10 flex justify-between items-center cursor-pointer hover:text-neutral-300 transition-colors"
-                  onClick={() => setExpandedCampaigns(prev => ({ ...prev, [campaignName]: prev[campaignName] === false ? true : false }))}
-                >
-                  <span>{campaignName} ({campaignAccounts.length})</span>
-                  {expandedCampaigns[campaignName] === false ? <FiChevronRight size={14} /> : <FiChevronDown size={14} />}
-                </div>
-                {expandedCampaigns[campaignName] !== false && campaignAccounts.map(account => {
-                  const lastMsg = account.smsMessages?.[0]
-                  return (
-                    <div 
-                      key={account.id}
-                      onClick={() => setSelectedAccountId(account.id)}
-                      className={`p-4 border-b border-white/10 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors ${selectedAccountId === account.id ? 'bg-neutral-800' : ''}`}
-                    >
-                      <div className="flex justify-between items-start mb-1">
-                        <h3 className="font-bold text-white text-sm truncate">{account.name}</h3>
+          {activeTab === "all" ? (
+            /* ALL CHATS LIST */
+            loadingAccounts ? (
+              <div className="p-8 text-center text-neutral-500 text-sm">Loading conversations...</div>
+            ) : Object.keys(groupedByCampaign).length === 0 ? (
+              <div className="p-8 text-center text-neutral-500 text-sm italic">No active conversations found.</div>
+            ) : (
+              (Object.entries(groupedByCampaign) as [string, any[]][]).map(([campaignName, campaignAccounts]) => (
+                <div key={campaignName} className="mb-4">
+                  <div 
+                    className="px-4 py-2 bg-neutral-900/60 text-[10px] font-black text-neutral-400 uppercase tracking-wider sticky top-0 backdrop-blur z-10 border-y border-white/10 flex justify-between items-center cursor-pointer hover:text-neutral-300 transition-colors"
+                    onClick={() => setExpandedCampaigns(prev => ({ ...prev, [campaignName]: prev[campaignName] === false ? true : false }))}
+                  >
+                    <span>{campaignName} ({campaignAccounts.length})</span>
+                    {expandedCampaigns[campaignName] === false ? <FiChevronRight size={14} /> : <FiChevronDown size={14} />}
+                  </div>
+                  {expandedCampaigns[campaignName] !== false && campaignAccounts.map(account => {
+                    const lastMsg = account.smsMessages?.[0]
+                    return (
+                      <div 
+                        key={account.id}
+                        onClick={() => setSelectedAccountId(account.id)}
+                        className={`p-4 border-b border-white/10 cursor-pointer hover:bg-white/5 transition-all ${selectedAccountId === account.id ? 'bg-neutral-800' : ''}`}
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <h3 className="font-bold text-white text-sm truncate">{account.name}</h3>
+                          {lastMsg && (
+                            <span className="text-xs text-neutral-500 flex-shrink-0 ml-2">
+                              {new Date(lastMsg.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </span>
+                          )}
+                        </div>
                         {lastMsg && (
-                          <span className="text-xs text-neutral-500 flex-shrink-0 ml-2">
-                            {new Date(lastMsg.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          <p className="text-xs text-neutral-400 truncate">
+                            {lastMsg.direction === 'OUTBOUND' ? 'You: ' : ''}{lastMsg.body}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))
+            )
+          ) : (
+            /* CAMPAIGNS TAB CHATS LIST */
+            selectedCampaignId === null ? (
+              /* LIST ALL CAMPAIGNS */
+              loadingCampaigns ? (
+                <div className="p-8 text-center text-neutral-500 text-sm">Loading campaigns...</div>
+              ) : campaigns.length === 0 ? (
+                <div className="p-8 text-center text-neutral-500 text-sm italic">No campaigns found.</div>
+              ) : (
+                campaigns
+                  .filter(c => searchQuery ? c.name?.toLowerCase().includes(searchQuery.toLowerCase()) : true)
+                  .map(c => (
+                    <div
+                      key={c.id}
+                      onClick={() => {
+                        setSelectedCampaignId(c.id)
+                        setSearchQuery("")
+                      }}
+                      className="p-4 border-b border-white/10 cursor-pointer hover:bg-white/5 transition-all"
+                    >
+                      <h3 className="font-bold text-white text-sm truncate">{c.name}</h3>
+                      <p className="text-[10px] text-neutral-500 mt-1">
+                        Sent by {c.author?.name || "System"} on {new Date(c.createdAt).toLocaleDateString()}
+                      </p>
+                      <div className="flex gap-2 mt-2.5">
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          {c.sentCount} Sent
+                        </span>
+                        {c.failedCount > 0 && (
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
+                            {c.failedCount} Failed
                           </span>
                         )}
                       </div>
-                      {lastMsg && (
-                        <p className="text-xs text-neutral-400 truncate">
-                          {lastMsg.direction === 'OUTBOUND' ? 'You: ' : ''}{lastMsg.body}
-                        </p>
-                      )}
                     </div>
-                  )
-                })}
+                  ))
+              )
+            ) : (
+              /* LIST ACCOUNTS IN SELECTED CAMPAIGN */
+              <div>
+                <div className="px-3 py-2 bg-neutral-900 border-b border-white/10 flex items-center">
+                  <button
+                    onClick={() => {
+                      setSelectedCampaignId(null)
+                      setSelectedAccountId(null)
+                    }}
+                    className="flex items-center gap-1.5 text-neutral-400 hover:text-white text-xs font-black"
+                  >
+                    <FiArrowLeft size={14} className="text-emerald-400" /> BACK TO CAMPAIGNS
+                  </button>
+                </div>
+                <div className="p-3 bg-black/30 border-b border-white/10 text-center">
+                  <h4 className="font-black text-xs text-white uppercase tracking-wider truncate" title={activeCampaign?.name}>{activeCampaign?.name}</h4>
+                  <p className="text-[9px] text-neutral-500 font-bold mt-0.5">RECIPIENTS LIST</p>
+                </div>
+                {loadingAccounts ? (
+                  <div className="p-8 text-center text-neutral-500 text-sm">Loading recipients...</div>
+                ) : filteredAccounts.length === 0 ? (
+                  <div className="p-8 text-center text-neutral-500 text-sm italic">No targeted recipients found.</div>
+                ) : (
+                  filteredAccounts.map(account => {
+                    const lastMsg = account.smsMessages?.[0]
+                    return (
+                      <div
+                        key={account.id}
+                        onClick={() => setSelectedAccountId(account.id)}
+                        className={`p-4 border-b border-white/10 cursor-pointer hover:bg-white/5 transition-all ${selectedAccountId === account.id ? 'bg-neutral-800' : ''}`}
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <h3 className="font-bold text-white text-sm truncate">{account.name}</h3>
+                          {lastMsg && (
+                            <span className="text-[10px] text-neutral-500 shrink-0 ml-2">
+                              {new Date(lastMsg.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between mt-2 gap-2">
+                          {account.hasReplied ? (
+                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1 shrink-0">
+                              <FiMessageSquare size={10} className="animate-pulse" /> Replied
+                            </span>
+                          ) : account.campaignStatus === 'SUCCESS' ? (
+                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 shrink-0">
+                              <FiCheckCircle size={10} /> Sent
+                            </span>
+                          ) : (
+                            <span 
+                              className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1 shrink-0"
+                              title={account.campaignErrorMessage || "Sending failed"}
+                            >
+                              <FiAlertCircle size={10} /> Failed
+                            </span>
+                          )}
+                          {lastMsg && (
+                            <p className="text-xs text-neutral-500 truncate text-right flex-1">
+                              {lastMsg.body}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
               </div>
-            ))
+            )
           )}
           
-          {/* Load Back Data Button */}
-          {!loadingAccounts && (
+          {/* Sync / Load older */}
+          {activeTab === "all" && !loadingAccounts && (
             <div className="p-4 border-t border-white/10 flex justify-center">
               <button 
                 onClick={handleLoadOlder}
                 disabled={syncing}
-                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold rounded-lg transition-colors border border-white/10 disabled:opacity-50"
+                className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-xs font-bold rounded-lg transition-colors border border-white/10 disabled:opacity-50"
               >
                 {syncing ? 'Loading...' : 'Load Older Messages (Zoho)'}
               </button>
@@ -300,13 +536,14 @@ export default function MessagesPage() {
       {/* RIGHT PANE - Chat View */}
       <div className={`flex-1 flex flex-col min-w-0 ${!selectedAccountId ? 'hidden md:flex' : 'flex'}`}>
         {!selectedAccountId ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-neutral-500">
-            <FiMessageSquare size={48} className="mb-4 opacity-20" />
-            <p>Select a conversation to start messaging</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-neutral-500 bg-[#06070a]">
+            <FiMessageSquare size={54} className="mb-4 opacity-10 text-emerald-400" />
+            <p className="text-sm font-bold tracking-wide uppercase text-neutral-600">Select a conversation to start messaging</p>
           </div>
         ) : (
           <>
-            <div className="h-16 border-b border-white/10 flex items-center justify-between px-4 shrink-0 bg-[#0f1013]">
+            {/* Chat View Header */}
+            <div className="h-16 border-b border-white/10 flex items-center justify-between px-4 shrink-0 bg-[#0a0a0c]">
               <div className="flex items-center gap-3">
                 <button 
                   className="md:hidden p-2 mr-1 text-neutral-400 hover:text-white"
@@ -314,64 +551,82 @@ export default function MessagesPage() {
                 >
                   <FiArrowLeft size={20} />
                 </button>
-                <div className="w-8 h-8 rounded-full bg-emerald-900/30 text-emerald-500 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-emerald-900/30 text-emerald-400 flex items-center justify-center font-bold">
                   <FiUser size={16} />
                 </div>
                 <div>
-                  <h2 className="text-white font-bold text-sm">{activeAccount?.name}</h2>
-                  <p className="text-neutral-500 text-xs">{activeAccount?.zohoId}</p>
+                  <h2 className="text-white font-bold text-sm tracking-tight">{activeAccount?.name}</h2>
+                  <p className="text-neutral-500 text-[10px] font-bold">{activeAccount?.zohoId}</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 {activeAccount?.zohoId && (
-                  <button onClick={() => setSlideoutAccountId(activeAccount.zohoId)} className="flex items-center gap-1 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-emerald-400 text-xs font-semibold rounded-lg border border-white/10 transition-colors">
+                  <button onClick={() => setSlideoutAccountId(activeAccount.zohoId)} className="flex items-center gap-1 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-emerald-400 text-xs font-bold rounded-lg border border-white/10 transition-colors">
                     <FiExternalLink size={13} /> Account
                   </button>
                 )}
                 <button
                   onClick={handleCloseCycle}
                   disabled={closingCycle}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800/60 text-xs font-bold rounded-lg transition-colors shadow-sm disabled:opacity-50"
-                  title="Close current sale cycle and reset active messaging window"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/40 hover:bg-amber-900/50 text-amber-400 border border-amber-800/40 text-xs font-bold rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                  title="Close current sale cycle and hide history from active window"
                 >
                   <span>{closingCycle ? "Closing..." : "Close Sale Cycle"}</span>
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-[#0a0a0a]">
-              {/* Closed Sale Cycle Banner / Toggle */}
+            {/* Campaign Template Content Summary Panel */}
+            {selectedCampaignId && activeCampaign && (
+              <div className="px-4 py-3 bg-neutral-950 border-b border-white/10 text-xs shrink-0 select-none">
+                <div className="flex justify-between items-center mb-1 text-[10px] font-black text-neutral-500 uppercase tracking-wider">
+                  <span>CAMPAIGN BLAST SOURCE</span>
+                  <span>{new Date(activeCampaign.createdAt).toLocaleDateString()}</span>
+                </div>
+                <p className="pl-3 border-l-2 border-emerald-500/50 text-neutral-400 italic font-medium whitespace-pre-wrap">{activeCampaign.content}</p>
+              </div>
+            )}
+
+            {/* Chat Thread */}
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-[#06070a]">
+              {/* Closed Sale Cycle Banner */}
               {closedMessagesCount > 0 && (
-                <div className="p-3 bg-neutral-900/90 border border-amber-500/30 rounded-xl text-center text-xs text-neutral-300 space-y-2 mb-2 shadow-md">
-                  <p className="text-amber-400 font-semibold">
-                    🔒 {closedMessagesCount} message(s) from prior closed sale cycles are hidden from active view.
+                <div className="p-3.5 bg-neutral-950/80 border border-amber-500/20 rounded-xl text-center text-xs text-neutral-300 space-y-2 mb-2 shadow-md">
+                  <p className="text-amber-400/90 font-bold flex items-center justify-center gap-1.5">
+                    🔒 {closedMessagesCount} message(s) from prior closed cycles are hidden.
                   </p>
                   <button
                     onClick={() => setIncludeClosedHistory(!includeClosedHistory)}
-                    className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-md border border-white/10 text-[11px] transition-colors"
+                    className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white font-black rounded-lg border border-white/10 text-[10px] transition-colors uppercase tracking-wider"
                   >
                     {includeClosedHistory ? "Hide Closed Cycle History" : `Show ${closedMessagesCount} Previous Messages`}
                   </button>
                 </div>
               )}
+
               {loadingMessages ? (
-                <div className="text-center text-neutral-500 text-sm mt-8">Loading messages...</div>
+                <div className="text-center text-neutral-500 text-sm mt-8">Loading thread...</div>
               ) : messages.length === 0 ? (
-                <div className="text-center text-neutral-500 text-sm mt-8">No messages found.</div>
+                <div className="text-center text-neutral-500 text-sm mt-8 italic">No active messages in this cycle.</div>
               ) : (
                 messages.map((msg, idx) => {
                   const isMine = msg.direction === 'OUTBOUND'
                   return (
                     <div key={msg.id || idx} className={`flex flex-col max-w-[80%] ${isMine ? 'self-end items-end' : 'self-start items-start'}`}>
-                      <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMine ? 'bg-emerald-600 text-white rounded-br-sm' : 'bg-neutral-800 text-neutral-200 rounded-bl-sm border border-white/10'}`}>
+                      <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMine ? 'bg-emerald-600 text-white rounded-br-sm' : 'bg-neutral-900 text-neutral-200 rounded-bl-sm border border-white/10'}`}>
                         {msg.mediaUrl && (
-                          <img src={msg.mediaUrl} alt="Attachment" className="max-w-full rounded-lg mb-2 max-h-48 object-cover" />
+                          <img src={msg.mediaUrl} alt="Attachment" className="max-w-full rounded-lg mb-2 max-h-48 object-cover border border-white/10" />
                         )}
                         {msg.body}
                       </div>
-                      <span className="text-[10px] text-neutral-500 mt-1 px-1">
+                      <span className="text-[9px] font-bold text-neutral-500 mt-1.5 px-1 flex items-center gap-1">
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {msg.campaignBlast?.name && (
+                          <span className="text-neutral-600 font-extrabold uppercase tracking-wider text-[8px] bg-white/5 border border-white/10 px-1 rounded">
+                            📢 {msg.campaignBlast.name}
+                          </span>
+                        )}
                       </span>
                     </div>
                   )
@@ -382,16 +637,16 @@ export default function MessagesPage() {
 
             {/* AI Suggestions Box */}
             {suggestions.length > 0 && (
-              <div className="px-4 py-3 glass-panel border-t border-white/10">
-                <div className="text-xs font-bold text-emerald-400 mb-2 flex items-center gap-1.5">
-                  <FiZap /> AI Suggestions
+              <div className="px-4 py-3 bg-[#0a0a0c] border-t border-white/10 shrink-0">
+                <div className="text-[10px] font-black text-emerald-400 mb-2 flex items-center gap-1 uppercase tracking-wider select-none">
+                  <FiZap className="animate-pulse" /> AI Suggestions
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {suggestions.map((sug, i) => (
                     <button
                       key={i}
                       onClick={() => setTextInput(sug)}
-                      className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-xs text-neutral-200 rounded-full border border-white/10 transition-colors text-left max-w-full truncate"
+                      className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-xs text-neutral-300 rounded-full border border-white/10 transition-colors text-left max-w-full truncate"
                     >
                       {sug}
                     </button>
@@ -400,21 +655,37 @@ export default function MessagesPage() {
               </div>
             )}
 
-            {/* Input Box */}
-            <div className="p-4 bg-[#0f1013] border-t border-white/10 flex items-end gap-2 shrink-0">
+            {/* Reply Input Box */}
+            <div className="p-4 bg-[#0a0a0c] border-t border-white/10 flex items-end gap-2 shrink-0">
               <button 
                 onClick={handleAiSuggest}
                 disabled={suggesting || messages.length === 0}
-                className="p-3 rounded-xl bg-neutral-800 text-emerald-400 hover:bg-neutral-700 transition-colors disabled:opacity-50 shrink-0"
+                className="p-3 rounded-xl bg-neutral-900 text-emerald-400 hover:bg-neutral-800 border border-white/10 transition-colors disabled:opacity-50 shrink-0"
                 title="AI Suggest Reply"
               >
                 {suggesting ? <div className="w-5 h-5 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" /> : <FiZap size={20} />}
               </button>
+
+              {zohoNumbers.length > 0 && (
+                <select
+                  value={selectedOutboundNumber}
+                  onChange={e => setSelectedOutboundNumber(e.target.value)}
+                  className="bg-neutral-900 border border-white/10 rounded-xl px-2 py-3.5 text-xs text-neutral-300 focus:outline-none focus:border-emerald-500 shrink-0 select-none"
+                  title="Sender phone number"
+                >
+                  {zohoNumbers.map(n => (
+                    <option key={n.number} value={n.number}>
+                      {n.name || n.number}
+                    </option>
+                  ))}
+                </select>
+              )}
+
               <textarea
                 value={textInput}
                 onChange={e => setTextInput(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 glass-panel border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 resize-none"
+                className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 resize-none placeholder:text-neutral-600"
                 rows={1}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -444,4 +715,3 @@ export default function MessagesPage() {
     </div>
   )
 }
-

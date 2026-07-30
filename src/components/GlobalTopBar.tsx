@@ -992,7 +992,13 @@ export function GlobalTopBar() {
 
           {/* Open button */}
           <button
-            onClick={() => setCampaignModalOpen(true)}
+            onClick={() => {
+              if (campaignState.blastId) {
+                router.push(`/messages?campaignBlastId=${campaignState.blastId}`)
+              } else {
+                router.push("/messages")
+              }
+            }}
             className="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white transition-colors hidden sm:flex items-center gap-1"
             title="Open campaign"
           >

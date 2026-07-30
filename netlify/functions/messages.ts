@@ -13,6 +13,64 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    const getCampaigns = event.queryStringParameters?.getCampaigns
+    const campaignBlastId = event.queryStringParameters?.campaignBlastId
+
+    if (getCampaigns === "true") {
+      const campaigns = await prisma.campaignBlast.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: {
+          author: { select: { name: true } }
+        }
+      })
+      return {
+        statusCode: 200,
+        headers: cors,
+        body: JSON.stringify({ success: true, campaigns })
+      }
+    }
+
+    if (campaignBlastId) {
+      const logs = await prisma.campaignLog.findMany({
+        where: { campaignBlastId },
+        include: {
+          account: {
+            include: {
+              smsMessages: {
+                orderBy: { createdAt: 'desc' }
+              }
+            }
+          }
+        }
+      })
+
+      const processedAccounts = logs.map((log: any) => {
+        const account = log.account
+        if (!account) return null
+        const msgs = account.smsMessages || []
+        
+        // Find if there's any inbound message after the log's sentAt time
+        const hasReplied = msgs.some((m: any) => m.direction === 'INBOUND' && new Date(m.createdAt) > new Date(log.sentAt))
+        const lastMsg = msgs[0] || null
+
+        return {
+          id: account.id,
+          name: account.name,
+          zohoId: account.zohoId,
+          campaignStatus: log.status,
+          campaignErrorMessage: log.errorMessage,
+          hasReplied,
+          smsMessages: lastMsg ? [lastMsg] : []
+        }
+      }).filter(Boolean)
+
+      return {
+        statusCode: 200,
+        headers: cors,
+        body: JSON.stringify({ success: true, accounts: processedAccounts })
+      }
+    }
+
     const accountsWithMessages = await prisma.account.findMany({
       where: {
         smsMessages: {
