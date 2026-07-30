@@ -241,6 +241,7 @@ export default function SalesPage() {
   useEffect(() => {
     fetchUsers()
     fetchCampaignTemplates()
+    fetchZohoNumbers()
   }, [])
 
   useEffect(() => {
@@ -261,6 +262,18 @@ export default function SalesPage() {
       const data = await res.json()
       if (data.success) {
         setCampaignTemplates(data.templates || [])
+      }
+    } catch (e) {}
+  }
+
+  const fetchZohoNumbers = async () => {
+    try {
+      const res = await fetch("/api/manage-zoho-numbers")
+      const d = await res.json()
+      if (d.success && d.numbers) {
+        setZohoNumbers(d.numbers)
+        const def = d.numbers.find((n: any) => n.isDefault)
+        setSelectedZohoNumber(def ? def.number : (d.numbers[0]?.number || ""))
       }
     } catch (e) {}
   }
@@ -1556,6 +1569,23 @@ export default function SalesPage() {
                   <option value="WHATSAPP">WhatsApp</option>
                 </select>
               </div>
+
+              {campaignChannel === 'SMS' && zohoNumbers.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-neutral-300 uppercase mb-1">Sender Phone Number</label>
+                  <select
+                    value={selectedZohoNumber}
+                    onChange={e => setSelectedZohoNumber(e.target.value)}
+                    className="w-full bg-black/30 border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    {zohoNumbers.map(n => (
+                      <option key={n.number} value={n.number}>
+                        {n.name ? `${n.name} (${n.number})` : n.number}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {campaignChannel === 'SMS' && (
                 <div className="space-y-2">
