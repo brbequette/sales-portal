@@ -306,10 +306,11 @@ export function SalesBoard() {
             return
           }
 
-          // --- 2. SALES ORDERS (Active on board until Invoiced) ---
+          // --- 2. SALES ORDERS (Active on board until Invoiced/Closed) ---
           if (docType === 'SalesOrder') {
-            const isInvoiced = raw.status === 'Invoiced' || raw.invoice_id || raw.invoice_number
-            if (isInvoiced) return // Skip converted Sales Orders to avoid double-counting
+            const soStatus = (raw.status || '').toLowerCase().trim()
+            const isInvoicedOrClosed = soStatus === 'invoiced' || soStatus === 'closed' || soStatus === 'void' || raw.invoice_id || raw.invoice_number
+            if (isInvoicedOrClosed) return // Skip converted/closed/voided Sales Orders to avoid double-counting
             if (matchedRep) {
               matchedRep.activePipeline.salesOrderCount += 1
               matchedRep.activePipeline.salesOrderAmount += parseFloat(doc.amount || raw.total || raw.amount || 0)
