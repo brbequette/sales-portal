@@ -270,11 +270,14 @@ export const handler: Handler = async (event) => {
             await (prisma as any)[cfg.dbModel].update({
               where: { id: dbRecord.id },
               data: {
+                amount: subTotal,
                 costsCalculatedAt: new Date(),
                 zohoModifiedTime: doc.last_modified_time ? new Date(doc.last_modified_time) : undefined,
                 pendingCostSync: false,
                 items: {
                   ...existingItems,
+                  sub_total: subTotal,
+                  subTotal: subTotal,
                   // Cost calculations
                   deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
                   deadProfitActual, profit, marginPercent, subTotal,

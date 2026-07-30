@@ -120,8 +120,11 @@ export const handler: Handler = async (event) => {
       await prisma.quote.update({
         where: { id: localQuote.id },
         data: {
+          amount: subTotal,
           items: {
             ...currentItems,
+            sub_total: subTotal,
+            subTotal: subTotal,
             deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
             deadProfitActual, profit,
             commission: salesCommission, commissionPercent: commissionPct, vigRate,
