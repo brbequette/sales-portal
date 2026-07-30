@@ -20,9 +20,50 @@ import { usePreferences } from "@/components/PreferencesProvider"
 import { DealPipeline } from "@/components/DealPipeline"
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 
-import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiPhone, FiMail, FiMessageSquare, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiAlertCircle, FiBox, FiLayers, FiEye, FiTarget } from "react-icons/fi"
+import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiPhone, FiMail, FiMessageSquare, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiAlertCircle, FiBox, FiLayers, FiEye, FiTarget, FiImage } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
 import { useCampaignProgress } from "@/components/CampaignProgressProvider"
+
+const optimizeImage = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement("canvas")
+        let width = img.width
+        let height = img.height
+
+        const MAX_DIM = 1024
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIM) / width)
+            width = MAX_DIM
+          } else {
+            width = Math.round((width * MAX_DIM) / height)
+            height = MAX_DIM
+          }
+        }
+
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext("2d")
+        if (!ctx) {
+          resolve(e.target?.result as string)
+          return
+        }
+
+        ctx.drawImage(img, 0, 0, width, height)
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.7)
+        resolve(dataUrl)
+      }
+      img.onerror = () => reject(new Error("Failed to load image for optimization"))
+      img.src = e.target?.result as string
+    }
+    reader.onerror = () => reject(new Error("Failed to read file"))
+    reader.readAsDataURL(file)
+  })
+}
 
 function formatLastCalled(dateStr: string | null) {
   if (!dateStr) return "Never called"
@@ -166,6 +207,8 @@ export default function SalesPage() {
   const [campaignImageUrl, setCampaignImageUrl] = useState("")
   const [campaignError, setCampaignError] = useState("")
   const [campaignSuccess, setCampaignSuccess] = useState("")
+  const [isOptimizing, setIsOptimizing] = useState(false)
+  const [optimizedSizeKb, setOptimizedSizeKb] = useState<number | null>(null)
   const [zohoNumbers, setZohoNumbers] = useState<any[]>([])
   const [selectedZohoNumber, setSelectedZohoNumber] = useState("")
   const [campaignTemplates, setCampaignTemplates] = useState<any[]>([])
@@ -1515,15 +1558,82 @@ export default function SalesPage() {
               </div>
 
               {campaignChannel === 'SMS' && (
-                <div>
-                  <label className="block text-xs font-bold text-neutral-300 uppercase mb-1">Image URL (Optional for MMS)</label>
-                  <input
-                    type="text"
-                    value={campaignImageUrl}
-                    onChange={e => setCampaignImageUrl(e.target.value)}
-                    className="w-full bg-black/30 border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                    placeholder="https://example.com/image.jpg"
-                  />
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-neutral-300 uppercase mb-1">Image Attachment (Optional for MMS)</label>
+                  
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={campaignImageUrl}
+                      onChange={e => {
+                        setCampaignImageUrl(e.target.value)
+                        setOptimizedSizeKb(null)
+                      }}
+                      className="flex-1 bg-black/30 border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 text-xs"
+                      placeholder="Paste image URL, or click upload"
+                    />
+                    <label className="shrink-0 px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-xs font-bold cursor-pointer transition flex items-center gap-1.5 border border-white/10 select-none">
+                      <FiImage size={14} className="text-emerald-400" />
+                      <span>Upload</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          setIsOptimizing(true)
+                          try {
+                            const optimizedDataUrl = await optimizeImage(file)
+                            setCampaignImageUrl(optimizedDataUrl)
+                            
+                            const base64Length = optimizedDataUrl.split(',')[1].length
+                            const sizeInBytes = base64Length * 0.75
+                            setOptimizedSizeKb(Math.round(sizeInBytes / 1024))
+                            toast.success("Image optimized successfully!")
+                          } catch (err: any) {
+                            toast.error("Failed to optimize image: " + err.message)
+                          } finally {
+                            setIsOptimizing(false)
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {isOptimizing && (
+                    <p className="text-[10px] text-amber-400 font-medium animate-pulse">Optimizing image file for sending...</p>
+                  )}
+
+                  {campaignImageUrl && (
+                    <div className="mt-2 p-2 bg-black/40 border border-white/10 rounded-lg flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {campaignImageUrl.startsWith('data:') ? (
+                          <img src={campaignImageUrl} className="w-12 h-12 object-cover rounded border border-white/10" alt="Preview" />
+                        ) : (
+                          <div className="w-12 h-12 rounded bg-neutral-800 border border-white/10 flex items-center justify-center text-neutral-400 text-xs font-bold">URL</div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-white truncate max-w-[200px]">
+                            {campaignImageUrl.startsWith('data:') ? 'Uploaded Image File' : campaignImageUrl}
+                          </p>
+                          {optimizedSizeKb !== null && (
+                            <p className="text-[10px] text-emerald-400 font-semibold">{optimizedSizeKb} KB (Compressed & Optimized)</p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCampaignImageUrl("")
+                          setOptimizedSizeKb(null)
+                        }}
+                        className="text-xs text-red-400 hover:text-red-300 font-bold hover:underline px-2"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
