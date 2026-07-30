@@ -87,6 +87,30 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
     )
   }, [productSearch, productsCatalog])
 
+  const getVigAndGiftStatus = (item: any) => {
+    const calcDetail = fullInvoiceDetails?.items?.lineItemDetails?.find((d: any) => 
+      (d.sku && item.sku && d.sku.toLowerCase().trim() === item.sku.toLowerCase().trim()) ||
+      (d.name && item.name && d.name.toLowerCase().trim() === item.name.toLowerCase().trim())
+    )
+    if (calcDetail) {
+      return { isExempt: calcDetail.noVig, isGift: calcDetail.gift }
+    }
+
+    const itemSku = (item.sku || item.code || "").toLowerCase().trim()
+    const itemName = (item.name || "").toLowerCase().trim()
+    const prod = productsCatalog.find(p => 
+      p.sku?.toLowerCase().trim() === itemSku || 
+      p.name?.toLowerCase().trim() === itemName
+    )
+    if (prod) {
+      const isGift = prod.giftItem === true
+      const isExempt = prod.subjectToVig === false || prod.giftItem === true || isItemExemptFromVig(item)
+      return { isExempt, isGift }
+    }
+
+    return { isExempt: isItemExemptFromVig(item), isGift: false }
+  }
+
   useEffect(() => {
     if (isEditingLineItems && productsCatalog.length === 0) {
       fetch("/api/get-products")
@@ -1275,7 +1299,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                           </div>
                                                        {lineItems.map((li: any, idx: number) => {
                               const dcPerUnit = li.deadCost != null ? li.deadCost / (li.quantity || 1) : null
-                              const isExempt = li.noVig || isItemExemptFromVig(li)
+                              const { isExempt, isGift } = getVigAndGiftStatus(li)
                               return (
                                 <div key={idx} className="grid px-3 py-2 text-xs hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30 transition-colors" style={{gridTemplateColumns:'1fr 48px 56px 56px 56px 50px'}}>
                                   <div className="min-w-0">
@@ -1304,7 +1328,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                                     ) : (
                                       <span className="text-[8px] bg-emerald-500/20 text-emerald-300 px-1 py-0.5 rounded font-bold border border-emerald-500/30">VIG</span>
                                     )}
-                                    {li.gift && <span className="text-[8px] bg-pink-500/20 text-pink-300 px-1 py-0.5 rounded font-bold">GIFT</span>}
+                                    {(isGift || li.gift) && <span className="text-[8px] bg-pink-500/20 text-pink-300 px-1 py-0.5 rounded font-bold">GIFT</span>}
                                   </div>
                                 </div>
                               )
@@ -1564,16 +1588,19 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                                 </div>
                               )
                             }
-                            const isExempt = isItemExemptFromVig(item)
+                            const { isExempt, isGift } = getVigAndGiftStatus(item)
                             return (
                               <div key={item.line_item_id || i} className="glass-panel border border-white/10 rounded-lg p-3 shadow-sm">
                                 <div className="flex justify-between gap-2 font-bold text-white text-sm">
-                                  <span className="truncate min-w-0 flex items-center gap-2">
-                                    {item.name}
+                                  <span className="truncate min-w-0 flex items-center gap-1.5 flex-wrap">
+                                    <span>{item.name}</span>
                                     {isExempt ? (
-                                      <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">No VIG (Exempt)</span>
+                                      <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0">No VIG (Exempt)</span>
                                     ) : (
-                                      <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Subject to VIG</span>
+                                      <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0">Subject to VIG</span>
+                                    )}
+                                    {isGift && (
+                                      <span className="text-[9px] bg-pink-500/20 text-pink-300 border border-pink-500/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0">GIFT</span>
                                     )}
                                   </span>
                                   <span className="text-emerald-400 shrink-0">${parseFloat(item.item_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
