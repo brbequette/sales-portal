@@ -434,15 +434,41 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         if (vigRes.ok) {
           const vigData = await vigRes.json()
           if (vigData.success && Array.isArray(vigData.repConfigs)) {
-            const activeFilter = filterRepName || repName
-            const matchRep = vigData.repConfigs.find((r: any) => 
-              (activeFilter && r.name.toLowerCase().includes(activeFilter.toLowerCase())) ||
-              (repEmail && r.email.toLowerCase() === repEmail.toLowerCase())
-            )
-            if (matchRep) {
-              if (matchRep.dailyProfitGoal > 0) repProfitGoal = matchRep.dailyProfitGoal * 20
-              if (matchRep.dailySubtotalGoal > 0) repSubtotalGoal = matchRep.dailySubtotalGoal * 20
-              if (matchRep.constantVigValue) repVigRate = parseFloat(matchRep.constantVigValue)
+            if (showCompanyWide) {
+              let sumProfitGoal = 0
+              let sumSubtotalGoal = 0
+              vigData.repConfigs.forEach((r: any) => {
+                const emailLower = (r.email || "").toLowerCase()
+                const nameLower = (r.name || "").toLowerCase()
+                // Exclude admins and test/dummy accounts
+                if (
+                  emailLower.includes("dummy") || 
+                  emailLower.includes("example.com") || 
+                  emailLower.includes("test_migration") ||
+                  emailLower.includes("ben@titandiamond.net") ||
+                  emailLower.includes("ben@titandiamond.com") ||
+                  emailLower.includes("admin@titandiamond.com") ||
+                  nameLower.includes("admin") ||
+                  nameLower.includes("benjamin")
+                ) {
+                  return
+                }
+                sumProfitGoal += (r.dailyProfitGoal > 0 ? r.dailyProfitGoal * 20 : 20000)
+                sumSubtotalGoal += (r.dailySubtotalGoal > 0 ? r.dailySubtotalGoal * 20 : 40000)
+              })
+              if (sumProfitGoal > 0) repProfitGoal = sumProfitGoal
+              if (sumSubtotalGoal > 0) repSubtotalGoal = sumSubtotalGoal
+            } else {
+              const activeFilter = filterRepName || repName
+              const matchRep = vigData.repConfigs.find((r: any) => 
+                (activeFilter && r.name.toLowerCase().includes(activeFilter.toLowerCase())) ||
+                (repEmail && r.email.toLowerCase() === repEmail.toLowerCase())
+              )
+              if (matchRep) {
+                if (matchRep.dailyProfitGoal > 0) repProfitGoal = matchRep.dailyProfitGoal * 20
+                if (matchRep.dailySubtotalGoal > 0) repSubtotalGoal = matchRep.dailySubtotalGoal * 20
+                if (matchRep.constantVigValue) repVigRate = parseFloat(matchRep.constantVigValue)
+              }
             }
           }
         }
