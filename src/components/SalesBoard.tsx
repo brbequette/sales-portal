@@ -267,6 +267,23 @@ export function SalesBoard() {
         let totalOverdueBalance = 0
         const rawDocs = combinedDocuments
 
+        const normalizeRepName = (n: string) => {
+          const val = (n || '').toLowerCase().replace(/\s+/g, ' ').trim()
+          if (val === 'ben bequette') return 'benjamin bequette'
+          if (val === 'monty morgan') return 'montgomery morgan'
+          if (val === 'ricky griffin') return 'richard griffin'
+          return val
+        }
+
+        const getMatchedRep = (nameStr: string) => {
+          const spNameNormalized = normalizeRepName(nameStr)
+          if (!spNameNormalized) return null
+          return Object.values(repsMap).find(r => {
+            const repNameNormalized = normalizeRepName(r.name)
+            return repNameNormalized.includes(spNameNormalized) || spNameNormalized.includes(repNameNormalized)
+          })
+        }
+
         rawDocs.forEach((doc: any) => {
           const raw = doc.raw || {}
           const items = raw.items || {}
@@ -275,7 +292,7 @@ export function SalesBoard() {
           if (spName.includes("PAUL") && (spName.includes("GENCUSKI") || spName.includes("GENKUSKI"))) return
 
           const docType = doc.type || 'Invoice'
-          const matchedRep = Object.values(repsMap).find(r => r.name.toUpperCase().includes(spName) || spName.includes(r.name.toUpperCase()))
+          const matchedRep = getMatchedRep(spName)
 
           // --- 1. ESTIMATES / QUOTES (48 Hours active on board or until SO) ---
           if (docType === 'Quote') {
@@ -965,7 +982,18 @@ export function SalesBoard() {
                </thead>
                <tbody>
                   {data.overdueInvoices.map((inv: any, idx: number) => {
-                     const rep = data.reps.find((r:any) => r.name.toUpperCase() === inv.repName) || { name: inv.repName, gradient: 'from-neutral-600 to-neutral-800' }
+                     const normalizeRepName = (n: string) => {
+                        const val = (n || '').toLowerCase().replace(/\s+/g, ' ').trim()
+                        if (val === 'ben bequette') return 'benjamin bequette'
+                        if (val === 'monty morgan') return 'montgomery morgan'
+                        if (val === 'ricky griffin') return 'richard griffin'
+                        return val
+                     }
+                     const invRepNameNormalized = normalizeRepName(inv.repName)
+                     const rep = data.reps.find((r: any) => {
+                        const repNameNormalized = normalizeRepName(r.name)
+                        return repNameNormalized.includes(invRepNameNormalized) || invRepNameNormalized.includes(repNameNormalized)
+                     }) || { name: inv.repName, gradient: 'from-neutral-600 to-neutral-800' }
                      return (
                      <tr key={idx} className="hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors group">
                         <td className="p-4 text-sm font-bold border-b border-white/10 text-white">

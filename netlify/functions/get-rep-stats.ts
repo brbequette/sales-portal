@@ -381,7 +381,8 @@ export const handler: Handler = async (event) => {
         // Find salesperson on invoice
         let repId = unassignedId
         if (salespersonName) {
-          const matchedId = userNameToIdMap[salespersonName.toLowerCase().trim()]
+          const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
+          const matchedId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()]
           if (matchedId) repId = matchedId
         }
         if (repId === unassignedId) {
@@ -461,7 +462,8 @@ export const handler: Handler = async (event) => {
 
       let repId = unassignedId
       if (salespersonName) {
-        const matchedId = userNameToIdMap[salespersonName.toLowerCase().trim()]
+        const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
+        const matchedId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()]
         if (matchedId) repId = matchedId
       }
       if (repId === unassignedId) {

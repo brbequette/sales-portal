@@ -233,10 +233,18 @@ export const handler: Handler = async (event) => {
     for (const u of allVigUsers) {
       vigUserMap.set(u.id, { constantVigEnabled: !!u.constantVigEnabled, constantVigValue: u.constantVigValue ?? null })
     }
+    const normalizeRepName = (n: string) => {
+      const val = (n || '').toLowerCase().replace(/\s+/g, ' ').trim()
+      if (val === 'ben bequette') return 'benjamin bequette'
+      if (val === 'monty morgan') return 'montgomery morgan'
+      if (val === 'ricky griffin') return 'richard griffin'
+      return val
+    }
+
     // Build reverse lookup: salesperson name (lowercase) -> userId
     const nameToUserId = new Map<string, string>()
     for (const u of allVigUsers) {
-      if (u.name) nameToUserId.set(u.name.toLowerCase().trim(), u.id)
+      if (u.name) nameToUserId.set(normalizeRepName(u.name), u.id)
     }
 
     /**
@@ -307,7 +315,10 @@ export const handler: Handler = async (event) => {
     
     const invoices = [...Array.from(seenInvoiceNumbers.values()), ...invoicesWithoutNumber]
 
-    const userByName = new Map(users.map(u => [u.name?.toLowerCase().trim(), u]))
+    const userByName = new Map()
+    users.forEach(u => {
+      if (u.name) userByName.set(normalizeRepName(u.name), u)
+    })
 
     // ── Build invoice-based commission records ──────────────────────────
     // Commission is split 50/50:
@@ -364,8 +375,9 @@ export const handler: Handler = async (event) => {
       const docDate = inv.issueDate ? new Date(inv.issueDate) : (inv.createdAt ? new Date(inv.createdAt) : (items.date ? new Date(items.date) : new Date()))
       const isMontgomery = salespersonName?.toLowerCase().includes("montgomery") || salespersonName?.toLowerCase().includes("morgan")
 
-      const matchedRep = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
-      const matchedRepId = matchedRep?.id || (salespersonName ? nameToUserId.get(salespersonName.toLowerCase().trim()) : null) || null
+      const normSpName = salespersonName ? normalizeRepName(salespersonName) : ""
+      const matchedRep = normSpName ? userByName.get(normSpName) : null
+      const matchedRepId = matchedRep?.id || (normSpName ? nameToUserId.get(normSpName) : null) || null
 
       // VIG Rate: resolved from cf_salesperson_vig on invoice → user constant → MonthlyVigGoal → 1.3 default
       // cf_salesperson_vig is the Zoho custom field pushed by sync-vig-to-zoho
@@ -521,8 +533,9 @@ export const handler: Handler = async (event) => {
       const docDate = so.orderDate ? new Date(so.orderDate) : new Date()
       const isMontgomery = salespersonName?.toLowerCase().includes("montgomery") || salespersonName?.toLowerCase().includes("morgan")
 
-      const matchedRep = salespersonName ? userByName.get(salespersonName.toLowerCase().trim()) : null
-      const matchedRepId = matchedRep?.id || (salespersonName ? nameToUserId.get(salespersonName.toLowerCase().trim()) : null) || null
+      const normSpName = salespersonName ? normalizeRepName(salespersonName) : ""
+      const matchedRep = normSpName ? userByName.get(normSpName) : null
+      const matchedRepId = matchedRep?.id || (normSpName ? nameToUserId.get(normSpName) : null) || null
 
       const vigRate = resolveVigRate(
         salespersonName,

@@ -126,10 +126,20 @@ export const handler: Handler = async (event) => {
     // Filter to only those invoices belonging to this rep
     for (const inv of localInvoices) {
       const items = inv.items as any
-      const salespersonName = items?.salesperson?.toLowerCase().trim()
+      const normalizeRepName = (n: string) => {
+        const val = (n || '').toLowerCase().replace(/\s+/g, ' ').trim()
+        if (val === 'ben bequette') return 'benjamin bequette'
+        if (val === 'monty morgan') return 'montgomery morgan'
+        if (val === 'ricky griffin') return 'richard griffin'
+        return val
+      }
+
+      const salespersonName = items?.salesperson || ''
+      const normSalesperson = normalizeRepName(salespersonName)
+      const normRepName = normalizeRepName(repNameLower)
       
       let matches = false
-      if (salespersonName && (salespersonName === repNameLower || salespersonName.includes(repNameLower) || repNameLower.includes(salespersonName))) {
+      if (normSalesperson && (normSalesperson === normRepName || normSalesperson.includes(normRepName) || normRepName.includes(normSalesperson))) {
         matches = true
       }
       
