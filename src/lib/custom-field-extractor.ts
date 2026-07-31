@@ -65,6 +65,9 @@ import exemptCatalog from "./exempt-catalog.json";
 export function isItemExemptFromVig(item: any): boolean {
   if (!item || typeof item !== 'object') return false;
 
+  const rate = parseFloat(item.rate || item.price || item.unit_price || 0)
+  if (rate === 0) return true;
+
   // 1. Direct explicit boolean / string flag checks
   if (item.noVig === true || item.no_vig === true || item.isNoVig === true || item.is_no_vig === true) return true;
   if (item.noVig === 'true' || item.no_vig === 'true' || item.isNoVig === 'true') return true;

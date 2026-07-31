@@ -54,6 +54,9 @@ export interface CostCalculationResult {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 export function isGiftItem(item: any): boolean {
+  const rate = parseFloat(item.rate || item.price || item.unit_price || 0)
+  if (rate === 0) return true
+
   const cfs = item.item_custom_fields || item.custom_fields || []
   if (Array.isArray(cfs)) {
     const giftField = cfs.find((c: any) => {
@@ -68,6 +71,9 @@ export function isGiftItem(item: any): boolean {
 }
 
 export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>): boolean {
+  const rate = parseFloat(item.rate || item.price || item.unit_price || 0)
+  if (rate === 0) return true
+
   if (isGiftItem(item)) return true
   if (item.no_vig === true || item.noVig === true || item.is_no_vig === true || item.isNoVig === true) return true
   if (item.no_vig === 'true' || item.noVig === 'true' || item.is_no_vig === 'true') return true
@@ -282,13 +288,18 @@ export async function calculateDocumentCosts(
       return sum + (qty * rate)
     }, 0)
   }
-  let deadCostTotal = deadCostSubjectToVig + deadCostNoVig
+
+  const ccFees          = extractCcFees(doc)
+  const additionalCosts = extractAdditionalCosts(doc)
+  const insurance       = extractInsurance(doc) // not subtracted
+
+  let deadCostTotal = deadCostSubjectToVig + deadCostNoVig + additionalCosts
 
   // Fallback: If document has subTotal > 0 but zero line items or missing cost data in Books,
   // estimate base product cost as 50% of subTotal so profit is not artificially inflated.
-  if (deadCostTotal === 0 && subTotal > 0) {
+  if ((deadCostSubjectToVig + deadCostNoVig) === 0 && subTotal > 0) {
     deadCostSubjectToVig = subTotal * 0.50
-    deadCostTotal = deadCostSubjectToVig
+    deadCostTotal = deadCostSubjectToVig + additionalCosts
   }
 
   // ─── 2. VIG rate ────────────────────────────────────────────────────────────
@@ -310,15 +321,10 @@ export async function calculateDocumentCosts(
 
   // ─── 5. Profit ──────────────────────────────────────────────────────────────
 
-  const ccFees          = extractCcFees(doc)
-  const additionalCosts = extractAdditionalCosts(doc)
-  const insurance       = extractInsurance(doc) // not subtracted
-
-
   const totalDeductions  = deadCostPlusVig + ccFees + additionalCosts
   const profit           = subTotal - totalDeductions
   const marginPercent    = subTotal > 0 ? (profit / subTotal) * 100 : 0
-  const deadProfitActual = subTotal - deadCostTotal - ccFees - additionalCosts
+  const deadProfitActual = subTotal - deadCostTotal - ccFees
 
   // ─── 6. Commission ──────────────────────────────────────────────────────────
   const commissionPct   = resolveCommissionPct(doc, settings, manualCommPct)
