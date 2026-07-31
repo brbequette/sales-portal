@@ -188,8 +188,11 @@ export const handler: Handler = async (event) => {
         let tariffNote    = ""
 
         if (applyTariff) {
+          const isPaidInvoice = doc.status?.toLowerCase() === 'paid' || doc.balance === 0 || parseFloat(doc.balance || 0) <= 0
           const existingAdj = parseFloat(doc.adjustment || 0)
-          if (existingAdj !== 0) {
+          if (isPaidInvoice) {
+            tariffNote = "Paid invoice - no tariff"
+          } else if (existingAdj !== 0) {
             tariffNote = `adj already $${existingAdj}`
           } else if (hasTariffRemoveFlag(doc)) {
             tariffNote = "Remove Tariff checked"
