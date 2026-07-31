@@ -739,7 +739,10 @@ export const handler: Handler = async (event) => {
             }
           }
 
-          if (fieldsToUpdate.length > 0) {
+          const isPaidInvoice = currentDocType === 'Invoice' && (doc.status?.toLowerCase() === 'paid' || doc.balance === 0 || updatedItems.status === 'Paid')
+          if (isPaidInvoice) {
+            console.log(`[Phase 3] Invoice ${booksId} is Paid. Skipping Zoho Books PUT update (local update only).`)
+          } else if (fieldsToUpdate.length > 0) {
             await sleep(RATE_DELAY_MS)
             const putRes = await fetch(`${BASE_URL}/${zohoModule}/${booksId}?organization_id=${ORG_ID}`, {
               method: 'PUT',
