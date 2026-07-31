@@ -435,6 +435,9 @@ export function buildFieldsToUpdate(
       if (currentVal !== newVal || currentVal === "" || currentVal === "0") {
         fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
       }
+    } else {
+      // Field does not exist on doc — push by label fallback
+      fieldsToUpdate.push({ label, value })
     }
   }
 
@@ -448,6 +451,9 @@ export function buildFieldsToUpdate(
           fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
         }
       }
+    } else {
+      // Field does not exist on doc — push by api_name fallback
+      fieldsToUpdate.push({ api_name: apiName, value })
     }
   }
 

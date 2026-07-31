@@ -123,16 +123,24 @@ export async function POST(req: Request) {
 
         for (const [label, value] of Object.entries(fieldMap)) {
           const field = existingFields.find((f: any) => f.label.toUpperCase().trim() === label)
-          if (field && String(field.value || "").trim() !== String(value).trim()) {
-            fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
+          if (field) {
+            if (String(field.value || "").trim() !== String(value).trim()) {
+              fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
+            }
+          } else {
+            fieldsToUpdate.push({ label, value })
           }
         }
         for (const [apiName, value] of Object.entries(apiNameMap)) {
           const field = existingFields.find((f: any) => f.api_name === apiName)
-          if (field && String(field.value || "").trim() !== String(value).trim()) {
-            if (!fieldsToUpdate.some((f: any) => f.customfield_id === field.customfield_id)) {
-              fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
+          if (field) {
+            if (String(field.value || "").trim() !== String(value).trim()) {
+              if (!fieldsToUpdate.some((f: any) => f.customfield_id === field.customfield_id)) {
+                fieldsToUpdate.push({ customfield_id: field.customfield_id, value })
+              }
             }
+          } else {
+            fieldsToUpdate.push({ api_name: apiName, value })
           }
         }
 
@@ -145,6 +153,7 @@ export async function POST(req: Request) {
           putPayload.adjustment_description = "TARIFF SURCHARGE"
         }
 
+        let zohoUpdateResult: any = null
         if (Object.keys(putPayload).length > 0) {
           const putRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
             method: "PUT",
@@ -152,6 +161,7 @@ export async function POST(req: Request) {
             body: JSON.stringify(putPayload),
           })
           const putData: any = await putRes.json()
+          zohoUpdateResult = { ok: putRes.ok, code: putData.code, message: putData.message }
           if (!putRes.ok || putData.code !== 0) {
             console.error(`Zoho Books update failed for ${invoice.invoice_number}:`, JSON.stringify(putData))
           }
@@ -174,7 +184,12 @@ export async function POST(req: Request) {
           }
         })
 
-        results.push({ invoiceNumber: invoice.invoice_number, success: true })
+        results.push({ 
+          invoiceNumber: invoice.invoice_number, 
+          success: true, 
+          putPayload, 
+          zohoUpdateResult 
+        })
       } catch (err: any) {
         console.error(`Error processing invoice ID ${localInv.id}:`, err.message)
         results.push({ invoiceId: localInv.zohoId, success: false, error: err.message })
