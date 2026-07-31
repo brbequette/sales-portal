@@ -73,7 +73,9 @@ export default function BackfillPage() {
         }
 
         consecutiveErrors = 0
-        addLog(`⚡ Phase 3 [${data.docType}]: Processed ${data.batchProcessed} docs. Mapped to Zoho: ${data.batchPushedToZoho}`)
+        if (data.batchProcessed !== undefined) {
+          addLog(`⚡ Phase 3 [${data.docType}]: Processed ${data.batchProcessed} docs. Mapped to Zoho: ${data.batchPushedToZoho}`)
+        }
 
         if (data.done || !data.callAgain) {
           addLog("🎁‰ Phase 3 complete!")

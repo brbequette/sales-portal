@@ -640,21 +640,39 @@ export const handler: Handler = async (event) => {
       : currentDocType === 'SalesOrder' ? 'orderDate'
       : 'issueDate'
 
+    const where: any = {
+      status: { notIn: ['Void', 'void'] },
+    }
+
+    if (currentDocType === 'Invoice') {
+      where.OR = [
+        { zohoId: { not: '' } },
+        { items: { path: ['booksInvoiceId'], not: '' } }
+      ]
+    } else if (currentDocType === 'SalesOrder') {
+      where.OR = [
+        { zohoId: { not: null, notIn: [''] } },
+        { items: { path: ['booksSalesOrderId'], not: '' } }
+      ]
+    } else {
+      where.OR = [
+        { zohoId: { not: null, notIn: [''] } },
+        { items: { path: ['booksEstimateId'], not: '' } }
+      ]
+    }
+
     try {
       batch = await (model as any).findMany({
-        where: {
-          OR: [
-            { zohoId: { not: null as any, notIn: [''] } },
-            { items: { path: [booksIdPath], not: '' } }
-          ],
-          status: { notIn: ['Void', 'void'] },
-        },
+        where,
         select: { id: true, items: true, zohoId: true },
         skip: offset,
         take: PHASE3_BATCH_SIZE,
         orderBy: { [orderField]: 'desc' },
       })
-    } catch { batch = [] }
+    } catch (e: any) {
+      console.error(`Phase 3 findMany error for ${currentDocType}:`, e.message)
+      batch = []
+    }
 
     // If no records left for this doc type, move to next
     if (batch.length === 0 && currentDocType !== 'Quote') {
