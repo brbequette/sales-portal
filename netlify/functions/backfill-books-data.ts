@@ -316,40 +316,43 @@ export const handler: Handler = async (event) => {
     const invUncached = await prisma.invoice.findMany({
       where: {
         id: { notIn: failedIds },
-        items: { path: ['booksInvoiceId'], not: '' },
+        zohoId: { not: '' },
         OR: [
+          { items: { equals: null as any } },
           { items: { path: ['line_items'], equals: null as any } },
           { items: { path: ['line_items'], equals: [] } }
         ]
       },
-      select: { id: true, items: true, status: true },
+      select: { id: true, zohoId: true, items: true, status: true },
       take: BATCH_SIZE
     })
 
     const soUncached = await prisma.salesOrder.findMany({
       where: {
         id: { notIn: failedIds },
-        items: { path: ['booksSalesOrderId'], not: '' },
+        zohoId: { not: null as any },
         OR: [
+          { items: { equals: null as any } },
           { items: { path: ['line_items'], equals: null as any } },
           { items: { path: ['line_items'], equals: [] } }
         ]
       },
-      select: { id: true, items: true, status: true },
+      select: { id: true, zohoId: true, items: true, status: true },
       take: BATCH_SIZE
     })
 
     const qtUncached = await prisma.quote.findMany({
       where: {
         id: { notIn: failedIds },
-        items: { path: ['booksEstimateId'], not: '' },
+        zohoId: { not: null as any },
         status: { equals: 'Invoiced' },
         OR: [
+          { items: { equals: null as any } },
           { items: { path: ['line_items'], equals: null as any } },
           { items: { path: ['line_items'], equals: [] } }
         ]
       },
-      select: { id: true, items: true, status: true },
+      select: { id: true, zohoId: true, items: true, status: true },
       take: BATCH_SIZE
     })
 
@@ -358,23 +361,20 @@ export const handler: Handler = async (event) => {
 
     for (const r of invUncached) {
       if (batch.length >= BATCH_SIZE) break
-      const items = r.items as any
-      batch.push({ id: r.id, booksId: items.booksInvoiceId, model: 'invoice', status: r.status || '' })
+      batch.push({ id: r.id, booksId: r.zohoId, model: 'invoice', status: r.status || '' })
     }
 
     if (batch.length < BATCH_SIZE) {
       for (const r of soUncached) {
         if (batch.length >= BATCH_SIZE) break
-        const items = r.items as any
-        batch.push({ id: r.id, booksId: items.booksSalesOrderId, model: 'salesOrder', status: r.status || '' })
+        batch.push({ id: r.id, booksId: r.zohoId!, model: 'salesOrder', status: r.status || '' })
       }
     }
 
     if (batch.length < BATCH_SIZE) {
       for (const r of qtUncached) {
         if (batch.length >= BATCH_SIZE) break
-        const items = r.items as any
-        batch.push({ id: r.id, booksId: items.booksEstimateId, model: 'quote', status: r.status || '' })
+        batch.push({ id: r.id, booksId: r.zohoId!, model: 'quote', status: r.status || '' })
       }
     }
 
@@ -383,8 +383,9 @@ export const handler: Handler = async (event) => {
       prisma.invoice.count({
         where: {
           id: { notIn: failedIds },
-          items: { path: ['booksInvoiceId'], not: '' },
+          zohoId: { not: '' },
           OR: [
+            { items: { equals: null as any } },
             { items: { path: ['line_items'], equals: null as any } },
             { items: { path: ['line_items'], equals: [] } }
           ]
@@ -393,8 +394,9 @@ export const handler: Handler = async (event) => {
       prisma.salesOrder.count({
         where: {
           id: { notIn: failedIds },
-          items: { path: ['booksSalesOrderId'], not: '' },
+          zohoId: { not: null as any },
           OR: [
+            { items: { equals: null as any } },
             { items: { path: ['line_items'], equals: null as any } },
             { items: { path: ['line_items'], equals: [] } }
           ]
@@ -403,9 +405,10 @@ export const handler: Handler = async (event) => {
       prisma.quote.count({
         where: {
           id: { notIn: failedIds },
-          items: { path: ['booksEstimateId'], not: '' },
+          zohoId: { not: null as any },
           status: { equals: 'Invoiced' },
           OR: [
+            { items: { equals: null as any } },
             { items: { path: ['line_items'], equals: null as any } },
             { items: { path: ['line_items'], equals: [] } }
           ]
