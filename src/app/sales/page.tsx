@@ -208,6 +208,10 @@ export default function SalesPage() {
   const [campaignError, setCampaignError] = useState("")
   const [campaignSuccess, setCampaignSuccess] = useState("")
   const [isOptimizing, setIsOptimizing] = useState(false)
+  const [isScheduled, setIsScheduled] = useState(false)
+  const [scheduledDate, setScheduledDate] = useState("")
+  const [scheduledTime, setScheduledTime] = useState("")
+  const [useAccountTimezone, setUseAccountTimezone] = useState(true)
   const [optimizedSizeKb, setOptimizedSizeKb] = useState<number | null>(null)
   const [zohoNumbers, setZohoNumbers] = useState<any[]>([])
   const [selectedZohoNumber, setSelectedZohoNumber] = useState("")
@@ -609,11 +613,12 @@ export default function SalesPage() {
     e.preventDefault()
     if (!selectedAccountIds.length) return setCampaignError("Please select at least 1 account")
     if (!campaignText) return setCampaignError("Please enter campaign message text")
+    if (isScheduled && (!scheduledDate || !scheduledTime)) return setCampaignError("Please select a date and time for the schedule")
     
     setCampaignError("")
     setCampaignSuccess("")
     try {
-      startCampaign({
+      const res = await startCampaign({
         accountIds: selectedAccountIds,
         channel: campaignChannel,
         text: campaignText,
@@ -621,10 +626,19 @@ export default function SalesPage() {
         fromNumber: selectedZohoNumber,
         campaignName: campaignName || `Blast - ${new Date().toLocaleDateString()}`,
         userId: currentUser?.id || dbUser?.id || "",
-        userEmail: currentUser?.email || dbUser?.email || ""
-      })
+        userEmail: currentUser?.email || dbUser?.email || "",
+        isScheduled,
+        scheduledDate,
+        scheduledTime,
+        useAccountTimezone
+      } as any)
+      
       setShowCampaignModal(false)
-      toast.success("Campaign blast started in background")
+      if (isScheduled) {
+        toast.success("Campaign blast scheduled successfully!")
+      } else {
+        toast.success("Campaign blast started in background")
+      }
     } catch (err: any) {
       setCampaignError(err.message || "Failed to start campaign")
     }
@@ -1666,6 +1680,57 @@ export default function SalesPage() {
                   )}
                 </div>
               )}
+
+              {/* Scheduling Options */}
+              <div className="bg-white/5 p-3 rounded-lg border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-neutral-300 uppercase">Scheduling Options</span>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isScheduled}
+                      onChange={e => setIsScheduled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-neutral-400 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600 peer-checked:after:bg-white"></div>
+                    <span className="ml-2 text-xs font-semibold text-white">{isScheduled ? "Schedule for Later" : "Send Immediately"}</span>
+                  </label>
+                </div>
+
+                {isScheduled && (
+                  <div className="space-y-3 pt-2 border-t border-white/5 animate-fade-in">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-neutral-400 uppercase mb-1">Scheduled Date</label>
+                        <input
+                          type="date"
+                          value={scheduledDate}
+                          onChange={e => setScheduledDate(e.target.value)}
+                          className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-neutral-400 uppercase mb-1">Scheduled Time</label>
+                        <input
+                          type="time"
+                          value={scheduledTime}
+                          onChange={e => setScheduledTime(e.target.value)}
+                          className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={useAccountTimezone}
+                        onChange={e => setUseAccountTimezone(e.target.checked)}
+                        className="rounded border-white/10 bg-black/30 text-emerald-500 focus:ring-0 focus:ring-offset-0"
+                      />
+                      <span className="text-[11px] font-medium text-neutral-300">Send in each account's local timezone</span>
+                    </label>
+                  </div>
+                )}
+              </div>
 
               <div>
                 <label className="block text-xs font-bold text-neutral-300 uppercase mb-1">Message Content</label>

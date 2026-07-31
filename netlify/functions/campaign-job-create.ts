@@ -147,6 +147,38 @@ async function sendSmsChunk(params: {
   return { successfulCount, failedCount }
 }
 
+function getUtcTimeFromLocal(dateStr: string, timeStr: string, timeZone: string | null | undefined): Date {
+  const tz = timeZone || "America/New_York"
+  try {
+    const localIso = `${dateStr}T${timeStr}:00`
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: 'numeric', minute: 'numeric', second: 'numeric',
+      hour12: false
+    })
+    
+    const tempDate = new Date(localIso + 'Z')
+    const parts = formatter.formatToParts(tempDate)
+    const map = new Map(parts.map(p => [p.type, p.value]))
+    
+    const year = parseInt(map.get('year')!)
+    const month = parseInt(map.get('month')!)
+    const day = parseInt(map.get('day')!)
+    const hour = parseInt(map.get('hour')!)
+    const minute = parseInt(map.get('minute')!)
+    const second = parseInt(map.get('second')!)
+    
+    const formattedUtc = Date.UTC(year, month - 1, day, hour, minute, second)
+    const diff = tempDate.getTime() - formattedUtc
+    
+    return new Date(tempDate.getTime() + diff)
+  } catch (e) {
+    console.error(`Failed to parse time for timezone ${tz}:`, e)
+    return new Date(`${dateStr}T${timeStr}:00`)
+  }
+}
+
 // ─── CREATE handler ───────────────────────────────────────────────────────────
 
 export const handler: Handler = async (event) => {
@@ -155,7 +187,20 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { accountIds, channel, text, imageUrl, campaignName, fromNumber, userId, userEmail } = body
+    const { 
+      accountIds, 
+      channel, 
+      text, 
+      imageUrl, 
+      campaignName, 
+      fromNumber, 
+      userId, 
+      userEmail,
+      isScheduled,
+      scheduledDate,
+      scheduledTime,
+      useAccountTimezone
+    } = body
 
     if (!accountIds || !Array.isArray(accountIds) || accountIds.length === 0) {
       return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, message: "No recipients selected" }) }
@@ -170,10 +215,12 @@ export const handler: Handler = async (event) => {
       return { statusCode: 403, headers: corsHeaders, body: JSON.stringify({ success: false, message: "You do not have permission to send campaigns." }) }
     }
 
-    // Rate limit
-    const recentBlast = await prisma.campaignBlast.findFirst({ where: { authorId: author.id, createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) } } })
-    if (recentBlast && author.role !== "ADMIN") {
-      return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: "Please wait 5 minutes between campaigns." }) }
+    // Rate limit (skip if scheduled)
+    if (!isScheduled) {
+      const recentBlast = await prisma.campaignBlast.findFirst({ where: { authorId: author.id, createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) } } })
+      if (recentBlast && author.role !== "ADMIN") {
+        return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ success: false, message: "Please wait 5 minutes between campaigns." }) }
+      }
     }
 
     // Resolve fromNumber
@@ -189,10 +236,78 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // Create CampaignJob in DB
+    // Base note content structure
+    const tag = `[CAMPAIGN] [${channel || "SMS"}]`
+    const campaignLabel = campaignName ? `(Campaign: ${campaignName})` : ""
+    let baseContent = `${tag} ${campaignLabel}`.trim()
+    if (text) baseContent += `\n\nMessage: ${text}`
+    if (imageUrl) {
+      const isDataUrl = imageUrl.startsWith("data:")
+      const displayUrl = isDataUrl ? `${imageUrl.substring(0, 50)}... [Base64 Image]` : imageUrl
+      baseContent += `\n\nAttachment: ${displayUrl}`
+    }
+
+    // Create the blast record
+    const blast = await prisma.campaignBlast.create({
+      data: { name: campaignName || "Unnamed Campaign", content: baseContent, authorId: author.id, channel: channel || "SMS", sentCount: 0, failedCount: 0 },
+    })
+
+    if (isScheduled && scheduledDate && scheduledTime) {
+      // Schedule flow: get account details & resolve scheduled UTC times
+      const accounts = await prisma.account.findMany({
+        where: { id: { in: accountIds } },
+        select: { id: true, timeZone: true }
+      })
+
+      const scheduledMessages = accounts.map(account => {
+        const tz = useAccountTimezone ? account.timeZone : "America/New_York"
+        const scheduledTimeUtc = getUtcTimeFromLocal(scheduledDate, scheduledTime, tz)
+        return {
+          accountId: account.id,
+          authorId: author.id,
+          campaignBlastId: blast.id,
+          channel: channel || "SMS",
+          fromNumber: resolvedFromNumber,
+          body: text || "",
+          imageUrl: imageUrl || null,
+          scheduledTime: scheduledTimeUtc,
+          status: "PENDING"
+        }
+      })
+
+      await prisma.scheduledMessage.createMany({
+        data: scheduledMessages
+      })
+
+      // Create CampaignJob record marked as SCHEDULED
+      const job = await prisma.campaignJob.create({
+        data: {
+          authorId: author.id,
+          blastId: blast.id,
+          status: "SCHEDULED",
+          campaignName: campaignName || "Unnamed Campaign",
+          channel: channel || "SMS",
+          text: text || "",
+          imageUrl: imageUrl || null,
+          fromNumber: resolvedFromNumber,
+          accountIds: accountIds,
+          currentIndex: 0,
+          total: accountIds.length,
+        },
+      })
+
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: true, jobId: job.id, blastId: blast.id, status: "SCHEDULED", progress: 0, total: accountIds.length, sentCount: 0, failedCount: 0 }),
+      }
+    }
+
+    // Create CampaignJob in DB for immediate sending
     const job = await prisma.campaignJob.create({
       data: {
         authorId: author.id,
+        blastId: blast.id,
         status: "RUNNING",
         campaignName: campaignName || "Unnamed Campaign",
         channel: channel || "SMS",
@@ -204,19 +319,6 @@ export const handler: Handler = async (event) => {
         total: accountIds.length,
       },
     })
-
-    // Create the blast record
-    const tag = `[CAMPAIGN] [${channel || "SMS"}]`
-    const campaignLabel = campaignName ? `(Campaign: ${campaignName})` : ""
-    let baseContent = `${tag} ${campaignLabel}`.trim()
-    if (text) baseContent += `\n\nMessage: ${text}`
-
-    const blast = await prisma.campaignBlast.create({
-      data: { name: campaignName || "Unnamed Campaign", content: baseContent, authorId: author.id, channel: channel || "SMS", sentCount: 0, failedCount: 0 },
-    })
-
-    // Update job with blastId
-    await prisma.campaignJob.update({ where: { id: job.id }, data: { blastId: blast.id } })
 
     // Process first chunk immediately
     const firstChunkIds = accountIds.slice(0, CHUNK_SIZE)

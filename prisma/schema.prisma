@@ -39,6 +39,7 @@ model User {
   notifications      Notification[]
   advances           Advance[]
   reimbursements     Reimbursement[]
+  scheduledMessages  ScheduledMessage[]
 
   @@index([role])
 }
@@ -85,6 +86,7 @@ model Account {
   campaignLogs     CampaignLog[]
   smsMessages      SmsMessage[]
   callLogs         CallLog[]
+  scheduledMessages ScheduledMessage[]
   zohoModifiedTime DateTime?
   rawData          Json?
 
@@ -433,6 +435,7 @@ model CampaignBlast {
   author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   logs        CampaignLog[]
   smsMessages SmsMessage[]
+  scheduledMessages ScheduledMessage[]
 
   @@index([authorId])
 }
@@ -703,4 +706,29 @@ model NotificationTemplate {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model ScheduledMessage {
+  id              String   @id @default(cuid())
+  accountId       String
+  authorId        String
+  campaignBlastId String?
+  channel         String   @default("SMS")
+  fromNumber      String
+  body            String
+  imageUrl        String?
+  scheduledTime   DateTime // Absolute UTC time to send
+  status          String   @default("PENDING") // PENDING | SENT | FAILED | CANCELLED
+  errorMessage    String?
+  sentAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  account         Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  author          User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  campaignBlast   CampaignBlast? @relation(fields: [campaignBlastId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([scheduledTime])
+  @@index([accountId])
 }

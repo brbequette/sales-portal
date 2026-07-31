@@ -393,6 +393,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/process-scheduled-messages"
+  to = "/.netlify/functions/process-scheduled-messages"
+  status = 200
+
+[[redirects]]
   from = "/api/shipping"
   to = "/.netlify/functions/shipping"
   status = 200
