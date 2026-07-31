@@ -711,13 +711,18 @@ export const handler: Handler = async (event) => {
           const cfs = items.custom_fields || []
           const subtotal = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
           const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
-          let deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || items.cf_dead_cost_total || 0)
-          if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
-            deadCost = lineItems.reduce((sum: number, li: any) => {
-              const qty = parseFloat(li.quantity) || 1
-              const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
-              return sum + (qty * cost)
-            }, 0)
+          let deadCost = 0
+          if (items.deadCostSubjectToVig !== undefined && items.deadCostNoVig !== undefined) {
+            deadCost = parseFloat(items.deadCostSubjectToVig || 0) + parseFloat(items.deadCostNoVig || 0)
+          } else {
+            deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || items.cf_dead_cost_total || 0)
+            if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
+              deadCost = lineItems.reduce((sum: number, li: any) => {
+                const qty = parseFloat(li.quantity) || 1
+                const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
+                return sum + (qty * cost)
+              }, 0)
+            }
           }
           if (isNaN(deadCost)) deadCost = 0
           const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
