@@ -15,10 +15,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Mass Zoho updates are PAUSED in System Settings to conserve API calls." }, { status: 403 })
     }
 
-    // Find up to 10 invoices missing cost or commission data in the database
+    // Find up to 10 invoices missing cost or commission data in the database (regardless of status)
     const allMissingCount = await prisma.invoice.count({
       where: {
-        status: { notIn: ['void', 'Void', 'VOID', 'draft', 'Draft', 'DRAFT'] },
         OR: [
           { items: { equals: Prisma.DbNull } },
           { items: { path: ['deadCostTotal'], equals: Prisma.DbNull } },
@@ -31,7 +30,6 @@ export async function POST(req: Request) {
 
     const missingInvoices = await prisma.invoice.findMany({
       where: {
-        status: { notIn: ['void', 'Void', 'VOID', 'draft', 'Draft', 'DRAFT'] },
         OR: [
           { items: { equals: Prisma.DbNull } },
           { items: { path: ['deadCostTotal'], equals: Prisma.DbNull } },
@@ -70,6 +68,30 @@ export async function POST(req: Request) {
           continue
         }
         const invoice = detailData.invoice
+
+        // Tariff Logic: If unpaid and no tariff exists (and remove tariff is false), calculate tariff
+        const isPaidInvoice = invoice.status?.toLowerCase() === 'paid' || invoice.balance === 0 || parseFloat(invoice.balance || 0) <= 0
+        let shouldAddTariff = false
+        let tariffAmount = 0
+        if (!isPaidInvoice) {
+          const existingAdjustment = parseFloat(invoice.adjustment || 0)
+          const removeTariff = invoice.custom_fields?.some((f: any) => f.label?.toUpperCase().includes('REMOVE TARIFF') && (f.value === true || f.value === 'true'))
+          if (existingAdjustment === 0 && !removeTariff) {
+            let nonGiftDeadCost = 0
+            for (const item of (invoice.line_items || [])) {
+              const isGift = item.rate === 0 || item.custom_fields?.some((cf: any) => cf.label?.toUpperCase().includes('GIFT') && (cf.value === true || cf.value === 'true'))
+              if (!isGift) {
+                nonGiftDeadCost += parseFloat(item.purchase_rate || 0) * parseFloat(item.quantity || 1)
+              }
+            }
+            tariffAmount = parseFloat((nonGiftDeadCost * 0.125).toFixed(2))
+            if (tariffAmount > 0) {
+              shouldAddTariff = true
+              invoice.adjustment = tariffAmount
+              invoice.adjustment_description = "TARIFF SURCHARGE"
+            }
+          }
+        }
 
         // Recalculate costs
         const calc = await calculateDocumentCosts(invoice, {})
@@ -114,11 +136,20 @@ export async function POST(req: Request) {
           }
         }
 
+        const putPayload: any = {}
         if (fieldsToUpdate.length > 0) {
+          putPayload.custom_fields = fieldsToUpdate
+        }
+        if (shouldAddTariff) {
+          putPayload.adjustment = tariffAmount
+          putPayload.adjustment_description = "TARIFF SURCHARGE"
+        }
+
+        if (Object.keys(putPayload).length > 0) {
           const putRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
             method: "PUT",
             headers: { ...authHeaders, "Content-Type": "application/json" },
-            body: JSON.stringify({ custom_fields: fieldsToUpdate }),
+            body: JSON.stringify(putPayload),
           })
           const putData: any = await putRes.json()
           if (!putRes.ok || putData.code !== 0) {
