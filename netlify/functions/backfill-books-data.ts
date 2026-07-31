@@ -236,10 +236,10 @@ export const handler: Handler = async (event) => {
       if (!currentItems.salesOrderNumber && t.dbModel === 'salesOrder') currentItems.salesOrderNumber = docNum
       if (!currentItems.estimateNumber  && t.dbModel === 'quote')      currentItems.estimateNumber  = docNum
 
-      try {
-        if (t.dbModel === 'invoice')     await prisma.invoice.update({ where: { id: dbDoc.id }, data: { items: currentItems } })
-        else if (t.dbModel === 'salesOrder') await prisma.salesOrder.update({ where: { id: dbDoc.id }, data: { items: currentItems } })
-        else                             await prisma.quote.update({ where: { id: dbDoc.id }, data: { items: currentItems } })
+       try {
+        if (t.dbModel === 'invoice')     await prisma.invoice.update({ where: { id: dbDoc.id }, data: { items: currentItems, zohoId: booksId } })
+        else if (t.dbModel === 'salesOrder') await prisma.salesOrder.update({ where: { id: dbDoc.id }, data: { items: currentItems, zohoId: booksId } })
+        else                             await prisma.quote.update({ where: { id: dbDoc.id }, data: { items: currentItems, zohoId: booksId } })
         mapped++
       } catch (e: any) { console.error(`Failed to update ${t.dbModel} ${dbDoc.id}:`, e.message) }
     }
@@ -317,11 +317,18 @@ export const handler: Handler = async (event) => {
     const invUncached = await prisma.invoice.findMany({
       where: {
         id: { notIn: failedIds },
-        zohoId: { not: '' },
         OR: [
-          { items: { equals: null as any } },
-          { items: { path: ['line_items'], equals: null as any } },
-          { items: { path: ['line_items'], equals: [] } }
+          { zohoId: { not: '' } },
+          { items: { path: ['booksInvoiceId'], not: '' } }
+        ],
+        AND: [
+          {
+            OR: [
+              { items: { equals: null as any } },
+              { items: { path: ['line_items'], equals: null as any } },
+              { items: { path: ['line_items'], equals: [] } }
+            ]
+          }
         ]
       },
       select: { id: true, zohoId: true, items: true, status: true },
@@ -331,11 +338,18 @@ export const handler: Handler = async (event) => {
     const soUncached = await prisma.salesOrder.findMany({
       where: {
         id: { notIn: failedIds },
-        zohoId: { not: null as any },
         OR: [
-          { items: { equals: null as any } },
-          { items: { path: ['line_items'], equals: null as any } },
-          { items: { path: ['line_items'], equals: [] } }
+          { zohoId: { not: null as any, notIn: [''] } },
+          { items: { path: ['booksSalesOrderId'], not: '' } }
+        ],
+        AND: [
+          {
+            OR: [
+              { items: { equals: null as any } },
+              { items: { path: ['line_items'], equals: null as any } },
+              { items: { path: ['line_items'], equals: [] } }
+            ]
+          }
         ]
       },
       select: { id: true, zohoId: true, items: true, status: true },
@@ -345,12 +359,19 @@ export const handler: Handler = async (event) => {
     const qtUncached = await prisma.quote.findMany({
       where: {
         id: { notIn: failedIds },
-        zohoId: { not: null as any },
         status: { equals: 'Invoiced' },
         OR: [
-          { items: { equals: null as any } },
-          { items: { path: ['line_items'], equals: null as any } },
-          { items: { path: ['line_items'], equals: [] } }
+          { zohoId: { not: null as any, notIn: [''] } },
+          { items: { path: ['booksEstimateId'], not: '' } }
+        ],
+        AND: [
+          {
+            OR: [
+              { items: { equals: null as any } },
+              { items: { path: ['line_items'], equals: null as any } },
+              { items: { path: ['line_items'], equals: [] } }
+            ]
+          }
         ]
       },
       select: { id: true, zohoId: true, items: true, status: true },
@@ -362,20 +383,29 @@ export const handler: Handler = async (event) => {
 
     for (const r of invUncached) {
       if (batch.length >= BATCH_SIZE) break
-      batch.push({ id: r.id, booksId: r.zohoId, model: 'invoice', status: r.status || '' })
+      const bid = r.zohoId || (r.items as any)?.booksInvoiceId
+      if (bid) {
+        batch.push({ id: r.id, booksId: bid, model: 'invoice', status: r.status || '' })
+      }
     }
 
     if (batch.length < BATCH_SIZE) {
       for (const r of soUncached) {
         if (batch.length >= BATCH_SIZE) break
-        batch.push({ id: r.id, booksId: r.zohoId!, model: 'salesOrder', status: r.status || '' })
+        const bid = r.zohoId || (r.items as any)?.booksSalesOrderId
+        if (bid) {
+          batch.push({ id: r.id, booksId: bid, model: 'salesOrder', status: r.status || '' })
+        }
       }
     }
 
     if (batch.length < BATCH_SIZE) {
       for (const r of qtUncached) {
         if (batch.length >= BATCH_SIZE) break
-        batch.push({ id: r.id, booksId: r.zohoId!, model: 'quote', status: r.status || '' })
+        const bid = r.zohoId || (r.items as any)?.booksEstimateId
+        if (bid) {
+          batch.push({ id: r.id, booksId: bid, model: 'quote', status: r.status || '' })
+        }
       }
     }
 
@@ -384,34 +414,55 @@ export const handler: Handler = async (event) => {
       prisma.invoice.count({
         where: {
           id: { notIn: failedIds },
-          zohoId: { not: '' },
           OR: [
-            { items: { equals: null as any } },
-            { items: { path: ['line_items'], equals: null as any } },
-            { items: { path: ['line_items'], equals: [] } }
+            { zohoId: { not: '' } },
+            { items: { path: ['booksInvoiceId'], not: '' } }
+          ],
+          AND: [
+            {
+              OR: [
+                { items: { equals: null as any } },
+                { items: { path: ['line_items'], equals: null as any } },
+                { items: { path: ['line_items'], equals: [] } }
+              ]
+            }
           ]
         }
       }).catch(() => 0),
       prisma.salesOrder.count({
         where: {
           id: { notIn: failedIds },
-          zohoId: { not: null as any },
           OR: [
-            { items: { equals: null as any } },
-            { items: { path: ['line_items'], equals: null as any } },
-            { items: { path: ['line_items'], equals: [] } }
+            { zohoId: { not: null as any, notIn: [''] } },
+            { items: { path: ['booksSalesOrderId'], not: '' } }
+          ],
+          AND: [
+            {
+              OR: [
+                { items: { equals: null as any } },
+                { items: { path: ['line_items'], equals: null as any } },
+                { items: { path: ['line_items'], equals: [] } }
+              ]
+            }
           ]
         }
       }).catch(() => 0),
       prisma.quote.count({
         where: {
           id: { notIn: failedIds },
-          zohoId: { not: null as any },
           status: { equals: 'Invoiced' },
           OR: [
-            { items: { equals: null as any } },
-            { items: { path: ['line_items'], equals: null as any } },
-            { items: { path: ['line_items'], equals: [] } }
+            { zohoId: { not: null as any, notIn: [''] } },
+            { items: { path: ['booksEstimateId'], not: '' } }
+          ],
+          AND: [
+            {
+              OR: [
+                { items: { equals: null as any } },
+                { items: { path: ['line_items'], equals: null as any } },
+                { items: { path: ['line_items'], equals: [] } }
+              ]
+            }
           ]
         }
       }).catch(() => 0),
@@ -504,9 +555,9 @@ export const handler: Handler = async (event) => {
         else if (zs === 'draft') status = 'Draft'
         else if (zohoDoc.status) status = zohoDoc.status.charAt(0).toUpperCase() + zohoDoc.status.slice(1)
 
-        if (doc.model === 'invoice') await prisma.invoice.update({ where: { id: doc.id }, data: { status, items: currentItems } })
-        else if (doc.model === 'salesOrder') await prisma.salesOrder.update({ where: { id: doc.id }, data: { status, items: currentItems } })
-        else await prisma.quote.update({ where: { id: doc.id }, data: { status, items: currentItems } })
+        if (doc.model === 'invoice') await prisma.invoice.update({ where: { id: doc.id }, data: { status, items: currentItems, zohoId: doc.booksId } })
+        else if (doc.model === 'salesOrder') await prisma.salesOrder.update({ where: { id: doc.id }, data: { status, items: currentItems, zohoId: doc.booksId } })
+        else await prisma.quote.update({ where: { id: doc.id }, data: { status, items: currentItems, zohoId: doc.booksId } })
 
         processed++
       } catch (e: any) {
@@ -592,7 +643,10 @@ export const handler: Handler = async (event) => {
     try {
       batch = await (model as any).findMany({
         where: {
-          items: { path: [booksIdPath], not: '' },
+          OR: [
+            { zohoId: { not: null as any, notIn: [''] } },
+            { items: { path: [booksIdPath], not: '' } }
+          ],
           status: { notIn: ['Void', 'void'] },
         },
         select: { id: true, items: true, zohoId: true },
@@ -631,7 +685,7 @@ export const handler: Handler = async (event) => {
     for (const record of batch) {
       try {
         const items = (record.items as any) || {}
-        const booksId = items[booksIdPath]
+        const booksId = record.zohoId || items[booksIdPath]
         if (!booksId) { errors++; continue }
 
         await sleep(RATE_DELAY_MS)
@@ -724,11 +778,11 @@ export const handler: Handler = async (event) => {
 
         // 5. Update local DB
         if (currentDocType === 'Invoice') {
-          await prisma.invoice.update({ where: { id: record.id }, data: { items: updatedItems } })
+          await prisma.invoice.update({ where: { id: record.id }, data: { items: updatedItems, zohoId: booksId } })
         } else if (currentDocType === 'SalesOrder') {
-          await prisma.salesOrder.update({ where: { id: record.id }, data: { items: updatedItems } })
+          await prisma.salesOrder.update({ where: { id: record.id }, data: { items: updatedItems, zohoId: booksId } })
         } else {
-          await prisma.quote.update({ where: { id: record.id }, data: { items: updatedItems } })
+          await prisma.quote.update({ where: { id: record.id }, data: { items: updatedItems, zohoId: booksId } })
         }
 
         // 6. Push empty calculated fields back to Zoho (only if we have calc results)
