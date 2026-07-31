@@ -119,8 +119,8 @@ export const handler: Handler = async (event) => {
     const types: Array<{ module: string, idField: string, numField: string, dbModel: 'invoice' | 'salesOrder' | 'quote', itemsKey: string, statusFilter?: string }> = [
       { module: 'invoices',    idField: 'invoice_id',    numField: 'invoice_number',    dbModel: 'invoice',     itemsKey: 'booksInvoiceId' },
       { module: 'salesorders', idField: 'salesorder_id', numField: 'salesorder_number', dbModel: 'salesOrder',  itemsKey: 'booksSalesOrderId' },
-      // Only fetch estimates that have been converted to an invoice — status=invoiced
-      { module: 'estimates',   idField: 'estimate_id',   numField: 'estimate_number',   dbModel: 'quote',       itemsKey: 'booksEstimateId', statusFilter: 'invoiced' },
+      // Fetch all estimates to make sure open/sent ones are also matched
+      { module: 'estimates',   idField: 'estimate_id',   numField: 'estimate_number',   dbModel: 'quote',       itemsKey: 'booksEstimateId' },
     ]
     const moduleNames = types.map(t => t.module)
 
