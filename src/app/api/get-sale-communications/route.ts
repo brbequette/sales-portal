@@ -123,6 +123,10 @@ export async function GET(req: Request) {
       toNumber: c.toNumber,
       notes: c.notes,
       recordingUrl: c.recordingUrl,
+      zohoSentiment: c.zohoSentiment,
+      aiSentiment: c.aiSentiment,
+      aiSummary: c.aiSummary,
+      transcript: c.transcript,
       authorName: c.authorId === 'system' ? 'System Sync' : (c.author?.name || 'System Sync')
     }))
 
