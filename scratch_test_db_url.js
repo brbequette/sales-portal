@@ -16,8 +16,8 @@ async function testConn(url, label) {
 }
 
 async function main() {
-  const poolerUrl = "postgresql://netlifydb_owner:npg_jvz7JFbSoEH6@ep-fragrant-salad-aj44trez-pooler.c-3.us-east-2.db.netlify.com/netlifydb?sslmode=require";
-  const directUrl = "postgresql://netlifydb_owner:npg_jvz7JFbSoEH6@ep-fragrant-salad-aj44trez.c-3.us-east-2.db.netlify.com/netlifydb?sslmode=require";
+  const poolerUrl = process.env.DATABASE_URL;
+  const directUrl = process.env.DATABASE_URL;
 
   await testConn(poolerUrl, "Pooler URL");
   await testConn(directUrl, "Direct URL");

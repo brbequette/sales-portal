@@ -3,7 +3,7 @@ const path = require('path')
 const { parse } = require('csv-parse/sync')
 const { Client } = require('pg')
 
-const connectionString = "postgresql://netlifydb_owner:npg_jvz7JFbSoEH6@ep-fragrant-salad-aj44trez.c-3.us-east-2.db.netlify.com/netlifydb?sslmode=require"
+const connectionString = process.env.DATABASE_URL
 const INPUT_DIR = 'C:/Users/titan/Documents/Titan Diamond/invoices'
 
 async function pgFillCustomFields() {

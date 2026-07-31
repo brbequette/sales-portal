@@ -3,7 +3,7 @@ const path = require('path')
 const { parse } = require('csv-parse/sync')
 const { PrismaClient } = require('@prisma/client')
 
-const dbUrl = "postgresql://netlifydb_owner:npg_jvz7JFbSoEH6@ep-fragrant-salad-aj44trez.c-3.us-east-2.db.netlify.com/netlifydb?sslmode=require&connect_timeout=60"
+const dbUrl = process.env.DATABASE_URL
 const prisma = new PrismaClient({
   datasources: {
     db: { url: dbUrl }

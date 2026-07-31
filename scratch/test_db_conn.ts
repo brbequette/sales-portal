@@ -1,4 +1,8 @@
 import { PrismaClient } from "@prisma/client";
+import dotenv from 'dotenv';
+import path from 'path';
+
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 async function testConn(url: string, label: string) {
   console.log(`\n--- Testing ${label} ---`);
@@ -16,13 +20,12 @@ async function testConn(url: string, label: string) {
 }
 
 async function main() {
-  const url1 = "postgresql://netlifydb_owner:npg_jvz7JFbSoEH6@ep-fragrant-salad-aj44trez-pooler.c-3.us-east-2.db.netlify.com/netlifydb?sslmode=require";
-  const url2 = "postgresql://netlifydb_owner:npg_jvz7JFbSoEH6@ep-fragrant-salad-aj44trez.c-3.us-east-2.db.netlify.com/netlifydb?sslmode=require";
-  const url3 = "postgresql://netlifydb_owner:npg_jvz7JFbSoEH6@ep-fragrant-salad-aj44trez-pooler.c-3.us-east-2.db.netlify.com/netlifydb?sslmode=require&connect_timeout=30";
-
-  await testConn(url1, "Pooler");
-  await testConn(url2, "Direct Host");
-  await testConn(url3, "Direct Host with timeout");
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    console.error("DATABASE_URL is not set in environment.");
+    process.exit(1);
+  }
+  await testConn(url, "Environment DB URL");
 }
 
 main().catch(console.error);
