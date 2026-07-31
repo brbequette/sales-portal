@@ -302,65 +302,125 @@ export const handler: Handler = async (event) => {
     const cp = await readCheckpoint()
 
     if (reset === '1') {
-      await saveCheckpoint({ ...cp, phase2Offset: 0, phase2Reset: new Date().toISOString() })
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: 'Phase 2 checkpoint reset to 0.' }) }
+      await saveCheckpoint({ ...cp, phase2Offset: 0, phase2FailedIds: [], phase2Reset: new Date().toISOString(), phase2Processed: 0, phase2Done: false })
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: 'Phase 2 checkpoint reset.' }) }
     }
 
     const offset = parseInt(cp.phase2Offset || '0', 10)
-
+    const failedIds: string[] = cp.phase2FailedIds || []
     const token = await getZohoAccessToken()
 
     console.log(`=== Backfill Phase 2: offset=${offset}, batch=${BATCH_SIZE} ===`)
 
-    // Collect all uncached records across all three types
-    type DocRef = { id: string; booksId: string; model: 'invoice' | 'salesOrder' | 'quote'; status: string }
-    const uncached: DocRef[] = []
-
-    // Invoices without line_items but with booksInvoiceId
+    // Query uncached records directly from database
     const invUncached = await prisma.invoice.findMany({
-      select: { id: true, status: true, items: true },
-      skip: 0,
-      take: 20000,
+      where: {
+        id: { notIn: failedIds },
+        items: { path: ['booksInvoiceId'], not: '' },
+        NOT: { items: { path: ['line_items'], not: [] } }
+      },
+      select: { id: true, items: true, status: true },
+      take: BATCH_SIZE
     })
+
+    const soUncached = await prisma.salesOrder.findMany({
+      where: {
+        id: { notIn: failedIds },
+        items: { path: ['booksSalesOrderId'], not: '' },
+        NOT: { items: { path: ['line_items'], not: [] } }
+      },
+      select: { id: true, items: true, status: true },
+      take: BATCH_SIZE
+    })
+
+    const qtUncached = await prisma.quote.findMany({
+      where: {
+        id: { notIn: failedIds },
+        items: { path: ['booksEstimateId'], not: '' },
+        status: { equals: 'Invoiced' },
+        NOT: { items: { path: ['line_items'], not: [] } }
+      },
+      select: { id: true, items: true, status: true },
+      take: BATCH_SIZE
+    })
+
+    type DocRef = { id: string; booksId: string; model: 'invoice' | 'salesOrder' | 'quote'; status: string }
+    const batch: DocRef[] = []
+
     for (const r of invUncached) {
+      if (batch.length >= BATCH_SIZE) break
       const items = r.items as any
-      const hasLines = items?.line_items && Array.isArray(items.line_items) && items.line_items.length > 0
-      const booksId = items?.booksInvoiceId
-      if (!hasLines && booksId) uncached.push({ id: r.id, booksId, model: 'invoice', status: r.status || '' })
+      batch.push({ id: r.id, booksId: items.booksInvoiceId, model: 'invoice', status: r.status || '' })
     }
 
-    // SOs without line_items but with booksSalesOrderId
-    const soUncached = await prisma.salesOrder.findMany({ select: { id: true, status: true, items: true } })
-    for (const r of soUncached) {
-      const items = r.items as any
-      const hasLines = items?.line_items && Array.isArray(items.line_items) && items.line_items.length > 0
-      const booksId = items?.booksSalesOrderId
-      if (!hasLines && booksId) uncached.push({ id: r.id, booksId, model: 'salesOrder', status: r.status || '' })
+    if (batch.length < BATCH_SIZE) {
+      for (const r of soUncached) {
+        if (batch.length >= BATCH_SIZE) break
+        const items = r.items as any
+        batch.push({ id: r.id, booksId: items.booksSalesOrderId, model: 'salesOrder', status: r.status || '' })
+      }
     }
 
-    // Quotes without line_items but with booksEstimateId
-    // Only process quotes that have been converted to an invoice (status = Invoiced)
-    const qtUncached = await prisma.quote.findMany({ select: { id: true, status: true, items: true } })
-    for (const r of qtUncached) {
-      const items = r.items as any
-      const hasLines = items?.line_items && Array.isArray(items.line_items) && items.line_items.length > 0
-      const booksId = items?.booksEstimateId
-      const isInvoiced = (r.status || '').toLowerCase() === 'invoiced'
-      if (!hasLines && booksId && isInvoiced) uncached.push({ id: r.id, booksId, model: 'quote', status: r.status || '' })
+    if (batch.length < BATCH_SIZE) {
+      for (const r of qtUncached) {
+        if (batch.length >= BATCH_SIZE) break
+        const items = r.items as any
+        batch.push({ id: r.id, booksId: items.booksEstimateId, model: 'quote', status: r.status || '' })
+      }
     }
 
-    const totalUncached = uncached.length
-    const batch = uncached.slice(offset, offset + BATCH_SIZE)
+    // Count remaining uncached records
+    const [invLeft, soLeft, qtLeft] = await Promise.all([
+      prisma.invoice.count({
+        where: {
+          id: { notIn: failedIds },
+          items: { path: ['booksInvoiceId'], not: '' },
+          NOT: { items: { path: ['line_items'], not: [] } }
+        }
+      }).catch(() => 0),
+      prisma.salesOrder.count({
+        where: {
+          id: { notIn: failedIds },
+          items: { path: ['booksSalesOrderId'], not: '' },
+          NOT: { items: { path: ['line_items'], not: [] } }
+        }
+      }).catch(() => 0),
+      prisma.quote.count({
+        where: {
+          id: { notIn: failedIds },
+          items: { path: ['booksEstimateId'], not: '' },
+          status: { equals: 'Invoiced' },
+          NOT: { items: { path: ['line_items'], not: [] } }
+        }
+      }).catch(() => 0),
+    ])
+
+    const remaining = invLeft + soLeft + qtLeft
+    const totalUncached = remaining
 
     if (batch.length === 0) {
       await saveCheckpoint({ ...cp, phase2Done: true, phase2CompletedAt: new Date().toISOString() })
       return {
         statusCode: 200, headers: cors,
-        body: JSON.stringify({ success: true, phase: 2, done: true, totalUncached, message: 'All records backfilled!' })
+        body: JSON.stringify({
+          success: true,
+          phase: 2,
+          done: true,
+          batchProcessed: 0,
+          batchErrors: 0,
+          offset: offset,
+          totalUncached: 0,
+          remaining: 0,
+          percentComplete: 100,
+          etaMinutesRemaining: 0,
+          callAgain: false,
+          message: 'All records backfilled!'
+        })
       }
     }
 
     let processed = 0, errors = 0
+    const newFailedIds = [...failedIds]
 
     for (const doc of batch) {
       await sleep(RATE_DELAY_MS)
@@ -370,20 +430,37 @@ export const handler: Handler = async (event) => {
           `${BASE_URL}/${modPath}/${doc.booksId}?organization_id=${ORG_ID}`,
           { headers: { Authorization: `Zoho-oauthtoken ${token}`, Accept: 'application/json' } }
         )
-        if (!detailRes.ok) { errors++; console.warn(`Detail fetch failed for ${doc.booksId}: ${detailRes.status}`); continue }
+        if (!detailRes.ok) {
+          errors++
+          newFailedIds.push(doc.id)
+          console.warn(`Detail fetch failed for ${doc.booksId}: ${detailRes.status}`)
+          continue
+        }
 
         const detailData: any = await detailRes.json()
-        if (detailData.code !== 0) { errors++; continue }
+        if (detailData.code !== 0) {
+          errors++
+          newFailedIds.push(doc.id)
+          continue
+        }
 
         const zohoDoc = detailData.invoice || detailData.salesorder || detailData.estimate
-        if (!zohoDoc) { errors++; continue }
+        if (!zohoDoc) {
+          errors++
+          newFailedIds.push(doc.id)
+          continue
+        }
 
         // Read current items, merge in the fetched data
         let currentDoc: any = null
         if (doc.model === 'invoice') currentDoc = await prisma.invoice.findUnique({ where: { id: doc.id } })
         else if (doc.model === 'salesOrder') currentDoc = await prisma.salesOrder.findUnique({ where: { id: doc.id } })
         else currentDoc = await prisma.quote.findUnique({ where: { id: doc.id } })
-        if (!currentDoc) { errors++; continue }
+        if (!currentDoc) {
+          errors++
+          newFailedIds.push(doc.id)
+          continue
+        }
 
         const currentItems = (currentDoc.items as any) || {}
         currentItems.line_items = zohoDoc.line_items || []
@@ -412,18 +489,29 @@ export const handler: Handler = async (event) => {
         processed++
       } catch (e: any) {
         errors++
+        newFailedIds.push(doc.id)
         console.error(`Error processing ${doc.model} ${doc.id}:`, e.message)
       }
     }
 
-    // Always advance by BATCH_SIZE (not batch.length) so offset is deterministic
-    // even when some records error out mid-batch
-    const newOffset = offset + BATCH_SIZE
-    const remaining = Math.max(0, totalUncached - newOffset)
-    const pct = Math.min(99, Math.round((newOffset / Math.max(1, totalUncached)) * 100))
+    const [invTotal, soTotal, qtTotal] = await Promise.all([
+      prisma.invoice.count(),
+      prisma.salesOrder.count(),
+      prisma.quote.count(),
+    ])
+    const totalRecords = invTotal + soTotal + qtTotal
+    const cachedRecords = Math.max(0, totalRecords - remaining)
+    const pct = totalRecords > 0 ? Math.round((cachedRecords / totalRecords) * 100) : 0
     const etaMin = Math.ceil((remaining * RATE_DELAY_MS) / 60000)
 
-    await saveCheckpoint({ ...cp, phase2Offset: newOffset, phase2LastRun: new Date().toISOString(), phase2Processed: (cp.phase2Processed || 0) + processed })
+    const newOffset = offset + processed
+    await saveCheckpoint({
+      ...cp,
+      phase2Offset: newOffset,
+      phase2LastRun: new Date().toISOString(),
+      phase2Processed: (cp.phase2Processed || 0) + processed,
+      phase2FailedIds: newFailedIds
+    })
 
     return {
       statusCode: 200, headers: cors,
