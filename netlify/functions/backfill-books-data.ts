@@ -313,69 +313,54 @@ export const handler: Handler = async (event) => {
 
     console.log(`=== Backfill Phase 2: offset=${offset}, batch=${BATCH_SIZE} ===`)
 
-    // Query uncached records directly from database
+    async function getUncachedIds(model: 'Invoice' | 'SalesOrder' | 'Quote', failedIds: string[], limit: number, statusFilter?: string): Promise<string[]> {
+      const failedCond = failedIds.length > 0 
+        ? `AND id NOT IN (${failedIds.map(id => `'${id}'`).join(',')})`
+        : '';
+      const statusCond = statusFilter ? `AND status = '${statusFilter}'` : '';
+      const sql = `
+        SELECT id FROM "${model}"
+        WHERE (items->'line_items' IS NULL OR items->'line_items' = '[]'::jsonb)
+        ${failedCond}
+        ${statusCond}
+        LIMIT ${limit}
+      `;
+      const rows = await prisma.$queryRawUnsafe<{ id: string }[]>(sql).catch(() => []);
+      return rows.map(r => r.id);
+    }
+
+    async function countUncached(model: 'Invoice' | 'SalesOrder' | 'Quote', failedIds: string[], statusFilter?: string): Promise<number> {
+      const failedCond = failedIds.length > 0 
+        ? `AND id NOT IN (${failedIds.map(id => `'${id}'`).join(',')})`
+        : '';
+      const statusCond = statusFilter ? `AND status = '${statusFilter}'` : '';
+      const sql = `
+        SELECT COUNT(*)::int as count FROM "${model}"
+        WHERE (items->'line_items' IS NULL OR items->'line_items' = '[]'::jsonb)
+        ${failedCond}
+        ${statusCond}
+      `;
+      const rows = await prisma.$queryRawUnsafe<{ count: number }[]>(sql).catch(() => [{ count: 0 }]);
+      return rows[0]?.count || 0;
+    }
+
+    // Query uncached records directly from database using robust raw SQL
+    const invUncachedIds = await getUncachedIds('Invoice', failedIds, BATCH_SIZE)
     const invUncached = await prisma.invoice.findMany({
-      where: {
-        id: { notIn: failedIds },
-        OR: [
-          { zohoId: { not: '' } },
-          { items: { path: ['booksInvoiceId'], not: '' } }
-        ],
-        AND: [
-          {
-            OR: [
-              { items: { equals: null as any } },
-              { items: { path: ['line_items'], equals: null as any } },
-              { items: { path: ['line_items'], equals: [] } }
-            ]
-          }
-        ]
-      },
-      select: { id: true, zohoId: true, items: true, status: true },
-      take: BATCH_SIZE
+      where: { id: { in: invUncachedIds } },
+      select: { id: true, zohoId: true, items: true, status: true }
     })
 
+    const soUncachedIds = await getUncachedIds('SalesOrder', failedIds, BATCH_SIZE)
     const soUncached = await prisma.salesOrder.findMany({
-      where: {
-        id: { notIn: failedIds },
-        OR: [
-          { zohoId: { not: null as any, notIn: [''] } },
-          { items: { path: ['booksSalesOrderId'], not: '' } }
-        ],
-        AND: [
-          {
-            OR: [
-              { items: { equals: null as any } },
-              { items: { path: ['line_items'], equals: null as any } },
-              { items: { path: ['line_items'], equals: [] } }
-            ]
-          }
-        ]
-      },
-      select: { id: true, zohoId: true, items: true, status: true },
-      take: BATCH_SIZE
+      where: { id: { in: soUncachedIds } },
+      select: { id: true, zohoId: true, items: true, status: true }
     })
 
+    const qtUncachedIds = await getUncachedIds('Quote', failedIds, BATCH_SIZE, 'Invoiced')
     const qtUncached = await prisma.quote.findMany({
-      where: {
-        id: { notIn: failedIds },
-        status: { equals: 'Invoiced' },
-        OR: [
-          { zohoId: { not: null as any, notIn: [''] } },
-          { items: { path: ['booksEstimateId'], not: '' } }
-        ],
-        AND: [
-          {
-            OR: [
-              { items: { equals: null as any } },
-              { items: { path: ['line_items'], equals: null as any } },
-              { items: { path: ['line_items'], equals: [] } }
-            ]
-          }
-        ]
-      },
-      select: { id: true, zohoId: true, items: true, status: true },
-      take: BATCH_SIZE
+      where: { id: { in: qtUncachedIds } },
+      select: { id: true, zohoId: true, items: true, status: true }
     })
 
     type DocRef = { id: string; booksId: string; model: 'invoice' | 'salesOrder' | 'quote'; status: string }
@@ -411,61 +396,9 @@ export const handler: Handler = async (event) => {
 
     // Count remaining uncached records
     const [invLeft, soLeft, qtLeft] = await Promise.all([
-      prisma.invoice.count({
-        where: {
-          id: { notIn: failedIds },
-          OR: [
-            { zohoId: { not: '' } },
-            { items: { path: ['booksInvoiceId'], not: '' } }
-          ],
-          AND: [
-            {
-              OR: [
-                { items: { equals: null as any } },
-                { items: { path: ['line_items'], equals: null as any } },
-                { items: { path: ['line_items'], equals: [] } }
-              ]
-            }
-          ]
-        }
-      }).catch(() => 0),
-      prisma.salesOrder.count({
-        where: {
-          id: { notIn: failedIds },
-          OR: [
-            { zohoId: { not: null as any, notIn: [''] } },
-            { items: { path: ['booksSalesOrderId'], not: '' } }
-          ],
-          AND: [
-            {
-              OR: [
-                { items: { equals: null as any } },
-                { items: { path: ['line_items'], equals: null as any } },
-                { items: { path: ['line_items'], equals: [] } }
-              ]
-            }
-          ]
-        }
-      }).catch(() => 0),
-      prisma.quote.count({
-        where: {
-          id: { notIn: failedIds },
-          status: { equals: 'Invoiced' },
-          OR: [
-            { zohoId: { not: null as any, notIn: [''] } },
-            { items: { path: ['booksEstimateId'], not: '' } }
-          ],
-          AND: [
-            {
-              OR: [
-                { items: { equals: null as any } },
-                { items: { path: ['line_items'], equals: null as any } },
-                { items: { path: ['line_items'], equals: [] } }
-              ]
-            }
-          ]
-        }
-      }).catch(() => 0),
+      countUncached('Invoice', failedIds),
+      countUncached('SalesOrder', failedIds),
+      countUncached('Quote', failedIds, 'Invoiced')
     ])
 
     const remaining = invLeft + soLeft + qtLeft
