@@ -42,11 +42,71 @@ export default function BackfillPage() {
   const [loadingStatus, setLoadingStatus] = useState(false)
   const [phase1Running, setPhase1Running] = useState(false)
   const [phase2Running, setPhase2Running] = useState(false)
+  const [phase3Running, setPhase3Running] = useState(false)
   const [autoRun, setAutoRun] = useState(false)
   const [log, setLog] = useState<string[]>([])
   const [lastResult, setLastResult] = useState<BatchResult | null>(null)
   const autoRunRef = useRef(false)
+  const phase3AutoRef = useRef(false)
   const logRef = useRef<HTMLDivElement>(null)
+
+  const startPhase3Auto = async () => {
+    setPhase3Running(true)
+    phase3AutoRef.current = true
+    addLog("▶ Starting Phase 3 Cost Recalculation auto-run...")
+
+    let consecutiveErrors = 0
+    const MAX_CONSECUTIVE_ERRORS = 3
+
+    while (phase3AutoRef.current) {
+      try {
+        const res = await fetch("/api/backfill-books-data?phase=3")
+        const data: any = await safeJson(res)
+        setLastResult(data)
+
+        if (data.error) {
+          consecutiveErrors++
+          addLog(`❌ Phase 3 batch error (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${data.error}`)
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) break
+          await new Promise(r => setTimeout(r, 3000 * consecutiveErrors))
+          continue
+        }
+
+        consecutiveErrors = 0
+        addLog(`⚡ Phase 3 [${data.docType}]: Processed ${data.batchProcessed} docs. Mapped to Zoho: ${data.batchPushedToZoho}`)
+
+        if (data.done || !data.callAgain) {
+          addLog("🎁‰ Phase 3 complete!")
+          break
+        }
+
+        await new Promise(r => setTimeout(r, 500))
+      } catch (e: any) {
+        consecutiveErrors++
+        addLog(`❌ Phase 3 network error: ${e.message}`)
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) break
+        await new Promise(r => setTimeout(r, 5000 * consecutiveErrors))
+      }
+    }
+
+    phase3AutoRef.current = false
+    setPhase3Running(false)
+    await fetchStatus()
+  }
+
+  const stopPhase3 = () => {
+    phase3AutoRef.current = false
+    addLog("⏹ Stopping Phase 3 after current batch...")
+  }
+
+  const resetPhase3 = async () => {
+    toastConfirm("Reset Phase 3 checkpoint? This will restart calculations from the beginning.", async () => {
+      await fetch("/api/backfill-books-data?phase=3&reset=1")
+      addLog("🔄 Phase 3 checkpoint reset.")
+      await fetchStatus()
+    })
+  }
+
 
   const addLog = (msg: string) => {
     const ts = new Date().toLocaleTimeString()
@@ -383,14 +443,63 @@ export default function BackfillPage() {
             >
               <FiRefreshCw size={14} />
             </button>
+          </div>
         </div>
-      </div>
 
-        {/* Phase 3: Invoice Dates Backfill */}
+        {/* Phase 3: Recalculate Costs */}
+        <div className={`glass-panel border rounded-xl p-5 border-neutral-700 space-y-3 col-span-1 lg:col-span-2 ${status?.checkpoint?.phase3Done ? 'border-emerald-800' : ''}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${status?.checkpoint?.phase3Done ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>3</span>
+              <div>
+                <h3 className="font-bold text-white text-sm">Recalculate Document Costs & Custom Fields</h3>
+                <p className="text-xs text-neutral-400">Processes invoices, SOs, and quotes in batches . auto-continues</p>
+              </div>
+            </div>
+            {status?.checkpoint?.phase3Done && <FiCheckCircle className="text-emerald-400 w-5 h-5 shrink-0" />}
+          </div>
+          <p className="text-xs text-neutral-400 leading-relaxed">
+            Recalculates profit, dead cost, CC fees, and commissions locally using the cached line items, updates the local database, and pushes missing custom fields to Zoho Books.
+            <span className="text-amber-400 block mt-1 font-semibold">🔒 Paid Invoice Safety Rule: Paid invoices are processed locally only; they will NOT be updated in Zoho Books to preserve price integrity.</span>
+          </p>
+          {status?.checkpoint?.phase3Offset > 0 && !status?.checkpoint?.phase3Done && (
+            <p className="text-xs text-purple-400">
+              Checkpoint saved at type {status?.checkpoint?.phase3DocType} (offset {status?.checkpoint?.phase3Offset}) -- will resume from here.
+            </p>
+          )}
+          <div className="flex gap-2">
+            {!phase3Running ? (
+              <button
+                onClick={startPhase3Auto}
+                disabled={phase1Running || phase2Running || phase3Running}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors"
+              >
+                <FiPlay size={14} /> {status?.checkpoint?.phase3Offset > 0 ? 'Resume Phase 3' : 'Start Phase 3'}
+              </button>
+            ) : (
+              <button
+                onClick={stopPhase3}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-rose-700 hover:bg-rose-600 text-white font-bold text-sm transition-colors"
+              >
+                <FiPause size={14} /> Stop After Batch
+              </button>
+            )}
+            <button
+              onClick={resetPhase3}
+              disabled={phase3Running}
+              title="Reset checkpoint to restart from beginning"
+              className="px-3 py-2.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white text-sm transition-colors border border-neutral-700"
+            >
+              <FiRefreshCw size={14} />
+            </button>
+          </div>
+        </div>
+
+        {/* Phase 4: Invoice Dates Backfill */}
         <div className="glass-panel border rounded-xl p-5 border-neutral-700 space-y-3 col-span-1 lg:col-span-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black bg-purple-500/20 text-purple-400">3</span>
+              <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black bg-purple-500/20 text-purple-400">4</span>
               <div>
                 <h3 className="font-bold text-white text-sm">Align 2026 Invoice Dates to Sales Orders</h3>
                 <p className="text-xs text-neutral-400">Batch matches all 2026 invoices to their Sales Order dates</p>
@@ -408,7 +517,7 @@ export default function BackfillPage() {
                   const res = await fetch("/api/admin/backfill-invoice-dates", { method: "POST" })
                   const data = await res.json()
                   if (data.success) {
-                    addLog(`✅ Done! Updated ${data.updatedCount} invoices, skipped/no-change: ${data.skippedCount}`)
+                     addLog(`✅ Done! Updated ${data.updatedCount} invoices, skipped/no-change: ${data.skippedCount}`)
                   } else {
                     addLog(`❌ Error: ${data.error || "Unknown error"}`)
                   }
