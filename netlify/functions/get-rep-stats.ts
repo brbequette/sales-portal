@@ -600,22 +600,27 @@ export const handler: Handler = async (event) => {
         const subtotal = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
         const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
 
-        // Dead cost: try all known Zoho field name variants, then fall back to line item costs
-        let deadCost = parseFloat(
-          items.deadCostTotal || items.dead_cost_total || items.deadCost ||
-          items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0
-        )
-        if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
-          deadCost = lineItems.reduce((sum: number, li: any) => {
-            const qty = parseFloat(li.quantity) || 1
-            const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
-            return sum + (qty * cost)
-          }, 0)
+        // Dead cost: try subject-to-vig and no-vig split first, then try all known Zoho field name variants, then fall back to line item costs
+        let deadCost = 0
+        if (items.deadCostSubjectToVig !== undefined && items.deadCostNoVig !== undefined) {
+          deadCost = parseFloat(items.deadCostSubjectToVig || 0) + parseFloat(items.deadCostNoVig || 0)
+        } else {
+          deadCost = parseFloat(
+            items.deadCostTotal || items.dead_cost_total || items.deadCost ||
+            items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0
+          )
+          if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
+            deadCost = lineItems.reduce((sum: number, li: any) => {
+              const qty = parseFloat(li.quantity) || 1;
+              const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50);
+              return sum + (qty * cost);
+            }, 0)
+          }
         }
         if (isNaN(deadCost)) deadCost = 0
 
-        const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
-        const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
+        const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c?.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
+        const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c?.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
 
         // Dead profit = subtotal - deadCost - additionalCosts - ccFees (for goal tracking)
         const deadProfit = subtotal - deadCost - additionalCosts - ccFees
@@ -701,47 +706,6 @@ export const handler: Handler = async (event) => {
             vigRate = 1.3;
           }
         }
-        
-        // Also track dead profit separately per rep per month
-        const repDeadProfit: Record<string, number> = {}
-        users.forEach(u => { repDeadProfit[u.id] = 0 })
-        // Re-aggregate dead profit from the same month invoices
-        monthInvoices.forEach((inv: any) => {
-          const items = (inv.items as any) || {}
-          const cfs = items.custom_fields || []
-          const subtotal = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
-          const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
-          let deadCost = 0
-          if (items.deadCostSubjectToVig !== undefined && items.deadCostNoVig !== undefined) {
-            deadCost = parseFloat(items.deadCostSubjectToVig || 0) + parseFloat(items.deadCostNoVig || 0)
-          } else {
-            deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || items.cf_dead_cost_total || 0)
-            if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
-              deadCost = lineItems.reduce((sum: number, li: any) => {
-                const qty = parseFloat(li.quantity) || 1
-                const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
-                return sum + (qty * cost)
-              }, 0)
-            }
-          }
-          if (isNaN(deadCost)) deadCost = 0
-          const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
-          const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
-          const deadProfit = subtotal - deadCost - additionalCosts - ccFees
-          const salespersonName = items.salesperson
-          let repId = unassignedId
-          if (salespersonName) {
-            const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
-            const matchedId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()]
-            if (matchedId) repId = matchedId
-          }
-          if (repId === unassignedId) repId = (inv as any).account?.ownerId || unassignedId
-          const isValidInvoice = inv.status !== 'Void' && inv.status !== 'Draft'
-          if (isValidInvoice && repDeadProfit[repId] !== undefined) {
-            repDeadProfit[repId] += isNaN(deadProfit) ? 0 : deadProfit
-          }
-        })
-
         const repVigEntry = { 
           metric: vigGoal.metric,
           target, 
@@ -749,7 +713,7 @@ export const handler: Handler = async (event) => {
           profitGoal: vigGoal.profitGoal || 20000,
           sales: actual,
           profit,           // dead profit (goal basis)
-          deadProfit: repDeadProfit[u.id] || 0, // explicit dead profit field
+          deadProfit: profit, // explicit dead profit field
           subtotal,
           vigRate,
           manualVigRate: vigGoal.manualVigRate || null,
