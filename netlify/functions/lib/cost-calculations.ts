@@ -289,7 +289,8 @@ export async function calculateDocumentCosts(
     const qty          = parseFloat(item.quantity || 1)
     const rate         = parseFloat(item.rate || 0)
     const cost         = parseFloat(item.purchase_rate || item.pricebook_rate || 0)
-    const itemTotal    = qty * rate
+    const discountAmount = parseFloat(item.discount_amount || 0)
+    const itemTotal    = item.item_total !== undefined ? parseFloat(item.item_total) : ((qty * rate) - discountAmount)
     const itemDeadCost = qty * cost
 
     const itemSku = (item.sku || item.code || "").toLowerCase().trim()
@@ -317,7 +318,8 @@ export async function calculateDocumentCosts(
       if (item.line_item_category === "header" || item.line_item_category === "subtotal") return sum;
       const qty = parseFloat(item.quantity || 0)
       const rate = parseFloat(item.rate || 0)
-      return sum + (qty * rate)
+      const discountAmount = parseFloat(item.discount_amount || 0)
+      return sum + ((qty * rate) - discountAmount)
     }, 0)
   }
 
