@@ -17,7 +17,8 @@ export async function GET() {
         email: true,
         role: true,
         constantVigEnabled: true,
-        constantVigValue: true
+        constantVigValue: true,
+        showOnSalesBoard: true
       },
       orderBy: { name: 'asc' }
     })
@@ -39,7 +40,8 @@ export async function GET() {
       constantVigEnabled: u.constantVigEnabled ?? false,
       constantVigValue: u.constantVigValue ?? defaultVigRate,
       dailyProfitGoal: salesTargets[u.id] ?? 1000,
-      dailySubtotalGoal: subtotalTargets[u.id] ?? 2000
+      dailySubtotalGoal: subtotalTargets[u.id] ?? 2000,
+      showOnSalesBoard: u.showOnSalesBoard ?? false
     }))
 
     return NextResponse.json({

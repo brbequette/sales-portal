@@ -438,6 +438,10 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
               let sumProfitGoal = 0
               let sumSubtotalGoal = 0
               vigData.repConfigs.forEach((r: any) => {
+                // Only account for goals of show on salesboard reps
+                if (!r.showOnSalesBoard) {
+                  return
+                }
                 const emailLower = (r.email || "").toLowerCase()
                 const nameLower = (r.name || "").toLowerCase()
                 // Exclude admins and test/dummy accounts
