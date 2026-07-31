@@ -649,6 +649,32 @@ export const handler: Handler = async (event) => {
         const doc = detailData[zohoDocKey]
         if (!doc) { errors++; continue }
 
+        // 1b. Check if invoice is paid
+        const isPaidInvoice = currentDocType === 'Invoice' && (doc.status?.toLowerCase() === 'paid' || doc.balance === 0 || parseFloat(doc.balance || 0) <= 0)
+
+        // 1c. Unpaid Tariff Logic: If unpaid and no tariff exists (and remove tariff is false), add it
+        let shouldAddTariff = false
+        let tariffAmount = 0
+        if (currentDocType === 'Invoice' && !isPaidInvoice) {
+          const existingAdjustment = parseFloat(doc.adjustment || 0)
+          const removeTariff = doc.custom_fields?.some((f: any) => f.label?.toUpperCase().includes('REMOVE TARIFF') && (f.value === true || f.value === 'true'))
+          if (existingAdjustment === 0 && !removeTariff) {
+            let nonGiftDeadCost = 0
+            for (const item of (doc.line_items || [])) {
+              const isGift = item.rate === 0 || item.custom_fields?.some((cf: any) => cf.label?.toUpperCase().includes('GIFT') && (cf.value === true || cf.value === 'true'))
+              if (!isGift) {
+                nonGiftDeadCost += parseFloat(item.purchase_rate || 0) * parseFloat(item.quantity || 1)
+              }
+            }
+            tariffAmount = parseFloat((nonGiftDeadCost * 0.125).toFixed(2))
+            if (tariffAmount > 0) {
+              shouldAddTariff = true
+              doc.adjustment = tariffAmount
+              doc.adjustment_description = "TARIFF SURCHARGE"
+            }
+          }
+        }
+
         // 2. Run the full cost calculation engine
         let calc: any = null
         try {
@@ -766,15 +792,21 @@ export const handler: Handler = async (event) => {
             }
           }
 
-          const isPaidInvoice = currentDocType === 'Invoice' && (doc.status?.toLowerCase() === 'paid' || doc.balance === 0 || updatedItems.status === 'Paid')
-          if (isPaidInvoice) {
-            console.log(`[Phase 3] Invoice ${booksId} is Paid. Skipping Zoho Books PUT update (local update only).`)
-          } else if (fieldsToUpdate.length > 0) {
+          const payload: any = {}
+          if (fieldsToUpdate.length > 0) {
+            payload.custom_fields = fieldsToUpdate
+          }
+          if (shouldAddTariff) {
+            payload.adjustment = tariffAmount
+            payload.adjustment_description = "TARIFF SURCHARGE"
+          }
+
+          if (Object.keys(payload).length > 0) {
             await sleep(RATE_DELAY_MS)
             const putRes = await fetch(`${BASE_URL}/${zohoModule}/${booksId}?organization_id=${ORG_ID}`, {
               method: 'PUT',
               headers: { ...authHeaders, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ custom_fields: fieldsToUpdate }),
+              body: JSON.stringify(payload),
             })
             if (putRes.ok) pushed++
           }
