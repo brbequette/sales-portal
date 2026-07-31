@@ -43,6 +43,7 @@ const BASE_URL = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 // How many records to process per Phase 2 invocation (fits in 26s Netlify timeout)
 // 12 records × 1.3s rate delay = ~16s minimum, leaving 10s headroom for DB writes
 const BATCH_SIZE = 12
+const PHASE3_BATCH_SIZE = 5
 // Delay between Zoho API calls in ms (50 calls/min = 1200ms)
 const RATE_DELAY_MS = 1300
 
@@ -596,7 +597,7 @@ export const handler: Handler = async (event) => {
         },
         select: { id: true, items: true, zohoId: true },
         skip: offset,
-        take: BATCH_SIZE,
+        take: PHASE3_BATCH_SIZE,
         orderBy: { [orderField]: 'desc' },
       })
     } catch { batch = [] }
@@ -788,7 +789,7 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    const newOffset = offset + BATCH_SIZE
+    const newOffset = offset + PHASE3_BATCH_SIZE
     await saveCheckpoint({
       ...cp, phase3Offset: newOffset, phase3DocType: currentDocType,
       phase3Processed: (cp.phase3Processed || 0) + processed,
@@ -801,7 +802,7 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({
         success: true, phase: 3,
         docType: currentDocType,
-        done: batch.length < BATCH_SIZE && currentDocType === 'Quote',
+        done: batch.length < PHASE3_BATCH_SIZE && currentDocType === 'Quote',
         batchProcessed: processed,
         batchErrors: errors,
         batchPushedToZoho: pushed,
