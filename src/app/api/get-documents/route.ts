@@ -143,6 +143,15 @@ export async function GET(request: Request) {
         }, 0)
       }
       
+      const statusLower = (raw.status || "").toLowerCase()
+      const isPaid = statusLower === "paid" || items?.paymentDate != null
+      const isSameDayPaid = items?.isSameDayPaid || false
+      const isConvertedToSO = statusLower === 'converted' || items?.salesorder_id || items?.salesorder_number || raw.salesorder_id || raw.salesorder_number || false
+      const soStatus = statusLower.trim()
+      const isInvoicedOrClosed = soStatus === 'invoiced' || soStatus === 'closed' || soStatus === 'void' || items?.invoice_id || items?.invoice_number || raw.invoice_id || raw.invoice_number || false
+      const dueDate = raw.dueDate?.toISOString() || items?.due_date || null
+      const balance = parseFloat(items?.balance ?? raw.balance ?? 0)
+
       const dateStr = raw.issueDate?.toISOString() || raw.orderDate?.toISOString() || raw.createdAt?.toISOString() || new Date().toISOString()
       const statusStr = raw.status || "Draft"
       
@@ -162,7 +171,12 @@ export async function GET(request: Request) {
         commission,
         salesperson: items?.salesperson || items?.salesperson_name || null,
         invoiceNumber: items?.invoiceNumber || items?.invoice_number || items?.estimateNumber || items?.estimate_number || items?.salesOrderNumber || items?.salesorder_number || items?.quoteNumber || (raw.zohoId || raw.id).slice(-6),
-        raw
+        isPaid,
+        isSameDayPaid,
+        isConvertedToSO,
+        isInvoicedOrClosed,
+        dueDate,
+        balance
       }
     }
 

@@ -287,8 +287,6 @@ export function SalesBoard() {
         }
 
         rawDocs.forEach((doc: any) => {
-          const raw = doc.raw || {}
-          const items = raw.items || {}
           const spName = (doc.salesperson || "").toUpperCase()
           if (!spName) return
           if (spName.includes("PAUL") && (spName.includes("GENCUSKI") || spName.includes("GENKUSKI"))) return
@@ -298,24 +296,23 @@ export function SalesBoard() {
 
           // --- 1. ESTIMATES / QUOTES (48 Hours active on board or until SO) ---
           if (docType === 'Quote') {
-            const quoteDate = doc.date ? new Date(doc.date) : new Date(raw.createdAt || Date.now())
+            const quoteDate = new Date(doc.date)
             const ageHours = (today.getTime() - quoteDate.getTime()) / (1000 * 3600)
-            const isConvertedToSO = raw.status === 'Converted' || raw.salesorder_id || raw.salesorder_number
+            const isConvertedToSO = doc.isConvertedToSO || false
             if (ageHours <= 48 && !isConvertedToSO && matchedRep) {
               matchedRep.activePipeline.estimateCount += 1
-              matchedRep.activePipeline.estimateAmount += parseFloat(doc.amount || raw.total || raw.amount || 0)
+              matchedRep.activePipeline.estimateAmount += parseFloat(doc.amount || 0)
             }
             return
           }
 
           // --- 2. SALES ORDERS (Active on board until Invoiced/Closed) ---
           if (docType === 'SalesOrder') {
-            const soStatus = (raw.status || '').toLowerCase().trim()
-            const isInvoicedOrClosed = soStatus === 'invoiced' || soStatus === 'closed' || soStatus === 'void' || raw.invoice_id || raw.invoice_number
+            const isInvoicedOrClosed = doc.isInvoicedOrClosed || false
             if (isInvoicedOrClosed) return // Skip converted/closed/voided Sales Orders to avoid double-counting
             if (matchedRep) {
               matchedRep.activePipeline.salesOrderCount += 1
-              matchedRep.activePipeline.salesOrderAmount += parseFloat(doc.amount || raw.total || raw.amount || 0)
+              matchedRep.activePipeline.salesOrderAmount += parseFloat(doc.amount || 0)
             }
           }
 
@@ -330,10 +327,9 @@ export function SalesBoard() {
             const deadCostNoVig = Number(doc.deadCostNoVig || 0)
             const deadCostSubjectToVig = Number(doc.deadCostSubjectToVig || 0)
 
-            // Commission 50/50 split calculation
+            const isPaid = doc.isPaid || false
+            const isSameDayPaid = doc.isSameDayPaid || false
             const fullComm = Number(doc.commission || 0)
-            const isPaid = (raw.status || "").toLowerCase() === "paid" || items.paymentDate != null
-            const isSameDayPaid = items.isSameDayPaid || false
 
             const isSinglePayment = matchedRep?.payoutStructure === 'single_payment'
             let commissionEarned = 0
@@ -350,13 +346,13 @@ export function SalesBoard() {
 
             // Check overdue
             const dueDate = doc.dueDate ? new Date(doc.dueDate) : null
-            if (dueDate && (doc.status === 'overdue' || raw.status === 'overdue') && balance > 0) {
+            if (dueDate && doc.status === 'overdue' && balance > 0) {
               const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24))
               if (daysOverdue > 0) {
                 totalOverdueBalance += balance
                 overdueInvoices.push({
-                  customer: raw.customer_name || doc.accountName,
-                  invoiceNumber: raw.invoice_number || doc.invoiceNumber,
+                  customer: doc.accountName,
+                  invoiceNumber: doc.invoiceNumber,
                   balance: balance,
                   saleDate: saleDate,
                   daysOverdue: daysOverdue,
@@ -388,17 +384,17 @@ export function SalesBoard() {
                 matchedRep.weekly.deadCostSubjectToVig += deadCostSubjectToVig
                 matchedRep.weekly.commission += commissionEarned
                 matchedRep.weekly.dealsClosed += 1
-                 matchedRep.weekly.invoices.push({ 
-                  id: raw.invoice_id || raw.id || doc.id, 
+                matchedRep.weekly.invoices.push({ 
+                  id: doc.id, 
                   zohoId: doc.zohoId,
                   date: saleDate, 
-                  customer: raw.customer_name || doc.accountName, 
+                  customer: doc.accountName, 
                   amount, 
                   profit, 
                   deadCostNoVig,
                   deadCostSubjectToVig,
                   commission: commissionEarned, 
-                  invoiceNumber: raw.invoice_number || doc.invoiceNumber 
+                  invoiceNumber: doc.invoiceNumber 
                 })
               }
             }
@@ -412,16 +408,16 @@ export function SalesBoard() {
                 matchedRep.mtd.commission += commissionEarned
                 matchedRep.mtd.dealsClosed += 1
                 matchedRep.mtd.invoices.push({ 
-                  id: raw.invoice_id || raw.id || doc.id, 
+                  id: doc.id, 
                   zohoId: doc.zohoId,
                   date: saleDate, 
-                  customer: raw.customer_name || doc.accountName, 
+                  customer: doc.accountName, 
                   amount, 
                   profit, 
                   deadCostNoVig,
                   deadCostSubjectToVig,
                   commission: commissionEarned, 
-                  invoiceNumber: raw.invoice_number || doc.invoiceNumber 
+                  invoiceNumber: doc.invoiceNumber 
                 })
               }
               if (isYTD) {
@@ -432,16 +428,16 @@ export function SalesBoard() {
                 matchedRep.ytd.commission += commissionEarned
                 matchedRep.ytd.dealsClosed += 1
                 matchedRep.ytd.invoices.push({ 
-                  id: raw.invoice_id || raw.id || doc.id, 
+                  id: doc.id, 
                   zohoId: doc.zohoId,
                   date: saleDate, 
-                  customer: raw.customer_name || doc.accountName, 
+                  customer: doc.accountName, 
                   amount, 
                   profit, 
                   deadCostNoVig,
                   deadCostSubjectToVig,
                   commission: commissionEarned, 
-                  invoiceNumber: raw.invoice_number || doc.invoiceNumber 
+                  invoiceNumber: doc.invoiceNumber 
                 })
               }
             }
@@ -453,7 +449,8 @@ export function SalesBoard() {
           reps: Object.values(repsMap),
           overdueInvoices: overdueInvoices.sort((a,b) => b.daysOverdue - a.daysOverdue),
           totalOverdueBalance,
-          weekDays
+          weekDays,
+          rawInvoices: rawDocs.filter(d => d.type === 'Invoice')
         })
 
       } catch (err) {
