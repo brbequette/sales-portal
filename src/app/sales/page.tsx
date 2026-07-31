@@ -282,7 +282,7 @@ export default function SalesPage() {
     } catch (e) {}
   }
 
-  const fetchLocalData = async (pageNum = 1, isLoadMore = false) => {
+  const fetchLocalData = async (pageNum = 1, isLoadMore = false, triggerRefresh = false) => {
     try {
       if (!isLoadMore) setLoading(true)
       const userEmail = currentUser?.email || preferences.impersonatedUser?.email || ""
@@ -317,9 +317,12 @@ export default function SalesPage() {
       setAccountsTotalCount(allFetchedAccounts.length)
       setAccountsHasMore(false)
 
-      const tRes = await fetch("/api/get-tasks")
-      const tData = await tRes.json()
-      if (tData.tasks) setTasks(tData.tasks)
+      const emailParam = userEmail || currentUser?.email || dbUser?.email || ""
+      if (emailParam) {
+        const tRes = await fetch(`/api/get-tasks?email=${encodeURIComponent(emailParam)}&ownerIdFilter=${ownerFilter}${triggerRefresh ? "&refresh=true" : ""}`)
+        const tData = await tRes.json()
+        if (tData.tasks) setTasks(tData.tasks)
+      }
     } catch (err: any) {
       console.error(err)
       setApiError("Failed to load accounts and tasks")
@@ -332,7 +335,7 @@ export default function SalesPage() {
     try {
       setLoading(true)
       await fetch("/api/zoho-sync", { method: "POST" })
-      await fetchLocalData(1, false)
+      await fetchLocalData(1, false, true)
       toast.success("Synced with Zoho successfully")
     } catch (err) {
       toast.error("Sync failed")
@@ -2020,7 +2023,7 @@ export default function SalesPage() {
         <SalesCallCampaignModal
           accounts={accounts.filter(a => selectedAccountIds.includes(a.id))}
           onClose={() => setShowCallCampaignModal(false)}
-          onRefresh={() => fetchLocalData(1, false)}
+          onRefresh={() => fetchLocalData(1, false, true)}
         />,
         document.body
       )}
