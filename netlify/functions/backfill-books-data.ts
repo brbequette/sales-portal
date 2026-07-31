@@ -313,32 +313,38 @@ export const handler: Handler = async (event) => {
 
     console.log(`=== Backfill Phase 2: offset=${offset}, batch=${BATCH_SIZE} ===`)
 
-    async function getUncachedIds(model: 'Invoice' | 'SalesOrder' | 'Quote', failedIds: string[], limit: number, statusFilter?: string): Promise<string[]> {
+    async function getUncachedIds(model: 'Invoice' | 'SalesOrder' | 'Quote', failedIds: string[], limit: number): Promise<string[]> {
       const failedCond = failedIds.length > 0 
         ? `AND id NOT IN (${failedIds.map(id => `'${id}'`).join(',')})`
         : '';
-      const statusCond = statusFilter ? `AND status = '${statusFilter}'` : '';
+      const idKey = model === 'Invoice' ? 'booksInvoiceId'
+        : model === 'SalesOrder' ? 'booksSalesOrderId'
+        : 'booksEstimateId';
+
       const sql = `
         SELECT id FROM "${model}"
         WHERE (items->'line_items' IS NULL OR items->'line_items' = '[]'::jsonb)
+        AND ("zohoId" IS NOT NULL AND "zohoId" != '' OR items->>'${idKey}' IS NOT NULL AND items->>'${idKey}' != '')
         ${failedCond}
-        ${statusCond}
         LIMIT ${limit}
       `;
       const rows = await prisma.$queryRawUnsafe<{ id: string }[]>(sql).catch(() => []);
       return rows.map(r => r.id);
     }
 
-    async function countUncached(model: 'Invoice' | 'SalesOrder' | 'Quote', failedIds: string[], statusFilter?: string): Promise<number> {
+    async function countUncached(model: 'Invoice' | 'SalesOrder' | 'Quote', failedIds: string[]): Promise<number> {
       const failedCond = failedIds.length > 0 
         ? `AND id NOT IN (${failedIds.map(id => `'${id}'`).join(',')})`
         : '';
-      const statusCond = statusFilter ? `AND status = '${statusFilter}'` : '';
+      const idKey = model === 'Invoice' ? 'booksInvoiceId'
+        : model === 'SalesOrder' ? 'booksSalesOrderId'
+        : 'booksEstimateId';
+
       const sql = `
         SELECT COUNT(*)::int as count FROM "${model}"
         WHERE (items->'line_items' IS NULL OR items->'line_items' = '[]'::jsonb)
+        AND ("zohoId" IS NOT NULL AND "zohoId" != '' OR items->>'${idKey}' IS NOT NULL AND items->>'${idKey}' != '')
         ${failedCond}
-        ${statusCond}
       `;
       const rows = await prisma.$queryRawUnsafe<{ count: number }[]>(sql).catch(() => [{ count: 0 }]);
       return rows[0]?.count || 0;
@@ -357,7 +363,7 @@ export const handler: Handler = async (event) => {
       select: { id: true, zohoId: true, items: true, status: true }
     })
 
-    const qtUncachedIds = await getUncachedIds('Quote', failedIds, BATCH_SIZE, 'Invoiced')
+    const qtUncachedIds = await getUncachedIds('Quote', failedIds, BATCH_SIZE)
     const qtUncached = await prisma.quote.findMany({
       where: { id: { in: qtUncachedIds } },
       select: { id: true, zohoId: true, items: true, status: true }
@@ -398,7 +404,7 @@ export const handler: Handler = async (event) => {
     const [invLeft, soLeft, qtLeft] = await Promise.all([
       countUncached('Invoice', failedIds),
       countUncached('SalesOrder', failedIds),
-      countUncached('Quote', failedIds, 'Invoiced')
+      countUncached('Quote', failedIds)
     ])
 
     const remaining = invLeft + soLeft + qtLeft
