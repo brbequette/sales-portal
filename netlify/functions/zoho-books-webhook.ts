@@ -248,7 +248,31 @@ export const handler: Handler = async (event) => {
 
     // Write to DB and trigger cost/tariff processing
     if (type === 'Invoice') {
-      await prisma.invoice.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems } })
+      let matchedIssueDate: Date | null = null
+      const soNum = (doc.salesorder_number || updatedItems.salesOrderNumber || '').trim().toLowerCase()
+      if (soNum) {
+        const matchedSo = await prisma.salesOrder.findFirst({
+          where: {
+            OR: [
+              { items: { path: ['salesOrderNumber'], equals: soNum } },
+              { items: { path: ['salesorder_number'], equals: soNum } }
+            ]
+          },
+          select: { orderDate: true }
+        })
+        if (matchedSo?.orderDate) {
+          matchedIssueDate = matchedSo.orderDate
+        }
+      }
+
+      await prisma.invoice.update({
+        where: { id: dbDoc.id },
+        data: {
+          status,
+          items: updatedItems,
+          issueDate: matchedIssueDate || (doc.date ? new Date(doc.date) : undefined)
+        }
+      })
       await processInvoiceCosts({
         httpMethod: "POST",
         body: JSON.stringify({ invoiceId: booksId })

@@ -383,6 +383,43 @@ export default function BackfillPage() {
             >
               <FiRefreshCw size={14} />
             </button>
+        </div>
+      </div>
+
+        {/* Phase 3: Invoice Dates Backfill */}
+        <div className="glass-panel border rounded-xl p-5 border-neutral-700 space-y-3 col-span-1 lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black bg-purple-500/20 text-purple-400">3</span>
+              <div>
+                <h3 className="font-bold text-white text-sm">Align 2026 Invoice Dates to Sales Orders</h3>
+                <p className="text-xs text-neutral-400">Batch matches all 2026 invoices to their Sales Order dates</p>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-neutral-400 leading-relaxed">
+            This will scan all invoices with an issue date in 2026, find their matching Sales Order by sales order number, and set the invoice date in the local database to match the Sales Order's order date.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                try {
+                  addLog("▶ Starting 2026 Invoice Dates Backfill...")
+                  const res = await fetch("/api/admin/backfill-invoice-dates", { method: "POST" })
+                  const data = await res.json()
+                  if (data.success) {
+                    addLog(`✅ Done! Updated ${data.updatedCount} invoices, skipped/no-change: ${data.skippedCount}`)
+                  } else {
+                    addLog(`❌ Error: ${data.error || "Unknown error"}`)
+                  }
+                } catch (e: any) {
+                  addLog(`❌ Network error: ${e.message}`)
+                }
+              }}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm transition-colors"
+            >
+              <FiPlay size={14} /> Run Invoice Dates Backfill
+            </button>
           </div>
         </div>
       </div>

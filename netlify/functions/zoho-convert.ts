@@ -73,8 +73,8 @@ export const handler: Handler = async (event, context) => {
       payload = {
         customer_id: customerId,
         is_draft: true,
-        // Override the date if we found an estimate date
-        date: estimateDateValue || undefined,
+        // Override the date to match the Sales Order date
+        date: originalData?.date || undefined,
         custom_fields: estimateDateValue ? [{ label: "Estimate Date", value: estimateDateValue }] : []
       }
       resultKey = "invoice"
@@ -114,7 +114,7 @@ export const handler: Handler = async (event, context) => {
             accountId: dbAccount.id,
             amount: data[resultKey].total || 0,
             status: "Pending",
-            orderDate: new Date(),
+            orderDate: data[resultKey].date ? new Date(data[resultKey].date) : new Date(),
             items: []
           }
         })
@@ -125,7 +125,7 @@ export const handler: Handler = async (event, context) => {
             accountId: dbAccount.id,
             amount: data[resultKey].total || 0,
             status: "Draft",
-            issueDate: new Date(),
+            issueDate: data[resultKey].date ? new Date(data[resultKey].date) : (originalData?.date ? new Date(originalData.date) : new Date()),
             items: []
           }
         })

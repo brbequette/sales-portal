@@ -124,6 +124,39 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
       : []
     const existingEstimatesMap = new Map(existingEstimates.map(q => [q.zohoId, q]))
 
+    // Load associated SalesOrders to match invoice dates
+    const salesOrderNumbers = entity === 'invoices' ? items.map((i: any) => i.salesorder_number).filter(Boolean) : []
+    const uniqueSoNums = Array.from(new Set(salesOrderNumbers))
+    const associatedSalesOrders = (entity === 'invoices' && uniqueSoNums.length > 0)
+      ? await prisma.salesOrder.findMany({
+          where: {
+            OR: uniqueSoNums.flatMap(soNum => [
+              {
+                items: {
+                  path: ['salesOrderNumber'],
+                  equals: soNum
+                }
+              },
+              {
+                items: {
+                  path: ['salesorder_number'],
+                  equals: soNum
+                }
+              }
+            ]) as any
+          },
+          select: { orderDate: true, items: true }
+        })
+      : []
+    const salesOrderDateMap = new Map<string, Date>()
+    associatedSalesOrders.forEach(so => {
+      const soItems = (so.items as any) || {}
+      const soNum = soItems.salesOrderNumber || soItems.salesorder_number
+      if (soNum && so.orderDate) {
+        salesOrderDateMap.set(String(soNum).trim().toLowerCase(), so.orderDate)
+      }
+    })
+
     const ops = []
     for (const item of items) {
       // For contacts, update existing accounts' zohoId to the Books contact ID
@@ -328,12 +361,16 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
           sub_total: savedSubtotal, // enforce subtotal is not overwritten by spread
         }
 
+        const soNumClean = (item.salesorder_number || '').trim().toLowerCase()
+        const matchedSoDate = soNumClean ? salesOrderDateMap.get(soNumClean) : null
+        const finalIssueDate = matchedSoDate || new Date(item.date || item.created_time)
+
         ops.push(prisma.invoice.upsert({
           where: { zohoId: item.invoice_id },
           update: {
             amount: savedSubtotal,
             status: item.status || 'draft',
-            issueDate: new Date(item.date || item.created_time),
+            issueDate: finalIssueDate,
             dueDate: item.due_date ? new Date(item.due_date) : null,
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
             items: invoiceItems,
@@ -343,7 +380,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
             accountId: dbAccountId,
             amount: savedSubtotal,
             status: item.status || 'draft',
-            issueDate: new Date(item.date || item.created_time),
+            issueDate: finalIssueDate,
             dueDate: item.due_date ? new Date(item.due_date) : null,
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
             items: invoiceItems,
