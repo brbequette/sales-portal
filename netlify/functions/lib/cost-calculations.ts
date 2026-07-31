@@ -53,6 +53,24 @@ export interface CostCalculationResult {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+export function isSwagItem(nameOrSku: string): boolean {
+  const normalized = (nameOrSku || "").toLowerCase()
+  return (
+    normalized.includes("hat") ||
+    normalized.includes("knife") ||
+    normalized.includes("shirt") ||
+    normalized.includes("hoodie") ||
+    normalized.includes("cap") ||
+    normalized.includes("swag") ||
+    normalized.includes("apparel") ||
+    normalized.includes("merchandise") ||
+    normalized.includes("mug") ||
+    normalized.includes("pen") ||
+    normalized.includes("bag") ||
+    normalized.includes("jacket")
+  )
+}
+
 export function isGiftItem(item: any): boolean {
   const rate = parseFloat(item.rate || item.price || item.unit_price || 0)
   if (rate === 0) return true
@@ -72,9 +90,23 @@ export function isGiftItem(item: any): boolean {
 
 export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>): boolean {
   const rate = parseFloat(item.rate || item.price || item.unit_price || 0)
-  if (rate === 0) return true
+  const itemName = item.name || ""
+  const itemSku = item.sku || item.code || ""
+  
+  if (rate === 0) {
+    if (isSwagItem(itemName) || isSwagItem(itemSku)) {
+      return true
+    }
+    return false // Free blades still subject to VIG
+  }
 
-  if (isGiftItem(item)) return true
+  if (isGiftItem(item)) {
+    // If it's explicitly marked gift (and has price > 0, or is swag):
+    if (isSwagItem(itemName) || isSwagItem(itemSku)) {
+      return true
+    }
+    return false
+  }
   if (item.no_vig === true || item.noVig === true || item.is_no_vig === true || item.isNoVig === true) return true
   if (item.no_vig === 'true' || item.noVig === 'true' || item.is_no_vig === 'true') return true
   if (item.subjectToVig === false || item.subject_to_vig === false || item.subjectToSalesMarkup === false) return true

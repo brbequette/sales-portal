@@ -58,6 +58,24 @@ export const CANONICAL_FIELD_CATALOG: Record<string, Record<string, string>> = {
 
 import exemptCatalog from "./exempt-catalog.json";
 
+export function isSwagItem(nameOrSku: string): boolean {
+  const normalized = (nameOrSku || "").toLowerCase()
+  return (
+    normalized.includes("hat") ||
+    normalized.includes("knife") ||
+    normalized.includes("shirt") ||
+    normalized.includes("hoodie") ||
+    normalized.includes("cap") ||
+    normalized.includes("swag") ||
+    normalized.includes("apparel") ||
+    normalized.includes("merchandise") ||
+    normalized.includes("mug") ||
+    normalized.includes("pen") ||
+    normalized.includes("bag") ||
+    normalized.includes("jacket")
+  )
+}
+
 /**
  * Check if a line item is exempt from VIG (No VIG) based on cf_subject_to_sales_markup,
  * gift status, zero rate, catalog exemption, or explicit noVig flags.
@@ -66,7 +84,14 @@ export function isItemExemptFromVig(item: any): boolean {
   if (!item || typeof item !== 'object') return false;
 
   const rate = parseFloat(item.rate || item.price || item.unit_price || 0)
-  if (rate === 0) return true;
+  const itemName = item.name || ""
+  const itemSku = item.sku || item.code || ""
+  if (rate === 0) {
+    if (isSwagItem(itemName) || isSwagItem(itemSku)) {
+      return true;
+    }
+    return false; // Zero-priced blade still subject to VIG
+  }
 
   // 1. Direct explicit boolean / string flag checks
   if (item.noVig === true || item.no_vig === true || item.isNoVig === true || item.is_no_vig === true) return true;
