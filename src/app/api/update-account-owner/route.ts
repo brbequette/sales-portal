@@ -1,7 +1,20 @@
 import { handler } from "../../../../netlify/functions/update-account-owner";
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 async function executeNetlifyFunction(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const userRoleLower = (session.user as any).role?.toLowerCase() || "";
+  const isAdmin = userRoleLower.includes("admin") || userRoleLower.includes("administrator");
+  if (!isAdmin) {
+    return NextResponse.json({ error: "Forbidden: Only administrators can reassign account owners." }, { status: 403 });
+  }
+
   const url = new URL(req.url);
   const event = {
     path: url.pathname,

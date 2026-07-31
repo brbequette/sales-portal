@@ -1,8 +1,20 @@
 import { handler } from "../../../../netlify/functions/get-accounts";
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 async function executeNetlifyFunction(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const url = new URL(req.url);
+  // Force caller session details to prevent query param spoofing
+  url.searchParams.set("email", session.user.email);
+  url.searchParams.set("role", (session.user as any).role || "");
+  url.searchParams.set("zohoId", session.user.id || "");
+
   const event = {
     path: url.pathname,
     httpMethod: req.method,

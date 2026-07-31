@@ -1,8 +1,16 @@
 import { handler } from "../../../../netlify/functions/get-account-purchases";
 import { NextRequest, NextResponse } from "next/server";
+import { checkAccountOwnership } from "@/lib/auth-helpers";
 
 async function executeNetlifyFunction(req: NextRequest) {
   const url = new URL(req.url);
+  const accountId = url.searchParams.get("accountId");
+
+  const check = await checkAccountOwnership(accountId);
+  if (!check.authorized) {
+    return check.errorResponse || NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const event = {
     path: url.pathname,
     httpMethod: req.method,

@@ -89,21 +89,9 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
-    const passedRoleLower = (passedRole || "").toLowerCase();
     const userRoleLower = user?.role?.toLowerCase() || "";
-    // Allow full dataset access if passedRole is admin/manager/collections or ownerIdFilter is 'all'
-    const isSalesOnly = (
-      userRoleLower.includes("sales") && 
-      !userRoleLower.includes("admin") && 
-      !userRoleLower.includes("administrator") && 
-      !userRoleLower.includes("manager") && 
-      !userRoleLower.includes("collections") &&
-      !passedRoleLower.includes("admin") &&
-      !passedRoleLower.includes("administrator") &&
-      !passedRoleLower.includes("manager") &&
-      !passedRoleLower.includes("collections")
-    ) && (ownerIdFilter !== "all" && ownerIdFilter !== "All");
-    const isAdmin = !isSalesOnly;
+    const isAdmin = userRoleLower.includes("admin") || userRoleLower.includes("administrator");
+    const isSalesOnly = !isAdmin;
 
     // 3. Only sync LIVE accounts from Zoho CRM if explicitly requested via refresh=true.
     let shouldSync = false

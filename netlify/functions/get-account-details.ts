@@ -173,6 +173,21 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
+    // Enforce visibility restriction if caller parameters are supplied
+    const { callerEmail, callerRole, callerDbId } = event.queryStringParameters || {}
+    if (callerEmail) {
+      const callerRoleLower = (callerRole || "").toLowerCase()
+      const isAdmin = callerRoleLower.includes("admin") || callerRoleLower.includes("administrator")
+      
+      if (!isAdmin && account.ownerId !== callerDbId) {
+        return {
+          statusCode: 403,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+          body: JSON.stringify({ success: false, message: "Forbidden: You do not own this account." })
+        }
+      }
+    }
+
     // Fetch enrichment from Zoho Books contact (address, contact persons) if not cached
     let booksContact: any = null
     if (account && account.zohoId) {

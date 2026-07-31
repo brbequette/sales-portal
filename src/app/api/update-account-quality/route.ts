@@ -1,14 +1,40 @@
 import { handler } from "../../../../netlify/functions/update-account-quality";
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { checkAccountOwnership } from "@/lib/auth-helpers";
 
 async function executeNetlifyFunction(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let bodyText = "";
+  let accountId: string | null = null;
+  
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    bodyText = await req.text();
+    try {
+      const parsed = JSON.parse(bodyText);
+      accountId = parsed.accountId || parsed.zohoId || null;
+    } catch (e) {
+      // Ignored
+    }
+  }
+
+  const check = await checkAccountOwnership(accountId);
+  if (!check.authorized) {
+    return check.errorResponse || NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const url = new URL(req.url);
   const event = {
     path: url.pathname,
     httpMethod: req.method,
     headers: Object.fromEntries(req.headers.entries()),
     queryStringParameters: Object.fromEntries(url.searchParams.entries()),
-    body: req.method !== 'GET' && req.method !== 'HEAD' ? await req.text() : null,
+    body: bodyText || null,
     isBase64Encoded: false,
   };
 

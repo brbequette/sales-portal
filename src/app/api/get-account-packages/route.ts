@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getZohoAccessToken } from '../../../../netlify/functions/lib/zoho-auth'
+import { checkAccountOwnership } from '@/lib/auth-helpers'
 
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
 
@@ -10,6 +11,11 @@ export async function GET(req: Request) {
 
     if (!accountId) {
       return NextResponse.json({ success: false, error: 'Missing accountId' }, { status: 400 })
+    }
+
+    const check = await checkAccountOwnership(accountId)
+    if (!check.authorized) {
+      return check.errorResponse || NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
     const token = await getZohoAccessToken()

@@ -1,8 +1,22 @@
 import { handler } from "../../../../netlify/functions/get-account-details";
 import { NextRequest, NextResponse } from "next/server";
+import { checkAccountOwnership } from "@/lib/auth-helpers";
 
 async function executeNetlifyFunction(req: NextRequest) {
   const url = new URL(req.url);
+  const accountId = url.searchParams.get("id");
+
+  const check = await checkAccountOwnership(accountId);
+  if (!check.authorized) {
+    return check.errorResponse || NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Force caller context parameters to avoid spoofing
+  url.searchParams.set("callerEmail", check.user.email || "");
+  url.searchParams.set("callerRole", check.user.role || "");
+  url.searchParams.set("callerDbId", check.user.dbId || "");
+  url.searchParams.set("callerZohoId", check.user.id || "");
+
   const event = {
     path: url.pathname,
     httpMethod: req.method,
