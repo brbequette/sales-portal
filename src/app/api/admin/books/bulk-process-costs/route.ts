@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     const filter   = body.filter   || "unpaid"
     const perPage  = Math.min(parseInt(body.perPage || "25", 10), 50)
     const force    = !!body.force
+    const applyTariff = !!body.applyTariff
 
     const BATCH_CONCURRENCY = 5
     const BATCH_DELAY_MS    = 300
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest) {
         const res = await fetch(fnUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ [cfg.idBodyField]: zohoId, skipLoopGuard: force }),
+          body: JSON.stringify({ [cfg.idBodyField]: zohoId, skipLoopGuard: force, applyTariff }),
         })
 
         const contentType = res.headers.get("content-type") || ""

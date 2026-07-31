@@ -37,7 +37,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { invoiceNumber, invoiceId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard } = body
+    const { invoiceNumber, invoiceId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard, applyTariff } = body
 
     if (skipLoopGuard) {
       const appSettings = await getSystemSettings(prisma)
@@ -79,6 +79,30 @@ export const handler: Handler = async (event) => {
     if (detailData.code !== 0) throw new Error(`Zoho error: ${detailData.message}`)
     const invoice = detailData.invoice
 
+    // 3b. Tariff Logic: If unpaid, applyTariff is true, and no tariff exists (and remove tariff is false), calculate tariff
+    const isPaidInvoice = invoice.status?.toLowerCase() === 'paid' || invoice.balance === 0 || parseFloat(invoice.balance || 0) <= 0
+    let shouldAddTariff = false
+    let tariffAmount = 0
+    if (applyTariff && !isPaidInvoice) {
+      const existingAdjustment = parseFloat(invoice.adjustment || 0)
+      const removeTariff = invoice.custom_fields?.some((f: any) => f.label?.toUpperCase().includes('REMOVE TARIFF') && (f.value === true || f.value === 'true'))
+      if (existingAdjustment === 0 && !removeTariff) {
+        let nonGiftDeadCost = 0
+        for (const item of (invoice.line_items || [])) {
+          const isGift = item.rate === 0 || item.custom_fields?.some((cf: any) => cf.label?.toUpperCase().includes('GIFT') && (cf.value === true || cf.value === 'true'))
+          if (!isGift) {
+            nonGiftDeadCost += parseFloat(item.purchase_rate || 0) * parseFloat(item.quantity || 1)
+          }
+        }
+        tariffAmount = parseFloat((nonGiftDeadCost * 0.125).toFixed(2))
+        if (tariffAmount > 0) {
+          shouldAddTariff = true
+          invoice.adjustment = tariffAmount
+          invoice.adjustment_description = "TARIFF SURCHARGE"
+        }
+      }
+    }
+
     // 4. Calculate all costs via shared module
     const calc = await calculateDocumentCosts(invoice, { manualVigRate, manualCommPct, noVigOverrides })
     const {
@@ -97,28 +121,36 @@ export const handler: Handler = async (event) => {
     console.log(`  Insurance: $${insurance.toFixed(2)} (not deducted) | Commission: $${salesCommission.toFixed(2)}`)
 
     // 5. Build custom field updates — only fields that changed
-    // 5. Build custom field updates — only fields that changed
     const fieldsToUpdate = buildFieldsToUpdate(calc, invoice, "invoices")
     const changesDetected = fieldsToUpdate.length
 
     // 6. PUT to Zoho Books — only if changes exist
     let zohoUpdateResult: any = null
+    const putPayload: any = {}
     if (fieldsToUpdate.length > 0) {
+      putPayload.custom_fields = fieldsToUpdate
+    }
+    if (shouldAddTariff) {
+      putPayload.adjustment = tariffAmount
+      putPayload.adjustment_description = "TARIFF SURCHARGE"
+    }
+
+    if (Object.keys(putPayload).length > 0) {
       markProcessed(booksInvoiceId)
       const putRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
         method: "PUT",
         headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ custom_fields: fieldsToUpdate }),
+        body: JSON.stringify(putPayload),
       })
       const putData: any = await putRes.json()
       zohoUpdateResult = { ok: putRes.ok, code: putData.code, message: putData.message }
       if (!putRes.ok || putData.code !== 0) {
         console.error("Zoho Books update failed:", JSON.stringify(putData))
       } else {
-        console.log(`✅ Updated ${fieldsToUpdate.length} fields on invoice ${invoice.invoice_number}`)
+        console.log(`✅ Updated invoice ${invoice.invoice_number} in Zoho`)
       }
     } else {
-      console.log(`⏭️ No changes for invoice ${invoice.invoice_number} — skipping PUT`)
+      console.log(`Skip: No changes for invoice ${invoice.invoice_number} — skipping PUT`)
     }
 
     // 7. Update local DB
