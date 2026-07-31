@@ -122,29 +122,40 @@ export const handler: Handler = async (event, context) => {
     const buildDoc = (raw: any, t: "Quote" | "SalesOrder" | "Invoice") => {
       const items = raw.items as any
       
-      let subTotal = raw.amount !== null && raw.amount !== undefined ? parseFloat(raw.amount) : 0
-      let profit = raw.profit !== null && raw.profit !== undefined ? parseFloat(raw.profit) : 0
-      let deadCostNoVig = raw.deadCostNoVig !== null && raw.deadCostNoVig !== undefined ? parseFloat(raw.deadCostNoVig) : 0
-      let deadCostSubjectToVig = raw.deadCostSubjectToVig !== null && raw.deadCostSubjectToVig !== undefined ? parseFloat(raw.deadCostSubjectToVig) : 0
-      let commission = raw.commission !== null && raw.commission !== undefined ? parseFloat(raw.commission) : 0
+      let subTotal = parseFloat(raw.amount || 0)
+      let profit = 0
+      let deadCostNoVig = 0
+      let deadCostSubjectToVig = 0
+      let commission = 0
 
-      if (subTotal === 0 && items && !Array.isArray(items)) {
+      if (items && !Array.isArray(items)) {
         subTotal = getSubTotal(items, raw.amount)
-        let deadCostTotal = parseFloat(items.deadCostTotal ?? items.dead_cost_total ?? items.cf_dead_cost_total ?? extractField(items, 'cf_dead_cost_total') ?? 0)
-        if ((isNaN(deadCostTotal) || deadCostTotal === 0) && subTotal > 0) {
-          deadCostTotal = subTotal * 0.50
+        
+        // Use precomputed values from items JSON if available
+        if (items.deadProfitActual !== undefined) {
+          profit = parseFloat(items.deadProfitActual || 0)
+        } else if (items.profit !== undefined && items.deadCostTotal !== undefined) {
+          const deadCostTotal = parseFloat(items.deadCostTotal || 0)
+          const additionalCosts = parseFloat(items.additionalCosts || 0)
+          const ccFees = parseFloat(items.ccFees || 0)
+          profit = subTotal - deadCostTotal - additionalCosts - ccFees
+        } else {
+          let deadCostTotal = parseFloat(items.deadCostTotal ?? items.dead_cost_total ?? items.cf_dead_cost_total ?? extractField(items, 'cf_dead_cost_total') ?? 0)
+          if ((isNaN(deadCostTotal) || deadCostTotal === 0) && subTotal > 0) {
+            deadCostTotal = subTotal * 0.50
+          }
+          const additionalCosts = parseFloat(items.additionalCosts ?? items.additional_costs ?? items.cf_additional_costs_to_order ?? extractField(items, 'cf_additional_costs_to_order') ?? 0)
+          const ccFees = parseFloat(items.ccFees ?? items.cc_fees ?? items.cf_credit_card_processing_fees ?? extractField(items, 'cf_credit_card_processing_fees') ?? 0)
+          const giftCost = parseFloat(items.giftCost ?? items.gifts_cost ?? items.gifts ?? extractField(items, 'cf_gifts') ?? 0)
+          profit = subTotal - deadCostTotal - additionalCosts - ccFees - giftCost
         }
-        const additionalCosts = parseFloat(items.additionalCosts ?? items.additional_costs ?? items.cf_additional_costs_to_order ?? extractField(items, 'cf_additional_costs_to_order') ?? 0)
-        const ccFees = parseFloat(items.ccFees ?? items.cc_fees ?? items.cf_credit_card_processing_fees ?? extractField(items, 'cf_credit_card_processing_fees') ?? 0)
-        const giftCost = parseFloat(items.giftCost ?? items.gifts_cost ?? items.gifts ?? extractField(items, 'cf_gifts') ?? 0)
-        profit = subTotal - deadCostTotal - additionalCosts - ccFees - giftCost
         
         deadCostNoVig = parseFloat(items.deadCostNoVig ?? items.cf_dead_cost_no_vig ?? extractField(items, 'cf_dead_cost_no_vig') ?? 0)
         deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig ?? items.cf_dead_cost_subject_to_vig ?? extractField(items, 'cf_dead_cost_subject_to_vig') ?? 0)
         const rawComm = items.commission ?? items.cf_commision_amount ?? items.salesCommission ?? null
         const parsedComm = rawComm !== null ? parseFloat(rawComm) : extractField(items, 'cf_commision_amount')
         commission = parsedComm || (profit * 0.5) || 0
-      } else if (subTotal === 0 && Array.isArray(items)) {
+      } else if (Array.isArray(items)) {
         profit = items.reduce((sum: number, it: any) => {
           const sub = parseFloat(it.sub_total ?? it.subTotal ?? it.amount ?? 0)
           const dc = parseFloat(it.deadCostTotal ?? it.dead_cost_total ?? it.cf_dead_cost_total ?? 0)
