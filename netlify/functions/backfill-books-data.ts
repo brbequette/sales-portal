@@ -317,7 +317,10 @@ export const handler: Handler = async (event) => {
       where: {
         id: { notIn: failedIds },
         items: { path: ['booksInvoiceId'], not: '' },
-        NOT: { items: { path: ['line_items'], not: [] } }
+        OR: [
+          { items: { path: ['line_items'], equals: null as any } },
+          { items: { path: ['line_items'], equals: [] } }
+        ]
       },
       select: { id: true, items: true, status: true },
       take: BATCH_SIZE
@@ -327,7 +330,10 @@ export const handler: Handler = async (event) => {
       where: {
         id: { notIn: failedIds },
         items: { path: ['booksSalesOrderId'], not: '' },
-        NOT: { items: { path: ['line_items'], not: [] } }
+        OR: [
+          { items: { path: ['line_items'], equals: null as any } },
+          { items: { path: ['line_items'], equals: [] } }
+        ]
       },
       select: { id: true, items: true, status: true },
       take: BATCH_SIZE
@@ -338,7 +344,10 @@ export const handler: Handler = async (event) => {
         id: { notIn: failedIds },
         items: { path: ['booksEstimateId'], not: '' },
         status: { equals: 'Invoiced' },
-        NOT: { items: { path: ['line_items'], not: [] } }
+        OR: [
+          { items: { path: ['line_items'], equals: null as any } },
+          { items: { path: ['line_items'], equals: [] } }
+        ]
       },
       select: { id: true, items: true, status: true },
       take: BATCH_SIZE
@@ -375,14 +384,20 @@ export const handler: Handler = async (event) => {
         where: {
           id: { notIn: failedIds },
           items: { path: ['booksInvoiceId'], not: '' },
-          NOT: { items: { path: ['line_items'], not: [] } }
+          OR: [
+            { items: { path: ['line_items'], equals: null as any } },
+            { items: { path: ['line_items'], equals: [] } }
+          ]
         }
       }).catch(() => 0),
       prisma.salesOrder.count({
         where: {
           id: { notIn: failedIds },
           items: { path: ['booksSalesOrderId'], not: '' },
-          NOT: { items: { path: ['line_items'], not: [] } }
+          OR: [
+            { items: { path: ['line_items'], equals: null as any } },
+            { items: { path: ['line_items'], equals: [] } }
+          ]
         }
       }).catch(() => 0),
       prisma.quote.count({
@@ -390,7 +405,10 @@ export const handler: Handler = async (event) => {
           id: { notIn: failedIds },
           items: { path: ['booksEstimateId'], not: '' },
           status: { equals: 'Invoiced' },
-          NOT: { items: { path: ['line_items'], not: [] } }
+          OR: [
+            { items: { path: ['line_items'], equals: null as any } },
+            { items: { path: ['line_items'], equals: [] } }
+          ]
         }
       }).catch(() => 0),
     ])
