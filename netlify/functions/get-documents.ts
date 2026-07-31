@@ -104,8 +104,10 @@ export const handler: Handler = async (event, context) => {
         const sum = details.reduce((sum: number, it: any) => {
           if (it.line_item_category === "header" || it.line_item_category === "subtotal") return sum;
           const qty = parseFloat(it.quantity || 0)
-          const rate = parseFloat(it.rate || it.itemTotal || it.item_total || 0)
-          return sum + (qty * rate)
+          const discountAmount = parseFloat(it.discount_amount || it.discountAmount || 0)
+          const rate = parseFloat(it.rate || 0)
+          const itemTotal = it.itemTotal !== undefined ? parseFloat(it.itemTotal) : (it.item_total !== undefined ? parseFloat(it.item_total) : ((qty * rate) - discountAmount))
+          return sum + itemTotal
         }, 0)
         if (sum > 0) return sum
       }
@@ -120,13 +122,13 @@ export const handler: Handler = async (event, context) => {
     const buildDoc = (raw: any, t: "Quote" | "SalesOrder" | "Invoice") => {
       const items = raw.items as any
       
-      let profit = 0
-      let deadCostNoVig = 0
-      let deadCostSubjectToVig = 0
-      let commission = 0
-      let subTotal = parseFloat(raw.amount || 0)
+      let subTotal = raw.amount !== null && raw.amount !== undefined ? parseFloat(raw.amount) : 0
+      let profit = raw.profit !== null && raw.profit !== undefined ? parseFloat(raw.profit) : 0
+      let deadCostNoVig = raw.deadCostNoVig !== null && raw.deadCostNoVig !== undefined ? parseFloat(raw.deadCostNoVig) : 0
+      let deadCostSubjectToVig = raw.deadCostSubjectToVig !== null && raw.deadCostSubjectToVig !== undefined ? parseFloat(raw.deadCostSubjectToVig) : 0
+      let commission = raw.commission !== null && raw.commission !== undefined ? parseFloat(raw.commission) : 0
 
-      if (items && !Array.isArray(items)) {
+      if (subTotal === 0 && items && !Array.isArray(items)) {
         subTotal = getSubTotal(items, raw.amount)
         let deadCostTotal = parseFloat(items.deadCostTotal ?? items.dead_cost_total ?? items.cf_dead_cost_total ?? extractField(items, 'cf_dead_cost_total') ?? 0)
         if ((isNaN(deadCostTotal) || deadCostTotal === 0) && subTotal > 0) {
@@ -142,7 +144,7 @@ export const handler: Handler = async (event, context) => {
         const rawComm = items.commission ?? items.cf_commision_amount ?? items.salesCommission ?? null
         const parsedComm = rawComm !== null ? parseFloat(rawComm) : extractField(items, 'cf_commision_amount')
         commission = parsedComm || (profit * 0.5) || 0
-      } else if (Array.isArray(items)) {
+      } else if (subTotal === 0 && Array.isArray(items)) {
         profit = items.reduce((sum: number, it: any) => {
           const sub = parseFloat(it.sub_total ?? it.subTotal ?? it.amount ?? 0)
           const dc = parseFloat(it.deadCostTotal ?? it.dead_cost_total ?? it.cf_dead_cost_total ?? 0)
