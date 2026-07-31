@@ -369,7 +369,7 @@ export function SalesBoard() {
             const isMTD = invDateObj.getFullYear() === currentYear && invDateObj.getMonth() === currentMonth
             const isYTD = invDateObj.getFullYear() === currentYear
 
-            if (inCurrentWeek) {
+            if (inCurrentWeek && matchedRep) {
               teamWeekly.sales += amount
               teamWeekly.profit += profit
               teamWeekly.deadCostNoVig += deadCostNoVig
