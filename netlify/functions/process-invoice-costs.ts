@@ -50,13 +50,16 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing invoiceNumber or invoiceId" }) }
     }
 
+    console.time("Step 1: Token")
     const token = await getZohoAccessToken()
+    console.timeEnd("Step 1: Token")
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
     const authHeaders = { Authorization: `Zoho-oauthtoken ${token}` }
 
     // 1. Resolve Zoho Books invoice ID
     let booksInvoiceId = invoiceId
     if (!booksInvoiceId && invoiceNumber) {
+      console.time("Step 2: Search ID")
       const searchRes = await fetch(`${baseUrl}/invoices?organization_id=${ORG_ID}&invoice_number=${invoiceNumber}`, { headers: authHeaders })
       if (!searchRes.ok) throw new Error(`Failed to search for invoice: ${searchRes.status}`)
       const searchData: any = await searchRes.json()
@@ -64,6 +67,7 @@ export const handler: Handler = async (event) => {
         return { statusCode: 404, headers: cors, body: JSON.stringify({ success: false, error: `Invoice ${invoiceNumber} not found in Zoho Books` }) }
       }
       booksInvoiceId = searchData.invoices[0].invoice_id
+      console.timeEnd("Step 2: Search ID")
     }
 
     // 2. Loop guard
@@ -73,11 +77,13 @@ export const handler: Handler = async (event) => {
     }
 
     // 3. Fetch full invoice
+    console.time("Step 3: Fetch Detail")
     const detailRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { headers: authHeaders })
     if (!detailRes.ok) throw new Error(`Failed to fetch invoice details: ${detailRes.status}`)
     const detailData: any = await detailRes.json()
     if (detailData.code !== 0) throw new Error(`Zoho error: ${detailData.message}`)
     const invoice = detailData.invoice
+    console.timeEnd("Step 3: Fetch Detail")
 
     // 3b. Tariff Logic: If unpaid, applyTariff is true, and no tariff exists (and remove tariff is false), calculate tariff
     const isPaidInvoice = invoice.status?.toLowerCase() === 'paid' || invoice.balance === 0 || parseFloat(invoice.balance || 0) <= 0
@@ -104,6 +110,7 @@ export const handler: Handler = async (event) => {
     }
 
     // 4. Calculate all costs via shared module
+    console.time("Step 4: Calculations")
     const calc = await calculateDocumentCosts(invoice, { manualVigRate, manualCommPct, noVigOverrides })
     const {
       deadCostSubjectToVig, deadCostNoVig, deadCostTotal,
@@ -113,6 +120,7 @@ export const handler: Handler = async (event) => {
       commissionPct, salesCommission, isPaid,
       lineItemDetails, lineItemBreakdownStrings,
     } = calc
+    console.timeEnd("Step 4: Calculations")
 
     const salespersonName = invoice.salesperson_name
     console.log(`\n=== Processing Invoice ${invoice.invoice_number} ===`)
@@ -137,6 +145,7 @@ export const handler: Handler = async (event) => {
 
     if (Object.keys(putPayload).length > 0) {
       markProcessed(booksInvoiceId)
+      console.time("Step 5: Zoho PUT")
       const putRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
         method: "PUT",
         headers: { ...authHeaders, "Content-Type": "application/json" },
@@ -144,6 +153,7 @@ export const handler: Handler = async (event) => {
       })
       const putData: any = await putRes.json()
       zohoUpdateResult = { ok: putRes.ok, code: putData.code, message: putData.message }
+      console.timeEnd("Step 5: Zoho PUT")
       if (!putRes.ok || putData.code !== 0) {
         console.error("Zoho Books update failed:", JSON.stringify(putData))
       } else {
@@ -154,6 +164,7 @@ export const handler: Handler = async (event) => {
     }
 
     // 7. Update local DB
+    console.time("Step 6: DB Update")
     const localInvoice = await prisma.invoice.findFirst({
       where: { OR: [{ items: { path: ["invoiceNumber"], equals: invoice.invoice_number } }, { items: { path: ["booksInvoiceId"], equals: booksInvoiceId } }] },
     })
@@ -178,6 +189,7 @@ export const handler: Handler = async (event) => {
         },
       })
     }
+    console.timeEnd("Step 6: DB Update")
 
 
     return {
