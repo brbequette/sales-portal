@@ -241,7 +241,7 @@ export function CommunicationCenter({
     const deadCostTotal = deadCostSubjectToVig + deadCostNoVig
     const deadCostPlusVig = (deadCostSubjectToVig * defaultVigRate) + deadCostNoVig
     const profitAfterVig = subTotal - deadCostPlusVig
-    const salesCommission = profitAfterVig > 0 ? profitAfterVig * (commissionPct / 100) : 0
+    const salesCommission = profitAfterVig < 0 ? profitAfterVig * 0.50 : profitAfterVig * (commissionPct / 100)
     const marginPct = subTotal > 0 ? (profitAfterVig / subTotal) * 100 : 0
     return { subTotal, deadCostTotal, deadCostPlusVig, profitAfterVig, salesCommission, marginPct }
   })()

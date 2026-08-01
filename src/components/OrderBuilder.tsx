@@ -526,7 +526,7 @@ export function OrderBuilder({
     const deadCostPlusVig = deadCostSubjectToVig * vigRate + deadCostNoVig
     const deadProfit = subTotal - deadCostTotal
     const profitAfterVig = subTotal - deadCostPlusVig
-    const salesCommission = profitAfterVig > 0 ? profitAfterVig * (commissionPct / 100) : 0
+    const salesCommission = profitAfterVig < 0 ? profitAfterVig * 0.50 : profitAfterVig * (commissionPct / 100)
     const marginPct = subTotal > 0 ? (profitAfterVig / subTotal) * 100 : 0
     return { subTotal, deadCostTotal, deadCostPlusVig, deadProfit, profitAfterVig, salesCommission, marginPct }
   }, [orderLines, vigRate, commissionPct])

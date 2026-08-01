@@ -64,7 +64,7 @@ export function calculateDocumentCosts(
   const vigRate = customVigRate ?? getVigRateForSalesperson(salespersonName)
   const deadCostPlusVig = deadCostTotal * vigRate
   const profit = subtotal - deadCostPlusVig
-  const salesCommission = Math.max(0, profit * 0.50) // 50% commission on net profit after VIG
+  const salesCommission = profit * 0.50 // 50% commission on net profit after VIG (loss split supported)
 
   return {
     subtotal,
