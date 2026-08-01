@@ -145,6 +145,7 @@ export const handler: Handler = async (event) => {
 
     if (Object.keys(putPayload).length > 0) {
       markProcessed(booksInvoiceId)
+      console.log(`Sending PUT payload to Zoho for invoice ${invoice.invoice_number}:`, JSON.stringify(putPayload))
       console.time("Step 5: Zoho PUT")
       const putRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
         method: "PUT",
