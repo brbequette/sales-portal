@@ -13,7 +13,7 @@
 
 import { prisma } from "./prisma"
 import { getSystemSettings, AppSettings } from "./settings"
-import { extractCcFees, extractAdditionalCosts, extractInsurance } from "../../../src/lib/custom-field-extractor"
+import { extractCcFees, extractAdditionalCosts, extractInsurance, extractActualShippingCost, extractShippingCostBreakdown } from "../../../src/lib/custom-field-extractor"
 
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -47,6 +47,8 @@ export interface CostCalculationResult {
   commissionPct: number
   salesCommission: number
   isPaid: boolean
+  actualShippingCost: number
+  shippingCostBreakdown: string
   lineItemDetails: LineItemDetail[]
   lineItemBreakdownStrings: string[]
 }
@@ -323,9 +325,44 @@ export async function calculateDocumentCosts(
     }, 0)
   }
 
-  const ccFees          = extractCcFees(doc)
+  let ccFees          = extractCcFees(doc)
   const additionalCosts = extractAdditionalCosts(doc)
   const insurance       = extractInsurance(doc) // not subtracted
+
+  // Dynamic CC Processing Fees Calculation for Paid Invoices
+  const invoiceId = doc.invoice_id || doc.id
+  const isInvoice = doc.invoice_id !== undefined || doc.invoice_number !== undefined
+  if (isInvoice && invoiceId) {
+    try {
+      const dbPayments = await prisma.payment.findMany({
+        where: {
+          OR: [
+            { invoiceId: String(invoiceId) },
+            { invoiceNumber: String(doc.invoice_number || '') }
+          ]
+        }
+      })
+      const hasCardPayment = dbPayments.some(p => {
+        const mode = (p.mode || '').toLowerCase()
+        return mode.includes('authorize') ||
+               mode.includes('stripe') ||
+               mode.includes('zelle') ||
+               mode.includes('card') ||
+               mode.includes('square') ||
+               mode.includes('forte') ||
+               mode.includes('leap payment') ||
+               mode.includes('paypal')
+      })
+      if (hasCardPayment) {
+        ccFees = subTotal * (settings.cc_fee_rate / 100)
+      } else if (dbPayments.length > 0) {
+        // If there are payments but none are card (e.g. check or cash), fee is 0
+        ccFees = 0
+      }
+    } catch (e) {
+      console.error("Error checking payments for cc fees calculation:", e)
+    }
+  }
 
   let deadCostTotal = deadCostSubjectToVig + deadCostNoVig + additionalCosts
 
@@ -369,6 +406,42 @@ export async function calculateDocumentCosts(
   // ─── 7. Paid ────────────────────────────────────────────────────────────────
   const isPaid = doc.status === "paid" || parseFloat(doc.balance || 0) <= 0
 
+  // ─── 4b. Shipping Cost & Breakdown Resolution ──────────────────────────────
+  let actualShippingCost = extractActualShippingCost(doc)
+  let shippingCostBreakdown = extractShippingCostBreakdown(doc) || ""
+
+  // If DB packages exist for this document, build itemized breakdown
+  const docSoNum = doc.salesorder_number || doc.items?.salesOrderNumber
+  const docInvNum = doc.invoice_number || doc.items?.invoiceNumber
+  const docBooksId = doc.invoice_id || doc.salesorder_id || doc.id
+
+  if (docSoNum || docInvNum || docBooksId) {
+    try {
+      const dbPackages = await prisma.package.findMany({
+        where: {
+          OR: [
+            { salesOrderNumber: String(docSoNum || '') },
+            { salesOrderId: String(docBooksId || '') }
+          ]
+        }
+      })
+      if (dbPackages.length > 0) {
+        const pkgTotal = dbPackages.reduce((sum, p) => sum + (p.shippingCharge || 0), 0)
+        if (pkgTotal > 0 && (actualShippingCost === 0 || actualShippingCost < pkgTotal)) {
+          actualShippingCost = pkgTotal
+        }
+        const pkgStrings = dbPackages.map(p => 
+          `Pkg #${p.packageNumber || p.zohoId} (${p.carrier || 'Shipment'} ${p.trackingNumber || ''}) - $${(p.shippingCharge || 0).toFixed(2)}`
+        )
+        if (pkgStrings.length > 0 && !shippingCostBreakdown) {
+          shippingCostBreakdown = pkgStrings.join("\n")
+        }
+      }
+    } catch (e) {
+      console.error("Error checking packages for shipping breakdown:", e)
+    }
+  }
+
   return {
     deadCostSubjectToVig, deadCostNoVig, deadCostTotal,
     vigRate, deadCostPlusVig,
@@ -376,7 +449,7 @@ export async function calculateDocumentCosts(
     subTotal, totalDeductions,
     profit, marginPercent, deadProfitActual,
     commissionPct, salesCommission,
-    isPaid,
+    isPaid, actualShippingCost, shippingCostBreakdown,
     lineItemDetails, lineItemBreakdownStrings,
   }
 }
@@ -398,6 +471,7 @@ export function buildFieldsToUpdate(
     deadCostSubjectToVig, deadCostNoVig, deadCostTotal,
     vigRate, deadCostPlusVig, profit, deadProfitActual,
     commissionPct, salesCommission, isPaid, lineItemBreakdownStrings,
+    ccFees, actualShippingCost, shippingCostBreakdown,
   } = calc
 
   const existingFields: any[] = zohoDoc.custom_fields || []
@@ -415,6 +489,9 @@ export function buildFieldsToUpdate(
     "COMMISSION FROM PROFIT %": commissionPct,
     "SALES COMMISSION":         salesCommission.toFixed(2),
     "ITEMS DC BREAKDOWN":       lineItemBreakdownStrings.join("\n"),
+    "CREDIT CARD PROCESSING FEES": ccFees.toFixed(2),
+    "ACTUAL SHIPPING COST":     actualShippingCost.toFixed(2),
+    "SHIPPING COST BREAKDOWN":  shippingCostBreakdown,
   }
 
   if (docTypeHint === "invoices" && isPaid && existingPaidDate && !existingPaidDate.value) {

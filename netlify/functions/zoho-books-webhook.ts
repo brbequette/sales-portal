@@ -12,7 +12,9 @@ import {
   extractDeadCostTotal,
   extractCcFees,
   extractAdditionalCosts,
-  extractInsurance
+  extractInsurance,
+  extractActualShippingCost,
+  extractShippingCostBreakdown
 } from "../../src/lib/custom-field-extractor"
 
 /**
@@ -223,6 +225,8 @@ export const handler: Handler = async (event) => {
       ccFees: extractCcFees(doc) || currentItems.ccFees || 0,
       additionalCosts: extractAdditionalCosts(doc) || currentItems.additionalCosts || 0,
       insurance: extractInsurance(doc) || currentItems.insurance || 0,
+      actualShippingCost: extractActualShippingCost(doc) || currentItems.actualShippingCost || 0,
+      shippingCostBreakdown: extractShippingCostBreakdown(doc) || currentItems.shippingCostBreakdown || null,
       // ── Non-calculated user-input fields ──
       estimateNumberRef: cfh.cf_estimate_number ?? currentItems.estimateNumberRef ?? null,
       estimateDate: cfh.cf_estimate_date ?? currentItems.estimateDate ?? null,
@@ -270,7 +274,9 @@ export const handler: Handler = async (event) => {
         data: {
           status,
           items: updatedItems,
-          issueDate: matchedIssueDate || (doc.date ? new Date(doc.date) : undefined)
+          issueDate: matchedIssueDate || (doc.date ? new Date(doc.date) : undefined),
+          actualShippingCost: updatedItems.actualShippingCost,
+          shippingCostBreakdown: updatedItems.shippingCostBreakdown,
         }
       })
       await processInvoiceCosts({
@@ -278,7 +284,15 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({ invoiceId: booksId })
       } as any, {} as any).catch(e => console.error("Webhook error auto-processing invoice costs:", e))
     } else if (type === 'SalesOrder') {
-      await prisma.salesOrder.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems } })
+      await prisma.salesOrder.update({
+        where: { id: dbDoc.id },
+        data: {
+          status,
+          items: updatedItems,
+          actualShippingCost: updatedItems.actualShippingCost,
+          shippingCostBreakdown: updatedItems.shippingCostBreakdown,
+        }
+      })
       await processSalesOrderCosts({
         httpMethod: "POST",
         body: JSON.stringify({ invoiceId: booksId })

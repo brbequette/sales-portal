@@ -17,7 +17,7 @@ export const handler: Handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body || "{}")
-    const { accountId, type, amount, items, lineItems, discountTotal, userId, userEmail, processingNotes, assigneeId } = body
+    const { accountId, type, amount, items, lineItems, discountTotal, userId, userEmail, processingNotes, assigneeId, dealId } = body
 
     if (!accountId || !type || amount === undefined) {
       return {
@@ -179,7 +179,8 @@ export const handler: Handler = async (event, context) => {
           amount,
           items: itemsPayload,
           status: "Draft",
-          validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+          validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+          dealId: dealId || undefined
         }
       })
     } else if (type === "SalesOrder") {
@@ -201,6 +202,7 @@ export const handler: Handler = async (event, context) => {
           amount,
           items: itemsPayload,
           status: "Pending",
+          dealId: dealId || undefined
         }
       })
     }

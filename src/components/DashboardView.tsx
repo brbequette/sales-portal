@@ -437,6 +437,19 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
             if (showCompanyWide) {
               let sumProfitGoal = 0
               let sumSubtotalGoal = 0
+              const today = new Date()
+              const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+              const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+              let workdaysInMonth = 0
+              const curDate = new Date(firstDayOfMonth)
+              while (curDate <= lastDayOfMonth) {
+                if (curDate.getDay() !== 0 && curDate.getDay() !== 6) {
+                  workdaysInMonth++
+                }
+                curDate.setDate(curDate.getDate() + 1)
+              }
+              workdaysInMonth = Math.max(1, workdaysInMonth)
+
               vigData.repConfigs.forEach((r: any) => {
                 // Only account for goals of show on salesboard reps
                 if (!r.showOnSalesBoard) {
@@ -457,8 +470,8 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
                 ) {
                   return
                 }
-                sumProfitGoal += (r.dailyProfitGoal > 0 ? r.dailyProfitGoal * 20 : 20000)
-                sumSubtotalGoal += (r.dailySubtotalGoal > 0 ? r.dailySubtotalGoal * 20 : 40000)
+                sumProfitGoal += (r.dailyProfitGoal > 0 ? r.dailyProfitGoal * workdaysInMonth : 1000 * workdaysInMonth)
+                sumSubtotalGoal += (r.dailySubtotalGoal > 0 ? r.dailySubtotalGoal * workdaysInMonth : 2000 * workdaysInMonth)
               })
               if (sumProfitGoal > 0) repProfitGoal = sumProfitGoal
               if (sumSubtotalGoal > 0) repSubtotalGoal = sumSubtotalGoal
@@ -469,8 +482,21 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
                 (repEmail && r.email.toLowerCase() === repEmail.toLowerCase())
               )
               if (matchRep) {
-                if (matchRep.dailyProfitGoal > 0) repProfitGoal = matchRep.dailyProfitGoal * 20
-                if (matchRep.dailySubtotalGoal > 0) repSubtotalGoal = matchRep.dailySubtotalGoal * 20
+                const today = new Date()
+                const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+                const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+                let workdaysInMonth = 0
+                const curDate = new Date(firstDayOfMonth)
+                while (curDate <= lastDayOfMonth) {
+                  if (curDate.getDay() !== 0 && curDate.getDay() !== 6) {
+                    workdaysInMonth++
+                  }
+                  curDate.setDate(curDate.getDate() + 1)
+                }
+                workdaysInMonth = Math.max(1, workdaysInMonth)
+
+                if (matchRep.dailyProfitGoal > 0) repProfitGoal = matchRep.dailyProfitGoal * workdaysInMonth
+                if (matchRep.dailySubtotalGoal > 0) repSubtotalGoal = matchRep.dailySubtotalGoal * workdaysInMonth
                 if (matchRep.constantVigValue) repVigRate = parseFloat(matchRep.constantVigValue)
               }
             }

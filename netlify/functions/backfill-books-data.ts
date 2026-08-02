@@ -34,7 +34,9 @@ import {
   extractDeadCostTotal,
   extractCcFees,
   extractAdditionalCosts,
-  extractInsurance
+  extractInsurance,
+  extractActualShippingCost,
+  extractShippingCostBreakdown
 } from "../../src/lib/custom-field-extractor"
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
@@ -759,11 +761,16 @@ export const handler: Handler = async (event) => {
         updatedItems.purchaseOrderNumbers = cfh.cf_purchase_order_number_s ?? items.purchaseOrderNumbers ?? null
         updatedItems.reference = cfh.cf_reference ?? items.reference ?? null
 
+        const actualShippingCost = extractActualShippingCost(doc)
+        const shippingCostBreakdown = extractShippingCostBreakdown(doc)
+        updatedItems.actualShippingCost = actualShippingCost
+        updatedItems.shippingCostBreakdown = shippingCostBreakdown
+
         // 5. Update local DB
         if (currentDocType === 'Invoice') {
-          await prisma.invoice.update({ where: { id: record.id }, data: { items: updatedItems, zohoId: booksId } })
+          await prisma.invoice.update({ where: { id: record.id }, data: { items: updatedItems, zohoId: booksId, actualShippingCost, shippingCostBreakdown } })
         } else if (currentDocType === 'SalesOrder') {
-          await prisma.salesOrder.update({ where: { id: record.id }, data: { items: updatedItems, zohoId: booksId } })
+          await prisma.salesOrder.update({ where: { id: record.id }, data: { items: updatedItems, zohoId: booksId, actualShippingCost, shippingCostBreakdown } })
         } else {
           await prisma.quote.update({ where: { id: record.id }, data: { items: updatedItems, zohoId: booksId } })
         }

@@ -27,7 +27,7 @@ export default function PricingCalculator({ onClose, onAddLineItem }: PricingCal
   // Settings
   const [settings, setSettings] = useState({
     default_vig_rate: 1.3,
-    cc_fee_rate: 3.5,
+    cc_fee_rate: 4.5,
     shipping_multiplier: 1.5,
   })
 
@@ -35,7 +35,7 @@ export default function PricingCalculator({ onClose, onAddLineItem }: PricingCal
   const [cost, setCost] = useState<number>(0)
   const [vigMultiplier, setVigMultiplier] = useState<number>(1.0)
   const [shippingCost, setShippingCost] = useState<number>(0)
-  const [ccFeeRate, setCcFeeRate] = useState<number>(3.5)
+  const [ccFeeRate, setCcFeeRate] = useState<number>(4.5)
   const [quantity, setQuantity] = useState<number>(1)
 
   useEffect(() => {

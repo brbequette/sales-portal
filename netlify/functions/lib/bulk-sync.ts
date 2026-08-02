@@ -157,6 +157,26 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
       }
     })
 
+    const docNumbers: string[] = items.map((i: any) => i.invoice_number || i.salesorder_number || i.estimate_number).filter(Boolean).map(String)
+    const matchedDeals = (entity === 'invoices' || entity === 'salesorders' || entity === 'estimates') && docNumbers.length > 0
+      ? await prisma.deal.findMany({
+          where: {
+            OR: docNumbers.map((num: string) => ({
+              name: { contains: num }
+            }))
+          },
+          select: { id: true, name: true }
+        })
+      : []
+    const dealLookupMap = new Map()
+    for (const d of matchedDeals) {
+      const parts = d.name.split('|')
+      if (parts.length > 1) {
+        const docRef = parts[parts.length - 1].trim().toLowerCase()
+        dealLookupMap.set(docRef, d.id)
+      }
+    }
+
     const ops = []
     for (const item of items) {
       // For contacts, update existing accounts' zohoId to the Books contact ID
@@ -365,6 +385,9 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
         const matchedSoDate = soNumClean ? salesOrderDateMap.get(soNumClean) : null
         const finalIssueDate = matchedSoDate || new Date(item.date || item.created_time)
 
+        const docNo = (item.invoice_number || '').trim().toLowerCase()
+        const dealId = docNo ? dealLookupMap.get(docNo) : null
+
         ops.push(prisma.invoice.upsert({
           where: { zohoId: item.invoice_id },
           update: {
@@ -374,6 +397,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
             dueDate: item.due_date ? new Date(item.due_date) : null,
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
             items: invoiceItems,
+            dealId: dealId || undefined,
           },
           create: {
             zohoId: item.invoice_id,
@@ -384,6 +408,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
             dueDate: item.due_date ? new Date(item.due_date) : null,
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
             items: invoiceItems,
+            dealId: dealId || undefined,
           }
         }))
       } else if (entity === 'salesorders') {
@@ -409,6 +434,9 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
           sub_total: savedSOSubtotal, // enforce subtotal is not overwritten by spread
         }
 
+        const docNo = (item.salesorder_number || '').trim().toLowerCase()
+        const dealId = docNo ? dealLookupMap.get(docNo) : null
+
         ops.push(prisma.salesOrder.upsert({
           where: { zohoId: item.salesorder_id },
           update: {
@@ -417,6 +445,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
             orderDate: new Date(item.date || item.created_time),
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
             items: soItems,
+            dealId: dealId || undefined,
           },
           create: {
             zohoId: item.salesorder_id,
@@ -426,6 +455,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
             orderDate: new Date(item.date || item.created_time),
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
             items: soItems,
+            dealId: dealId || undefined,
           }
         }))
       } else if (entity === 'estimates') {
@@ -445,6 +475,9 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
           sub_total: savedEstSubtotal, // enforce subtotal is not overwritten by spread
         }
 
+        const docNo = (item.estimate_number || '').trim().toLowerCase()
+        const dealId = docNo ? dealLookupMap.get(docNo) : null
+
         ops.push(prisma.quote.upsert({
           where: { zohoId: item.estimate_id },
           update: {
@@ -452,6 +485,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
             status: item.status || 'Draft',
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
             items: estItems,
+            dealId: dealId || undefined,
           },
           create: {
             zohoId: item.estimate_id,
@@ -460,6 +494,7 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
             status: item.status || 'Draft',
             zohoModifiedTime: item.last_modified_time ? new Date(item.last_modified_time) : null,
             items: estItems,
+            dealId: dealId || undefined,
           }
         }))
       }

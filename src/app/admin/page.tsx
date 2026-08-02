@@ -7,7 +7,7 @@ import {
   FiUsers, FiClock, FiDollarSign, 
   FiTarget, FiAward, FiCalendar, FiMessageSquare, 
   FiFileText, FiActivity, FiSettings, FiDatabase,
-  FiRefreshCw, FiCheckCircle, FiAlertTriangle, FiZap
+  FiRefreshCw, FiCheckCircle, FiAlertTriangle, FiZap, FiTruck
 } from "react-icons/fi"
 
 const sections = [
@@ -42,6 +42,8 @@ const sections = [
   {
     category: "System",
     cards: [
+      { title: "Item Shipping Audit", desc: "Audit line-item shipping coverage and parse vendor freight bills.", href: "/admin/shipping-audit", icon: FiTruck, color: "text-blue-400", bg: "bg-blue-500/10" },
+      { title: "Orphaned Files Manager", desc: "Manage Purchase Orders and Payments that are not tied to any Invoice.", href: "/admin/orphaned-records", icon: FiAlertTriangle, color: "text-red-400", bg: "bg-red-500/10" },
       { title: "Zoho Books Scripts", desc: "Run batch operations: tariff updates, draft processing, and maintenance.", href: "/admin/books-scripts", icon: FiDatabase, color: "text-amber-400", bg: "bg-amber-500/10" },
       { title: "System Settings", desc: "Configure Push Notifications, API settings, and AI prompts.", href: "/admin/settings", icon: FiSettings, color: "text-neutral-400", bg: "bg-neutral-500/10" },
       { title: "Data Backfill", desc: "Populate line items for all invoices, SOs, and quotes from Zoho Books.", href: "/admin/backfill", icon: FiDatabase, color: "text-sky-400", bg: "bg-sky-500/10" },

@@ -179,14 +179,24 @@ export function SalesBoard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const startOfYearStr = `${new Date().getFullYear()}-01-01`
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth()
+
+        const lastMonthDate = new Date(currentYear, currentMonth - 1, 1)
+        const yyyyLM = lastMonthDate.getFullYear()
+        const mmLM = String(lastMonthDate.getMonth() + 1).padStart(2, '0')
+        const startDateStr = `${yyyyLM}-${mmLM}-01`
+
         const threeDaysAgoStr = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-        // Fetch users, invoices, sales orders, and quotes in parallel
-        const [usersRes, invoicesRes, salesOrdersRes, quotesRes] = await Promise.all([
+        // Fetch users, invoices, sales orders, quotes, config, and all-time overdue invoices in parallel
+        const [usersRes, invoicesRes, salesOrdersRes, quotesRes, configRes, overdueRes] = await Promise.all([
           fetch("/api/admin/users"),
-          fetch(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&startDate=${startOfYearStr}`),
-          fetch(`/api/get-documents?pageSize=8000&type=SalesOrder&loadAll=true&startDate=${startOfYearStr}`),
-          fetch(`/api/get-documents?pageSize=1000&type=Quote&loadAll=true&startDate=${threeDaysAgoStr}`)
+          fetch(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&startDate=${startDateStr}`),
+          fetch(`/api/get-documents?pageSize=8000&type=SalesOrder&loadAll=true&startDate=${startDateStr}`),
+          fetch(`/api/get-documents?pageSize=1000&type=Quote&loadAll=true&startDate=${threeDaysAgoStr}`),
+          fetch("/api/get-config"),
+          fetch(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&status=overdue`)
         ])
         const usersPayload = usersRes.ok && (usersRes.headers.get("content-type") || "").includes("application/json") 
           ? await usersRes.json() 
@@ -200,25 +210,92 @@ export function SalesBoard() {
         const quotesPayload = quotesRes.ok && (quotesRes.headers.get("content-type") || "").includes("application/json")
           ? await quotesRes.json()
           : { documents: [] }
+        const configPayload = configRes.ok && (configRes.headers.get("content-type") || "").includes("application/json")
+          ? await configRes.json()
+          : { holidays: [] }
+        const overduePayload = overdueRes.ok && (overdueRes.headers.get("content-type") || "").includes("application/json")
+          ? await overdueRes.json()
+          : { documents: [] }
+
         const combinedDocuments = [
           ...(invoicesPayload.documents || []),
           ...(salesOrdersPayload.documents || []),
           ...(quotesPayload.documents || [])
         ]
+
+        // Extract configured holidays list
+        const holidaysList = configPayload.holidays || []
+        const holidayDateSet = new Set((holidaysList || []).map((h: any) => typeof h === 'string' ? h : h.date ? h.date.split('T')[0] : ''))
+
+        // Helper: Compute workdays in date range (excludes Saturdays, Sundays, and holidays)
+        const countWorkdays = (start: Date, end: Date) => {
+          let count = 0
+          const cur = new Date(start)
+          while (cur <= end) {
+            const dayOfWeek = cur.getDay()
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Monday-Friday
+              const yyyy = cur.getFullYear()
+              const mm = String(cur.getMonth() + 1).padStart(2, '0')
+              const dd = String(cur.getDate()).padStart(2, '0')
+              const dateStr = `${yyyy}-${mm}-${dd}`
+              if (!holidayDateSet.has(dateStr)) {
+                count++
+              }
+            }
+            cur.setDate(cur.getDate() + 1)
+          }
+          return count
+        }
         
-        // Build reps from users with showOnSalesBoard
+        // Build reps from users with showOnSalesBoard === true ONLY
         const boardUsers = (usersPayload.users || []).filter((u: any) => u.showOnSalesBoard)
-        const today = new Date()
-        const currentYear = today.getFullYear()
-        const currentMonth = today.getMonth()
         
         const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`
 
+        // Compute workdays in current week (Mon-Fri)
+        const day = today.getDay()
+        const diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1)
+        const monday = new Date(today.getFullYear(), today.getMonth(), diffToMonday)
+        const friday = new Date(monday)
+        friday.setDate(monday.getDate() + 4)
+        const workdaysInCurrentWeek = Math.max(1, countWorkdays(monday, friday))
+
+        // Compute workdays in current month and current workday index N
+        const firstDayOfMonth = new Date(currentYear, currentMonth, 1)
+        const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0)
+        const workdaysInCurrentMonth = Math.max(1, countWorkdays(firstDayOfMonth, lastDayOfMonth))
+        const currentWorkdayIndex = Math.max(1, countWorkdays(firstDayOfMonth, today))
+
+        // Compute Last Month date range & Workday #N Cutoff Date
+        const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear
+        const lastMonthIndex = currentMonth === 0 ? 11 : currentMonth - 1
+        const firstDayOfLastMonth = new Date(lastMonthYear, lastMonthIndex, 1)
+        const lastDayOfLastMonth = new Date(lastMonthYear, lastMonthIndex + 1, 0)
+
+        let countLM = 0
+        let lastMonthCutoffDateStr = `${lastMonthYear}-${String(lastMonthIndex + 1).padStart(2, '0')}-01`
+        const daysInLastMonth = lastDayOfLastMonth.getDate()
+        for (let d = 1; d <= daysInLastMonth; d++) {
+          const cur = new Date(lastMonthYear, lastMonthIndex, d)
+          const dayOfWeek = cur.getDay()
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            const yyyy = cur.getFullYear()
+            const mm = String(cur.getMonth() + 1).padStart(2, '0')
+            const dd = String(cur.getDate()).padStart(2, '0')
+            const ds = `${yyyy}-${mm}-${dd}`
+            if (!holidayDateSet.has(ds)) {
+              countLM++
+              lastMonthCutoffDateStr = ds
+              if (countLM === currentWorkdayIndex) break
+            }
+          }
+        }
+
         const dynamicReps = boardUsers.map((u: any, i: number) => {
           const currentGoal = u.monthlyVigGoals?.find((g: any) => g.monthKey === monthKey)
-          const dailyGoal = u.dailyProfitGoal || 0
-          const weeklyTarget = 5 * dailyGoal
-          const monthlyTarget = currentGoal?.profitGoal || (dailyGoal * 22)
+          const dailyGoal = parseFloat(u.dailyProfitGoal) || 0
+          const weeklyTarget = dailyGoal * workdaysInCurrentWeek
+          const monthlyTarget = currentGoal?.profitGoal || (dailyGoal * workdaysInCurrentMonth)
           
           return {
             id: u.id,
@@ -232,10 +309,6 @@ export function SalesBoard() {
           }
         })
 
-        const day = today.getDay()
-        const diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1)
-        const monday = new Date(today.getFullYear(), today.getMonth(), diffToMonday)
-        
         const weekDays: string[] = []
         for (let i = 0; i < 5; i++) {
           const nextDay = new Date(monday)
@@ -252,6 +325,8 @@ export function SalesBoard() {
             ...r, 
             weekly: { sales: [0,0,0,0,0], profit: [0,0,0,0,0], deadCostNoVig: 0, deadCostSubjectToVig: 0, totalSales: 0, totalProfit: 0, dealsClosed: 0, commission: 0, invoices: [] },
             mtd: { sales: 0, profit: 0, deadCostNoVig: 0, deadCostSubjectToVig: 0, commission: 0, dealsClosed: 0, invoices: [] },
+            lastMonthPace: { sales: 0, profit: 0, dealsClosed: 0 },
+            lastMonthFinal: { sales: 0, profit: 0, dealsClosed: 0 },
             ytd: { sales: 0, profit: 0, deadCostNoVig: 0, deadCostSubjectToVig: 0, commission: 0, dealsClosed: 0, invoices: [] },
             activePipeline: { estimateCount: 0, estimateAmount: 0, salesOrderCount: 0, salesOrderAmount: 0 }
           }
@@ -265,9 +340,6 @@ export function SalesBoard() {
           commission: 0, 
           target: dynamicReps.reduce((sum: number, r: any) => sum + r.weeklyTarget, 0) 
         }
-        const overdueInvoices: any[] = []
-        let totalOverdueBalance = 0
-        const rawDocs = combinedDocuments
 
         const normalizeRepName = (n: string) => {
           const val = (n || '').toLowerCase().replace(/\s+/g, ' ').trim()
@@ -285,6 +357,81 @@ export function SalesBoard() {
             return repNameNormalized.includes(spNameNormalized) || spNameNormalized.includes(repNameNormalized)
           })
         }
+
+        // Group all-time overdue invoices by Sales Rep
+        const repOverdueMap: Record<string, {
+          repId: string
+          repName: string
+          gradient: string
+          totalBalance: number
+          overdueCount: number
+          maxDaysOverdue: number
+          invoices: any[]
+        }> = {}
+
+        let totalOverdueBalance = 0
+        let maxSystemOverdueDays = 0
+        let totalOverdueCount = 0
+
+        const overdueDocs = [
+          ...(overduePayload.documents || []),
+          ...(invoicesPayload.documents || []).filter((d: any) => d.status === 'overdue' || parseFloat(d.balance || 0) > 0)
+        ]
+
+        const seenOverdueIds = new Set()
+        for (const doc of overdueDocs) {
+          if (!doc || !doc.id || seenOverdueIds.has(doc.id)) continue
+          seenOverdueIds.add(doc.id)
+
+          const balance = parseFloat(doc.balance !== undefined ? doc.balance : doc.amount || 0)
+          if (balance <= 0) continue
+          if (doc.status === 'Void' || doc.status === 'void' || doc.status === 'Draft' || doc.status === 'draft' || doc.status === 'Paid' || doc.status === 'paid') continue
+
+          const spName = (doc.salesperson || "Unassigned").trim()
+          const matchedRep = getMatchedRep(spName)
+          const repKey = matchedRep ? matchedRep.id : spName.toLowerCase()
+          const repName = matchedRep ? matchedRep.name : spName
+          const repGradient = matchedRep ? matchedRep.gradient : 'from-slate-700 to-slate-900'
+
+          const saleDate = doc.date ? doc.date.split('T')[0] : (doc.issueDate ? doc.issueDate.split('T')[0] : '')
+          const dueDateObj = doc.dueDate ? new Date(doc.dueDate) : (doc.date ? new Date(doc.date) : today)
+          const daysOverdue = Math.max(1, Math.floor((today.getTime() - dueDateObj.getTime()) / (1000 * 3600 * 24)))
+
+          totalOverdueBalance += balance
+          totalOverdueCount += 1
+          if (daysOverdue > maxSystemOverdueDays) maxSystemOverdueDays = daysOverdue
+
+          if (!repOverdueMap[repKey]) {
+            repOverdueMap[repKey] = {
+              repId: repKey,
+              repName,
+              gradient: repGradient,
+              totalBalance: 0,
+              overdueCount: 0,
+              maxDaysOverdue: 0,
+              invoices: []
+            }
+          }
+
+          repOverdueMap[repKey].totalBalance += balance
+          repOverdueMap[repKey].overdueCount += 1
+          if (daysOverdue > repOverdueMap[repKey].maxDaysOverdue) {
+            repOverdueMap[repKey].maxDaysOverdue = daysOverdue
+          }
+
+          repOverdueMap[repKey].invoices.push({
+            id: doc.id,
+            zohoId: doc.zohoId,
+            invoiceNumber: doc.invoiceNumber || doc.invoice_number || doc.zohoId,
+            customer: doc.accountName || "Customer",
+            amount: doc.amount || 0,
+            balance,
+            daysOverdue,
+            saleDate,
+            dueDate: doc.dueDate ? doc.dueDate.split('T')[0] : saleDate
+          })
+        }
+        const rawDocs = combinedDocuments
 
         rawDocs.forEach((doc: any) => {
           const spName = (doc.salesperson || "").toUpperCase()
@@ -344,63 +491,31 @@ export function SalesBoard() {
 
             const balance = Number(doc.balance !== undefined ? doc.balance : 0)
 
-            // Check overdue
-            const dueDate = doc.dueDate ? new Date(doc.dueDate) : null
-            if (dueDate && doc.status === 'overdue' && balance > 0) {
-              const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24))
-              if (daysOverdue > 0) {
-                totalOverdueBalance += balance
-                overdueInvoices.push({
-                  customer: doc.accountName,
-                  invoiceNumber: doc.invoiceNumber,
-                  balance: balance,
-                  saleDate: saleDate,
-                  daysOverdue: daysOverdue,
-                  repName: spName
-                })
-              }
-            }
-
             const inCurrentWeek = weekDays.includes(saleDate)
-            const isMTD = invDateObj.getFullYear() === currentYear && invDateObj.getMonth() === currentMonth
+            const isMTD = invDateObj >= firstDayOfMonth && invDateObj <= lastDayOfMonth
+            const isLastMonth = invDateObj >= firstDayOfLastMonth && invDateObj <= lastDayOfLastMonth
             const isYTD = invDateObj.getFullYear() === currentYear
 
-            if (inCurrentWeek && matchedRep) {
-              teamWeekly.sales += amount
-              teamWeekly.profit += profit
-              teamWeekly.deadCostNoVig += deadCostNoVig
-              teamWeekly.deadCostSubjectToVig += deadCostSubjectToVig
-              teamWeekly.commission += commissionEarned
-
-              if (matchedRep) {
-                const dayIdx = weekDays.indexOf(saleDate)
-                if (dayIdx >= 0) {
-                  matchedRep.weekly.sales[dayIdx] += amount
-                  matchedRep.weekly.profit[dayIdx] += profit
-                }
-                matchedRep.weekly.totalSales += amount
-                matchedRep.weekly.totalProfit += profit
-                matchedRep.weekly.deadCostNoVig += deadCostNoVig
-                matchedRep.weekly.deadCostSubjectToVig += deadCostSubjectToVig
-                matchedRep.weekly.commission += commissionEarned
-                matchedRep.weekly.dealsClosed += 1
-                matchedRep.weekly.invoices.push({ 
-                  id: doc.id, 
-                  zohoId: doc.zohoId,
-                  date: saleDate, 
-                  customer: doc.accountName, 
-                  amount, 
-                  profit, 
-                  deadCostNoVig,
-                  deadCostSubjectToVig,
-                  commission: commissionEarned, 
-                  invoiceNumber: doc.invoiceNumber 
-                })
-              }
-            }
-
             if (matchedRep) {
+              if (isLastMonth) {
+                matchedRep.lastMonthFinal.sales += amount
+                matchedRep.lastMonthFinal.profit += profit
+                matchedRep.lastMonthFinal.dealsClosed += 1
+
+                if (saleDate <= lastMonthCutoffDateStr) {
+                  matchedRep.lastMonthPace.sales += amount
+                  matchedRep.lastMonthPace.profit += profit
+                  matchedRep.lastMonthPace.dealsClosed += 1
+                }
+              }
+
               if (isMTD) {
+                teamWeekly.sales += amount
+                teamWeekly.profit += profit
+                teamWeekly.deadCostNoVig += deadCostNoVig
+                teamWeekly.deadCostSubjectToVig += deadCostSubjectToVig
+                teamWeekly.commission += commissionEarned
+
                 matchedRep.mtd.sales += amount
                 matchedRep.mtd.profit += profit
                 matchedRep.mtd.deadCostNoVig += deadCostNoVig
@@ -445,11 +560,13 @@ export function SalesBoard() {
         })
 
         setData({
-          teamWeekly,
           reps: Object.values(repsMap),
-          overdueInvoices: overdueInvoices.sort((a,b) => b.daysOverdue - a.daysOverdue),
+          teamWeekly,
+          currentWorkdayIndex,
+          repOverdueMap,
           totalOverdueBalance,
-          weekDays,
+          totalOverdueCount,
+          maxSystemOverdueDays,
           rawInvoices: rawDocs.filter(d => d.type === 'Invoice')
         })
 
@@ -798,19 +915,26 @@ export function SalesBoard() {
 
         {/* SCREEN 3: MTD */}
         <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "MTD_STATS" ? "translate-x-0 opacity-100" : (SCREENS.indexOf(currentScreen) > 2 ? "-translate-x-full opacity-0 pointer-events-none" : "translate-x-full opacity-0 pointer-events-none")}`}>
-           <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase mb-8 flex items-center gap-3">
-            <FiTarget className="text-blue-400" /> Month-To-Date Performance
-          </h3>
+           <div className="flex items-center justify-between mb-6">
+             <h3 className="text-neutral-400 text-sm font-bold tracking-widest uppercase flex items-center gap-3">
+              <FiTarget className="text-blue-400" /> Month-To-Date Performance
+            </h3>
+            <span className="text-xs bg-blue-500/10 border border-blue-500/30 text-blue-400 font-bold px-3 py-1 rounded-full">
+              Comparing Current MTD (Workday #{data.currentWorkdayIndex || 1}) vs. Last Month Pace & Final
+            </span>
+           </div>
+
           <div className="flex-1 overflow-auto bg-white/[0.02] border border-white/10 rounded-2xl p-1">
             <table className="w-full text-left border-collapse">
                <thead>
                   <tr className="bg-white/[0.03]">
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Sales Rep</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Subtotal</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Dead Profit</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Current MTD</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Last Month Pace (Workday #{data.currentWorkdayIndex || 1})</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Pace vs. Last Month</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Last Month Final</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Deals</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Avg Deal</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Dead Profit %</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Profit %</th>
                   </tr>
                </thead>
                <tbody>
@@ -818,6 +942,13 @@ export function SalesBoard() {
                      const avgDeal = rep.mtd.dealsClosed > 0 ? rep.mtd.sales / rep.mtd.dealsClosed : 0
                      const profitMargin = rep.mtd.sales > 0 ? (rep.mtd.profit / rep.mtd.sales) * 100 : 0
                      const isExpanded = expandedRows.has(`mtd-${rep.id}`)
+
+                     const paceDiff = rep.mtd.sales - (rep.lastMonthPace?.sales || 0)
+                     const pacePct = (rep.lastMonthPace?.sales || 0) > 0 ? (paceDiff / rep.lastMonthPace.sales) * 100 : 0
+                     const isAhead = paceDiff >= 0
+
+                     const pctOfFinal = (rep.lastMonthFinal?.sales || 0) > 0 ? (rep.mtd.sales / rep.lastMonthFinal.sales) * 100 : 0
+
                      return (
                      <React.Fragment key={rep.id}>
                      <tr onClick={() => toggleRow(`mtd-${rep.id}`)} className="hover:bg-white/15 hover:shadow-lg transition-all duration-300 transition-colors cursor-pointer group">
@@ -827,15 +958,32 @@ export function SalesBoard() {
                               {rep.name}
                            </div>
                         </td>
-                        <td className="p-4 text-sm font-black text-white text-right border-b border-white/10">{formatCurrency(rep.mtd.sales)}</td>
-                        <td className="p-4 text-sm font-medium text-neutral-300 text-right border-b border-white/10">{formatCurrency(rep.mtd.profit)}</td>
+                        <td className="p-4 text-right border-b border-white/10">
+                          <div className="text-sm font-black text-white">{formatCurrency(rep.mtd.sales)}</div>
+                          <div className="text-xs font-semibold text-emerald-400">{formatCurrency(rep.mtd.profit)} profit</div>
+                        </td>
+                        <td className="p-4 text-right border-b border-white/10">
+                          <div className="text-sm font-bold text-neutral-300">{formatCurrency(rep.lastMonthPace?.sales || 0)}</div>
+                          <div className="text-xs text-neutral-400">{formatCurrency(rep.lastMonthPace?.profit || 0)} profit</div>
+                        </td>
+                        <td className="p-4 text-right border-b border-white/10">
+                          <div className={`text-sm font-bold ${isAhead ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {isAhead ? '▲ +' : '▼ '}{formatCurrency(Math.abs(paceDiff))}
+                          </div>
+                          <div className={`text-xs font-semibold ${isAhead ? 'text-emerald-400/80' : 'text-rose-400/80'}`}>
+                            {isAhead ? '+' : ''}{pacePct.toFixed(1)}% vs. Pace
+                          </div>
+                        </td>
+                        <td className="p-4 text-right border-b border-white/10">
+                          <div className="text-sm font-bold text-neutral-300">{formatCurrency(rep.lastMonthFinal?.sales || 0)}</div>
+                          <div className="text-xs text-blue-400 font-semibold">{pctOfFinal.toFixed(1)}% of Final</div>
+                        </td>
                         <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{rep.mtd.dealsClosed}</td>
-                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{formatCurrency(avgDeal)}</td>
                         <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{formatPercent(profitMargin)}</td>
                      </tr>
                      {isExpanded && rep.mtd.invoices?.length > 0 && (
                         <tr className="bg-black/40">
-                           <td colSpan={6} className="p-4 border-b border-white/10">
+                           <td colSpan={7} className="p-4 border-b border-white/10">
                               <div className="pl-12">
                                 <table className="w-full text-left border-collapse glass-panel-strong rounded-lg overflow-hidden border border-white/10">
                                   <thead>
@@ -977,21 +1125,20 @@ export function SalesBoard() {
         {/* SCREEN 5: OVERDUE INVOICES */}
         <div className={`absolute inset-0 p-6 lg:p-8 flex flex-col transition-all duration-700 transform ${currentScreen === "OVERDUE_INVOICES" ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"}`}>
           
-          <div className="grid grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-3 gap-6 mb-6">
             <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5 relative overflow-hidden group">
                <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent"></div>
-               <div className="text-[10px] font-bold text-red-400 tracking-widest uppercase mb-2">Total Overdue Balance</div>
+               <div className="text-[10px] font-bold text-red-400 tracking-widest uppercase mb-2">All-Time Overdue Balance</div>
                <div className="text-3xl font-black text-red-500">{formatCurrency(data.totalOverdueBalance)}</div>
             </div>
             <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5 relative overflow-hidden">
-               <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-2">Overdue Invoices</div>
-               <div className="text-3xl font-black text-white">{data.overdueInvoices.length} <span className="text-sm font-medium text-neutral-500">Invoices</span></div>
+               <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-2">Total Overdue Invoices</div>
+               <div className="text-3xl font-black text-white">{data.totalOverdueCount || 0} <span className="text-sm font-medium text-neutral-500">Invoices</span></div>
             </div>
             <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-5 relative overflow-hidden">
                <div className="text-[10px] font-bold text-neutral-400 tracking-widest uppercase mb-2">Oldest Aging Invoice</div>
                <div className="text-3xl font-black text-white">
-                  {data.overdueInvoices.length > 0 ? `${data.overdueInvoices[0].daysOverdue} ` : '0 '}
-                  <span className="text-sm font-medium text-neutral-500">Days</span>
+                  {data.maxSystemOverdueDays || 0} <span className="text-sm font-medium text-neutral-500">Days</span>
                </div>
             </div>
           </div>
@@ -1001,57 +1148,96 @@ export function SalesBoard() {
                <thead>
                   <tr className="bg-white/[0.03]">
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Sales Rep</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Customer | Invoice</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Overdue Balance</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Sale Date</th>
-                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-red-400 border-b border-white/10 text-right bg-red-500/5 rounded-tr-xl">Days Overdue</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Total Overdue Balance</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">Overdue Invoices</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-red-400 border-b border-white/10 text-right">Oldest Days Overdue</th>
+                     <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-center">Details</th>
                   </tr>
                </thead>
                <tbody>
-                  {data.overdueInvoices.map((inv: any, idx: number) => {
-                     const normalizeRepName = (n: string) => {
-                        const val = (n || '').toLowerCase().replace(/\s+/g, ' ').trim()
-                        if (val === 'ben bequette') return 'benjamin bequette'
-                        if (val === 'monty morgan') return 'montgomery morgan'
-                        if (val === 'ricky griffin') return 'richard griffin'
-                        return val
-                     }
-                     const invRepNameNormalized = normalizeRepName(inv.repName)
-                     const rep = data.reps.find((r: any) => {
-                        const repNameNormalized = normalizeRepName(r.name)
-                        return repNameNormalized.includes(invRepNameNormalized) || invRepNameNormalized.includes(repNameNormalized)
-                     }) || { name: inv.repName, gradient: 'from-neutral-600 to-neutral-800' }
+                  {Object.values(data.repOverdueMap || {}).sort((a:any, b:any) => b.totalBalance - a.totalBalance).map((rep: any) => {
+                     const isExpanded = expandedRows.has(`overdue-${rep.repId}`)
                      return (
-                     <tr key={idx} className="hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors group">
+                     <React.Fragment key={rep.repId}>
+                     <tr onClick={() => toggleRow(`overdue-${rep.repId}`)} className="hover:bg-white/15 hover:shadow-lg transition-all duration-300 transition-colors cursor-pointer group">
                         <td className="p-4 text-sm font-bold border-b border-white/10 text-white">
                            <div className="flex items-center gap-3">
-                              <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-[10px] shadow-lg`}>{rep.name.charAt(0) || '?'}</div>
-                              {rep.name}
+                              <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${rep.gradient} flex items-center justify-center font-bold text-[10px] shadow-lg`}>{rep.repName.charAt(0) || '?'}</div>
+                              {rep.repName}
                            </div>
                         </td>
-                        <td className="p-4 border-b border-white/10">
-                           <div className="text-sm font-bold text-white">{inv.customer}</div>
-                           <div className="text-xs font-medium text-neutral-500">{inv.invoiceNumber}</div>
-                        </td>
-                        <td className="p-4 text-sm font-black text-white text-right border-b border-white/10">{formatCurrency(inv.balance)}</td>
-                        <td className="p-4 text-sm font-medium text-neutral-400 text-right border-b border-white/10">{inv.saleDate}</td>
-                        <td className="p-4 text-sm font-bold text-red-400 text-right border-b border-white/10 bg-red-500/5">{inv.daysOverdue} Days</td>
-                     </tr>
-                  )})}
-                  {data.overdueInvoices.length === 0 && (
-                     <tr>
-                        <td colSpan={5} className="p-8 text-center text-sm font-medium text-neutral-500">
-                           <FiAlertCircle size={24} className="mx-auto mb-2 opacity-50" />
-                           No overdue invoices found.
+                        <td className="p-4 text-sm font-black text-red-400 text-right border-b border-white/10">{formatCurrency(rep.totalBalance)}</td>
+                        <td className="p-4 text-sm font-bold text-neutral-300 text-right border-b border-white/10">{rep.overdueCount} Invoices</td>
+                        <td className="p-4 text-sm font-bold text-red-400 text-right border-b border-white/10">{rep.maxDaysOverdue} Days</td>
+                        <td className="p-4 text-xs font-bold text-blue-400 text-center border-b border-white/10">
+                          {isExpanded ? "▲ Hide Invoices" : "▼ View Invoices"}
                         </td>
                      </tr>
-                  )}
-               </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
+                     {isExpanded && rep.invoices?.length > 0 && (
+                        <tr className="bg-black/40">
+                           <td colSpan={5} className="p-4 border-b border-white/10">
+                               <div className="pl-12">
+                                 <table className="w-full text-left border-collapse glass-panel-strong rounded-lg overflow-hidden border border-white/10">
+                                   <thead>
+                                     <tr className="bg-white/[0.02]">
+                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Issue / Due Date</th>
+                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
+                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Original Amount</th>
+                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Overdue Balance</th>
+                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Aging Status</th>
+                                     </tr>
+                                   </thead>
+                                   <tbody>
+                                     {rep.invoices.sort((a:any,b:any) => b.daysOverdue - a.daysOverdue).map((inv:any) => (
+                                       <tr key={inv.id} className="border-t border-white/10 hover:bg-white/10 hover:shadow-lg transition-all duration-300">
+                                         <td className="p-2 text-xs font-medium text-neutral-400">
+                                           <div>{inv.saleDate}</div>
+                                           <div className="text-[10px] text-neutral-500">Due: {inv.dueDate}</div>
+                                         </td>
+                                         <td className="p-2">
+                                            <a 
+                                              href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                              target="_blank" 
+                                              rel="noopener noreferrer"
+                                              className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
+                                            >
+                                              {inv.customer}
+                                            </a>
+                                            <a 
+                                              href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                              target="_blank" 
+                                              rel="noopener noreferrer"
+                                              className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"
+                                            >
+                                              {inv.invoiceNumber}
+                                            </a>
+                                         </td>
+                                         <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.amount)}</td>
+                                         <td className="p-2 text-xs font-bold text-red-400 text-right">{formatCurrency(inv.balance)}</td>
+                                         <td className="p-2 text-right">
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                              inv.daysOverdue > 90 ? 'bg-red-500/20 border-red-500/40 text-red-400' :
+                                              inv.daysOverdue > 30 ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' :
+                                              'bg-yellow-500/10 border-yellow-500/30 text-yellow-300'
+                                            }`}>
+                                              {inv.daysOverdue} Days Overdue
+                                            </span>
+                                         </td>
+                                       </tr>
+                                     ))}
+                                   </tbody>
+                                 </table>
+                               </div>
+                            </td>
+                         </tr>
+                      )}
+                      </React.Fragment>
+                   )})}
+                </tbody>
+             </table>
+           </div>
+         </div>
+       </div>
 
       {/* Weekly Sales Banner */}
       <div className="bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border-t border-emerald-500/20 px-6 py-4 flex items-center justify-between z-20 backdrop-blur-xl">

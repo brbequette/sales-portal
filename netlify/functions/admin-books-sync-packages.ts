@@ -186,6 +186,23 @@ export const handler: Handler = async (event) => {
         const isDropshipment = !!(po.delivery_customer_id || po.salesorder_id)
         if (isDropshipment) dropshipCount++
 
+        // Try to automatically find and tie to an invoice via SalesOrder number
+        let invoiceId = null
+        let invoiceNumber = null
+        const salesOrderNumber = po.salesorder_number || null
+        if (salesOrderNumber) {
+          const inv = await prisma.invoice.findFirst({
+            where: {
+              items: { path: ['salesOrderNumber'], equals: salesOrderNumber }
+            },
+            select: { zohoId: true, items: true }
+          })
+          if (inv) {
+            invoiceId = inv.zohoId
+            invoiceNumber = (inv.items as any)?.invoiceNumber || null
+          }
+        }
+
         const poData: any = {
           zohoId,
           vendorName: po.vendor_name || null,
@@ -193,10 +210,12 @@ export const handler: Handler = async (event) => {
           total: po.total || 0,
           status: po.status || null,
           salesOrderId: po.salesorder_id || null,
-          salesOrderNumber: po.salesorder_number || null,
+          salesOrderNumber,
           isDropshipment,
           trackingNumber: po.tracking_number || null,
           items: po.line_items ? { lineItems: po.line_items } : null,
+          invoiceId,
+          invoiceNumber,
         }
 
         const existing = await prisma.purchaseOrder.findUnique({ where: { zohoId } })
@@ -207,7 +226,58 @@ export const handler: Handler = async (event) => {
           await prisma.purchaseOrder.create({ data: poData })
           poCreated++
         }
-      } catch { poErrors++ }
+      } catch (err: any) { poErrors++ }
+    }
+
+    // Sync Customer Payments
+    const allPayments = await fetchAllPages(baseUrl, token, 'customerpayments')
+    let payCreated = 0, payUpdated = 0, payErrors = 0
+
+    for (const pay of allPayments) {
+      try {
+        const zohoId = pay.payment_id
+        if (!zohoId) continue
+
+        const invNum = (pay.invoice_numbers || '').split(',')[0].trim() || null
+        let invoiceId = null
+        if (invNum) {
+          const inv = await prisma.invoice.findFirst({
+            where: {
+              OR: [
+                { zohoId: invNum },
+                { items: { path: ['invoiceNumber'], equals: invNum } }
+              ]
+            },
+            select: { zohoId: true }
+          })
+          if (inv) {
+            invoiceId = inv.zohoId
+          }
+        }
+
+        const paymentData = {
+          zohoId,
+          amount: parseFloat(pay.amount || 0),
+          date: pay.date ? new Date(pay.date) : null,
+          mode: pay.payment_mode || null,
+          status: pay.payment_status || pay.status || null,
+          referenceNumber: pay.reference_number || null,
+          bankCharges: parseFloat(pay.bank_charges || 0),
+          invoiceId,
+          invoiceNumber: invNum,
+        }
+
+        const existing = await prisma.payment.findUnique({ where: { zohoId } })
+        if (existing) {
+          await prisma.payment.update({ where: { zohoId }, data: paymentData })
+          payUpdated++
+        } else {
+          await prisma.payment.create({ data: paymentData })
+          payCreated++
+        }
+      } catch (err: any) {
+        payErrors++
+      }
     }
 
     return {
@@ -217,7 +287,8 @@ export const handler: Handler = async (event) => {
         success: true,
         packages: { total: allPackages.length, created: pkgCreated, updated: pkgUpdated, errors: pkgErrors },
         purchaseOrders: { total: allPOs.length, dropshipments: dropshipCount, created: poCreated, updated: poUpdated, errors: poErrors },
-        message: `Synced ${allPackages.length} packages (${pkgCreated} new) and ${allPOs.length} POs (${dropshipCount} dropshipments, ${poCreated} new).`,
+        payments: { total: allPayments.length, created: payCreated, updated: payUpdated, errors: payErrors },
+        message: `Synced ${allPackages.length} packages (${pkgCreated} new), ${allPOs.length} POs (${dropshipCount} dropshipments, ${poCreated} new), and ${allPayments.length} payments (${payCreated} new).`,
       })
     }
   } catch (err: any) {

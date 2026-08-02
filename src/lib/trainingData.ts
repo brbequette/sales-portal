@@ -641,7 +641,7 @@ Click **Process Costs** on any invoice detail modal to recalculate just that inv
 
 ### Credit Card Processing Fees
 When a credit card payment is processed through the portal, the system automatically:
-1. Calculates the **CC Processing Fee** (3.5% of the charge amount)
+1. Calculates the **CC Processing Fee** (4.5% of the charge amount)
 2. Writes the fee to the **CREDIT CARD PROCESSING FEES** field
 3. Records the **CC CHARGE(S) BREAKDOWN** with auth code, card type, last 4 digits, and amount
 4. If the invoice is fully paid, sets the **PAID IN FULL DATE**

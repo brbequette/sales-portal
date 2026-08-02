@@ -2,7 +2,7 @@ import { schedule } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 
 import { prisma } from "./lib/prisma"
-import { extractProfit as getCanonicalProfit, extractCommissionAmount as getCanonicalCommission, extractVigRate as getCanonicalVig } from "../../src/lib/custom-field-extractor"
+import { extractProfit as getCanonicalProfit, extractCommissionAmount as getCanonicalCommission, extractVigRate as getCanonicalVig, extractActualShippingCost, extractShippingCostBreakdown } from "../../src/lib/custom-field-extractor"
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
 const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
 
@@ -188,6 +188,8 @@ async function syncDocumentToDb(
       vig: extractVig(doc, currentItems),
       // Cache stamp
       lastSyncedAt: new Date().toISOString(),
+      actualShippingCost: extractActualShippingCost(doc),
+      shippingCostBreakdown: extractShippingCostBreakdown(doc),
     }
 
     // Determine status
@@ -203,9 +205,27 @@ async function syncDocumentToDb(
     // this doc may need its costs recalculated (remoteModified > costsCalculatedAt triggers recalc)
     const zohoModTime = summary.last_modified_time ? new Date(summary.last_modified_time) : new Date()
     if (type === 'Invoice') {
-      await prisma.invoice.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems, zohoModifiedTime: zohoModTime } })
+      await prisma.invoice.update({
+        where: { id: dbDoc.id },
+        data: {
+          status,
+          items: updatedItems,
+          zohoModifiedTime: zohoModTime,
+          actualShippingCost: updatedItems.actualShippingCost,
+          shippingCostBreakdown: updatedItems.shippingCostBreakdown,
+        }
+      })
     } else if (type === 'SalesOrder') {
-      await prisma.salesOrder.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems, zohoModifiedTime: zohoModTime } })
+      await prisma.salesOrder.update({
+        where: { id: dbDoc.id },
+        data: {
+          status,
+          items: updatedItems,
+          zohoModifiedTime: zohoModTime,
+          actualShippingCost: updatedItems.actualShippingCost,
+          shippingCostBreakdown: updatedItems.shippingCostBreakdown,
+        }
+      })
     } else {
       await prisma.quote.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems, zohoModifiedTime: zohoModTime } })
     }

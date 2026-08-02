@@ -249,3 +249,17 @@ export function extractInsurance(docOrItems: any): number {
   const parsed = parseFloat(val);
   return !isNaN(parsed) ? parsed : 0.0;
 }
+
+export function extractActualShippingCost(docOrItems: any): number {
+  const val = extractCustomFieldValue(docOrItems, 'cf_actual_shipping_cost', null)
+    ?? extractCustomFieldValue(docOrItems, 'actualShippingCost', null)
+    ?? extractCustomFieldValue(docOrItems, 'cf_actual_shipping_cost_unformatted', null);
+  const parsed = parseFloat(val);
+  return !isNaN(parsed) ? parsed : 0.0;
+}
+
+export function extractShippingCostBreakdown(docOrItems: any): string | null {
+  const val = extractCustomFieldValue(docOrItems, 'cf_shipping_cost_breakdown', null)
+    ?? extractCustomFieldValue(docOrItems, 'shippingCostBreakdown', null);
+  return val ? String(val) : null;
+}

@@ -15,7 +15,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   default_vig_rate: 1.3,
   commission_rate_pct: 50,
   shipping_multiplier: 1.5,
-  cc_fee_rate: 3.5, // 3.5%
+  cc_fee_rate: 4.5, // 4.5%
   default_shipping_weight: 0.5,
   sms_daily_account_limit: 1,
   ai_reply_prompt: "You are a professional sales assistant for a diamond wholesaler. Provide a concise, friendly response to the customer's text message.",

@@ -138,6 +138,9 @@ model Deal {
   account       Account   @relation(fields: [accountId], references: [id])
   owner         User      @relation(fields: [ownerId], references: [id])
   tasks         Task[]
+  quotes        Quote[]
+  salesOrders   SalesOrder[]
+  invoices      Invoice[]
 
   @@index([ownerId])
   @@index([accountId])
@@ -161,8 +164,13 @@ model SalesOrder {
   costsCalculatedAt DateTime?
   lastCostSyncAt    DateTime?
   account           Account   @relation(fields: [accountId], references: [id])
+  dealId            String?
+  deal              Deal?     @relation(fields: [dealId], references: [id])
+  actualShippingCost    Float?
+  shippingCostBreakdown String?
 
   @@index([pendingCostSync])
+  @@index([dealId])
 }
 
 model Quote {
@@ -182,8 +190,11 @@ model Quote {
   costsCalculatedAt DateTime?
   lastCostSyncAt    DateTime?
   account           Account   @relation(fields: [accountId], references: [id])
+  dealId            String?
+  deal              Deal?     @relation(fields: [dealId], references: [id])
 
   @@index([pendingCostSync])
+  @@index([dealId])
 }
 
 model Product {
@@ -226,8 +237,13 @@ model Invoice {
   costsCalculatedAt DateTime?
   lastCostSyncAt    DateTime?
   account           Account   @relation(fields: [accountId], references: [id])
+  dealId            String?
+  deal              Deal?     @relation(fields: [dealId], references: [id])
+  actualShippingCost    Float?
+  shippingCostBreakdown String?
 
   @@index([accountId])
+  @@index([dealId])
   @@index([status])
   @@index([pendingCostSync])
   @@index([accountId, issueDate, status])
@@ -618,19 +634,24 @@ model Reimbursement {
 
 
 model PurchaseOrder {
-  id String @id @default(cuid())
-  zohoId String @unique
-  vendorName String?
-  date DateTime?
-  total Float @default(0)
-  status String?
-  items Json?
-  salesOrderId String?
+  id               String    @id @default(cuid())
+  zohoId           String    @unique
+  vendorName       String?
+  date             DateTime?
+  total            Float     @default(0)
+  status           String?
+  items            Json?
+  salesOrderId     String?
   salesOrderNumber String?
-  isDropshipment Boolean @default(false)
-  trackingNumber String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isDropshipment   Boolean   @default(false)
+  trackingNumber   String?
+  invoiceId        String?
+  invoiceNumber    String?
+  isInventoryOrder Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([invoiceId])
 }
 
 model Payment {
