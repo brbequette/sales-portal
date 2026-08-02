@@ -17,7 +17,7 @@ export const handler = schedule("0 6 * * *", async () => {
 
     // Fetch records modified in the last 48 hours (2-day window for safety)
     const since = new Date(Date.now() - 48 * 60 * 60 * 1000)
-    const sinceStr = since.toISOString().split('T')[0] // YYYY-MM-DD
+    const sinceStr = since.toISOString().split('.')[0] + '+0000' // YYYY-MM-DDTHH:MM:SS+0000
 
     let invoicesSynced = 0
     let sosSynced = 0
@@ -28,7 +28,7 @@ export const handler = schedule("0 6 * * *", async () => {
       let page = 1
       let hasMore = true
       while (hasMore) {
-        const url = `${baseUrl}/invoices?organization_id=${ORG_ID}&last_modified_time=${sinceStr}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
+        const url = `${baseUrl}/invoices?organization_id=${ORG_ID}&last_modified_time=${encodeURIComponent(sinceStr)}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
         const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
         if (!res.ok) { console.error(`Invoices page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
@@ -52,7 +52,7 @@ export const handler = schedule("0 6 * * *", async () => {
       let page = 1
       let hasMore = true
       while (hasMore) {
-        const url = `${baseUrl}/salesorders?organization_id=${ORG_ID}&last_modified_time=${sinceStr}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
+        const url = `${baseUrl}/salesorders?organization_id=${ORG_ID}&last_modified_time=${encodeURIComponent(sinceStr)}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
         const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
         if (!res.ok) { console.error(`SalesOrders page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
@@ -77,7 +77,7 @@ export const handler = schedule("0 6 * * *", async () => {
       let hasMore = true
       while (hasMore) {
         // Only sync estimates that have been converted to an invoice (status=invoiced)
-        const url = `${baseUrl}/estimates?organization_id=${ORG_ID}&status=invoiced&last_modified_time=${sinceStr}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
+        const url = `${baseUrl}/estimates?organization_id=${ORG_ID}&status=invoiced&last_modified_time=${encodeURIComponent(sinceStr)}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
         const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
         if (!res.ok) { console.error(`Estimates page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
