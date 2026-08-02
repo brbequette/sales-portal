@@ -16,7 +16,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { name, color, description, order, autoActions, notifications, transitionRule } = body
+    const { name, color, description, order, autoActions, notifications, transitionRule, flowConfig } = body
 
     if (!name) {
       return NextResponse.json({ success: false, error: 'Name is required' }, { status: 400 })
@@ -46,6 +46,7 @@ export async function POST(req: Request) {
         autoActions: autoActions || null,
         notifications: notifications || null,
         transitionRule: transitionRule || null,
+        flowConfig: flowConfig || null,
       }
     })
 
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body = await req.json()
-    const { id, name, color, description, order, autoActions, notifications, transitionRule } = body
+    const { id, name, color, description, order, autoActions, notifications, transitionRule, flowConfig } = body
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'Stage ID is required' }, { status: 400 })
@@ -79,6 +80,7 @@ export async function PUT(req: Request) {
     if (autoActions !== undefined) updateData.autoActions = autoActions
     if (notifications !== undefined) updateData.notifications = notifications
     if (transitionRule !== undefined) updateData.transitionRule = transitionRule
+    if (flowConfig !== undefined) updateData.flowConfig = flowConfig
 
     const stage = await prisma.salesStage.update({
       where: { id },

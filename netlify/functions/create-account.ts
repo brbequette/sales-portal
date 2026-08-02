@@ -23,7 +23,13 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Account Name is required" }) }
     }
 
-    // Ignore creator repId, we will let CRM assign owner
+    // Find creating user to assign as Account Owner
+    let creatorUser = null
+    if (repId) {
+      creatorUser = await prisma.user.findFirst({
+        where: { OR: [{ id: repId }, { zohoId: repId }, { email: repId }] }
+      })
+    }
 
     const token = await getZohoAccessToken();
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/crm/v3`;
@@ -44,6 +50,10 @@ export const handler: Handler = async (event) => {
       Shipping_State: shippingState,
       Shipping_Code: shippingCode,
       Shipping_Country: shippingCountry,
+    }
+
+    if (creatorUser?.zohoId) {
+      accountPayload.Owner = { id: creatorUser.zohoId }
     }
     
     if (tags) {

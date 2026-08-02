@@ -40,6 +40,7 @@ model User {
   advances           Advance[]
   reimbursements     Reimbursement[]
   scheduledMessages  ScheduledMessage[]
+  leads              Lead[]
 
   @@index([role])
 }
@@ -731,9 +732,53 @@ model SalesStage {
   autoActions     Json?
   notifications   Json?
   transitionRule  Json?
+  flowConfig      Json?    // Automation flow steps (SMS, wait timeframe, phone task, loop rules)
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+model Lead {
+  id                  String    @id @default(cuid())
+  zohoId              String    @unique
+  company             String
+  firstName           String?
+  lastName            String?
+  email               String?
+  phone               String?
+  mobile              String?
+  title               String?
+  industry            String?
+  status              String    @default("New Lead")
+  ownerId             String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  lastCalledAt        DateTime?
+  timeZone            String?
+
+  // Fact-Finding Specs
+  bladeSizes          String?
+  materialsCut        String?
+  currentSupplier     String?
+  averageBladeCost    String?
+  crewCount           String?
+  bladesPerOrder      String?
+  improvementPriority String?
+
+  // Address
+  street              String?
+  city                String?
+  state               String?
+  zip                 String?
+
+  convertedAccountId  String?
+  zohoModifiedTime    DateTime?
+  rawData             Json?
+
+  owner               User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([status])
 }
 
 model NotificationTemplate {
