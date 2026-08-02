@@ -171,6 +171,9 @@ model SalesOrder {
 
   @@index([pendingCostSync])
   @@index([dealId])
+  @@index([accountId])
+  @@index([orderDate])
+  @@index([status, orderDate])
 }
 
 model Quote {
@@ -195,6 +198,9 @@ model Quote {
 
   @@index([pendingCostSync])
   @@index([dealId])
+  @@index([accountId])
+  @@index([createdAt])
+  @@index([status, createdAt])
 }
 
 model Product {
@@ -245,6 +251,8 @@ model Invoice {
   @@index([accountId])
   @@index([dealId])
   @@index([status])
+  @@index([issueDate])
+  @@index([status, issueDate])
   @@index([pendingCostSync])
   @@index([accountId, issueDate, status])
 }
@@ -521,6 +529,8 @@ model SmsMessage {
   @@index([accountId])
   @@index([contactId])
   @@index([campaignBlastId])
+  @@index([authorId])
+  @@index([createdAt])
 }
 
 model CallScript {
@@ -562,6 +572,8 @@ model CallLog {
   @@index([accountId])
   @@index([contactId])
   @@index([authorId])
+  @@index([createdAt])
+  @@index([accountId, createdAt])
 }
 
 model PushSubscription {
@@ -667,6 +679,9 @@ model Payment {
   bankCharges Float @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([date])
 }
 
 model Package {
@@ -683,6 +698,9 @@ model Package {
   items Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([salesOrderId])
+  @@index([salesOrderNumber])
 }
 
 model Vendor {

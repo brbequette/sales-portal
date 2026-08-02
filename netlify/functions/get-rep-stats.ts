@@ -94,10 +94,9 @@ export const handler: Handler = async (event) => {
       users,
       accounts,
       deals,
-      allInvoicesForMatching,
       oldestInvoice,
       allHistoricalInvoices
-    ]: [any[], any[], any[], any[], any[], any, any[]] = await Promise.all([
+    ]: [any[], any[], any[], any[], any, any[]] = await Promise.all([
       prisma.systemSetting.findMany().catch(() => []),
       prisma.user.findMany({
         where: {
@@ -155,12 +154,6 @@ export const handler: Handler = async (event) => {
           amount: true,
           stage: true,
           closingDate: true
-        }
-      }).catch(() => []),
-      prisma.invoice.findMany({
-        select: {
-          zohoId: true,
-          items: true
         }
       }).catch(() => []),
       prisma.invoice.findFirst({
@@ -451,9 +444,9 @@ export const handler: Handler = async (event) => {
 
       let salespersonName = null
       if (docNum) {
-        const matchingInvoice = allInvoicesForMatching.find(inv => {
+        const matchingInvoice = allHistoricalInvoices.find(inv => {
           const invNum = (inv.items as any)?.invoiceNumber || (inv.items as any)?.invoice_number || ''
-          return invNum === docNum || inv.zohoId.endsWith(docNum)
+          return invNum === docNum || (inv as any).zohoId?.endsWith(docNum)
         })
         if (matchingInvoice) {
           salespersonName = (matchingInvoice.items as any)?.salesperson
