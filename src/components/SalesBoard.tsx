@@ -273,8 +273,14 @@ export function SalesBoard() {
           return count
         }
         
-        // Build reps from users with showOnSalesBoard === true ONLY
-        const boardUsers = (usersPayload.users || []).filter((u: any) => u.showOnSalesBoard)
+        // Build reps from users with showOnSalesBoard === true (fallback to all active team users)
+        let boardUsers = (usersPayload.users || []).filter((u: any) => u.showOnSalesBoard)
+        if (boardUsers.length === 0) {
+          boardUsers = (usersPayload.users || []).filter((u: any) => {
+            const emailLower = (u.email || "").toLowerCase()
+            return !emailLower.includes("dummy") && !emailLower.includes("example.com") && !emailLower.includes("test_migration")
+          })
+        }
         
         const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`
 
