@@ -73,30 +73,34 @@ function parseLocalDate(dateStr: any): Date | null {
 }
 
 function matchesRep(invoiceRep: string, filterName?: string | null, repEmail?: string | null): boolean {
-  if (!filterName) return true
-  const filter = filterName.trim().toUpperCase()
-  if (!filter || filter.includes("ADMIN") || filter.includes("MYSELF") || filter === "ALL") return true
+  if (!filterName && !repEmail) return false
 
   const rep = (invoiceRep || "").trim().toUpperCase()
   if (!rep) return false
 
-  if (rep.includes(filter) || filter.includes(rep)) return true
+  if (filterName) {
+    const filter = filterName.trim().toUpperCase()
+    if (filter === "ALL") return true
 
-  const filterParts = filter.split(/\s+/).filter(Boolean)
-  const repParts = rep.split(/\s+/).filter(Boolean)
+    if (rep.includes(filter) || filter.includes(rep)) return true
 
-  if (filterParts.length > 0 && repParts.length > 0) {
-    const filterFirst = filterParts[0]
-    const repFirst = repParts[0]
-    if (filterFirst.length >= 3 && (filterFirst === repFirst || repFirst.startsWith(filterFirst) || filterFirst.startsWith(repFirst))) {
-      return true
+    const filterParts = filter.split(/\s+/).filter(Boolean)
+    const repParts = rep.split(/\s+/).filter(Boolean)
+
+    if (filterParts.length > 0 && repParts.length > 0) {
+      const filterFirst = filterParts[0]
+      const repFirst = repParts[0]
+      if (filterFirst.length >= 3 && (filterFirst === repFirst || repFirst.startsWith(filterFirst) || filterFirst.startsWith(repFirst))) {
+        return true
+      }
     }
   }
 
   if (repEmail) {
     const emailUpper = repEmail.trim().toUpperCase()
     const emailPrefix = emailUpper.split("@")[0].split(".")[0]
-    if (emailPrefix.length >= 3 && (rep.includes(emailPrefix) || emailPrefix.includes(repParts[0]))) {
+    const repParts = rep.split(/\s+/).filter(Boolean)
+    if (emailPrefix.length >= 3 && (rep.includes(emailPrefix) || (repParts.length > 0 && emailPrefix.includes(repParts[0])))) {
       return true
     }
   }
@@ -209,7 +213,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
   const { zohoContext: currentUser } = useZoho()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showCompanyWide, setShowCompanyWide] = useState<boolean>(isAdmin ?? false)
+  const [showCompanyWide, setShowCompanyWide] = useState<boolean>(false)
   const [timeEntry, setTimeEntry] = useState<any | null>(null)
   const [clockLoading, setClockLoading] = useState(false)
   const [selectedMetricInfo, setSelectedMetricInfo] = useState<MetricDerivationInfo | null>(null)
@@ -263,7 +267,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repName, isAdmin, repEmail])
+  }, [repName, isAdmin, repEmail, showCompanyWide])
 
   useEffect(() => {
     if (!currentUser?.id) return
@@ -550,7 +554,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
       // Determine filter -- case-insensitive
       const activeRepFilter = filterRepName || repName
-      const isAllOrAdminFilter = !activeRepFilter || activeRepFilter.trim().toUpperCase().includes("ADMIN") || activeRepFilter.trim().toUpperCase().includes("MYSELF") || activeRepFilter.trim().toUpperCase() === "ALL"
+      const activeEmailFilter = repEmail || currentUser?.email
 
       for (const inv of invoices) {
         const amount = parseFloat(inv.sub_total || inv.total || "0")
@@ -575,9 +579,12 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           companyMonthlyTotal += amount
         }
 
-        // Per-rep filtering: if a specific rep is filtered, skip invoices that don't match
-        if (!isAllOrAdminFilter && activeRepFilter) {
-          const matchRep = matchesRep(rep, activeRepFilter, repEmail)
+        // Always track per-rep totals for company breakdown
+        if (!repData[rep]) repData[rep] = { sales: 0, profit: 0, deals: 0, commission: 0, weeklySales: 0 }
+
+        // Per-rep filtering: if NOT showing company wide, filter strictly for rep
+        if (!showCompanyWide) {
+          const matchRep = matchesRep(rep, activeRepFilter, activeEmailFilter)
           if (!matchRep) continue
         }
 
@@ -805,22 +812,55 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Display Settings Toolbar */}
-      <div className="flex items-center justify-between p-3.5 bg-neutral-900/60 border border-white/10 rounded-2xl shadow-md">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 bg-neutral-900/60 border border-white/10 rounded-2xl shadow-md">
         <div className="flex items-center gap-2.5">
           <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20">
             <FiSliders size={15} />
           </div>
           <div>
-            <h3 className="text-xs font-black text-white uppercase tracking-wider">Dashboard Settings</h3>
-            <p className="text-[10px] text-neutral-500 font-semibold mt-0.5">Toggle visible widgets, charts, and tables</p>
+            <h3 className="text-xs font-black text-white uppercase tracking-wider">
+              {showCompanyWide ? "Company-Wide Performance Dashboard" : "Rep Performance & KPI Dashboard"}
+            </h3>
+            <p className="text-[10px] text-neutral-500 font-semibold mt-0.5">
+              {showCompanyWide ? "Viewing combined totals across all sales reps" : `Showing metrics for ${filterRepName || currentUser?.name || 'Rep'}`}
+            </p>
           </div>
         </div>
-        <button
-          onClick={() => setIsRepCustomizerOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-bold rounded-lg border border-white/10 transition-colors"
-        >
-          ⚙️ Customize Layout
-        </button>
+
+        <div className="flex items-center gap-3 self-end sm:self-auto">
+          {/* Admin Toggle */}
+          {isAdmin && (
+            <div className="flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-white/10">
+              <button
+                onClick={() => setShowCompanyWide(false)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  !showCompanyWide
+                    ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20"
+                    : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                👤 Rep Metrics
+              </button>
+              <button
+                onClick={() => setShowCompanyWide(true)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  showCompanyWide
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
+                    : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                🏢 Company Totals
+              </button>
+            </div>
+          )}
+
+          <button
+            onClick={() => setIsRepCustomizerOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-bold rounded-lg border border-white/10 transition-colors"
+          >
+            ⚙️ Customize Layout
+          </button>
+        </div>
       </div>
 
       {/* --- Company Totals Banner (For Reps Only) --- */}

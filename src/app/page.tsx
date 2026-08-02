@@ -74,7 +74,7 @@ export default function HomeDashboard() {
         <DashboardView
           repName={preferences.impersonatedUser
             ? preferences.impersonatedUser.name
-            : isAdminUser ? null : (currentUser?.name || null)
+            : (currentUser?.name || null)
           }
           isAdmin={isAdminUser}
           repEmail={preferences.impersonatedUser
