@@ -614,10 +614,20 @@ export function SalesBoard() {
     }
     
     fetchData()
-    // Refresh when tab becomes visible (instead of polling every 5 min)
+
+    // Poll for new sales/invoices every 60 seconds automatically on the TV display
+    const pollInterval = setInterval(() => {
+      fetchData()
+    }, 60000)
+
+    // Refresh when tab becomes visible
     const handleVisibility = () => { if (document.visibilityState === 'visible') fetchData() }
     document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      clearInterval(pollInterval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [])
 
   // Auto-rotate screens
