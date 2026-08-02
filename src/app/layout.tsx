@@ -18,6 +18,10 @@ export const metadata: Metadata = {
   title: "Titan Diamond - Unified Hub",
   description: "Sales, Collections, and Commissions -- all in one place",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -38,6 +42,7 @@ export default function RootLayout({
       className={`${GeistSans.variable} ${GeistMono.variable}`}
     >
       <head>
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <Script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js" strategy="beforeInteractive" />
         <Script src="https://js.authorize.net/v1/Accept.js" strategy="afterInteractive" />
       </head>

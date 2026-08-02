@@ -1,10 +1,20 @@
 "use client"
 
 import React, { useEffect, useState, useMemo, useRef } from "react"
+import dynamic from "next/dynamic"
 import { FiTrendingUp, FiDollarSign, FiTarget, FiActivity, FiAward, FiClock, FiStar, FiMaximize, FiMinimize, FiPlay, FiPause, FiChevronLeft, FiChevronRight, FiAlertCircle, FiSliders } from "react-icons/fi"
 
-import { KpiBreakdownModal } from "./KpiBreakdownModal"
-import SalesBoardCustomizer, { WidgetConfig, DEFAULT_WIDGET_LAYOUT } from "./SalesBoardCustomizer"
+const KpiBreakdownModal = dynamic(
+  () => import("./KpiBreakdownModal").then((mod) => mod.KpiBreakdownModal),
+  { ssr: false }
+)
+
+const SalesBoardCustomizer = dynamic(
+  () => import("./SalesBoardCustomizer"),
+  { ssr: false }
+)
+
+import { WidgetConfig, DEFAULT_WIDGET_LAYOUT } from "./SalesBoardCustomizer"
 import { RevenueVsGoalWidget, VigCostAllocationWidget, PipelineFunnelWidget, ZDialerActivityWidget, TimeclockStatusWidget } from "./DashboardWidgetCatalog"
 
 const REP_GRADIENTS = [
