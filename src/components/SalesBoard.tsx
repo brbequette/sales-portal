@@ -185,7 +185,23 @@ export function SalesBoard() {
     }
   }
 
-  // Data fetching and processing
+  // Load local cache immediately on mount so TV screen loads instantly
+  useEffect(() => {
+    try {
+      const cached = typeof window !== "undefined" ? localStorage.getItem("tv_salesboard_cache") : null
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed && parsed.reps && parsed.reps.length > 0) {
+          setData(parsed)
+          setLoading(false)
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load cached TV salesboard data:", e)
+    }
+  }, [])
+
+  // Data fetching and processing from local DB endpoints
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -199,33 +215,33 @@ export function SalesBoard() {
         const startDateStr = `${yyyyLM}-${mmLM}-01`
 
         const threeDaysAgoStr = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-        // Fetch users, invoices, sales orders, quotes, config, and all-time overdue invoices in parallel
-        const [usersRes, invoicesRes, salesOrdersRes, quotesRes, configRes, overdueRes] = await Promise.all([
-          fetch("/api/admin/users"),
-          fetch(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&startDate=${startDateStr}`),
-          fetch(`/api/get-documents?pageSize=8000&type=SalesOrder&loadAll=true&startDate=${startDateStr}`),
-          fetch(`/api/get-documents?pageSize=1000&type=Quote&loadAll=true&startDate=${threeDaysAgoStr}`),
-          fetch("/api/get-config"),
-          fetch(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&status=overdue`)
+        
+        const fetchSafe = async (url: string) => {
+          try {
+            const res = await fetch(url)
+            if (!res.ok) return null
+            const type = res.headers.get("content-type") || ""
+            return type.includes("application/json") ? await res.json() : null
+          } catch {
+            return null
+          }
+        }
+
+        const [usersPayloadRaw, invoicesPayloadRaw, salesOrdersPayloadRaw, quotesPayloadRaw, configPayloadRaw, overduePayloadRaw] = await Promise.all([
+          fetchSafe("/api/admin/users"),
+          fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&startDate=${startDateStr}`),
+          fetchSafe(`/api/get-documents?pageSize=8000&type=SalesOrder&loadAll=true&startDate=${startDateStr}`),
+          fetchSafe(`/api/get-documents?pageSize=1000&type=Quote&loadAll=true&startDate=${threeDaysAgoStr}`),
+          fetchSafe("/api/get-config"),
+          fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&status=overdue`)
         ])
-        const usersPayload = usersRes.ok && (usersRes.headers.get("content-type") || "").includes("application/json") 
-          ? await usersRes.json() 
-          : { users: [] }
-        const invoicesPayload = invoicesRes.ok && (invoicesRes.headers.get("content-type") || "").includes("application/json")
-          ? await invoicesRes.json()
-          : { documents: [] }
-        const salesOrdersPayload = salesOrdersRes.ok && (salesOrdersRes.headers.get("content-type") || "").includes("application/json")
-          ? await salesOrdersRes.json()
-          : { documents: [] }
-        const quotesPayload = quotesRes.ok && (quotesRes.headers.get("content-type") || "").includes("application/json")
-          ? await quotesRes.json()
-          : { documents: [] }
-        const configPayload = configRes.ok && (configRes.headers.get("content-type") || "").includes("application/json")
-          ? await configRes.json()
-          : { holidays: [] }
-        const overduePayload = overdueRes.ok && (overdueRes.headers.get("content-type") || "").includes("application/json")
-          ? await overdueRes.json()
-          : { documents: [] }
+
+        const usersPayload = usersPayloadRaw || { users: [] }
+        const invoicesPayload = invoicesPayloadRaw || { documents: [] }
+        const salesOrdersPayload = salesOrdersPayloadRaw || { documents: [] }
+        const quotesPayload = quotesPayloadRaw || { documents: [] }
+        const configPayload = configPayloadRaw || { holidays: [] }
+        const overduePayload = overduePayloadRaw || { documents: [] }
 
         const combinedDocuments = [
           ...(invoicesPayload.documents || []),
@@ -569,7 +585,7 @@ export function SalesBoard() {
           }
         })
 
-        setData({
+        const computedBoardData = {
           reps: Object.values(repsMap),
           teamWeekly,
           currentWorkdayIndex,
@@ -578,7 +594,17 @@ export function SalesBoard() {
           totalOverdueCount,
           maxSystemOverdueDays,
           rawInvoices: rawDocs.filter(d => d.type === 'Invoice')
-        })
+        }
+
+        try {
+          if (typeof window !== "undefined") {
+            localStorage.setItem("tv_salesboard_cache", JSON.stringify(computedBoardData))
+          }
+        } catch (e) {
+          console.warn("Failed to cache TV salesboard data:", e)
+        }
+
+        setData(computedBoardData)
 
       } catch (err) {
         console.error("Sales Board Error:", err)
