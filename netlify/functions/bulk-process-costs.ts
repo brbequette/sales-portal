@@ -283,7 +283,7 @@ export const handler: Handler = async (event) => {
                   subTotal: subTotal,
                   // Cost calculations
                   deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
-                  deadProfitActual, profit, marginPercent, subTotal,
+                  deadProfitActual, profit, marginPercent,
                   vigRate, ccFees, additionalCosts, insurance,
                   commissionPct, salesCommission, isPaid,
                   cf_salesperson_vig: vigRate,
