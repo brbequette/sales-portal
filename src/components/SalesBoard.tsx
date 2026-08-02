@@ -663,7 +663,7 @@ export function SalesBoard() {
      setProgress(0)
   }
 
-  if (loading || !data) {
+  if (loading && !data) {
     return (
       <div className="w-full h-full min-h-[600px] flex flex-col items-center justify-center glass-panel-strong rounded-2xl border border-white/10 text-white shadow-2xl relative overflow-hidden">
         <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>

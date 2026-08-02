@@ -29,7 +29,10 @@ export async function GET(request: Request) {
       ...(Object.keys(accountWhere).length > 0 ? { account: accountWhere } : {})
     }
 
-    if (startDate) {
+    if (statusFilters.includes('overdue')) {
+      invoiceWhere.balance = { gt: 0 }
+      invoiceWhere.status = { notIn: ['paid', 'Paid', 'PAID', 'void', 'Void', 'Closed', 'closed', 'Draft', 'draft'] }
+    } else if (startDate) {
       invoiceWhere.issueDate = { gte: startDate }
     } else if (!loadAll) {
       // Default initial view: Only open invoices OR paid invoices less than 30 days old
