@@ -702,9 +702,18 @@ export default function SalesPage() {
           {/* Header & Sub-header Tabs */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
             <div>
-              <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                <FiTrendingUp className="text-emerald-400" /> Sales Pipeline & Call Lists
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                  <FiTrendingUp className="text-emerald-400" /> Sales Pipeline & Call Lists
+                </h1>
+                <Link
+                  href="/sales/leads-calling"
+                  className="px-3 py-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-md transition-all"
+                >
+                  <FiPhoneCall size={12} />
+                  <span>High-Velocity Lead Queue</span>
+                </Link>
+              </div>
               <p className="text-xs text-neutral-400 mt-1 font-medium">
                 Manage sales pipeline, cold calls, smart call queue, and deal lifecycle.
               </p>

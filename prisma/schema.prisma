@@ -41,6 +41,7 @@ model User {
   reimbursements     Reimbursement[]
   scheduledMessages  ScheduledMessage[]
   leads              Lead[]
+  claimedLeads       Lead[]             @relation("ClaimedLeads")
 
   @@index([role])
 }
@@ -784,10 +785,28 @@ model Lead {
   zohoModifiedTime    DateTime?
   rawData             Json?
 
+  // Matching & Discrepancy Classification
+  matchStatus         String    @default("CONFIRMED") // "CONFIRMED" | "QUESTIONABLE" | "DISCREPANCY"
+  matchReason         String?
+  companyGroupId      String?
+
+  // Rep Batch Claiming & Call Disposition
+  claimedById         String?
+  claimedAt           DateTime?
+  claimedUntil        DateTime?
+  disposition         String?   // "NO_ANSWER" | "LEFT_VOICEMAIL" | "NOT_INTERESTED" | "WRONG_NUMBER" | "SCHEDULED_CALLBACK" | "CONVERTED"
+  dispositionNotes    String?
+  dispositionAt       DateTime?
+
   owner               User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  claimedBy           User?     @relation("ClaimedLeads", fields: [claimedById], references: [id], onDelete: SetNull)
 
   @@index([ownerId])
   @@index([status])
+  @@index([matchStatus])
+  @@index([claimedById])
+  @@index([companyGroupId])
+  @@index([disposition])
 }
 
 model NotificationTemplate {
