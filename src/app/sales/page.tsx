@@ -361,24 +361,27 @@ export default function SalesPage() {
   const allIndustries = Array.from(new Set(accounts.map(a => a.industry).filter(Boolean))).sort()
 
   const matchesOwnerFilter = (a: any, filterVal: string) => {
-    if (!filterVal || 
-        filterVal === "All" || 
-        filterVal === "all" || 
-        filterVal.toLowerCase().includes("myself") ||
-        filterVal.toLowerCase() === "myself"
-    ) return true
+    const activeImpersonatedId = (preferences.impersonatedUser?.id && preferences.impersonatedUser.id !== "all" && preferences.impersonatedUser.id !== "admin")
+      ? preferences.impersonatedUser.id
+      : null
 
-    if (isAdminUser && !preferences.impersonatedUser) return true
+    // If no specific rep is impersonated and filter is 'all' / 'All' / 'admin' / '' / 'myself'
+    if (!activeImpersonatedId && (!filterVal || filterVal === "all" || filterVal === "All" || filterVal === "admin" || filterVal.toLowerCase().includes("myself"))) {
+      return true
+    }
+
+    const targetId = activeImpersonatedId || filterVal
+    if (!targetId || targetId === "all" || targetId === "All") return true
 
     const repUser = allDbUsers.find(u => 
-      u.id === filterVal || 
-      u.zohoId === filterVal || 
-      (u.email && u.email.toLowerCase() === filterVal.toLowerCase()) ||
-      (u.name && u.name.toLowerCase().includes(filterVal.toLowerCase()))
+      u.id === targetId || 
+      u.zohoId === targetId || 
+      (u.email && u.email.toLowerCase() === targetId.toLowerCase()) ||
+      (u.name && u.name.toLowerCase().includes(targetId.toLowerCase()))
     )
     const validOwnerIds = repUser 
       ? [repUser.id, repUser.zohoId, repUser.email, repUser.name].filter(Boolean).map(s => String(s).toLowerCase()) 
-      : [String(filterVal).toLowerCase()]
+      : [String(targetId).toLowerCase()]
 
     const accOwnerId = String(a.ownerId || a.owner?.id || a.owner?.zohoId || '').toLowerCase()
     const accOwnerEmail = String(a.owner?.email || '').toLowerCase()
@@ -668,13 +671,13 @@ export default function SalesPage() {
                 <FiEye size={14} className="text-neutral-400" />
                 <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">View as Rep</span>
                 <select
-                  value={preferences.impersonatedUser?.id || ""}
+                  value={preferences.impersonatedUser?.id || "all"}
                   onChange={e => {
                     const id = e.target.value;
-                    if (!id) {
+                    if (!id || id === "all" || id === "admin") {
                       updatePreferences({ impersonatedUser: null });
                     } else {
-                      const u = allDbUsers.find(user => user.id === id);
+                      const u = allDbUsers.find(user => user.id === id || user.zohoId === id);
                       if (u) {
                         updatePreferences({ impersonatedUser: { id: u.id, name: u.name, email: u.email, role: u.role } });
                       }
