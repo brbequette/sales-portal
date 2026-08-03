@@ -1,30 +1,36 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getSystemSettings } from '@/lib/settings'
-import { calculateDocumentCosts } from '../../../../../netlify/functions/lib/cost-calculations'
+import { NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { calculateDocumentCosts } from "../../../../../netlify/functions/lib/cost-calculations"
 
 function formatMonthKey(d: Date): string {
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  return `${yyyy}-${mm}`
-}
-
-function getNextMonthKey(monthKey: string): string {
-  const [yyyy, mm] = monthKey.split('-').map(Number)
-  const nextDate = new Date(yyyy, mm, 1) // month is 0-indexed in JS, so `mm` gives next month
-  return formatMonthKey(nextDate)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  return `${y}-${m}`
 }
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({}))
-    const { repId, monthKey, applyToAll } = body
+    const { repId, monthKey, applyToAll } = await req.json().catch(() => ({}))
 
-    const settings = await getSystemSettings()
-    
-    // Find target rep users
-    let targetUsers = await prisma.user.findMany({
-      where: repId && !applyToAll ? { id: repId } : {}
+    // Fetch target user(s)
+    let targetUsers: any[] = []
+    if (repId && !applyToAll) {
+      const u = await prisma.user.findUnique({ where: { id: repId } })
+      if (u) targetUsers = [u]
+    } else {
+      targetUsers = await prisma.user.findMany()
+    }
+
+    if (targetUsers.length === 0) {
+      return NextResponse.json({ success: false, error: "No users found for VIG recalculation" }, { status: 404 })
+    }
+
+    // Fetch all monthly VIG goals from DB (saved on VIG Management page)
+    const allMonthlyGoals = await prisma.monthlyVigGoal.findMany()
+    const goalMap = new Map<string, Map<string, any>>()
+    allMonthlyGoals.forEach(g => {
+      if (!goalMap.has(g.repId)) goalMap.set(g.repId, new Map())
+      goalMap.get(g.repId)!.set(g.monthKey, g)
     })
 
     let totalInvoicesUpdated = 0
@@ -72,10 +78,21 @@ export async function POST(req: Request) {
         const currentMonthKey = sortedMonthKeys[i]
         const invoicesInMonth = monthlyInvoicesMap[currentMonthKey] || []
 
-        // If constant VIG enabled for rep, use constant rate
-        let effectiveVigRate = user.constantVigEnabled && user.constantVigValue
-          ? user.constantVigValue
-          : (previousMonthMetGoal ? 1.3 : 1.5)
+        const repGoals = goalMap.get(user.id)
+        const currentGoalObj = repGoals?.get(currentMonthKey)
+
+        // Resolve rate strictly from VIG Management page saved data:
+        // 1. Constant VIG override on User record
+        // 2. Manual VIG Rate override on MonthlyVigGoal
+        // 3. Goal-based cascading baseline: 1.3 if met previous goal, 1.5 if missed
+        let effectiveVigRate = 1.3
+        if (user.constantVigEnabled && user.constantVigValue) {
+          effectiveVigRate = user.constantVigValue
+        } else if (currentGoalObj?.manualVigRate != null && !isNaN(currentGoalObj.manualVigRate)) {
+          effectiveVigRate = currentGoalObj.manualVigRate
+        } else {
+          effectiveVigRate = previousMonthMetGoal ? 1.3 : 1.5
+        }
 
         let monthlyTotalProfit = 0
         let monthlyTotalSubtotal = 0
@@ -112,9 +129,10 @@ export async function POST(req: Request) {
         }
 
         // Determine if goal was met in currentMonthKey
-        // Monthly subtotal target fallback: $30,000 profit or $60,000 subtotal
-        const monthlyProfitGoal = 30000
-        previousMonthMetGoal = (monthlyTotalProfit >= monthlyProfitGoal) || (monthlyTotalSubtotal >= 60000)
+        const targetProfitGoal = currentGoalObj?.profitGoal || 30000
+        const targetSubtotalGoal = currentGoalObj?.subtotalGoal || 60000
+
+        previousMonthMetGoal = (monthlyTotalProfit >= targetProfitGoal) || (monthlyTotalSubtotal >= targetSubtotalGoal)
         cascadedMonthsCount++
       }
     }

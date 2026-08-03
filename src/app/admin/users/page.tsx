@@ -1,6 +1,7 @@
 "use client"
 
 
+import Link from "next/link"
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { FiCheckSquare, FiSquare, FiUser, FiShield, FiChevronDown, FiChevronUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSave, FiUserPlus, FiEdit3, FiSearch, FiArrowUp, FiArrowDown, FiRefreshCw, FiUsers, FiZap, FiEye, FiEyeOff } from "react-icons/fi"
 import { PERMISSION_GROUPS, ALL_PERMISSIONS, DEFAULT_REP_PERMISSIONS, resolvePermissions, type UserPermissions } from "@/lib/permissions"
@@ -454,6 +455,17 @@ export default function AdminUsersPage() {
             {syncMessage}
           </div>
         )}
+
+        {/* Systemwide VIG Management Banner */}
+        <div className="bg-yellow-500/10 border border-yellow-500/30 p-3.5 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-yellow-300">
+          <div className="flex items-center gap-2">
+            <FiZap className="text-yellow-400 shrink-0" size={16} />
+            <span>Systemwide VIG rates and monthly goals are managed exclusively on the <strong>VIG Management</strong> control panel.</span>
+          </div>
+          <Link href="/admin/vig" className="px-3 py-1 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-200 border border-yellow-500/40 rounded-lg font-bold transition-all shrink-0 self-start sm:self-auto">
+            Manage VIG Rates & Goals →
+          </Link>
+        </div>
 
         {/* Search + Filter Bar */}
         <div className="flex flex-col sm:flex-row gap-3">
