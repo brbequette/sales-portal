@@ -182,6 +182,7 @@ export default function AdminRepStatsPage() {
               { id: "last_month", label: "Last Month" },
               { id: "this_year", label: "This Year (YTD)" },
               { id: "last_year", label: "Last Year" },
+              { id: "all_time", label: "🌟 All Time (Beginning of Time)" },
               { id: "custom", label: "Custom Range" }
             ].map(p => (
               <button

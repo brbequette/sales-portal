@@ -71,7 +71,10 @@ export const handler: Handler = async (event) => {
     let rangeStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
     let rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
 
-    if (customStartDate && customEndDate) {
+    if (periodParam === "all_time" || periodParam === "all") {
+      rangeStart = new Date(2000, 0, 1, 0, 0, 0)
+      rangeEnd = new Date(2099, 11, 31, 23, 59, 59, 999)
+    } else if (customStartDate && customEndDate) {
       rangeStart = new Date(customStartDate + "T00:00:00.000Z")
       rangeEnd = new Date(customEndDate + "T23:59:59.999Z")
     } else if (periodParam === "today") {
@@ -331,7 +334,7 @@ export const handler: Handler = async (event) => {
       }
     })
 
-    // Process Sales Orders in range (strictly separate from invoices)
+    // Process Sales Orders in range
     allSalesOrders.forEach((so: any) => {
       const items = so.items as any || {}
       const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
@@ -388,7 +391,6 @@ export const handler: Handler = async (event) => {
       repsList = repsList.filter((r: any) => r.repId === repIdFilter || r.email === repIdFilter)
     }
 
-    // Totals Calculation (Strictly Keeping Invoices & Sales Orders Separate)
     let totalInvoiceCount = 0
     let totalInvoiceSubtotal = 0
     let totalInvoiceDeadProfit = 0
