@@ -82,8 +82,16 @@ export async function PUT(req: Request) {
     if (transitionRule !== undefined) updateData.transitionRule = transitionRule
     if (flowConfig !== undefined) updateData.flowConfig = flowConfig
 
+    const existingStage = await prisma.salesStage.findFirst({
+      where: { OR: [{ id }, { slug: id }] }
+    })
+
+    if (!existingStage) {
+      return NextResponse.json({ success: false, error: `Stage '${id}' not found` }, { status: 404 })
+    }
+
     const stage = await prisma.salesStage.update({
-      where: { id },
+      where: { id: existingStage.id },
       data: updateData
     })
 
