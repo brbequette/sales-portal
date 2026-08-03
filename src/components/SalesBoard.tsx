@@ -778,10 +778,12 @@ export function SalesBoard() {
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Sales Rep</th>
                      <th className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10">Metric</th>
                      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, idx) => {
-                        const dateParts = data.weekDays[idx].split('-')
+                        const rawDate = (data?.weekDays && data.weekDays[idx]) ? String(data.weekDays[idx]) : ''
+                        const dateParts = rawDate ? rawDate.split('-') : []
+                        const dateStr = dateParts.length >= 3 ? `${dateParts[1]}/${dateParts[2]}` : ''
                         return (
                            <th key={idx} className="p-4 font-bold text-xs uppercase tracking-widest text-neutral-400 border-b border-white/10 text-right">
-                              {day} {dateParts[1]}/{dateParts[2]}
+                              {day} {dateStr}
                            </th>
                         )
                      })}
@@ -789,7 +791,7 @@ export function SalesBoard() {
                   </tr>
                </thead>
                <tbody>
-                  {data.reps.sort((a:any, b:any) => b.weekly.totalSales - a.weekly.totalSales).map((rep: any, idx: number) => {
+                  {(data?.reps || []).slice().sort((a:any, b:any) => (b.weekly?.totalSales || 0) - (a.weekly?.totalSales || 0)).map((rep: any, idx: number) => {
                      const isExpanded = expandedRows.has(`weekly-${rep.id}`)
                      return (
                      <React.Fragment key={rep.id}>
@@ -873,7 +875,7 @@ export function SalesBoard() {
             <FiStar className="text-amber-400" /> Weekly Top Performers
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-max">
-            {data.reps.sort((a:any, b:any) => b.weekly.totalProfit - a.weekly.totalProfit).map((rep: any, idx: number) => {
+            {(data?.reps || []).slice().sort((a:any, b:any) => (b.weekly?.totalProfit || 0) - (a.weekly?.totalProfit || 0)).map((rep: any, idx: number) => {
               const quota = rep.weeklyTarget > 0 ? Math.min(100, Math.round((rep.weekly.totalProfit / rep.weeklyTarget) * 100)) : 0
               const profitMargin = rep.weekly.totalSales > 0 ? (rep.weekly.totalProfit / rep.weekly.totalSales) * 100 : 0
               return (
@@ -990,7 +992,7 @@ export function SalesBoard() {
                   </tr>
                </thead>
                <tbody>
-                  {data.reps.sort((a:any, b:any) => b.mtd.profit - a.mtd.profit).map((rep: any) => {
+                  {(data?.reps || []).slice().sort((a:any, b:any) => (b.mtd?.profit || 0) - (a.mtd?.profit || 0)).map((rep: any) => {
                      const avgDeal = rep.mtd.dealsClosed > 0 ? rep.mtd.sales / rep.mtd.dealsClosed : 0
                      const profitMargin = rep.mtd.sales > 0 ? (rep.mtd.profit / rep.mtd.sales) * 100 : 0
                      const isExpanded = expandedRows.has(`mtd-${rep.id}`)
@@ -1103,7 +1105,7 @@ export function SalesBoard() {
                   </tr>
                </thead>
                <tbody>
-                  {data.reps.sort((a:any, b:any) => b.ytd.profit - a.ytd.profit).map((rep: any) => {
+                  {(data?.reps || []).slice().sort((a:any, b:any) => (b.ytd?.profit || 0) - (a.ytd?.profit || 0)).map((rep: any) => {
                      const avgDeal = rep.ytd.dealsClosed > 0 ? rep.ytd.sales / rep.ytd.dealsClosed : 0
                      const profitMargin = rep.ytd.sales > 0 ? (rep.ytd.profit / rep.ytd.sales) * 100 : 0
                      const isExpanded = expandedRows.has(`ytd-${rep.id}`)
