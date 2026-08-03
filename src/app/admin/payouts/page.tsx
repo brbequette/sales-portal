@@ -1,10 +1,9 @@
 "use client"
 
-
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useMemo } from "react"
-import { FiDollarSign, FiChevronLeft, FiPlus, FiX, FiUpload, FiDownload } from "react-icons/fi"
+import { FiDollarSign, FiChevronLeft, FiPlus, FiX, FiUpload, FiDownload, FiEdit2, FiTrash2, FiCheckCircle } from "react-icons/fi"
 
 function parseCSV(text: string): Record<string, string>[] {
   const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
@@ -48,7 +47,16 @@ function parseCSV(text: string): Record<string, string>[] {
 }
 
 function formatCurrency(value: number): string {
-  return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `$${(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function formatDate(dateStr?: string): string {
+  if (!dateStr) return "N/A"
+  try {
+    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  } catch {
+    return dateStr
+  }
 }
 
 interface RepLedger {
@@ -83,6 +91,13 @@ export default function PayoutsPage() {
   const [csvUploadStatus, setCsvUploadStatus] = useState<string | null>(null)
   const [csvErrors, setCsvErrors] = useState<string[]>([])
   
+  // Edit Payout State
+  const [editingPayout, setEditingPayout] = useState<any | null>(null)
+  const [editAmount, setEditAmount] = useState("")
+  const [editMethod, setEditMethod] = useState("Check")
+  const [editNotes, setEditNotes] = useState("")
+  const [editDate, setEditDate] = useState("")
+
   const [selectedRepId, setSelectedRepId] = useState("")
   const [payoutAmount, setPayoutAmount] = useState("")
   const [payoutMethod, setPayoutMethod] = useState("Check")
@@ -101,11 +116,15 @@ export default function PayoutsPage() {
       const data = await res.json()
       if (data.success) {
         const repsArray = Object.values(data.byRep) as RepLedger[]
-        // Sort by balance descending
         repsArray.sort((a, b) => b.balance - a.balance)
         setLedger(repsArray)
         if (data.years && data.years.length > 0) {
           setAvailableYears(data.years)
+        }
+        // Refresh active rep modal if open
+        if (selectedRepForLedger) {
+          const updatedRep = repsArray.find(r => r.repId === selectedRepForLedger.repId)
+          if (updatedRep) setSelectedRepForLedger(updatedRep)
         }
       } else {
         setError(data.error || "Failed to load ledger")
@@ -116,6 +135,10 @@ export default function PayoutsPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchLedger()
+  }, [selectedYear])
 
   const handleSort = (field: keyof RepLedger) => {
     if (sortField === field) {
@@ -149,10 +172,12 @@ export default function PayoutsPage() {
     
     type Transaction = {
       id: string
+      rawPayoutId?: string
       date: string
       type: "commission" | "payout"
       description: string
       amount: number
+      rawPayout?: any
     }
     
     const txs: Transaction[] = []
@@ -174,10 +199,12 @@ export default function PayoutsPage() {
     for (const payout of (selectedRepForLedger.payouts || [])) {
       txs.push({
         id: `pay-${payout.id}`,
+        rawPayoutId: payout.id,
         date: payout.date || payout.createdAt,
         type: "payout",
         description: `Payout (${payout.method})${payout.notes ? ` - ${payout.notes}` : ''}`,
-        amount: -payout.amount
+        amount: -payout.amount,
+        rawPayout: payout
       })
     }
     
@@ -191,10 +218,6 @@ export default function PayoutsPage() {
       return { ...tx, runningBalance }
     })
   }, [selectedRepForLedger])
-
-  useEffect(() => {
-    fetchLedger()
-  }, [selectedYear])
 
   const handleAddPayout = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -221,7 +244,6 @@ export default function PayoutsPage() {
         setPayoutNotes("")
         setPayoutDate(new Date().toISOString().split('T')[0])
         setPayoutMethod("Check")
-        // Refresh the ledger
         fetchLedger()
       } else {
         setError(data.error || "Failed to add payout")
@@ -233,483 +255,474 @@ export default function PayoutsPage() {
     }
   }
 
-  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
-    setSubmitting(true);
-    setCsvUploadStatus("Parsing CSV...");
-    setCsvErrors([]);
+  const handleOpenEditPayout = (payout: any) => {
+    setEditingPayout(payout)
+    setEditAmount((payout.amount || 0).toString())
+    setEditMethod(payout.method || "Check")
+    setEditNotes(payout.notes || "")
+    const d = payout.date ? new Date(payout.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    setEditDate(d)
+  }
 
+  const handleSaveEditPayout = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingPayout || !editAmount) return
+
+    setSubmitting(true)
     try {
-      const text = await file.text();
-      const rows = parseCSV(text);
-      if (rows.length === 0) {
-        setCsvErrors(["CSV is empty or invalid."]);
-        setSubmitting(false);
-        return;
+      const res = await fetch("/api/update-payout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payoutId: editingPayout.id,
+          amount: parseFloat(editAmount),
+          method: editMethod,
+          notes: editNotes,
+          date: editDate
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setEditingPayout(null)
+        fetchLedger()
+      } else {
+        alert("Failed to update payout: " + (data.error || "Unknown error"))
       }
-
-      setCsvUploadStatus(`Found ${rows.length} rows. Uploading...`);
-      let successCount = 0;
-      let newErrors: string[] = [];
-
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const repName = row["rep name"];
-        const amountStr = row["amount"] || "";
-        const amount = parseFloat(amountStr.replace(/[^0-9.-]+/g, ""));
-        const method = row["method"] || "Check";
-        const payoutDateStr = row["payout date"] || "";
-        const notes = row["notes"] || "";
-
-        if (!repName || !amountStr) {
-          newErrors.push(`Row ${i + 2}: Missing Rep Name or Amount.`);
-          continue;
-        }
-
-        // Find repId
-        const rep = ledger.find(r => r.repName.toLowerCase() === repName.toLowerCase());
-        if (!rep) {
-          newErrors.push(`Row ${i + 2}: Rep '${repName}' not found in ledger.`);
-          continue;
-        }
-
-        if (isNaN(amount) || amount <= 0) {
-          newErrors.push(`Row ${i + 2}: Invalid amount '${amountStr}'.`);
-          continue;
-        }
-
-        try {
-          const res = await fetch("/api/add-payout", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              repId: rep.repId,
-              amount: amount.toString(),
-              method: method,
-              date: payoutDateStr || new Date().toISOString().split('T')[0],
-              notes: notes
-            })
-          });
-          const data = await res.json();
-          if (!data.success) {
-            newErrors.push(`Row ${i + 2}: Backend error - ${data.error}`);
-          } else {
-            successCount++;
-          }
-        } catch (err: any) {
-          newErrors.push(`Row ${i + 2}: Network error - ${err.message}`);
-        }
-      }
-
-      setCsvErrors(newErrors);
-      setCsvUploadStatus(`Completed! Successfully added ${successCount} payouts. ${newErrors.length > 0 ? "See errors below." : ""}`);
-      if (successCount > 0) {
-        fetchLedger();
-      }
-    } catch (error: any) {
-      setCsvErrors([`Failed to parse file: ${error.message}`]);
+    } catch (err: any) {
+      alert("Error updating payout: " + err.message)
     } finally {
-      setSubmitting(false);
-      // Reset file input
-      e.target.value = '';
+      setSubmitting(false)
     }
-  };
+  }
+
+  const handleDeletePayout = async (payoutId: string) => {
+    if (!window.confirm("⚠️ Are you sure you want to delete this payout? This will recalculate the representative's balance.")) return
+
+    setSubmitting(true)
+    try {
+      const res = await fetch("/api/delete-payout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payoutId })
+      })
+      const data = await res.json()
+      if (data.success) {
+        fetchLedger()
+      } else {
+        alert("Failed to delete payout: " + (data.error || "Unknown error"))
+      }
+    } catch (err: any) {
+      alert("Error deleting payout: " + err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const downloadExampleCsv = () => {
-    const csvContent = "data:text/csv;charset=utf-8,Rep Name,Amount,Method,Payout Date,Notes\nJohn Doe,500.00,Check,2023-11-01,Bonus payout\nJane Smith,250.50,Zelle,2023-12-15,Regular commission";
+    const csvContent = "data:text/csv;charset=utf-8,Rep Name,Amount,Method,Payout Date,Notes\nRichard Griffin,500.00,Check,2026-08-01,Monthly Commission\nRoss Haisler,1250.50,Zelle,2026-08-01,Advance Payout";
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "payouts_example.csv");
+    link.setAttribute("download", "payouts_template.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }
-
-  if (loading && ledger.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center bg-[#0f1013]">
-        <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    )
-  }
+  };
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans h-full">
-      <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto safe-bottom">
-        
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <FiDollarSign className="text-emerald-500" /> Commission Ledger
-            </h1>
-            <p className="text-xs text-neutral-400 mt-1">Track balances, view invoices, and manage payouts</p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowCsvModal(true)}
-              className="px-4 py-2 glass-panel border border-neutral-700 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-white rounded-lg text-sm font-bold flex items-center gap-2 transition-colors"
-            >
-              <FiUpload /> Import CSV
-            </button>
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold flex items-center gap-2 transition-colors shadow-lg shadow-emerald-900/20"
-            >
-              <FiPlus /> New Payout
-            </button>
-          </div>
+    <div className="min-h-screen bg-[#0a0a0a] text-neutral-100 p-4 sm:p-6 lg:p-8 space-y-6">
+      
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-neutral-900/60 p-6 rounded-2xl border border-white/10 backdrop-blur-md">
+        <div>
+          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
+            <FiDollarSign className="text-emerald-500" size={28} /> Commission Ledger & Payout Manager
+          </h1>
+          <p className="text-xs text-neutral-400 mt-1">
+            Track representative balances, view invoices, edit payouts, and manage commission payouts.
+          </p>
         </div>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 text-sm">
-            {error}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={downloadExampleCsv}
+            className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-bold transition-all border border-neutral-700 flex items-center gap-2 cursor-pointer"
+          >
+            <FiDownload size={14} /> Template
+          </button>
+          <button
+            onClick={() => setShowCsvModal(true)}
+            className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-bold transition-all border border-neutral-700 flex items-center gap-2 cursor-pointer"
+          >
+            <FiUpload size={14} /> Import CSV
+          </button>
+          {isAdmin && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-emerald-900/20 cursor-pointer"
+            >
+              <FiPlus size={16} /> New Payout
+            </button>
+          )}
+        </div>
+      </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between glass-panel p-4 border border-white/10 rounded-2xl">
-          <div className="flex gap-4 w-full sm:w-auto">
+      {/* Main Ledger Table */}
+      <div className="bg-neutral-900/60 border border-white/10 rounded-2xl p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <div className="w-full sm:w-72">
             <input
               type="text"
-              placeholder="Search by rep name..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full sm:w-64 bg-black/20 border border-white/10 text-white rounded-xl px-4 py-2 focus:outline-none focus:border-purple-500 transition-colors"
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search by rep name..."
+              className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
             />
+          </div>
+
+          <div className="flex items-center gap-3 text-xs text-neutral-400">
+            <span>Year:</span>
             <select
               value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="bg-black/20 border border-white/10 text-white rounded-xl px-4 py-2 focus:outline-none focus:border-purple-500 transition-colors"
+              onChange={e => setSelectedYear(e.target.value)}
+              className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
             >
               <option value="all">All Time</option>
               {availableYears.map(y => (
-                <option key={y} value={y.toString()}>{y}</option>
+                <option key={y} value={y}>{y}</option>
               ))}
             </select>
-          </div>
-          <div className="text-sm text-neutral-400">
-            Showing {processedLedger.length} of {ledger.length} reps
           </div>
         </div>
 
         {/* Ledger Table */}
-        <div className="glass-panel border border-white/10 rounded-2xl overflow-hidden shadow-lg">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead>
-                <tr className="bg-black/20/50 border-b border-white/10 text-neutral-400 uppercase tracking-wider text-xs select-none">
-                  <th className="px-6 py-4 font-bold cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("repName")}>
-                    Rep Name {sortField === "repName" && (sortDir === "asc" ? "^" : "v")}
-                  </th>
-                  <th className="px-6 py-4 font-bold text-right text-emerald-400 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("totalEarned")}>
-                    Total Earned {sortField === "totalEarned" && (sortDir === "asc" ? "^" : "v")}
-                  </th>
-                  <th className="px-6 py-4 font-bold text-right text-neutral-500 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("totalPaid")}>
-                    Total Paid {sortField === "totalPaid" && (sortDir === "asc" ? "^" : "v")}
-                  </th>
-                  <th className="px-6 py-4 font-bold text-right text-purple-400 text-base cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("balance")}>
-                    Balance {sortField === "balance" && (sortDir === "asc" ? "^" : "v")}
-                  </th>
-                  <th className="px-6 py-4 font-bold text-right text-amber-500 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("totalFutures")}>
-                    Futures {sortField === "totalFutures" && (sortDir === "asc" ? "^" : "v")}
-                  </th>
-                  <th className="px-6 py-4 font-bold text-right text-red-400 cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50 transition-colors" onClick={() => handleSort("totalAtRisk")}>
-                    At Risk (90d+) {sortField === "totalAtRisk" && (sortDir === "asc" ? "^" : "v")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-800/50">
-                {processedLedger.map((rep) => (
-                  <tr key={rep.repId} className="hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/20 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-white">{rep.repName}</div>
-                      <div className="text-[10px] text-neutral-500 mt-0.5">{rep.payouts?.length || 0} Payouts</div>
-                    </td>
-                    <td className="px-6 py-4 text-right font-mono text-emerald-300">
-                      {formatCurrency(rep.totalEarned)}
-                    </td>
-                    <td className="px-6 py-4 text-right font-mono text-neutral-400">
-                      {formatCurrency(rep.totalPaid)}
-                    </td>
-                    <td 
-                      className="px-6 py-4 text-right font-mono text-base font-bold text-purple-300 bg-purple-900/10 cursor-pointer hover:bg-purple-900/30 transition-colors underline decoration-purple-500/50 underline-offset-4"
-                      onClick={() => setSelectedRepForLedger(rep)}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-white/10 text-neutral-400 uppercase text-[10px] tracking-wider bg-black/30">
+                <th className="p-3 cursor-pointer" onClick={() => handleSort("repName")}>REP NAME</th>
+                <th className="p-3 text-right cursor-pointer" onClick={() => handleSort("totalEarned")}>TOTAL EARNED</th>
+                <th className="p-3 text-right cursor-pointer" onClick={() => handleSort("totalPaid")}>TOTAL PAID</th>
+                <th className="p-3 text-right cursor-pointer font-bold text-purple-400" onClick={() => handleSort("balance")}>BALANCE</th>
+                <th className="p-3 text-right">FUTURES</th>
+                <th className="p-3 text-right text-red-400">AT RISK (90D+)</th>
+                <th className="p-3 text-center">ACTION</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {processedLedger.map(r => (
+                <tr
+                  key={r.repId}
+                  onClick={() => setSelectedRepForLedger(r)}
+                  className="hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  <td className="p-3 font-bold text-white flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-xs">
+                      {r.repName.charAt(0)}
+                    </div>
+                    <div>
+                      <div>{r.repName}</div>
+                      <div className="text-[10px] text-neutral-500 font-normal">{r.payouts?.length || 0} Payouts</div>
+                    </div>
+                  </td>
+                  <td className="p-3 text-right font-mono font-semibold text-emerald-400">{formatCurrency(r.totalEarned)}</td>
+                  <td className="p-3 text-right font-mono text-neutral-300">{formatCurrency(r.totalPaid)}</td>
+                  <td className="p-3 text-right font-mono font-black text-purple-300 text-sm">{formatCurrency(r.balance)}</td>
+                  <td className="p-3 text-right font-mono text-neutral-400">{formatCurrency(r.totalFutures)}</td>
+                  <td className="p-3 text-right font-mono text-red-400">{formatCurrency(r.totalAtRisk)}</td>
+                  <td className="p-3 text-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedRepForLedger(r)
+                      }}
+                      className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-lg text-[10px] font-bold border border-purple-500/30 transition-all cursor-pointer"
                     >
-                      {formatCurrency(rep.balance)}
-                    </td>
-                    <td className="px-6 py-4 text-right font-mono text-amber-300">
-                      {formatCurrency(rep.totalFutures || 0)}
-                    </td>
-                    <td className="px-6 py-4 text-right font-mono text-red-400">
-                      {formatCurrency(rep.totalAtRisk || 0)}
-                    </td>
-                  </tr>
-                ))}
-                {processedLedger.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-neutral-500 italic">
-                      No reps found with commission data.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      📜 View History & Edit Payouts
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+      </div>
 
-      {/* Add Payout Modal */}
+      {/* NEW PAYOUT MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-white/10">
-              <h2 className="text-xl font-black text-white">Add Payout</h2>
-              <button 
-                onClick={() => setShowModal(false)}
-                className="p-2 text-neutral-400 hover:text-white bg-neutral-800/50 hover:bg-neutral-700 rounded-xl transition-colors"
-              >
-                <FiX size={20} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-neutral-900 border border-white/10 p-6 rounded-2xl w-full max-w-md space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <FiPlus className="text-emerald-400" /> Record New Commission Payout
+              </h3>
+              <button onClick={() => setShowModal(false)} className="p-1 text-neutral-400 hover:text-white cursor-pointer text-lg font-bold">
+                ✕
               </button>
             </div>
-            <form onSubmit={handleAddPayout} className="p-4 sm:p-6 space-y-4">
-              
+
+            <form onSubmit={handleAddPayout} className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Sales Rep</label>
+                <label className="block text-xs font-bold text-neutral-400 mb-1">Representative</label>
                 <select
                   required
                   value={selectedRepId}
-                  onChange={(e) => setSelectedRepId(e.target.value)}
-                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
+                  onChange={e => setSelectedRepId(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                 >
-                  <option value="">-- Select Rep --</option>
+                  <option value="">Select Rep...</option>
                   {ledger.map(r => (
-                    <option key={r.repId} value={r.repId}>
-                      {r.repName} (Balance: {formatCurrency(r.balance)})
-                    </option>
+                    <option key={r.repId} value={r.repId}>{r.repName} (Balance: {formatCurrency(r.balance)})</option>
                   ))}
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Amount</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">$</span>
-                    <input
-                      type="number"
-                      required
-                      step="0.01"
-                      min="0"
-                      value={payoutAmount}
-                      onChange={(e) => setPayoutAmount(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full bg-black/20 border border-white/10 rounded-xl pl-8 pr-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-purple-500 transition-colors"
-                    />
-                  </div>
+                  <label className="block text-xs font-bold text-neutral-400 mb-1">Amount ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={payoutAmount}
+                    onChange={e => setPayoutAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  />
                 </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Payout Date</label>
+                <div>
+                  <label className="block text-xs font-bold text-neutral-400 mb-1">Payout Date</label>
                   <input
                     type="date"
+                    required
                     value={payoutDate}
-                    onChange={(e) => setPayoutDate(e.target.value)}
-                    className="w-full glass-panel border border-white/10 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 transition-colors"
+                    onChange={e => setPayoutDate(e.target.value)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Method</label>
+                <label className="block text-xs font-bold text-neutral-400 mb-1">Payment Method</label>
                 <select
-                  required
                   value={payoutMethod}
-                  onChange={(e) => setPayoutMethod(e.target.value)}
-                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
+                  onChange={e => setPayoutMethod(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                 >
                   <option value="Check">Check</option>
                   <option value="Zelle">Zelle</option>
+                  <option value="Direct Deposit">Direct Deposit</option>
+                  <option value="Wire Transfer">Wire Transfer</option>
+                  <option value="Cash">Cash</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Description / Notes</label>
+                <label className="block text-xs font-bold text-neutral-400 mb-1">Notes / Reference #</label>
                 <textarea
                   value={payoutNotes}
-                  onChange={(e) => setPayoutNotes(e.target.value)}
-                  placeholder="Optional notes about this payout"
+                  onChange={e => setPayoutNotes(e.target.value)}
+                  placeholder="Check # or transaction reference..."
                   rows={2}
-                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors resize-none"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
-              <div className="pt-4 flex items-center justify-end gap-3">
+              <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-5 py-2.5 text-sm font-bold text-neutral-400 hover:text-white transition-colors"
+                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting || !selectedRepId || !payoutAmount}
-                  className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-900/20"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold cursor-pointer shadow-lg shadow-emerald-900/20"
                 >
-                  {submitting ? "Saving..." : "Add Payout"}
+                  {submitting ? "Saving..." : "Save Payout"}
                 </button>
               </div>
-
             </form>
           </div>
         </div>
       )}
 
-      {/* Upload CSV Modal */}
-      {showCsvModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-white/10">
-              <h2 className="text-xl font-black text-white">Upload Payouts via CSV</h2>
-              <button 
-                onClick={() => setShowCsvModal(false)}
-                className="p-2 text-neutral-400 hover:text-white bg-neutral-800/50 hover:bg-neutral-700 rounded-xl transition-colors"
-                disabled={submitting}
-              >
-                <FiX size={20} />
+      {/* EDIT PAYOUT MODAL */}
+      {editingPayout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-neutral-900 border border-white/10 p-6 rounded-2xl w-full max-w-md space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <FiEdit2 className="text-purple-400" /> Edit Recorded Payout
+              </h3>
+              <button onClick={() => setEditingPayout(null)} className="p-1 text-neutral-400 hover:text-white cursor-pointer text-lg font-bold">
+                ✕
               </button>
             </div>
-            <div className="p-4 sm:p-6 space-y-6">
-              
-              {/* Instructions */}
-              <div className="bg-black/20 p-4 rounded-xl border border-white/10">
-                <h3 className="font-bold text-white mb-2 flex items-center gap-2">
-                  Format Instructions
-                </h3>
-                <p className="text-sm text-neutral-400 mb-3">
-                  Upload a comma-separated values (.csv) file with the following exact headers (case-insensitive). Rep Name must match exactly as it appears in the ledger.
-                </p>
-                <p className="mt-2 font-mono bg-black/20 p-3 rounded-lg border border-white/10 text-neutral-400 text-xs">
-                  Format:<br/>
-                  Rep Name,Amount,Method,Payout Date,Notes<br/>
-                  <span className="text-neutral-500">John Doe,500,Check,2023-11-01,Bonus payout</span>
-                </p>
-                <button 
-                  onClick={downloadExampleCsv}
-                  className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1 font-bold mt-4"
-                >
-                  <FiDownload size={14} /> Download Example Template
-                </button>
+
+            <form onSubmit={handleSaveEditPayout} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-neutral-400 mb-1">Amount ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={editAmount}
+                    onChange={e => setEditAmount(e.target.value)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-neutral-400 mb-1">Payout Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={editDate}
+                    onChange={e => setEditDate(e.target.value)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                  />
+                </div>
               </div>
 
-              {/* Upload Input */}
               <div>
-                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Select CSV File</label>
-                <input 
-                  type="file" 
-                  accept=".csv"
-                  onChange={handleCsvUpload}
-                  disabled={submitting}
-                  className="w-full text-sm text-neutral-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-purple-600 file:text-white hover:file:bg-purple-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                <label className="block text-xs font-bold text-neutral-400 mb-1">Payment Method</label>
+                <select
+                  value={editMethod}
+                  onChange={e => setEditMethod(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                >
+                  <option value="Check">Check</option>
+                  <option value="Zelle">Zelle</option>
+                  <option value="Direct Deposit">Direct Deposit</option>
+                  <option value="Wire Transfer">Wire Transfer</option>
+                  <option value="Cash">Cash</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-400 mb-1">Notes / Description</label>
+                <textarea
+                  value={editNotes}
+                  onChange={e => setEditNotes(e.target.value)}
+                  rows={2}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
                 />
               </div>
 
-              {/* Status and Errors */}
-              {csvUploadStatus && (
-                <div className={`p-4 rounded-xl text-sm font-bold ${csvErrors.length > 0 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
-                  {csvUploadStatus}
-                </div>
-              )}
-
-              {csvErrors.length > 0 && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 max-h-40 overflow-y-auto">
-                  <h4 className="text-sm font-bold text-red-400 mb-2">Errors:</h4>
-                  <ul className="list-disc list-inside text-xs text-red-300 space-y-1">
-                    {csvErrors.map((err, i) => (
-                      <li key={i}>{err}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-            </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingPayout(null)}
+                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold cursor-pointer shadow-lg shadow-purple-900/20"
+                >
+                  {submitting ? "Saving..." : "Update Payout"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* Transaction Ledger Modal */}
+      {/* TRANSACTION LEDGER MODAL WITH EDIT & DELETE BUTTONS */}
       {selectedRepForLedger && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-white/10 shrink-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-white/10 shrink-0">
               <div>
-                <h2 className="text-xl font-black text-white">Transaction Ledger</h2>
-                <p className="text-sm text-neutral-400 mt-1">Showing all history for <span className="font-bold text-purple-400">{selectedRepForLedger.repName}</span></p>
+                <h2 className="text-lg font-bold text-white">Transaction Ledger</h2>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Showing history and editable payouts for <span className="font-bold text-purple-400">{selectedRepForLedger.repName}</span>
+                </p>
               </div>
               <button 
                 onClick={() => setSelectedRepForLedger(null)}
-                className="p-2 text-neutral-400 hover:text-white bg-neutral-800/50 hover:bg-neutral-700 rounded-xl transition-colors"
+                className="p-1.5 text-neutral-400 hover:text-white bg-neutral-800 rounded-xl transition-colors cursor-pointer"
               >
-                <FiX size={20} />
+                ✕
               </button>
             </div>
             
-            <div className="overflow-y-auto flex-1 p-4 sm:p-6">
-              <div className="bg-black/20 border border-white/10 rounded-xl overflow-hidden">
-                <table className="w-full text-left text-sm whitespace-nowrap">
+            <div className="overflow-y-auto flex-1 p-5">
+              <div className="bg-black/30 border border-white/10 rounded-xl overflow-hidden">
+                <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="glass-panel border-b border-white/10 text-neutral-400 uppercase tracking-wider text-xs select-none">
-                      <th className="px-6 py-4 font-bold">Date</th>
-                      <th className="px-6 py-4 font-bold w-full">Description</th>
-                      <th className="px-6 py-4 font-bold text-right">Amount</th>
-                      <th className="px-6 py-4 font-bold text-right text-purple-400">Running Balance</th>
+                    <tr className="bg-neutral-800/60 text-neutral-400 uppercase text-[10px] tracking-wider">
+                      <th className="p-3">Date</th>
+                      <th className="p-3">Type</th>
+                      <th className="p-3">Description / Notes</th>
+                      <th className="p-3 text-right">Amount</th>
+                      <th className="p-3 text-right text-purple-400">Running Balance</th>
+                      <th className="p-3 text-center">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-800/50">
+                  <tbody className="divide-y divide-white/5">
                     {transactionLedger.map((tx, i) => (
-                      <tr key={`${tx.id}-${i}`} className="hover:glass-panel/50 transition-colors">
-                        <td className="px-6 py-3 text-neutral-300 font-mono text-xs">
-                          {new Date(tx.date).toLocaleDateString()}
+                      <tr key={`${tx.id}-${i}`} className="hover:bg-white/5 transition-colors">
+                        <td className="p-3 font-mono text-neutral-400">{formatDate(tx.date)}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                            tx.type === 'commission' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                          }`}>
+                            {tx.type}
+                          </span>
                         </td>
-                        <td className="px-6 py-3">
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tx.type === 'commission' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                              {tx.type}
-                            </span>
-                            <span className="text-white truncate max-w-sm" title={tx.description}>{tx.description}</span>
-                          </div>
+                        <td className="p-3 font-semibold text-white max-w-xs truncate" title={tx.description}>
+                          {tx.description}
                         </td>
-                        <td className={`px-6 py-3 text-right font-mono ${tx.amount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <td className={`p-3 text-right font-mono font-bold ${tx.amount > 0 ? 'text-emerald-400' : 'text-purple-300'}`}>
                           {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
                         </td>
-                        <td className="px-6 py-3 text-right font-mono font-bold text-purple-300 bg-purple-900/5">
+                        <td className="p-3 text-right font-mono font-bold text-purple-300 bg-purple-950/20">
                           {formatCurrency(tx.runningBalance)}
+                        </td>
+                        <td className="p-3 text-center">
+                          {tx.type === 'payout' && tx.rawPayout && (
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => handleOpenEditPayout(tx.rawPayout)}
+                                title="Edit Payout"
+                                className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-purple-300 rounded-lg text-xs font-bold border border-purple-500/30 cursor-pointer"
+                              >
+                                <FiEdit2 size={12} />
+                              </button>
+                              <button
+                                onClick={() => handleDeletePayout(tx.rawPayoutId!)}
+                                title="Delete Payout"
+                                className="p-1.5 bg-neutral-800 hover:bg-red-950 text-red-400 rounded-lg text-xs font-bold border border-red-500/30 cursor-pointer"
+                              >
+                                <FiTrash2 size={12} />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
-                    {transactionLedger.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-8 text-center text-neutral-500 italic">
-                          No transactions found.
-                        </td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>
             </div>
             
-            <div className="p-4 sm:p-6 border-t border-white/10 glass-panel shrink-0 flex justify-end items-center gap-4">
-              <div className="text-sm text-neutral-400 uppercase tracking-wider font-bold">Current Balance</div>
-              <div className="text-2xl font-black text-purple-400 font-mono">
-                {formatCurrency(selectedRepForLedger.balance)}
+            <div className="p-4 border-t border-white/10 bg-black/40 shrink-0 flex justify-between items-center">
+              <div className="text-xs text-neutral-400">Total Paid: <span className="text-white font-bold">{formatCurrency(selectedRepForLedger.totalPaid)}</span></div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-neutral-400 uppercase">Current Balance:</span>
+                <span className="text-xl font-black text-purple-400 font-mono">{formatCurrency(selectedRepForLedger.balance)}</span>
               </div>
             </div>
           </div>
         </div>
       )}
-      </main>
+
     </div>
   )
 }
-

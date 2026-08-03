@@ -104,6 +104,36 @@ export default function VigManagementBuilder() {
     }
   }
 
+  const [syncingZoho, setSyncingZoho] = useState(false)
+  const [syncZohoMessage, setSyncZohoMessage] = useState<string | null>(null)
+
+  const handleSyncAllVigToZoho = async () => {
+    try {
+      setSyncingZoho(true)
+      setSyncZohoMessage("Pushing VIG rates to Zoho Books...")
+      const res = await fetch('/api/sync-vig-to-zoho', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repId: "all",
+          monthKey: selectedMonth || "2026-08",
+          newVigRate: 1.3
+        })
+      })
+      const data = await res.json()
+      if (data.success || res.ok) {
+        setSyncZohoMessage("✅ Synced VIG Rates to Zoho Books successfully!")
+        setTimeout(() => setSyncZohoMessage(null), 5000)
+      } else {
+        alert("Error syncing to Zoho Books: " + (data.error || data.message))
+      }
+    } catch (e: any) {
+      alert("Error pushing to Zoho Books: " + e.message)
+    } finally {
+      setSyncingZoho(false)
+    }
+  }
+
   const handleSaveAll = async () => {
     try {
       setSaving(true)
@@ -192,21 +222,35 @@ export default function VigManagementBuilder() {
           <button
             onClick={() => handleRecalculateDocuments()}
             disabled={recalculatingAll}
-            className="px-4 py-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95"
-            title="Recalculate all documents across reps with updated VIG rates"
+            className="px-4 py-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 cursor-pointer"
+            title="Recalculate all documents across reps with multi-month cascading VIG engine"
           >
             {recalculatingAll ? (
               <div className="w-4 h-4 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
             ) : (
               <FiRefreshCw size={14} />
             )}
-            Re-run All Documents VIG
+            ⚡ Cascading Recalculate VIG
+          </button>
+
+          <button
+            onClick={handleSyncAllVigToZoho}
+            disabled={syncingZoho}
+            className="px-4 py-3 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95 cursor-pointer"
+            title="Push VIG rates to Zoho Books invoices"
+          >
+            {syncingZoho ? (
+              <div className="w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+            ) : (
+              <FiZap size={14} />
+            )}
+            🚀 Push Rates to Zoho Books
           </button>
 
           <button
             onClick={handleSaveAll}
             disabled={saving}
-            className={`px-6 py-3 rounded-xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 shadow-xl ${
+            className={`px-6 py-3 rounded-xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 shadow-xl cursor-pointer ${
               saveSuccess 
                 ? 'bg-emerald-500 text-black shadow-emerald-500/20' 
                 : 'bg-emerald-600 hover:bg-emerald-500 text-white hover:scale-[1.02] active:scale-95'
@@ -230,6 +274,12 @@ export default function VigManagementBuilder() {
       {recalcMessage && (
         <div className="p-4 bg-emerald-950/40 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2 shadow-lg animate-in fade-in duration-200">
           <FiCheck size={16} /> {recalcMessage}
+        </div>
+      )}
+
+      {syncZohoMessage && (
+        <div className="p-4 bg-indigo-950/40 border border-indigo-500/40 rounded-xl text-indigo-300 text-xs font-bold flex items-center gap-2 shadow-lg animate-in fade-in duration-200">
+          <FiZap size={16} /> {syncZohoMessage}
         </div>
       )}
 

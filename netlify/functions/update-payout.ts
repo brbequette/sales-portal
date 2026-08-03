@@ -1,20 +1,15 @@
 import { Handler } from "@netlify/functions"
-
 import { prisma } from "./lib/prisma"
 
 export const handler: Handler = async (event) => {
   const cors = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type"
   }
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
-
-  if (event.httpMethod !== "PATCH") {
-    return { statusCode: 405, headers: cors, body: JSON.stringify({ success: false, error: "Method not allowed" }) }
-  }
 
   try {
     const body = JSON.parse(event.body || "{}")

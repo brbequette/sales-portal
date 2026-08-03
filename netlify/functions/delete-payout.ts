@@ -1,5 +1,4 @@
 import { Handler } from "@netlify/functions"
-
 import { prisma } from "./lib/prisma"
 
 export const handler: Handler = async (event) => {
@@ -12,13 +11,9 @@ export const handler: Handler = async (event) => {
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
 
-  if (event.httpMethod !== "DELETE") {
-    return { statusCode: 405, headers: cors, body: JSON.stringify({ success: false, error: "Method not allowed" }) }
-  }
-
   try {
     const body = JSON.parse(event.body || "{}")
-    const { payoutId } = body
+    const payoutId = body.payoutId || event.queryStringParameters?.payoutId
 
     if (!payoutId) {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing required field: payoutId" }) }
