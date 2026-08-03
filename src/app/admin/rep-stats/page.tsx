@@ -51,6 +51,7 @@ export default function AdminRepStatsPage() {
   const [activeTab, setActiveTab] = useState<"invoices" | "salesOrders">("invoices")
   const [modalActiveTab, setModalActiveTab] = useState<"invoices" | "salesOrders">("invoices")
   const [searchQuery, setSearchQuery] = useState("")
+  const [tileModalInfo, setTileModalInfo] = useState<{ title: string; type: "invoices" | "salesOrders"; docs: any[] } | null>(null)
 
   const fetchStats = async () => {
     try {
@@ -223,31 +224,52 @@ export default function AdminRepStatsPage() {
       {/* KPI Cards Summary - Invoices (Separate from Sales Orders) */}
       <div className="space-y-3">
         <h3 className="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-2">
-          <FiFileText /> Invoices Totals Summary (Actual Billed Sales & Commissions)
+          <FiFileText /> Invoices Totals Summary (Click any tile to inspect documents)
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-neutral-900/60 border border-sky-500/20 p-5 rounded-2xl space-y-1">
-            <div className="text-xs font-bold text-neutral-400">INVOICE SUBTOTALS</div>
+          <div
+            onClick={() => setTileModalInfo({ title: "Invoiced Sales Subtotals Breakdown", type: "invoices", docs: allInvoices })}
+            className="bg-neutral-900/60 border border-sky-500/20 hover:border-sky-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-sky-500/10 transition-all group"
+          >
+            <div className="flex justify-between items-center text-xs font-bold text-neutral-400">
+              <span>INVOICE SUBTOTALS</span>
+              <span className="text-[10px] text-sky-400 opacity-0 group-hover:opacity-100 transition-opacity font-normal">🔍 View Docs</span>
+            </div>
             <div className="text-2xl font-black text-white">{formatCurrency(totals.invoiceSubtotal || 0)}</div>
             <div className="text-[11px] text-neutral-500">{totals.invoiceCount || 0} Invoices Billed</div>
           </div>
 
-          <div className="bg-neutral-900/60 border border-sky-500/20 p-5 rounded-2xl space-y-1">
-            <div className="text-xs font-bold text-neutral-400">DEAD PROFIT (VIG)</div>
+          <div
+            onClick={() => setTileModalInfo({ title: "Invoice Dead Profit (VIG) Breakdown", type: "invoices", docs: allInvoices })}
+            className="bg-neutral-900/60 border border-sky-500/20 hover:border-emerald-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-emerald-500/10 transition-all group"
+          >
+            <div className="flex justify-between items-center text-xs font-bold text-neutral-400">
+              <span>DEAD PROFIT (VIG)</span>
+              <span className="text-[10px] text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity font-normal">🔍 View Docs</span>
+            </div>
             <div className="text-2xl font-black text-emerald-400">{formatCurrency(totals.invoiceDeadProfit || 0)}</div>
             <div className="text-[11px] text-neutral-500">Gross profit before baseline</div>
           </div>
 
-          <div className="bg-neutral-900/60 border border-sky-500/20 p-5 rounded-2xl space-y-1">
-            <div className="text-xs font-bold text-neutral-400">NET PROFIT (AFTER VIG)</div>
+          <div
+            onClick={() => setTileModalInfo({ title: "Invoice Net Profit Breakdown", type: "invoices", docs: allInvoices })}
+            className="bg-neutral-900/60 border border-sky-500/20 hover:border-sky-400/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-sky-400/10 transition-all group"
+          >
+            <div className="flex justify-between items-center text-xs font-bold text-neutral-400">
+              <span>NET PROFIT (AFTER VIG)</span>
+              <span className="text-[10px] text-sky-300 opacity-0 group-hover:opacity-100 transition-opacity font-normal">🔍 View Docs</span>
+            </div>
             <div className="text-2xl font-black text-sky-300">{formatCurrency(totals.invoiceNetProfit || 0)}</div>
             <div className="text-[11px] text-neutral-500">Net profit after baseline VIG rate</div>
           </div>
 
-          <div className="bg-gradient-to-br from-amber-950/40 to-neutral-900 border border-amber-500/30 p-5 rounded-2xl space-y-1">
+          <div
+            onClick={() => setTileModalInfo({ title: "Earned Invoice Commissions Breakdown", type: "invoices", docs: allInvoices })}
+            className="bg-gradient-to-br from-amber-950/40 to-neutral-900 border border-amber-500/30 hover:border-amber-500/70 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-amber-500/10 transition-all group"
+          >
             <div className="flex justify-between items-center text-xs font-bold text-amber-400">
               <span>💰 INVOICE COMMISSIONS</span>
-              <FiAward size={18} />
+              <span className="text-[10px] text-amber-300 opacity-0 group-hover:opacity-100 transition-opacity font-normal">🔍 View Docs</span>
             </div>
             <div className="text-2xl font-black text-amber-300">{formatCurrency(totals.invoiceCommission || 0)}</div>
             <div className="text-[11px] text-neutral-400">50% Rep Earned Commissions</div>
@@ -258,25 +280,40 @@ export default function AdminRepStatsPage() {
       {/* KPI Cards Summary - Sales Orders (Strictly Separate) */}
       <div className="space-y-3 pt-2">
         <h3 className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
-          <FiShoppingCart /> Sales Orders Totals Summary (Pending Invoicing)
+          <FiShoppingCart /> Sales Orders Totals Summary (Click any tile to inspect orders)
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-neutral-900/60 border border-purple-500/20 p-5 rounded-2xl space-y-1">
-            <div className="text-xs font-bold text-neutral-400">SALES ORDER SUBTOTALS</div>
+          <div
+            onClick={() => setTileModalInfo({ title: "Pending Sales Order Subtotals Breakdown", type: "salesOrders", docs: allSalesOrders })}
+            className="bg-neutral-900/60 border border-purple-500/20 hover:border-purple-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all group"
+          >
+            <div className="flex justify-between items-center text-xs font-bold text-neutral-400">
+              <span>SALES ORDER SUBTOTALS</span>
+              <span className="text-[10px] text-purple-300 opacity-0 group-hover:opacity-100 transition-opacity font-normal">🔍 View Orders</span>
+            </div>
             <div className="text-2xl font-black text-white">{formatCurrency(totals.salesOrderSubtotal || 0)}</div>
             <div className="text-[11px] text-neutral-500">{totals.salesOrderCount || 0} Orders Created</div>
           </div>
 
-          <div className="bg-neutral-900/60 border border-purple-500/20 p-5 rounded-2xl space-y-1">
-            <div className="text-xs font-bold text-neutral-400">SALES ORDER DEAD PROFIT</div>
+          <div
+            onClick={() => setTileModalInfo({ title: "Sales Order Dead Profit Breakdown", type: "salesOrders", docs: allSalesOrders })}
+            className="bg-neutral-900/60 border border-purple-500/20 hover:border-purple-400/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-400/10 transition-all group"
+          >
+            <div className="flex justify-between items-center text-xs font-bold text-neutral-400">
+              <span>SALES ORDER DEAD PROFIT</span>
+              <span className="text-[10px] text-purple-300 opacity-0 group-hover:opacity-100 transition-opacity font-normal">🔍 View Orders</span>
+            </div>
             <div className="text-2xl font-black text-purple-300">{formatCurrency(totals.salesOrderDeadProfit || 0)}</div>
             <div className="text-[11px] text-neutral-500">Gross profit on orders</div>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-950/40 to-neutral-900 border border-purple-500/30 p-5 rounded-2xl space-y-1">
+          <div
+            onClick={() => setTileModalInfo({ title: "Estimated Order Commissions Breakdown", type: "salesOrders", docs: allSalesOrders })}
+            className="bg-gradient-to-br from-purple-950/40 to-neutral-900 border border-purple-500/30 hover:border-purple-500/70 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all group"
+          >
             <div className="flex justify-between items-center text-xs font-bold text-purple-400">
               <span>💼 EST. ORDER COMMISSIONS</span>
-              <FiDollarSign size={18} />
+              <span className="text-[10px] text-purple-200 opacity-0 group-hover:opacity-100 transition-opacity font-normal">🔍 View Orders</span>
             </div>
             <div className="text-2xl font-black text-purple-200">{formatCurrency(totals.salesOrderEstCommission || 0)}</div>
             <div className="text-[11px] text-neutral-400">Est. commission upon invoicing</div>
@@ -575,6 +612,76 @@ export default function AdminRepStatsPage() {
                 className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl"
               >
                 Close Breakdown
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KPI Summary Tile Breakdown Modal */}
+      {tileModalInfo && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-white/20 rounded-2xl w-full max-w-5xl max-h-[85vh] flex flex-col p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <FiFileText className={tileModalInfo.type === "invoices" ? "text-sky-400" : "text-purple-400"} />
+                  {tileModalInfo.title}
+                </h2>
+                <p className="text-xs text-neutral-400">
+                  Showing {tileModalInfo.docs.length} {tileModalInfo.type === "invoices" ? "invoice" : "sales order"} document(s) included in this total metric.
+                </p>
+              </div>
+              <button
+                onClick={() => setTileModalInfo(null)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/10"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 border border-white/10 rounded-xl bg-black/40">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-neutral-900 text-neutral-400 uppercase text-[10px] sticky top-0 border-b border-white/10">
+                  <tr>
+                    <th className="p-3">{tileModalInfo.type === "invoices" ? "Invoice #" : "Sales Order #"}</th>
+                    <th className="p-3">Date</th>
+                    <th className="p-3">Customer Account</th>
+                    <th className="p-3">Salesperson</th>
+                    <th className="p-3 text-right">Subtotal</th>
+                    <th className="p-3 text-right">Dead Profit</th>
+                    <th className="p-3 text-right">{tileModalInfo.type === "invoices" ? "Commission" : "Est. Commission"}</th>
+                    <th className="p-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {tileModalInfo.docs.map((doc: any, idx: number) => (
+                    <tr key={doc.id || idx} className="hover:bg-white/5">
+                      <td className="p-3 font-mono font-bold text-sky-400">#{doc.invoiceNumber || doc.salesOrderNumber}</td>
+                      <td className="p-3 text-neutral-400">{formatDate(doc.date)}</td>
+                      <td className="p-3 font-semibold text-white">{doc.customerName}</td>
+                      <td className="p-3 text-neutral-300">{doc.repName}</td>
+                      <td className="p-3 text-right font-mono font-bold text-white">{formatCurrency(doc.subtotal || 0)}</td>
+                      <td className="p-3 text-right font-mono font-bold text-emerald-400">{formatCurrency(doc.deadProfit || 0)}</td>
+                      <td className="p-3 text-right font-mono font-bold text-amber-400">{formatCurrency(doc.commission || doc.estCommission || 0)}</td>
+                      <td className="p-3 text-center">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                          {doc.status || "Completed"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-white/10 shrink-0">
+              <span className="text-xs text-neutral-400">Total Count: <strong className="text-white">{tileModalInfo.docs.length}</strong></span>
+              <button
+                onClick={() => setTileModalInfo(null)}
+                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl"
+              >
+                Close Modal
               </button>
             </div>
           </div>
