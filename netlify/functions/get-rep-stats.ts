@@ -34,14 +34,12 @@ function getWorkdaysInMonth(year: number, month: number, holidays: any[]): numbe
 }
 
 function getWorkdaysInWeek(date: Date, holidays: any[]): number {
-  // Find Monday of the week
   const monday = new Date(date);
   const day = monday.getDay();
   const diff = monday.getDate() - day + (day === 0 ? -6 : 1);
   monday.setDate(diff);
   monday.setHours(0,0,0,0);
   
-  // Sunday of the week
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   sunday.setHours(23, 59, 59, 999);
@@ -65,6 +63,10 @@ export const handler: Handler = async (event) => {
     const showHidden = params.showHidden === 'true' || params.includeHidden === 'true' || params.showHidden === '1'
     const monthParam = params.month // e.g. "2026-07"
     const dateParam = params.date // e.g. "2026-07-21"
+    const repIdFilter = params.repId || params.user || "all"
+    const periodParam = params.period || "this_month"
+    const customStartDate = params.startDate
+    const customEndDate = params.endDate
 
     const appSettings = {
       default_vig_rate: 1.3,
@@ -76,27 +78,58 @@ export const handler: Handler = async (event) => {
       ai_reply_prompt: "You are a professional sales assistant."
     }
 
-    // Time ranges
+    // Determine target Date Range based on periodParam / startDate / endDate
     let now = new Date()
-    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-      const [yyyy, mm, dd] = dateParam.split("-")
-      now = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd))
+    let rangeStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
+    let rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+
+    if (customStartDate && customEndDate) {
+      rangeStart = new Date(customStartDate + "T00:00:00.000Z")
+      rangeEnd = new Date(customEndDate + "T23:59:59.999Z")
+    } else if (periodParam === "today") {
+      rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+      rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+    } else if (periodParam === "this_week") {
+      const mon = new Date(now)
+      const day = mon.getDay()
+      const diff = mon.getDate() - day + (day === 0 ? -6 : 1)
+      mon.setDate(diff)
+      mon.setHours(0,0,0,0)
+      const sun = new Date(mon)
+      sun.setDate(mon.getDate() + 6)
+      sun.setHours(23,59,59,999)
+      rangeStart = mon
+      rangeEnd = sun
+    } else if (periodParam === "this_month") {
+      rangeStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
+      rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+    } else if (periodParam === "last_month") {
+      rangeStart = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0)
+      rangeEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+    } else if (periodParam === "this_year") {
+      rangeStart = new Date(now.getFullYear(), 0, 1, 0, 0, 0)
+      rangeEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
+    } else if (periodParam === "last_year") {
+      rangeStart = new Date(now.getFullYear() - 1, 0, 1, 0, 0, 0)
+      rangeEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999)
     } else if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
       const [yyyy, mm] = monthParam.split("-")
-      now = new Date(parseInt(yyyy), parseInt(mm) - 1, 15) // Middle of selected month
+      rangeStart = new Date(parseInt(yyyy), parseInt(mm) - 1, 1, 0, 0, 0)
+      rangeEnd = new Date(parseInt(yyyy), parseInt(mm), 0, 23, 59, 59, 999)
+    } else if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      const [yyyy, mm, dd] = dateParam.split("-")
+      rangeStart = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), 0, 0, 0)
+      rangeEnd = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), 23, 59, 59, 999)
     }
 
-    // Batch all DB queries concurrently in a single Promise.all trip
-    const startDateLimit = new Date(now.getFullYear(), now.getMonth() - 72, 1)
-
+    // Batch all DB queries concurrently
     const [
       settings,
       users,
       accounts,
-      deals,
-      oldestInvoice,
-      allHistoricalInvoices
-    ]: [any[], any[], any[], any[], any, any[]] = await Promise.all([
+      allInvoices,
+      allSalesOrders
+    ]: [any[], any[], any[], any[], any[]] = await Promise.all([
       prisma.systemSetting.findMany().catch(() => []),
       prisma.user.findMany({
         where: {
@@ -110,6 +143,8 @@ export const handler: Handler = async (event) => {
           id: true, 
           name: true, 
           email: true, 
+          phone: true,
+          title: true,
           role: true,
           constantVigEnabled: true,
           constantVigValue: true,
@@ -131,46 +166,54 @@ export const handler: Handler = async (event) => {
       prisma.account.findMany({
         select: {
           id: true,
+          name: true,
           ownerId: true,
-          status: true,
-          invoices: {
-            select: {
-              id: true,
-              zohoId: true,
-              amount: true,
-              status: true,
-              issueDate: true,
-              items: true,
-              createdAt: true
-            }
-          }
+          status: true
         }
       }).catch(() => []),
-      prisma.deal.findMany({
+      prisma.invoice.findMany({
+        where: {
+          issueDate: {
+            gte: rangeStart,
+            lte: rangeEnd
+          }
+        },
         select: {
           id: true,
-          ownerId: true,
-          name: true,
-          amount: true,
-          stage: true,
-          closingDate: true
-        }
-      }).catch(() => []),
-      prisma.invoice.findFirst({
-        orderBy: { createdAt: 'asc' },
-        select: { createdAt: true }
-      }).catch(() => null),
-      prisma.invoice.findMany({
-        where: { issueDate: { gte: startDateLimit } },
-        select: {
-          issueDate: true,
-          createdAt: true,
+          zohoId: true,
           amount: true,
           status: true,
+          issueDate: true,
           items: true,
           accountId: true,
-          account: { select: { ownerId: true } }
-        }
+          createdAt: true,
+          account: {
+            select: { id: true, name: true, ownerId: true }
+          }
+        },
+        orderBy: { issueDate: 'desc' }
+      }).catch(() => []),
+      prisma.salesOrder.findMany({
+        where: {
+          orderDate: {
+            gte: rangeStart,
+            lte: rangeEnd
+          }
+        },
+        select: {
+          id: true,
+          zohoId: true,
+          amount: true,
+          status: true,
+          orderDate: true,
+          items: true,
+          accountId: true,
+          createdAt: true,
+          account: {
+            select: { id: true, name: true, ownerId: true }
+          }
+        },
+        orderBy: { orderDate: 'desc' }
       }).catch(() => [])
     ])
 
@@ -180,7 +223,7 @@ export const handler: Handler = async (event) => {
     const subtotalTargets: Record<string, number> = JSON.parse(settingsMap.get("subtotal_targets") || "{}")
     const visibleReps: string[] = JSON.parse(settingsMap.get("visible_reps") || "[]")
 
-    // 3. Map usernames to user IDs for salesperson matching with aliases and space normalization
+    // Map usernames & aliases to user IDs
     const userNameToIdMap: Record<string, string> = {}
     users.forEach(u => {
       if (u.name) {
@@ -189,7 +232,6 @@ export const handler: Handler = async (event) => {
       }
     })
 
-    // Add common salesperson aliases found in Zoho Books invoices
     const addAlias = (alias: string, targetName: string) => {
       const targetUser = users.find(u => u.name?.toLowerCase().includes(targetName.toLowerCase()))
       if (targetUser) {
@@ -203,29 +245,7 @@ export const handler: Handler = async (event) => {
     addAlias("ben bequette", "benjamin bequette")
     addAlias("justin  zastrow", "justin zastrow")
     const unassignedId = "unassigned"
-    
-    // Daily range
-    const todayStart = new Date(now)
-    todayStart.setHours(0,0,0,0)
-    const todayEnd = new Date(now)
-    todayEnd.setHours(23,59,59,999)
 
-    // Weekly range (Monday to Sunday)
-    const monday = new Date(now)
-    const day = monday.getDay()
-    const diff = monday.getDate() - day + (day === 0 ? -6 : 1)
-    monday.setDate(diff)
-    monday.setHours(0,0,0,0)
-    const sunday = new Date(monday)
-    sunday.setDate(monday.getDate() + 6)
-    sunday.setHours(23,59,59,999)
-
-    // Monthly range
-    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    lastOfMonth.setHours(23,59,59,999)
-
-    // Workdays count for targets
     const workdaysInWeek = getWorkdaysInWeek(now, holidays)
     const workdaysInMonth = getWorkdaysInMonth(now.getFullYear(), now.getMonth(), holidays)
 
@@ -236,49 +256,24 @@ export const handler: Handler = async (event) => {
       const dailyGoal = salesTargets[u.id] || 0
       const weeklyGoal = dailyGoal * workdaysInWeek
       const monthlyGoal = dailyGoal * workdaysInMonth
-      
       const dailySubtotalGoal = subtotalTargets[u.id] || (dailyGoal * 2)
-      const weeklySubtotalGoal = dailySubtotalGoal * workdaysInWeek
-      const monthlySubtotalGoal = dailySubtotalGoal * workdaysInMonth
 
       repStatsMap[u.id] = {
         repId: u.id,
         repName: u.name || u.email.split("@")[0],
         email: u.email,
+        phone: u.phone || "",
+        title: u.title || "Sales Representative",
         role: u.role,
-        constantVigEnabled: u.constantVigEnabled,
-        constantVigValue: u.constantVigValue,
-        monthlyVigGoals: u.monthlyVigGoals,
-        payoutStructure: u.payoutStructure,
-        // All-time totals
         revenue: 0,
         profit: 0,
         deadProfit: 0,
         margin: 0,
-        activeAccounts: 0,
-        updateAccounts: 0,
-        totalDeals: 0,
-        closedWonDeals: 0,
-        dealRevenue: 0,
         commissions: 0,
-        overdueCollections: 0,
+        invoiceCount: 0,
+        salesOrderCount: 0,
         invoices: [],
-        deals: [],
-        
-        // Target settings
-        salesTargets: {
-          daily: dailyGoal,
-          weekly: weeklyGoal,
-          monthly: monthlyGoal,
-          dailySubtotal: dailySubtotalGoal,
-          weeklySubtotal: weeklySubtotalGoal,
-          monthlySubtotal: monthlySubtotalGoal
-        },
-
-        // Periodic breakdowns
-        daily: { revenue: 0, profit: 0, deadProfit: 0, dealsWon: 0, target: dailyGoal },
-        weekly: { revenue: 0, profit: 0, deadProfit: 0, dealsWon: 0, target: weeklyGoal },
-        monthly: { revenue: 0, profit: 0, deadProfit: 0, dealsWon: 0, target: monthlyGoal }
+        salesOrders: []
       }
     })
 
@@ -286,172 +281,53 @@ export const handler: Handler = async (event) => {
       repId: unassignedId,
       repName: "Unassigned",
       email: "",
+      phone: "",
+      title: "Unassigned Pool",
       role: "",
-      constantVigEnabled: false,
-      constantVigValue: appSettings.default_vig_rate,
-      monthlyVigGoals: [],
       revenue: 0,
       profit: 0,
       deadProfit: 0,
       margin: 0,
-      activeAccounts: 0,
-      updateAccounts: 0,
-      totalDeals: 0,
-      closedWonDeals: 0,
-      dealRevenue: 0,
       commissions: 0,
-      overdueCollections: 0,
+      invoiceCount: 0,
+      salesOrderCount: 0,
       invoices: [],
-      deals: [],
-      salesTargets: { daily: 0, weekly: 0, monthly: 0, dailySubtotal: 0, weeklySubtotal: 0, monthlySubtotal: 0 },
-      daily: { revenue: 0, profit: 0, deadProfit: 0, dealsWon: 0, target: 0 },
-      weekly: { revenue: 0, profit: 0, deadProfit: 0, dealsWon: 0, target: 0 },
-      monthly: { revenue: 0, profit: 0, deadProfit: 0, dealsWon: 0, target: 0 }
+      salesOrders: []
     }
 
-    // Process accounts (account owner attributes counts)
-    accounts.forEach(acc => {
-      const ownerId = acc.ownerId || unassignedId
-      if (!repStatsMap[ownerId]) return
+    // Process Invoices in range
+    allInvoices.forEach((inv: any) => {
+      const items = inv.items as any || {}
+      const cfs = items.custom_fields || []
+      const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
 
-      if (acc.status === "Update Status") {
-        repStatsMap[ownerId].updateAccounts++
-      } else {
-        repStatsMap[ownerId].activeAccounts++
+      const amount = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
+
+      let deadCost = parseFloat(
+        items.deadCostTotal || items.dead_cost_total || items.deadCost ||
+        items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0
+      )
+      if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
+        deadCost = lineItems.reduce((sum: number, li: any) => {
+          const qty = parseFloat(li.quantity) || 1
+          const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
+          return sum + (qty * cost)
+        }, 0)
       }
+      if (isNaN(deadCost)) deadCost = 0
 
-      const invoices = acc.invoices || []
-      invoices.forEach((inv: any) => {
-        const items = inv.items as any || {}
-        const cfs = items.custom_fields || []
-        const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
+      const docDate = inv.issueDate ? new Date(inv.issueDate) : new Date()
+      const year = docDate.getFullYear()
+      const salespersonName = items.salesperson || ""
+      const isMontgomery = salespersonName.toLowerCase().includes("montgomery") || salespersonName.toLowerCase().includes("morgan")
+      const vigRate = (year <= 2024 || isMontgomery) ? (isMontgomery ? 1.0 : 1.3) : (parseFloat(items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted) || 1.3)
+      const deadCostPlusVig = (parseFloat(items.deadCostPlusVig || items.dead_cost_plus_vig || 0) || (deadCost * vigRate)) || 0
 
-        // Subtotal = invoice line-item total (sub_total), NOT the balance due (amount)
-        const amount = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
-
-        // Try all known variants first, then fall back to line items
-        let deadCost = parseFloat(
-          items.deadCostTotal || items.dead_cost_total || items.deadCost ||
-          items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0
-        )
-        if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
-          deadCost = lineItems.reduce((sum: number, li: any) => {
-            const qty = parseFloat(li.quantity) || 1
-            const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
-            return sum + (qty * cost)
-          }, 0)
-        }
-        if (isNaN(deadCost)) deadCost = 0
-
-        const docDate = inv.issueDate ? new Date(inv.issueDate) : new Date()
-        const year = docDate.getFullYear()
-        const salespersonName = items.salesperson || ""
-        const isMontgomery = salespersonName.toLowerCase().includes("montgomery") || salespersonName.toLowerCase().includes("morgan")
-        
-        // Historical VIG Rate Rules:
-        // - Up to end of 2024: Monty = 1.0, Everyone else = 1.3
-        // - 2025 onwards: Monty = 1.0, Everyone else = 1.3 baseline (or items.vigRate / 1.5 penalty)
-        const vigRate = (year <= 2024 || isMontgomery) ? (isMontgomery ? 1.0 : 1.3) : (parseFloat(items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted) || 1.3)
-        const deadCostPlusVig = (parseFloat(items.deadCostPlusVig || items.dead_cost_plus_vig || 0) || (deadCost * vigRate)) || 0
-
-        const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
-        const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
-        
-        // Dead Profit = sub_total - deadCostTotal - additionalCosts - ccFees (strictly used for Sales Goals)
-        const deadProfit = amount - deadCost - additionalCosts - ccFees
-
-        // Profit = sub_total - deadCostPlusVig - additionalCosts - ccFees (actual net profit AFTER VIG is added)
-        const profit = amount - deadCostPlusVig - additionalCosts - ccFees
-
-        // Commission = 50% of After-VIG profit (or explicit custom field)
-        const zohoCommission = (parseFloat((inv.items as any)?.commission) 
-          || parseFloat((inv.items as any)?.cf_commission_amount_unformatted) 
-          || parseFloat((inv.items as any)?.cf_commision_amount_unformatted) 
-          || parseFloat((inv.items as any)?.Commission_Amount)
-          || (profit * 0.50)) || 0
-        const issueDate = inv.issueDate ? new Date(inv.issueDate) : (inv.createdAt ? new Date(inv.createdAt) : null)
-
-        // Find salesperson on invoice
-        let repId = unassignedId
-        if (salespersonName) {
-          const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
-          const matchedId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()]
-          if (matchedId) repId = matchedId
-        }
-        if (repId === unassignedId) {
-          repId = acc.ownerId || unassignedId
-        }
-
-        if (repStatsMap[repId]) {
-          const isValidInvoice = inv.status !== 'Void' && inv.status !== 'Draft'
-          const isVoided = inv.status === 'Void'
-
-          if (isValidInvoice) {
-            repStatsMap[repId].revenue += amount
-            repStatsMap[repId].profit += profit
-            repStatsMap[repId].deadProfit += deadProfit
-            repStatsMap[repId].commissions += zohoCommission
-            repStatsMap[repId].invoices.push({
-              id: inv.id,
-              date: issueDate,
-              amount: amount,
-              profit: profit,
-              deadProfit: deadProfit,
-              commission: zohoCommission,
-              status: inv.status,
-              invoiceNumber: items.invoiceNumber || items.invoice_number || inv.zohoId
-            })
-          } else if (isVoided) {
-            repStatsMap[repId].commissions -= zohoCommission
-          }
-
-          if (inv.status === "Overdue") {
-            const balance = typeof inv.items === "object" && inv.items !== null && "balance" in inv.items
-              ? parseFloat((inv.items as any).balance)
-              : amount;
-            repStatsMap[repId].overdueCollections += isNaN(balance) ? 0 : balance
-          }
-
-          // Aggregates for periods
-          if (issueDate && isValidInvoice) {
-            if (issueDate >= todayStart && issueDate <= todayEnd) {
-              repStatsMap[repId].daily.revenue += amount
-              repStatsMap[repId].daily.profit += profit
-              repStatsMap[repId].daily.deadProfit += deadProfit
-            }
-            if (issueDate >= monday && issueDate <= sunday) {
-              repStatsMap[repId].weekly.revenue += amount
-              repStatsMap[repId].weekly.profit += profit
-              repStatsMap[repId].weekly.deadProfit += deadProfit
-            }
-            if (issueDate >= firstOfMonth && issueDate <= lastOfMonth) {
-              repStatsMap[repId].monthly.revenue += amount
-              repStatsMap[repId].monthly.profit += profit
-              repStatsMap[repId].monthly.deadProfit += deadProfit
-            }
-          }
-        }
-      })
-    })
-
-    // Process deals
-    deals.forEach(deal => {
-      const parts = deal.name.split('|')
-      let docNum = null
-      if (parts.length >= 2) {
-        docNum = parts[1].trim().replace('EST-', '').replace('SO-', '')
-      }
-
-      let salespersonName = null
-      if (docNum) {
-        const matchingInvoice = allHistoricalInvoices.find(inv => {
-          const invNum = (inv.items as any)?.invoiceNumber || (inv.items as any)?.invoice_number || ''
-          return invNum === docNum || (inv as any).zohoId?.endsWith(docNum)
-        })
-        if (matchingInvoice) {
-          salespersonName = (matchingInvoice.items as any)?.salesperson
-        }
-      }
+      const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
+      const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
+      
+      const deadProfit = amount - deadCost - additionalCosts - ccFees
+      const profit = amount - deadCostPlusVig - additionalCosts - ccFees
 
       let repId = unassignedId
       if (salespersonName) {
@@ -460,352 +336,127 @@ export const handler: Handler = async (event) => {
         if (matchedId) repId = matchedId
       }
       if (repId === unassignedId) {
-        repId = deal.ownerId || unassignedId
+        repId = inv.account?.ownerId || unassignedId
       }
 
-      if (repStatsMap[repId]) {
-        repStatsMap[repId].totalDeals++
-        const stage = (deal.stage || "").toLowerCase()
-        const isClosedWon = stage.includes("closed won") || stage.includes("fulfilled") || stage.includes("paid")
-        
-        if (isClosedWon) {
-          repStatsMap[repId].closedWonDeals++
-          const amount = parseFloat(deal.amount as any) || 0
-          const commission = amount * 0.10 // 10% rate
-          repStatsMap[repId].dealRevenue += amount
-          repStatsMap[repId].commissions += commission
-          
-          repStatsMap[repId].deals.push({
-            id: deal.id,
-            name: deal.name,
-            amount: amount,
-            commission: commission,
-            stage: deal.stage,
-            closingDate: deal.closingDate
-          })
-
-          // Aggregates for periods
-          const closeDate = deal.closingDate ? new Date(deal.closingDate) : null
-          if (closeDate) {
-            if (closeDate >= todayStart && closeDate <= todayEnd) {
-              repStatsMap[repId].daily.dealsWon++
-            }
-            if (closeDate >= monday && closeDate <= sunday) {
-              repStatsMap[repId].weekly.dealsWon++
-            }
-            if (closeDate >= firstOfMonth && closeDate <= lastOfMonth) {
-              repStatsMap[repId].monthly.dealsWon++
-            }
-          }
-        }
+      if (repStatsMap[repId] && inv.status !== 'Void' && inv.status !== 'Draft') {
+        repStatsMap[repId].revenue += amount
+        repStatsMap[repId].profit += profit
+        repStatsMap[repId].deadProfit += deadProfit
+        repStatsMap[repId].invoiceCount++
+        repStatsMap[repId].invoices.push({
+          id: inv.id,
+          invoiceNumber: items.invoiceNumber || items.invoice_number || inv.zohoId || inv.id,
+          date: inv.issueDate || inv.createdAt,
+          customerName: inv.account?.name || "Unknown Customer",
+          subtotal: amount,
+          deadProfit: deadProfit,
+          profit: profit,
+          status: inv.status || "Paid"
+        })
       }
     })
 
-    // Finalize margins, vig rates, and progress for current period
-    Object.keys(repStatsMap).forEach(key => {
-      const rep = repStatsMap[key]
-      if (rep.revenue > 0) {
-        rep.margin = (rep.profit / rep.revenue) * 100
+    // Process Sales Orders in range
+    allSalesOrders.forEach((so: any) => {
+      const items = so.items as any || {}
+      const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
+
+      const amount = parseFloat(items.sub_total || items.subTotal) || parseFloat(so.amount as any) || 0
+
+      let deadCost = parseFloat(
+        items.deadCostTotal || items.dead_cost_total || items.deadCost || 0
+      )
+      if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
+        deadCost = lineItems.reduce((sum: number, li: any) => {
+          const qty = parseFloat(li.quantity) || 1
+          const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
+          return sum + (qty * cost)
+        }, 0)
+      }
+      if (isNaN(deadCost)) deadCost = 0
+
+      const deadProfit = amount - deadCost
+      const salespersonName = items.salesperson || ""
+
+      let repId = unassignedId
+      if (salespersonName) {
+        const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
+        const matchedId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()]
+        if (matchedId) repId = matchedId
+      }
+      if (repId === unassignedId) {
+        repId = so.account?.ownerId || unassignedId
       }
 
-      // Calculate vigRate for the current month based on profit target
-      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const dailyGoal = rep.salesTargets?.daily || 0;
-      const defaultProfitGoal = dailyGoal * workdaysInMonth;
-      const defaultSubtotalGoal = defaultProfitGoal * 2;
-      
-      const vigGoal = rep.monthlyVigGoals?.find((g: any) => g.monthKey === currentMonthKey) || {
-        metric: 'PROFIT',
-        profitGoal: defaultProfitGoal || 20000,
-        subtotalGoal: defaultSubtotalGoal || 40000,
-        manualVigRate: null
-      };
-
-      // Ensure 2026+ is always PROFIT
-      if (now.getFullYear() >= 2026) {
-        vigGoal.metric = 'PROFIT';
-      }
-
-      if (rep.constantVigEnabled && rep.constantVigValue !== null) {
-        rep.monthly.vigRate = rep.constantVigValue;
-      } else if (now.getFullYear() < 2025) {
-        rep.monthly.vigRate = appSettings.default_vig_rate;
-      } else if (vigGoal.manualVigRate !== null) {
-        rep.monthly.vigRate = vigGoal.manualVigRate;
-      } else {
-        const target = vigGoal.metric === 'SUBTOTAL' ? vigGoal.subtotalGoal : vigGoal.profitGoal;
-        const actual = vigGoal.metric === 'SUBTOTAL' ? rep.monthly.revenue : rep.monthly.profit;
-        const metGoal = actual >= target;
-        // Keep Montgomery hardcode fallback if constantVig is not enabled yet
-        const isMontgomery = rep.repName && rep.repName.toLowerCase().includes("montgomery") && rep.repName.toLowerCase().includes("morgan");
-        rep.monthly.vigRate = isMontgomery ? 1.0 : (metGoal ? appSettings.default_vig_rate : 1.5);
+      if (repStatsMap[repId] && so.status !== 'Void' && so.status !== 'Draft') {
+        repStatsMap[repId].salesOrderCount++
+        repStatsMap[repId].salesOrders.push({
+          id: so.id,
+          salesOrderNumber: items.salesorder_number || items.salesOrderNumber || so.zohoId || so.id,
+          date: so.orderDate || so.createdAt,
+          customerName: so.account?.name || "Unknown Customer",
+          subtotal: amount,
+          deadProfit: deadProfit,
+          status: so.status || "Confirmed"
+        })
       }
     })
 
-    // Compute historical vig rates (ALL TIME)
-    const historicalVigRates: any[] = []
+    // Return all reps or filter to target rep
+    let repsList = Object.values(repStatsMap).filter((r: any) => r.repId !== unassignedId || r.invoices.length > 0 || r.salesOrders.length > 0)
     
-    let historyMonths = 72; // 6 years (2020 to present)
-    if (oldestInvoice?.orderDate) {
-      const oldestDate = new Date(oldestInvoice.orderDate);
-      const monthsDiff = (now.getFullYear() - oldestDate.getFullYear()) * 12 + (now.getMonth() - oldestDate.getMonth());
-      historyMonths = Math.min(72, Math.max(1, monthsDiff));
+    if (repIdFilter !== "all") {
+      repsList = repsList.filter((r: any) => r.repId === repIdFilter || r.email === repIdFilter)
     }
 
-    // Group invoices by month key using issueDate (fall back to createdAt)
-    const invoicesByMonth = new Map<string, typeof allHistoricalInvoices>()
-    for (const inv of allHistoricalInvoices) {
-      const rawDate = inv.issueDate || inv.createdAt
-      if (!rawDate) continue
-      const d = new Date(rawDate)
-      if (isNaN(d.getTime())) continue
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      if (!invoicesByMonth.has(key)) invoicesByMonth.set(key, [])
-      invoicesByMonth.get(key)!.push(inv)
-    }
+    // Grand Totals Calculation
+    let grandInvoiceCount = 0
+    let grandInvoiceSubtotal = 0
+    let grandInvoiceDeadProfit = 0
 
-    // Loop from oldest month (m = historyMonths) down to current month (m = 0)
-    for (let m = historyMonths; m >= 0; m--) {
-      const targetMonthDate = new Date(now.getFullYear(), now.getMonth() - m, 1)
-      const year = targetMonthDate.getFullYear()
-      const monthIdx = targetMonthDate.getMonth() // 0-indexed
-      
-      const monthName = targetMonthDate.toLocaleDateString("en-US", { month: "short", year: "numeric" })
-      const monthKey = `${year}-${String(monthIdx + 1).padStart(2, '0')}`
+    let grandSalesOrderCount = 0
+    let grandSalesOrderSubtotal = 0
+    let grandSalesOrderDeadProfit = 0
 
-      const workdays = getWorkdaysInMonth(year, monthIdx, holidays)
+    repsList.forEach((r: any) => {
+      grandInvoiceCount += r.invoiceCount
+      grandInvoiceSubtotal += r.revenue
+      grandInvoiceDeadProfit += r.deadProfit
 
-      // Use pre-fetched invoices for this month
-      const monthInvoices = invoicesByMonth.get(monthKey) || []
-
-      // Group profit and subtotal by rep
-      const repProfit: Record<string, number> = {}
-      const repSubtotal: Record<string, number> = {}
-      users.forEach(u => { 
-        repProfit[u.id] = 0;
-        repSubtotal[u.id] = 0;
+      r.salesOrders.forEach((so: any) => {
+        grandSalesOrderCount++
+        grandSalesOrderSubtotal += so.subtotal
+        grandSalesOrderDeadProfit += so.deadProfit
       })
-
-      monthInvoices.forEach(inv => {
-        const items = (inv.items as any) || {}
-        const cfs = items.custom_fields || []
-        // Subtotal = invoice line-item total (sub_total field), NOT balance due (amount)
-        const subtotal = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
-        const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
-
-        // Dead cost: try subject-to-vig and no-vig split first, then try all known Zoho field name variants, then fall back to line item costs
-        let deadCost = 0
-        if (items.deadCostSubjectToVig !== undefined && items.deadCostNoVig !== undefined) {
-          deadCost = parseFloat(items.deadCostSubjectToVig || 0) + parseFloat(items.deadCostNoVig || 0)
-        } else {
-          deadCost = parseFloat(
-            items.deadCostTotal || items.dead_cost_total || items.deadCost ||
-            items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0
-          )
-          if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
-            deadCost = lineItems.reduce((sum: number, li: any) => {
-              const qty = parseFloat(li.quantity) || 1;
-              const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50);
-              return sum + (qty * cost);
-            }, 0)
-          }
-        }
-        if (isNaN(deadCost)) deadCost = 0
-
-        const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c?.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
-        const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c?.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
-
-        // Dead profit = subtotal - deadCost - additionalCosts - ccFees (for goal tracking)
-        const deadProfit = subtotal - deadCost - additionalCosts - ccFees
-        const salespersonName = items.salesperson
-        let repId = unassignedId
-        if (salespersonName) {
-          const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
-          const matchedId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()]
-          if (matchedId) repId = matchedId
-        }
-        if (repId === unassignedId) {
-          repId = inv.account?.ownerId || unassignedId
-        }
-
-        // After-VIG profit for commission calculations
-        const invDate = inv.issueDate ? new Date(inv.issueDate) : (inv.createdAt ? new Date(inv.createdAt) : null)
-        const invYear = invDate ? invDate.getFullYear() : year
-        const isMontgomery = (items.salesperson || '').toLowerCase().includes('montgomery') || (items.salesperson || '').toLowerCase().includes('morgan')
-        const rawVigField = items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted
-        const vigFieldVal = parseFloat(rawVigField)
-        const vigRate = isMontgomery ? 1.0 : (invYear <= 2024 ? 1.3 : (!isNaN(vigFieldVal) && vigFieldVal >= 1.0 ? vigFieldVal : 1.3))
-        const afterVigProfit = subtotal - (deadCost * vigRate) - additionalCosts - ccFees
-
-        const isValidInvoice = inv.status !== 'Void' && inv.status !== 'Draft'
-        if (isValidInvoice && repProfit[repId] !== undefined) {
-          repProfit[repId] += isNaN(deadProfit) ? 0 : deadProfit
-          repSubtotal[repId] += subtotal
-        }
-      })
-
-      // Build stats for each rep based on DB targets or defaults and prior-month carry-over VIG rate
-      const repVigs: Record<string, { metric: string, target: number, subtotalGoal: number, profitGoal: number, sales: number, profit: number, subtotal: number, vigRate: number, manualVigRate: number | null, lastSyncedVigRate: number | null, metGoal: boolean }> = {}
-
-      users.forEach(u => {
-        const dailyGoal = salesTargets[u.id] || 0;
-        const defaultProfitGoal = dailyGoal * workdays;
-        
-        const dailySubtotalGoal = subtotalTargets[u.id] || (dailyGoal * 2);
-        const defaultSubtotalGoal = dailySubtotalGoal * workdays;
-
-        const vigGoal = (u as any).monthlyVigGoals?.find((g: any) => g.monthKey === monthKey) || {
-          metric: (year >= 2026 && monthIdx >= 2) ? 'PROFIT' : 'SUBTOTAL',
-          profitGoal: defaultProfitGoal || 20000,
-          subtotalGoal: defaultSubtotalGoal || 40000,
-          manualVigRate: null
-        };
-        
-        // Ensure March 2026+ is always PROFIT
-        if (year > 2026 || (year === 2026 && monthIdx >= 2)) {
-          vigGoal.metric = 'PROFIT';
-        }
-
-        const profit = repProfit[u.id] || 0;
-        const subtotal = repSubtotal[u.id] || 0;
-        
-        const target = vigGoal.metric === 'SUBTOTAL' ? (vigGoal.subtotalGoal || 40000) : (vigGoal.profitGoal || 20000);
-        const actual = vigGoal.metric === 'SUBTOTAL' ? subtotal : profit;
-        const metGoal = actual >= target;
-
-        let vigRate = appSettings.default_vig_rate;
-        const isMontgomery = u.name && u.name.toLowerCase().includes("montgomery") && u.name.toLowerCase().includes("morgan");
-        
-        if ((u as any).constantVigEnabled && (u as any).constantVigValue !== null) {
-          vigRate = (u as any).constantVigValue;
-        } else if (isMontgomery) {
-          vigRate = 1.0;
-        } else if (year <= 2024) {
-          vigRate = 1.3;
-        } else if (vigGoal.manualVigRate !== null && vigGoal.manualVigRate !== undefined) {
-          vigRate = vigGoal.manualVigRate;
-        } else if (monthKey === '2025-01') {
-          vigRate = 1.3;
-        } else {
-          // Carry-over from prior month: check if rep met goal in prior month
-          const prevMonthDate = new Date(year, monthIdx - 1, 1);
-          const prevMonthKey = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
-          
-          // Look up prior month performance from historicalRates array built chronologically
-          const prevMonthData = historicalVigRates.find(h => h.monthKey === prevMonthKey)?.reps?.[u.id];
-          if (prevMonthData) {
-            vigRate = prevMonthData.metGoal ? 1.3 : 1.5;
-          } else {
-            vigRate = 1.3;
-          }
-        }
-        const repVigEntry = { 
-          metric: vigGoal.metric,
-          target, 
-          subtotalGoal: vigGoal.subtotalGoal || 40000,
-          profitGoal: vigGoal.profitGoal || 20000,
-          sales: actual,
-          profit,           // dead profit (goal basis)
-          deadProfit: profit, // explicit dead profit field
-          subtotal,
-          vigRate,
-          manualVigRate: vigGoal.manualVigRate || null,
-          lastSyncedVigRate: vigGoal.lastSyncedVigRate !== undefined ? vigGoal.lastSyncedVigRate : null,
-          metGoal
-        }
-
-        repVigs[u.id] = repVigEntry
-        if (u.name) {
-          repVigs[u.name] = repVigEntry
-          repVigs[u.name.toLowerCase().trim()] = repVigEntry
-          repVigs[u.name.replace(/\s+/g, ' ').trim().toLowerCase()] = repVigEntry
-        }
-      })
-
-      historicalVigRates.push({
-        monthKey,
-        monthName,
-        workdays,
-        reps: repVigs
-      })
-    }
-
-    const activeReps = Object.values(repStatsMap).filter((rep: any) => {
-      if (rep.repId === unassignedId) {
-        return rep.revenue > 0 || rep.totalDeals > 0
-      }
-      const lowerEmail = (rep.email || "").toLowerCase();
-      // Exclude dummy/test accounts
-      if (lowerEmail.includes('dummy') || lowerEmail.includes('example.com') || lowerEmail.includes('test_migration')) return false;
-
-      // Filter by visibleReps if it exists
-      if (!showHidden && visibleReps.length > 0) {
-        return visibleReps.includes(rep.repId);
-      }
-      
-      // If showHidden is true, include all valid sales reps
-      if (showHidden) return true;
-      
-      // Fallback: if visibleReps is empty, only show those with actual activity in current window
-      return rep.revenue > 0 || rep.totalDeals > 0;
-    }).sort((a: any, b: any) => b.revenue - a.revenue)
-
-    // Calculate company totals & averages
-    const companyTotals = {
-      revenue: 0,
-      profit: 0,
-      deadProfit: 0,
-      activeAccounts: 0,
-      updateAccounts: 0,
-      totalDeals: 0,
-      closedWonDeals: 0,
-      dealRevenue: 0,
-      commissions: 0,
-      overdueCollections: 0
-    }
-
-    let repCountForAvg = 0
-    activeReps.forEach((rep: any) => {
-      if (rep.repId !== unassignedId) {
-        companyTotals.revenue += rep.revenue
-        companyTotals.profit += rep.profit
-        companyTotals.deadProfit += rep.deadProfit
-        companyTotals.activeAccounts += rep.activeAccounts
-        companyTotals.updateAccounts += rep.updateAccounts
-        companyTotals.totalDeals += rep.totalDeals
-        companyTotals.closedWonDeals += rep.closedWonDeals
-        companyTotals.dealRevenue += rep.dealRevenue
-        companyTotals.commissions += rep.commissions
-        companyTotals.overdueCollections += rep.overdueCollections
-        repCountForAvg++
-      }
     })
 
-    const companyAverages = {
-      revenue: repCountForAvg > 0 ? companyTotals.revenue / repCountForAvg : 0,
-      profit: repCountForAvg > 0 ? companyTotals.profit / repCountForAvg : 0,
-      deadProfit: repCountForAvg > 0 ? companyTotals.deadProfit / repCountForAvg : 0,
-      margin: companyTotals.revenue > 0 ? (companyTotals.profit / companyTotals.revenue) * 100 : 0,
-      activeAccounts: repCountForAvg > 0 ? companyTotals.activeAccounts / repCountForAvg : 0,
-      updateAccounts: repCountForAvg > 0 ? companyTotals.updateAccounts / repCountForAvg : 0,
-      totalDeals: repCountForAvg > 0 ? companyTotals.totalDeals / repCountForAvg : 0,
-      closedWonDeals: repCountForAvg > 0 ? companyTotals.closedWonDeals / repCountForAvg : 0,
-      dealRevenue: repCountForAvg > 0 ? companyTotals.dealRevenue / repCountForAvg : 0,
-      commissions: repCountForAvg > 0 ? companyTotals.commissions / repCountForAvg : 0,
-      overdueCollections: repCountForAvg > 0 ? companyTotals.overdueCollections / repCountForAvg : 0
-    }
+    const grandTotalSubtotal = grandInvoiceSubtotal + grandSalesOrderSubtotal
+    const grandTotalDeadProfit = grandInvoiceDeadProfit + grandSalesOrderDeadProfit
+    const grandTotalCount = grandInvoiceCount + grandSalesOrderCount
 
     return {
       statusCode: 200,
       headers: cors,
       body: JSON.stringify({
         success: true,
-        reps: activeReps,
-        companyTotals,
-        companyAverages,
-        historicalVigRates,
-        holidays,
-        salesTargets
+        period: periodParam,
+        dateRange: {
+          start: rangeStart.toISOString(),
+          end: rangeEnd.toISOString()
+        },
+        reps: repsList,
+        totals: {
+          invoiceCount: grandInvoiceCount,
+          invoiceSubtotal: grandInvoiceSubtotal,
+          invoiceDeadProfit: grandInvoiceDeadProfit,
+          salesOrderCount: grandSalesOrderCount,
+          salesOrderSubtotal: grandSalesOrderSubtotal,
+          salesOrderDeadProfit: grandSalesOrderDeadProfit,
+          grandCount: grandTotalCount,
+          grandSubtotal: grandTotalSubtotal,
+          grandDeadProfit: grandTotalDeadProfit
+        }
       })
     }
 

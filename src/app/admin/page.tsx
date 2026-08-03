@@ -4,7 +4,7 @@
 import Link from "next/link"
 import { useState } from "react"
 import { 
-  FiUsers, FiClock, FiDollarSign, 
+  FiUsers, FiClock, FiDollarSign, FiBarChart2,
   FiTarget, FiAward, FiCalendar, FiMessageSquare, 
   FiFileText, FiActivity, FiSettings, FiDatabase,
   FiRefreshCw, FiCheckCircle, FiAlertTriangle, FiZap, FiTruck
@@ -15,6 +15,7 @@ const sections = [
     category: "Users & Teams",
     cards: [
       { title: "Manage Users", desc: "View and edit user roles and permissions.", href: "/admin/users", icon: FiUsers, color: "text-blue-400", bg: "bg-blue-500/10" },
+      { title: "Rep Stats & Financial Breakdown", desc: "View invoice, sales order, and dead profit totals by rep and date range.", href: "/admin/rep-stats", icon: FiBarChart2, color: "text-orange-400", bg: "bg-orange-500/10" },
       { title: "Timeclock", desc: "Review and manage team time entries.", href: "/admin/timeclock", icon: FiClock, color: "text-emerald-400", bg: "bg-emerald-500/10" },
       { title: "Payouts & Commissions", desc: "Calculate and approve payouts.", href: "/admin/payouts", icon: FiDollarSign, color: "text-amber-400", bg: "bg-amber-500/10" },
     ]

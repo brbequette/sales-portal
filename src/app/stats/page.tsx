@@ -110,8 +110,20 @@ export default function StatsPage() {
         const data = await res.json()
         if (data.success) {
           setReps(data.reps || [])
-          setCompanyTotals(data.companyTotals || null)
-          setCompanyAverages(data.companyAverages || null)
+          const totals = data.totals || data.companyTotals || {
+            revenue: (data.reps || []).reduce((s: number, r: any) => s + (r.revenue || 0), 0),
+            profit: (data.reps || []).reduce((s: number, r: any) => s + (r.profit || 0), 0),
+            deadProfit: (data.reps || []).reduce((s: number, r: any) => s + (r.deadProfit || 0), 0),
+            activeAccounts: (data.reps || []).reduce((s: number, r: any) => s + (r.activeAccounts || 0), 0),
+            updateAccounts: (data.reps || []).reduce((s: number, r: any) => s + (r.updateAccounts || 0), 0),
+            totalDeals: (data.reps || []).reduce((s: number, r: any) => s + (r.totalDeals || 0), 0),
+            closedWonDeals: (data.reps || []).reduce((s: number, r: any) => s + (r.closedWonDeals || 0), 0),
+            dealRevenue: (data.reps || []).reduce((s: number, r: any) => s + (r.dealRevenue || 0), 0),
+            commissions: (data.reps || []).reduce((s: number, r: any) => s + (r.commissions || 0), 0),
+            overdueCollections: (data.reps || []).reduce((s: number, r: any) => s + (r.overdueCollections || 0), 0)
+          }
+          setCompanyTotals(totals)
+          setCompanyAverages(data.companyAverages || totals)
           setHistoricalVigRates(data.historicalVigRates || [])
         } else {
           setApiError(data.error || "Failed to load stats")
