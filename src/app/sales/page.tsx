@@ -1415,11 +1415,15 @@ export default function SalesPage() {
                                           </div>
                                         </div>
                                       </div>
-                                      <div className="hidden sm:flex flex-col text-right shrink-0 min-w-[110px]">
+                                      <div className="hidden sm:flex flex-col text-right shrink-0 min-w-[130px]">
                                         <p className="text-sm font-bold text-emerald-400">
                                           ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)}
                                         </p>
                                         <p className="text-[10px] text-neutral-500 mt-0.5">Total Sales</p>
+                                        <div className="text-[11px] font-semibold text-purple-300 mt-1 flex items-center justify-end gap-1">
+                                          <FiClock size={11} className="text-purple-400" />
+                                          <span>{formatLastCalled(account.lastCalledAt)}</span>
+                                        </div>
                                       </div>
                                       <div className="flex items-center gap-2 shrink-0">
                                         {hasPhone && (

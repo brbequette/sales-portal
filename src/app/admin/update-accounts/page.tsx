@@ -488,6 +488,9 @@ export default function AdminUpdateAccountsPage() {
                   <th className="px-3 py-3 sticky top-0 bg-black/20 z-10 text-right cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("lastPurchaseAt")}>
                     Last Purchase <SortIcon col="lastPurchaseAt" />
                   </th>
+                  <th className="px-3 py-3 sticky top-0 bg-black/20 z-10 text-right text-neutral-400 select-none">
+                    Last Contact
+                  </th>
                   <th className="px-3 py-3 sticky top-0 bg-black/20 z-10 text-right cursor-pointer hover:text-neutral-300 select-none" onClick={() => handleSort("totalRev")}>
                     Revenue <SortIcon col="totalRev" />
                   </th>
@@ -502,7 +505,7 @@ export default function AdminUpdateAccountsPage() {
               <tbody className="text-sm divide-y divide-neutral-800">
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center">
+                    <td colSpan={7} className="px-4 py-12 text-center">
                       <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                       <span className="text-neutral-500 text-xs">Loading accounts...</span>
                     </td>
@@ -524,6 +527,9 @@ export default function AdminUpdateAccountsPage() {
                     </td>
                     <td className="px-3 py-3 text-right text-neutral-300 whitespace-nowrap">
                       {acc.lastPurchaseAt ? new Date(acc.lastPurchaseAt).toLocaleDateString() : "Never"}
+                    </td>
+                    <td className="px-3 py-3 text-right text-purple-300 font-semibold whitespace-nowrap">
+                      {acc.lastCalledAt ? new Date(acc.lastCalledAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never Called"}
                     </td>
                     <td className="px-3 py-3 text-right text-neutral-300 whitespace-nowrap font-mono">
                       ${acc.totalRev.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

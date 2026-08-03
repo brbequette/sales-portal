@@ -212,6 +212,7 @@ export default function CollectionsPage() {
                   <th className="py-3.5 px-4">Customer</th>
                   <th className="py-3.5 px-4">Sales Rep</th>
                   <th className="py-3.5 px-4">Due Date</th>
+                  <th className="py-3.5 px-4">Last Contact</th>
                   <th className="py-3.5 px-4">Days Overdue</th>
                   <th className="py-3.5 px-4 text-right">Balance</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
@@ -235,6 +236,9 @@ export default function CollectionsPage() {
                       </td>
                       <td className="py-3.5 px-4 text-neutral-400 text-xs">
                         {inv.due_date || "--"}
+                      </td>
+                      <td className="py-3.5 px-4 text-purple-300 font-semibold text-xs whitespace-nowrap">
+                        {(inv as any).last_called_at || (inv as any).lastCalledAt ? new Date((inv as any).last_called_at || (inv as any).lastCalledAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never"}
                       </td>
                       <td className="py-3.5 px-4">
                         <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${
