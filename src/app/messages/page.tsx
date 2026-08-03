@@ -215,6 +215,8 @@ export default function MessagesPage() {
     }
   }
 
+  const [attachVCard, setAttachVCard] = useState(false)
+
   const handleSend = async () => {
     if (!textInput.trim() || !selectedAccountId) return
     
@@ -231,7 +233,7 @@ export default function MessagesPage() {
       const res = await fetch(`/api/messages/${selectedAccountId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: textInput, fromNumber })
+        body: JSON.stringify({ text: textInput, fromNumber, attachVCard })
       })
       const data = await res.json()
       if (data.success) {
@@ -656,51 +658,65 @@ export default function MessagesPage() {
             )}
 
             {/* Reply Input Box */}
-            <div className="p-4 bg-[#0a0a0c] border-t border-white/10 flex items-end gap-2 shrink-0">
-              <button 
-                onClick={handleAiSuggest}
-                disabled={suggesting || messages.length === 0}
-                className="p-3 rounded-xl bg-neutral-900 text-emerald-400 hover:bg-neutral-800 border border-white/10 transition-colors disabled:opacity-50 shrink-0"
-                title="AI Suggest Reply"
-              >
-                {suggesting ? <div className="w-5 h-5 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" /> : <FiZap size={20} />}
-              </button>
+            <div className="p-4 bg-[#0a0a0c] border-t border-white/10 flex flex-col gap-2 shrink-0">
+              <div className="flex items-center justify-between text-xs text-neutral-400 font-semibold px-1">
+                <label className="flex items-center gap-1.5 cursor-pointer select-none text-neutral-300 hover:text-white transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={attachVCard}
+                    onChange={e => setAttachVCard(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-neutral-700 bg-neutral-900 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                  />
+                  <span>🎴 Attach my vCard contact card link</span>
+                </label>
+              </div>
 
-              {zohoNumbers.length > 0 && (
-                <select
-                  value={selectedOutboundNumber}
-                  onChange={e => setSelectedOutboundNumber(e.target.value)}
-                  className="bg-neutral-900 border border-white/10 rounded-xl px-2 py-3.5 text-xs text-neutral-300 focus:outline-none focus:border-emerald-500 shrink-0 select-none"
-                  title="Sender phone number"
+              <div className="flex items-end gap-2">
+                <button 
+                  onClick={handleAiSuggest}
+                  disabled={suggesting || messages.length === 0}
+                  className="p-3 rounded-xl bg-neutral-900 text-emerald-400 hover:bg-neutral-800 border border-white/10 transition-colors disabled:opacity-50 shrink-0"
+                  title="AI Suggest Reply"
                 >
-                  {zohoNumbers.map(n => (
-                    <option key={n.number} value={n.number}>
-                      {n.name || n.number}
-                    </option>
-                  ))}
-                </select>
-              )}
+                  {suggesting ? <div className="w-5 h-5 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" /> : <FiZap size={20} />}
+                </button>
 
-              <textarea
-                value={textInput}
-                onChange={e => setTextInput(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 resize-none placeholder:text-neutral-600"
-                rows={1}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSend()
-                  }
-                }}
-              />
-              <button 
-                onClick={handleSend}
-                disabled={!textInput.trim() || sending}
-                className="p-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 shrink-0"
-              >
-                {sending ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiSend size={20} />}
-              </button>
+                {zohoNumbers.length > 0 && (
+                  <select
+                    value={selectedOutboundNumber}
+                    onChange={e => setSelectedOutboundNumber(e.target.value)}
+                    className="bg-neutral-900 border border-white/10 rounded-xl px-2 py-3.5 text-xs text-neutral-300 focus:outline-none focus:border-emerald-500 shrink-0 select-none"
+                    title="Sender phone number"
+                  >
+                    {zohoNumbers.map(n => (
+                      <option key={n.number} value={n.number}>
+                        {n.name || n.number}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <textarea
+                  value={textInput}
+                  onChange={e => setTextInput(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 resize-none placeholder:text-neutral-600"
+                  rows={1}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSend()
+                    }
+                  }}
+                />
+                <button 
+                  onClick={handleSend}
+                  disabled={!textInput.trim() || sending}
+                  className="p-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 shrink-0"
+                >
+                  {sending ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiSend size={20} />}
+                </button>
+              </div>
             </div>
           </>
         )}

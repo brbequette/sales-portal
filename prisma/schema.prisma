@@ -13,8 +13,11 @@ model User {
   email              String           @unique
   password           String?
   name               String?
+  phone              String?
+  title              String?          @default("Sales Representative")
   zohoId             String?          @unique
   role               String           @default("AGENT")
+  autoAttachVCard    Boolean          @default(false)
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   constantVigEnabled Boolean          @default(false)

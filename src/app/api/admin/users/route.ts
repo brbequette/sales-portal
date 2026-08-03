@@ -10,8 +10,11 @@ export async function GET() {
           id: true,
           name: true,
           email: true,
+          phone: true,
+          title: true,
           role: true,
           zohoId: true,
+          autoAttachVCard: true,
           canSendCampaigns: true,
           showOnSalesBoard: true,
           permissions: true,
@@ -51,7 +54,7 @@ export async function GET() {
 export async function PUT(req: Request) {
   try {
     const body = await req.json()
-    const { id, canSendCampaigns, showOnSalesBoard, permissions, role, name, email, zohoId } = body
+    const { id, canSendCampaigns, showOnSalesBoard, permissions, role, name, email, phone, title, autoAttachVCard, zohoId } = body
 
     if (!id) {
       return NextResponse.json({ success: false, error: "Missing user ID" }, { status: 400 })
@@ -60,10 +63,13 @@ export async function PUT(req: Request) {
     const updateData: any = {}
     if (canSendCampaigns !== undefined) updateData.canSendCampaigns = canSendCampaigns
     if (showOnSalesBoard !== undefined) updateData.showOnSalesBoard = showOnSalesBoard
+    if (autoAttachVCard !== undefined) updateData.autoAttachVCard = autoAttachVCard
     if (permissions !== undefined) updateData.permissions = permissions
     if (role !== undefined) updateData.role = role
     if (name !== undefined) updateData.name = name
     if (email !== undefined) updateData.email = email
+    if (phone !== undefined) updateData.phone = phone
+    if (title !== undefined) updateData.title = title
     if (zohoId !== undefined) updateData.zohoId = zohoId || null  // empty string  to  null
 
     const user = await prisma.user.update({

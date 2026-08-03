@@ -56,7 +56,7 @@ export async function POST(req: Request, context: { params: Promise<{ accountId:
     const params = await context.params
 
     const body = await req.json()
-    const { text, fromNumber, contactId, userId, userEmail } = body
+    const { text, fromNumber, contactId, userId, userEmail, attachVCard } = body
 
     if (!text || !fromNumber) {
       return NextResponse.json({ success: false, error: 'Message text and sender number are required' }, { status: 400 })
@@ -68,6 +68,16 @@ export async function POST(req: Request, context: { params: Promise<{ accountId:
     if (!dbUser) dbUser = await prisma.user.findFirst()
 
     if (!dbUser) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
+
+    // Auto-append vCard link if requested or rep preference is enabled
+    let finalText = text.trim()
+    const shouldAttach = attachVCard === true || (attachVCard === undefined && (dbUser as any).autoAttachVCard === true)
+    if (shouldAttach) {
+      const vcardUrl = `https://tdusales.com/api/vcard/${dbUser.id}`
+      if (!finalText.includes(vcardUrl)) {
+        finalText += `\n\nSave my contact: ${vcardUrl}`
+      }
+    }
 
     const account = await prisma.account.findUnique({
       where: { id: params.accountId },
@@ -101,7 +111,7 @@ export async function POST(req: Request, context: { params: Promise<{ accountId:
     const zohoVoiceUrl = `https://voice.zoho.${zohoDc}/rest/json/v2/sms/send`
     const smsData = {
       customerNumber: phoneNumber,
-      message: text,
+      message: finalText,
       senderId: fromNumber
     }
 

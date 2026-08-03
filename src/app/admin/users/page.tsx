@@ -26,7 +26,7 @@ export default function AdminUsersPage() {
   const [newUser, setNewUser] = useState({ name: "", email: "", role: "Sales Representative", zohoId: "", payoutStructure: "two_payment" })
   const [addingUser, setAddingUser] = useState(false)
   const [addError, setAddError] = useState("")
-  const [editedUserInfo, setEditedUserInfo] = useState<Record<string, { name: string; email: string; zohoId: string; role: string; payoutStructure: string }>>({})
+  const [editedUserInfo, setEditedUserInfo] = useState<Record<string, { name: string; email: string; phone?: string; title?: string; autoAttachVCard?: boolean; zohoId: string; role: string; payoutStructure: string }>>({})
 
   // New state for search, sort, filter
   const [searchQuery, setSearchQuery] = useState("")
@@ -129,7 +129,16 @@ export default function AdminUsersPage() {
       if (user && !editedUserInfo[userId]) {
         setEditedUserInfo(prev => ({
           ...prev,
-          [userId]: { name: user.name || "", email: user.email || "", zohoId: user.zohoId || "", role: user.role || "Sales Representative", payoutStructure: user.payoutStructure || "two_payment" }
+          [userId]: {
+            name: user.name || "",
+            email: user.email || "",
+            phone: user.phone || "",
+            title: user.title || "Sales Representative",
+            autoAttachVCard: user.autoAttachVCard ?? false,
+            zohoId: user.zohoId || "",
+            role: user.role || "Sales Representative",
+            payoutStructure: user.payoutStructure || "two_payment"
+          }
         }))
       }
     }
@@ -167,7 +176,7 @@ export default function AdminUsersPage() {
           id: userId, 
           permissions: perms,
           canSendCampaigns: perms.sendCampaigns,
-          ...(info ? { name: info.name, email: info.email, zohoId: info.zohoId, role: info.role, payoutStructure: info.payoutStructure } : {})
+          ...(info ? { name: info.name, email: info.email, phone: info.phone, title: info.title, autoAttachVCard: info.autoAttachVCard, zohoId: info.zohoId, role: info.role, payoutStructure: info.payoutStructure } : {})
         })
       })
       const data = await res.json()
@@ -602,6 +611,24 @@ export default function AdminUsersPage() {
                           />
                         </div>
                         <div>
+                          <label className="text-[10px] text-neutral-500 font-semibold block mb-1">Phone Number</label>
+                          <input
+                            value={editedUserInfo[user.id]?.phone || ""}
+                            onChange={e => setEditedUserInfo(prev => ({ ...prev, [user.id]: { ...prev[user.id], phone: e.target.value } }))}
+                            placeholder="e.g. (800) 555-0199"
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-neutral-500 font-semibold block mb-1">Title / Job Role</label>
+                          <input
+                            value={editedUserInfo[user.id]?.title || ""}
+                            onChange={e => setEditedUserInfo(prev => ({ ...prev, [user.id]: { ...prev[user.id], title: e.target.value } }))}
+                            placeholder="e.g. Senior Sales Specialist"
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
                           <label className="text-[10px] text-neutral-500 font-semibold block mb-1">Role</label>
                           <select
                             value={editedUserInfo[user.id]?.role || "Sales Representative"}
@@ -623,6 +650,33 @@ export default function AdminUsersPage() {
                             <option value="single_payment">1 Payment (Paid Only)</option>
                           </select>
                         </div>
+                      </div>
+
+                      {/* Digital vCard Actions & Preference */}
+                      <div className="mt-4 pt-4 border-t border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-neutral-900/60 p-3 rounded-xl border border-white/5">
+                        <div className="flex items-center gap-3">
+                          <a
+                            href={`/api/vcard/${user.id}`}
+                            download={`${(user.name || 'rep').replace(/\s+/g, '_')}_Titan_Diamond.vcf`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-orange-500/20 text-orange-300 border border-orange-500/30 hover:bg-orange-500/30 transition-all shadow-sm cursor-pointer"
+                          >
+                            🎴 Download Digital vCard (.vcf)
+                          </a>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editedUserInfo[user.id]?.autoAttachVCard ?? user.autoAttachVCard ?? false}
+                            onChange={e => setEditedUserInfo(prev => ({
+                              ...prev,
+                              [user.id]: { ...prev[user.id], autoAttachVCard: e.target.checked }
+                            }))}
+                            className="w-4 h-4 rounded border-neutral-700 bg-neutral-800 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                          />
+                          <span className="text-xs font-semibold text-neutral-300">
+                            Auto-attach my vCard link to all outgoing SMS messages
+                          </span>
+                        </label>
                       </div>
                     </div>
 
