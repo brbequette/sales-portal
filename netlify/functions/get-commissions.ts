@@ -117,7 +117,6 @@ export const handler: Handler = async (event) => {
         WHERE i.status NOT IN ('Void','void','Draft','draft')
         ${invDateSql}
         ORDER BY i."issueDate" DESC NULLS LAST
-        LIMIT 500
       `).catch(() => []),
       prisma.$queryRaw<any[]>(Prisma.sql`
         SELECT
@@ -158,7 +157,6 @@ export const handler: Handler = async (event) => {
         WHERE s.status NOT IN ('Void','void','Draft','draft','Cancelled','cancelled','Invoiced','invoiced','Converted','converted')
         ${soDateSql}
         ORDER BY s."orderDate" DESC NULLS LAST
-        LIMIT 200
       `).catch(() => []),
       prisma.deal.findMany({
         where: targetYear !== "all" ? {
