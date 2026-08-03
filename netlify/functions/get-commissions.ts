@@ -634,7 +634,6 @@ export const handler: Handler = async (event) => {
 
     // ── Group invoice & sales order commissions by rep ───────────────────
     const byRep: Record<string, any> = {}
-    const maxInvoicesPerRep = targetYear === 'all' ? 15 : 50
 
     for (const inv of allCommissionRecords) {
       const key = inv.repId
@@ -664,27 +663,25 @@ export const handler: Handler = async (event) => {
       byRep[key].totalFutures    += inv.commission.future
       byRep[key].totalAtRisk     += inv.commission.atRiskAmount
 
-      // Store lightweight invoice objects up to maxInvoicesPerRep
-      if (byRep[key].invoices.length < maxInvoicesPerRep) {
-        byRep[key].invoices.push({
-          id: inv.id,
-          zohoId: inv.zohoId || null,
-          invoiceNumber: inv.invoiceNumber || null,
-          name: inv.name || inv.accountName || "Invoice",
-          accountName: inv.accountName || "Customer",
-          amount: inv.amount || 0,
-          profit: inv.deadProfit || inv.profit || 0,
-          deadProfit: inv.deadProfit || inv.profit || 0,
-          deadCost: inv.deadCost || 0,
-          status: inv.status || "Paid",
-          isPaid: !!inv.isPaid,
-          issueDate: inv.issueDate || null,
-          paymentDate: inv.paymentDate || null,
-          commission: inv.commission || { total: 0, upfront: 0, final: 0 },
-          repName: inv.repName || byRep[key].repName || null,
-          salesperson: inv.repName || byRep[key].repName || null
-        })
-      }
+      // Store lightweight invoice objects for all invoices without artificial caps
+      byRep[key].invoices.push({
+        id: inv.id,
+        zohoId: inv.zohoId || null,
+        invoiceNumber: inv.invoiceNumber || null,
+        name: inv.name || inv.accountName || "Invoice",
+        accountName: inv.accountName || "Customer",
+        amount: inv.amount || 0,
+        profit: inv.deadProfit || inv.profit || 0,
+        deadProfit: inv.deadProfit || inv.profit || 0,
+        deadCost: inv.deadCost || 0,
+        status: inv.status || "Paid",
+        isPaid: !!inv.isPaid,
+        issueDate: inv.issueDate || null,
+        paymentDate: inv.paymentDate || null,
+        commission: inv.commission || { total: 0, upfront: 0, final: 0 },
+        repName: inv.repName || byRep[key].repName || null,
+        salesperson: inv.repName || byRep[key].repName || null
+      })
     }
 
     // Attach deal pipeline activity to reps (for display only, max 10 per rep)
