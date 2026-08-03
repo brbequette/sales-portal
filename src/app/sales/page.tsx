@@ -682,9 +682,11 @@ export default function SalesPage() {
                   }}
                   className="bg-black/40 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                 >
-                  <option value="">Myself (Admin)</option>
-                  {allDbUsers.filter(u => u.role !== 'ADMIN' && u.name).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')).map((u: any) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
+                  <option value="all">🏢 All Sales Reps / Company Totals</option>
+                  {allDbUsers.filter(u => u.name && !u.email?.includes("dummy.titandiamond.com") && !u.email?.includes("example.com")).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')).map((u: any) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} {u.role?.toLowerCase().includes('admin') ? '(Admin)' : ''}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -692,7 +694,7 @@ export default function SalesPage() {
           </div>
 
           {/* Sub-header Tabs Navigation */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             
             {/* Sales Pipeline Tab */}
             <button
@@ -718,7 +720,7 @@ export default function SalesPage() {
               </div>
             </button>
 
-            {/* Cold Call List Tab */}
+            {/* Accounts Without Purchase History Tab */}
             <button
               onClick={() => handleEffortChange("cold_call")}
               className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
@@ -733,8 +735,29 @@ export default function SalesPage() {
                   <FiPhoneCall size={20} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold tracking-tight">Cold Call List</h3>
-                  <p className="text-xs text-neutral-500 mt-0.5">Never purchased</p>
+                  <h3 className="text-sm font-bold tracking-tight">Accounts Without Purchase History</h3>
+                  <p className="text-xs text-neutral-500 mt-0.5">$0 total sales accounts</p>
+                </div>
+              </div>
+            </button>
+
+            {/* CRM Leads List Tab */}
+            <button
+              onClick={() => handleEffortChange("leads" as any)}
+              className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
+                (effort as any) === "leads"
+                  ? "bg-[#17191a] border-orange-400/45 text-white shadow-[0_0_20px_rgba(249,115,22,0.15)]"
+                  : "bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] text-neutral-400"
+              }`}
+            >
+              {(effort as any) === "leads" && <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-orange-400" />}
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-xl border transition-colors ${(effort as any) === "leads" ? "bg-orange-950 border-orange-500/30 text-orange-400" : "bg-white/[0.045] border-[var(--border)] text-neutral-500"}`}>
+                  <FiUsers size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold tracking-tight">CRM Leads List</h3>
+                  <p className="text-xs text-neutral-500 mt-0.5">Unconverted CRM leads</p>
                 </div>
               </div>
             </button>

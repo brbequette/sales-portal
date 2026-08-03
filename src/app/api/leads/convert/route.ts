@@ -104,6 +104,44 @@ export async function POST(req: Request) {
         }
       })
 
+      // Gather ALL matching CRM Leads that share the same company name and convert them into Contacts under the Account
+      if (targetCompanyName && targetCompanyName !== "New Converted Account") {
+        const matchingLeads = await prisma.lead.findMany({
+          where: {
+            company: { equals: targetCompanyName, mode: 'insensitive' },
+            status: { not: "Converted" },
+            id: { not: lead.id }
+          }
+        })
+
+        for (const otherLead of matchingLeads) {
+          await prisma.contact.create({
+            data: {
+              zohoId: otherLead.zohoId ? `cnt_lead_${otherLead.zohoId}` : `cnt_lead_${otherLead.id}`,
+              accountId: newAccount.id,
+              firstName: otherLead.firstName,
+              lastName: otherLead.lastName || "Contact",
+              email: otherLead.email,
+              phone: otherLead.phone || otherLead.mobile,
+              mobilePhone: otherLead.mobile,
+              isPrimary: false,
+              mailingStreet: otherLead.street,
+              mailingCity: otherLead.city,
+              mailingState: otherLead.state,
+              mailingZip: otherLead.zip
+            }
+          })
+
+          await prisma.lead.update({
+            where: { id: otherLead.id },
+            data: {
+              status: "Converted",
+              convertedAccountId: newAccount.id
+            }
+          })
+        }
+      }
+
       // Try converting in Zoho CRM if real Zoho Lead
       if (lead.zohoId && !lead.zohoId.startsWith("lead_local_")) {
         try {

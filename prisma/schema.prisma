@@ -249,6 +249,15 @@ model Invoice {
   actualShippingCost    Float?
   shippingCostBreakdown String?
 
+  // Write-off & Return Re-inventory tracking
+  isWrittenOff            Boolean   @default(false)
+  writtenOffAt            DateTime?
+  writtenOffCostDeduction Float     @default(0)
+  returnedItemsCost       Float     @default(0)
+  returnedItemsRepHold    Float     @default(0)
+  returnedItemsResold     Boolean   @default(false)
+  resoldInvoiceId         String?
+
   @@index([accountId])
   @@index([dealId])
   @@index([status])

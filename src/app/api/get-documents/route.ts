@@ -31,7 +31,8 @@ export async function GET(request: Request) {
 
     if (statusFilters.includes('overdue')) {
       invoiceWhere.balance = { gt: 0 }
-      invoiceWhere.status = { notIn: ['paid', 'Paid', 'PAID', 'void', 'Void', 'Closed', 'closed', 'Draft', 'draft'] }
+      invoiceWhere.status = { notIn: ['paid', 'Paid', 'PAID', 'void', 'Void', 'Closed', 'closed', 'Draft', 'draft', 'written_off', 'Written Off', 'WRITTEN_OFF'] }
+      invoiceWhere.isWrittenOff = false
     } else if (startDate) {
       invoiceWhere.issueDate = { gte: startDate }
     } else if (!loadAll) {

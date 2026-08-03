@@ -60,8 +60,8 @@ export default function HomeDashboard() {
               }}
               className="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-orange-500 cursor-pointer"
             >
-              <option value="">Myself (Admin)</option>
-              {allDbUsers.filter(u => u.name && !u.email?.includes("dummy.titandiamond.com") && !u.email?.includes("example.com") && u.email?.toLowerCase() !== currentUser?.email?.toLowerCase()).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')).map((u: any) => (
+              <option value="">🏢 Company Totals (All Reps)</option>
+              {allDbUsers.filter(u => u.name && !u.email?.includes("dummy.titandiamond.com") && !u.email?.includes("example.com")).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')).map((u: any) => (
                 <option key={u.id} value={u.id}>{u.name} {u.role?.toLowerCase().includes('admin') ? '(Admin)' : ''}</option>
               ))}
             </select>
