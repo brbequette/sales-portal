@@ -16,7 +16,7 @@ function getWorkdaysCount(startDate: Date, endDate: Date, holidays: any[]): numb
 
   while (cur <= targetEnd) {
     const day = cur.getDay();
-    if (day !== 0 && day !== 6) { // Not Sunday or Saturday
+    if (day !== 0 && day !== 6) {
       const dateStr = cur.toISOString().split('T')[0];
       if (!holidaySet.has(dateStr)) {
         count++;
@@ -29,7 +29,7 @@ function getWorkdaysCount(startDate: Date, endDate: Date, holidays: any[]): numb
 
 function getWorkdaysInMonth(year: number, month: number, holidays: any[]): number {
   const startDate = new Date(year, month, 1);
-  const endDate = new Date(year, month + 1, 0); // Last day of month
+  const endDate = new Date(year, month + 1, 0);
   return getWorkdaysCount(startDate, endDate, holidays);
 }
 
@@ -60,25 +60,13 @@ export const handler: Handler = async (event) => {
 
   try {
     const params = event.queryStringParameters || {}
-    const showHidden = params.showHidden === 'true' || params.includeHidden === 'true' || params.showHidden === '1'
-    const monthParam = params.month // e.g. "2026-07"
-    const dateParam = params.date // e.g. "2026-07-21"
+    const monthParam = params.month
+    const dateParam = params.date
     const repIdFilter = params.repId || params.user || "all"
     const periodParam = params.period || "this_month"
     const customStartDate = params.startDate
     const customEndDate = params.endDate
 
-    const appSettings = {
-      default_vig_rate: 1.3,
-      commission_rate_pct: 50,
-      shipping_multiplier: 1.5,
-      cc_fee_rate: 3.5,
-      default_shipping_weight: 0.5,
-      sms_daily_account_limit: 1,
-      ai_reply_prompt: "You are a professional sales assistant."
-    }
-
-    // Determine target Date Range based on periodParam / startDate / endDate
     let now = new Date()
     let rangeStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
     let rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
@@ -122,7 +110,6 @@ export const handler: Handler = async (event) => {
       rangeEnd = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), 23, 59, 59, 999)
     }
 
-    // Batch all DB queries concurrently
     const [
       settings,
       users,
@@ -148,18 +135,7 @@ export const handler: Handler = async (event) => {
           role: true,
           constantVigEnabled: true,
           constantVigValue: true,
-          payoutStructure: true,
-          monthlyVigGoals: {
-            select: {
-              id: true,
-              monthKey: true,
-              metric: true,
-              subtotalGoal: true,
-              profitGoal: true,
-              manualVigRate: true,
-              lastSyncedVigRate: true
-            }
-          }
+          payoutStructure: true
         },
         orderBy: { name: "asc" }
       }).catch(() => []),
@@ -217,13 +193,6 @@ export const handler: Handler = async (event) => {
       }).catch(() => [])
     ])
 
-    const settingsMap = new Map((settings || []).map(s => [s.key, s.value]))
-    const holidays: string[] = JSON.parse(settingsMap.get("holidays") || "[]")
-    const salesTargets: Record<string, number> = JSON.parse(settingsMap.get("sales_targets") || "{}")
-    const subtotalTargets: Record<string, number> = JSON.parse(settingsMap.get("subtotal_targets") || "{}")
-    const visibleReps: string[] = JSON.parse(settingsMap.get("visible_reps") || "[]")
-
-    // Map usernames & aliases to user IDs
     const userNameToIdMap: Record<string, string> = {}
     users.forEach(u => {
       if (u.name) {
@@ -246,18 +215,10 @@ export const handler: Handler = async (event) => {
     addAlias("justin  zastrow", "justin zastrow")
     const unassignedId = "unassigned"
 
-    const workdaysInWeek = getWorkdaysInWeek(now, holidays)
-    const workdaysInMonth = getWorkdaysInMonth(now.getFullYear(), now.getMonth(), holidays)
-
     // Initialize repStatsMap
     const repStatsMap: Record<string, any> = {}
     
     users.forEach(u => {
-      const dailyGoal = salesTargets[u.id] || 0
-      const weeklyGoal = dailyGoal * workdaysInWeek
-      const monthlyGoal = dailyGoal * workdaysInMonth
-      const dailySubtotalGoal = subtotalTargets[u.id] || (dailyGoal * 2)
-
       repStatsMap[u.id] = {
         repId: u.id,
         repName: u.name || u.email.split("@")[0],
@@ -268,10 +229,12 @@ export const handler: Handler = async (event) => {
         revenue: 0,
         profit: 0,
         deadProfit: 0,
-        margin: 0,
         commissions: 0,
         invoiceCount: 0,
         salesOrderCount: 0,
+        salesOrderSubtotal: 0,
+        salesOrderDeadProfit: 0,
+        salesOrderEstCommission: 0,
         invoices: [],
         salesOrders: []
       }
@@ -287,10 +250,12 @@ export const handler: Handler = async (event) => {
       revenue: 0,
       profit: 0,
       deadProfit: 0,
-      margin: 0,
       commissions: 0,
       invoiceCount: 0,
       salesOrderCount: 0,
+      salesOrderSubtotal: 0,
+      salesOrderDeadProfit: 0,
+      salesOrderEstCommission: 0,
       invoices: [],
       salesOrders: []
     }
@@ -329,6 +294,13 @@ export const handler: Handler = async (event) => {
       const deadProfit = amount - deadCost - additionalCosts - ccFees
       const profit = amount - deadCostPlusVig - additionalCosts - ccFees
 
+      const commission = (
+        parseFloat(items.commission) ||
+        parseFloat(items.cf_commission_amount_unformatted) ||
+        parseFloat(items.cf_commision_amount_unformatted) ||
+        (profit * 0.50)
+      ) || 0
+
       let repId = unassignedId
       if (salespersonName) {
         const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
@@ -343,6 +315,7 @@ export const handler: Handler = async (event) => {
         repStatsMap[repId].revenue += amount
         repStatsMap[repId].profit += profit
         repStatsMap[repId].deadProfit += deadProfit
+        repStatsMap[repId].commissions += commission
         repStatsMap[repId].invoiceCount++
         repStatsMap[repId].invoices.push({
           id: inv.id,
@@ -352,12 +325,13 @@ export const handler: Handler = async (event) => {
           subtotal: amount,
           deadProfit: deadProfit,
           profit: profit,
+          commission: commission,
           status: inv.status || "Paid"
         })
       }
     })
 
-    // Process Sales Orders in range
+    // Process Sales Orders in range (strictly separate from invoices)
     allSalesOrders.forEach((so: any) => {
       const items = so.items as any || {}
       const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
@@ -377,6 +351,7 @@ export const handler: Handler = async (event) => {
       if (isNaN(deadCost)) deadCost = 0
 
       const deadProfit = amount - deadCost
+      const estCommission = deadProfit * 0.50
       const salespersonName = items.salesperson || ""
 
       let repId = unassignedId
@@ -391,6 +366,9 @@ export const handler: Handler = async (event) => {
 
       if (repStatsMap[repId] && so.status !== 'Void' && so.status !== 'Draft') {
         repStatsMap[repId].salesOrderCount++
+        repStatsMap[repId].salesOrderSubtotal += amount
+        repStatsMap[repId].salesOrderDeadProfit += deadProfit
+        repStatsMap[repId].salesOrderEstCommission += estCommission
         repStatsMap[repId].salesOrders.push({
           id: so.id,
           salesOrderNumber: items.salesorder_number || items.salesOrderNumber || so.zohoId || so.id,
@@ -398,42 +376,42 @@ export const handler: Handler = async (event) => {
           customerName: so.account?.name || "Unknown Customer",
           subtotal: amount,
           deadProfit: deadProfit,
+          estCommission: estCommission,
           status: so.status || "Confirmed"
         })
       }
     })
 
-    // Return all reps or filter to target rep
     let repsList = Object.values(repStatsMap).filter((r: any) => r.repId !== unassignedId || r.invoices.length > 0 || r.salesOrders.length > 0)
     
     if (repIdFilter !== "all") {
       repsList = repsList.filter((r: any) => r.repId === repIdFilter || r.email === repIdFilter)
     }
 
-    // Grand Totals Calculation
-    let grandInvoiceCount = 0
-    let grandInvoiceSubtotal = 0
-    let grandInvoiceDeadProfit = 0
+    // Totals Calculation (Strictly Keeping Invoices & Sales Orders Separate)
+    let totalInvoiceCount = 0
+    let totalInvoiceSubtotal = 0
+    let totalInvoiceDeadProfit = 0
+    let totalInvoiceNetProfit = 0
+    let totalInvoiceCommission = 0
 
-    let grandSalesOrderCount = 0
-    let grandSalesOrderSubtotal = 0
-    let grandSalesOrderDeadProfit = 0
+    let totalSalesOrderCount = 0
+    let totalSalesOrderSubtotal = 0
+    let totalSalesOrderDeadProfit = 0
+    let totalSalesOrderEstCommission = 0
 
     repsList.forEach((r: any) => {
-      grandInvoiceCount += r.invoiceCount
-      grandInvoiceSubtotal += r.revenue
-      grandInvoiceDeadProfit += r.deadProfit
+      totalInvoiceCount += r.invoiceCount
+      totalInvoiceSubtotal += r.revenue
+      totalInvoiceDeadProfit += r.deadProfit
+      totalInvoiceNetProfit += r.profit
+      totalInvoiceCommission += r.commissions
 
-      r.salesOrders.forEach((so: any) => {
-        grandSalesOrderCount++
-        grandSalesOrderSubtotal += so.subtotal
-        grandSalesOrderDeadProfit += so.deadProfit
-      })
+      totalSalesOrderCount += r.salesOrderCount
+      totalSalesOrderSubtotal += r.salesOrderSubtotal
+      totalSalesOrderDeadProfit += r.salesOrderDeadProfit
+      totalSalesOrderEstCommission += r.salesOrderEstCommission
     })
-
-    const grandTotalSubtotal = grandInvoiceSubtotal + grandSalesOrderSubtotal
-    const grandTotalDeadProfit = grandInvoiceDeadProfit + grandSalesOrderDeadProfit
-    const grandTotalCount = grandInvoiceCount + grandSalesOrderCount
 
     return {
       statusCode: 200,
@@ -447,15 +425,15 @@ export const handler: Handler = async (event) => {
         },
         reps: repsList,
         totals: {
-          invoiceCount: grandInvoiceCount,
-          invoiceSubtotal: grandInvoiceSubtotal,
-          invoiceDeadProfit: grandInvoiceDeadProfit,
-          salesOrderCount: grandSalesOrderCount,
-          salesOrderSubtotal: grandSalesOrderSubtotal,
-          salesOrderDeadProfit: grandSalesOrderDeadProfit,
-          grandCount: grandTotalCount,
-          grandSubtotal: grandTotalSubtotal,
-          grandDeadProfit: grandTotalDeadProfit
+          invoiceCount: totalInvoiceCount,
+          invoiceSubtotal: totalInvoiceSubtotal,
+          invoiceDeadProfit: totalInvoiceDeadProfit,
+          invoiceNetProfit: totalInvoiceNetProfit,
+          invoiceCommission: totalInvoiceCommission,
+          salesOrderCount: totalSalesOrderCount,
+          salesOrderSubtotal: totalSalesOrderSubtotal,
+          salesOrderDeadProfit: totalSalesOrderDeadProfit,
+          salesOrderEstCommission: totalSalesOrderEstCommission
         }
       })
     }

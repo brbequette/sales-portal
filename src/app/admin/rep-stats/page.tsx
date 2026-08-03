@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import {
   FiBarChart2, FiDollarSign, FiUsers, FiCalendar, FiFilter,
   FiFileText, FiShoppingCart, FiSearch, FiRefreshCw, FiChevronRight,
-  FiChevronDown, FiChevronUp, FiX, FiCheckCircle, FiClock, FiAlertCircle
+  FiChevronDown, FiChevronUp, FiX, FiCheckCircle, FiClock, FiAlertCircle, FiAward
 } from "react-icons/fi"
 
 function formatCurrency(amount: number): string {
@@ -36,12 +36,12 @@ export default function AdminRepStatsPage() {
     invoiceCount: 0,
     invoiceSubtotal: 0,
     invoiceDeadProfit: 0,
+    invoiceNetProfit: 0,
+    invoiceCommission: 0,
     salesOrderCount: 0,
     salesOrderSubtotal: 0,
     salesOrderDeadProfit: 0,
-    grandCount: 0,
-    grandSubtotal: 0,
-    grandDeadProfit: 0
+    salesOrderEstCommission: 0
   })
 
   // State for expanded rep row and popup modal
@@ -85,7 +85,6 @@ export default function AdminRepStatsPage() {
     fetchStats()
   }, [isInitialized, currentUser, selectedRepId, period, startDate, endDate])
 
-  // Extract selected rep or all reps documents
   const allInvoices = useMemo(() => {
     let list: any[] = []
     reps.forEach(r => {
@@ -136,7 +135,7 @@ export default function AdminRepStatsPage() {
             <FiBarChart2 className="text-orange-500" size={28} /> Admin Rep Performance & Financial Board
           </h1>
           <p className="text-xs text-neutral-400 mt-1">
-            Complete financial evaluation for sales orders and invoices by representative and date range.
+            Separately evaluate Invoices & Sales Orders with exact commission numbers and total profit.
           </p>
         </div>
 
@@ -220,64 +219,75 @@ export default function AdminRepStatsPage() {
         </div>
       </div>
 
-      {/* KPI Cards Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Invoices Subtotal */}
-        <div className="bg-neutral-900/60 border border-white/10 p-5 rounded-2xl space-y-1">
-          <div className="flex justify-between items-center text-xs font-bold text-neutral-400">
-            <span>INVOICES SUBTOTAL</span>
-            <FiFileText className="text-sky-400" size={16} />
+      {/* KPI Cards Summary - Invoices (Separate from Sales Orders) */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-2">
+          <FiFileText /> Invoices Totals Summary (Actual Billed Sales & Commissions)
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-neutral-900/60 border border-sky-500/20 p-5 rounded-2xl space-y-1">
+            <div className="text-xs font-bold text-neutral-400">INVOICE SUBTOTALS</div>
+            <div className="text-2xl font-black text-white">{formatCurrency(totals.invoiceSubtotal || 0)}</div>
+            <div className="text-[11px] text-neutral-500">{totals.invoiceCount || 0} Invoices Billed</div>
           </div>
-          <div className="text-2xl font-black text-white">{formatCurrency(totals.invoiceSubtotal || 0)}</div>
-          <div className="text-[11px] text-neutral-500 flex justify-between">
-            <span>{totals.invoiceCount || 0} Invoices</span>
-            <span className="text-emerald-400 font-semibold">Vig: {formatCurrency(totals.invoiceDeadProfit || 0)}</span>
-          </div>
-        </div>
 
-        {/* Sales Orders Subtotal */}
-        <div className="bg-neutral-900/60 border border-white/10 p-5 rounded-2xl space-y-1">
-          <div className="flex justify-between items-center text-xs font-bold text-neutral-400">
-            <span>SALES ORDERS SUBTOTAL</span>
-            <FiShoppingCart className="text-purple-400" size={16} />
+          <div className="bg-neutral-900/60 border border-sky-500/20 p-5 rounded-2xl space-y-1">
+            <div className="text-xs font-bold text-neutral-400">DEAD PROFIT (VIG)</div>
+            <div className="text-2xl font-black text-emerald-400">{formatCurrency(totals.invoiceDeadProfit || 0)}</div>
+            <div className="text-[11px] text-neutral-500">Gross profit before baseline</div>
           </div>
-          <div className="text-2xl font-black text-white">{formatCurrency(totals.salesOrderSubtotal || 0)}</div>
-          <div className="text-[11px] text-neutral-500 flex justify-between">
-            <span>{totals.salesOrderCount || 0} Orders</span>
-            <span className="text-purple-400 font-semibold">Vig: {formatCurrency(totals.salesOrderDeadProfit || 0)}</span>
-          </div>
-        </div>
 
-        {/* Grand Total Revenue */}
-        <div className="bg-gradient-to-br from-emerald-950/40 to-neutral-900 border border-emerald-500/30 p-5 rounded-2xl space-y-1">
-          <div className="flex justify-between items-center text-xs font-bold text-emerald-400">
-            <span>⚡ GRAND TOTAL REVENUE</span>
-            <FiDollarSign className="text-emerald-400" size={18} />
+          <div className="bg-neutral-900/60 border border-sky-500/20 p-5 rounded-2xl space-y-1">
+            <div className="text-xs font-bold text-neutral-400">NET PROFIT (AFTER VIG)</div>
+            <div className="text-2xl font-black text-sky-300">{formatCurrency(totals.invoiceNetProfit || 0)}</div>
+            <div className="text-[11px] text-neutral-500">Net profit after baseline VIG rate</div>
           </div>
-          <div className="text-2xl font-black text-emerald-300">{formatCurrency(totals.grandSubtotal || 0)}</div>
-          <div className="text-[11px] text-neutral-400">
-            Invoices ({formatCurrency(totals.invoiceSubtotal || 0)}) + Sales Orders ({formatCurrency(totals.salesOrderSubtotal || 0)})
-          </div>
-        </div>
 
-        {/* Grand Total Dead Profit */}
-        <div className="bg-gradient-to-br from-orange-950/40 to-neutral-900 border border-orange-500/30 p-5 rounded-2xl space-y-1">
-          <div className="flex justify-between items-center text-xs font-bold text-orange-400">
-            <span>⚡ GRAND TOTAL DEAD PROFIT</span>
-            <FiBarChart2 className="text-orange-400" size={18} />
-          </div>
-          <div className="text-2xl font-black text-orange-300">{formatCurrency(totals.grandDeadProfit || 0)}</div>
-          <div className="text-[11px] text-neutral-400">
-            Invoices Dead Profit ({formatCurrency(totals.invoiceDeadProfit || 0)}) + Sales Orders ({formatCurrency(totals.salesOrderDeadProfit || 0)})
+          <div className="bg-gradient-to-br from-amber-950/40 to-neutral-900 border border-amber-500/30 p-5 rounded-2xl space-y-1">
+            <div className="flex justify-between items-center text-xs font-bold text-amber-400">
+              <span>💰 INVOICE COMMISSIONS</span>
+              <FiAward size={18} />
+            </div>
+            <div className="text-2xl font-black text-amber-300">{formatCurrency(totals.invoiceCommission || 0)}</div>
+            <div className="text-[11px] text-neutral-400">50% Rep Earned Commissions</div>
           </div>
         </div>
       </div>
 
-      {/* Rep Summary Cards Table with Expanding Div & Breakdown Modal */}
+      {/* KPI Cards Summary - Sales Orders (Strictly Separate) */}
+      <div className="space-y-3 pt-2">
+        <h3 className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
+          <FiShoppingCart /> Sales Orders Totals Summary (Pending Invoicing)
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-neutral-900/60 border border-purple-500/20 p-5 rounded-2xl space-y-1">
+            <div className="text-xs font-bold text-neutral-400">SALES ORDER SUBTOTALS</div>
+            <div className="text-2xl font-black text-white">{formatCurrency(totals.salesOrderSubtotal || 0)}</div>
+            <div className="text-[11px] text-neutral-500">{totals.salesOrderCount || 0} Orders Created</div>
+          </div>
+
+          <div className="bg-neutral-900/60 border border-purple-500/20 p-5 rounded-2xl space-y-1">
+            <div className="text-xs font-bold text-neutral-400">SALES ORDER DEAD PROFIT</div>
+            <div className="text-2xl font-black text-purple-300">{formatCurrency(totals.salesOrderDeadProfit || 0)}</div>
+            <div className="text-[11px] text-neutral-500">Gross profit on orders</div>
+          </div>
+
+          <div className="bg-gradient-to-br from-purple-950/40 to-neutral-900 border border-purple-500/30 p-5 rounded-2xl space-y-1">
+            <div className="flex justify-between items-center text-xs font-bold text-purple-400">
+              <span>💼 EST. ORDER COMMISSIONS</span>
+              <FiDollarSign size={18} />
+            </div>
+            <div className="text-2xl font-black text-purple-200">{formatCurrency(totals.salesOrderEstCommission || 0)}</div>
+            <div className="text-[11px] text-neutral-400">Est. commission upon invoicing</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Rep Summary Cards Table (Strictly Separate Invoices & Sales Orders) */}
       <div className="bg-neutral-900/60 border border-white/10 rounded-2xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <FiUsers className="text-orange-500" /> Representative Financial Breakdown (Click Row to Expand Breakdown)
+            <FiUsers className="text-orange-500" /> Representative Financial Breakdown (Click Row to Expand)
           </h3>
         </div>
 
@@ -289,9 +299,10 @@ export default function AdminRepStatsPage() {
                 <th className="p-3 text-right">Invoices Qty</th>
                 <th className="p-3 text-right">Invoices Subtotal</th>
                 <th className="p-3 text-right">Invoices Dead Profit</th>
-                <th className="p-3 text-right">Sales Orders Qty</th>
-                <th className="p-3 text-right">Sales Orders Subtotal</th>
-                <th className="p-3 text-right font-bold text-emerald-400">Grand Total Subtotal</th>
+                <th className="p-3 text-right font-bold text-amber-400">Invoices Commission</th>
+                <th className="p-3 text-right border-l border-white/10">SO Qty</th>
+                <th className="p-3 text-right">SO Subtotal</th>
+                <th className="p-3 text-right font-bold text-purple-300">SO Est. Commission</th>
                 <th className="p-3 text-center">Breakdown</th>
               </tr>
             </thead>
@@ -299,8 +310,7 @@ export default function AdminRepStatsPage() {
               {reps.map(r => {
                 const soSubtotal = r.salesOrders?.reduce((s: number, o: any) => s + (o.subtotal || 0), 0) || 0
                 const soDeadProfit = r.salesOrders?.reduce((s: number, o: any) => s + (o.deadProfit || 0), 0) || 0
-                const grandSub = (r.revenue || 0) + soSubtotal
-                const grandDead = (r.deadProfit || 0) + soDeadProfit
+                const soEstComm = r.salesOrders?.reduce((s: number, o: any) => s + (o.estCommission || 0), 0) || 0
                 const isExpanded = expandedRepId === r.repId
 
                 return (
@@ -318,9 +328,10 @@ export default function AdminRepStatsPage() {
                       <td className="p-3 text-right font-mono text-neutral-400">{r.invoiceCount || 0}</td>
                       <td className="p-3 text-right font-mono font-semibold text-white">{formatCurrency(r.revenue || 0)}</td>
                       <td className="p-3 text-right font-mono font-semibold text-emerald-400">{formatCurrency(r.deadProfit || 0)}</td>
-                      <td className="p-3 text-right font-mono text-neutral-400">{r.salesOrderCount || 0}</td>
+                      <td className="p-3 text-right font-mono font-bold text-amber-400">{formatCurrency(r.commissions || 0)}</td>
+                      <td className="p-3 text-right font-mono text-neutral-400 border-l border-white/10">{r.salesOrderCount || 0}</td>
                       <td className="p-3 text-right font-mono font-semibold text-purple-300">{formatCurrency(soSubtotal)}</td>
-                      <td className="p-3 text-right font-mono font-bold text-emerald-400">{formatCurrency(grandSub)}</td>
+                      <td className="p-3 text-right font-mono font-bold text-purple-300">{formatCurrency(soEstComm)}</td>
                       <td className="p-3 text-center">
                         <button
                           onClick={(e) => {
@@ -337,32 +348,33 @@ export default function AdminRepStatsPage() {
                     {/* EXPANDING BREAKDOWN DIV */}
                     {isExpanded && (
                       <tr>
-                        <td colSpan={8} className="p-4 bg-black/40 border-t border-b border-orange-500/20">
+                        <td colSpan={9} className="p-4 bg-black/40 border-t border-b border-orange-500/20">
                           <div className="space-y-4">
                             <div className="flex items-center justify-between border-b border-white/10 pb-2">
                               <h4 className="text-xs font-bold text-orange-400 uppercase tracking-wider flex items-center gap-2">
-                                📊 Detailed Breakdown for {r.repName}
+                                📊 Detailed Document Breakdown for {r.repName}
                               </h4>
                               <div className="flex gap-4 text-xs font-mono">
-                                <span className="text-emerald-400 font-bold">Grand Subtotal: {formatCurrency(grandSub)}</span>
-                                <span className="text-orange-400 font-bold">Grand Dead Profit: {formatCurrency(grandDead)}</span>
+                                <span className="text-amber-400 font-bold">Invoices Commission: {formatCurrency(r.commissions || 0)}</span>
+                                <span className="text-purple-300 font-bold">SO Est. Commission: {formatCurrency(soEstComm)}</span>
                               </div>
                             </div>
 
-                            {/* Invoices List */}
+                            {/* Invoices List with Commission Numbers */}
                             <div className="space-y-2">
                               <h5 className="text-[11px] font-bold text-sky-400 uppercase tracking-wider">
                                 📄 Invoices ({r.invoices?.length || 0})
                               </h5>
-                              <div className="max-h-48 overflow-y-auto border border-white/10 rounded-xl bg-neutral-900/80">
+                              <div className="max-h-56 overflow-y-auto border border-white/10 rounded-xl bg-neutral-900/80">
                                 <table className="w-full text-left text-[11px]">
-                                  <thead className="bg-black/50 text-neutral-400 uppercase text-[9px]">
+                                  <thead className="bg-black/50 text-neutral-400 uppercase text-[9px] sticky top-0">
                                     <tr>
                                       <th className="p-2">Invoice #</th>
                                       <th className="p-2">Date</th>
                                       <th className="p-2">Customer Name</th>
                                       <th className="p-2 text-right">Subtotal</th>
                                       <th className="p-2 text-right">Dead Profit</th>
+                                      <th className="p-2 text-right text-amber-400 font-bold">Commission</th>
                                       <th className="p-2 text-center">Status</th>
                                     </tr>
                                   </thead>
@@ -374,6 +386,7 @@ export default function AdminRepStatsPage() {
                                         <td className="p-2 font-semibold text-white">{inv.customerName}</td>
                                         <td className="p-2 text-right font-mono font-bold text-white">{formatCurrency(inv.subtotal)}</td>
                                         <td className="p-2 text-right font-mono font-bold text-emerald-400">{formatCurrency(inv.deadProfit)}</td>
+                                        <td className="p-2 text-right font-mono font-bold text-amber-400">{formatCurrency(inv.commission)}</td>
                                         <td className="p-2 text-center text-[9px] font-bold text-emerald-400">{inv.status || "Paid"}</td>
                                       </tr>
                                     ))}
@@ -382,20 +395,21 @@ export default function AdminRepStatsPage() {
                               </div>
                             </div>
 
-                            {/* Sales Orders List */}
+                            {/* Sales Orders List with Est. Commission */}
                             <div className="space-y-2">
                               <h5 className="text-[11px] font-bold text-purple-400 uppercase tracking-wider">
                                 📦 Sales Orders ({r.salesOrders?.length || 0})
                               </h5>
-                              <div className="max-h-48 overflow-y-auto border border-white/10 rounded-xl bg-neutral-900/80">
+                              <div className="max-h-56 overflow-y-auto border border-white/10 rounded-xl bg-neutral-900/80">
                                 <table className="w-full text-left text-[11px]">
-                                  <thead className="bg-black/50 text-neutral-400 uppercase text-[9px]">
+                                  <thead className="bg-black/50 text-neutral-400 uppercase text-[9px] sticky top-0">
                                     <tr>
                                       <th className="p-2">Sales Order #</th>
                                       <th className="p-2">Date</th>
                                       <th className="p-2">Customer Name</th>
                                       <th className="p-2 text-right">Subtotal</th>
                                       <th className="p-2 text-right">Dead Profit</th>
+                                      <th className="p-2 text-right text-purple-300 font-bold">Est. Commission</th>
                                       <th className="p-2 text-center">Status</th>
                                     </tr>
                                   </thead>
@@ -407,6 +421,7 @@ export default function AdminRepStatsPage() {
                                         <td className="p-2 font-semibold text-white">{so.customerName}</td>
                                         <td className="p-2 text-right font-mono font-bold text-white">{formatCurrency(so.subtotal)}</td>
                                         <td className="p-2 text-right font-mono font-bold text-purple-300">{formatCurrency(so.deadProfit)}</td>
+                                        <td className="p-2 text-right font-mono font-bold text-purple-300">{formatCurrency(so.estCommission)}</td>
                                         <td className="p-2 text-center text-[9px] font-bold text-purple-300">{so.status || "Confirmed"}</td>
                                       </tr>
                                     ))}
@@ -434,10 +449,10 @@ export default function AdminRepStatsPage() {
             <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
               <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  📊 Rep Financial Totals Popup: <span className="text-orange-400">{modalRep.repName}</span>
+                  📊 Rep Financial Totals & Commissions Popup: <span className="text-orange-400">{modalRep.repName}</span>
                 </h3>
                 <p className="text-xs text-neutral-400 mt-0.5">
-                  Complete list of invoice and sales order numbers for the selected date range.
+                  Invoice & Sales Order numbers with exact commissions and dead profit.
                 </p>
               </div>
               <button onClick={() => setModalRep(null)} className="p-1 text-neutral-400 hover:text-white cursor-pointer text-lg font-bold">
@@ -454,12 +469,12 @@ export default function AdminRepStatsPage() {
               </div>
 
               <div className="bg-black/50 p-3 rounded-xl border border-white/10 text-xs">
-                <span className="text-neutral-400 font-bold block text-[10px]">INVOICES VIG</span>
-                <span className="text-sm font-black text-emerald-400">{formatCurrency(modalRep.deadProfit || 0)}</span>
+                <span className="text-neutral-400 font-bold block text-[10px]">INVOICE COMMISSIONS</span>
+                <span className="text-sm font-black text-amber-400">{formatCurrency(modalRep.commissions || 0)}</span>
               </div>
 
               <div className="bg-black/50 p-3 rounded-xl border border-white/10 text-xs">
-                <span className="text-neutral-400 font-bold block text-[10px]">SALES ORDERS SUBTOTAL</span>
+                <span className="text-neutral-400 font-bold block text-[10px]">SO SUBTOTALS</span>
                 <span className="text-sm font-black text-purple-300">
                   {formatCurrency(modalRep.salesOrders?.reduce((s: number, o: any) => s + (o.subtotal || 0), 0) || 0)}
                 </span>
@@ -467,9 +482,9 @@ export default function AdminRepStatsPage() {
               </div>
 
               <div className="bg-black/50 p-3 rounded-xl border border-white/10 text-xs">
-                <span className="text-neutral-400 font-bold block text-[10px]">SALES ORDERS VIG</span>
+                <span className="text-neutral-400 font-bold block text-[10px]">SO EST. COMMISSIONS</span>
                 <span className="text-sm font-black text-purple-400">
-                  {formatCurrency(modalRep.salesOrders?.reduce((s: number, o: any) => s + (o.deadProfit || 0), 0) || 0)}
+                  {formatCurrency(modalRep.salesOrders?.reduce((s: number, o: any) => s + (o.estCommission || 0), 0) || 0)}
                 </span>
               </div>
             </div>
@@ -505,6 +520,7 @@ export default function AdminRepStatsPage() {
                       <th className="p-2.5">Customer Name</th>
                       <th className="p-2.5 text-right">Subtotal</th>
                       <th className="p-2.5 text-right">Dead Profit</th>
+                      <th className="p-2.5 text-right text-amber-400 font-bold">Commission</th>
                       <th className="p-2.5 text-center">Status</th>
                     </tr>
                   </thead>
@@ -516,6 +532,7 @@ export default function AdminRepStatsPage() {
                         <td className="p-2.5 font-semibold text-white">{inv.customerName}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-white">{formatCurrency(inv.subtotal)}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-emerald-400">{formatCurrency(inv.deadProfit)}</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-amber-400">{formatCurrency(inv.commission)}</td>
                         <td className="p-2.5 text-center text-[10px] font-bold text-emerald-400">{inv.status || "Paid"}</td>
                       </tr>
                     ))}
@@ -530,6 +547,7 @@ export default function AdminRepStatsPage() {
                       <th className="p-2.5">Customer Name</th>
                       <th className="p-2.5 text-right">Subtotal</th>
                       <th className="p-2.5 text-right">Dead Profit</th>
+                      <th className="p-2.5 text-right text-purple-300 font-bold">Est. Commission</th>
                       <th className="p-2.5 text-center">Status</th>
                     </tr>
                   </thead>
@@ -541,6 +559,7 @@ export default function AdminRepStatsPage() {
                         <td className="p-2.5 font-semibold text-white">{so.customerName}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-white">{formatCurrency(so.subtotal)}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-purple-300">{formatCurrency(so.deadProfit)}</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-purple-300">{formatCurrency(so.estCommission)}</td>
                         <td className="p-2.5 text-center text-[10px] font-bold text-purple-300">{so.status || "Confirmed"}</td>
                       </tr>
                     ))}
@@ -611,13 +630,14 @@ export default function AdminRepStatsPage() {
                   <th className="p-3">Salesperson</th>
                   <th className="p-3 text-right">Subtotal</th>
                   <th className="p-3 text-right">Dead Profit</th>
+                  <th className="p-3 text-right text-amber-400 font-bold">Commission</th>
                   <th className="p-3 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {allInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-6 text-center text-neutral-500">
+                    <td colSpan={8} className="p-6 text-center text-neutral-500">
                       No invoice datapoints found for the selected range.
                     </td>
                   </tr>
@@ -630,6 +650,7 @@ export default function AdminRepStatsPage() {
                       <td className="p-3 text-neutral-300">{inv.repName}</td>
                       <td className="p-3 text-right font-mono font-bold text-white">{formatCurrency(inv.subtotal || 0)}</td>
                       <td className="p-3 text-right font-mono font-bold text-emerald-400">{formatCurrency(inv.deadProfit || 0)}</td>
+                      <td className="p-3 text-right font-mono font-bold text-amber-400">{formatCurrency(inv.commission || 0)}</td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           inv.status === "Paid" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
@@ -652,13 +673,14 @@ export default function AdminRepStatsPage() {
                   <th className="p-3">Salesperson</th>
                   <th className="p-3 text-right">Subtotal</th>
                   <th className="p-3 text-right">Dead Profit</th>
+                  <th className="p-3 text-right text-purple-300 font-bold">Est. Commission</th>
                   <th className="p-3 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {allSalesOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-6 text-center text-neutral-500">
+                    <td colSpan={8} className="p-6 text-center text-neutral-500">
                       No sales order datapoints found for the selected range.
                     </td>
                   </tr>
@@ -671,6 +693,7 @@ export default function AdminRepStatsPage() {
                       <td className="p-3 text-neutral-300">{so.repName}</td>
                       <td className="p-3 text-right font-mono font-bold text-white">{formatCurrency(so.subtotal || 0)}</td>
                       <td className="p-3 text-right font-mono font-bold text-purple-300">{formatCurrency(so.deadProfit || 0)}</td>
+                      <td className="p-3 text-right font-mono font-bold text-purple-300">{formatCurrency(so.estCommission || 0)}</td>
                       <td className="p-3 text-center">
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
                           {so.status || "Confirmed"}
