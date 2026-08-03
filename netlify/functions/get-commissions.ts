@@ -37,8 +37,8 @@ export const handler: Handler = async (event) => {
     const { repId, userId, userEmail, year, includeHidden } = event.queryStringParameters || {}
     const showHidden = includeHidden === 'true'
 
-    // Default to current year
-    const targetYear = year || new Date().getFullYear().toString()
+    // Default to "all" (from beginning of time) if not specified
+    const targetYear = year || "all"
     let dateFilter = {}
     if (targetYear !== "all") {
       const start = new Date(`${targetYear}-01-01`)

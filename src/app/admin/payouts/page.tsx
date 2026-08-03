@@ -3,7 +3,7 @@
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useMemo } from "react"
-import { FiDollarSign, FiChevronLeft, FiPlus, FiX, FiUpload, FiDownload, FiEdit2, FiTrash2, FiCheckCircle } from "react-icons/fi"
+import { FiDollarSign, FiChevronLeft, FiPlus, FiX, FiUpload, FiDownload, FiEdit2, FiTrash2, FiCheckCircle, FiList, FiClock, FiActivity } from "react-icons/fi"
 
 function parseCSV(text: string): Record<string, string>[] {
   const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
@@ -84,10 +84,11 @@ export default function PayoutsPage() {
   const [selectedYear, setSelectedYear] = useState<string>("all")
   const [availableYears, setAvailableYears] = useState<number[]>([])
   
-  // Modal state
+  // Modal & View Mode State
   const [showModal, setShowModal] = useState(false)
   const [showCsvModal, setShowCsvModal] = useState(false)
   const [selectedRepForLedger, setSelectedRepForLedger] = useState<RepLedger | null>(null)
+  const [ledgerViewMode, setLedgerViewMode] = useState<"timeline" | "table">("timeline")
   const [csvUploadStatus, setCsvUploadStatus] = useState<string | null>(null)
   const [csvErrors, setCsvErrors] = useState<string[]>([])
   
@@ -121,7 +122,6 @@ export default function PayoutsPage() {
         if (data.years && data.years.length > 0) {
           setAvailableYears(data.years)
         }
-        // Refresh active rep modal if open
         if (selectedRepForLedger) {
           const updatedRep = repsArray.find(r => r.repId === selectedRepForLedger.repId)
           if (updatedRep) setSelectedRepForLedger(updatedRep)
@@ -182,7 +182,7 @@ export default function PayoutsPage() {
     
     const txs: Transaction[] = []
     
-    // Add all commissions
+    // Add all commissions (NO date cutoffs or artificial limits)
     for (const inv of (selectedRepForLedger.invoices || [])) {
       if (inv.commission && inv.commission.total > 0) {
         txs.push({
@@ -195,7 +195,7 @@ export default function PayoutsPage() {
       }
     }
     
-    // Add all payouts
+    // Add all payouts (NO limits)
     for (const payout of (selectedRepForLedger.payouts || [])) {
       txs.push({
         id: `pay-${payout.id}`,
@@ -339,7 +339,7 @@ export default function PayoutsPage() {
             <FiDollarSign className="text-emerald-500" size={28} /> Commission Ledger & Payout Manager
           </h1>
           <p className="text-xs text-neutral-400 mt-1">
-            Track representative balances, view invoices, edit payouts, and manage commission payouts.
+            Track representative balances, view invoices, edit payouts, and view full historical commission timelines.
           </p>
         </div>
 
@@ -381,13 +381,13 @@ export default function PayoutsPage() {
           </div>
 
           <div className="flex items-center gap-3 text-xs text-neutral-400">
-            <span>Year:</span>
+            <span>Year / Range:</span>
             <select
               value={selectedYear}
               onChange={e => setSelectedYear(e.target.value)}
-              className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+              className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer font-bold"
             >
-              <option value="all">All Time</option>
+              <option value="all">🌟 All Time (Beginning of Time)</option>
               {availableYears.map(y => (
                 <option key={y} value={y}>{y}</option>
               ))}
@@ -436,9 +436,9 @@ export default function PayoutsPage() {
                         e.stopPropagation()
                         setSelectedRepForLedger(r)
                       }}
-                      className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-lg text-[10px] font-bold border border-purple-500/30 transition-all cursor-pointer"
+                      className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-lg text-[10px] font-bold border border-purple-500/30 transition-all cursor-pointer flex items-center gap-1.5 mx-auto"
                     >
-                      📜 View History & Edit Payouts
+                      <FiClock size={12} /> View Timeline & Payouts
                     </button>
                   </td>
                 </tr>
@@ -633,83 +633,174 @@ export default function PayoutsPage() {
         </div>
       )}
 
-      {/* TRANSACTION LEDGER MODAL WITH EDIT & DELETE BUTTONS */}
+      {/* TRANSACTION LEDGER & CHRONOLOGICAL TIMELINE LIST MODAL */}
       {selectedRepForLedger && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-white/10 shrink-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 border-b border-white/10 shrink-0 gap-3">
               <div>
-                <h2 className="text-lg font-bold text-white">Transaction Ledger</h2>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <FiClock className="text-purple-400" /> Chronological Timeline & Payouts Ledger
+                </h2>
                 <p className="text-xs text-neutral-400 mt-0.5">
-                  Showing history and editable payouts for <span className="font-bold text-purple-400">{selectedRepForLedger.repName}</span>
+                  Showing complete history for <span className="font-bold text-purple-400">{selectedRepForLedger.repName}</span> from the beginning of time.
                 </p>
               </div>
-              <button 
-                onClick={() => setSelectedRepForLedger(null)}
-                className="p-1.5 text-neutral-400 hover:text-white bg-neutral-800 rounded-xl transition-colors cursor-pointer"
-              >
-                ✕
-              </button>
+
+              <div className="flex items-center gap-3">
+                {/* View Mode Toggle */}
+                <div className="flex bg-black/50 border border-white/10 p-1 rounded-xl">
+                  <button
+                    onClick={() => setLedgerViewMode("timeline")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      ledgerViewMode === "timeline" ? "bg-purple-600 text-white shadow-md" : "text-neutral-400 hover:text-white"
+                    }`}
+                  >
+                    <FiActivity size={13} /> Timeline List ({transactionLedger.length})
+                  </button>
+                  <button
+                    onClick={() => setLedgerViewMode("table")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      ledgerViewMode === "table" ? "bg-purple-600 text-white shadow-md" : "text-neutral-400 hover:text-white"
+                    }`}
+                  >
+                    <FiList size={13} /> Table View
+                  </button>
+                </div>
+
+                <button 
+                  onClick={() => setSelectedRepForLedger(null)}
+                  className="p-1.5 text-neutral-400 hover:text-white bg-neutral-800 rounded-xl transition-colors cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
             
             <div className="overflow-y-auto flex-1 p-5">
-              <div className="bg-black/30 border border-white/10 rounded-xl overflow-hidden">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-neutral-800/60 text-neutral-400 uppercase text-[10px] tracking-wider">
-                      <th className="p-3">Date</th>
-                      <th className="p-3">Type</th>
-                      <th className="p-3">Description / Notes</th>
-                      <th className="p-3 text-right">Amount</th>
-                      <th className="p-3 text-right text-purple-400">Running Balance</th>
-                      <th className="p-3 text-center">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {transactionLedger.map((tx, i) => (
-                      <tr key={`${tx.id}-${i}`} className="hover:bg-white/5 transition-colors">
-                        <td className="p-3 font-mono text-neutral-400">{formatDate(tx.date)}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                            tx.type === 'commission' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                          }`}>
-                            {tx.type}
-                          </span>
-                        </td>
-                        <td className="p-3 font-semibold text-white max-w-xs truncate" title={tx.description}>
-                          {tx.description}
-                        </td>
-                        <td className={`p-3 text-right font-mono font-bold ${tx.amount > 0 ? 'text-emerald-400' : 'text-purple-300'}`}>
-                          {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
-                        </td>
-                        <td className="p-3 text-right font-mono font-bold text-purple-300 bg-purple-950/20">
-                          {formatCurrency(tx.runningBalance)}
-                        </td>
-                        <td className="p-3 text-center">
+              {ledgerViewMode === "timeline" ? (
+                /* CHRONOLOGICAL TIMELINE LIST VIEW */
+                <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-white/10">
+                  {transactionLedger.map((tx, i) => (
+                    <div key={`${tx.id}-${i}`} className="relative group">
+                      {/* Node Bullet */}
+                      <div className={`absolute -left-6 top-3.5 w-3.5 h-3.5 rounded-full border-2 border-neutral-900 shadow-md ${
+                        tx.type === 'commission' ? 'bg-emerald-400 ring-2 ring-emerald-500/20' : 'bg-purple-400 ring-2 ring-purple-500/20'
+                      }`} />
+
+                      <div className="bg-black/40 hover:bg-black/60 border border-white/10 p-4 rounded-2xl transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                              tx.type === 'commission' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                            }`}>
+                              {tx.type === 'commission' ? '💰 Commission Earned' : '💸 Payout Recorded'}
+                            </span>
+                            <span className="text-xs font-mono text-neutral-400">{formatDate(tx.date)}</span>
+                          </div>
+                          <div className="text-xs font-bold text-white">{tx.description}</div>
+                        </div>
+
+                        <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                          <div className="text-right">
+                            <div className={`text-sm font-mono font-black ${tx.amount > 0 ? 'text-emerald-400' : 'text-purple-300'}`}>
+                              {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
+                            </div>
+                            <div className="text-[10px] text-neutral-500 font-mono">
+                              Balance: <span className="text-purple-300 font-bold">{formatCurrency(tx.runningBalance)}</span>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons for Payouts */}
                           {tx.type === 'payout' && tx.rawPayout && (
-                            <div className="flex items-center justify-center gap-2">
+                            <div className="flex items-center gap-1.5 border-l border-white/10 pl-3">
                               <button
                                 onClick={() => handleOpenEditPayout(tx.rawPayout)}
                                 title="Edit Payout"
-                                className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-purple-300 rounded-lg text-xs font-bold border border-purple-500/30 cursor-pointer"
+                                className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-purple-300 rounded-lg text-xs font-bold border border-purple-500/30 cursor-pointer transition-all"
                               >
-                                <FiEdit2 size={12} />
+                                <FiEdit2 size={13} />
                               </button>
                               <button
                                 onClick={() => handleDeletePayout(tx.rawPayoutId!)}
                                 title="Delete Payout"
-                                className="p-1.5 bg-neutral-800 hover:bg-red-950 text-red-400 rounded-lg text-xs font-bold border border-red-500/30 cursor-pointer"
+                                className="p-1.5 bg-neutral-800 hover:bg-red-950 text-red-400 rounded-lg text-xs font-bold border border-red-500/30 cursor-pointer transition-all"
                               >
-                                <FiTrash2 size={12} />
+                                <FiTrash2 size={13} />
                               </button>
                             </div>
                           )}
-                        </td>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {transactionLedger.length === 0 && (
+                    <div className="p-8 text-center text-neutral-500 italic">
+                      No historical commission or payout timeline records found.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* TABLE VIEW */
+                <div className="bg-black/30 border border-white/10 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-neutral-800/60 text-neutral-400 uppercase text-[10px] tracking-wider">
+                        <th className="p-3">Date</th>
+                        <th className="p-3">Type</th>
+                        <th className="p-3">Description / Notes</th>
+                        <th className="p-3 text-right">Amount</th>
+                        <th className="p-3 text-right text-purple-400">Running Balance</th>
+                        <th className="p-3 text-center">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {transactionLedger.map((tx, i) => (
+                        <tr key={`${tx.id}-${i}`} className="hover:bg-white/5 transition-colors">
+                          <td className="p-3 font-mono text-neutral-400">{formatDate(tx.date)}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                              tx.type === 'commission' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                            }`}>
+                              {tx.type}
+                            </span>
+                          </td>
+                          <td className="p-3 font-semibold text-white max-w-xs truncate" title={tx.description}>
+                            {tx.description}
+                          </td>
+                          <td className={`p-3 text-right font-mono font-bold ${tx.amount > 0 ? 'text-emerald-400' : 'text-purple-300'}`}>
+                            {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-purple-300 bg-purple-950/20">
+                            {formatCurrency(tx.runningBalance)}
+                          </td>
+                          <td className="p-3 text-center">
+                            {tx.type === 'payout' && tx.rawPayout && (
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  onClick={() => handleOpenEditPayout(tx.rawPayout)}
+                                  title="Edit Payout"
+                                  className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-purple-300 rounded-lg text-xs font-bold border border-purple-500/30 cursor-pointer"
+                                >
+                                  <FiEdit2 size={12} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeletePayout(tx.rawPayoutId!)}
+                                  title="Delete Payout"
+                                  className="p-1.5 bg-neutral-800 hover:bg-red-950 text-red-400 rounded-lg text-xs font-bold border border-red-500/30 cursor-pointer"
+                                >
+                                  <FiTrash2 size={12} />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
             
             <div className="p-4 border-t border-white/10 bg-black/40 shrink-0 flex justify-between items-center">
