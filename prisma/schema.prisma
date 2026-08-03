@@ -660,6 +660,8 @@ model PurchaseOrder {
   id               String    @id @default(cuid())
   zohoId           String    @unique
   vendorName       String?
+  shipToName       String?
+  referenceNumber  String?
   date             DateTime?
   total            Float     @default(0)
   status           String?
@@ -675,6 +677,8 @@ model PurchaseOrder {
   updatedAt        DateTime  @updatedAt
 
   @@index([invoiceId])
+  @@index([referenceNumber])
+  @@index([shipToName])
 }
 
 model Payment {

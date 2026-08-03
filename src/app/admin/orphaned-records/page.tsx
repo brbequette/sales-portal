@@ -55,6 +55,22 @@ export default function OrphanedRecordsPage() {
   const [linkSuccess, setLinkSuccess] = useState("")
   const [isLinking, setIsLinking] = useState(false)
 
+  // Smart Matching States
+  const [suggestions, setSuggestions] = useState<Record<string, any>>({})
+  const [autoMatching, setAutoMatching] = useState(false)
+
+  const fetchSuggestions = async () => {
+    try {
+      const res = await fetch("/api/admin/orphans/suggest-matches")
+      const data = await res.json()
+      if (data.success && data.suggestions) {
+        setSuggestions(data.suggestions)
+      }
+    } catch (e) {
+      console.error("Error fetching match suggestions:", e)
+    }
+  }
+
   const fetchData = async () => {
     setLoading(true)
     try {
@@ -63,6 +79,7 @@ export default function OrphanedRecordsPage() {
       if (data.success) {
         setPOs(data.purchaseOrders)
         setPayments(data.payments)
+        fetchSuggestions()
       }
     } catch (e) {
       console.error("Error fetching orphans:", e)
@@ -74,6 +91,51 @@ export default function OrphanedRecordsPage() {
   useEffect(() => {
     fetchData()
   }, [])
+
+  const handleAutoMatch = async () => {
+    setAutoMatching(true)
+    setSyncMessage("Scanning unassociated POs against Invoices for high-confidence matches...")
+    try {
+      const res = await fetch("/api/admin/orphans/auto-match", { method: "POST" })
+      const data = await res.json()
+      if (data.success) {
+        setSyncMessage(`Auto-match complete! ${data.message}`)
+        fetchData()
+        setTimeout(() => setSyncMessage(""), 6000)
+      } else {
+        setSyncMessage(`Auto-match failed: ${data.error || "Unknown error"}`)
+      }
+    } catch (e: any) {
+      setSyncMessage(`Auto-match error: ${e.message}`)
+    } finally {
+      setAutoMatching(false)
+    }
+  }
+
+  const handleQuickLink = async (poZohoId: string, invoiceNumber: string) => {
+    setIsLinking(true)
+    try {
+      const res = await fetch("/api/admin/orphans/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "po",
+          id: poZohoId,
+          invoiceNumber
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setLinkSuccess(data.message)
+        fetchData()
+        setTimeout(() => setLinkSuccess(""), 4000)
+      }
+    } catch (e) {
+      console.error("Quick link failed", e)
+    } finally {
+      setIsLinking(false)
+    }
+  }
 
   const handleSync = async () => {
     setSyncing(true)
@@ -171,6 +233,14 @@ export default function OrphanedRecordsPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleAutoMatch}
+              disabled={autoMatching}
+              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold py-2.5 px-5 rounded-lg transition duration-200 shadow-lg shadow-emerald-500/10 flex items-center gap-2 cursor-pointer"
+            >
+              <FiCheck className={autoMatching ? "animate-spin" : ""} />
+              {autoMatching ? "Matching..." : "⚡ Auto-Link High Confidence Matches"}
+            </button>
             <button
               onClick={handleSync}
               disabled={syncing}
@@ -308,14 +378,31 @@ export default function OrphanedRecordsPage() {
                   <tbody className="divide-y divide-slate-800/60 bg-slate-900/10">
                     {pos.map((po) => (
                       <tr key={po.id} className="hover:bg-slate-900/40 transition">
-                        <td className="px-6 py-4 font-semibold text-white">{po.zohoId}</td>
+                        <td className="px-6 py-4 font-semibold text-white">
+                          <div>{po.zohoId}</div>
+                          {suggestions[po.zohoId] && (
+                            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">
+                              <span>🎯 Suggested: Inv #{suggestions[po.zohoId].invoiceNumber} ({suggestions[po.zohoId].customerName})</span>
+                              <span className="font-black text-[10px] bg-emerald-500/20 px-1 py-0.2 rounded text-emerald-300">{suggestions[po.zohoId].score}% Match</span>
+                              <button
+                                onClick={() => handleQuickLink(po.zohoId, suggestions[po.zohoId].invoiceNumber)}
+                                className="ml-2 underline text-[11px] hover:text-white font-bold cursor-pointer"
+                              >
+                                Link Now
+                              </button>
+                            </div>
+                          )}
+                        </td>
                         <td className="px-6 py-4">{po.vendorName || "Unknown Vendor"}</td>
                         <td className="px-6 py-4 flex items-center gap-1.5 text-slate-400">
                           <FiCalendar />
                           {po.date ? new Date(po.date).toLocaleDateString() : "N/A"}
                         </td>
                         <td className="px-6 py-4 font-bold text-white">${po.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td className="px-6 py-4 text-slate-400">{po.salesOrderNumber || "No Sales Order"}</td>
+                        <td className="px-6 py-4 text-slate-400">
+                          <div>{po.salesOrderNumber || "No Sales Order"}</div>
+                          {(po as any).shipToName && <div className="text-[11px] text-blue-400 font-medium">Ship To: {(po as any).shipToName}</div>}
+                        </td>
                         <td className="px-6 py-4 text-right flex justify-end gap-2">
                           <button
                             onClick={() => { setLinkingRecordId(po.zohoId); setLinkingType("po"); }}
