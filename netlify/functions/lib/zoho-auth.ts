@@ -5,7 +5,8 @@ const prisma = new PrismaClient()
 // Module-level in-memory cache for fast local access
 let _cachedToken: string | null = null;
 let _tokenExpiresAt = 0;
-const ZOHO_DC = process.env.ZOHO_DC || 'com';
+export const ZOHO_DC = process.env.ZOHO_DC || 'com';
+export const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
 
 export async function getZohoAccessToken() {
   const now = Date.now();
