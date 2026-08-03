@@ -18,6 +18,7 @@ const sections = [
       { title: "Rep Stats & Financial Breakdown", desc: "View invoice, sales order, and dead profit totals by rep and date range.", href: "/admin/rep-stats", icon: FiBarChart2, color: "text-orange-400", bg: "bg-orange-500/10" },
       { title: "Timeclock", desc: "Review and manage team time entries.", href: "/admin/timeclock", icon: FiClock, color: "text-emerald-400", bg: "bg-emerald-500/10" },
       { title: "Payouts & Commissions", desc: "Calculate and approve payouts.", href: "/admin/payouts", icon: FiDollarSign, color: "text-amber-400", bg: "bg-amber-500/10" },
+      { title: "Goals & Bonuses", desc: "Manage individual & team performance goals and reward bonuses (Daily, Weekly, Monthly, Annual).", href: "/admin/goals-bonuses", icon: FiAward, color: "text-amber-400", bg: "bg-amber-500/10" },
     ]
   },
   {

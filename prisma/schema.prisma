@@ -854,3 +854,24 @@ model ScheduledMessage {
   @@index([scheduledTime])
   @@index([accountId])
 }
+
+model PerformanceGoalBonus {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  scope        String   @default("INDIVIDUAL") // "INDIVIDUAL" | "TEAM"
+  repId        String?
+  repName      String?
+  metric       String   @default("SUBTOTAL") // "SUBTOTAL" | "NET_PROFIT" | "DEAD_PROFIT" | "INVOICES_COUNT"
+  targetValue  Float
+  bonusAmount  Float
+  cadence      String   @default("MONTHLY") // "DAILY" | "WEEKLY" | "MONTHLY" | "ANNUALLY"
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([scope])
+  @@index([repId])
+  @@index([cadence])
+  @@index([isActive])
+}
