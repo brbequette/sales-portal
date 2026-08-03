@@ -91,7 +91,7 @@ export const handler: Handler = async (event, context) => {
 
     const userEmailLower = (user?.email || email || "").toLowerCase();
     const userRoleLower = (passedRole || user?.role || "").toLowerCase();
-    const isAdmin = userRoleLower.includes("admin") || userRoleLower.includes("administrator") || userEmailLower.includes("ben") || userEmailLower.includes("monty") || ownerIdFilter === "all" || ownerIdFilter === "All";
+    const isAdmin = userRoleLower.includes("admin") || userRoleLower.includes("administrator") || userEmailLower.includes("ben") || userEmailLower.includes("monty") || userRoleLower.includes("manager");
     const isSalesOnly = !isAdmin;
 
     // 3. Only sync LIVE accounts from Zoho CRM if explicitly requested via refresh=true.
@@ -963,10 +963,20 @@ export const handler: Handler = async (event, context) => {
     
     let dbAccounts: any[] = [];
     if (isSalesOnly && user) {
-      // Sales rep: fetch accounts owned by user id or zohoId
-      const ownerIds = [user.id, user.zohoId].filter(Boolean) as string[];
-      const salesRepWhere: any = { ownerId: { in: ownerIds } };
-      if (search) salesRepWhere.name = { contains: search, mode: 'insensitive' };
+      // Sales rep: fetch accounts strictly owned by user id, zohoId, email, or owner relation
+      const ownerIds = [user.id, user.zohoId, user.email].filter(Boolean) as string[];
+      const salesRepWhere: any = {
+        OR: [
+          { ownerId: { in: ownerIds } },
+          { owner: { id: { in: ownerIds } } },
+          { owner: { zohoId: { in: ownerIds } } },
+          { owner: { email: { equals: user.email || "", mode: 'insensitive' } } },
+          ...(user.name ? [{ owner: { name: { contains: user.name, mode: 'insensitive' as const } } }] : [])
+        ]
+      };
+      if (search) {
+        salesRepWhere.AND = { name: { contains: search, mode: 'insensitive' } };
+      }
       if (statusFilter) {
         salesRepWhere.status = statusFilter;
       } else {

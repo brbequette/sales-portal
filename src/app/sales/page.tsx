@@ -340,7 +340,7 @@ export default function SalesPage() {
       let hasMoreToFetch = true
 
       while (hasMoreToFetch) {
-        const res = await fetch(`/api/get-accounts?page=${currentPage}&limit=1000&ownerIdFilter=all`)
+        const res = await fetch(`/api/get-accounts?page=${currentPage}&limit=1000${emailQuery}${roleQuery}`)
         const data = await res.json()
 
         if (data.accounts || data.success) {
