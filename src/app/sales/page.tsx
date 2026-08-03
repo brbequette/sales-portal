@@ -217,8 +217,53 @@ export default function SalesPage() {
   const [selectedZohoNumber, setSelectedZohoNumber] = useState("")
   const [campaignTemplates, setCampaignTemplates] = useState<any[]>([])
   const [dbUser, setDbUser] = useState<any>(null)
-  const [mediaAssets, setMediaAssets] = useState<any[]>([])
   const [showAssetSelector, setShowAssetSelector] = useState(false)
+  const [leads, setLeads] = useState<any[]>([])
+
+  useEffect(() => {
+    fetchLeads()
+  }, [])
+
+  const fetchLeads = async () => {
+    try {
+      const res = await fetch("/api/leads?sync=true")
+      const d = await res.json()
+      if (d.success && d.leads) {
+        setLeads(d.leads)
+      }
+    } catch (e) {
+      console.error("Failed to fetch leads", e)
+    }
+  }
+
+  const handleConvertLead = async (leadToConvert: any) => {
+    try {
+      setLoading(true)
+      const res = await fetch("/api/leads/convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: leadToConvert.id,
+          companyName: leadToConvert.company,
+          contactFirstName: leadToConvert.firstName,
+          contactLastName: leadToConvert.lastName,
+          phone: leadToConvert.phone || leadToConvert.mobile,
+          email: leadToConvert.email
+        })
+      })
+      const data = await res.json()
+      if (data.success && data.accountId) {
+        toast.success("Company & Leads converted to Account successfully!")
+        router.push(`/account?id=${data.accountId}`)
+      } else {
+        toast.error("Conversion failed: " + (data.error || "Unknown error"))
+      }
+    } catch (e) {
+      toast.error("Failed to convert lead")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Campaign Progress from context
   const { state: campaignState, start: startCampaign, cancel: cancelCampaign, showModal: campaignModalFromPill, setShowModal: setCampaignModalFromPill } = useCampaignProgress()
@@ -820,7 +865,90 @@ export default function SalesPage() {
                 setViewingDocType('Invoice')
               }} />
             </div>
-          ) : (
+          ) : (effort as any) === "leads" ? (
+    <div className="mt-4 space-y-4">
+      <div className="flex items-center justify-between bg-neutral-900/60 p-4 rounded-xl border border-white/10">
+        <div>
+          <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <FiUsers className="text-orange-400" /> CRM Leads Queue (Grouped by Company)
+          </h3>
+          <p className="text-xs text-neutral-400 mt-0.5">
+            {leads.length} unconverted leads found in CRM. Grouped by company.
+          </p>
+        </div>
+        <button
+          onClick={fetchLeads}
+          className="px-3.5 py-2 bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-lg text-xs font-bold hover:bg-orange-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <FiRefreshCw size={13} /> Sync Leads from CRM
+        </button>
+      </div>
+
+      {leads.length === 0 ? (
+        <div className="text-center py-12 bg-white/[0.02] border border-white/10 rounded-xl">
+          <FiUsers size={32} className="mx-auto text-neutral-600 mb-2" />
+          <p className="text-neutral-400 text-sm font-bold">No unconverted leads in queue</p>
+          <p className="text-neutral-600 text-xs mt-1">Click "Sync Leads from CRM" to pull latest leads</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {Object.entries(
+            leads.reduce((acc: any, l: any) => {
+              const comp = (l.company || "Individual Leads").trim()
+              if (!acc[comp]) acc[comp] = []
+              acc[comp].push(l)
+              return acc
+            }, {})
+          ).map(([companyName, companyLeads]: [string, any]) => (
+            <div key={companyName} className="bg-white/[0.02] border border-white/10 rounded-xl p-4 space-y-3 shadow-lg">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 text-white flex items-center justify-center font-black text-sm shadow-md">
+                    {companyName.charAt(0)}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-base text-white tracking-tight">{companyName}</h4>
+                    <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider">
+                      {companyLeads.length} Lead Contact{companyLeads.length > 1 ? "s" : ""} at Company
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleConvertLead(companyLeads[0])}
+                  className="px-3.5 py-2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold hover:bg-emerald-500/30 flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                >
+                  <FiCheckCircle size={14} /> Convert Company & Contacts
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {companyLeads.map((l: any) => (
+                  <div key={l.id} className="bg-black/50 border border-white/10 rounded-xl p-3 flex items-center justify-between hover:border-white/20 transition-all">
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-2">
+                        {[l.firstName, l.lastName].filter(Boolean).join(" ") || "Unnamed Contact"}
+                        {l.title && <span className="text-[10px] text-neutral-500 font-normal">({l.title})</span>}
+                      </div>
+                      <div className="text-[11px] text-neutral-400 mt-1 flex items-center gap-2">
+                        {l.phone || l.mobile ? <span>📞 {l.phone || l.mobile}</span> : null}
+                        {l.email ? <span>✉️ {l.email}</span> : null}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleConvertLead(l)}
+                      className="px-3 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-bold hover:bg-blue-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <FiPhoneCall size={13} /> Call & Convert
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  ) : (
             <>
               {/* Mobile tab switcher */}
               <div className="flex sm:hidden bg-neutral-800 rounded-lg p-0.5 gap-0.5 mb-4">

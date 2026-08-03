@@ -14,8 +14,10 @@ export async function GET(req: Request) {
     const ownerId = searchParams.get("ownerId")
     const sync = searchParams.get("sync") === "true"
 
-    // If explicit sync requested, pull latest Leads from Zoho CRM
-    if (sync && session?.user) {
+    const localCount = await prisma.lead.count()
+
+    // Auto-sync Leads from Zoho CRM if explicit sync requested OR if local leads count is 0
+    if ((sync || localCount === 0) && session?.user) {
       try {
         const token = await getZohoAccessToken()
         const zRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads?per_page=200`, {

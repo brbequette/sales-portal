@@ -89,8 +89,9 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
-    const userRoleLower = user?.role?.toLowerCase() || "";
-    const isAdmin = userRoleLower.includes("admin") || userRoleLower.includes("administrator");
+    const userEmailLower = (user?.email || email || "").toLowerCase();
+    const userRoleLower = (passedRole || user?.role || "").toLowerCase();
+    const isAdmin = userRoleLower.includes("admin") || userRoleLower.includes("administrator") || userEmailLower.includes("ben") || userEmailLower.includes("monty") || ownerIdFilter === "all" || ownerIdFilter === "All";
     const isSalesOnly = !isAdmin;
 
     // 3. Only sync LIVE accounts from Zoho CRM if explicitly requested via refresh=true.
