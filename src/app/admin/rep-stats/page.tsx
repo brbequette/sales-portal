@@ -22,6 +22,26 @@ function formatDate(dateStr?: string): string {
   }
 }
 
+function getStatusBadgeClass(statusStr?: string): string {
+  const s = (statusStr || "paid").toLowerCase().trim()
+  if (s === "paid" || s === "completed") {
+    return "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-black shadow-sm"
+  }
+  if (s === "sent" || s === "open" || s === "unpaid") {
+    return "bg-blue-500/20 text-blue-400 border border-blue-500/40 font-black shadow-sm"
+  }
+  if (s === "overdue") {
+    return "bg-red-500/20 text-red-400 border border-red-500/40 font-black shadow-sm"
+  }
+  if (s === "draft") {
+    return "bg-neutral-500/20 text-neutral-300 border border-neutral-500/40 font-black"
+  }
+  if (s === "void" || s === "voided" || s === "writeoff" || s === "write_off") {
+    return "bg-red-950/40 text-red-300 border border-red-800/40 font-black"
+  }
+  return "bg-purple-500/20 text-purple-300 border border-purple-500/40 font-black"
+}
+
 export default function AdminRepStatsPage() {
   const { isInitialized, zohoContext: currentUser } = useZoho()
   const router = useRouter()
@@ -571,7 +591,11 @@ export default function AdminRepStatsPage() {
                         <td className="p-2.5 text-right font-mono font-bold text-white">{formatCurrency(inv.subtotal)}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-emerald-400">{formatCurrency(inv.deadProfit)}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-amber-400">{formatCurrency(inv.commission)}</td>
-                        <td className="p-2.5 text-center text-[10px] font-bold text-emerald-400">{inv.status || "Paid"}</td>
+                        <td className="p-2.5 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${getStatusBadgeClass(inv.status)}`}>
+                            {inv.status || "paid"}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -665,8 +689,8 @@ export default function AdminRepStatsPage() {
                       <td className="p-3 text-right font-mono font-bold text-emerald-400">{formatCurrency(doc.deadProfit || 0)}</td>
                       <td className="p-3 text-right font-mono font-bold text-amber-400">{formatCurrency(doc.commission || doc.estCommission || 0)}</td>
                       <td className="p-3 text-center">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                          {doc.status || "Completed"}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${getStatusBadgeClass(doc.status)}`}>
+                          {doc.status || "completed"}
                         </span>
                       </td>
                     </tr>
@@ -760,10 +784,8 @@ export default function AdminRepStatsPage() {
                       <td className="p-3 text-right font-mono font-bold text-emerald-400">{formatCurrency(inv.deadProfit || 0)}</td>
                       <td className="p-3 text-right font-mono font-bold text-amber-400">{formatCurrency(inv.commission || 0)}</td>
                       <td className="p-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          inv.status === "Paid" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                        }`}>
-                          {inv.status || "Paid"}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${getStatusBadgeClass(inv.status)}`}>
+                          {inv.status || "paid"}
                         </span>
                       </td>
                     </tr>
@@ -803,8 +825,8 @@ export default function AdminRepStatsPage() {
                       <td className="p-3 text-right font-mono font-bold text-purple-300">{formatCurrency(so.deadProfit || 0)}</td>
                       <td className="p-3 text-right font-mono font-bold text-purple-300">{formatCurrency(so.estCommission || 0)}</td>
                       <td className="p-3 text-center">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                          {so.status || "Confirmed"}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${getStatusBadgeClass(so.status)}`}>
+                          {so.status || "confirmed"}
                         </span>
                       </td>
                     </tr>
