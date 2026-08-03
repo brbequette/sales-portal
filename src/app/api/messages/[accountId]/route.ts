@@ -56,7 +56,7 @@ export async function POST(req: Request, context: { params: Promise<{ accountId:
     const params = await context.params
 
     const body = await req.json()
-    const { text, fromNumber, contactId, userId, userEmail, attachVCard } = body
+    const { text, fromNumber, contactId, userId, userEmail, attachVCard, vcardCustomFields } = body
 
     if (!text || !fromNumber) {
       return NextResponse.json({ success: false, error: 'Message text and sender number are required' }, { status: 400 })
@@ -73,8 +73,22 @@ export async function POST(req: Request, context: { params: Promise<{ accountId:
     let finalText = text.trim()
     const shouldAttach = attachVCard === true || (attachVCard === undefined && (dbUser as any).autoAttachVCard === true)
     if (shouldAttach) {
-      const vcardUrl = `https://tdusales.com/api/vcard/${dbUser.id}`
-      if (!finalText.includes(vcardUrl)) {
+      let vcardUrl = `https://tdusales.com/api/vcard/${dbUser.id}`
+      if (vcardCustomFields && typeof vcardCustomFields === "object") {
+        const queryParams = new URLSearchParams()
+        if (vcardCustomFields.name) queryParams.set("name", vcardCustomFields.name)
+        if (vcardCustomFields.title) queryParams.set("title", vcardCustomFields.title)
+        if (vcardCustomFields.phone) queryParams.set("phone", vcardCustomFields.phone)
+        if (vcardCustomFields.email) queryParams.set("email", vcardCustomFields.email)
+        if (vcardCustomFields.company) queryParams.set("company", vcardCustomFields.company)
+        if (vcardCustomFields.website) queryParams.set("website", vcardCustomFields.website)
+        if (vcardCustomFields.photoUrl) queryParams.set("photoUrl", vcardCustomFields.photoUrl)
+        
+        const qStr = queryParams.toString()
+        if (qStr) vcardUrl += `?${qStr}`
+      }
+
+      if (!finalText.includes("https://tdusales.com/api/vcard/")) {
         finalText += `\n\nSave my contact: ${vcardUrl}`
       }
     }

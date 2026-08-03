@@ -216,6 +216,16 @@ export default function MessagesPage() {
   }
 
   const [attachVCard, setAttachVCard] = useState(false)
+  const [showVCardModal, setShowVCardModal] = useState(false)
+  const [vcardFields, setVCardFields] = useState({
+    name: "",
+    title: "Sales Representative",
+    phone: "",
+    email: "",
+    company: "Titan Diamond USA",
+    website: "https://tdusales.com",
+    photoUrl: ""
+  })
 
   const handleSend = async () => {
     if (!textInput.trim() || !selectedAccountId) return
@@ -233,7 +243,12 @@ export default function MessagesPage() {
       const res = await fetch(`/api/messages/${selectedAccountId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: textInput, fromNumber, attachVCard })
+        body: JSON.stringify({
+          text: textInput,
+          fromNumber,
+          attachVCard,
+          vcardCustomFields: attachVCard ? vcardFields : null
+        })
       })
       const data = await res.json()
       if (data.success) {
@@ -660,15 +675,26 @@ export default function MessagesPage() {
             {/* Reply Input Box */}
             <div className="p-4 bg-[#0a0a0c] border-t border-white/10 flex flex-col gap-2 shrink-0">
               <div className="flex items-center justify-between text-xs text-neutral-400 font-semibold px-1">
-                <label className="flex items-center gap-1.5 cursor-pointer select-none text-neutral-300 hover:text-white transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={attachVCard}
-                    onChange={e => setAttachVCard(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-neutral-700 bg-neutral-900 text-orange-500 focus:ring-orange-500 cursor-pointer"
-                  />
-                  <span>🎴 Attach my vCard contact card link</span>
-                </label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none text-neutral-300 hover:text-white transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={attachVCard}
+                      onChange={e => setAttachVCard(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-neutral-700 bg-neutral-900 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                    />
+                    <span>🎴 Attach my vCard contact card link</span>
+                  </label>
+                  {attachVCard && (
+                    <button
+                      type="button"
+                      onClick={() => setShowVCardModal(true)}
+                      className="text-[11px] text-orange-400 hover:text-orange-300 font-bold underline flex items-center gap-1 cursor-pointer"
+                    >
+                      ✏️ Edit vCard Fields & Photo
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-end gap-2">
@@ -721,6 +747,119 @@ export default function MessagesPage() {
           </>
         )}
       </div>
+
+      {/* Edit vCard Modal */}
+      {showVCardModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-neutral-900 border border-white/10 p-6 rounded-2xl w-full max-w-lg space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                🎴 Customize vCard Contact Card & Profile Photo
+              </h3>
+              <button onClick={() => setShowVCardModal(false)} className="p-1 text-neutral-400 hover:text-white">
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={vcardFields.name}
+                  onChange={e => setVCardFields(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g. Benjamin Bequette"
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Job Title / Role</label>
+                <input
+                  type="text"
+                  value={vcardFields.title}
+                  onChange={e => setVCardFields(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="e.g. Senior Sales Specialist"
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Direct Phone Number</label>
+                <input
+                  type="text"
+                  value={vcardFields.phone}
+                  onChange={e => setVCardFields(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="e.g. (800) 555-0199"
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={vcardFields.email}
+                  onChange={e => setVCardFields(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="e.g. ben@titandiamond.net"
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Company / Organization</label>
+                <input
+                  type="text"
+                  value={vcardFields.company}
+                  onChange={e => setVCardFields(prev => ({ ...prev, company: e.target.value }))}
+                  placeholder="e.g. Titan Diamond USA"
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-neutral-400 block mb-1">Website URL</label>
+                <input
+                  type="text"
+                  value={vcardFields.website}
+                  onChange={e => setVCardFields(prev => ({ ...prev, website: e.target.value }))}
+                  placeholder="e.g. https://tdusales.com"
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+            </div>
+
+            {/* Profile Photo Section */}
+            <div className="p-3 bg-black/40 rounded-xl border border-white/10 space-y-2">
+              <label className="text-[10px] font-bold text-neutral-400 block">Profile Photo Image URL or Upload</label>
+              <div className="flex gap-2 items-center">
+                {vcardFields.photoUrl ? (
+                  <img src={vcardFields.photoUrl} alt="Preview" className="w-10 h-10 rounded-full object-cover border border-orange-500/50 flex-shrink-0" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-500 font-bold text-xs flex-shrink-0">📷</div>
+                )}
+                <input
+                  type="text"
+                  value={vcardFields.photoUrl}
+                  onChange={e => setVCardFields(prev => ({ ...prev, photoUrl: e.target.value }))}
+                  placeholder="https://domain.com/photo.jpg or paste base64..."
+                  className="w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setShowVCardModal(false)}
+                className="px-4 py-2 bg-orange-600 text-white text-xs font-bold rounded-xl hover:bg-orange-500 transition-colors shadow-md"
+              >
+                Done / Apply to SMS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {slideoutAccountId && (
         <AccountSlideout 

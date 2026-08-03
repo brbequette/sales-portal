@@ -26,7 +26,7 @@ export default function AdminUsersPage() {
   const [newUser, setNewUser] = useState({ name: "", email: "", role: "Sales Representative", zohoId: "", payoutStructure: "two_payment" })
   const [addingUser, setAddingUser] = useState(false)
   const [addError, setAddError] = useState("")
-  const [editedUserInfo, setEditedUserInfo] = useState<Record<string, { name: string; email: string; phone?: string; title?: string; autoAttachVCard?: boolean; zohoId: string; role: string; payoutStructure: string }>>({})
+  const [editedUserInfo, setEditedUserInfo] = useState<Record<string, { name: string; email: string; phone?: string; title?: string; vcardPhotoUrl?: string; vcardCompany?: string; vcardWebsite?: string; autoAttachVCard?: boolean; zohoId: string; role: string; payoutStructure: string }>>({})
 
   // New state for search, sort, filter
   const [searchQuery, setSearchQuery] = useState("")
@@ -134,6 +134,9 @@ export default function AdminUsersPage() {
             email: user.email || "",
             phone: user.phone || "",
             title: user.title || "Sales Representative",
+            vcardPhotoUrl: (user as any).vcardPhotoUrl || "",
+            vcardCompany: (user as any).vcardCompany || "Titan Diamond USA",
+            vcardWebsite: (user as any).vcardWebsite || "https://tdusales.com",
             autoAttachVCard: user.autoAttachVCard ?? false,
             zohoId: user.zohoId || "",
             role: user.role || "Sales Representative",
@@ -176,7 +179,19 @@ export default function AdminUsersPage() {
           id: userId, 
           permissions: perms,
           canSendCampaigns: perms.sendCampaigns,
-          ...(info ? { name: info.name, email: info.email, phone: info.phone, title: info.title, autoAttachVCard: info.autoAttachVCard, zohoId: info.zohoId, role: info.role, payoutStructure: info.payoutStructure } : {})
+          ...(info ? {
+            name: info.name,
+            email: info.email,
+            phone: info.phone,
+            title: info.title,
+            vcardPhotoUrl: info.vcardPhotoUrl,
+            vcardCompany: info.vcardCompany,
+            vcardWebsite: info.vcardWebsite,
+            autoAttachVCard: info.autoAttachVCard,
+            zohoId: info.zohoId,
+            role: info.role,
+            payoutStructure: info.payoutStructure
+          } : {})
         })
       })
       const data = await res.json()
@@ -625,6 +640,33 @@ export default function AdminUsersPage() {
                             value={editedUserInfo[user.id]?.title || ""}
                             onChange={e => setEditedUserInfo(prev => ({ ...prev, [user.id]: { ...prev[user.id], title: e.target.value } }))}
                             placeholder="e.g. Senior Sales Specialist"
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-neutral-500 font-semibold block mb-1">Company / Organization</label>
+                          <input
+                            value={editedUserInfo[user.id]?.vcardCompany || ""}
+                            onChange={e => setEditedUserInfo(prev => ({ ...prev, [user.id]: { ...prev[user.id], vcardCompany: e.target.value } }))}
+                            placeholder="e.g. Titan Diamond USA"
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-neutral-500 font-semibold block mb-1">Website URL</label>
+                          <input
+                            value={editedUserInfo[user.id]?.vcardWebsite || ""}
+                            onChange={e => setEditedUserInfo(prev => ({ ...prev, [user.id]: { ...prev[user.id], vcardWebsite: e.target.value } }))}
+                            placeholder="e.g. https://tdusales.com"
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-neutral-500 font-semibold block mb-1">Profile Photo Image URL</label>
+                          <input
+                            value={editedUserInfo[user.id]?.vcardPhotoUrl || ""}
+                            onChange={e => setEditedUserInfo(prev => ({ ...prev, [user.id]: { ...prev[user.id], vcardPhotoUrl: e.target.value } }))}
+                            placeholder="e.g. https://tdusales.com/photos/ben.jpg"
                             className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                           />
                         </div>

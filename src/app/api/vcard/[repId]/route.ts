@@ -4,6 +4,7 @@ export async function GET(req: Request, context: { params: Promise<{ repId: stri
   try {
     const params = await context.params
     const repId = params.repId
+    const url = new URL(req.url)
 
     const user = await prisma.user.findFirst({
       where: {
@@ -15,21 +16,27 @@ export async function GET(req: Request, context: { params: Promise<{ repId: stri
       }
     })
 
-    if (!user) {
-      return new Response("Rep not found", { status: 404 })
-    }
+    // Allow query params override or fallback to user DB fields
+    const queryName = url.searchParams.get("name")
+    const queryTitle = url.searchParams.get("title")
+    const queryPhone = url.searchParams.get("phone")
+    const queryEmail = url.searchParams.get("email")
+    const queryCompany = url.searchParams.get("company")
+    const queryWebsite = url.searchParams.get("website")
+    const queryPhotoUrl = url.searchParams.get("photoUrl")
 
-    const fullName = user.name || "Titan Diamond Representative"
+    const fullName = queryName || user?.name || "Titan Diamond Representative"
     const nameParts = fullName.trim().split(/\s+/)
     const firstName = nameParts[0] || "Rep"
     const lastName = nameParts.slice(1).join(" ") || "Titan"
-    const email = user.email || ""
-    const phone = user.phone || "(800) 555-0199"
-    const title = user.title || "Sales Representative"
-    const company = "Titan Diamond USA"
-    const website = "https://tdusales.com"
+    const email = queryEmail || user?.email || ""
+    const phone = queryPhone || user?.phone || "(800) 555-0199"
+    const title = queryTitle || user?.title || "Sales Representative"
+    const company = queryCompany || (user as any)?.vcardCompany || "Titan Diamond USA"
+    const website = queryWebsite || (user as any)?.vcardWebsite || "https://tdusales.com"
+    const photoUrl = queryPhotoUrl || (user as any)?.vcardPhotoUrl || ""
 
-    const vCardContent = [
+    const vCardLines = [
       "BEGIN:VCARD",
       "VERSION:3.0",
       `FN:${fullName}`,
@@ -38,10 +45,26 @@ export async function GET(req: Request, context: { params: Promise<{ repId: stri
       `TITLE:${title}`,
       `TEL;TYPE=CELL,VOICE:${phone}`,
       `EMAIL;TYPE=INTERNET:${email}`,
-      `URL:${website}`,
-      "END:VCARD"
-    ].join("\r\n")
+      `URL:${website}`
+    ]
 
+    if (photoUrl) {
+      if (photoUrl.startsWith("data:image/")) {
+        const parts = photoUrl.split(",")
+        const mimeMatch = photoUrl.match(/data:image\/(.*?);/)
+        const type = mimeMatch ? mimeMatch[1].toUpperCase() : "JPEG"
+        const base64Data = parts[1] || ""
+        if (base64Data) {
+          vCardLines.push(`PHOTO;ENCODING=b;TYPE=${type}:${base64Data}`)
+        }
+      } else {
+        vCardLines.push(`PHOTO;VALUE=URI:${photoUrl}`)
+      }
+    }
+
+    vCardLines.push("END:VCARD")
+
+    const vCardContent = vCardLines.join("\r\n")
     const safeName = fullName.replace(/[^a-zA-Z0-9]/g, "_")
 
     return new Response(vCardContent, {
@@ -49,7 +72,7 @@ export async function GET(req: Request, context: { params: Promise<{ repId: stri
       headers: {
         "Content-Type": "text/vcard; charset=utf-8",
         "Content-Disposition": `attachment; filename="${safeName}_Titan_Diamond.vcf"`,
-        "Cache-Control": "public, max-age=86400"
+        "Cache-Control": "no-store"
       }
     })
   } catch (error: any) {

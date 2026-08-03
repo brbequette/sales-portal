@@ -12,6 +12,9 @@ export async function GET() {
           email: true,
           phone: true,
           title: true,
+          vcardPhotoUrl: true,
+          vcardCompany: true,
+          vcardWebsite: true,
           role: true,
           zohoId: true,
           autoAttachVCard: true,
@@ -54,7 +57,7 @@ export async function GET() {
 export async function PUT(req: Request) {
   try {
     const body = await req.json()
-    const { id, canSendCampaigns, showOnSalesBoard, permissions, role, name, email, phone, title, autoAttachVCard, zohoId } = body
+    const { id, canSendCampaigns, showOnSalesBoard, permissions, role, name, email, phone, title, vcardPhotoUrl, vcardCompany, vcardWebsite, autoAttachVCard, zohoId } = body
 
     if (!id) {
       return NextResponse.json({ success: false, error: "Missing user ID" }, { status: 400 })
@@ -70,6 +73,9 @@ export async function PUT(req: Request) {
     if (email !== undefined) updateData.email = email
     if (phone !== undefined) updateData.phone = phone
     if (title !== undefined) updateData.title = title
+    if (vcardPhotoUrl !== undefined) updateData.vcardPhotoUrl = vcardPhotoUrl
+    if (vcardCompany !== undefined) updateData.vcardCompany = vcardCompany
+    if (vcardWebsite !== undefined) updateData.vcardWebsite = vcardWebsite
     if (zohoId !== undefined) updateData.zohoId = zohoId || null  // empty string  to  null
 
     const user = await prisma.user.update({
