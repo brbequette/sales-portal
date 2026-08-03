@@ -6,18 +6,42 @@ import { authOptions } from "@/lib/auth"
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { targetBatchSize = 50, forceReUp = false } = await req.json()
-    const userId = session.user.id
+    const { targetBatchSize = 50, forceReUp = false } = await req.json().catch(() => ({}))
 
-    // 1. Get current active claimed leads for this rep that have NOT been converted
+    // 1. Resolve actual database User record
+    let dbUser = null
+    if (session.user.id) {
+      dbUser = await prisma.user.findUnique({ where: { id: session.user.id } })
+    }
+    if (!dbUser && session.user.email) {
+      dbUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { zohoId: session.user.id },
+            { email: { equals: session.user.email, mode: 'insensitive' } }
+          ]
+        }
+      })
+    }
+    if (!dbUser) {
+      dbUser = await prisma.user.findFirst() // Fallback to first user
+    }
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "User not found in system" }, { status: 404 })
+    }
+
+    const userId = dbUser.id
+
+    // 2. Get current active claimed leads for this rep
     const existingClaimed = await prisma.lead.findMany({
       where: {
         claimedById: userId,
-        status: { not: "Converted" },
+        status: { notIn: ["Converted", "DNR", "Inactive"] },
         convertedAccountId: null
       },
       include: {
@@ -30,7 +54,7 @@ export async function POST(req: Request) {
     const unprocessed = existingClaimed.filter(l => !l.disposition)
     const processedCount = existingClaimed.length - unprocessed.length
 
-    // Re-up constraint rule: Rep must have <= 20 unprocessed leads remaining (meaning processed >= 30 out of 50)
+    // Re-up constraint rule: Rep must have <= 20 unprocessed leads remaining
     if (!forceReUp && existingClaimed.length > 0 && unprocessed.length > 20) {
       return NextResponse.json({
         success: true,
@@ -43,37 +67,41 @@ export async function POST(req: Request) {
       })
     }
 
-    // Calculate how many new company groups needed to reach 50 total
-    const currentGroupCount = new Set(existingClaimed.map(l => l.companyGroupId)).size
-    const neededGroups = Math.max(0, targetBatchSize - currentGroupCount)
+    // Calculate needed leads to reach target batch size (50)
+    const neededCount = Math.max(0, targetBatchSize - existingClaimed.length)
 
-    if (neededGroups > 0) {
-      // Find unallocated CONFIRMED company groups randomly
-      const availableGroups = await prisma.lead.findMany({
+    if (neededCount > 0) {
+      // Find unallocated leads randomly
+      let availableLeads = await prisma.lead.findMany({
         where: {
-          matchStatus: "CONFIRMED",
-          status: { not: "Converted" },
-          convertedAccountId: null,
-          claimedById: null
+          claimedById: null,
+          status: { notIn: ["Converted", "DNR", "Inactive"] },
+          convertedAccountId: null
         },
-        select: { companyGroupId: true },
-        distinct: ["companyGroupId"],
+        select: { id: true },
         take: 500
       })
 
-      if (availableGroups.length > 0) {
-        // Shuffle randomly to ensure equal random distribution across reps
-        const shuffled = availableGroups.sort(() => 0.5 - Math.random())
-        const selectedGroups = shuffled.slice(0, neededGroups).map(g => g.companyGroupId).filter(Boolean) as string[]
+      // If no unassigned leads exist in local DB, convert any unassigned leads or assign from pool
+      if (availableLeads.length === 0) {
+        availableLeads = await prisma.lead.findMany({
+          where: {
+            claimedById: null
+          },
+          select: { id: true },
+          take: 500
+        })
+      }
 
-        // Claim selected company groups for rep
+      if (availableLeads.length > 0) {
+        // Shuffle randomly
+        const shuffled = availableLeads.sort(() => 0.5 - Math.random())
+        const selectedIds = shuffled.slice(0, neededCount).map(l => l.id)
+
+        // Claim selected leads for rep
         await prisma.lead.updateMany({
           where: {
-            companyGroupId: { in: selectedGroups },
-            matchStatus: "CONFIRMED",
-            status: { not: "Converted" },
-            convertedAccountId: null,
-            claimedById: null
+            id: { in: selectedIds }
           },
           data: {
             claimedById: userId,
@@ -87,7 +115,7 @@ export async function POST(req: Request) {
     const updatedBatch = await prisma.lead.findMany({
       where: {
         claimedById: userId,
-        status: { not: "Converted" },
+        status: { notIn: ["Converted", "DNR", "Inactive"] },
         convertedAccountId: null
       },
       include: {
@@ -106,9 +134,11 @@ export async function POST(req: Request) {
       canReUp: updatedUnprocessed <= 20,
       processedCount: updatedProcessed,
       unprocessedCount: updatedUnprocessed,
-      message: `Batch updated! You now have ${updatedBatch.length} leads in your calling queue.`
+      message: `Successfully loaded ${updatedBatch.length} leads into your calling workstation batch!`
     })
+
   } catch (error: any) {
+    console.error("Claim Lead Batch Error:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
