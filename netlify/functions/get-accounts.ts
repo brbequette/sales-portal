@@ -969,13 +969,14 @@ export const handler: Handler = async (event, context) => {
         OR: [
           { ownerId: { in: ownerIds } },
           { owner: { id: { in: ownerIds } } },
-          { owner: { zohoId: { in: ownerIds } } },
-          { owner: { email: { equals: user.email || "", mode: 'insensitive' } } },
-          ...(user.name ? [{ owner: { name: { contains: user.name, mode: 'insensitive' as const } } }] : [])
+          { owner: { zohoId: { in: ownerIds } } }
         ]
       };
+      if (user.email) {
+        salesRepWhere.OR.push({ owner: { email: { equals: user.email, mode: 'insensitive' } } });
+      }
       if (search) {
-        salesRepWhere.AND = { name: { contains: search, mode: 'insensitive' } };
+        salesRepWhere.name = { contains: search, mode: 'insensitive' };
       }
       if (statusFilter) {
         salesRepWhere.status = statusFilter;
