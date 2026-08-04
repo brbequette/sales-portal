@@ -4,7 +4,7 @@ import { toastConfirm } from '@/lib/toastConfirm'
 import React, { useEffect, useState } from "react"
 import {
   FiPlay, FiCheck, FiAlertCircle, FiLoader, FiCpu,
-  FiDatabase, FiRefreshCw, FiZap, FiCloud, FiX
+  FiDatabase, FiRefreshCw, FiZap, FiCloud, FiX, FiAlertTriangle, FiChevronDown, FiChevronUp
 } from "react-icons/fi"
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -71,9 +71,36 @@ export default function BooksScriptsPage() {
     running: false, result: null, error: null, lastRan: null,
   })
 
-  // ── Auto-load pending counts on mount ────────────────────────────────────
+  // ── Conflict state ───────────────────────────────────────────────────────
+  const [conflicts, setConflicts] = useState<any>(null)
+  const [conflictsOpen, setConflictsOpen] = useState(false)
+  const [conflictLoading, setConflictLoading] = useState<string | null>(null)
+
+  const fetchConflicts = async () => {
+    try {
+      const res = await fetch('/api/admin/books/sync-conflicts')
+      if (res.ok) setConflicts(await res.json())
+    } catch { /* non-fatal */ }
+  }
+
+  const resolveConflict = async (docType: string, docId: string, resolution: 'app' | 'zoho' | 'dismiss') => {
+    setConflictLoading(docId)
+    try {
+      await fetch('/api/admin/books/sync-conflicts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resolve', docType, docId, resolution }),
+      })
+      await fetchConflicts()
+    } catch { /* non-fatal */ } finally {
+      setConflictLoading(null)
+    }
+  }
+
+  // ── Auto-load pending counts + conflicts on mount ────────────────────────
   useEffect(() => {
     fetchPendingCounts()
+    fetchConflicts()
   }, [])
 
   const fetchPendingCounts = async () => {
@@ -309,6 +336,86 @@ export default function BooksScriptsPage() {
         <h1 className="text-2xl font-bold text-white">Zoho Books Maintenance</h1>
         <p className="text-neutral-400 mt-1 text-sm">All data is served from the local database. Changes sync automatically to Zoho Books.</p>
       </div>
+
+  {/* ── Sync Conflicts Panel ── */}
+      {conflicts && conflicts.totalConflicts > 0 && (
+        <div className="border border-amber-500/40 bg-amber-500/5 rounded-2xl overflow-hidden">
+          <button
+            onClick={() => setConflictsOpen(o => !o)}
+            className="w-full flex items-center justify-between px-6 py-4 hover:bg-amber-500/10 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <FiAlertTriangle className="text-amber-400" size={18} />
+              <span className="font-bold text-amber-400 text-sm">
+                {conflicts.totalConflicts} Sync Conflict{conflicts.totalConflicts !== 1 ? 's' : ''} Require Review
+              </span>
+              <span className="text-xs text-amber-400/60">
+                {conflicts.invoiceConflicts > 0 && `${conflicts.invoiceConflicts} invoice${conflicts.invoiceConflicts !== 1 ? 's' : ''}`}
+                {conflicts.salesOrderConflicts > 0 && `, ${conflicts.salesOrderConflicts} SO${conflicts.salesOrderConflicts !== 1 ? 's' : ''}`}
+                {conflicts.quoteConflicts > 0 && `, ${conflicts.quoteConflicts} quote${conflicts.quoteConflicts !== 1 ? 's' : ''}`}
+              </span>
+            </div>
+            {conflictsOpen ? <FiChevronUp className="text-amber-400" /> : <FiChevronDown className="text-amber-400" />}
+          </button>
+
+          {conflictsOpen && (
+            <div className="px-6 pb-6 space-y-3">
+              <p className="text-xs text-neutral-400 pb-1">
+                Both the app and Zoho modified these documents since the last sync.
+                Choose which side wins — or dismiss to keep the current state and clear the flag.
+              </p>
+              {[...conflicts.invoices, ...conflicts.salesOrders, ...conflicts.quotes].map((doc: any) => (
+                <div key={doc.id} className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <span className="font-bold text-white text-sm">{doc.docNumber}</span>
+                      <span className="ml-2 text-xs text-neutral-400">{doc.customer}</span>
+                      <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300">{doc.docType}</span>
+                    </div>
+                    <div className="text-xs text-neutral-500 space-y-0.5 text-right">
+                      <div>App modified: {doc.appModifiedAt ? new Date(doc.appModifiedAt).toLocaleString() : '—'}</div>
+                      <div>Zoho modified: {doc.lastZohoModifiedTime ? new Date(doc.lastZohoModifiedTime).toLocaleString() : '—'}</div>
+                    </div>
+                  </div>
+
+                  {/* Conflicting fields */}
+                  {doc.conflictFields && Object.keys(doc.conflictFields).length > 0 && (
+                    <div className="bg-neutral-800 rounded-lg p-3 space-y-1">
+                      <p className="text-xs font-bold text-neutral-400 mb-2">Conflicting fields:</p>
+                      {Object.entries(doc.conflictFields as Record<string, { app: unknown; zoho: unknown }>).map(([field, vals]) => (
+                        <div key={field} className="grid grid-cols-3 text-xs gap-2">
+                          <span className="text-neutral-400 font-mono">{field}</span>
+                          <span className="text-sky-400">App: <strong>{String(vals.app)}</strong></span>
+                          <span className="text-emerald-400">Zoho: <strong>{String(vals.zoho)}</strong></span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      disabled={conflictLoading === doc.id}
+                      onClick={() => resolveConflict(doc.docType, doc.id, 'app')}
+                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-sky-700 hover:bg-sky-600 text-white transition-colors disabled:opacity-50"
+                    >Keep App Values</button>
+                    <button
+                      disabled={conflictLoading === doc.id}
+                      onClick={() => resolveConflict(doc.docType, doc.id, 'zoho')}
+                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-800 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
+                    >Use Zoho Data</button>
+                    <button
+                      disabled={conflictLoading === doc.id}
+                      onClick={() => resolveConflict(doc.docType, doc.id, 'dismiss')}
+                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-neutral-700 hover:bg-neutral-600 text-neutral-300 transition-colors disabled:opacity-50"
+                    >Dismiss</button>
+                    {conflictLoading === doc.id && <FiLoader className="animate-spin text-amber-400 mt-1" size={14} />}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Sync Pending to Zoho — TOP PRIORITY CARD ── */}
       <div className="glass-panel border border-sky-500/40 p-6 rounded-2xl space-y-4">

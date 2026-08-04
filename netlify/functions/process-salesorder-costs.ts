@@ -1,6 +1,7 @@
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculations"
+import { detectConflict, updateSalesOrderRecord } from "../../src/lib/sync-engine"
 
 import { prisma } from "./lib/prisma"
 const ZOHO_DC = process.env.ZOHO_DC || "com"
@@ -111,29 +112,40 @@ export const handler: Handler = async (event) => {
       console.log(`⏭️ No changes for sales order ${salesorder.salesorder_number} — skipping PUT`)
     }
 
-    // 7. Update local DB
+    // 7. Update local DB — conflict detection + full Zoho snapshot
     const localSalesOrder = await prisma.salesOrder.findFirst({
       where: { OR: [{ items: { path: ["salesOrderNumber"], equals: salesorder.salesorder_number } }, { zohoId: booksSalesorderId }] },
     })
     if (localSalesOrder) {
-      const currentItems = (localSalesOrder.items as any) || {}
-      await prisma.salesOrder.update({
-        where: { id: localSalesOrder.id },
-        data: {
-          amount: subTotal,
-          items: {
-            ...currentItems,
-            sub_total: subTotal,
-            subTotal: subTotal,
-            deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
-            deadProfitActual, profit,
-            commission: salesCommission, commissionPercent: commissionPct, vigRate,
-            lineItemDetails,
-            itemsDcBreakdown: lineItemBreakdownStrings,
-            custom_fields: salesorder.custom_fields || [],
-          },
+      const conflictResult = detectConflict(
+        {
+          lastSyncedAt:     localSalesOrder.lastSyncedAt,
+          appModifiedAt:    localSalesOrder.appModifiedAt,
+          zohoModifiedTime: localSalesOrder.zohoModifiedTime,
+          items:            localSalesOrder.items,
         },
+        salesorder
+      )
+      if (conflictResult.hasConflict) {
+        console.warn(`⚠️  Conflict on SO ${salesorder.salesorder_number}:`, Object.keys(conflictResult.fields))
+      }
+
+      await updateSalesOrderRecord({
+        localId: localSalesOrder.id,
+        zohoDoc: salesorder,
+        calcItems: {
+          sub_total: subTotal, subTotal,
+          deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
+          deadProfitActual, profit,
+          commission: salesCommission, commissionPercent: commissionPct, vigRate,
+          lineItemDetails,
+          itemsDcBreakdown: lineItemBreakdownStrings,
+          costsCalculatedAt: new Date().toISOString(),
+        },
+        conflictResult,
       })
+    } else {
+      console.warn(`[process-salesorder-costs] No local record for SO ${salesorder.salesorder_number}`)
     }
 
 

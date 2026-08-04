@@ -2,6 +2,11 @@ import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculations"
 import { getSystemSettings } from "./lib/settings"
+import {
+  detectConflict,
+  syncInvoicePayments,
+  updateInvoiceRecord,
+} from "../../src/lib/sync-engine"
 
 import { prisma } from "./lib/prisma"
 const ZOHO_DC = process.env.ZOHO_DC || "com"
@@ -153,30 +158,63 @@ export const handler: Handler = async (event) => {
       console.log(`Skip: No changes for invoice ${invoice.invoice_number} — skipping PUT`)
     }
 
-    // 7. Update local DB
+    // 7. Update local DB — with conflict detection, payment enrichment, full snapshot
     const localInvoice = await prisma.invoice.findFirst({
-      where: { OR: [{ items: { path: ["invoiceNumber"], equals: invoice.invoice_number } }, { items: { path: ["booksInvoiceId"], equals: booksInvoiceId } }] },
+      where: {
+        OR: [
+          { zohoId: booksInvoiceId },
+          { items: { path: ["invoiceNumber"], equals: invoice.invoice_number } },
+          { items: { path: ["booksInvoiceId"], equals: booksInvoiceId } },
+        ],
+      },
     })
+
     if (localInvoice) {
-      const currentItems = (localInvoice.items as any) || {}
-      await prisma.invoice.update({
-        where: { id: localInvoice.id },
-        data: {
-          amount: subTotal,
-          items: {
-            ...currentItems,
-            sub_total: subTotal,
-            subTotal: subTotal,
-            deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
-            deadProfitActual, profit,
-            commission: salesCommission, commissionPercent: commissionPct, vigRate,
-            lineItemDetails,
-            itemsDcBreakdown: lineItemBreakdownStrings,
-            custom_fields: invoice.custom_fields || [],
-            ...(isPaid && !currentItems.paidInFullDate ? { paidInFullDate: new Date().toISOString().split("T")[0] } : {}),
-          },
+      // 7a. Conflict detection
+      const conflictResult = detectConflict(
+        {
+          lastSyncedAt:    localInvoice.lastSyncedAt,
+          appModifiedAt:   localInvoice.appModifiedAt,
+          zohoModifiedTime: localInvoice.zohoModifiedTime,
+          items:           localInvoice.items,
+        },
+        invoice
+      )
+      if (conflictResult.hasConflict) {
+        console.warn(`⚠️  Conflict detected on invoice ${invoice.invoice_number}:`, Object.keys(conflictResult.fields))
+      }
+
+      // 7b. Sync payments into Payment table
+      const paymentSummary = await syncInvoicePayments(booksInvoiceId, localInvoice.id)
+      console.log(`  Payments synced: ${paymentSummary.paymentCount} records | paid=$${paymentSummary.paymentMade.toFixed(2)}`)
+
+      // 7c. Write full enriched record
+      const calcItems = {
+        sub_total: subTotal, subTotal,
+        deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
+        deadProfitActual, profit,
+        commission: salesCommission, commissionPercent: commissionPct, vigRate,
+        lineItemDetails,
+        itemsDcBreakdown: lineItemBreakdownStrings,
+        costsCalculatedAt: new Date().toISOString(),
+        ...(isPaid && !(localInvoice.items as any)?.paidInFullDate
+          ? { paidInFullDate: new Date().toISOString().split("T")[0] }
+          : {}),
+      }
+
+      await updateInvoiceRecord({
+        localId:        localInvoice.id,
+        zohoDoc:        invoice,
+        calcItems,
+        conflictResult,
+        paymentSummary: {
+          ...paymentSummary,
+          paymentExpected: parseFloat(invoice.payment_expected ?? "0") || null,
+          balance:         parseFloat(invoice.balance ?? "0") ?? null,
         },
       })
+    } else {
+      console.warn(`[process-invoice-costs] No local record found for invoice ${invoice.invoice_number} (${booksInvoiceId})`)
     }
 
 
@@ -194,6 +232,9 @@ export const handler: Handler = async (event) => {
           commissionPercent: commissionPct, salesCommission,
           lineItems: lineItemDetails, itemsDcBreakdown: lineItemBreakdownStrings,
           fieldsUpdated: fieldsToUpdate.length, changesDetected, zohoUpdateResult,
+          // Sync state
+          paymentMade:   parseFloat(invoice.payment_made ?? "0") || 0,
+          balance:       parseFloat(invoice.balance ?? "0") ?? null,
         },
       }),
     }

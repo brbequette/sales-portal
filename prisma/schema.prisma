@@ -177,11 +177,21 @@ model SalesOrder {
   actualShippingCost    Float?
   shippingCostBreakdown String?
 
+  // Bidirectional sync tracking
+  lastZohoModifiedTime  DateTime?   // last_modified_time returned by Zoho
+  lastSyncedAt          DateTime?   // when we last completed a successful sync
+  appModifiedAt         DateTime?   // when app last wrote app-owned fields
+  syncConflict          Boolean     @default(false)
+  conflictFields        Json?       // { fieldName: { app: val, zoho: val } }
+  pendingZohoFetch      Boolean     @default(false)  // Zoho changed -> needs re-pull
+
   @@index([pendingCostSync])
   @@index([dealId])
   @@index([accountId])
   @@index([orderDate])
   @@index([status, orderDate])
+  @@index([syncConflict])
+  @@index([pendingZohoFetch])
 }
 
 model Quote {
@@ -204,11 +214,21 @@ model Quote {
   dealId            String?
   deal              Deal?     @relation(fields: [dealId], references: [id])
 
+  // Bidirectional sync tracking
+  lastZohoModifiedTime  DateTime?
+  lastSyncedAt          DateTime?
+  appModifiedAt         DateTime?
+  syncConflict          Boolean   @default(false)
+  conflictFields        Json?
+  pendingZohoFetch      Boolean   @default(false)
+
   @@index([pendingCostSync])
   @@index([dealId])
   @@index([accountId])
   @@index([createdAt])
   @@index([status, createdAt])
+  @@index([syncConflict])
+  @@index([pendingZohoFetch])
 }
 
 model Product {
@@ -265,6 +285,23 @@ model Invoice {
   returnedItemsResold     Boolean   @default(false)
   resoldInvoiceId         String?
 
+  // Bidirectional sync tracking
+  lastZohoModifiedTime  DateTime?   // last_modified_time returned by Zoho
+  lastSyncedAt          DateTime?   // when we last completed a successful sync
+  appModifiedAt         DateTime?   // when app last wrote app-owned fields
+  syncConflict          Boolean     @default(false)
+  conflictFields        Json?       // { fieldName: { app: val, zoho: val } }
+  pendingZohoFetch      Boolean     @default(false)  // Zoho changed -> needs re-pull
+
+  // Payment summary (denormalized from Zoho, updated every sync)
+  paymentMade       Float?      // Zoho invoice.payment_made
+  paymentExpected   Float?      // Zoho invoice.payment_expected
+  lastPaymentDate   DateTime?   // Zoho invoice.last_payment_date
+  balance           Float?      // Zoho invoice.balance
+
+  // Payment records relation
+  payments          Payment[]
+
   @@index([accountId])
   @@index([dealId])
   @@index([status])
@@ -272,6 +309,9 @@ model Invoice {
   @@index([status, issueDate])
   @@index([pendingCostSync])
   @@index([accountId, issueDate, status])
+  @@index([syncConflict])
+  @@index([pendingZohoFetch])
+  @@index([lastSyncedAt])
 }
 
 model Note {
@@ -688,20 +728,25 @@ model PurchaseOrder {
 }
 
 model Payment {
-  id String @id @default(cuid())
-  zohoId String @unique
-  invoiceId String?
-  invoiceNumber String?
-  amount Float @default(0)
-  date DateTime?
-  mode String?
-  status String?
+  id              String    @id @default(cuid())
+  zohoId          String    @unique
+  invoiceId       String?   // Zoho invoice_id string
+  invoiceDbId     String?   // FK to Invoice.id
+  invoiceNumber   String?
+  amount          Float     @default(0)
+  date            DateTime?
+  mode            String?
+  status          String?
   referenceNumber String?
-  bankCharges Float @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  bankCharges     Float     @default(0)
+  description     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  invoice         Invoice?  @relation(fields: [invoiceDbId], references: [id], onDelete: SetNull)
 
   @@index([invoiceId])
+  @@index([invoiceDbId])
   @@index([date])
 }
 

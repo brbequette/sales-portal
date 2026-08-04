@@ -1,6 +1,7 @@
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculations"
+import { detectConflict, updateQuoteRecord } from "../../src/lib/sync-engine"
 
 import { prisma } from "./lib/prisma"
 const ZOHO_DC = process.env.ZOHO_DC || "com"
@@ -111,29 +112,40 @@ export const handler: Handler = async (event) => {
       console.log(`⏭️ No changes for quote ${estimate.estimate_number} — skipping PUT`)
     }
 
-    // 7. Update local DB
+    // 7. Update local DB — conflict detection + full Zoho snapshot
     const localQuote = await prisma.quote.findFirst({
       where: { OR: [{ items: { path: ["estimateNumber"], equals: estimate.estimate_number } }, { zohoId: booksEstimateId }] },
     })
     if (localQuote) {
-      const currentItems = (localQuote.items as any) || {}
-      await prisma.quote.update({
-        where: { id: localQuote.id },
-        data: {
-          amount: subTotal,
-          items: {
-            ...currentItems,
-            sub_total: subTotal,
-            subTotal: subTotal,
-            deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
-            deadProfitActual, profit,
-            commission: salesCommission, commissionPercent: commissionPct, vigRate,
-            lineItemDetails,
-            itemsDcBreakdown: lineItemBreakdownStrings,
-            custom_fields: estimate.custom_fields || [],
-          },
+      const conflictResult = detectConflict(
+        {
+          lastSyncedAt:     localQuote.lastSyncedAt,
+          appModifiedAt:    localQuote.appModifiedAt,
+          zohoModifiedTime: localQuote.zohoModifiedTime,
+          items:            localQuote.items,
         },
+        estimate
+      )
+      if (conflictResult.hasConflict) {
+        console.warn(`⚠️  Conflict on Quote ${estimate.estimate_number}:`, Object.keys(conflictResult.fields))
+      }
+
+      await updateQuoteRecord({
+        localId: localQuote.id,
+        zohoDoc: estimate,
+        calcItems: {
+          sub_total: subTotal, subTotal,
+          deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
+          deadProfitActual, profit,
+          commission: salesCommission, commissionPercent: commissionPct, vigRate,
+          lineItemDetails,
+          itemsDcBreakdown: lineItemBreakdownStrings,
+          costsCalculatedAt: new Date().toISOString(),
+        },
+        conflictResult,
       })
+    } else {
+      console.warn(`[process-quote-costs] No local record for quote ${estimate.estimate_number}`)
     }
 
 
