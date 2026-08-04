@@ -177,6 +177,10 @@ export const handler: Handler = async (event) => {
           orderDate: {
             gte: rangeStart,
             lte: rangeEnd
+          },
+          // Exclude already-invoiced and closed orders so counts reflect only uninvoiced pipeline
+          NOT: {
+            status: { in: ['Invoiced', 'invoiced', 'Closed', 'closed', 'Billed', 'billed'] }
           }
         },
         select: {
@@ -218,6 +222,16 @@ export const handler: Handler = async (event) => {
     addAlias("justin  zastrow", "justin zastrow")
     const unassignedId = "unassigned"
 
+    // Compute current week boundaries (Mon-Sun)
+    const weekNow = new Date()
+    const weekDay = weekNow.getDay()
+    const weekMonday = new Date(weekNow)
+    weekMonday.setDate(weekNow.getDate() - (weekDay === 0 ? 6 : weekDay - 1))
+    weekMonday.setHours(0, 0, 0, 0)
+    const weekSunday = new Date(weekMonday)
+    weekSunday.setDate(weekMonday.getDate() + 6)
+    weekSunday.setHours(23, 59, 59, 999)
+
     // Initialize repStatsMap
     const repStatsMap: Record<string, any> = {}
     
@@ -230,6 +244,7 @@ export const handler: Handler = async (event) => {
         title: u.title || "Sales Representative",
         role: u.role,
         revenue: 0,
+        weeklyRevenue: 0,
         profit: 0,
         deadProfit: 0,
         commissions: 0,
@@ -251,6 +266,7 @@ export const handler: Handler = async (event) => {
       title: "Unassigned Pool",
       role: "",
       revenue: 0,
+      weeklyRevenue: 0,
       profit: 0,
       deadProfit: 0,
       commissions: 0,
@@ -320,6 +336,11 @@ export const handler: Handler = async (event) => {
         repStatsMap[repId].deadProfit += deadProfit
         repStatsMap[repId].commissions += commission
         repStatsMap[repId].invoiceCount++
+        // Track weekly revenue (always based on current week, regardless of period filter)
+        const invDateForWeek = inv.issueDate ? new Date(inv.issueDate) : null
+        if (invDateForWeek && invDateForWeek >= weekMonday && invDateForWeek <= weekSunday) {
+          repStatsMap[repId].weeklyRevenue += amount
+        }
         repStatsMap[repId].invoices.push({
           id: inv.id,
           invoiceNumber: items.invoiceNumber || items.invoice_number || inv.zohoId || inv.id,
@@ -439,6 +460,7 @@ export const handler: Handler = async (event) => {
 
     let totalInvoiceCount = 0
     let totalInvoiceSubtotal = 0
+    let totalInvoiceWeeklyRevenue = 0
     let totalInvoiceDeadProfit = 0
     let totalInvoiceNetProfit = 0
     let totalInvoiceCommission = 0
@@ -451,6 +473,7 @@ export const handler: Handler = async (event) => {
     repsList.forEach((r: any) => {
       totalInvoiceCount += r.invoiceCount
       totalInvoiceSubtotal += r.revenue
+      totalInvoiceWeeklyRevenue += r.weeklyRevenue || 0
       totalInvoiceDeadProfit += r.deadProfit
       totalInvoiceNetProfit += r.profit
       totalInvoiceCommission += r.commissions
@@ -475,6 +498,7 @@ export const handler: Handler = async (event) => {
         totals: {
           invoiceCount: totalInvoiceCount,
           invoiceSubtotal: totalInvoiceSubtotal,
+          invoiceWeeklyRevenue: totalInvoiceWeeklyRevenue,
           invoiceDeadProfit: totalInvoiceDeadProfit,
           invoiceNetProfit: totalInvoiceNetProfit,
           invoiceCommission: totalInvoiceCommission,
