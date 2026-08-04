@@ -256,8 +256,9 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
   const [isRepCustomizerOpen, setIsRepCustomizerOpen] = useState(false)
 
   // --- Rep Stats Board State ---
+  // For non-admins, auto-scope to current rep's name; for admins use 'all' (company aggregate)
   const [repStatsReps, setRepStatsReps] = useState<any[]>([])
-  const [repStatsSelectedRepId, setRepStatsSelectedRepId] = useState<string>("all")
+  const repStatsSelectedRepId = isAdmin ? "all" : (repName || "all")
   const [repStatsPeriod, setRepStatsPeriod] = useState<string>("this_month")
   const [repStatsStartDate, setRepStatsStartDate] = useState<string>("")
   const [repStatsEndDate, setRepStatsEndDate] = useState<string>("")
@@ -304,7 +305,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
   useEffect(() => {
     fetchRepStatsData()
-  }, [repStatsSelectedRepId, repStatsPeriod, repStatsStartDate, repStatsEndDate])
+  }, [repStatsSelectedRepId, repStatsPeriod, repStatsStartDate, repStatsEndDate, repName, isAdmin])
 
   const repStatsAllInvoices = useMemo(() => {
     let list: any[] = []
@@ -324,12 +325,18 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
     return list
   }, [repStatsReps, repStatsSearchQuery])
 
+  // Uninvoiced Sales Orders only (exclude ones that have been converted to invoices)
   const repStatsAllSalesOrders = useMemo(() => {
     let list: any[] = []
     repStatsReps.forEach(r => {
       if (r.salesOrders && Array.isArray(r.salesOrders)) {
         list = list.concat(r.salesOrders.map((so: any) => ({ ...so, repName: r.repName })))
       }
+    })
+    // Filter to uninvoiced: exclude orders that already have an invoice or status is 'invoiced'
+    list = list.filter(so => {
+      const s = (so.status || "").toLowerCase().trim()
+      return s !== "invoiced" && s !== "closed" && s !== "billed" && !so.invoiceId && !so.invoiceNumber
     })
     if (repStatsSearchQuery.trim()) {
       const q = repStatsSearchQuery.toLowerCase().trim()
@@ -939,41 +946,15 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           </div>
           <div>
             <h3 className="text-xs font-black text-white uppercase tracking-wider">
-              {showCompanyWide ? "Company-Wide Performance Dashboard" : "Rep Performance & KPI Dashboard"}
+              Performance & KPI Dashboard
             </h3>
             <p className="text-[10px] text-neutral-500 font-semibold mt-0.5">
-              {showCompanyWide ? "Viewing combined totals across all sales reps" : `Showing metrics for ${filterRepName || currentUser?.name || 'Rep'}`}
+              {isAdmin ? "Viewing company-wide aggregated metrics" : `Showing metrics for ${repName || currentUser?.name || 'you'}`}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3 self-end sm:self-auto">
-          {/* Admin Toggle */}
-          {isAdmin && (
-            <div className="flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-white/10">
-              <button
-                onClick={() => setShowCompanyWide(false)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  !showCompanyWide
-                    ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20"
-                    : "text-neutral-400 hover:text-white"
-                }`}
-              >
-                👤 Rep Metrics
-              </button>
-              <button
-                onClick={() => setShowCompanyWide(true)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  showCompanyWide
-                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
-                    : "text-neutral-400 hover:text-white"
-                }`}
-              >
-                🏢 Company Totals
-              </button>
-            </div>
-          )}
-
           <button
             onClick={() => setIsRepCustomizerOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-bold rounded-lg border border-white/10 transition-colors"
@@ -983,8 +964,8 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         </div>
       </div>
 
-      {/* --- Company Totals Banner (For Reps Only) --- */}
-      {!showCompanyWide && (
+      {/* --- Company Totals Banner --- */}
+      {(
         <div className="glass-panel p-4 rounded-2xl border border-white/[0.06] flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -1015,70 +996,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         </div>
       )}
 
-      {/* --- Data Tools & Shortcuts Toolbar --- */}
-      <div className="glass-panel p-4 rounded-2xl border border-white/10 flex flex-wrap items-center justify-between gap-3 shadow-lg bg-neutral-900/80">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
-            <FiZap size={20} />
-          </div>
-          <div>
-            <h3 className="text-xs font-black text-white uppercase tracking-wider">⚡ Data Tools &amp; Portal Shortcuts</h3>
-            <p className="text-[10px] text-neutral-400">Quick access to portal workstations, performance management, and data tools</p>
-          </div>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={fetchRepStatsData}
-            disabled={repStatsLoading}
-            className="px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold border border-white/10 transition flex items-center gap-1.5 cursor-pointer"
-          >
-            <FiRefreshCw className={repStatsLoading ? "animate-spin" : ""} size={13} /> Refresh Stats
-          </button>
-          <a
-            href="/timeclock"
-            className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold hover:bg-emerald-500/30 transition flex items-center gap-1.5"
-          >
-            <FiClock size={13} /> Timeclock
-          </a>
-          <a
-            href="/admin/goals-bonuses"
-            className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold hover:bg-amber-500/30 transition flex items-center gap-1.5"
-          >
-            <FiAward size={13} /> Goals &amp; Bonuses
-          </a>
-          <a
-            href="/admin/payouts"
-            className="px-3 py-1.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold hover:bg-purple-500/30 transition flex items-center gap-1.5"
-          >
-            <FiDollarSign size={13} /> Payouts &amp; Ledger
-          </a>
-          <a
-            href="/sales/leads-calling"
-            className="px-3 py-1.5 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-bold hover:bg-sky-500/30 transition flex items-center gap-1.5"
-          >
-            <FiPhoneCall size={13} /> Cold Call Workstation
-          </a>
-          <a
-            href="/admin/vig"
-            className="px-3 py-1.5 rounded-xl bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 text-xs font-bold hover:bg-yellow-500/30 transition flex items-center gap-1.5"
-          >
-            <FiZap size={13} /> VIG Management
-          </a>
-          <a
-            href="/catalog"
-            className="px-3 py-1.5 rounded-xl bg-neutral-800 text-neutral-300 hover:text-white border border-white/10 text-xs font-bold hover:bg-neutral-700 transition flex items-center gap-1.5"
-          >
-            <FiSearch size={13} /> Catalog Lookup
-          </a>
-          <a
-            href="/admin/update-accounts"
-            className="px-3 py-1.5 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-bold hover:bg-blue-500/30 transition flex items-center gap-1.5"
-          >
-            <FiTarget size={13} /> Update Accounts
-          </a>
-        </div>
-      </div>
 
       {/* --- Rep Performance & Financial Board Section --- */}
       <div className="bg-neutral-900/60 border border-white/10 rounded-2xl p-5 space-y-6 shadow-xl">
@@ -1103,73 +1021,63 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           </div>
         </div>
 
-        {/* Filters Bar: Rep Selector & Date Periods */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-black/40 p-4 rounded-xl border border-white/5">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
-              <FiUsers /> Select Sales Representative
-            </label>
-            <select
-              value={repStatsSelectedRepId}
-              onChange={e => setRepStatsSelectedRepId(e.target.value)}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-orange-500 cursor-pointer"
-            >
-              <option value="all">🌟 All Representatives (Company Aggregate)</option>
-              {repStatsReps.map((r: any) => (
-                <option key={r.repId} value={r.repId}>
-                  {r.repName}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="lg:col-span-2 space-y-1">
-            <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
-              <FiCalendar /> Date Range / Period
-            </label>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {[
-                { id: "today", label: "Today" },
-                { id: "this_week", label: "This Week" },
-                { id: "this_month", label: "This Month (MTD)" },
-                { id: "last_month", label: "Last Month" },
-                { id: "this_year", label: "This Year (YTD)" },
-                { id: "last_year", label: "Last Year" },
-                { id: "all", label: "All Time" },
-                { id: "custom", label: "Custom Range" },
-              ].map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setRepStatsPeriod(p.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    repStatsPeriod === p.id
-                      ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
-                      : "bg-neutral-800 text-neutral-400 hover:text-white"
-                  }`}
-                >
-                  {p.id === "all" ? "🌟 " : ""}{p.label}
-                </button>
-              ))}
-            </div>
-
-            {repStatsPeriod === "custom" && (
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="date"
-                  value={repStatsStartDate}
-                  onChange={e => setRepStatsStartDate(e.target.value)}
-                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
-                />
-                <span className="text-xs text-neutral-500">to</span>
-                <input
-                  type="date"
-                  value={repStatsEndDate}
-                  onChange={e => setRepStatsEndDate(e.target.value)}
-                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
-                />
-              </div>
+        {/* Filters Bar: Date Period Only (rep auto-scoped by role) */}
+        <div className="bg-black/40 p-4 rounded-xl border border-white/5 space-y-1">
+          <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
+            <FiCalendar /> Date Range / Period
+            {!isAdmin && repName && (
+              <span className="ml-2 px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[9px] font-black">
+                📊 {repName}
+              </span>
             )}
+            {isAdmin && (
+              <span className="ml-2 px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-black">
+                🏢 Company Aggregate
+              </span>
+            )}
+          </label>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { id: "today", label: "Today" },
+              { id: "this_week", label: "This Week" },
+              { id: "this_month", label: "This Month (MTD)" },
+              { id: "last_month", label: "Last Month" },
+              { id: "this_year", label: "This Year (YTD)" },
+              { id: "last_year", label: "Last Year" },
+              { id: "all", label: "All Time" },
+              { id: "custom", label: "Custom Range" },
+            ].map(p => (
+              <button
+                key={p.id}
+                onClick={() => setRepStatsPeriod(p.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  repStatsPeriod === p.id
+                    ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
+                    : "bg-neutral-800 text-neutral-400 hover:text-white"
+                }`}
+              >
+                {p.id === "all" ? "🌟 " : ""}{p.label}
+              </button>
+            ))}
           </div>
+
+          {repStatsPeriod === "custom" && (
+            <div className="flex items-center gap-2 pt-2">
+              <input
+                type="date"
+                value={repStatsStartDate}
+                onChange={e => setRepStatsStartDate(e.target.value)}
+                className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+              />
+              <span className="text-xs text-neutral-500">to</span>
+              <input
+                type="date"
+                value={repStatsEndDate}
+                onChange={e => setRepStatsEndDate(e.target.value)}
+                className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+              />
+            </div>
+          )}
         </div>
 
         {/* INVOICES TOTALS SUMMARY (Interactive Clickable Tiles) */}
@@ -1236,12 +1144,42 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
               <p className="text-[10px] text-neutral-500 font-medium">50% Rep Earned Commissions</p>
             </div>
           </div>
+
+          {/* COMPANY-WIDE TOTALS — Labeled Summary Rows */}
+          <div className="bg-black/40 border border-white/[0.06] rounded-2xl p-4 space-y-3">
+            <h4 className="text-[10px] font-black text-neutral-400 uppercase tracking-widest flex items-center gap-2">
+              🏢 Company-Wide Totals
+              <span className="text-[9px] font-medium text-neutral-600 normal-case tracking-normal">All reps, same period</span>
+            </h4>
+            <div className="divide-y divide-white/5">
+              <div className="flex items-center justify-between py-2.5">
+                <span className="text-xs text-neutral-400 font-semibold">Invoice Subtotals</span>
+                <span className="text-sm font-black text-white font-mono">{formatRepCurrency(repStatsTotals.invoiceSubtotal)}</span>
+              </div>
+              <div className="flex items-center justify-between py-2.5">
+                <span className="text-xs text-neutral-400 font-semibold">Total Invoices Billed</span>
+                <span className="text-sm font-black text-sky-400 font-mono">{repStatsTotals.invoiceCount}</span>
+              </div>
+              <div className="flex items-center justify-between py-2.5">
+                <span className="text-xs text-neutral-400 font-semibold">Dead Profit (VIG)</span>
+                <span className="text-sm font-black text-emerald-400 font-mono">{formatRepCurrency(repStatsTotals.invoiceDeadProfit)}</span>
+              </div>
+              <div className="flex items-center justify-between py-2.5">
+                <span className="text-xs text-neutral-400 font-semibold">Net Profit (After VIG)</span>
+                <span className="text-sm font-black text-emerald-300 font-mono">{formatRepCurrency(repStatsTotals.invoiceNetProfit)}</span>
+              </div>
+              <div className="flex items-center justify-between py-2.5">
+                <span className="text-xs text-amber-400 font-bold">💰 Total Commissions Earned</span>
+                <span className="text-sm font-black text-amber-400 font-mono">{formatRepCurrency(repStatsTotals.invoiceCommission)}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* SALES ORDERS TOTALS SUMMARY (Interactive Clickable Tiles) */}
+        {/* SALES ORDERS TOTALS SUMMARY (Uninvoiced Only) */}
         <div className="space-y-3">
           <h3 className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
-            <FiShoppingCart /> Sales Orders Totals Summary (Click any tile to inspect orders)
+            <FiShoppingCart /> Uninvoiced Sales Orders Summary (Click any tile to inspect orders)
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div
@@ -1290,71 +1228,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           </div>
         </div>
 
-        {/* Representative Financial Breakdown Leaderboard Table */}
-        <div className="bg-neutral-900/60 border border-white/10 rounded-2xl p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <h3 className="text-xs font-bold text-orange-400 uppercase tracking-wider flex items-center gap-2">
-              <FiUsers /> Representative Financial Breakdown (Click Row to Expand)
-            </h3>
-            <span className="text-[10px] text-neutral-500">{repStatsReps.length} Representatives</span>
-          </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-white/10 text-neutral-400 uppercase text-[10px] tracking-wider bg-black/30">
-                  <th className="p-3">Sales Representative</th>
-                  <th className="p-3 text-center">Invoices</th>
-                  <th className="p-3 text-right">Billed Subtotal</th>
-                  <th className="p-3 text-right">Dead Profit</th>
-                  <th className="p-3 text-right">Net Profit</th>
-                  <th className="p-3 text-right text-amber-400 font-bold">Earned Comm.</th>
-                  <th className="p-3 text-center">Sales Orders</th>
-                  <th className="p-3 text-right">SO Subtotal</th>
-                  <th className="p-3 text-right text-purple-300 font-bold">Est. Comm.</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {repStatsLoading ? (
-                  <tr>
-                    <td colSpan={9} className="p-8 text-center text-neutral-400">
-                      <FiRefreshCw className="animate-spin inline mr-2" /> Loading representative metrics...
-                    </td>
-                  </tr>
-                ) : repStatsReps.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="p-8 text-center text-neutral-500">
-                      No representative financial data found.
-                    </td>
-                  </tr>
-                ) : (
-                  repStatsReps.map((r, idx) => (
-                    <tr
-                      key={r.repId || idx}
-                      onClick={() => setRepStatsModalRep(r)}
-                      className="hover:bg-white/5 cursor-pointer transition-colors"
-                    >
-                      <td className="p-3 font-bold text-white flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-orange-500/20 border border-orange-500/30 text-orange-400 flex items-center justify-center text-[10px]">
-                          {r.repName?.charAt(0) || "?"}
-                        </div>
-                        {r.repName}
-                      </td>
-                      <td className="p-3 text-center font-mono font-bold text-sky-400">{r.totals?.invoiceCount || 0}</td>
-                      <td className="p-3 text-right font-mono font-bold text-white">{formatRepCurrency(r.totals?.invoiceSubtotal || 0)}</td>
-                      <td className="p-3 text-right font-mono font-bold text-emerald-400">{formatRepCurrency(r.totals?.invoiceDeadProfit || 0)}</td>
-                      <td className="p-3 text-right font-mono font-bold text-emerald-400">{formatRepCurrency(r.totals?.invoiceNetProfit || 0)}</td>
-                      <td className="p-3 text-right font-mono font-bold text-amber-400">{formatRepCurrency(r.totals?.invoiceCommission || 0)}</td>
-                      <td className="p-3 text-center font-mono font-bold text-purple-400">{r.totals?.salesOrderCount || 0}</td>
-                      <td className="p-3 text-right font-mono font-bold text-white">{formatRepCurrency(r.totals?.salesOrderSubtotal || 0)}</td>
-                      <td className="p-3 text-right font-mono font-bold text-purple-300">{formatRepCurrency(r.totals?.salesOrderEstCommission || 0)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
 
         {/* Global Document Datapoints Table (Invoices & Sales Orders across reps) */}
         <div className="bg-neutral-900/60 border border-white/10 rounded-2xl p-5 space-y-4">
@@ -1378,7 +1252,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
                     : "bg-neutral-800 text-neutral-400 hover:text-white"
                 }`}
               >
-                📦 All Sales Orders ({repStatsAllSalesOrders.length})
+                📦 Uninvoiced Sales Orders ({repStatsAllSalesOrders.length})
               </button>
             </div>
 
@@ -1419,7 +1293,15 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
                   ) : (
                     repStatsAllInvoices.map((inv, idx) => (
                       <tr key={inv.id || idx} className="hover:bg-white/5 transition-colors">
-                        <td className="p-3 font-mono font-bold text-sky-400">#{inv.invoiceNumber}</td>
+                        <td className="p-3">
+                          <a
+                            href={`/invoices/${inv.id || inv.invoiceNumber}`}
+                            className="font-mono font-bold text-sky-400 hover:text-sky-300 hover:underline transition-colors"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            #{inv.invoiceNumber}
+                          </a>
+                        </td>
                         <td className="p-3 text-neutral-400">{formatRepDate(inv.date)}</td>
                         <td className="p-3 font-semibold text-white">{inv.customerName}</td>
                         <td className="p-3 text-neutral-300">{inv.repName}</td>
@@ -1460,7 +1342,15 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
                   ) : (
                     repStatsAllSalesOrders.map((so, idx) => (
                       <tr key={so.id || idx} className="hover:bg-white/5 transition-colors">
-                        <td className="p-3 font-mono font-bold text-purple-400">#{so.salesOrderNumber}</td>
+                        <td className="p-3">
+                          <a
+                            href={`/sales/orders/${so.id || so.salesOrderNumber}`}
+                            className="font-mono font-bold text-purple-400 hover:text-purple-300 hover:underline transition-colors"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            #{so.salesOrderNumber}
+                          </a>
+                        </td>
                         <td className="p-3 text-neutral-400">{formatRepDate(so.date)}</td>
                         <td className="p-3 font-semibold text-white">{so.customerName}</td>
                         <td className="p-3 text-neutral-300">{so.repName}</td>
@@ -1521,7 +1411,25 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
                 <tbody className="divide-y divide-white/5">
                   {repStatsTileModalInfo.docs.map((doc: any, idx: number) => (
                     <tr key={doc.id || idx} className="hover:bg-white/5">
-                      <td className="p-3 font-mono font-bold text-sky-400">#{doc.invoiceNumber || doc.salesOrderNumber}</td>
+                      <td className="p-3">
+                        {doc.invoiceNumber ? (
+                          <a
+                            href={`/invoices/${doc.id || doc.invoiceNumber}`}
+                            className="font-mono font-bold text-sky-400 hover:text-sky-300 hover:underline transition-colors"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            #{doc.invoiceNumber}
+                          </a>
+                        ) : (
+                          <a
+                            href={`/sales/orders/${doc.id || doc.salesOrderNumber}`}
+                            className="font-mono font-bold text-purple-400 hover:text-purple-300 hover:underline transition-colors"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            #{doc.salesOrderNumber}
+                          </a>
+                        )}
+                      </td>
                       <td className="p-3 text-neutral-400">{formatRepDate(doc.date)}</td>
                       <td className="p-3 font-semibold text-white">{doc.customerName}</td>
                       <td className="p-3 text-neutral-300">{doc.repName}</td>
