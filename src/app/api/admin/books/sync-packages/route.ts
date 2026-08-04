@@ -32,12 +32,15 @@ async function fetchAllPages(baseUrl: string, token: string, endpoint: string): 
       if (res.status === 429) {
         throw new Error(`Zoho rate limit hit -- wait a minute and try again.`)
       }
+      if (res.status === 504) {
+        throw new Error(`Zoho gateway timeout (504) on ${endpoint} -- Zoho servers are busy. Wait a moment and try again.`)
+      }
       throw new Error(`Zoho API returned ${res.status} for ${endpoint}`)
     }
 
     const rawText = await res.text()
     if (rawText.trim().startsWith('<')) {
-      throw new Error(`Zoho returned HTML instead of JSON for ${endpoint} -- token likely expired. Try again in a minute.`)
+      throw new Error(`Zoho returned HTML instead of JSON for ${endpoint} -- session may have timed out. Try again in a minute.`)
     }
 
     let data: any
@@ -90,15 +93,23 @@ export async function POST(req: NextRequest) {
           items: pkg.line_items ? { lineItems: pkg.line_items } : Prisma.JsonNull,
         }
 
-        const existing = await prisma.package.findUnique({ where: { zohoId } })
-        if (existing) {
-          await prisma.package.update({ where: { zohoId }, data: packageData })
-          pkgUpdated++
-        } else {
-          await prisma.package.create({ data: packageData })
-          pkgCreated++
-        }
-      } catch (e: any) { pkgErrors++ }
+        // Use upsert: 1 DB query instead of 2 (find + create/update)
+        const result = await prisma.package.upsert({
+          where: { zohoId },
+          update: packageData,
+          create: packageData,
+        })
+
+        // Prisma upsert doesn't directly tell us if it created or updated,
+        // so track via whether the record existed before by checking createdAt ~ updatedAt
+        const wasCreated = result.createdAt && result.updatedAt &&
+          Math.abs(result.createdAt.getTime() - result.updatedAt.getTime()) < 1000
+        if (wasCreated) pkgCreated++
+        else pkgUpdated++
+      } catch (e: any) {
+        console.error("Package upsert error:", e.message)
+        pkgErrors++
+      }
     }
 
     // -- Sync Dropshipment POs --
@@ -130,15 +141,21 @@ export async function POST(req: NextRequest) {
           items: po.line_items ? { lineItems: po.line_items } : Prisma.JsonNull,
         }
 
-        const existing = await prisma.purchaseOrder.findUnique({ where: { zohoId } })
-        if (existing) {
-          await prisma.purchaseOrder.update({ where: { zohoId }, data: poData })
-          poUpdated++
-        } else {
-          await prisma.purchaseOrder.create({ data: poData })
-          poCreated++
-        }
-      } catch (e: any) { poErrors++ }
+        // Use upsert: 1 DB query instead of 2
+        const result = await prisma.purchaseOrder.upsert({
+          where: { zohoId },
+          update: poData,
+          create: poData,
+        })
+
+        const wasCreated = result.createdAt && result.updatedAt &&
+          Math.abs(result.createdAt.getTime() - result.updatedAt.getTime()) < 1000
+        if (wasCreated) poCreated++
+        else poUpdated++
+      } catch (e: any) {
+        console.error("PO upsert error:", e.message)
+        poErrors++
+      }
     }
 
     return NextResponse.json({

@@ -84,6 +84,8 @@ export default function ShippingPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<ShipStatus>("needs_packaging")
   const [search, setSearch] = useState("")
+  // counts are fetched independently of the active tab so they
+  // always reflect totals for ALL statuses and never change on tab click.
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
 
@@ -149,6 +151,36 @@ export default function ShippingPage() {
     }
   }
 
+  // fetchCounts: always fetches with status=all so the badge counts on every
+  // tab reflect the TOTAL for that status, regardless of which tab is active.
+  // This runs on mount and when search/salesperson/carrier filters change, but
+  // NOT when the user merely switches tabs — so the numbers stay stable.
+  const fetchCounts = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        status: "all",
+        search,
+        salesperson: filterSalesperson,
+        carrier: filterCarrier,
+        sortBy: "orderDate",
+        sortDir: "desc",
+        limit: "200"
+      })
+      const res = await fetch(`/api/shipping?${params}`)
+      const data = await res.json()
+      if (data.success) {
+        setCounts(data.counts)
+        setIsAdmin(!!data.isAdmin)
+        if (data.availableSalespersons) setAvailableSalespersons(data.availableSalespersons)
+        if (data.availableCarriers) setAvailableCarriers(data.availableCarriers)
+      }
+    } catch (e) {
+      console.error("Failed to fetch shipping counts:", e)
+    }
+  }, [search, filterSalesperson, filterCarrier])
+
+  // fetchOrders: fetches only the orders for the current active tab.
+  // Does NOT update counts so switching tabs never mutates the badge numbers.
   const fetchOrders = useCallback(async () => {
     setLoading(true)
     try {
@@ -165,10 +197,7 @@ export default function ShippingPage() {
       const data = await res.json()
       if (data.success) {
         setOrders(data.data)
-        setCounts(data.counts)
-        setIsAdmin(!!data.isAdmin)
-        if (data.availableSalespersons) setAvailableSalespersons(data.availableSalespersons)
-        if (data.availableCarriers) setAvailableCarriers(data.availableCarriers)
+        // Don't call setCounts here — counts are owned by fetchCounts
       }
     } catch (e) {
       console.error("Failed to fetch shipping data:", e)
@@ -177,6 +206,9 @@ export default function ShippingPage() {
     }
   }, [activeTab, search, filterSalesperson, filterCarrier, sortBy, sortDir])
 
+  // On mount and filter change: refresh both counts and orders
+  useEffect(() => { fetchCounts() }, [fetchCounts])
+  // On tab/sort change: refresh orders only (counts stay stable)
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
   // Sync packages from Zoho
@@ -194,6 +226,7 @@ export default function ShippingPage() {
       }
       if (res.ok && data.success) {
         setSyncResult(`✅ ${data.message}`)
+        fetchCounts()
         fetchOrders()
       } else {
         setSyncResult(`❌ ${data.error || "Sync failed"}`)
