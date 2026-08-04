@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { toast } from "react-hot-toast"
 import { 
   FiArrowLeft, FiPlus, FiEdit2, FiTrash2, FiRefreshCw, 
   FiMessageSquare, FiMail, FiX, FiCheck, FiInfo, FiEye, FiEyeOff 
@@ -38,10 +39,13 @@ export default function NotificationTemplatesPage() {
     try {
       const res = await fetch("/api/admin/notification-templates")
       const data = await res.json()
-      if (data.success) {
+      // API returns { templates } (no success wrapper)
+      if (data.templates) {
         setTemplates(data.templates || [])
+      } else if (data.error) {
+        setError(data.error)
       } else {
-        setError(data.error || "Failed to load templates")
+        setError("Failed to load templates")
       }
     } catch (err: any) {
       setError(err.message || "Failed to fetch templates")
@@ -77,67 +81,81 @@ export default function NotificationTemplatesPage() {
 
     setSaving(true)
     try {
-      const payload = {
-        id: editingTemplate?.id,
+      const isEditing = !!editingTemplate?.id
+
+      const payload: any = {
         name: formName.trim(),
         channel: formChannel,
         subject: formChannel === "EMAIL" ? formSubject.trim() : undefined,
-        body: formBody.trim()
+        body: formBody.trim(),
       }
 
+      if (isEditing) payload.id = editingTemplate!.id
+
       const res = await fetch("/api/admin/notification-templates", {
-        method: "POST",
+        method: isEditing ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
 
-      if (data.success) {
+      if (data.template) {
         setIsModalOpen(false)
+        toast.success(isEditing ? "Template updated" : "Template created")
         fetchTemplates()
       } else {
-        alert(data.error || "Failed to save template")
+        toast.error(data.error || "Failed to save template")
       }
     } catch (err: any) {
-      alert(err.message || "Error saving template")
+      toast.error(err.message || "Error saving template")
     } finally {
       setSaving(false)
     }
   }
 
-  const handleSoftDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to deactivate this template? It will be marked inactive but not deleted.")) return
+  const handleToggleActive = async (template: Template) => {
+    const action = template.isActive ? "deactivate" : "reactivate"
+    const confirmed = window.confirm(
+      template.isActive
+        ? "Deactivate this template? It will be hidden but not deleted."
+        : "Reactivate this template?"
+    )
+    if (!confirmed) return
 
     try {
-      const res = await fetch(`/api/admin/notification-templates?id=${id}`, {
-        method: "DELETE"
+      const res = await fetch("/api/admin/notification-templates", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: template.id, isActive: !template.isActive }),
       })
       const data = await res.json()
-      if (data.success) {
+      if (data.template) {
+        toast.success(`Template ${template.isActive ? "deactivated" : "reactivated"}`)
         fetchTemplates()
       } else {
-        alert(data.error || "Failed to delete template")
+        toast.error(data.error || `Failed to ${action} template`)
       }
     } catch (err: any) {
-      alert(err.message || "Error deleting template")
+      toast.error(err.message || `Error: ${action}`)
     }
   }
 
-  const handleReactivate = async (template: Template) => {
+  const handleDelete = async (id: string) => {
+    if (!confirm("Permanently delete this template? This cannot be undone.")) return
+
     try {
-      const res = await fetch("/api/admin/notification-templates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...template, isActive: true })
+      const res = await fetch(`/api/admin/notification-templates?id=${id}`, {
+        method: "DELETE",
       })
       const data = await res.json()
       if (data.success) {
+        toast.success("Template deleted")
         fetchTemplates()
       } else {
-        alert(data.error || "Failed to reactivate template")
+        toast.error(data.error || "Failed to delete template")
       }
     } catch (err: any) {
-      alert(err.message || "Error reactivating template")
+      toast.error(err.message || "Error deleting template")
     }
   }
 
@@ -146,7 +164,7 @@ export default function NotificationTemplatesPage() {
     { code: "{salesperson}", desc: "Salesperson name" },
     { code: "{amount}", desc: "Invoice subtotal amount" },
     { code: "{invoice_number}", desc: "Invoice reference number" },
-    { code: "{due_date}", desc: "Invoice due date" }
+    { code: "{due_date}", desc: "Invoice due date" },
   ]
 
   return (
@@ -197,7 +215,7 @@ export default function NotificationTemplatesPage() {
         </div>
       ) : templates.length === 0 ? (
         <div className="text-center p-12 rounded-2xl border border-white/5 bg-white/[0.01] text-neutral-500">
-          No templates configured yet. Click "Create Template" to begin.
+          No templates configured yet. Click &quot;Create Template&quot; to begin.
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -257,23 +275,24 @@ export default function NotificationTemplatesPage() {
                     >
                       <FiEdit2 size={13} />
                     </button>
-                    {t.isActive ? (
-                      <button 
-                        onClick={() => handleSoftDelete(t.id)}
-                        className="p-2 rounded bg-red-950/20 text-red-400 hover:bg-red-650 hover:text-white transition-all"
-                        title="Deactivate Template"
-                      >
-                        <FiTrash2 size={13} />
-                      </button>
-                    ) : (
-                      <button 
-                        onClick={() => handleReactivate(t)}
-                        className="p-2 rounded bg-emerald-950/20 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-all"
-                        title="Reactivate Template"
-                      >
-                        <FiCheck size={13} />
-                      </button>
-                    )}
+                    <button 
+                      onClick={() => handleToggleActive(t)}
+                      className={`p-2 rounded transition-all ${
+                        t.isActive
+                          ? "bg-amber-950/20 text-amber-400 hover:bg-amber-600 hover:text-white"
+                          : "bg-emerald-950/20 text-emerald-400 hover:bg-emerald-600 hover:text-white"
+                      }`}
+                      title={t.isActive ? "Deactivate Template" : "Reactivate Template"}
+                    >
+                      {t.isActive ? <FiEyeOff size={13} /> : <FiCheck size={13} />}
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(t.id)}
+                      className="p-2 rounded bg-red-950/20 text-red-400 hover:bg-red-600 hover:text-white transition-all"
+                      title="Delete Template"
+                    >
+                      <FiTrash2 size={13} />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -287,7 +306,7 @@ export default function NotificationTemplatesPage() {
           <div className="w-full max-w-lg p-6 rounded-2xl border border-white/10 bg-neutral-900 shadow-2xl space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-white text-lg">
-                {editingTemplate ? "Edit Notification Template" : "Create Notification Template"}
+                {editingTemplate?.id ? "Edit Notification Template" : "Create Notification Template"}
               </h3>
               <button onClick={() => setIsModalOpen(false)} className="text-neutral-400 hover:text-white">
                 <FiX size={18} />

@@ -60,7 +60,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body = await req.json()
-    const { id, name, color, description, order, autoActions, notifications, transitionRule, flowConfig } = body
+    const { id, name, color, description, order, autoActions, notifications, transitionRule, flowConfig, isActive } = body
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'Stage ID is required' }, { status: 400 })
@@ -81,6 +81,7 @@ export async function PUT(req: Request) {
     if (notifications !== undefined) updateData.notifications = notifications
     if (transitionRule !== undefined) updateData.transitionRule = transitionRule
     if (flowConfig !== undefined) updateData.flowConfig = flowConfig
+    if (isActive !== undefined) updateData.isActive = isActive
 
     const existingStage = await prisma.salesStage.findFirst({
       where: { OR: [{ id }, { slug: id }] }
