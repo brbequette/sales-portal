@@ -211,18 +211,19 @@ export default function ShippingPage() {
   // On tab/sort change: refresh orders only (counts stay stable)
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
-  // Sync packages from Zoho
+  // Sync packages from Zoho (with configurable date window to avoid 504 timeouts)
+  const [syncDays, setSyncDays] = useState(30)
   const handleSyncPackages = async () => {
     setSyncing(true)
     setSyncResult(null)
     try {
-      const res = await fetch("/api/admin/books/sync-packages", { method: "POST" })
+      const res = await fetch(`/api/admin/books/sync-packages?since=${syncDays}`, { method: "POST" })
       const text = await res.text()
       let data: any = {}
       try {
         data = JSON.parse(text)
       } catch (err) {
-        throw new Error(`Server response error (${res.status}): ${text.substring(0, 120)}`)
+        throw new Error(`Server response error (${res.status}): ${text.substring(0, 200)}`)
       }
       if (res.ok && data.success) {
         setSyncResult(`✅ ${data.message}`)
@@ -346,6 +347,18 @@ export default function ShippingPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Sync window selector */}
+          <select
+            value={syncDays}
+            onChange={e => setSyncDays(Number(e.target.value))}
+            disabled={syncing}
+            className="px-2 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs font-bold cursor-pointer disabled:opacity-50"
+            title="How far back to sync from Zoho"
+          >
+            <option value={7}>7 days</option>
+            <option value={30}>30 days</option>
+            <option value={90}>90 days</option>
+          </select>
           <button
             onClick={handleSyncPackages}
             disabled={syncing}
