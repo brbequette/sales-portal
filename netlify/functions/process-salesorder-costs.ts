@@ -1,4 +1,5 @@
 import { Handler } from "@netlify/functions"
+import { Prisma } from "@prisma/client"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculations"
 import { detectConflict, updateSalesOrderRecord } from "../../src/lib/sync-engine"
@@ -71,6 +72,49 @@ export const handler: Handler = async (event) => {
     const detailData: any = await detailRes.json()
     if (detailData.code !== 0) throw new Error(`Zoho error: ${detailData.message}`)
     const salesorder = detailData.salesorder
+
+    // 3b. Fetch & upsert packages for this sales order (so cost-calculations has live shipping data)
+    let packagesFromZoho: any[] = []
+    let packageSyncErrors = 0
+    try {
+      const pkgRes = await fetch(
+        `${baseUrl}/salesorders/${booksSalesorderId}/packages?organization_id=${ORG_ID}`,
+        { headers: authHeaders }
+      )
+      if (pkgRes.ok) {
+        const pkgData: any = await pkgRes.json()
+        if (pkgData.code === 0 && Array.isArray(pkgData.packages)) {
+          packagesFromZoho = pkgData.packages
+          for (const pkg of packagesFromZoho) {
+            const zohoId = pkg.package_id
+            if (!zohoId) continue
+            const packageData: Prisma.PackageCreateInput = {
+              zohoId,
+              packageNumber:    pkg.package_number    || null,
+              salesOrderId:     booksSalesorderId     || null,
+              salesOrderNumber: salesorder.salesorder_number || null,
+              date:             pkg.date ? new Date(pkg.date) : null,
+              status:           pkg.status            || null,
+              carrier:          pkg.delivery_method || pkg.shipping_carrier || null,
+              trackingNumber:   pkg.tracking_number   || null,
+              shippingCharge:   parseFloat(pkg.shipping_charge || 0),
+              items:            pkg.line_items ? { lineItems: pkg.line_items } : Prisma.JsonNull,
+            }
+            await prisma.package.upsert({
+              where:  { zohoId },
+              update: packageData as Prisma.PackageUpdateInput,
+              create: packageData,
+            })
+          }
+          console.log(`  📦 Synced ${packagesFromZoho.length} package(s) for SO ${salesorder.salesorder_number}`)
+        }
+      } else {
+        console.warn(`  ⚠️  Could not fetch packages for SO ${booksSalesorderId}: HTTP ${pkgRes.status}`)
+      }
+    } catch (pkgErr: any) {
+      console.error(`  Package sync error for SO ${booksSalesorderId}:`, pkgErr.message)
+      packageSyncErrors++
+    }
 
     // 4. Calculate all costs via shared module
     const calc = await calculateDocumentCosts(salesorder, { manualVigRate, manualCommPct, noVigOverrides })
@@ -163,6 +207,12 @@ export const handler: Handler = async (event) => {
           commissionPercent: commissionPct, salesCommission,
           lineItems: lineItemDetails, itemsDcBreakdown: lineItemBreakdownStrings,
           fieldsUpdated: fieldsToUpdate.length, changesDetected, zohoUpdateResult,
+          packages: {
+            synced: packagesFromZoho.length,
+            errors: packageSyncErrors,
+            actualShippingCost: calc.actualShippingCost,
+            shippingCostBreakdown: calc.shippingCostBreakdown,
+          },
         },
       }),
     }
