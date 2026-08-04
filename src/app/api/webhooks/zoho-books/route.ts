@@ -157,21 +157,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  // Read the ?type=Invoice query param (set in Zoho webhook URL params)
+  const { searchParams } = new URL(req.url)
+  const urlType = (searchParams.get("type") ?? "").toLowerCase() // "invoice", "salesorder", "estimate"
+
   let body: Record<string, unknown>
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+    // Zoho sometimes sends form-encoded or empty body on certain events
+    body = {}
   }
 
-  const event    = (body.event_type as string) ?? (body.eventtype as string) ?? ""
-  const data     = (body.data as Record<string, unknown>) ?? body
+  // Zoho Books webhook body format:
+  // { "JSONString": "{\"invoice_id\":\"...\", ...}" }  or flat object
+  let data: Record<string, unknown> = body
+  if (typeof body.JSONString === "string") {
+    try { data = JSON.parse(body.JSONString) } catch { data = body }
+  } else if (body.data && typeof body.data === "object") {
+    data = body.data as Record<string, unknown>
+  }
 
-  console.log(`[zoho-books-webhook] Event: ${event}`, JSON.stringify(data).slice(0, 200))
+  // Determine event type — Zoho sends event_type in body, or we infer from ?type param
+  const event = (body.event_type as string)
+    ?? (body.eventtype as string)
+    ?? (body.event as string)
+    ?? ""
+
+  console.log(`[zoho-books-webhook] type=${urlType} event=${event}`, JSON.stringify(data).slice(0, 300))
 
   try {
-    // ── Invoice events ──────────────────────────────────────────────────────
-    if (event === "invoice_updated" || event === "invoice_created") {
+    // ── Route by ?type query param first (reliable), fallback to event string ──
+
+    const isInvoice    = urlType === "invoice"    || event.startsWith("invoice")
+    const isSalesOrder = urlType === "salesorder" || event.startsWith("salesorder")
+    const isEstimate   = urlType === "estimate"   || event.startsWith("estimate")
+    const isPayment    = urlType === "payment"    || event.startsWith("customerpayment")
+
+    // ── Invoice events ────────────────────────────────────────────────────────
+    if (isInvoice && event !== "invoice_deleted") {
       const zohoId  = (data.invoice_id as string) ?? (data.id as string)
       const modTime = data.last_modified_time as string | undefined
       if (zohoId) await markPendingFetch("invoice", zohoId, modTime)
@@ -187,26 +211,31 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Sales Order events ───────────────────────────────────────────────────
-    else if (event === "salesorder_updated" || event === "salesorder_created") {
+    // ── Sales Order events ────────────────────────────────────────────────────
+    else if (isSalesOrder) {
       const zohoId  = (data.salesorder_id as string) ?? (data.id as string)
       const modTime = data.last_modified_time as string | undefined
       if (zohoId) await markPendingFetch("salesOrder", zohoId, modTime)
     }
 
-    // ── Estimate events ──────────────────────────────────────────────────────
-    else if (event === "estimate_updated" || event === "estimate_created") {
+    // ── Estimate events ───────────────────────────────────────────────────────
+    else if (isEstimate) {
       const zohoId  = (data.estimate_id as string) ?? (data.id as string)
       const modTime = data.last_modified_time as string | undefined
       if (zohoId) await markPendingFetch("quote", zohoId, modTime)
     }
 
-    // ── Payment events ───────────────────────────────────────────────────────
-    else if (event === "customerpayment_created" || event === "customerpayment_updated") {
+    // ── Payment events ────────────────────────────────────────────────────────
+    else if (isPayment) {
       await syncPaymentFromWebhook(data)
     }
 
-    return NextResponse.json({ received: true, event })
+    // ── Unknown — log for debugging ───────────────────────────────────────────
+    else {
+      console.log(`[zoho-books-webhook] Unhandled: type=${urlType} event=${event}`, JSON.stringify(data).slice(0, 500))
+    }
+
+    return NextResponse.json({ received: true, type: urlType, event })
   } catch (err: unknown) {
     console.error("[zoho-books-webhook] Processing error:", (err as Error).message)
     return NextResponse.json({ error: (err as Error).message }, { status: 500 })
