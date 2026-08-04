@@ -385,10 +385,56 @@ export const handler: Handler = async (event) => {
       }
     })
 
+    const aliasGroups = [
+      ["richard", "ricky", "rick", "griffin"],
+      ["montgomery", "monty", "morgan"],
+      ["benjamin", "ben", "bequette"],
+      ["robert", "bobby", "salyers"],
+      ["ross", "haisler"],
+      ["brian", "basiliere"],
+      ["justin", "zastrow"],
+      ["jeff", "black"],
+      ["shane", "criswell"],
+      ["paul", "gencuski"]
+    ]
+
+    const isRepMatch = (r: any, filterStr: string): boolean => {
+      if (!filterStr || filterStr === "all" || filterStr === "ALL") return true
+      const f = filterStr.trim().toLowerCase()
+      if (!f) return true
+
+      // Direct ID or Email match
+      if (r.repId && r.repId.toLowerCase() === f) return true
+      if (r.email && r.email.toLowerCase() === f) return true
+      if (r.email && r.email.toLowerCase().startsWith(f)) return true
+
+      // Name comparison
+      const rName = (r.repName || "").toLowerCase().trim()
+      if (rName === f || rName.includes(f) || f.includes(rName)) return true
+
+      // Token matching
+      const filterTokens = f.split(/\s+/).filter(Boolean)
+      const nameTokens = rName.split(/\s+/).filter(Boolean)
+      for (const ft of filterTokens) {
+        if (ft.length >= 3 && nameTokens.some((nt: string) => nt === ft || nt.startsWith(ft) || ft.startsWith(nt))) {
+          return true
+        }
+      }
+
+      // Alias group matching
+      for (const group of aliasGroups) {
+        const filterInGroup = group.some(g => f.includes(g))
+        const nameInGroup = group.some(g => rName.includes(g) || (r.email && r.email.toLowerCase().includes(g)))
+        if (filterInGroup && nameInGroup) return true
+      }
+
+      return false
+    }
+
     let repsList = Object.values(repStatsMap).filter((r: any) => r.repId !== unassignedId || r.invoices.length > 0 || r.salesOrders.length > 0)
     
     if (repIdFilter !== "all") {
-      repsList = repsList.filter((r: any) => r.repId === repIdFilter || r.email === repIdFilter)
+      repsList = repsList.filter((r: any) => isRepMatch(r, repIdFilter))
     }
 
     let totalInvoiceCount = 0

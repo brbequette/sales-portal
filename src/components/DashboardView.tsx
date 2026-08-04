@@ -73,36 +73,52 @@ function parseLocalDate(dateStr: any): Date | null {
 }
 
 function matchesRep(invoiceRep: string, filterName?: string | null, repEmail?: string | null): boolean {
-  if (!filterName && !repEmail) return false
+  if (!filterName && !repEmail) return true
 
-  const rep = (invoiceRep || "").trim().toUpperCase()
+  const rep = (invoiceRep || "").trim().toLowerCase()
   if (!rep) return false
 
-  if (filterName) {
-    const filter = filterName.trim().toUpperCase()
-    if (filter === "ALL") return true
+  const fName = (filterName || "").trim().toLowerCase()
+  const fEmail = (repEmail || "").trim().toLowerCase()
 
-    if (rep.includes(filter) || filter.includes(rep)) return true
+  if (fName === "all" || fName === "company aggregate" || fName === "all representatives") return true
 
-    const filterParts = filter.split(/\s+/).filter(Boolean)
+  if (fName) {
+    if (rep === fName || rep.includes(fName) || fName.includes(rep)) return true
+
     const repParts = rep.split(/\s+/).filter(Boolean)
-
-    if (filterParts.length > 0 && repParts.length > 0) {
-      const filterFirst = filterParts[0]
-      const repFirst = repParts[0]
-      if (filterFirst.length >= 3 && (filterFirst === repFirst || repFirst.startsWith(filterFirst) || filterFirst.startsWith(repFirst))) {
+    const filterParts = fName.split(/\s+/).filter(Boolean)
+    for (const fp of filterParts) {
+      if (fp.length >= 3 && repParts.some(rp => rp === fp || rp.startsWith(fp) || fp.startsWith(rp))) {
         return true
       }
     }
   }
 
-  if (repEmail) {
-    const emailUpper = repEmail.trim().toUpperCase()
-    const emailPrefix = emailUpper.split("@")[0].split(".")[0]
-    const repParts = rep.split(/\s+/).filter(Boolean)
-    if (emailPrefix.length >= 3 && (rep.includes(emailPrefix) || (repParts.length > 0 && emailPrefix.includes(repParts[0])))) {
+  if (fEmail) {
+    const emailPrefix = fEmail.split("@")[0].split(".")[0]
+    if (emailPrefix.length >= 3 && (rep.includes(emailPrefix) || emailPrefix.includes(rep.split(" ")[0]))) {
       return true
     }
+  }
+
+  const aliasGroups = [
+    ["richard", "ricky", "rick", "griffin"],
+    ["montgomery", "monty", "morgan"],
+    ["benjamin", "ben", "bequette"],
+    ["robert", "bobby", "salyers"],
+    ["ross", "haisler"],
+    ["brian", "basiliere"],
+    ["justin", "zastrow"],
+    ["jeff", "black"],
+    ["shane", "criswell"],
+    ["paul", "gencuski"]
+  ]
+
+  for (const group of aliasGroups) {
+    const invoiceInGroup = group.some(g => rep.includes(g))
+    const filterInGroup = group.some(g => (fName && fName.includes(g)) || (fEmail && fEmail.includes(g)))
+    if (invoiceInGroup && filterInGroup) return true
   }
 
   return false
@@ -256,9 +272,16 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
   const [isRepCustomizerOpen, setIsRepCustomizerOpen] = useState(false)
 
   // --- Rep Stats Board State ---
-  // For non-admins, auto-scope to current rep's name; for admins use 'all' (company aggregate)
   const [repStatsReps, setRepStatsReps] = useState<any[]>([])
-  const repStatsSelectedRepId = isAdmin ? "all" : (repName || "all")
+  
+  // Controlled rep selection filter
+  const initialScopedRep = repName || (isAdmin ? "all" : currentUser?.name || "all")
+  const [repStatsSelectedRepId, setRepStatsSelectedRepId] = useState<string>(initialScopedRep)
+  
+  useEffect(() => {
+    setRepStatsSelectedRepId(repName || (isAdmin ? "all" : currentUser?.name || "all"))
+  }, [repName, isAdmin, currentUser?.name])
+
   const [repStatsPeriod, setRepStatsPeriod] = useState<string>("this_month")
   const [repStatsStartDate, setRepStatsStartDate] = useState<string>("")
   const [repStatsEndDate, setRepStatsEndDate] = useState<string>("")
@@ -305,7 +328,7 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
   useEffect(() => {
     fetchRepStatsData()
-  }, [repStatsSelectedRepId, repStatsPeriod, repStatsStartDate, repStatsEndDate, repName, isAdmin])
+  }, [repStatsSelectedRepId, repStatsPeriod, repStatsStartDate, repStatsEndDate])
 
   const repStatsAllInvoices = useMemo(() => {
     let list: any[] = []
@@ -389,12 +412,11 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
   useEffect(() => {
     fetchDashboardData()
-    // Refresh when tab becomes visible (instead of polling every 5 min)
     const handleVisibility = () => { if (document.visibilityState === 'visible') fetchDashboardData() }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repName, isAdmin, repEmail, showCompanyWide])
+  }, [repName, isAdmin, repEmail, repStatsSelectedRepId])
 
   useEffect(() => {
     if (!currentUser?.id) return
@@ -709,9 +731,12 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
         // Always track per-rep totals for company breakdown
         if (!repData[rep]) repData[rep] = { sales: 0, profit: 0, deals: 0, commission: 0, weeklySales: 0 }
 
-        // Per-rep filtering: if NOT showing company wide, filter strictly for rep
-        if (!showCompanyWide) {
-          const matchRep = matchesRep(rep, activeRepFilter, activeEmailFilter)
+        // Determine active filter: use repStatsSelectedRepId if specific, otherwise repName
+        const activeRepScope = (repStatsSelectedRepId !== "all" ? repStatsSelectedRepId : null) || filterRepName || repName
+        
+        // Per-rep filtering: if active rep scope is set, filter strictly for that rep
+        if (activeRepScope && activeRepScope !== "all") {
+          const matchRep = matchesRep(rep, activeRepScope, activeEmailFilter)
           if (!matchRep) continue
         }
 
@@ -1021,63 +1046,87 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
           </div>
         </div>
 
-        {/* Filters Bar: Date Period Only (rep auto-scoped by role) */}
-        <div className="bg-black/40 p-4 rounded-xl border border-white/5 space-y-1">
-          <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
-            <FiCalendar /> Date Range / Period
-            {!isAdmin && repName && (
-              <span className="ml-2 px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[9px] font-black">
-                📊 {repName}
-              </span>
-            )}
-            {isAdmin && (
-              <span className="ml-2 px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-black">
-                🏢 Company Aggregate
-              </span>
-            )}
-          </label>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {[
-              { id: "today", label: "Today" },
-              { id: "this_week", label: "This Week" },
-              { id: "this_month", label: "This Month (MTD)" },
-              { id: "last_month", label: "Last Month" },
-              { id: "this_year", label: "This Year (YTD)" },
-              { id: "last_year", label: "Last Year" },
-              { id: "all", label: "All Time" },
-              { id: "custom", label: "Custom Range" },
-            ].map(p => (
-              <button
-                key={p.id}
-                onClick={() => setRepStatsPeriod(p.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  repStatsPeriod === p.id
-                    ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
-                    : "bg-neutral-800 text-neutral-400 hover:text-white"
-                }`}
+        {/* Filters Bar: Rep Selector (for Admin) & Date Periods */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 bg-black/40 p-3.5 rounded-xl border border-white/5">
+          {/* Admin Rep Selector Dropdown */}
+          {isAdmin ? (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
+                <FiUsers /> Select View Scope
+              </label>
+              <select
+                value={repStatsSelectedRepId}
+                onChange={e => setRepStatsSelectedRepId(e.target.value)}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-orange-500 cursor-pointer"
               >
-                {p.id === "all" ? "🌟 " : ""}{p.label}
-              </button>
-            ))}
-          </div>
-
-          {repStatsPeriod === "custom" && (
-            <div className="flex items-center gap-2 pt-2">
-              <input
-                type="date"
-                value={repStatsStartDate}
-                onChange={e => setRepStatsStartDate(e.target.value)}
-                className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
-              />
-              <span className="text-xs text-neutral-500">to</span>
-              <input
-                type="date"
-                value={repStatsEndDate}
-                onChange={e => setRepStatsEndDate(e.target.value)}
-                className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
-              />
+                <option value="all">🌟 All Representatives (Company Aggregate)</option>
+                {repStatsReps.map((r: any) => (
+                  <option key={r.repId} value={r.repName || r.email || r.repId}>
+                    {r.repName} ({r.role || 'Sales'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
+                <FiCalendar /> View Scope
+              </label>
+              <div className="flex items-center gap-2 pt-1">
+                <span className="px-3 py-1.5 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-black flex items-center gap-1.5">
+                  📊 {repName || currentUser?.name || "My Performance"}
+                </span>
+              </div>
             </div>
           )}
+
+          <div className="lg:col-span-2 space-y-1">
+            <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
+              <FiCalendar /> Date Range / Period
+            </label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: "today", label: "Today" },
+                { id: "this_week", label: "This Week" },
+                { id: "this_month", label: "This Month (MTD)" },
+                { id: "last_month", label: "Last Month" },
+                { id: "this_year", label: "This Year (YTD)" },
+                { id: "last_year", label: "Last Year" },
+                { id: "all", label: "All Time" },
+                { id: "custom", label: "Custom Range" },
+              ].map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setRepStatsPeriod(p.id)}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    repStatsPeriod === p.id
+                      ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
+                      : "bg-neutral-800 text-neutral-400 hover:text-white"
+                  }`}
+                >
+                  {p.id === "all" ? "🌟 " : ""}{p.label}
+                </button>
+              ))}
+            </div>
+
+            {repStatsPeriod === "custom" && (
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="date"
+                  value={repStatsStartDate}
+                  onChange={e => setRepStatsStartDate(e.target.value)}
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                />
+                <span className="text-xs text-neutral-500">to</span>
+                <input
+                  type="date"
+                  value={repStatsEndDate}
+                  onChange={e => setRepStatsEndDate(e.target.value)}
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* INVOICES TOTALS SUMMARY (Interactive Clickable Tiles) */}
