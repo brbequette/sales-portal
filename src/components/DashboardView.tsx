@@ -51,6 +51,7 @@ interface DashboardViewProps {
   repName?: string | null    // The current rep's salesperson name (from Zoho/DB)
   isAdmin?: boolean          // Whether the current user is an admin
   repEmail?: string | null   // For matching user to invoices
+  triggerCustomize?: number  // Increment from parent to open the customizer modal
 }
 
 function parseLocalDate(dateStr: any): Date | null {
@@ -258,7 +259,7 @@ function getStatusBadgeClass(statusStr?: string): string {
 }
 
 // ------ Main Dashboard Component ------
-export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps) {
+export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: DashboardViewProps) {
   const { zohoContext: currentUser } = useZoho()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -270,6 +271,12 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
   const [repWidgets, setRepWidgets] = useState<RepWidgetConfig[]>(DEFAULT_REP_DASHBOARD_LAYOUT)
   const [isRepCustomizerOpen, setIsRepCustomizerOpen] = useState(false)
+
+  // Open the customizer when the parent increments triggerCustomize
+  useEffect(() => {
+    if (triggerCustomize && triggerCustomize > 0) setIsRepCustomizerOpen(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggerCustomize])
 
   // --- Rep Stats Board State ---
   const [repStatsReps, setRepStatsReps] = useState<any[]>([])
@@ -857,31 +864,6 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Display Settings Toolbar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 bg-neutral-900/60 border border-white/10 rounded-2xl shadow-md">
-        <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20">
-            <FiSliders size={15} />
-          </div>
-          <div>
-            <h3 className="text-xs font-black text-white uppercase tracking-wider">
-              Performance & KPI Dashboard
-            </h3>
-            <p className="text-[10px] text-neutral-500 font-semibold mt-0.5">
-              {isAdmin ? "Viewing company-wide aggregated metrics" : `Showing metrics for ${repName || currentUser?.name || 'you'}`}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 self-end sm:self-auto">
-          <button
-            onClick={() => setIsRepCustomizerOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-bold rounded-lg border border-white/10 transition-colors"
-          >
-            ⚙️ Customize Layout
-          </button>
-        </div>
-      </div>
 
       {/* --- Company Totals Banner --- */}
       {(
