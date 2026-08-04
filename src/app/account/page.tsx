@@ -567,11 +567,14 @@ function AccountHubContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const id = searchParams.get("id") || ""
+  const tabParam = searchParams.get("tab")
   const { isInitialized } = useZoho()
   const [account, setAccount] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<ActiveTab>("overview")
+  // Initialise to the tab specified in the URL (?tab=comms opens Comm Center directly)
+  const initialTab: ActiveTab = tabParam === "comms" ? "comms" : tabParam === "quicksale" ? "quicksale" : "overview"
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab)
   const [drillTitle, setDrillTitle] = useState("")
   const [drillInvoices, setDrillInvoices] = useState<any[] | null>(null)
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null)

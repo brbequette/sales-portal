@@ -41,9 +41,16 @@ export function SaleCommunications({ zohoId, refreshTrigger, communications: pro
   }
 
   useEffect(() => {
-    fetchComms()
+    // Only run a local fetch when propComms is NOT provided by the parent.
+    // When propComms IS provided, the parent (CommunicationsHub) owns fetching
+    // and signals refreshes via the refreshTrigger prop — we must NOT watch
+    // propComms itself because the parent passes a new array reference on every
+    // render, which would create an infinite fetch → re-render → fetch loop.
+    if (propComms === undefined) {
+      fetchComms()
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zohoId, refreshTrigger, propComms])
+  }, [zohoId, refreshTrigger])
 
   const handleReevaluate = async (id: string) => {
     setAnalyzingId(id)

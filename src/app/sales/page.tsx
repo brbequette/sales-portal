@@ -1427,13 +1427,15 @@ export default function SalesPage() {
                                       </div>
                                       <div className="flex items-center gap-2 shrink-0">
                                         {hasPhone && (
-                                          <PhoneLink
-                                            phone={callPhone}
-                                            subLabel={bestPhoneInfo.label}
-                                            className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 rounded-xl text-emerald-300 transition-all"
+                                          <Link
+                                            href={`/account?id=${account.zohoId}&tab=comms`}
+                                            title={`Call ${bestPhoneInfo.label}: ${callPhone}`}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 rounded-xl text-emerald-300 transition-all"
+                                            onClick={(e) => e.stopPropagation()}
                                           >
                                             <FiPhoneCall size={15} className="shrink-0 text-emerald-400" />
-                                          </PhoneLink>
+                                            <span className="text-xs font-bold hidden sm:inline">{callPhone}</span>
+                                          </Link>
                                         )}
                                         <Link href={`/account?id=${account.zohoId}`} className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded-full text-neutral-400 hover:text-white transition-colors">
                                           <FiChevronRight size={16} />
