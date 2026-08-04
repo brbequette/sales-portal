@@ -1,11 +1,11 @@
 "use client"
 
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useMemo } from "react"
 import {
   FiTarget, FiDollarSign, FiTrendingUp, FiClock, FiLayers,
   FiArrowUpRight, FiArrowDownRight, FiCheckCircle, FiAlertCircle, FiTrendingDown,
-  FiSliders, FiX, FiEye, FiEyeOff
+  FiSliders, FiX, FiEye, FiEyeOff, FiAward, FiShoppingCart, FiFileText, FiRefreshCw, FiSearch, FiUsers, FiZap, FiPhoneCall, FiCalendar
 } from "react-icons/fi"
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
@@ -208,6 +208,39 @@ function QuotaRing({ current, target, color }: { current: number; target: number
   )
 }
 
+function formatRepCurrency(amount: number): string {
+  return `$${(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function formatRepDate(dateStr?: string): string {
+  if (!dateStr) return "N/A"
+  try {
+    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  } catch {
+    return dateStr
+  }
+}
+
+function getStatusBadgeClass(statusStr?: string): string {
+  const s = (statusStr || "paid").toLowerCase().trim()
+  if (s === "paid" || s === "completed") {
+    return "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-black shadow-sm"
+  }
+  if (s === "sent" || s === "open" || s === "unpaid") {
+    return "bg-blue-500/20 text-blue-400 border border-blue-500/40 font-black shadow-sm"
+  }
+  if (s === "overdue") {
+    return "bg-red-500/20 text-red-400 border border-red-500/40 font-black shadow-sm"
+  }
+  if (s === "draft") {
+    return "bg-neutral-500/20 text-neutral-300 border border-neutral-500/40 font-black"
+  }
+  if (s === "void" || s === "voided" || s === "writeoff" || s === "write_off") {
+    return "bg-red-950/40 text-red-300 border border-red-800/40 font-black"
+  }
+  return "bg-purple-500/20 text-purple-300 border border-purple-500/40 font-black"
+}
+
 // ------ Main Dashboard Component ------
 export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps) {
   const { zohoContext: currentUser } = useZoho()
@@ -221,6 +254,93 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
 
   const [repWidgets, setRepWidgets] = useState<RepWidgetConfig[]>(DEFAULT_REP_DASHBOARD_LAYOUT)
   const [isRepCustomizerOpen, setIsRepCustomizerOpen] = useState(false)
+
+  // --- Rep Stats Board State ---
+  const [repStatsReps, setRepStatsReps] = useState<any[]>([])
+  const [repStatsSelectedRepId, setRepStatsSelectedRepId] = useState<string>("all")
+  const [repStatsPeriod, setRepStatsPeriod] = useState<string>("this_month")
+  const [repStatsStartDate, setRepStatsStartDate] = useState<string>("")
+  const [repStatsEndDate, setRepStatsEndDate] = useState<string>("")
+  const [repStatsTotals, setRepStatsTotals] = useState<any>({
+    invoiceCount: 0,
+    invoiceSubtotal: 0,
+    invoiceDeadProfit: 0,
+    invoiceNetProfit: 0,
+    invoiceCommission: 0,
+    salesOrderCount: 0,
+    salesOrderSubtotal: 0,
+    salesOrderDeadProfit: 0,
+    salesOrderEstCommission: 0
+  })
+  const [repStatsLoading, setRepStatsLoading] = useState(false)
+  const [repStatsModalRep, setRepStatsModalRep] = useState<any | null>(null)
+  const [repStatsActiveTab, setRepStatsActiveTab] = useState<"invoices" | "salesOrders">("invoices")
+  const [repStatsSearchQuery, setRepStatsSearchQuery] = useState("")
+  const [repStatsTileModalInfo, setRepStatsTileModalInfo] = useState<{ title: string; type: "invoices" | "salesOrders"; docs: any[] } | null>(null)
+
+  const fetchRepStatsData = async () => {
+    try {
+      setRepStatsLoading(true)
+      const params = new URLSearchParams()
+      params.set("repId", repStatsSelectedRepId)
+      params.set("period", repStatsPeriod)
+      if (repStatsPeriod === "custom") {
+        if (repStatsStartDate) params.set("startDate", repStatsStartDate)
+        if (repStatsEndDate) params.set("endDate", repStatsEndDate)
+      }
+
+      const res = await fetch(`/api/get-rep-stats?${params.toString()}`)
+      const d = await res.json()
+      if (d.success) {
+        setRepStatsReps(d.reps || [])
+        if (d.totals) setRepStatsTotals(d.totals)
+      }
+    } catch (e) {
+      console.error("Failed to load rep stats on dashboard", e)
+    } finally {
+      setRepStatsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchRepStatsData()
+  }, [repStatsSelectedRepId, repStatsPeriod, repStatsStartDate, repStatsEndDate])
+
+  const repStatsAllInvoices = useMemo(() => {
+    let list: any[] = []
+    repStatsReps.forEach(r => {
+      if (r.invoices && Array.isArray(r.invoices)) {
+        list = list.concat(r.invoices.map((inv: any) => ({ ...inv, repName: r.repName })))
+      }
+    })
+    if (repStatsSearchQuery.trim()) {
+      const q = repStatsSearchQuery.toLowerCase().trim()
+      return list.filter(inv =>
+        (inv.invoiceNumber || "").toLowerCase().includes(q) ||
+        (inv.customerName || "").toLowerCase().includes(q) ||
+        (inv.repName || "").toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [repStatsReps, repStatsSearchQuery])
+
+  const repStatsAllSalesOrders = useMemo(() => {
+    let list: any[] = []
+    repStatsReps.forEach(r => {
+      if (r.salesOrders && Array.isArray(r.salesOrders)) {
+        list = list.concat(r.salesOrders.map((so: any) => ({ ...so, repName: r.repName })))
+      }
+    })
+    if (repStatsSearchQuery.trim()) {
+      const q = repStatsSearchQuery.toLowerCase().trim()
+      return list.filter(so =>
+        (so.salesOrderNumber || "").toLowerCase().includes(q) ||
+        (so.customerName || "").toLowerCase().includes(q) ||
+        (so.repName || "").toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [repStatsReps, repStatsSearchQuery])
 
   useEffect(() => {
     try {
@@ -890,6 +1010,598 @@ export function DashboardView({ repName, isAdmin, repEmail }: DashboardViewProps
             <div>
               <p className="text-xs text-neutral-500 font-medium tracking-wider uppercase">Company MTD Sales</p>
               <p className="text-xl font-bold text-white">${data.companyMonthlyTotal.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Data Tools & Shortcuts Toolbar --- */}
+      <div className="glass-panel p-4 rounded-2xl border border-white/10 flex flex-wrap items-center justify-between gap-3 shadow-lg bg-neutral-900/80">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
+            <FiZap size={20} />
+          </div>
+          <div>
+            <h3 className="text-xs font-black text-white uppercase tracking-wider">⚡ Data Tools &amp; Portal Shortcuts</h3>
+            <p className="text-[10px] text-neutral-400">Quick access to portal workstations, performance management, and data tools</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={fetchRepStatsData}
+            disabled={repStatsLoading}
+            className="px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold border border-white/10 transition flex items-center gap-1.5 cursor-pointer"
+          >
+            <FiRefreshCw className={repStatsLoading ? "animate-spin" : ""} size={13} /> Refresh Stats
+          </button>
+          <a
+            href="/timeclock"
+            className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold hover:bg-emerald-500/30 transition flex items-center gap-1.5"
+          >
+            <FiClock size={13} /> Timeclock
+          </a>
+          <a
+            href="/admin/goals-bonuses"
+            className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold hover:bg-amber-500/30 transition flex items-center gap-1.5"
+          >
+            <FiAward size={13} /> Goals &amp; Bonuses
+          </a>
+          <a
+            href="/admin/payouts"
+            className="px-3 py-1.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold hover:bg-purple-500/30 transition flex items-center gap-1.5"
+          >
+            <FiDollarSign size={13} /> Payouts &amp; Ledger
+          </a>
+          <a
+            href="/sales/leads-calling"
+            className="px-3 py-1.5 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-bold hover:bg-sky-500/30 transition flex items-center gap-1.5"
+          >
+            <FiPhoneCall size={13} /> Cold Call Workstation
+          </a>
+          <a
+            href="/admin/vig"
+            className="px-3 py-1.5 rounded-xl bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 text-xs font-bold hover:bg-yellow-500/30 transition flex items-center gap-1.5"
+          >
+            <FiZap size={13} /> VIG Management
+          </a>
+          <a
+            href="/catalog"
+            className="px-3 py-1.5 rounded-xl bg-neutral-800 text-neutral-300 hover:text-white border border-white/10 text-xs font-bold hover:bg-neutral-700 transition flex items-center gap-1.5"
+          >
+            <FiSearch size={13} /> Catalog Lookup
+          </a>
+          <a
+            href="/admin/update-accounts"
+            className="px-3 py-1.5 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-bold hover:bg-blue-500/30 transition flex items-center gap-1.5"
+          >
+            <FiTarget size={13} /> Update Accounts
+          </a>
+        </div>
+      </div>
+
+      {/* --- Rep Performance & Financial Board Section --- */}
+      <div className="bg-neutral-900/60 border border-white/10 rounded-2xl p-5 space-y-6 shadow-xl">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <div>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <FiTrendingUp className="text-orange-400" /> Rep Performance &amp; Financial Board
+            </h2>
+            <p className="text-xs text-neutral-400">
+              Evaluate Billed Invoices &amp; Sales Orders with exact commission calculations, VIG dead profit, and net totals.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 self-end md:self-auto">
+            <button
+              onClick={fetchRepStatsData}
+              disabled={repStatsLoading}
+              className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl border border-white/10 flex items-center gap-2 cursor-pointer transition-all"
+            >
+              <FiRefreshCw className={repStatsLoading ? "animate-spin" : ""} size={14} /> Refresh Data
+            </button>
+          </div>
+        </div>
+
+        {/* Filters Bar: Rep Selector & Date Periods */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-black/40 p-4 rounded-xl border border-white/5">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
+              <FiUsers /> Select Sales Representative
+            </label>
+            <select
+              value={repStatsSelectedRepId}
+              onChange={e => setRepStatsSelectedRepId(e.target.value)}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-orange-500 cursor-pointer"
+            >
+              <option value="all">🌟 All Representatives (Company Aggregate)</option>
+              {repStatsReps.map((r: any) => (
+                <option key={r.repId} value={r.repId}>
+                  {r.repName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="lg:col-span-2 space-y-1">
+            <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
+              <FiCalendar /> Date Range / Period
+            </label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: "today", label: "Today" },
+                { id: "this_week", label: "This Week" },
+                { id: "this_month", label: "This Month (MTD)" },
+                { id: "last_month", label: "Last Month" },
+                { id: "this_year", label: "This Year (YTD)" },
+                { id: "last_year", label: "Last Year" },
+                { id: "all", label: "All Time" },
+                { id: "custom", label: "Custom Range" },
+              ].map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setRepStatsPeriod(p.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    repStatsPeriod === p.id
+                      ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
+                      : "bg-neutral-800 text-neutral-400 hover:text-white"
+                  }`}
+                >
+                  {p.id === "all" ? "🌟 " : ""}{p.label}
+                </button>
+              ))}
+            </div>
+
+            {repStatsPeriod === "custom" && (
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="date"
+                  value={repStatsStartDate}
+                  onChange={e => setRepStatsStartDate(e.target.value)}
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                />
+                <span className="text-xs text-neutral-500">to</span>
+                <input
+                  type="date"
+                  value={repStatsEndDate}
+                  onChange={e => setRepStatsEndDate(e.target.value)}
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* INVOICES TOTALS SUMMARY (Interactive Clickable Tiles) */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-2">
+            <FiFileText /> Invoices Totals Summary (Click any tile to inspect documents)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div
+              onClick={() => setRepStatsTileModalInfo({ title: "Invoiced Sales Subtotals Breakdown", type: "invoices", docs: repStatsAllInvoices })}
+              className="bg-neutral-900/60 border border-sky-500/20 hover:border-sky-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-sky-500/10 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Invoice Subtotals</span>
+                <span className="text-[9px] font-bold text-sky-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                  <FiSearch size={10} /> View Docs
+                </span>
+              </div>
+              <p className="text-2xl font-black text-white">{formatRepCurrency(repStatsTotals.invoiceSubtotal)}</p>
+              <p className="text-[10px] text-neutral-500 font-medium">{repStatsTotals.invoiceCount} Invoices Billed</p>
+            </div>
+
+            <div
+              onClick={() => setRepStatsTileModalInfo({ title: "Dead Profit (VIG) Breakdown", type: "invoices", docs: repStatsAllInvoices })}
+              className="bg-neutral-900/60 border border-emerald-500/20 hover:border-emerald-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-emerald-500/10 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Dead Profit (VIG)</span>
+                <span className="text-[9px] font-bold text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                  <FiSearch size={10} /> View Docs
+                </span>
+              </div>
+              <p className="text-2xl font-black text-emerald-400">{formatRepCurrency(repStatsTotals.invoiceDeadProfit)}</p>
+              <p className="text-[10px] text-neutral-500 font-medium">Gross profit before baseline</p>
+            </div>
+
+            <div
+              onClick={() => setRepStatsTileModalInfo({ title: "Net Profit (After VIG) Breakdown", type: "invoices", docs: repStatsAllInvoices })}
+              className="bg-neutral-900/60 border border-emerald-500/20 hover:border-emerald-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-emerald-500/10 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Net Profit (After VIG)</span>
+                <span className="text-[9px] font-bold text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                  <FiSearch size={10} /> View Docs
+                </span>
+              </div>
+              <p className="text-2xl font-black text-emerald-400">{formatRepCurrency(repStatsTotals.invoiceNetProfit)}</p>
+              <p className="text-[10px] text-neutral-500 font-medium">Net profit after baseline VIG rate</p>
+            </div>
+
+            <div
+              onClick={() => setRepStatsTileModalInfo({ title: "Invoice Commissions Breakdown", type: "invoices", docs: repStatsAllInvoices })}
+              className="bg-neutral-900/60 border border-amber-500/20 hover:border-amber-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-amber-500/10 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider flex items-center gap-1">
+                  💰 Invoice Commissions
+                </span>
+                <span className="text-[9px] font-bold text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                  <FiSearch size={10} /> View Docs
+                </span>
+              </div>
+              <p className="text-2xl font-black text-amber-400">{formatRepCurrency(repStatsTotals.invoiceCommission)}</p>
+              <p className="text-[10px] text-neutral-500 font-medium">50% Rep Earned Commissions</p>
+            </div>
+          </div>
+        </div>
+
+        {/* SALES ORDERS TOTALS SUMMARY (Interactive Clickable Tiles) */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
+            <FiShoppingCart /> Sales Orders Totals Summary (Click any tile to inspect orders)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div
+              onClick={() => setRepStatsTileModalInfo({ title: "Sales Orders Subtotals Breakdown", type: "salesOrders", docs: repStatsAllSalesOrders })}
+              className="bg-neutral-900/60 border border-purple-500/20 hover:border-purple-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Sales Order Subtotals</span>
+                <span className="text-[9px] font-bold text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                  <FiSearch size={10} /> View Orders
+                </span>
+              </div>
+              <p className="text-2xl font-black text-white">{formatRepCurrency(repStatsTotals.salesOrderSubtotal)}</p>
+              <p className="text-[10px] text-neutral-500 font-medium">{repStatsTotals.salesOrderCount} Orders Created</p>
+            </div>
+
+            <div
+              onClick={() => setRepStatsTileModalInfo({ title: "Sales Order Dead Profit Breakdown", type: "salesOrders", docs: repStatsAllSalesOrders })}
+              className="bg-neutral-900/60 border border-purple-500/20 hover:border-purple-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Sales Order Dead Profit</span>
+                <span className="text-[9px] font-bold text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                  <FiSearch size={10} /> View Orders
+                </span>
+              </div>
+              <p className="text-2xl font-black text-purple-300">{formatRepCurrency(repStatsTotals.salesOrderDeadProfit)}</p>
+              <p className="text-[10px] text-neutral-500 font-medium">Gross profit on orders</p>
+            </div>
+
+            <div
+              onClick={() => setRepStatsTileModalInfo({ title: "Est. Order Commissions Breakdown", type: "salesOrders", docs: repStatsAllSalesOrders })}
+              className="bg-neutral-900/60 border border-purple-500/20 hover:border-purple-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold text-purple-300 tracking-wider flex items-center gap-1">
+                  💼 Est. Order Commissions
+                </span>
+                <span className="text-[9px] font-bold text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                  <FiSearch size={10} /> View Orders
+                </span>
+              </div>
+              <p className="text-2xl font-black text-purple-300">{formatRepCurrency(repStatsTotals.salesOrderEstCommission)}</p>
+              <p className="text-[10px] text-neutral-500 font-medium">Est. commission upon invoicing</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Representative Financial Breakdown Leaderboard Table */}
+        <div className="bg-neutral-900/60 border border-white/10 rounded-2xl p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <h3 className="text-xs font-bold text-orange-400 uppercase tracking-wider flex items-center gap-2">
+              <FiUsers /> Representative Financial Breakdown (Click Row to Expand)
+            </h3>
+            <span className="text-[10px] text-neutral-500">{repStatsReps.length} Representatives</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-white/10 text-neutral-400 uppercase text-[10px] tracking-wider bg-black/30">
+                  <th className="p-3">Sales Representative</th>
+                  <th className="p-3 text-center">Invoices</th>
+                  <th className="p-3 text-right">Billed Subtotal</th>
+                  <th className="p-3 text-right">Dead Profit</th>
+                  <th className="p-3 text-right">Net Profit</th>
+                  <th className="p-3 text-right text-amber-400 font-bold">Earned Comm.</th>
+                  <th className="p-3 text-center">Sales Orders</th>
+                  <th className="p-3 text-right">SO Subtotal</th>
+                  <th className="p-3 text-right text-purple-300 font-bold">Est. Comm.</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {repStatsLoading ? (
+                  <tr>
+                    <td colSpan={9} className="p-8 text-center text-neutral-400">
+                      <FiRefreshCw className="animate-spin inline mr-2" /> Loading representative metrics...
+                    </td>
+                  </tr>
+                ) : repStatsReps.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="p-8 text-center text-neutral-500">
+                      No representative financial data found.
+                    </td>
+                  </tr>
+                ) : (
+                  repStatsReps.map((r, idx) => (
+                    <tr
+                      key={r.repId || idx}
+                      onClick={() => setRepStatsModalRep(r)}
+                      className="hover:bg-white/5 cursor-pointer transition-colors"
+                    >
+                      <td className="p-3 font-bold text-white flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-orange-500/20 border border-orange-500/30 text-orange-400 flex items-center justify-center text-[10px]">
+                          {r.repName?.charAt(0) || "?"}
+                        </div>
+                        {r.repName}
+                      </td>
+                      <td className="p-3 text-center font-mono font-bold text-sky-400">{r.totals?.invoiceCount || 0}</td>
+                      <td className="p-3 text-right font-mono font-bold text-white">{formatRepCurrency(r.totals?.invoiceSubtotal || 0)}</td>
+                      <td className="p-3 text-right font-mono font-bold text-emerald-400">{formatRepCurrency(r.totals?.invoiceDeadProfit || 0)}</td>
+                      <td className="p-3 text-right font-mono font-bold text-emerald-400">{formatRepCurrency(r.totals?.invoiceNetProfit || 0)}</td>
+                      <td className="p-3 text-right font-mono font-bold text-amber-400">{formatRepCurrency(r.totals?.invoiceCommission || 0)}</td>
+                      <td className="p-3 text-center font-mono font-bold text-purple-400">{r.totals?.salesOrderCount || 0}</td>
+                      <td className="p-3 text-right font-mono font-bold text-white">{formatRepCurrency(r.totals?.salesOrderSubtotal || 0)}</td>
+                      <td className="p-3 text-right font-mono font-bold text-purple-300">{formatRepCurrency(r.totals?.salesOrderEstCommission || 0)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Global Document Datapoints Table (Invoices & Sales Orders across reps) */}
+        <div className="bg-neutral-900/60 border border-white/10 rounded-2xl p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setRepStatsActiveTab("invoices")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  repStatsActiveTab === "invoices"
+                    ? "bg-sky-500 text-white shadow-md"
+                    : "bg-neutral-800 text-neutral-400 hover:text-white"
+                }`}
+              >
+                📄 All Invoices ({repStatsAllInvoices.length})
+              </button>
+              <button
+                onClick={() => setRepStatsActiveTab("salesOrders")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  repStatsActiveTab === "salesOrders"
+                    ? "bg-purple-600 text-white shadow-md"
+                    : "bg-neutral-800 text-neutral-400 hover:text-white"
+                }`}
+              >
+                📦 All Sales Orders ({repStatsAllSalesOrders.length})
+              </button>
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <FiSearch className="absolute left-3 top-2.5 text-neutral-500" size={14} />
+              <input
+                type="text"
+                value={repStatsSearchQuery}
+                onChange={e => setRepStatsSearchQuery(e.target.value)}
+                placeholder="Search document # or customer..."
+                className="w-full bg-black/50 border border-white/10 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            {repStatsActiveTab === "invoices" ? (
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10 text-neutral-400 uppercase text-[10px] tracking-wider bg-black/30">
+                    <th className="p-3">Invoice #</th>
+                    <th className="p-3">Issue Date</th>
+                    <th className="p-3">Customer Account</th>
+                    <th className="p-3">Salesperson</th>
+                    <th className="p-3 text-right">Subtotal</th>
+                    <th className="p-3 text-right">Dead Profit</th>
+                    <th className="p-3 text-right text-amber-400 font-bold">Commission</th>
+                    <th className="p-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {repStatsAllInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-6 text-center text-neutral-500">
+                        No invoice datapoints found for the selected range.
+                      </td>
+                    </tr>
+                  ) : (
+                    repStatsAllInvoices.map((inv, idx) => (
+                      <tr key={inv.id || idx} className="hover:bg-white/5 transition-colors">
+                        <td className="p-3 font-mono font-bold text-sky-400">#{inv.invoiceNumber}</td>
+                        <td className="p-3 text-neutral-400">{formatRepDate(inv.date)}</td>
+                        <td className="p-3 font-semibold text-white">{inv.customerName}</td>
+                        <td className="p-3 text-neutral-300">{inv.repName}</td>
+                        <td className="p-3 text-right font-mono font-bold text-white">{formatRepCurrency(inv.subtotal || 0)}</td>
+                        <td className="p-3 text-right font-mono font-bold text-emerald-400">{formatRepCurrency(inv.deadProfit || 0)}</td>
+                        <td className="p-3 text-right font-mono font-bold text-amber-400">{formatRepCurrency(inv.commission || 0)}</td>
+                        <td className="p-3 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${getStatusBadgeClass(inv.status)}`}>
+                            {inv.status || "paid"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10 text-neutral-400 uppercase text-[10px] tracking-wider bg-black/30">
+                    <th className="p-3">Sales Order #</th>
+                    <th className="p-3">Order Date</th>
+                    <th className="p-3">Customer Account</th>
+                    <th className="p-3">Salesperson</th>
+                    <th className="p-3 text-right">Subtotal</th>
+                    <th className="p-3 text-right">Dead Profit</th>
+                    <th className="p-3 text-right text-purple-300 font-bold">Est. Commission</th>
+                    <th className="p-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {repStatsAllSalesOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-6 text-center text-neutral-500">
+                        No sales order datapoints found for the selected range.
+                      </td>
+                    </tr>
+                  ) : (
+                    repStatsAllSalesOrders.map((so, idx) => (
+                      <tr key={so.id || idx} className="hover:bg-white/5 transition-colors">
+                        <td className="p-3 font-mono font-bold text-purple-400">#{so.salesOrderNumber}</td>
+                        <td className="p-3 text-neutral-400">{formatRepDate(so.date)}</td>
+                        <td className="p-3 font-semibold text-white">{so.customerName}</td>
+                        <td className="p-3 text-neutral-300">{so.repName}</td>
+                        <td className="p-3 text-right font-mono font-bold text-white">{formatRepCurrency(so.subtotal || 0)}</td>
+                        <td className="p-3 text-right font-mono font-bold text-purple-300">{formatRepCurrency(so.deadProfit || 0)}</td>
+                        <td className="p-3 text-right font-mono font-bold text-purple-300">{formatRepCurrency(so.estCommission || 0)}</td>
+                        <td className="p-3 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${getStatusBadgeClass(so.status)}`}>
+                            {so.status || "confirmed"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Rep Stats Tile Modal Inspection Popup */}
+      {repStatsTileModalInfo && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-white/20 rounded-2xl w-full max-w-5xl max-h-[85vh] flex flex-col p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <FiFileText className={repStatsTileModalInfo.type === "invoices" ? "text-sky-400" : "text-purple-400"} />
+                  {repStatsTileModalInfo.title}
+                </h2>
+                <p className="text-xs text-neutral-400">
+                  Showing {repStatsTileModalInfo.docs.length} {repStatsTileModalInfo.type === "invoices" ? "invoice" : "sales order"} document(s) included in this total metric.
+                </p>
+              </div>
+              <button
+                onClick={() => setRepStatsTileModalInfo(null)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/10"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 border border-white/10 rounded-xl bg-black/40">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-neutral-900 text-neutral-400 uppercase text-[10px] sticky top-0 border-b border-white/10">
+                  <tr>
+                    <th className="p-3">{repStatsTileModalInfo.type === "invoices" ? "Invoice #" : "Sales Order #"}</th>
+                    <th className="p-3">Date</th>
+                    <th className="p-3">Customer Account</th>
+                    <th className="p-3">Salesperson</th>
+                    <th className="p-3 text-right">Subtotal</th>
+                    <th className="p-3 text-right">Dead Profit</th>
+                    <th className="p-3 text-right">{repStatsTileModalInfo.type === "invoices" ? "Commission" : "Est. Commission"}</th>
+                    <th className="p-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {repStatsTileModalInfo.docs.map((doc: any, idx: number) => (
+                    <tr key={doc.id || idx} className="hover:bg-white/5">
+                      <td className="p-3 font-mono font-bold text-sky-400">#{doc.invoiceNumber || doc.salesOrderNumber}</td>
+                      <td className="p-3 text-neutral-400">{formatRepDate(doc.date)}</td>
+                      <td className="p-3 font-semibold text-white">{doc.customerName}</td>
+                      <td className="p-3 text-neutral-300">{doc.repName}</td>
+                      <td className="p-3 text-right font-mono font-bold text-white">{formatRepCurrency(doc.subtotal || 0)}</td>
+                      <td className="p-3 text-right font-mono font-bold text-emerald-400">{formatRepCurrency(doc.deadProfit || 0)}</td>
+                      <td className="p-3 text-right font-mono font-bold text-amber-400">{formatRepCurrency(doc.commission || doc.estCommission || 0)}</td>
+                      <td className="p-3 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${getStatusBadgeClass(doc.status)}`}>
+                          {doc.status || "completed"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-white/10 shrink-0">
+              <span className="text-xs text-neutral-400">Total Count: <strong className="text-white">{repStatsTileModalInfo.docs.length}</strong></span>
+              <button
+                onClick={() => setRepStatsTileModalInfo(null)}
+                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl"
+              >
+                Close Modal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rep Stats Individual Rep Breakdown Modal Popup */}
+      {repStatsModalRep && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-white/20 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <FiUsers className="text-orange-400" /> {repStatsModalRep.repName} Financial Breakdown
+                </h2>
+                <p className="text-xs text-neutral-400">Period: {repStatsPeriod.replace("_", " ").toUpperCase()}</p>
+              </div>
+              <button
+                onClick={() => setRepStatsModalRep(null)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/10"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
+
+            {/* Modal KPI Summary */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0">
+              <div className="bg-black/40 border border-white/5 p-3 rounded-xl">
+                <p className="text-[10px] text-neutral-400 uppercase font-bold">Invoices Billed</p>
+                <p className="text-lg font-bold text-white">{formatRepCurrency(repStatsModalRep.totals?.invoiceSubtotal || 0)}</p>
+                <p className="text-[9px] text-neutral-500">{repStatsModalRep.totals?.invoiceCount || 0} Invoices</p>
+              </div>
+
+              <div className="bg-black/40 border border-white/5 p-3 rounded-xl">
+                <p className="text-[10px] text-neutral-400 uppercase font-bold">Dead Profit</p>
+                <p className="text-lg font-bold text-emerald-400">{formatRepCurrency(repStatsModalRep.totals?.invoiceDeadProfit || 0)}</p>
+              </div>
+
+              <div className="bg-black/40 border border-white/5 p-3 rounded-xl">
+                <p className="text-[10px] text-neutral-400 uppercase font-bold">Earned Comm.</p>
+                <p className="text-lg font-bold text-amber-400">{formatRepCurrency(repStatsModalRep.totals?.invoiceCommission || 0)}</p>
+              </div>
+
+              <div className="bg-black/40 border border-white/5 p-3 rounded-xl">
+                <p className="text-[10px] text-neutral-400 uppercase font-bold">SO Est. Comm.</p>
+                <p className="text-lg font-bold text-purple-300">{formatRepCurrency(repStatsModalRep.totals?.salesOrderEstCommission || 0)}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/10 shrink-0">
+              <button
+                onClick={() => setRepStatsModalRep(null)}
+                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl"
+              >
+                Close Breakdown
+              </button>
             </div>
           </div>
         </div>
