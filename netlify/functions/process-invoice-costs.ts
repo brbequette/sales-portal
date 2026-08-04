@@ -214,7 +214,102 @@ export const handler: Handler = async (event) => {
         },
       })
     } else {
-      console.warn(`[process-invoice-costs] No local record found for invoice ${invoice.invoice_number} (${booksInvoiceId})`)
+      // No local record found — try to create one so this invoice joins the system.
+      // Look up the account by Zoho customer_id (which maps to Account.zohoId in CRM).
+      console.warn(`[process-invoice-costs] No local record for invoice ${invoice.invoice_number} — attempting upsert`)
+
+      try {
+        const account = invoice.customer_id
+          ? await prisma.account.findFirst({
+              where: {
+                OR: [
+                  { zohoId: invoice.customer_id },
+                  { zohoId: invoice.customer_id?.toString() },
+                ],
+              },
+              select: { id: true },
+            })
+          : null
+
+        if (account) {
+          const zStatus = (invoice.status || "").toLowerCase()
+          const mappedStatus =
+            zStatus === "paid" || invoice.balance === 0 ? "Paid"
+            : zStatus === "void" || zStatus === "voided" ? "Void"
+            : zStatus === "draft" ? "Draft"
+            : zStatus === "overdue" ? "Overdue"
+            : "Sent"
+
+          const newInvoice = await prisma.invoice.upsert({
+            where: { zohoId: booksInvoiceId },
+            update: {
+              status:          mappedStatus,
+              amount:          parseFloat(invoice.sub_total ?? "0") || 0,
+              zohoModifiedTime: invoice.last_modified_time ? new Date(invoice.last_modified_time) : null,
+              items: {
+                booksInvoiceId,
+                invoiceNumber:    invoice.invoice_number,
+                customer_name:    invoice.customer_name,
+                salesperson:      invoice.salesperson_name?.toUpperCase().trim() || null,
+                sub_total:        parseFloat(invoice.sub_total ?? "0") || 0,
+                balance:          parseFloat(invoice.balance ?? "0") || 0,
+                line_items:       invoice.line_items || [],
+                custom_fields:    invoice.custom_fields || [],
+              },
+            },
+            create: {
+              zohoId:          booksInvoiceId,
+              accountId:       account.id,
+              status:          mappedStatus,
+              amount:          parseFloat(invoice.sub_total ?? "0") || 0,
+              issueDate:       invoice.date ? new Date(invoice.date) : new Date(),
+              dueDate:         invoice.due_date ? new Date(invoice.due_date) : null,
+              zohoModifiedTime: invoice.last_modified_time ? new Date(invoice.last_modified_time) : null,
+              items: {
+                booksInvoiceId,
+                invoiceNumber:    invoice.invoice_number,
+                customer_name:    invoice.customer_name,
+                salesperson:      invoice.salesperson_name?.toUpperCase().trim() || null,
+                sub_total:        parseFloat(invoice.sub_total ?? "0") || 0,
+                balance:          parseFloat(invoice.balance ?? "0") || 0,
+                line_items:       invoice.line_items || [],
+                custom_fields:    invoice.custom_fields || [],
+              },
+            },
+          })
+
+          console.log(`✅ Upserted invoice ${invoice.invoice_number} → DB id=${newInvoice.id}`)
+
+          // Now write the calculated costs into the newly created record
+          const conflictResult = { hasConflict: false, fields: {} }
+          const paymentSummary = await syncInvoicePayments(booksInvoiceId, newInvoice.id)
+          const calcItems = {
+            sub_total: subTotal, subTotal,
+            deadCostTotal, deadCostSubjectToVig, deadCostNoVig, deadCostPlusVig,
+            deadProfitActual, profit,
+            commission: salesCommission, commissionPercent: commissionPct, vigRate,
+            lineItemDetails,
+            itemsDcBreakdown: lineItemBreakdownStrings,
+            costsCalculatedAt: new Date().toISOString(),
+          }
+          await updateInvoiceRecord({
+            localId:        newInvoice.id,
+            zohoDoc:        invoice,
+            calcItems,
+            conflictResult,
+            paymentSummary: {
+              ...paymentSummary,
+              paymentExpected: parseFloat(invoice.payment_expected ?? "0") || null,
+              balance:         parseFloat(invoice.balance ?? "0") ?? null,
+            },
+          })
+          console.log(`✅ Costs written for auto-created invoice ${invoice.invoice_number}`)
+        } else {
+          console.warn(`[process-invoice-costs] No matching Account for customer_id=${invoice.customer_id} — invoice ${invoice.invoice_number} not added to DB. Run a full CRM sync first.`)
+        }
+      } catch (upsertErr: any) {
+        console.error(`[process-invoice-costs] Upsert failed for ${invoice.invoice_number}:`, upsertErr.message)
+      }
     }
 
 
