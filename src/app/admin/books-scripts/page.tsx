@@ -296,19 +296,23 @@ export default function BooksScriptsPage() {
           // Capture auto-sync result from the last page that had one
           if (data.autoSync) autoSyncResult = data.autoSync
 
+          let totalDraftSkipped = 0
           for (const r of (data.results || [])) {
             if (r.status === 'processed') totalProcessed++
-            else if (r.status === 'skipped') totalSkipped++
-            else totalErrors++
+            else if (r.status === 'skipped') {
+              if ((r.reason || '').includes('draft')) totalDraftSkipped++
+              else totalSkipped++
+            } else totalErrors++
           }
 
           if (!data.hasMore) {
             const syncMsg = autoSyncResult?.summary
               ? ` | Auto-synced ${autoSyncResult.summary.synced} to Zoho`
               : ''
+            const draftMsg = totalDraftSkipped > 0 ? `, ${totalDraftSkipped} draft (no costs yet)` : ''
             setResults(prev => ({
               ...prev,
-              'bulk-costs': `Done! ${totalProcessed} processed, ${totalSkipped} skipped, ${totalErrors} errors across ${page} pages.${syncMsg}`
+              'bulk-costs': `Done! ${totalProcessed} processed${draftMsg}, ${totalSkipped} skipped, ${totalErrors} errors across ${page} pages.${syncMsg}`
             }))
             break
           }

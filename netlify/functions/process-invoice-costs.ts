@@ -125,11 +125,30 @@ export const handler: Handler = async (event) => {
     console.log(`  SubTotal: $${subTotal.toFixed(2)} | DeadCost: $${deadCostTotal.toFixed(2)} | VIG: ${vigRate}x | Profit: $${profit.toFixed(2)} (${marginPercent.toFixed(1)}%)`)
     console.log(`  Insurance: $${insurance.toFixed(2)} (not deducted) | Commission: $${salesCommission.toFixed(2)}`)
 
-    // 5. Build custom field updates — only fields that changed
+    // 5. Draft guard — Draft invoices don't have purchase_rate on line items yet.
+    // Writing $0.00 dead cost / inflated profit to Zoho is misleading and wrong.
+    // Skip the Zoho PUT entirely; the local DB upsert below still runs so the
+    // invoice joins the system and will be re-processed once it's Sent/Open.
+    const isDraftInvoice = (invoice.status || "").toLowerCase() === "draft"
+    if (isDraftInvoice && deadCostTotal === 0) {
+      console.log(`⏭️  Skipping Draft invoice ${invoice.invoice_number} — no purchase costs yet`)
+      return {
+        statusCode: 200,
+        headers: cors,
+        body: JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: "draft — no purchase costs yet",
+          invoice: { invoiceNumber: invoice.invoice_number, booksInvoiceId, customerName: invoice.customer_name, status: "draft" },
+        }),
+      }
+    }
+
+    // 6. Build custom field updates — only fields that changed
     const fieldsToUpdate = buildFieldsToUpdate(calc, invoice, "invoices")
     const changesDetected = fieldsToUpdate.length
 
-    // 6. PUT to Zoho Books — only if changes exist
+    // 7. PUT to Zoho Books — only if changes exist
     let zohoUpdateResult: any = null
     const putPayload: any = {}
     if (fieldsToUpdate.length > 0) {
