@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 
 export const maxDuration = 60
 
@@ -42,41 +43,32 @@ export async function POST(req: NextRequest) {
     const cfg = ENTITY_CONFIG[entity]
     if (!cfg) return NextResponse.json({ success: false, error: `Unknown entity: ${entity}` }, { status: 400 })
 
-    // -- Zoho token (inline -- no module-level Prisma) -------------------------
-    const ZOHO_DC  = process.env.ZOHO_DC || "com"
-    const ORG_ID   = process.env.ZOHO_ORGANIZATION_ID || "664670946"
-    const baseUrl  = `https://www.zohoapis.${ZOHO_DC}/books/v3`
+    // -- Zoho token (shared helper: memory cache → DB cache → OAuth refresh) ---
+    const ORG_ID  = ZOHO_ORGANIZATION_ID
+    const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
-    let token: string | null = process.env.ZOHO_ACCESS_TOKEN || null
-    if (!token && process.env.ZOHO_REFRESH_TOKEN && process.env.ZOHO_CLIENT_ID && process.env.ZOHO_CLIENT_SECRET) {
-      const tokenRes = await fetch(`https://accounts.zoho.${ZOHO_DC}/oauth/v2/token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          refresh_token: process.env.ZOHO_REFRESH_TOKEN!,
-          client_id:     process.env.ZOHO_CLIENT_ID!,
-          client_secret: process.env.ZOHO_CLIENT_SECRET!,
-          grant_type:    "refresh_token",
-        }).toString(),
-      })
-      const tokenData: any = await tokenRes.json()
-      token = tokenData.access_token || null
+    let tokenValue: string | null = null
+    try {
+      tokenValue = await getZohoAccessToken()
+    } catch (e: any) {
+      return NextResponse.json({ success: false, error: `Zoho auth failed: ${e.message}` }, { status: 500 })
     }
-    if (!token) return NextResponse.json({ success: false, error: "No Zoho token available" }, { status: 500 })
+    if (!tokenValue) return NextResponse.json({ success: false, error: "No Zoho token available" }, { status: 500 })
+    const token: string = tokenValue
 
     const authHeaders = { Authorization: `Zoho-oauthtoken ${token}` }
 
-    // -- Status filter --------------------------------------------------------
+    // -- Status / date filter --------------------------------------------------
     let statusFilter = ""
-    if (entity === "invoices") {
-      if (filter === "unpaid") statusFilter = "&status=sent,overdue,partially_paid"
-      else if (filter === "recent") {
-        const since = new Date(); since.setDate(since.getDate() - 90)
-        statusFilter = `&date_start=${since.toISOString().split("T")[0]}`
-      }
+    if (filter === "unpaid" && entity === "invoices") {
+      statusFilter = "&status=sent,overdue,partially_paid"
+    } else if (filter === "draft") {
+      statusFilter = "&status=draft"
     } else if (filter === "recent") {
       const since = new Date(); since.setDate(since.getDate() - 90)
       statusFilter = `&date_start=${since.toISOString().split("T")[0]}`
+    } else if (filter === "daterange" && body.startDate && body.endDate) {
+      statusFilter = `&date_start=${body.startDate}&date_end=${body.endDate}`
     }
 
     // -- Step 1: 1 list GET ---------------------------------------------------
