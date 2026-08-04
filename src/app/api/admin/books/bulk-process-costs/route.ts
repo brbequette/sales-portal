@@ -3,12 +3,9 @@ import { NextRequest, NextResponse } from "next/server"
 export const maxDuration = 60
 
 /**
- * Bulk Process Costs -- calls the Netlify process-invoice-costs function directly
+ * Bulk Process Costs -- calls the per-document Next.js API routes
+ * (/api/process-invoice-costs, /api/process-salesorder-costs, /api/process-quote-costs)
  * for each doc in a page, running up to 5 concurrently to reduce wall-clock time.
- *
- * Calls /.netlify/functions/process-invoice-costs instead of the Next.js wrapper
- * /api/process-invoice-costs to avoid the module-level PrismaClient crash that
- * occurs when Next.js statically imports zoho-auth.ts.
  *
  * POST body:
  *   entity:   'invoices' | 'salesorders' | 'estimates'  (default 'invoices')
@@ -30,21 +27,17 @@ export async function POST(req: NextRequest) {
     const BATCH_CONCURRENCY = 5
     const BATCH_DELAY_MS    = 300
 
-    // -- Resolve the base URL for Netlify function calls ----------------------
-    // On Netlify: NETLIFY_URL or DEPLOY_URL is set. Locally: use localhost.
-    const siteUrl = process.env.NETLIFY_URL ||
-                    process.env.DEPLOY_URL  ||
-                    process.env.NEXT_PUBLIC_SITE_URL ||
-                    req.nextUrl.origin
 
     // -- Entity config --------------------------------------------------------
+    // Map each entity to its Next.js API route (which directly imports the handler code).
+    // These routes work on Vercel — the old /.netlify/functions/... URLs do NOT.
     const ENTITY_CONFIG: Record<string, {
       booksEndpoint: string; listKey: string; idField: string; numField: string
-      netlifyFn: string; idBodyField: string; resultKey: string
+      apiRoute: string; idBodyField: string; resultKey: string
     }> = {
-      invoices:    { booksEndpoint: "invoices",    listKey: "invoices",    idField: "invoice_id",    numField: "invoice_number",    netlifyFn: "process-invoice-costs",    idBodyField: "invoiceId",    resultKey: "invoice"    },
-      salesorders: { booksEndpoint: "salesorders", listKey: "salesorders", idField: "salesorder_id", numField: "salesorder_number", netlifyFn: "process-salesorder-costs", idBodyField: "salesorderId", resultKey: "salesorder" },
-      estimates:   { booksEndpoint: "estimates",   listKey: "estimates",   idField: "estimate_id",   numField: "estimate_number",   netlifyFn: "process-quote-costs",      idBodyField: "estimateId",   resultKey: "quote"      },
+      invoices:    { booksEndpoint: "invoices",    listKey: "invoices",    idField: "invoice_id",    numField: "invoice_number",    apiRoute: "/api/process-invoice-costs",    idBodyField: "invoiceId",    resultKey: "invoice"    },
+      salesorders: { booksEndpoint: "salesorders", listKey: "salesorders", idField: "salesorder_id", numField: "salesorder_number", apiRoute: "/api/process-salesorder-costs", idBodyField: "salesorderId", resultKey: "salesorder" },
+      estimates:   { booksEndpoint: "estimates",   listKey: "estimates",   idField: "estimate_id",   numField: "estimate_number",   apiRoute: "/api/process-quote-costs",      idBodyField: "estimateId",   resultKey: "quote"      },
     }
     const cfg = ENTITY_CONFIG[entity]
     if (!cfg) return NextResponse.json({ success: false, error: `Unknown entity: ${entity}` }, { status: 400 })
@@ -103,7 +96,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, processed: 0, errors: 0, skipped: 0, hasMore: false, page, results: [] })
     }
 
-    // -- Step 2: Parallel process via Netlify function URL --------------------
+    // -- Step 2: Call each doc's Next.js API route directly (works on Vercel) --
     const results: any[] = []
     let processed = 0, errors = 0, skipped = 0
 
@@ -113,7 +106,8 @@ export async function POST(req: NextRequest) {
       const zohoId   = item[cfg.idField]
 
       try {
-        const fnUrl = `${siteUrl}/.netlify/functions/${cfg.netlifyFn}`
+        // Use Next.js API route (works on Vercel) — not /.netlify/functions/...
+        const fnUrl = `${req.nextUrl.origin}${cfg.apiRoute}`
         const res = await fetch(fnUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -122,7 +116,7 @@ export async function POST(req: NextRequest) {
 
         const contentType = res.headers.get("content-type") || ""
         if (!contentType.includes("application/json")) {
-          throw new Error(`Function returned non-JSON (HTTP ${res.status}) -- check Netlify function logs`)
+          throw new Error(`API route returned non-JSON (HTTP ${res.status}) -- route may not exist or server error`)
         }
 
         const data: any = await res.json()
