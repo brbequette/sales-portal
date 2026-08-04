@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud } from "react-icons/fi"
 import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
@@ -211,33 +211,66 @@ export default function ShippingPage() {
   // On tab/sort change: refresh orders only (counts stay stable)
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
-  // Sync packages from Zoho (with configurable date window to avoid 504 timeouts)
+  // ── Background Sync from Zoho ──────────────────────────────────────────
+  // Calls a Netlify background function (returns 202 immediately, no timeout).
+  // Polls the status endpoint every 5 s until the sync finishes.
   const [syncDays, setSyncDays] = useState(30)
+  const syncPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const stopPolling = () => {
+    if (syncPollRef.current) { clearInterval(syncPollRef.current); syncPollRef.current = null }
+  }
+
   const handleSyncPackages = async () => {
     setSyncing(true)
     setSyncResult(null)
+    stopPolling()
+
     try {
-      const res = await fetch(`/api/admin/books/sync-packages?since=${syncDays}`, { method: "POST" })
-      const text = await res.text()
-      let data: any = {}
-      try {
-        data = JSON.parse(text)
-      } catch (err) {
-        throw new Error(`Server response error (${res.status}): ${text.substring(0, 200)}`)
-      }
-      if (res.ok && data.success) {
-        setSyncResult(`✅ ${data.message}`)
-        fetchCounts()
-        fetchOrders()
+      // Fire the background function — returns 202 immediately
+      const res = await fetch("/.netlify/functions/admin-books-sync-packages-background", {
+        method: "POST",
+      })
+
+      if (res.status === 202 || res.ok) {
+        setSyncResult("⏳ Sync started in background — checking progress…")
+
+        // Poll for completion
+        syncPollRef.current = setInterval(async () => {
+          try {
+            const poll = await fetch("/api/admin/books/sync-packages-status")
+            const s = await poll.json()
+
+            if (s.status === "done") {
+              setSyncResult(`✅ ${s.result}`)
+              setSyncing(false)
+              stopPolling()
+              fetchCounts()
+              fetchOrders()
+            } else if (s.status === "error") {
+              setSyncResult(`❌ ${s.result}`)
+              setSyncing(false)
+              stopPolling()
+            } else {
+              // still running — keep spinner, update message
+              setSyncResult(`⏳ Sync in progress… (started ${s.startedAt ? new Date(s.startedAt).toLocaleTimeString() : ""})`)
+            }
+          } catch { /* ignore transient poll errors */ }
+        }, 5000)
+
       } else {
-        setSyncResult(`❌ ${data.error || "Sync failed"}`)
+        const text = await res.text()
+        setSyncResult(`❌ Failed to start sync (${res.status}): ${text.substring(0, 120)}`)
+        setSyncing(false)
       }
     } catch (e: any) {
       setSyncResult(`❌ ${e.message}`)
-    } finally {
       setSyncing(false)
     }
   }
+
+  // Cleanup polling on unmount
+  useEffect(() => () => stopPolling(), [])
 
   // Fetch SO line items from Zoho for package creation
   const fetchLineItems = async (zohoId: string, action: "package" | "dropship") => {
@@ -347,25 +380,14 @@ export default function ShippingPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Sync window selector */}
-          <select
-            value={syncDays}
-            onChange={e => setSyncDays(Number(e.target.value))}
-            disabled={syncing}
-            className="px-2 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-300 text-xs font-bold cursor-pointer disabled:opacity-50"
-            title="How far back to sync from Zoho"
-          >
-            <option value={7}>7 days</option>
-            <option value={30}>30 days</option>
-            <option value={90}>90 days</option>
-          </select>
           <button
             onClick={handleSyncPackages}
             disabled={syncing}
             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-800/50 text-sm font-bold transition-all disabled:opacity-50"
+            title="Syncs all packages and POs from Zoho in the background"
           >
             <FiDownloadCloud className={syncing ? "animate-pulse" : ""} />
-            {syncing ? "Syncing..." : "Sync from Zoho"}
+            {syncing ? "Syncing…" : "Sync from Zoho"}
           </button>
           <button
             onClick={fetchOrders}
