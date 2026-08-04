@@ -18,16 +18,25 @@ import {
 } from "../../src/lib/custom-field-extractor"
 
 /**
- * Zoho Books Webhook Receiver
+ * Zoho Books Webhook Receiver (Netlify Function)
  *
- * To activate, go to Zoho Books → Settings → Developer Space → Webhooks
- * Create webhooks for:
- *   - Invoices: Created, Updated  → POST https://your-site.netlify.app/.netlify/functions/zoho-books-webhook?type=Invoice
- *   - Sales Orders: Created, Updated → POST ...?type=SalesOrder
- *   - Estimates: Created, Updated → POST ...?type=Quote
+ * All 5 Zoho webhooks already point here:
+ *   Invoice Sync       → ?type=Invoice
+ *   Sales Order Sync   → ?type=SalesOrder
+ *   Estimate Sync      → ?type=Quote
+ *   Vendor Sync        → ?type=Vendor
+ *   Payments           → ?type=Payment
  *
- * For security: set a secret token in Zoho and add it to your Netlify env as ZOHO_WEBHOOK_SECRET
- * The function will verify it before processing.
+ * Auth: Set ZOHO_WEBHOOK_TOKEN env var in Netlify to match the
+ *       x-zoho-webhook-token header value (currently: tdu.webhooks2026).
+ *
+ * Sync strategy (Plan B — flag & review):
+ *   - Invoices/SOs/Quotes: sets pendingZohoFetch=true and updates the
+ *     lastZohoModifiedTime timestamp, then triggers a cost recalculation.
+ *     If both app and Zoho changed since last sync, marks syncConflict=true
+ *     for admin review instead of overwriting.
+ *   - Payments: upsert into Payment table immediately + refresh invoice summary.
+ *   - Vendors: upsert into Vendor table immediately.
  */
 export const handler: Handler = async (event) => {
   const cors = {
@@ -41,137 +50,152 @@ export const handler: Handler = async (event) => {
   try {
     const { type = "Invoice" } = event.queryStringParameters || {}
 
-    // Optional: verify webhook secret token
-    const secret = process.env.ZOHO_WEBHOOK_SECRET
+    // ── Token verification ──────────────────────────────────────────────────
+    // Supports both ZOHO_WEBHOOK_TOKEN (new) and ZOHO_WEBHOOK_SECRET (legacy)
+    const secret = process.env.ZOHO_WEBHOOK_TOKEN || process.env.ZOHO_WEBHOOK_SECRET
     if (secret) {
-      const incoming = event.headers['x-zoho-webhook-token'] || event.headers['x-webhook-token'] || ''
+      const incoming = event.headers["x-zoho-webhook-token"] || event.headers["x-webhook-token"] || ""
       if (incoming !== secret) {
         console.warn("Webhook secret mismatch — ignoring request")
         return { statusCode: 401, headers: cors, body: JSON.stringify({ error: "Unauthorized" }) }
       }
     }
 
-    const body = JSON.parse(event.body || "{}")
-    console.log(`Zoho Books Webhook received: type=${type}, event=${body.event_type || 'unknown'}`)
+    // ── Parse body ─────────────────────────────────────────────────────────
+    let body: any = {}
+    try {
+      body = JSON.parse(event.body || "{}")
+    } catch { /* empty body */ }
 
-    // Zoho sends the document data inside body.data
+    // Zoho Books may wrap data in a JSONString field
+    if (typeof body.JSONString === "string") {
+      try { body = JSON.parse(body.JSONString) } catch { /* ignore */ }
+    }
+
     const doc = body.data || body
     if (!doc) {
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "No data to process" }) }
     }
 
-    // Extract the Books ID and number depending on type
     const booksId = doc.invoice_id || doc.salesorder_id || doc.estimate_id || doc.contact_id || doc.payment_id
+    console.log(`[zoho-books-webhook] type=${type} event=${body.event_type || "unknown"} id=${booksId}`)
+
     if (!booksId) {
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "No Books ID in payload" }) }
     }
 
-    // ── Payment webhook ──
-    if (type === 'Payment') {
-      const paymentId = doc.payment_id
+    // ── Payment webhook ─────────────────────────────────────────────────────
+    if (type === "Payment") {
+      const paymentId     = doc.payment_id
       const invoicePayments = doc.invoices || []
-      
-      // Upsert the payment record
+
       await prisma.payment.upsert({
         where: { zohoId: paymentId },
         update: {
-          amount: parseFloat(doc.amount || 0),
-          date: doc.date ? new Date(doc.date) : null,
-          mode: doc.payment_mode || null,
-          status: doc.status || null,
+          amount:          parseFloat(doc.amount || 0),
+          date:            doc.date ? new Date(doc.date) : null,
+          mode:            doc.payment_mode || null,
+          status:          doc.status || null,
           referenceNumber: doc.reference_number || null,
-          bankCharges: parseFloat(doc.bank_charges || 0),
-          invoiceId: invoicePayments[0]?.invoice_id || null,
-          invoiceNumber: invoicePayments[0]?.invoice_number || null,
+          bankCharges:     parseFloat(doc.bank_charges || 0),
+          invoiceId:       invoicePayments[0]?.invoice_id || null,
+          invoiceNumber:   invoicePayments[0]?.invoice_number || null,
         },
         create: {
-          zohoId: paymentId,
-          amount: parseFloat(doc.amount || 0),
-          date: doc.date ? new Date(doc.date) : null,
-          mode: doc.payment_mode || null,
-          status: doc.status || null,
+          zohoId:          paymentId,
+          amount:          parseFloat(doc.amount || 0),
+          date:            doc.date ? new Date(doc.date) : null,
+          mode:            doc.payment_mode || null,
+          status:          doc.status || null,
           referenceNumber: doc.reference_number || null,
-          bankCharges: parseFloat(doc.bank_charges || 0),
-          invoiceId: invoicePayments[0]?.invoice_id || null,
-          invoiceNumber: invoicePayments[0]?.invoice_number || null,
+          bankCharges:     parseFloat(doc.bank_charges || 0),
+          invoiceId:       invoicePayments[0]?.invoice_id || null,
+          invoiceNumber:   invoicePayments[0]?.invoice_number || null,
         }
       })
 
-      // Update related invoice(s) balance and status
+      // Update related invoices
       for (const invPayment of invoicePayments) {
         const invId = invPayment.invoice_id
         if (!invId) continue
-        
+
         const localInv = await prisma.invoice.findFirst({ where: { zohoId: invId } })
         if (!localInv) continue
-        
+
         const currentItems = (localInv.items as any) || {}
-        const newBalance = parseFloat(invPayment.balance_after_amount ?? invPayment.balance ?? currentItems.balance ?? 0)
-        const isPaid = newBalance <= 0
-        
+        const newBalance   = parseFloat(invPayment.balance_after_amount ?? invPayment.balance ?? currentItems.balance ?? 0)
+        const isPaid       = newBalance <= 0
+
         await prisma.invoice.update({
           where: { id: localInv.id },
           data: {
-            status: isPaid ? 'Paid' : localInv.status,
+            status:          isPaid ? "Paid" : localInv.status ?? undefined,
+            paymentMade:     parseFloat(doc.amount || 0),
+            lastPaymentDate: doc.date ? new Date(doc.date) : null,
+            balance:         newBalance,
+            pendingZohoFetch: true, // flag for next bulk sync to pull full details
+            lastZohoModifiedTime: new Date(),
             items: {
               ...currentItems,
-              balance: newBalance,
-              paymentDate: isPaid ? (doc.date || new Date().toISOString().split('T')[0]) : currentItems.paymentDate,
-              lastSyncedAt: new Date().toISOString(),
-            }
+              balance:     newBalance,
+              paymentDate: isPaid ? (doc.date || new Date().toISOString().split("T")[0]) : currentItems.paymentDate,
+            },
           }
         })
-        console.log(`✅ Webhook: Updated invoice ${invId} balance=$${newBalance} ${isPaid ? '(PAID)' : ''}`)
+        console.log(`✅ Webhook: Updated invoice ${invId} balance=$${newBalance} ${isPaid ? "(PAID)" : ""}`)
       }
 
       console.log(`✅ Webhook: Upserted Payment ${paymentId} ($${doc.amount})`)
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: `Payment ${paymentId} synced, ${invoicePayments.length} invoice(s) updated` }) }
     }
 
-    if (type === 'Vendor' || type === 'Contact') {
-      if (doc.contact_type !== 'vendor') {
-         return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "Contact is not a vendor" }) }
+    // ── Vendor webhook ──────────────────────────────────────────────────────
+    if (type === "Vendor" || type === "Contact") {
+      if (doc.contact_type !== "vendor") {
+        return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "Contact is not a vendor" }) }
       }
-      
+
       await prisma.vendor.upsert({
         where: { zohoId: booksId },
         update: {
-          contactName: doc.contact_name,
-          companyName: doc.company_name,
-          email: doc.email,
-          phone: doc.phone,
-          currencyId: doc.currency_id,
-          paymentTerms: doc.payment_terms,
-          billingAddress: doc.billing_address,
+          contactName:     doc.contact_name,
+          companyName:     doc.company_name,
+          email:           doc.email,
+          phone:           doc.phone,
+          currencyId:      doc.currency_id,
+          paymentTerms:    doc.payment_terms,
+          billingAddress:  doc.billing_address,
           shippingAddress: doc.shipping_address,
-          customFields: doc.custom_fields,
-          status: doc.status
+          customFields:    doc.custom_fields,
+          status:          doc.status
         },
         create: {
-          zohoId: booksId,
-          contactName: doc.contact_name,
-          companyName: doc.company_name,
-          email: doc.email,
-          phone: doc.phone,
-          currencyId: doc.currency_id,
-          paymentTerms: doc.payment_terms,
-          billingAddress: doc.billing_address,
+          zohoId:          booksId,
+          contactName:     doc.contact_name,
+          companyName:     doc.company_name,
+          email:           doc.email,
+          phone:           doc.phone,
+          currencyId:      doc.currency_id,
+          paymentTerms:    doc.payment_terms,
+          billingAddress:  doc.billing_address,
           shippingAddress: doc.shipping_address,
-          customFields: doc.custom_fields,
-          status: doc.status
+          customFields:    doc.custom_fields,
+          status:          doc.status
         }
       })
-      console.log(`o. Webhook: Upserted Vendor ${booksId} in local DB`)
+      console.log(`✅ Webhook: Upserted Vendor ${booksId}`)
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: `Vendor ${booksId} synced` }) }
     }
 
+    // ── Invoice / SalesOrder / Quote ────────────────────────────────────────
+
     // Find the local record
     let dbDoc: any = null
-    if (type === 'Invoice') {
+    if (type === "Invoice") {
       dbDoc = await prisma.invoice.findFirst({ where: { zohoId: booksId } })
-    } else if (type === 'SalesOrder') {
+    } else if (type === "SalesOrder") {
       dbDoc = await prisma.salesOrder.findFirst({ where: { zohoId: booksId } })
-    } else if (type === 'Quote') {
+    } else if (type === "Quote") {
       dbDoc = await prisma.quote.findFirst({ where: { zohoId: booksId } })
     }
 
@@ -180,93 +204,125 @@ export const handler: Handler = async (event) => {
       return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "Record not in local DB" }) }
     }
 
+    // ── Conflict check (Plan B) ─────────────────────────────────────────────
+    // If the app modified this record since the last sync, AND Zoho is also
+    // sending an update, flag it for admin review instead of overwriting.
+    const lastSynced  = dbDoc.lastSyncedAt?.getTime()  ?? 0
+    const appModified = dbDoc.appModifiedAt?.getTime() ?? 0
+    const zohoModRaw  = doc.last_modified_time ? new Date(doc.last_modified_time).getTime() : Date.now()
+    const appChanged  = appModified > lastSynced && lastSynced > 0
+    const zohoChanged = zohoModRaw > lastSynced  && lastSynced > 0
+
+    if (appChanged && zohoChanged) {
+      // Both sides changed — flag for manual review, don't overwrite
+      console.warn(`⚠️ Conflict: ${type} ${booksId} — both sides changed since last sync. Flagging for review.`)
+      const flagData = {
+        syncConflict:         true,
+        pendingZohoFetch:     true,
+        lastZohoModifiedTime: doc.last_modified_time ? new Date(doc.last_modified_time) : new Date(),
+      }
+      if (type === "Invoice")    await prisma.invoice.update({ where: { id: dbDoc.id }, data: flagData })
+      if (type === "SalesOrder") await prisma.salesOrder.update({ where: { id: dbDoc.id }, data: flagData })
+      if (type === "Quote")      await prisma.quote.update({ where: { id: dbDoc.id }, data: flagData })
+
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, conflict: true, message: `${type} ${booksId} flagged for manual conflict review` }) }
+    }
+
     // For Quote/Estimate webhooks: only process estimates that have been converted to an invoice
-    if (type === 'Quote') {
-      const estStatus = (doc.status || '').toLowerCase()
-      if (estStatus !== 'invoiced') {
+    if (type === "Quote") {
+      const estStatus = (doc.status || "").toLowerCase()
+      if (estStatus !== "invoiced") {
         console.log(`Estimate ${booksId} status="${doc.status}" — not invoiced, skipping webhook sync`)
         return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: `Estimate not invoiced (status: ${doc.status}) — skipped` }) }
       }
     }
 
-    // Build the updated items JSON from webhook payload
+    // ── Build updated items from webhook payload ──────────────────────────────
     const currentItems = (dbDoc.items as any) || {}
     const cfh = doc.custom_field_hash || {}
     const updatedItems: any = {
       ...currentItems,
-      invoiceNumber: doc.invoice_number || currentItems.invoiceNumber,
-      salesOrderNumber: doc.salesorder_number || currentItems.salesOrderNumber,
-      estimateNumber: doc.estimate_number || currentItems.estimateNumber,
-      sub_total: parseFloat(doc.sub_total || currentItems.sub_total || 0),
-      total: parseFloat(doc.total || currentItems.total || 0),
-      balance: doc.balance ?? currentItems.balance ?? 0,
-      shippingCharge: parseFloat(doc.shipping_charge || currentItems.shippingCharge || 0),
-      customer_name: doc.customer_name || currentItems.customer_name,
-      salesperson: doc.salesperson_name ? doc.salesperson_name.toUpperCase().trim() : currentItems.salesperson,
+      invoiceNumber:          doc.invoice_number    || currentItems.invoiceNumber,
+      salesOrderNumber:       doc.salesorder_number || currentItems.salesOrderNumber,
+      estimateNumber:         doc.estimate_number   || currentItems.estimateNumber,
+      sub_total:              parseFloat(doc.sub_total || currentItems.sub_total || 0),
+      total:                  parseFloat(doc.total    || currentItems.total    || 0),
+      balance:                doc.balance ?? currentItems.balance ?? 0,
+      shippingCharge:         parseFloat(doc.shipping_charge || currentItems.shippingCharge || 0),
+      customer_name:          doc.customer_name    || currentItems.customer_name,
+      salesperson:            doc.salesperson_name ? doc.salesperson_name.toUpperCase().trim() : currentItems.salesperson,
       salesorder_salesperson_name: doc.salesperson_name || currentItems.salesorder_salesperson_name,
-      reference_number: doc.reference_number || currentItems.reference_number,
-      date: doc.date || currentItems.date,
-      line_items: doc.line_items || currentItems.line_items || [],
-      custom_fields: doc.custom_fields || currentItems.custom_fields || [],
-      custom_field_hash: cfh,
-      paymentDate: doc.last_payment_date || currentItems.paymentDate,
-      booksInvoiceId: type === 'Invoice' ? booksId : currentItems.booksInvoiceId,
-      booksSalesOrderId: type === 'SalesOrder' ? booksId : currentItems.booksSalesOrderId,
-      booksEstimateId: type === 'Quote' ? booksId : currentItems.booksEstimateId,
-      // ── Calculated cost fields ──
-      profit: extractProfit(doc) || currentItems.profit || 0,
-      commission: extractCommissionAmount(doc) || currentItems.commission || 0,
-      commissionPercent: parseFloat(cfh.cf_commision_from_profit_unformatted ?? currentItems.commissionPercent ?? 50) || 50,
-      vig: extractVigRate(doc) || currentItems.vig || 1.3,
-      deadCostTotal: extractDeadCostTotal(doc) || currentItems.deadCostTotal || 0,
+      reference_number:       doc.reference_number || currentItems.reference_number,
+      date:                   doc.date || currentItems.date,
+      line_items:             doc.line_items    || currentItems.line_items    || [],
+      custom_fields:          doc.custom_fields || currentItems.custom_fields || [],
+      custom_field_hash:      cfh,
+      paymentDate:            doc.last_payment_date || currentItems.paymentDate,
+      booksInvoiceId:         type === "Invoice"    ? booksId : currentItems.booksInvoiceId,
+      booksSalesOrderId:      type === "SalesOrder" ? booksId : currentItems.booksSalesOrderId,
+      booksEstimateId:        type === "Quote"      ? booksId : currentItems.booksEstimateId,
+      // ── Calculated cost fields (from Zoho custom fields) ─────────────────
+      profit:              extractProfit(doc)              || currentItems.profit        || 0,
+      commission:          extractCommissionAmount(doc)    || currentItems.commission    || 0,
+      commissionPercent:   parseFloat(cfh.cf_commision_from_profit_unformatted ?? currentItems.commissionPercent ?? 50) || 50,
+      vig:                 extractVigRate(doc)             || currentItems.vig           || 1.3,
+      deadCostTotal:       extractDeadCostTotal(doc)       || currentItems.deadCostTotal || 0,
       deadCostSubjectToVig: parseFloat(cfh.cf_dead_cost_subject_to_vig_unformatted ?? currentItems.deadCostSubjectToVig ?? 0) || 0,
-      deadCostNoVig: parseFloat(cfh.cf_dead_cost_no_vig_unformatted ?? currentItems.deadCostNoVig ?? 0) || 0,
-      deadCostPlusVig: parseFloat(cfh.cf_dead_cost_with_vig_unformatted ?? currentItems.deadCostPlusVig ?? 0) || 0,
-      ccFees: extractCcFees(doc) || currentItems.ccFees || 0,
-      additionalCosts: extractAdditionalCosts(doc) || currentItems.additionalCosts || 0,
-      insurance: extractInsurance(doc) || currentItems.insurance || 0,
-      actualShippingCost: extractActualShippingCost(doc) || currentItems.actualShippingCost || 0,
+      deadCostNoVig:       parseFloat(cfh.cf_dead_cost_no_vig_unformatted          ?? currentItems.deadCostNoVig       ?? 0) || 0,
+      deadCostPlusVig:     parseFloat(cfh.cf_dead_cost_with_vig_unformatted        ?? currentItems.deadCostPlusVig     ?? 0) || 0,
+      ccFees:              extractCcFees(doc)              || currentItems.ccFees        || 0,
+      additionalCosts:     extractAdditionalCosts(doc)     || currentItems.additionalCosts || 0,
+      insurance:           extractInsurance(doc)           || currentItems.insurance     || 0,
+      actualShippingCost:  extractActualShippingCost(doc)  || currentItems.actualShippingCost || 0,
       shippingCostBreakdown: extractShippingCostBreakdown(doc) || currentItems.shippingCostBreakdown || null,
-      // ── Non-calculated user-input fields ──
-      estimateNumberRef: cfh.cf_estimate_number ?? currentItems.estimateNumberRef ?? null,
-      estimateDate: cfh.cf_estimate_date ?? currentItems.estimateDate ?? null,
-      paidInFullDate: cfh.cf_paid_in_full_date ?? currentItems.paidInFullDate ?? null,
-      commissionStatus: cfh.cf_commission_status ?? currentItems.commissionStatus ?? null,
-      writtenOff: cfh.cf_written_off ?? currentItems.writtenOff ?? false,
-      removeTariffSurcharge: cfh.cf_remove_tariff_surcharge ?? currentItems.removeTariffSurcharge ?? false,
-      additionalCostNotes: cfh.cf_additional_cost_explanation ?? currentItems.additionalCostNotes ?? null,
-      ccBreakdown: cfh.cf_cc_charge_s_breakdown ?? currentItems.ccBreakdown ?? null,
-      purchaseOrderNumbers: cfh.cf_purchase_order_number_s ?? currentItems.purchaseOrderNumbers ?? null,
-      itemsDcBreakdown: cfh.cf_dc_breakdown ? [cfh.cf_dc_breakdown] : currentItems.itemsDcBreakdown ?? null,
-      lastSyncedAt: new Date().toISOString(),
+      // ── Non-calculated user-input fields (preserve from Zoho custom fields)
+      estimateNumberRef:         cfh.cf_estimate_number          ?? currentItems.estimateNumberRef    ?? null,
+      estimateDate:              cfh.cf_estimate_date            ?? currentItems.estimateDate          ?? null,
+      paidInFullDate:            cfh.cf_paid_in_full_date        ?? currentItems.paidInFullDate        ?? null,
+      commissionStatus:          cfh.cf_commission_status        ?? currentItems.commissionStatus      ?? null,
+      writtenOff:                cfh.cf_written_off              ?? currentItems.writtenOff            ?? false,
+      removeTariffSurcharge:     cfh.cf_remove_tariff_surcharge  ?? currentItems.removeTariffSurcharge ?? false,
+      additionalCostNotes:       cfh.cf_additional_cost_explanation ?? currentItems.additionalCostNotes ?? null,
+      ccBreakdown:               cfh.cf_cc_charge_s_breakdown    ?? currentItems.ccBreakdown           ?? null,
+      purchaseOrderNumbers:      cfh.cf_purchase_order_number_s  ?? currentItems.purchaseOrderNumbers  ?? null,
+      itemsDcBreakdown:          cfh.cf_dc_breakdown ? [cfh.cf_dc_breakdown] : currentItems.itemsDcBreakdown ?? null,
     }
 
-    // Determine status
+    // ── Determine status ────────────────────────────────────────────────────
     let status = dbDoc.status
-    const zStatus = (doc.status || '').toLowerCase()
-    if (zStatus === 'paid' || doc.balance === 0 || zStatus === 'closed' || zStatus === 'invoiced') status = 'Paid'
-    else if (zStatus === 'void' || zStatus === 'voided' || zStatus === 'declined') status = 'Void'
-    else if (zStatus === 'writeoff' || zStatus === 'write_off' || zStatus === 'bad debt') status = 'Writeoff'
-    else if (zStatus === 'draft') status = 'Draft'
+    const zStatus = (doc.status || "").toLowerCase()
+    if (zStatus === "paid" || doc.balance === 0 || zStatus === "closed" || zStatus === "invoiced") status = "Paid"
+    else if (zStatus === "void" || zStatus === "voided" || zStatus === "declined") status = "Void"
+    else if (zStatus === "writeoff" || zStatus === "write_off" || zStatus === "bad debt") status = "Writeoff"
+    else if (zStatus === "draft") status = "Draft"
     else if (doc.status) status = doc.status.charAt(0).toUpperCase() + doc.status.slice(1)
 
-    // Write to DB and trigger cost/tariff processing
-    if (type === 'Invoice') {
+    // ── Sync timestamp fields ───────────────────────────────────────────────
+    const now         = new Date()
+    const zohoModTime = doc.last_modified_time ? new Date(doc.last_modified_time) : now
+    const syncFields  = {
+      lastZohoModifiedTime: zohoModTime,
+      zohoModifiedTime:     zohoModTime,
+      lastSyncedAt:         now,
+      appModifiedAt:        now,
+      pendingZohoFetch:     false,
+      syncConflict:         false,
+      conflictFields:       undefined as any,
+    }
+
+    // ── Write to DB + trigger cost recalculation ────────────────────────────
+    if (type === "Invoice") {
       let matchedIssueDate: Date | null = null
-      const soNum = (doc.salesorder_number || updatedItems.salesOrderNumber || '').trim().toLowerCase()
+      const soNum = (doc.salesorder_number || updatedItems.salesOrderNumber || "").trim().toLowerCase()
       if (soNum) {
         const matchedSo = await prisma.salesOrder.findFirst({
-          where: {
-            OR: [
-              { items: { path: ['salesOrderNumber'], equals: soNum } },
-              { items: { path: ['salesorder_number'], equals: soNum } }
-            ]
-          },
+          where: { OR: [
+            { items: { path: ["salesOrderNumber"], equals: soNum } },
+            { items: { path: ["salesorder_number"],  equals: soNum } }
+          ]},
           select: { orderDate: true }
         })
-        if (matchedSo?.orderDate) {
-          matchedIssueDate = matchedSo.orderDate
-        }
+        if (matchedSo?.orderDate) matchedIssueDate = matchedSo.orderDate
       }
 
       await prisma.invoice.update({
@@ -274,54 +330,58 @@ export const handler: Handler = async (event) => {
         data: {
           status,
           items: updatedItems,
-          issueDate: matchedIssueDate || (doc.date ? new Date(doc.date) : undefined),
-          actualShippingCost: updatedItems.actualShippingCost,
+          issueDate:            matchedIssueDate || (doc.date ? new Date(doc.date) : undefined),
+          actualShippingCost:   updatedItems.actualShippingCost,
           shippingCostBreakdown: updatedItems.shippingCostBreakdown,
+          ...syncFields,
         }
       })
+
       await processInvoiceCosts({
         httpMethod: "POST",
-        body: JSON.stringify({ invoiceId: booksId })
+        body: JSON.stringify({ invoiceId: booksId, skipLoopGuard: true }),
       } as any, {} as any).catch(e => console.error("Webhook error auto-processing invoice costs:", e))
-    } else if (type === 'SalesOrder') {
+
+    } else if (type === "SalesOrder") {
       await prisma.salesOrder.update({
         where: { id: dbDoc.id },
         data: {
           status,
           items: updatedItems,
-          actualShippingCost: updatedItems.actualShippingCost,
+          actualShippingCost:    updatedItems.actualShippingCost,
           shippingCostBreakdown: updatedItems.shippingCostBreakdown,
+          ...syncFields,
         }
       })
+
       await processSalesOrderCosts({
         httpMethod: "POST",
-        body: JSON.stringify({ invoiceId: booksId })
-      } as any, {} as any).catch(e => console.error("Webhook error auto-processing salesorder costs:", e))
+        body: JSON.stringify({ salesorderId: booksId, skipLoopGuard: true }),
+      } as any, {} as any).catch(e => console.error("Webhook error auto-processing SO costs:", e))
+
     } else {
-      await prisma.quote.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems } })
+      await prisma.quote.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems, ...syncFields } })
       await processQuoteCosts({
         httpMethod: "POST",
-        body: JSON.stringify({ invoiceId: booksId })
+        body: JSON.stringify({ estimateId: booksId, skipLoopGuard: true }),
       } as any, {} as any).catch(e => console.error("Webhook error auto-processing quote costs:", e))
     }
 
-    console.log(`✅ Webhook: Updated ${type} ${booksId} in local DB (status: ${status}, ${(updatedItems.line_items || []).length} line items)`)
+    console.log(`✅ Webhook: Updated ${type} ${booksId} (status: ${status}, ${(updatedItems.line_items || []).length} line items)`)
 
-    // Invalidate cached PDF so next view gets a fresh copy from Zoho
+    // ── Invalidate stale PDF cache ──────────────────────────────────────────
     try {
       const store = getStore({ name: "invoice-pdfs", consistency: "strong" })
-      const t = type === 'SalesOrder' ? 'so' : type === 'Quote' ? 'qte' : 'inv'
+      const t = type === "SalesOrder" ? "so" : type === "Quote" ? "qte" : "inv"
       await store.delete(`pdf/${t}/${booksId}`)
-      console.log(`🗑️  Invalidated stale PDF cache for ${type} ${booksId}`)
-    } catch (_) {
-      // Non-fatal — blob store may be unavailable during local dev
-    }
+    } catch (_) { /* non-fatal */ }
 
     return {
       statusCode: 200,
       headers: cors,
       body: JSON.stringify({ success: true, message: `${type} ${booksId} synced` })
     }
+
   } catch (err: any) {
     console.error("zoho-books-webhook error:", err)
     return {
