@@ -1,10 +1,14 @@
 "use client"
 
 import { toastConfirm } from '@/lib/toastConfirm'
-import React, { useState } from "react"
-import { FiPlay, FiCheck, FiAlertCircle, FiLoader, FiCpu, FiDatabase, FiRefreshCw, FiZap } from "react-icons/fi"
+import React, { useEffect, useState } from "react"
+import {
+  FiPlay, FiCheck, FiAlertCircle, FiLoader, FiCpu,
+  FiDatabase, FiRefreshCw, FiZap, FiCloud, FiX
+} from "react-icons/fi"
 
-// ── Types ───────────────────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────────────
+
 interface PhaseResult {
   entity: string
   pages: number
@@ -23,6 +27,20 @@ interface FullSyncState {
   startedAt: number | null
 }
 
+interface PendingCounts {
+  invoices: number
+  quotes: number
+  salesOrders: number
+  total: number
+}
+
+interface ZohoSyncState {
+  running: boolean
+  result: { synced: number; skipped: number; errors: number } | null
+  error: string | null
+  lastRan: Date | null
+}
+
 export default function BooksScriptsPage() {
   const [loading, setLoading] = useState<string | null>(null)
   const [results, setResults] = useState<Record<string, string>>({})
@@ -37,15 +55,65 @@ export default function BooksScriptsPage() {
   const [bulkFilter, setBulkFilter] = useState<'unpaid' | 'all' | 'recent' | 'daterange' | 'draft'>('daterange')
   const [bulkEntity, setBulkEntity] = useState<'invoices' | 'salesorders' | 'estimates'>('invoices')
   const [bulkForce, setBulkForce] = useState(false)
-  const [bulkApplyTariff, setBulkApplyTariff] = useState(true)  // default ON for invoices
+  const [bulkApplyTariff, setBulkApplyTariff] = useState(true)
   const [bulkProgress, setBulkProgress] = useState("")
   const [bulkRunning, setBulkRunning] = useState(false)
-  // Date range defaults to current month
   const nowY = new Date().getFullYear()
   const nowM = String(new Date().getMonth() + 1).padStart(2, '0')
   const lastDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
   const [bulkStartDate, setBulkStartDate] = useState(`${nowY}-${nowM}-01`)
   const [bulkEndDate, setBulkEndDate] = useState(`${nowY}-${nowM}-${lastDayOfMonth}`)
+
+  // ── Sync Pending to Zoho state ───────────────────────────────────────────
+  const [pendingCounts, setPendingCounts] = useState<PendingCounts | null>(null)
+  const [pendingLoading, setPendingLoading] = useState(false)
+  const [zohoSync, setZohoSync] = useState<ZohoSyncState>({
+    running: false, result: null, error: null, lastRan: null,
+  })
+
+  // ── Auto-load pending counts on mount ────────────────────────────────────
+  useEffect(() => {
+    fetchPendingCounts()
+  }, [])
+
+  const fetchPendingCounts = async () => {
+    setPendingLoading(true)
+    try {
+      const res = await fetch('/api/sync-costs-to-zoho')
+      if (res.ok) {
+        const data = await res.json()
+        setPendingCounts(data.pending)
+      }
+    } catch { /* non-fatal */ } finally {
+      setPendingLoading(false)
+    }
+  }
+
+  // ── Sync Pending → Zoho ───────────────────────────────────────────────────
+  const runSyncToZoho = async () => {
+    setZohoSync(prev => ({ ...prev, running: true, error: null, result: null }))
+    try {
+      const res = await fetch('/api/sync-costs-to-zoho', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ docTypes: ['invoices', 'quotes', 'salesorders'] }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setZohoSync({
+          running: false,
+          result: { synced: data.summary.synced, skipped: data.summary.skipped, errors: data.summary.errors },
+          error: null,
+          lastRan: new Date(),
+        })
+        await fetchPendingCounts()
+      } else {
+        setZohoSync(prev => ({ ...prev, running: false, error: data.error || 'Unknown error' }))
+      }
+    } catch (err: any) {
+      setZohoSync(prev => ({ ...prev, running: false, error: err.message }))
+    }
+  }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
   const runScript = async (scriptName: string, endpoint: string) => {
@@ -95,7 +163,7 @@ export default function BooksScriptsPage() {
                 log: [...prev.log.slice(-30), `  ${entityLabels[entity]} page ${page}: ${totalProcessed} processed, ${totalErrors} errors`],
               }))
 
-              const res = await fetch('/.netlify/functions/bulk-process-costs', {
+              const res = await fetch('/api/admin/books/bulk-process-costs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -122,9 +190,7 @@ export default function BooksScriptsPage() {
 
               if (!data.hasMore) break
               page++
-              if (page > 500) break // Hard safety cap
-              
-              // Small delay between pages to avoid Zoho rate limits
+              if (page > 500) break
               await new Promise(r => setTimeout(r, 200))
             }
 
@@ -154,6 +220,9 @@ export default function BooksScriptsPage() {
           phase: 'done',
           log: [...prev.log, `-- Complete in ${elapsed}min | ${totalProc} docs updated | ${totalErr} errors`],
         }))
+
+        // Refresh pending counts after full sync
+        await fetchPendingCounts()
       }
     )
   }
@@ -161,7 +230,7 @@ export default function BooksScriptsPage() {
   // ── Bulk Process (single entity, single page loop) ───────────────────────
   const runBulkProcessCosts = async () => {
     const entityLabel = bulkEntity === 'invoices' ? 'invoices' : bulkEntity === 'salesorders' ? 'sales orders' : 'quotes'
-    toastConfirm(`Process costs for ${bulkFilter === 'all' ? 'ALL' : bulkFilter} ${entityLabel}? This will recalculate dead costs, dead profit, VIG, profit, and commissions.`, async () => {
+    toastConfirm(`Process costs for ${bulkFilter === 'all' ? 'ALL' : bulkFilter} ${entityLabel}? This will recalculate dead costs, dead profit, VIG, profit, and commissions — then automatically sync results to Zoho.`, async () => {
 
       setBulkRunning(true)
       setBulkProgress("Starting...")
@@ -171,12 +240,13 @@ export default function BooksScriptsPage() {
       let totalProcessed = 0
       let totalErrors = 0
       let totalSkipped = 0
+      let autoSyncResult: any = null
 
       try {
         while (true) {
           setBulkProgress(`Processing page ${page}... (${totalProcessed} done, ${totalErrors} errors)`)
 
-          const res = await fetch('/.netlify/functions/bulk-process-costs', {
+          const res = await fetch('/api/admin/books/bulk-process-costs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -196,6 +266,9 @@ export default function BooksScriptsPage() {
             break
           }
 
+          // Capture auto-sync result from the last page that had one
+          if (data.autoSync) autoSyncResult = data.autoSync
+
           for (const r of (data.results || [])) {
             if (r.status === 'processed') totalProcessed++
             else if (r.status === 'skipped') totalSkipped++
@@ -203,31 +276,122 @@ export default function BooksScriptsPage() {
           }
 
           if (!data.hasMore) {
-            setResults(prev => ({ ...prev, 'bulk-costs': `Done! ${totalProcessed} processed, ${totalSkipped} skipped, ${totalErrors} errors across ${page} pages.` }))
+            const syncMsg = autoSyncResult?.summary
+              ? ` | Auto-synced ${autoSyncResult.summary.synced} to Zoho`
+              : ''
+            setResults(prev => ({
+              ...prev,
+              'bulk-costs': `Done! ${totalProcessed} processed, ${totalSkipped} skipped, ${totalErrors} errors across ${page} pages.${syncMsg}`
+            }))
             break
           }
 
           page++
-          if (page > 200) break // Safety
+          if (page > 200) break
         }
       } catch (err: any) {
         setResults(prev => ({ ...prev, 'bulk-costs': `Error: ${err.message}` }))
       } finally {
         setBulkRunning(false)
         setBulkProgress("")
+        // Refresh pending counts
+        await fetchPendingCounts()
       }
     });
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
-  const anyBusy = fullSync.running || bulkRunning || loading !== null
+  const anyBusy = fullSync.running || bulkRunning || loading !== null || zohoSync.running
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">
-      <h1 className="text-2xl font-bold text-white">Zoho Books Maintenance Scripts</h1>
-      <p className="text-neutral-400">Run manual backend scripts to fix or sync Zoho Books data.</p>
+      <div>
+        <h1 className="text-2xl font-bold text-white">Zoho Books Maintenance</h1>
+        <p className="text-neutral-400 mt-1 text-sm">All data is served from the local database. Changes sync automatically to Zoho Books.</p>
+      </div>
 
-      {/* ── Full Data Sync (NEW) ── */}
+      {/* ── Sync Pending to Zoho — TOP PRIORITY CARD ── */}
+      <div className="glass-panel border border-sky-500/40 p-6 rounded-2xl space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-sky-400 flex items-center gap-2">
+              <FiCloud />
+              Sync Pending Changes → Zoho Books
+            </h2>
+            <p className="text-sm text-neutral-400 mt-1">
+              Pushes all locally-calculated cost changes that are queued for Zoho. Happens <strong className="text-sky-400">automatically</strong> after bulk processing — use this button to force a manual sync at any time.
+            </p>
+          </div>
+
+          {/* Pending counts badge */}
+          <div className="flex items-center gap-3 shrink-0">
+            {pendingLoading ? (
+              <FiLoader className="animate-spin text-sky-400" size={16} />
+            ) : pendingCounts ? (
+              <div className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full border ${
+                pendingCounts.total > 0
+                  ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                  : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+              }`}>
+                {pendingCounts.total > 0 ? (
+                  <>
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    {pendingCounts.total} pending ({pendingCounts.invoices}i / {pendingCounts.quotes}q / {pendingCounts.salesOrders}so)
+                  </>
+                ) : (
+                  <>
+                    <FiCheck size={11} />
+                    All synced to Zoho
+                  </>
+                )}
+              </div>
+            ) : null}
+            <button
+              onClick={fetchPendingCounts}
+              disabled={anyBusy || pendingLoading}
+              title="Refresh pending count"
+              className="p-1.5 rounded-lg text-neutral-500 hover:text-sky-400 hover:bg-sky-500/10 transition-colors disabled:opacity-40"
+            >
+              <FiRefreshCw size={13} className={pendingLoading ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </div>
+
+        {/* Sync result / error */}
+        {zohoSync.result && (
+          <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
+            <FiCheck size={13} />
+            Sync complete: {zohoSync.result.synced} pushed, {zohoSync.result.skipped} skipped, {zohoSync.result.errors} errors
+            {zohoSync.lastRan && <span className="text-neutral-500 font-normal ml-1">at {zohoSync.lastRan.toLocaleTimeString()}</span>}
+          </div>
+        )}
+        {zohoSync.error && (
+          <div className="flex items-center gap-2 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+            <FiAlertCircle size={13} />
+            {zohoSync.error}
+          </div>
+        )}
+
+        <button
+          disabled={anyBusy}
+          onClick={() => {
+            if ((pendingCounts?.total ?? 0) === 0 && !zohoSync.result) {
+              // Nothing pending — still allow manual force
+            }
+            runSyncToZoho()
+          }}
+          className="w-full bg-sky-700 hover:bg-sky-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+        >
+          {zohoSync.running ? <FiLoader className="animate-spin" /> : <FiCloud />}
+          {zohoSync.running
+            ? 'Syncing to Zoho...'
+            : pendingCounts && pendingCounts.total > 0
+            ? `Sync ${pendingCounts.total} Pending → Zoho Books`
+            : 'Sync All Pending → Zoho Books'}
+        </button>
+      </div>
+
+      {/* ── Full Data Sync ── */}
       <div className="glass-panel border border-emerald-500/40 p-6 rounded-2xl space-y-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -299,8 +463,7 @@ export default function BooksScriptsPage() {
           <div>
             <h2 className="text-lg font-bold text-indigo-400 flex items-center gap-2"><FiCpu /> Bulk Process Document Costs</h2>
             <p className="text-sm text-neutral-400 mt-2">
-              Recalculate <strong>dead costs, dead profit, VIG, profit, and commissions</strong> for a specific entity/filter. Updates all custom fields in Zoho Books.
-              Only fields that changed are written (prevents unnecessary API calls).
+              Recalculate <strong>dead costs, dead profit, VIG, profit, and commissions</strong> for a specific entity/filter. Stores results in the local DB, then <span className="text-indigo-400 font-semibold">automatically syncs</span> changed fields to Zoho Books.
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
@@ -351,11 +514,10 @@ export default function BooksScriptsPage() {
           </div>
         </div>
 
-        {/* Date range row — shown when filter = daterange */}
+        {/* Date range row */}
         {bulkFilter === 'daterange' && (
           <div className="flex items-center gap-3 flex-wrap bg-indigo-950/30 border border-indigo-500/20 rounded-xl px-4 py-3">
             <span className="text-xs font-bold text-indigo-300">Date Range:</span>
-            {/* Month quick-picks */}
             {(() => {
               const today = new Date()
               const months = Array.from({ length: 6 }, (_, i) => {
@@ -418,147 +580,151 @@ export default function BooksScriptsPage() {
             bulkFilter === 'draft'     ? 'Draft' :
             bulkFilter === 'all'       ? 'All' :
             bulkFilter === 'recent'    ? 'Last 90 Days' : 'Unpaid'
-          } ${bulkEntity === 'invoices' ? 'Invoices' : bulkEntity === 'salesorders' ? 'Sales Orders' : 'Quotes'}`}
+          } ${bulkEntity === 'invoices' ? 'Invoices' : bulkEntity === 'salesorders' ? 'Sales Orders' : 'Quotes'} + Auto-Sync`}
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* ── Utility Scripts Grid ── */}
+      <div>
+        <h2 className="text-base font-bold text-neutral-400 uppercase tracking-widest mb-4">Utility Scripts</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
-        {/* Script 1 */}
-        <div className="glass-panel border border-[var(--border)] p-6 rounded-2xl flex flex-col justify-between space-y-4">
-          <div>
-            <h2 className="text-lg font-bold text-white">Process Draft Invoices</h2>
-            <p className="text-sm text-neutral-400 mt-2">Finds all Draft invoices in Zoho Books and changes their status to Sent automatically (with rate limiting).</p>
+          {/* Script 1: Process Drafts */}
+          <div className="glass-panel border border-[var(--border)] p-6 rounded-2xl flex flex-col justify-between space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-white">Mark Drafts as Sent</h2>
+              <p className="text-sm text-neutral-400 mt-2">Marks all Draft invoices as "Sent" in Zoho Books. Does not affect local DB data.</p>
+            </div>
+            <div>
+              {results['drafts'] && <div className="mb-3 text-xs text-emerald-400 flex items-center gap-2 bg-emerald-500/10 p-2 rounded"><FiCheck /> {results['drafts']}</div>}
+              <button
+                disabled={anyBusy}
+                onClick={() => runScript('drafts', '/api/admin/books/process-drafts')}
+                className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+                {loading === 'drafts' ? <FiLoader className="animate-spin" /> : <FiPlay />}
+                Run Script
+              </button>
+            </div>
           </div>
-          <div>
-            {results['drafts'] && <div className="mb-3 text-xs text-emerald-400 flex items-center gap-2 bg-emerald-500/10 p-2 rounded"><FiCheck /> {results['drafts']}</div>}
-            <button
-              disabled={anyBusy}
-              onClick={() => runScript('drafts', '/api/admin/books/process-drafts')}
-              className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
-              {loading === 'drafts' ? <FiLoader className="animate-spin" /> : <FiPlay />}
-              Run Script
-            </button>
-          </div>
-        </div>
 
-        {/* Script 2 */}
-        <div className="glass-panel border border-[var(--border)] p-6 rounded-2xl flex flex-col justify-between space-y-4">
-          <div>
-            <h2 className="text-lg font-bold text-white">Backfill Payment Dates</h2>
-            <p className="text-sm text-neutral-400 mt-2">Pulls paid invoices from Zoho Books and syncs their last payment dates into the local database.</p>
+          {/* Script 2: Backfill Payment Dates */}
+          <div className="glass-panel border border-[var(--border)] p-6 rounded-2xl flex flex-col justify-between space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-white">Backfill Payment Dates</h2>
+              <p className="text-sm text-neutral-400 mt-2">Pulls paid invoices from Zoho Books and syncs their last payment dates into the local database.</p>
+            </div>
+            <div>
+              {results['backfill'] && <div className="mb-3 text-xs text-emerald-400 flex items-center gap-2 bg-emerald-500/10 p-2 rounded"><FiCheck /> {results['backfill']}</div>}
+              <button
+                disabled={anyBusy}
+                onClick={() => runScript('backfill', '/api/admin/books/backfill-payments')}
+                className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+                {loading === 'backfill' ? <FiLoader className="animate-spin" /> : <FiPlay />}
+                Run Script
+              </button>
+            </div>
           </div>
-          <div>
-            {results['backfill'] && <div className="mb-3 text-xs text-emerald-400 flex items-center gap-2 bg-emerald-500/10 p-2 rounded"><FiCheck /> {results['backfill']}</div>}
-            <button
-              disabled={anyBusy}
-              onClick={() => runScript('backfill', '/api/admin/books/backfill-payments')}
-              className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
-              {loading === 'backfill' ? <FiLoader className="animate-spin" /> : <FiPlay />}
-              Run Script
-            </button>
-          </div>
-        </div>
 
-        {/* Script 3 */}
-        <div className="glass-panel border border-[var(--border)] p-6 rounded-2xl flex flex-col justify-between space-y-4">
-          <div>
-            <h2 className="text-lg font-bold text-white">Fix Overdue Status</h2>
-            <p className="text-sm text-neutral-400 mt-2">Scans local invoices marked Overdue, checks their real status in Zoho, and fixes false-positives.</p>
+          {/* Script 3: Fix Overdue */}
+          <div className="glass-panel border border-[var(--border)] p-6 rounded-2xl flex flex-col justify-between space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-white">Fix Overdue Status</h2>
+              <p className="text-sm text-neutral-400 mt-2">Scans local invoices marked Overdue, checks their real status in Zoho, and fixes false-positives.</p>
+            </div>
+            <div>
+              {results['overdue'] && <div className="mb-3 text-xs text-emerald-400 flex items-center gap-2 bg-emerald-500/10 p-2 rounded"><FiCheck /> {results['overdue']}</div>}
+              <button
+                disabled={anyBusy}
+                onClick={() => runScript('overdue', '/api/admin/books/fix-overdue')}
+                className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+                {loading === 'overdue' ? <FiLoader className="animate-spin" /> : <FiPlay />}
+                Run Script
+              </button>
+            </div>
           </div>
-          <div>
-            {results['overdue'] && <div className="mb-3 text-xs text-emerald-400 flex items-center gap-2 bg-emerald-500/10 p-2 rounded"><FiCheck /> {results['overdue']}</div>}
-            <button
-              disabled={anyBusy}
-              onClick={() => runScript('overdue', '/api/admin/books/fix-overdue')}
-              className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
-              {loading === 'overdue' ? <FiLoader className="animate-spin" /> : <FiPlay />}
-              Run Script
-            </button>
-          </div>
-        </div>
 
-        {/* Script 4: Tariff Dry Run */}
-        <div className="glass-panel border border-amber-500/30 p-6 rounded-2xl flex flex-col justify-between space-y-4">
-          <div>
-            <h2 className="text-lg font-bold text-amber-400">Batch Tariff Update (Dry Run)</h2>
-            <p className="text-sm text-neutral-400 mt-2">Preview which 2026 unpaid invoices will get a 12.5% tariff surcharge. No changes are made -- shows what <em>would</em> happen.</p>
-          </div>
-          <div>
-            {results['tariff-dry'] && <div className="mb-3 text-xs text-amber-400 flex items-center gap-2 bg-amber-500/10 p-2 rounded max-h-40 overflow-y-auto whitespace-pre-wrap"><FiCheck /> {results['tariff-dry']}</div>}
-            <button
-              disabled={anyBusy}
-              onClick={async () => {
-                setLoading('tariff-dry')
-                try {
-                  const res = await fetch('/api/batch-tariff-update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ dryRun: true })
-                  })
-                  const data = await res.json()
-                  if (data.success) {
-                    const s = data.summary
-                    const invoiceList = (data.invoices || []).map((inv: any) => `  ${inv.invoiceNumber} -- ${inv.customerName}: DC=$${inv.nonGiftDeadCost?.toFixed(2)}, Tariff=$${inv.tariffAmount?.toFixed(2)}`).join('\n')
-                    setResults(prev => ({ ...prev, ['tariff-dry']: `Found ${s.totalUnpaid2026} unpaid, ${s.zeroAdjustment} with $0 adj, ${s.processed} eligible, ${s.skipped} skipped.\n${invoiceList}` }))
-                  } else {
-                    setResults(prev => ({ ...prev, ['tariff-dry']: `Error: ${data.error}` }))
-                  }
-                } catch (err: any) {
-                  setResults(prev => ({ ...prev, ['tariff-dry']: `Error: ${err.message}` }))
-                } finally {
-                  setLoading(null)
-                }
-              }}
-              className="w-full bg-amber-600 hover:bg-amber-500 text-black font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
-              {loading === 'tariff-dry' ? <FiLoader className="animate-spin" /> : <FiPlay />}
-              Preview (Dry Run)
-            </button>
-          </div>
-        </div>
-
-        {/* Script 5: Tariff Live */}
-        <div className="glass-panel border border-red-500/30 p-6 rounded-2xl flex flex-col justify-between space-y-4">
-          <div>
-            <h2 className="text-lg font-bold text-red-400">Batch Tariff Update (LIVE)</h2>
-            <p className="text-sm text-neutral-400 mt-2">Applies 12.5% tariff surcharge to all qualifying 2026 unpaid invoices. <strong className="text-red-400">This modifies live invoices.</strong></p>
-          </div>
-          <div>
-            {results['tariff-live'] && <div className="mb-3 text-xs text-emerald-400 flex items-center gap-2 bg-emerald-500/10 p-2 rounded max-h-40 overflow-y-auto whitespace-pre-wrap"><FiCheck /> {results['tariff-live']}</div>}
-            <button
-              disabled={anyBusy}
-              onClick={async () => {
-                toastConfirm('This will MODIFY live Zoho Books invoices by adding tariff surcharges. Are you absolutely sure?', async () => {
-                  setLoading('tariff-live')
+          {/* Script 4: Tariff Dry Run */}
+          <div className="glass-panel border border-amber-500/30 p-6 rounded-2xl flex flex-col justify-between space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-amber-400">Batch Tariff Update (Dry Run)</h2>
+              <p className="text-sm text-neutral-400 mt-2">Preview which 2026 unpaid invoices will get a 12.5% tariff surcharge. No changes are made — shows what <em>would</em> happen.</p>
+            </div>
+            <div>
+              {results['tariff-dry'] && <div className="mb-3 text-xs text-amber-400 flex items-center gap-2 bg-amber-500/10 p-2 rounded max-h-40 overflow-y-auto whitespace-pre-wrap"><FiCheck /> {results['tariff-dry']}</div>}
+              <button
+                disabled={anyBusy}
+                onClick={async () => {
+                  setLoading('tariff-dry')
                   try {
                     const res = await fetch('/api/batch-tariff-update', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ dryRun: false })
+                      body: JSON.stringify({ dryRun: true })
                     })
                     const data = await res.json()
                     if (data.success) {
                       const s = data.summary
-                      const errors = (data.invoices || []).filter((inv: any) => inv.status === 'error')
-                      const errorList = errors.length > 0 ? '\n\nErrors:\n' + errors.map((inv: any) => `  ${inv.invoiceNumber} (${inv.customerName}): ${inv.error}`).join('\n') : ''
-                      setResults(prev => ({ ...prev, ['tariff-live']: `Done! ${s.processed} invoices updated, ${s.skipped} skipped, ${s.errors} errors.${errorList}` }))
+                      const invoiceList = (data.invoices || []).map((inv: any) => `  ${inv.invoiceNumber} — ${inv.customerName}: DC=$${inv.nonGiftDeadCost?.toFixed(2)}, Tariff=$${inv.tariffAmount?.toFixed(2)}`).join('\n')
+                      setResults(prev => ({ ...prev, ['tariff-dry']: `Found ${s.totalUnpaid2026} unpaid, ${s.zeroAdjustment} with $0 adj, ${s.processed} eligible, ${s.skipped} skipped.\n${invoiceList}` }))
                     } else {
-                      setResults(prev => ({ ...prev, ['tariff-live']: `Error: ${data.error}` }))
+                      setResults(prev => ({ ...prev, ['tariff-dry']: `Error: ${data.error}` }))
                     }
                   } catch (err: any) {
-                    setResults(prev => ({ ...prev, ['tariff-live']: `Error: ${err.message}` }))
+                    setResults(prev => ({ ...prev, ['tariff-dry']: `Error: ${err.message}` }))
                   } finally {
                     setLoading(null)
                   }
-                });
-              }}
-              className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
-              {loading === 'tariff-live' ? <FiLoader className="animate-spin" /> : <FiAlertCircle />}
-              Run LIVE Update
-            </button>
+                }}
+                className="w-full bg-amber-600 hover:bg-amber-500 text-black font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+                {loading === 'tariff-dry' ? <FiLoader className="animate-spin" /> : <FiPlay />}
+                Preview (Dry Run)
+              </button>
+            </div>
           </div>
-        </div>
 
+          {/* Script 5: Tariff Live */}
+          <div className="glass-panel border border-red-500/30 p-6 rounded-2xl flex flex-col justify-between space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-red-400">Batch Tariff Update (LIVE)</h2>
+              <p className="text-sm text-neutral-400 mt-2">Applies 12.5% tariff surcharge to all qualifying 2026 unpaid invoices. <strong className="text-red-400">This modifies live invoices.</strong></p>
+            </div>
+            <div>
+              {results['tariff-live'] && <div className="mb-3 text-xs text-emerald-400 flex items-center gap-2 bg-emerald-500/10 p-2 rounded max-h-40 overflow-y-auto whitespace-pre-wrap"><FiCheck /> {results['tariff-live']}</div>}
+              <button
+                disabled={anyBusy}
+                onClick={async () => {
+                  toastConfirm('This will MODIFY live Zoho Books invoices by adding tariff surcharges. Are you absolutely sure?', async () => {
+                    setLoading('tariff-live')
+                    try {
+                      const res = await fetch('/api/batch-tariff-update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ dryRun: false })
+                      })
+                      const data = await res.json()
+                      if (data.success) {
+                        const s = data.summary
+                        const errors = (data.invoices || []).filter((inv: any) => inv.status === 'error')
+                        const errorList = errors.length > 0 ? '\n\nErrors:\n' + errors.map((inv: any) => `  ${inv.invoiceNumber} (${inv.customerName}): ${inv.error}`).join('\n') : ''
+                        setResults(prev => ({ ...prev, ['tariff-live']: `Done! ${s.processed} invoices updated, ${s.skipped} skipped, ${s.errors} errors.${errorList}` }))
+                      } else {
+                        setResults(prev => ({ ...prev, ['tariff-live']: `Error: ${data.error}` }))
+                      }
+                    } catch (err: any) {
+                      setResults(prev => ({ ...prev, ['tariff-live']: `Error: ${err.message}` }))
+                    } finally {
+                      setLoading(null)
+                    }
+                  });
+                }}
+                className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+                {loading === 'tariff-live' ? <FiLoader className="animate-spin" /> : <FiAlertCircle />}
+                Run LIVE Update
+              </button>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   )
