@@ -54,10 +54,33 @@ export const handler: Handler = async (event) => {
         constantVigEnabled: true, constantVigValue: true,
         monthlyVigGoals: {
           where: { monthKey: { in: monthKeys } },
-          select: { monthKey: true, metric: true, profitGoal: true, subtotalGoal: true, manualVigRate: true, lastSyncedVigRate: true }
+          select: { monthKey: true, metric: true, profitGoal: true, subtotalGoal: true, workingDays: true, manualVigRate: true, lastSyncedVigRate: true }
         }
       }
     })
+
+    // ── 3a. Load company holidays from SystemSetting ───────────────────────
+    // Stored as JSON array of 'YYYY-MM-DD' strings
+    const holidaySetting = await prisma.systemSetting.findUnique({ where: { key: 'company_holidays' } }).catch(() => null)
+    const companyHolidays = new Set<string>(
+      holidaySetting ? (JSON.parse(holidaySetting.value) as string[]) : []
+    )
+
+    // ── 3b. Helper: count weekdays in a month minus company holidays ────────
+    function calcWorkingDays(monthKey: string): number {
+      const [yyyy, mm] = monthKey.split('-').map(Number)
+      const daysInMonth = new Date(yyyy, mm, 0).getDate()  // last day of month
+      let count = 0
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = new Date(yyyy, mm - 1, d)
+        const dow  = date.getDay() // 0=Sun, 6=Sat
+        if (dow === 0 || dow === 6) continue // skip weekends
+        const iso = `${yyyy}-${String(mm).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+        if (companyHolidays.has(iso)) continue // skip holidays
+        count++
+      }
+      return count
+    }
 
     // ── 3. Build name → userId map for invoice resolution ─────────────────
     const nameToId: Record<string, string> = {}
@@ -184,19 +207,32 @@ export const handler: Handler = async (event) => {
           vigReason = `System default (no goal set for this month)`
         }
 
+        // Working days: stored override → computed (weekdays - holidays)
+        const storedWorkingDays = goal?.workingDays ?? null
+        const computedWorkingDays = calcWorkingDays(mk)
+        const workingDays = storedWorkingDays ?? computedWorkingDays
+
+        const isProfit   = (goal?.metric ?? 'PROFIT') !== 'SUBTOTAL'
+        const goalValue  = isProfit ? (goal?.profitGoal ?? 20000) : (goal?.subtotalGoal ?? 40000)
+        const dailyGoal  = workingDays > 0 ? Math.round(goalValue / workingDays) : 0
+
         reps[u.id] = {
           vigRate, manualVigRate, lastSyncedVigRate, vigReason,
-          metric:       goal?.metric       ?? 'PROFIT',
-          profitGoal:   goal?.profitGoal   ?? 20000,
-          subtotalGoal: goal?.subtotalGoal ?? 40000,
-          subtotal:     stats.subtotal,
-          deadCost:     stats.deadCost,
-          deadProfit:   stats.deadProfit,
-          invoiceCount: stats.invoiceCount,
-          metGoal:      (goal?.metric === 'SUBTOTAL')
+          metric:            goal?.metric       ?? 'PROFIT',
+          profitGoal:        goal?.profitGoal   ?? 20000,
+          subtotalGoal:      goal?.subtotalGoal ?? 40000,
+          workingDays,
+          computedWorkingDays,
+          storedWorkingDays,
+          dailyGoal,
+          subtotal:          stats.subtotal,
+          deadCost:          stats.deadCost,
+          deadProfit:        stats.deadProfit,
+          invoiceCount:      stats.invoiceCount,
+          metGoal:           (goal?.metric === 'SUBTOTAL')
             ? stats.subtotal  >= (goal?.subtotalGoal ?? 40000)
             : stats.deadProfit >= (goal?.profitGoal  ?? 20000),
-          mismatches: stats.mismatches
+          mismatches:        stats.mismatches
         }
       })
 
@@ -217,7 +253,12 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({ success: true, months: result, reps: repList })
+      body: JSON.stringify({
+        success: true,
+        months: result,
+        reps: repList,
+        holidays: Array.from(companyHolidays).sort()
+      })
     }
 
   } catch (err: any) {

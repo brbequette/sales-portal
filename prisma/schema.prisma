@@ -419,6 +419,7 @@ model MonthlyVigGoal {
   metric            String    @default("PROFIT")
   profitGoal        Float     @default(20000)
   subtotalGoal      Float     @default(40000)
+  workingDays       Int?      // Editable: weekdays in month minus company holidays
   manualVigRate     Float?
   lastSyncedVigRate Float?
   lastSyncedAt      DateTime?
