@@ -549,9 +549,9 @@ export default function PayoutsPage() {
         </div>
       )}
 
-      {/* EDIT PAYOUT MODAL */}
+      {/* EDIT PAYOUT MODAL — z-[60] so it appears above the z-50 timeline modal */}
       {editingPayout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-neutral-900 border border-white/10 p-6 rounded-2xl w-full max-w-md space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -715,14 +715,14 @@ export default function PayoutsPage() {
                           {tx.type === 'payout' && tx.rawPayout && (
                             <div className="flex items-center gap-1.5 border-l border-white/10 pl-3">
                               <button
-                                onClick={() => handleOpenEditPayout(tx.rawPayout)}
+                                onClick={(e) => { e.stopPropagation(); handleOpenEditPayout(tx.rawPayout) }}
                                 title="Edit Payout"
                                 className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-purple-300 rounded-lg text-xs font-bold border border-purple-500/30 cursor-pointer transition-all"
                               >
                                 <FiEdit2 size={13} />
                               </button>
                               <button
-                                onClick={() => handleDeletePayout(tx.rawPayoutId!)}
+                                onClick={(e) => { e.stopPropagation(); handleDeletePayout(tx.rawPayoutId!) }}
                                 title="Delete Payout"
                                 className="p-1.5 bg-neutral-800 hover:bg-red-950 text-red-400 rounded-lg text-xs font-bold border border-red-500/30 cursor-pointer transition-all"
                               >
@@ -779,14 +779,14 @@ export default function PayoutsPage() {
                             {tx.type === 'payout' && tx.rawPayout && (
                               <div className="flex items-center justify-center gap-2">
                                 <button
-                                  onClick={() => handleOpenEditPayout(tx.rawPayout)}
+                                  onClick={(e) => { e.stopPropagation(); handleOpenEditPayout(tx.rawPayout) }}
                                   title="Edit Payout"
                                   className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-purple-300 rounded-lg text-xs font-bold border border-purple-500/30 cursor-pointer"
                                 >
                                   <FiEdit2 size={12} />
                                 </button>
                                 <button
-                                  onClick={() => handleDeletePayout(tx.rawPayoutId!)}
+                                  onClick={(e) => { e.stopPropagation(); handleDeletePayout(tx.rawPayoutId!) }}
                                   title="Delete Payout"
                                   className="p-1.5 bg-neutral-800 hover:bg-red-950 text-red-400 rounded-lg text-xs font-bold border border-red-500/30 cursor-pointer"
                                 >
@@ -814,6 +814,246 @@ export default function PayoutsPage() {
         </div>
       )}
 
+      {/* CSV IMPORT MODAL */}
+      {showCsvModal && (
+        <CsvImportModal
+          onClose={() => { setShowCsvModal(false); setCsvUploadStatus(null); setCsvErrors([]) }}
+          ledger={ledger}
+          onSuccess={() => { setShowCsvModal(false); setCsvUploadStatus(null); setCsvErrors([]); fetchLedger() }}
+        />
+      )}
+
+    </div>
+  )
+}
+
+// ── CSV Import Modal Component ────────────────────────────────────────────────
+interface CsvImportModalProps {
+  onClose: () => void
+  ledger: RepLedger[]
+  onSuccess: () => void
+}
+
+function CsvImportModal({ onClose, ledger, onSuccess }: CsvImportModalProps) {
+  const [preview, setPreview] = useState<{ row: Record<string, string>; repId: string | null; repName: string; matched: boolean }[]>([])
+  const [status, setStatus] = useState<string | null>(null)
+  const [errors, setErrors] = useState<string[]>([])
+  const [importing, setImporting] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
+
+  // Fuzzy rep name match: normalize and find closest
+  function matchRep(csvName: string): { repId: string | null; repName: string; matched: boolean } {
+    const norm = (s: string) => s.toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/\s+/g, ' ').trim()
+    const target = norm(csvName)
+    // Exact match first
+    const exact = ledger.find(r => norm(r.repName) === target)
+    if (exact) return { repId: exact.repId, repName: exact.repName, matched: true }
+    // Contains match
+    const contains = ledger.find(r => norm(r.repName).includes(target) || target.includes(norm(r.repName)))
+    if (contains) return { repId: contains.repId, repName: contains.repName, matched: true }
+    return { repId: null, repName: csvName, matched: false }
+  }
+
+  function parseAndPreview(text: string) {
+    const parsed = parseCSV(text)
+    if (parsed.length === 0) { setStatus('No rows found in CSV.'); return }
+    const previewed = parsed.map(row => {
+      const csvName = row['rep name'] || row['rep'] || row['name'] || row['representative'] || ''
+      const match = matchRep(csvName)
+      return { row, ...match }
+    })
+    setPreview(previewed)
+    setStatus(null)
+    setErrors([])
+  }
+
+  function handleFile(file: File) {
+    const reader = new FileReader()
+    reader.onload = e => parseAndPreview((e.target?.result as string) || '')
+    reader.readAsText(file)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setIsDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) handleFile(file)
+  }
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleFile(file)
+  }
+
+  const handleImport = async () => {
+    const validRows = preview.filter(p => p.matched)
+    if (validRows.length === 0) { setStatus('No rows with matched reps to import.'); return }
+
+    setImporting(true)
+    setErrors([])
+    const errs: string[] = []
+    let success = 0
+
+    for (const p of validRows) {
+      const amount = parseFloat(p.row['amount'] || p.row['payout amount'] || '0')
+      const date = p.row['payout date'] || p.row['date'] || new Date().toISOString().split('T')[0]
+      const method = p.row['method'] || p.row['payment method'] || 'Check'
+      const notes = p.row['notes'] || p.row['description'] || p.row['reference'] || ''
+
+      if (!amount || isNaN(amount) || amount <= 0) {
+        errs.push(`Row for "${p.repName}": Invalid amount "${p.row['amount']}"`)
+        continue
+      }
+
+      try {
+        const res = await fetch('/api/add-payout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repId: p.repId, amount, date, method, notes }),
+        })
+        const data = await res.json()
+        if (data.success) { success++ }
+        else { errs.push(`Row for "${p.repName}": ${data.error || 'API error'}`) }
+      } catch (e: any) {
+        errs.push(`Row for "${p.repName}": Network error - ${e.message}`)
+      }
+    }
+
+    setImporting(false)
+    setErrors(errs)
+    setStatus(`✅ Imported ${success} of ${validRows.length} payouts.${errs.length > 0 ? ` ${errs.length} failed.` : ''}`)
+    if (success > 0 && errs.length === 0) setTimeout(onSuccess, 800)
+  }
+
+  const unmatchedCount = preview.filter(p => !p.matched).length
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-white/10 shrink-0">
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <FiUpload className="text-blue-400" /> Bulk Import Payouts via CSV
+            </h3>
+            <p className="text-xs text-neutral-400 mt-0.5">Required columns: <span className="text-white font-mono">Rep Name, Amount, Method, Payout Date, Notes</span></p>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-neutral-400 hover:text-white cursor-pointer text-lg font-bold">✕</button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-5 space-y-4">
+          {/* Drop Zone */}
+          {preview.length === 0 && (
+            <div
+              onDragOver={e => { e.preventDefault(); setIsDragOver(true) }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-xl p-10 text-center transition-all ${
+                isDragOver ? 'border-blue-500 bg-blue-500/10' : 'border-white/20 hover:border-white/40'
+              }`}
+            >
+              <FiUpload size={32} className="mx-auto mb-3 text-neutral-500" />
+              <p className="text-sm font-bold text-white mb-1">Drag & drop your CSV here</p>
+              <p className="text-xs text-neutral-400 mb-4">or click to browse</p>
+              <label className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold cursor-pointer transition-all">
+                Choose File
+                <input type="file" accept=".csv" onChange={handleFileInput} className="hidden" />
+              </label>
+            </div>
+          )}
+
+          {/* Preview Table */}
+          {preview.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-neutral-400">
+                  <span className="text-white font-bold">{preview.length} rows</span> parsed —
+                  <span className="text-emerald-400 font-bold"> {preview.length - unmatchedCount} matched</span>,
+                  <span className="text-red-400 font-bold"> {unmatchedCount} unmatched</span>
+                </p>
+                <label className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-xs font-bold cursor-pointer border border-neutral-700">
+                  Change File <input type="file" accept=".csv" onChange={handleFileInput} className="hidden" />
+                </label>
+              </div>
+
+              <div className="rounded-xl overflow-hidden border border-white/10">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-neutral-800 text-neutral-400 uppercase text-[10px] tracking-wider">
+                      <th className="p-2 text-left">Match</th>
+                      <th className="p-2 text-left">CSV Name → Matched Rep</th>
+                      <th className="p-2 text-right">Amount</th>
+                      <th className="p-2 text-left">Method</th>
+                      <th className="p-2 text-left">Date</th>
+                      <th className="p-2 text-left">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {preview.map((p, i) => (
+                      <tr key={i} className={`${p.matched ? 'bg-black/20' : 'bg-red-950/20'} hover:bg-white/5 transition-colors`}>
+                        <td className="p-2">
+                          {p.matched
+                            ? <FiCheckCircle className="text-emerald-400" size={13} />
+                            : <span className="text-red-400 font-bold text-[10px]">NO MATCH</span>
+                          }
+                        </td>
+                        <td className="p-2">
+                          <div className="text-neutral-400 text-[10px]">{p.row['rep name'] || p.row['rep'] || p.row['name'] || '—'}</div>
+                          {p.matched && <div className="text-white font-bold">{p.repName}</div>}
+                        </td>
+                        <td className="p-2 text-right font-mono text-emerald-400 font-bold">
+                          ${parseFloat(p.row['amount'] || '0').toFixed(2)}
+                        </td>
+                        <td className="p-2 text-neutral-300">{p.row['method'] || p.row['payment method'] || 'Check'}</td>
+                        <td className="p-2 font-mono text-neutral-400">{p.row['payout date'] || p.row['date'] || '—'}</td>
+                        <td className="p-2 text-neutral-400 max-w-[120px] truncate" title={p.row['notes']}>{p.row['notes'] || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {unmatchedCount > 0 && (
+                <p className="text-xs text-red-400 bg-red-950/30 border border-red-500/30 rounded-xl p-3">
+                  ⚠️ {unmatchedCount} row(s) have unrecognized rep names and will be skipped. Check spelling against the ledger.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Status & Errors */}
+          {status && (
+            <p className={`text-xs font-bold p-3 rounded-xl border ${
+              status.includes('✅') ? 'text-emerald-400 bg-emerald-950/30 border-emerald-500/30' : 'text-red-400 bg-red-950/30 border-red-500/30'
+            }`}>{status}</p>
+          )}
+          {errors.length > 0 && (
+            <div className="space-y-1">
+              {errors.map((e, i) => <p key={i} className="text-xs text-red-400 bg-red-950/20 p-2 rounded-lg">{e}</p>)}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-white/10 bg-black/40 shrink-0 flex justify-between items-center gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleImport}
+            disabled={importing || preview.filter(p => p.matched).length === 0}
+            className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold cursor-pointer shadow-lg shadow-blue-900/20 flex items-center gap-2"
+          >
+            {importing ? (
+              <><span className="animate-spin inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full" /> Importing...</>
+            ) : (
+              <><FiCheckCircle size={13} /> Import {preview.filter(p => p.matched).length} Payouts</>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
