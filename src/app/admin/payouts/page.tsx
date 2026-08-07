@@ -679,61 +679,94 @@ export default function PayoutsPage() {
             
             <div className="overflow-y-auto flex-1 p-5">
               {ledgerViewMode === "timeline" ? (
-                /* CHRONOLOGICAL TIMELINE LIST VIEW */
-                <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-white/10">
-                  {transactionLedger.map((tx, i) => (
-                    <div key={`${tx.id}-${i}`} className="relative group">
-                      {/* Node Bullet */}
-                      <div className={`absolute -left-6 top-3.5 w-3.5 h-3.5 rounded-full border-2 border-neutral-900 shadow-md ${
-                        tx.type === 'commission' ? 'bg-emerald-400 ring-2 ring-emerald-500/20' : 'bg-purple-400 ring-2 ring-purple-500/20'
-                      }`} />
+                /* SPLIT TIMELINE — commissions LEFT, payouts RIGHT */
+                <div className="relative">
+                  {/* Center spine */}
+                  <div className="absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-white/15 to-transparent pointer-events-none" />
 
-                      <div className="bg-black/40 hover:bg-black/60 border border-white/10 p-4 rounded-2xl transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                              tx.type === 'commission' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                            }`}>
-                              {tx.type === 'commission' ? '💰 Commission Earned' : '💸 Payout Recorded'}
-                            </span>
-                            <span className="text-xs font-mono text-neutral-400">{formatDate(tx.date)}</span>
+                  {/* Legend */}
+                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-5 px-2">
+                    <span className="text-emerald-500/70">💰 Commissions Earned</span>
+                    <span className="text-purple-500/70">Payouts Recorded 💸</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {transactionLedger.map((tx, i) => {
+                      const isCommission = tx.type === 'commission'
+                      return (
+                        <div key={`${tx.id}-${i}`} className="relative flex items-center gap-0">
+
+                          {/* LEFT SIDE — Commission card */}
+                          <div className="w-[calc(50%-20px)] flex justify-end">
+                            {isCommission ? (
+                              <div className="bg-black/40 hover:bg-emerald-950/30 border border-emerald-500/20 hover:border-emerald-500/40 p-3 rounded-xl transition-all w-full max-w-sm group/card">
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400/70">Commission</span>
+                                  <span className="text-[9px] font-mono text-neutral-500">{formatDate(tx.date)}</span>
+                                </div>
+                                <div className="text-xs font-bold text-white leading-snug mb-2 truncate" title={tx.description}>{tx.description}</div>
+                                <div className="flex items-end justify-between">
+                                  <div className="text-[10px] font-mono text-neutral-500">
+                                    Bal: <span className="text-purple-300/80 font-bold">{formatCurrency(tx.runningBalance)}</span>
+                                  </div>
+                                  <div className="text-sm font-mono font-black text-emerald-400">+{formatCurrency(tx.amount)}</div>
+                                </div>
+                              </div>
+                            ) : <div className="w-full" />}
                           </div>
-                          <div className="text-xs font-bold text-white">{tx.description}</div>
-                        </div>
 
-                        <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
-                          <div className="text-right">
-                            <div className={`text-sm font-mono font-black ${tx.amount > 0 ? 'text-emerald-400' : 'text-purple-300'}`}>
-                              {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
-                            </div>
-                            <div className="text-[10px] text-neutral-500 font-mono">
-                              Balance: <span className="text-purple-300 font-bold">{formatCurrency(tx.runningBalance)}</span>
-                            </div>
+                          {/* Center dot */}
+                          <div className="w-10 flex items-center justify-center shrink-0 z-10">
+                            <div className={`w-3 h-3 rounded-full border-2 border-neutral-900 shadow-lg ${
+                              isCommission
+                                ? 'bg-emerald-400 shadow-emerald-500/30'
+                                : 'bg-purple-400 shadow-purple-500/30'
+                            }`} />
                           </div>
 
-                          {/* Action Buttons for Payouts */}
-                          {tx.type === 'payout' && tx.rawPayout && (
-                            <div className="flex items-center gap-1.5 border-l border-white/10 pl-3">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleOpenEditPayout(tx.rawPayout) }}
-                                title="Edit Payout"
-                                className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-purple-300 rounded-lg text-xs font-bold border border-purple-500/30 cursor-pointer transition-all"
-                              >
-                                <FiEdit2 size={13} />
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleDeletePayout(tx.rawPayoutId!) }}
-                                title="Delete Payout"
-                                className="p-1.5 bg-neutral-800 hover:bg-red-950 text-red-400 rounded-lg text-xs font-bold border border-red-500/30 cursor-pointer transition-all"
-                              >
-                                <FiTrash2 size={13} />
-                              </button>
-                            </div>
-                          )}
+                          {/* RIGHT SIDE — Payout card */}
+                          <div className="w-[calc(50%-20px)] flex justify-start">
+                            {!isCommission ? (
+                              <div className="bg-black/40 hover:bg-purple-950/30 border border-purple-500/20 hover:border-purple-500/40 p-3 rounded-xl transition-all w-full max-w-sm group/card">
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-purple-400/70">Payout</span>
+                                  <span className="text-[9px] font-mono text-neutral-500">{formatDate(tx.date)}</span>
+                                </div>
+                                <div className="text-xs font-bold text-white leading-snug mb-2 truncate" title={tx.description}>{tx.description}</div>
+                                <div className="flex items-end justify-between">
+                                  <div className="text-[10px] font-mono text-neutral-500">
+                                    Bal: <span className="text-purple-300/80 font-bold">{formatCurrency(tx.runningBalance)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="text-sm font-mono font-black text-purple-300">{formatCurrency(tx.amount)}</div>
+                                    {tx.rawPayout && (
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleOpenEditPayout(tx.rawPayout) }}
+                                          title="Edit Payout"
+                                          className="p-1 bg-neutral-800 hover:bg-neutral-700 text-purple-300 rounded-md border border-purple-500/30 cursor-pointer transition-all"
+                                        >
+                                          <FiEdit2 size={11} />
+                                        </button>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleDeletePayout(tx.rawPayoutId!) }}
+                                          title="Delete Payout"
+                                          className="p-1 bg-neutral-800 hover:bg-red-950 text-red-400 rounded-md border border-red-500/30 cursor-pointer transition-all"
+                                        >
+                                          <FiTrash2 size={11} />
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : <div className="w-full" />}
+                          </div>
+
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      )
+                    })}
+                  </div>
 
                   {transactionLedger.length === 0 && (
                     <div className="p-8 text-center text-neutral-500 italic">
