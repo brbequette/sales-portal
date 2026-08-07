@@ -89,6 +89,7 @@ export default function PayoutsPage() {
   const [showCsvModal, setShowCsvModal] = useState(false)
   const [selectedRepForLedger, setSelectedRepForLedger] = useState<RepLedger | null>(null)
   const [ledgerViewMode, setLedgerViewMode] = useState<"timeline" | "table">("timeline")
+  const [timelineFilter, setTimelineFilter] = useState<"all" | "commissions" | "payouts">("all")
   const [csvUploadStatus, setCsvUploadStatus] = useState<string | null>(null)
   const [csvErrors, setCsvErrors] = useState<string[]>([])
   
@@ -637,61 +638,95 @@ export default function PayoutsPage() {
       {selectedRepForLedger && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 border-b border-white/10 shrink-0 gap-3">
-              <div>
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <FiClock className="text-purple-400" /> Chronological Timeline & Payouts Ledger
-                </h2>
-                <p className="text-xs text-neutral-400 mt-0.5">
-                  Showing complete history for <span className="font-bold text-purple-400">{selectedRepForLedger.repName}</span> from the beginning of time.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {/* View Mode Toggle */}
-                <div className="flex bg-black/50 border border-white/10 p-1 rounded-xl">
-                  <button
-                    onClick={() => setLedgerViewMode("timeline")}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                      ledgerViewMode === "timeline" ? "bg-purple-600 text-white shadow-md" : "text-neutral-400 hover:text-white"
-                    }`}
-                  >
-                    <FiActivity size={13} /> Timeline List ({transactionLedger.length})
-                  </button>
-                  <button
-                    onClick={() => setLedgerViewMode("table")}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                      ledgerViewMode === "table" ? "bg-purple-600 text-white shadow-md" : "text-neutral-400 hover:text-white"
-                    }`}
-                  >
-                    <FiList size={13} /> Table View
-                  </button>
+            <div className="flex flex-col p-5 border-b border-white/10 shrink-0 gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <FiClock className="text-purple-400" /> Chronological Timeline & Payouts Ledger
+                  </h2>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Showing complete history for <span className="font-bold text-purple-400">{selectedRepForLedger.repName}</span> from the beginning of time.
+                  </p>
                 </div>
 
-                <button 
-                  onClick={() => setSelectedRepForLedger(null)}
-                  className="p-1.5 text-neutral-400 hover:text-white bg-neutral-800 rounded-xl transition-colors cursor-pointer"
-                >
-                  ✕
-                </button>
+                <div className="flex items-center gap-3">
+                  {/* View Mode Toggle */}
+                  <div className="flex bg-black/50 border border-white/10 p-1 rounded-xl">
+                    <button
+                      onClick={() => setLedgerViewMode("timeline")}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        ledgerViewMode === "timeline" ? "bg-purple-600 text-white shadow-md" : "text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      <FiActivity size={13} /> Timeline List
+                    </button>
+                    <button
+                      onClick={() => setLedgerViewMode("table")}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        ledgerViewMode === "table" ? "bg-purple-600 text-white shadow-md" : "text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      <FiList size={13} /> Table View
+                    </button>
+                  </div>
+
+                  <button 
+                    onClick={() => setSelectedRepForLedger(null)}
+                    className="p-1.5 text-neutral-400 hover:text-white bg-neutral-800 rounded-xl transition-colors cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter Chips */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Show:</span>
+                {([
+                  { key: "all", label: `All (${transactionLedger.length})`, color: "neutral" },
+                  { key: "commissions", label: `💰 Commissions (${transactionLedger.filter(t => t.type === 'commission').length})`, color: "emerald" },
+                  { key: "payouts", label: `💸 Payouts (${transactionLedger.filter(t => t.type === 'payout').length})`, color: "purple" },
+                ] as { key: "all" | "commissions" | "payouts"; label: string; color: string }[]).map(f => (
+                  <button
+                    key={f.key}
+                    onClick={() => setTimelineFilter(f.key)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border ${
+                      timelineFilter === f.key
+                        ? f.color === 'emerald' ? 'bg-emerald-600/30 border-emerald-500/60 text-emerald-300'
+                          : f.color === 'purple' ? 'bg-purple-600/30 border-purple-500/60 text-purple-300'
+                          : 'bg-white/10 border-white/30 text-white'
+                        : 'bg-transparent border-white/10 text-neutral-500 hover:text-neutral-300 hover:border-white/20'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
               </div>
             </div>
             
             <div className="overflow-y-auto flex-1 p-5">
-              {ledgerViewMode === "timeline" ? (
+              {(() => {
+                const filteredLedger = transactionLedger.filter(tx =>
+                  timelineFilter === 'all' ? true
+                  : timelineFilter === 'commissions' ? tx.type === 'commission'
+                  : tx.type === 'payout'
+                )
+                return ledgerViewMode === "timeline" ? (
                 /* SPLIT TIMELINE — commissions LEFT, payouts RIGHT */
                 <div className="relative">
-                  {/* Center spine */}
-                  <div className="absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-white/15 to-transparent pointer-events-none" />
+                  {/* Center spine — only show when viewing all */}
+                  {timelineFilter === 'all' && <div className="absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-white/15 to-transparent pointer-events-none" />}
 
-                  {/* Legend */}
-                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-5 px-2">
-                    <span className="text-emerald-500/70">💰 Commissions Earned</span>
-                    <span className="text-purple-500/70">Payouts Recorded 💸</span>
-                  </div>
+                  {/* Legend — only when showing all */}
+                  {timelineFilter === 'all' && (
+                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-5 px-2">
+                      <span className="text-emerald-500/70">💰 Commissions Earned</span>
+                      <span className="text-purple-500/70">Payouts Recorded 💸</span>
+                    </div>
+                  )}
 
                   <div className="space-y-3">
-                    {transactionLedger.map((tx, i) => {
+                    {filteredLedger.map((tx, i) => {
                       const isCommission = tx.type === 'commission'
                       return (
                         <div key={`${tx.id}-${i}`} className="relative flex items-center gap-0">
@@ -768,9 +803,11 @@ export default function PayoutsPage() {
                     })}
                   </div>
 
-                  {transactionLedger.length === 0 && (
+                  {filteredLedger.length === 0 && (
                     <div className="p-8 text-center text-neutral-500 italic">
-                      No historical commission or payout timeline records found.
+                      {timelineFilter === 'all'
+                        ? 'No historical commission or payout timeline records found.'
+                        : `No ${timelineFilter} found for this rep.`}
                     </div>
                   )}
                 </div>
@@ -789,7 +826,7 @@ export default function PayoutsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {transactionLedger.map((tx, i) => (
+                      {filteredLedger.map((tx, i) => (
                         <tr key={`${tx.id}-${i}`} className="hover:bg-white/5 transition-colors">
                           <td className="p-3 font-mono text-neutral-400">{formatDate(tx.date)}</td>
                           <td className="p-3">
@@ -833,7 +870,8 @@ export default function PayoutsPage() {
                     </tbody>
                   </table>
                 </div>
-              )}
+                )
+              })()}
             </div>
             
             <div className="p-4 border-t border-white/10 bg-black/40 shrink-0 flex justify-between items-center">
