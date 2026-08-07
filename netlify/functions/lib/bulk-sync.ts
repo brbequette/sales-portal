@@ -1,9 +1,8 @@
-import { PrismaClient } from "@prisma/client"
-import { getZohoAccessToken } from "./zoho-auth"
+import { prisma } from "./prisma"
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from "./zoho-auth"
 
-const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
+const ORG_ID = ZOHO_ORGANIZATION_ID
 const BOOKS_BASE = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
 interface PageSyncResult {
@@ -18,10 +17,14 @@ interface PageSyncResult {
 
 /**
  * Sync ONE PAGE of a single entity from Zoho Books.
+ * nameMap: pre-built Map<accountNameLower, accountId> — built ONCE by the caller.
  * Returns hasMore=true if there are more pages to fetch.
- * The client should call repeatedly until hasMore=false.
  */
-export async function bulkSyncPage(entity: string, page: number = 1): Promise<PageSyncResult> {
+export async function bulkSyncPage(
+  entity: string,
+  page: number = 1,
+  nameMap?: Map<string, string>
+): Promise<PageSyncResult> {
   const startTime = Date.now()
   const result: PageSyncResult = { synced: 0, skipped: 0, apiCalls: 0, page, hasMore: false, durationMs: 0 }
 
@@ -29,10 +32,12 @@ export async function bulkSyncPage(entity: string, page: number = 1): Promise<Pa
     const token = await getZohoAccessToken()
     const headers = { Authorization: `Zoho-oauthtoken ${token}` }
 
-    // Build name-to-accountId map
-    const allAccounts = await prisma.account.findMany({ select: { id: true, name: true } })
-    const nameMap = new Map<string, string>()
-    allAccounts.forEach(a => nameMap.set(a.name.toLowerCase().trim(), a.id))
+    // Build name-to-accountId map only if not passed in (backwards compat)
+    if (!nameMap) {
+      const allAccounts = await prisma.account.findMany({ select: { id: true, name: true } })
+      nameMap = new Map<string, string>()
+      allAccounts.forEach(a => nameMap!.set(a.name.toLowerCase().trim(), a.id))
+    }
 
     // Determine endpoint and array key
     let endpoint: string, arrayKey: string

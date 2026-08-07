@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getZohoAccessToken } from "@/lib/zoho-auth"
+import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 
+const ORG_ID = ZOHO_ORGANIZATION_ID
 /**
  * batch-tariff-update — Inline Next.js route (no Netlify proxy)
  *
@@ -13,7 +14,6 @@ import { getZohoAccessToken } from "@/lib/zoho-auth"
 export const maxDuration = 60
 
 const ZOHO_DC    = process.env.ZOHO_DC || "com"
-const ORG_ID     = process.env.ZOHO_ORGANIZATION_ID || "664670946"
 const TARIFF_RATE = 0.125 // 12.5%
 
 const CORS = {

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getZohoAccessToken } from "@/lib/zoho-auth"
+import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 
+const ORG_ID = ZOHO_ORGANIZATION_ID
 /**
  * sync-costs-to-zoho — Inline Next.js route (no Netlify proxy)
  *
@@ -15,7 +16,6 @@ import { getZohoAccessToken } from "@/lib/zoho-auth"
  */
 
 const ZOHO_DC = process.env.ZOHO_DC || "com"
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
 
 const CORS = {
   "Content-Type": "application/json",

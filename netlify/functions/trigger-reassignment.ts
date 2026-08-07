@@ -1,8 +1,7 @@
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoAccessToken, ZOHO_DC } from "./lib/zoho-auth"
 
 import { prisma } from "./lib/prisma"
-const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event) => {
   const cors = {
@@ -131,7 +130,8 @@ export const handler: Handler = async (event) => {
       if (account.zohoId && userToZohoMap[selectedRep]) {
         zohoUpdates.push({
           id: account.zohoId,
-          Owner: userToZohoMap[selectedRep]
+          Owner: userToZohoMap[selectedRep],
+          name: account.name
         })
       }
 
@@ -159,23 +159,32 @@ export const handler: Handler = async (event) => {
       await prisma.$transaction(batch)
     }
 
-    // Run Zoho CRM updates in batches of 100 (Zoho API limit for bulk updates)
+    const failedAccounts: any[] = []
+    // Run Zoho CRM updates individually for per-account error recovery
     if (token) {
-      for (let i = 0; i < zohoUpdates.length; i += BATCH_SIZE) {
-        const batch = zohoUpdates.slice(i, i + BATCH_SIZE)
+      for (const update of zohoUpdates) {
         try {
-          const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`, {
+          const updatePayload = {
+            id: update.id,
+            Owner: update.Owner
+          }
+          const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${update.id}`, {
             method: "PUT",
             headers: {
               "Authorization": `Zoho-oauthtoken ${token}`,
               "Content-Type": "application/json"
             },
-            body: JSON.stringify({ data: batch })
+            body: JSON.stringify({ data: [updatePayload] })
           })
           const crmData = await crmRes.json()
-          console.log(`Synced batch of ${batch.length} account owner updates to Zoho`, crmData.data?.[0]?.code)
-        } catch (err) {
-          console.error("Failed to sync batch to Zoho CRM:", err)
+          
+          if (!crmRes.ok || (crmData.data && crmData.data[0].code !== 'SUCCESS')) {
+            throw new Error(crmData.data?.[0]?.message || `HTTP ${crmRes.status}`)
+          }
+          console.log(`Synced account owner update to Zoho (ID: ${update.id})`)
+        } catch (err: any) {
+          console.error(`Failed to sync account to Zoho CRM (ID: ${update.id}, Name: ${update.name}):`, err)
+          failedAccounts.push({ id: update.id, name: update.name, error: err.message })
         }
       }
     }
@@ -188,7 +197,8 @@ export const handler: Handler = async (event) => {
         markedInactive: markedResult.count,
         totalUpdateAccounts: updateAccounts.length,
         reassignedCount: accountsToAssign.length,
-        reassignedDetails: reassignedDetails.slice(0, 10) // Send sample details for confirmation
+        reassignedDetails: reassignedDetails.slice(0, 10), // Send sample details for confirmation
+        failedAccounts
       })
     }
 

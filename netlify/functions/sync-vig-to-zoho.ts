@@ -1,10 +1,10 @@
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
+const ORG_ID = ZOHO_ORGANIZATION_ID
 import { getSystemSettings } from "./lib/settings"
 
 import { prisma } from "./lib/prisma"
 const ZOHO_DC = process.env.ZOHO_DC || "com"
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
 
 // Cache customfield_ids per module to prevent redundant GET requests
 const customFieldIdCache: Record<string, string> = {}

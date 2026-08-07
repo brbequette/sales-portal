@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getZohoAccessToken } from "../../../../netlify/functions/lib/zoho-auth";
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from "../../../../netlify/functions/lib/zoho-auth";
 
 export async function GET() {
   try {
     const t = await getZohoAccessToken();
-    const org1 = "664670946";
-    const org2 = "846879854";
+    const org1 = ZOHO_ORGANIZATION_ID;
+    const org2 = "846879854"; // Legacy secondary org ID (kept for manual testing)
     
     const url1 = `https://www.zohoapis.com/books/v3/organizations`;
     const res1 = await fetch(url1, { headers: { Authorization: `Zoho-oauthtoken ${t}` } });

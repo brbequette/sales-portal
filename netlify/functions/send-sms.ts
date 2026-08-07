@@ -5,6 +5,31 @@ import { corsHeaders, handleOptions } from "./lib/cors"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 import { prisma } from "./lib/prisma"
 
+// Module-level cache for phone numbers (rarely changes)
+let _phoneNumbersCache: any[] | null = null
+let _phoneNumbersCacheAt = 0
+const PHONE_CACHE_TTL = 60 * 60 * 1000 // 1 hour
+
+async function getFromNumber(): Promise<string> {
+  const now = Date.now()
+  if (_phoneNumbersCache && now < _phoneNumbersCacheAt + PHONE_CACHE_TTL) {
+    const defaultNum = _phoneNumbersCache.find(n => n.isDefault) || _phoneNumbersCache[0]
+    return defaultNum?.number || ''
+  }
+  const envNum = process.env.ZOHO_VOICE_FROM_NUMBER || ''
+  if (envNum) return envNum
+  try {
+    const setting = await prisma.systemSetting.findUnique({ where: { key: 'zoho_phone_numbers' } })
+    if (setting?.value) {
+      _phoneNumbersCache = JSON.parse(setting.value)
+      _phoneNumbersCacheAt = now
+      const defaultNum = _phoneNumbersCache!.find(n => n.isDefault) || _phoneNumbersCache![0]
+      return defaultNum?.number || ''
+    }
+  } catch (e) { console.warn('Failed to parse phone numbers setting:', e) }
+  return ''
+}
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
 
@@ -83,26 +108,12 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // Resolve fromNumber
-    let fromNumber = process.env.ZOHO_VOICE_FROM_NUMBER || ''
-    if (!fromNumber) {
-      const setting = await prisma.systemSetting.findUnique({ where: { key: "zoho_phone_numbers" } })
-      if (setting && setting.value) {
-        try {
-          const parsed = JSON.parse(setting.value)
-          const defaultNum = parsed.find((n: any) => n.isDefault) || parsed[0]
-          if (defaultNum && defaultNum.number) {
-            fromNumber = defaultNum.number
-          }
-        } catch(e) { console.warn('Failed to parse phone numbers setting:', e) }
-      }
-    }
-
+    const fromNumber = await getFromNumber()
     if (!fromNumber) {
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ success: false, error: "No outbound Zoho Voice SMS number configured" })
+        body: JSON.stringify({ success: false, error: 'No outbound Zoho Voice SMS number configured' })
       }
     }
 

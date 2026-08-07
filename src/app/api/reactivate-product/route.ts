@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
-import { getZohoAccessToken } from "../../../../netlify/functions/lib/zoho-auth"
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "../../../../netlify/functions/lib/zoho-auth"
+
+const ORG_ID = ZOHO_ORGANIZATION_ID
 
 export async function POST(req: Request) {
   try {
@@ -7,7 +9,6 @@ export async function POST(req: Request) {
     if (!sku) return NextResponse.json({ error: "Missing SKU" }, { status: 400 })
 
     const token = await getZohoAccessToken()
-    const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
     const ZOHO_DC = process.env.ZOHO_DC || "com"
 
     // 1. Get the item ID from Zoho based on SKU

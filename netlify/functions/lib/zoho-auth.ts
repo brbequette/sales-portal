@@ -1,129 +1,131 @@
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "./prisma"
 
-const prisma = new PrismaClient()
+// ─────────────────────────────────────────────────────────────────────────────
+// Zoho Auth — Canonical Single Source of Truth
+//
+// All Netlify functions import getZohoAccessToken from here.
+// src/lib/zoho-auth.ts is a thin re-export of this file.
+//
+// Token cache strategy:
+//   1. In-memory (warm invocations)       → 0 ms
+//   2. Single DB row 'zoho_token_cache'   → 1 DB read  (was 2)
+//   3. OAuth refresh_token flow           → 1 HTTP POST + 1 DB write (was 2)
+//   4. Throw — never fall back to a static access token
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Module-level in-memory cache for fast local access
-let _cachedToken: string | null = null;
-let _tokenExpiresAt = 0;
-export const ZOHO_DC = process.env.ZOHO_DC || 'com';
-export const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
+let _cachedToken: string | null = null
+let _tokenExpiresAt = 0
 
-export async function getZohoAccessToken() {
-  const now = Date.now();
+export const ZOHO_DC = process.env.ZOHO_DC || 'com'
 
-  // 1. Check in-memory cache first (valid for at least 5 minutes)
+// Single exported constant — import this everywhere instead of re-declaring
+export const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
+
+const TOKEN_CACHE_KEY = 'zoho_token_cache'
+
+export async function getZohoAccessToken(): Promise<string> {
+  const now = Date.now()
+
+  // 1. In-memory cache (avoids DB on warm invocations)
   if (_cachedToken && now < _tokenExpiresAt - 5 * 60 * 1000) {
-    return _cachedToken;
+    return _cachedToken
   }
 
-  // 2. Check Database SystemSettings for shared cached token
+  // 2. Single DB row — token + expiry stored as one JSON value
   try {
-    const [dbTokenSetting, dbExpiresSetting] = await Promise.all([
-      prisma.systemSetting.findUnique({ where: { key: 'zoho_access_token' } }),
-      prisma.systemSetting.findUnique({ where: { key: 'zoho_token_expires_at' } })
-    ])
-
-    if (dbTokenSetting && dbExpiresSetting) {
-      const expiresAt = parseInt(dbExpiresSetting.value, 10)
-      if (!isNaN(expiresAt) && now < expiresAt - 5 * 60 * 1000) {
-        _cachedToken = dbTokenSetting.value
-        _tokenExpiresAt = expiresAt
+    const row = await prisma.systemSetting.findUnique({ where: { key: TOKEN_CACHE_KEY } })
+    if (row) {
+      const cached = JSON.parse(row.value) as { token: string; expiresAt: number }
+      if (cached.token && now < cached.expiresAt - 5 * 60 * 1000) {
+        _cachedToken = cached.token
+        _tokenExpiresAt = cached.expiresAt
         return _cachedToken
       }
     }
   } catch (e: any) {
-    console.warn('Database token cache read error:', e.message)
+    console.warn('[zoho-auth] DB token cache read error:', e.message)
   }
 
-  // 3. Try Zoho OAuth refresh_token flow
-  if (process.env.ZOHO_REFRESH_TOKEN && process.env.ZOHO_CLIENT_ID && process.env.ZOHO_CLIENT_SECRET) {
-    try {
-      const params = new URLSearchParams({
-        refresh_token: process.env.ZOHO_REFRESH_TOKEN,
-        client_id: process.env.ZOHO_CLIENT_ID,
-        client_secret: process.env.ZOHO_CLIENT_SECRET,
-        grant_type: 'refresh_token',
-      });
-
-      const res = await fetch(`https://accounts.zoho.${ZOHO_DC}/oauth/v2/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString(),
-      });
-
-      const data = await res.json();
-      if (data.access_token) {
-        const tokenVal = data.access_token
-        const expiresVal = now + (data.expires_in || 3600) * 1000
-
-        _cachedToken = tokenVal
-        _tokenExpiresAt = expiresVal
-
-        // Save new token to Database
-        try {
-          await prisma.$transaction([
-            prisma.systemSetting.upsert({
-              where: { key: 'zoho_access_token' },
-              update: { value: tokenVal },
-              create: { key: 'zoho_access_token', value: tokenVal }
-            }),
-            prisma.systemSetting.upsert({
-              where: { key: 'zoho_token_expires_at' },
-              update: { value: expiresVal.toString() },
-              create: { key: 'zoho_token_expires_at', value: expiresVal.toString() }
-            })
-          ])
-        } catch (dbErr: any) {
-          console.warn('Database token cache write error:', dbErr.message)
-        }
-
-        return _cachedToken;
-      }
-      console.warn('Zoho Token Refresh failed:', JSON.stringify(data));
-    } catch (e: any) {
-      console.warn('Zoho Token fetch error:', e.message);
-    }
+  // 3. OAuth refresh_token flow
+  if (!process.env.ZOHO_REFRESH_TOKEN || !process.env.ZOHO_CLIENT_ID || !process.env.ZOHO_CLIENT_SECRET) {
+    throw new Error('Zoho OAuth credentials missing. Set ZOHO_REFRESH_TOKEN, ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET.')
   }
 
-  // 4. Fallback: use static token
-  if (process.env.ZOHO_ACCESS_TOKEN) {
-    _cachedToken = process.env.ZOHO_ACCESS_TOKEN;
-    _tokenExpiresAt = now + 55 * 60 * 1000;
-    return _cachedToken;
+  const params = new URLSearchParams({
+    refresh_token: process.env.ZOHO_REFRESH_TOKEN,
+    client_id:     process.env.ZOHO_CLIENT_ID,
+    client_secret: process.env.ZOHO_CLIENT_SECRET,
+    grant_type:    'refresh_token',
+  })
+
+  const res = await fetch(`https://accounts.zoho.${ZOHO_DC}/oauth/v2/token`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body:    params.toString(),
+  })
+
+  const data = await res.json()
+  if (!data.access_token) {
+    throw new Error(`Zoho token refresh failed: ${JSON.stringify(data)}`)
   }
 
-  throw new Error('No Zoho access token available. Please set ZOHO_REFRESH_TOKEN in Environment Variables.');
+  const tokenVal  = data.access_token as string
+  const expiresAt = now + (data.expires_in || 3600) * 1000
+
+  _cachedToken   = tokenVal
+  _tokenExpiresAt = expiresAt
+
+  // Persist as single JSON row — 1 upsert instead of 2
+  try {
+    await prisma.systemSetting.upsert({
+      where:  { key: TOKEN_CACHE_KEY },
+      update: { value: JSON.stringify({ token: tokenVal, expiresAt }) },
+      create: { key: TOKEN_CACHE_KEY, value: JSON.stringify({ token: tokenVal, expiresAt }) },
+    })
+  } catch (dbErr: any) {
+    console.warn('[zoho-auth] DB token cache write error:', dbErr.message)
+  }
+
+  return _cachedToken
 }
 
-export async function pushZohoNote(accountId: string, title: string, content: string) {
+// ─────────────────────────────────────────────────────────────────────────────
+// pushZohoNote
+//
+// Creates a CRM Note on an Account (default) or any other module record.
+// Pass dealId + seModule = "Deals" to link call logs to the deal pipeline.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function pushZohoNote(
+  accountId: string,
+  title:     string,
+  content:   string,
+  options?:  { dealId?: string; seModule?: string }
+): Promise<void> {
   try {
-    const token = await getZohoAccessToken()
-    const baseUrl = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Notes`
+    const token  = await getZohoAccessToken()
+    const module = options?.seModule || 'Accounts'
+    const noteId = options?.dealId || accountId
+
     const zohoPayload = {
       data: [{
-        Note_Title: title,
+        Note_Title:   title,
         Note_Content: content,
-        Parent_Id: {
-          id: accountId
-        },
-        $se_module: "Accounts"
-      }]
+        Parent_Id:    { id: noteId },
+        $se_module:   module,
+      }],
     }
 
-    const res = await fetch(baseUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Zoho-oauthtoken ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(zohoPayload)
+    const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Notes`, {
+      method:  'POST',
+      headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify(zohoPayload),
     })
-    
-    const data = await res.json()
-    if (data?.data?.[0]?.code !== "SUCCESS") {
-      console.warn("Zoho CRM Note push returned non-success:", data)
+
+    const responseData = await res.json()
+    if (responseData?.data?.[0]?.code !== 'SUCCESS') {
+      console.warn('[pushZohoNote] Non-success response:', responseData)
     }
   } catch (err: any) {
-    console.error("pushZohoNote failed:", err.message)
+    console.error('[pushZohoNote] Failed:', err.message)
   }
 }

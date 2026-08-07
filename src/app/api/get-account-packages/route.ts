@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { getZohoAccessToken } from '../../../../netlify/functions/lib/zoho-auth'
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from '../../../../netlify/functions/lib/zoho-auth'
 import { checkAccountOwnership } from '@/lib/auth-helpers'
 
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
+const ORG_ID = ZOHO_ORGANIZATION_ID
+
 
 export async function GET(req: Request) {
   try {

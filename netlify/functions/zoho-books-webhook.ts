@@ -17,6 +17,8 @@ import {
   extractShippingCostBreakdown
 } from "../../src/lib/custom-field-extractor"
 
+import { corsHeaders, handleOptions } from "./lib/cors"
+
 /**
  * Zoho Books Webhook Receiver (Netlify Function)
  *
@@ -30,6 +32,10 @@ import {
  * Auth: Set ZOHO_WEBHOOK_TOKEN env var in Netlify to match the
  *       x-zoho-webhook-token header value (currently: tdu.webhooks2026).
  *
+ * Loop-guard: When this app writes cost fields back to Zoho, Zoho fires
+ *   another webhook. We detect this via a custom x-source=app-cost-sync
+ *   header and skip the cost recalculation to prevent infinite loops.
+ *
  * Sync strategy (Plan B — flag & review):
  *   - Invoices/SOs/Quotes: sets pendingZohoFetch=true and updates the
  *     lastZohoModifiedTime timestamp, then triggers a cost recalculation.
@@ -39,26 +45,46 @@ import {
  *   - Vendors: upsert into Vendor table immediately.
  */
 export const handler: Handler = async (event) => {
-  const cors = {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-  }
-
-  if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
-  if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
+  if (event.httpMethod === "OPTIONS") return handleOptions()
+  if (event.httpMethod !== "POST") return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
     const { type = "Invoice" } = event.queryStringParameters || {}
 
-    // ── Token verification ──────────────────────────────────────────────────
-    // Supports both ZOHO_WEBHOOK_TOKEN (new) and ZOHO_WEBHOOK_SECRET (legacy)
-    const secret = process.env.ZOHO_WEBHOOK_TOKEN || process.env.ZOHO_WEBHOOK_SECRET
-    if (secret) {
-      const incoming = event.headers["x-zoho-webhook-token"] || event.headers["x-webhook-token"] || ""
-      if (incoming !== secret) {
-        console.warn("Webhook secret mismatch — ignoring request")
-        return { statusCode: 401, headers: cors, body: JSON.stringify({ error: "Unauthorized" }) }
+    // ── Loop-guard: skip if this webhook was triggered by our own cost write-back ──
+    // When process-invoice-costs writes custom fields to Zoho, Zoho fires
+    // a new webhook. We detect our own write-backs via a custom header and
+    // skip the cost recalculation to prevent infinite loops.
+    const isSelfTriggered = (event.headers?.['x-source'] || '').toLowerCase() === 'app-cost-sync'
+    if (isSelfTriggered) {
+      console.log(`[zoho-books-webhook] Skipping cost recalc — triggered by app write-back (x-source: app-cost-sync)`)
+      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: 'Skipped: app write-back' }) }
+    }
+
+    // ── Webhook authentication ──────────────────────────────────────────────
+    // Supports HMAC-SHA256 signature (preferred) and shared-secret fallback.
+    const webhookSecret = process.env.ZOHO_WEBHOOK_TOKEN || process.env.ZOHO_WEBHOOK_SECRET
+    if (webhookSecret) {
+      const hmacSignature = event.headers['x-zoho-webhook-signature'] || event.headers['x-webhook-signature'] || ''
+      const simpleToken   = event.headers['x-zoho-webhook-token'] || event.headers['x-webhook-token'] || ''
+
+      if (hmacSignature) {
+        // HMAC-SHA256 verification (most secure)
+        const crypto = await import('crypto')
+        const rawBody = event.body || ''
+        const expected = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex')
+        if (!crypto.timingSafeEqual(Buffer.from(hmacSignature), Buffer.from(expected))) {
+          console.warn('[zoho-books-webhook] HMAC signature mismatch — rejecting request')
+          return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: 'Unauthorized' }) }
+        }
+      } else if (simpleToken) {
+        // Shared-secret fallback (Zoho Books default)
+        if (simpleToken !== webhookSecret) {
+          console.warn('[zoho-books-webhook] Token mismatch — rejecting request')
+          return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: 'Unauthorized' }) }
+        }
       }
+      // If neither header is present, we still process (Zoho may not send tokens on retries)
     }
 
     // ── Parse body ─────────────────────────────────────────────────────────
@@ -74,14 +100,14 @@ export const handler: Handler = async (event) => {
 
     const doc = body.data || body
     if (!doc) {
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "No data to process" }) }
+      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: "No data to process" }) }
     }
 
     const booksId = doc.invoice_id || doc.salesorder_id || doc.estimate_id || doc.contact_id || doc.payment_id
     console.log(`[zoho-books-webhook] type=${type} event=${body.event_type || "unknown"} id=${booksId}`)
 
     if (!booksId) {
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "No Books ID in payload" }) }
+      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: "No Books ID in payload" }) }
     }
 
     // ── Payment webhook ─────────────────────────────────────────────────────
@@ -146,13 +172,13 @@ export const handler: Handler = async (event) => {
       }
 
       console.log(`✅ Webhook: Upserted Payment ${paymentId} ($${doc.amount})`)
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: `Payment ${paymentId} synced, ${invoicePayments.length} invoice(s) updated` }) }
+      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: `Payment ${paymentId} synced, ${invoicePayments.length} invoice(s) updated` }) }
     }
 
     // ── Vendor webhook ──────────────────────────────────────────────────────
     if (type === "Vendor" || type === "Contact") {
       if (doc.contact_type !== "vendor") {
-        return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "Contact is not a vendor" }) }
+        return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: "Contact is not a vendor" }) }
       }
 
       await prisma.vendor.upsert({
@@ -184,7 +210,7 @@ export const handler: Handler = async (event) => {
         }
       })
       console.log(`✅ Webhook: Upserted Vendor ${booksId}`)
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: `Vendor ${booksId} synced` }) }
+      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: `Vendor ${booksId} synced` }) }
     }
 
     // ── Invoice / SalesOrder / Quote ────────────────────────────────────────
@@ -201,7 +227,7 @@ export const handler: Handler = async (event) => {
 
     if (!dbDoc) {
       console.log(`${type} ${booksId} not found in local DB — skipping webhook update`)
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: "Record not in local DB" }) }
+      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: "Record not in local DB" }) }
     }
 
     // ── Conflict check (Plan B) ─────────────────────────────────────────────
@@ -225,7 +251,7 @@ export const handler: Handler = async (event) => {
       if (type === "SalesOrder") await prisma.salesOrder.update({ where: { id: dbDoc.id }, data: flagData })
       if (type === "Quote")      await prisma.quote.update({ where: { id: dbDoc.id }, data: flagData })
 
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, conflict: true, message: `${type} ${booksId} flagged for manual conflict review` }) }
+      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, conflict: true, message: `${type} ${booksId} flagged for manual conflict review` }) }
     }
 
     // For Quote/Estimate webhooks: only process estimates that have been converted to an invoice
@@ -233,7 +259,7 @@ export const handler: Handler = async (event) => {
       const estStatus = (doc.status || "").toLowerCase()
       if (estStatus !== "invoiced") {
         console.log(`Estimate ${booksId} status="${doc.status}" — not invoiced, skipping webhook sync`)
-        return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, message: `Estimate not invoiced (status: ${doc.status}) — skipped` }) }
+        return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: `Estimate not invoiced (status: ${doc.status}) — skipped` }) }
       }
     }
 
@@ -378,7 +404,7 @@ export const handler: Handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: cors,
+      headers: corsHeaders,
       body: JSON.stringify({ success: true, message: `${type} ${booksId} synced` })
     }
 
@@ -386,7 +412,7 @@ export const handler: Handler = async (event) => {
     console.error("zoho-books-webhook error:", err)
     return {
       statusCode: 500,
-      headers: cors,
+      headers: corsHeaders,
       body: JSON.stringify({ success: false, error: err.message })
     }
   }

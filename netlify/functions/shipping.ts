@@ -1,5 +1,8 @@
-import { Handler } from "@netlify/functions"
+﻿import { Handler } from "@netlify/functions"
 import { prisma } from "./lib/prisma"
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./lib/zoho-auth"
+
+const ORG_ID = ZOHO_ORGANIZATION_ID
 
 export const handler: Handler = async (event) => {
   const cors = {
@@ -31,10 +34,9 @@ export const handler: Handler = async (event) => {
         if (!salesOrderId) {
           return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing salesOrderId" }) }
         }
-        const { getZohoAccessToken } = require("./lib/zoho-auth")
+        // getZohoAccessToken imported at top-level
         const token = await getZohoAccessToken()
-        const ZOHO_DC = process.env.ZOHO_DC || "com"
-        const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
+        // ZOHO_DC imported at top-level
         const url = `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders/${salesOrderId}?organization_id=${ORG_ID}`
         const res = await fetch(url, {
           headers: { Authorization: `Zoho-oauthtoken ${token}` }
@@ -102,10 +104,9 @@ export const handler: Handler = async (event) => {
       // Push tracking & shipment status to Zoho Books API
       if (pkg.zohoId && (trackingNumber || carrier)) {
         try {
-          const { getZohoAccessToken } = require("./lib/zoho-auth")
+          // getZohoAccessToken imported at top-level
           const token = await getZohoAccessToken()
-          const ZOHO_DC = process.env.ZOHO_DC || 'com'
-          const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
+          // ZOHO_DC imported at top-level
 
           await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/shipmentorders?organization_id=${ORG_ID}`, {
             method: "POST",

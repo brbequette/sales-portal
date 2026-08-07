@@ -6,7 +6,7 @@ import FormData from "form-data"
 
 import { prisma } from "./lib/prisma"
 
-const CHUNK_SIZE = 2
+const CHUNK_SIZE = 10
 
 async function sendSmsChunk(params: {
   accounts: any[]
@@ -17,8 +17,9 @@ async function sendSmsChunk(params: {
   fromNumber: string
   campaignName: string
   channel: string
+  accountDailyLimit: number
 }) {
-  const { accounts, blast, author, text, imageUrl, fromNumber, campaignName, channel } = params
+  const { accounts, blast, author, text, imageUrl, fromNumber, campaignName, channel, accountDailyLimit } = params
   const tag = `[CAMPAIGN] [${channel || "SMS"}]`
   const campaignLabel = campaignName ? `(Campaign: ${campaignName})` : ""
   let baseContent = `${tag} ${campaignLabel}`.trim()
@@ -68,10 +69,7 @@ async function sendSmsChunk(params: {
       }
     }
 
-    const accountDailyLimit = await (async () => {
-      const limitSetting = await prisma.systemSetting.findUnique({ where: { key: "sms_daily_account_limit" } })
-      return limitSetting ? parseInt(limitSetting.value, 10) || 1 : 1
-    })()
+
 
     const recentLogsCounts = await prisma.campaignLog.groupBy({
       by: ["accountId"],
@@ -323,7 +321,9 @@ export const handler: Handler = async (event) => {
     // Process first chunk immediately
     const firstChunkIds = accountIds.slice(0, CHUNK_SIZE)
     const firstAccounts = await prisma.account.findMany({ where: { id: { in: firstChunkIds } }, include: { contacts: true } })
-    const { successfulCount, failedCount } = await sendSmsChunk({ accounts: firstAccounts, blast, author, text, imageUrl, fromNumber: resolvedFromNumber, campaignName, channel })
+    const limitRow = await prisma.systemSetting.findUnique({ where: { key: 'sms_daily_account_limit' } })
+    const accountDailyLimit = limitRow ? parseInt(limitRow.value, 10) || 1 : 1
+    const { successfulCount, failedCount } = await sendSmsChunk({ accounts: firstAccounts, blast, author, text, imageUrl, fromNumber: resolvedFromNumber, campaignName, channel, accountDailyLimit })
 
     const newIndex = Math.min(CHUNK_SIZE, accountIds.length)
     const isDone = newIndex >= accountIds.length

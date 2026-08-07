@@ -1,11 +1,11 @@
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
+const ORG_ID = ZOHO_ORGANIZATION_ID
 import { getSystemSettings } from "./lib/settings"
 
 import { prisma } from "./lib/prisma"
 const EASYSHIP_API_KEY = process.env.EASYSHIP_API_KEY;
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
 
 function getCountryCode(country: string | null | undefined): string {
   if (!country) return "US";

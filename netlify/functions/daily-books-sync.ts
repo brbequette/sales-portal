@@ -1,5 +1,5 @@
 import { schedule } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./lib/zoho-auth"
 import { prisma } from "./lib/prisma"
 import {
   detectConflict,
@@ -16,8 +16,7 @@ import {
   extractShippingCostBreakdown,
 } from "../../src/lib/custom-field-extractor"
 
-const ZOHO_DC = process.env.ZOHO_DC || "com"
-const ORG_ID  = process.env.ZOHO_ORGANIZATION_ID || "664670946"
+const ORG_ID = ZOHO_ORGANIZATION_ID
 
 /**
  * Daily Books Sync — runs every day at 6:00 AM UTC (11 PM PST / 2 AM EST)
@@ -85,7 +84,7 @@ export const handler = schedule("0 6 * * *", async () => {
 
     // ── Pass 2: Last-48h modified sweep ───────────────────────────────────
     console.log("--- Pass 2: 48h modified sweep ---")
-    const since    = new Date(Date.now() - 48 * 60 * 60 * 1000)
+    const since    = new Date(Date.now() - 12 * 60 * 60 * 1000)
     const sinceStr = since.toISOString().split(".")[0] + "+0000"
 
     // Invoices

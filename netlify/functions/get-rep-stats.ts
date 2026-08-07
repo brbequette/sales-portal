@@ -222,6 +222,88 @@ export const handler: Handler = async (event) => {
     addAlias("justin  zastrow", "justin zastrow")
     const unassignedId = "unassigned"
 
+    // ── Historical VIG rates: build 72 months ────────────────────────────────
+    // Generate the last 72 month keys (YYYY-MM) in reverse chronological order
+    const historicalMonthKeys: string[] = []
+    for (let i = 0; i < 72; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      historicalMonthKeys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+    }
+
+    // Fetch all MonthlyVigGoal rows for those months in one query
+    const vigGoalRows = await prisma.monthlyVigGoal.findMany({
+      where: { monthKey: { in: historicalMonthKeys } },
+      select: { repId: true, monthKey: true, metric: true, profitGoal: true, subtotalGoal: true, manualVigRate: true, lastSyncedVigRate: true }
+    }).catch(() => [])
+
+    // Index vig goals by monthKey -> repId
+    const vigByMonth: Record<string, Record<string, any>> = {}
+    vigGoalRows.forEach((row: any) => {
+      if (!vigByMonth[row.monthKey]) vigByMonth[row.monthKey] = {}
+      vigByMonth[row.monthKey][row.repId] = row
+    })
+
+    // Fetch all invoices in the 72-month window for per-rep-per-month actuals
+    const historicalStart = new Date(now.getFullYear(), now.getMonth() - 71, 1)
+    const allHistoricalInvoices = await prisma.invoice.findMany({
+      where: { issueDate: { gte: historicalStart }, NOT: { status: { in: ['Void', 'Draft'] } } },
+      select: { issueDate: true, items: true, amount: true, account: { select: { ownerId: true } } }
+    }).catch(() => [])
+
+    // Aggregate actuals per repId per monthKey
+    const actualsByMonthRep: Record<string, Record<string, { subtotal: number; profit: number; deadProfit: number }>> = {}
+    allHistoricalInvoices.forEach((inv: any) => {
+      const items = (inv.items as any) || {}
+      const issueDate = inv.issueDate ? new Date(inv.issueDate) : null
+      if (!issueDate) return
+      const mk = `${issueDate.getFullYear()}-${String(issueDate.getMonth() + 1).padStart(2, '0')}`
+
+      const subtotal = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
+      const deadCostTotal = parseFloat(items.deadCostTotal || items.dead_cost_total || 0) || 0
+      const deadCostPlusVig = parseFloat(items.deadCostPlusVig || 0) || deadCostTotal
+      const additionalCosts = parseFloat(items.additionalCosts || 0) || 0
+      const ccFees = parseFloat(items.ccFees || 0) || 0
+      const deadProfit = subtotal - deadCostTotal - additionalCosts - ccFees
+      const profit = subtotal - deadCostPlusVig - additionalCosts - ccFees
+
+      const salespersonName = (items.salesperson || '').replace(/\s+/g, ' ').trim().toLowerCase()
+      const repId = userNameToIdMap[salespersonName] || inv.account?.ownerId || unassignedId
+
+      if (!actualsByMonthRep[mk]) actualsByMonthRep[mk] = {}
+      if (!actualsByMonthRep[mk][repId]) actualsByMonthRep[mk][repId] = { subtotal: 0, profit: 0, deadProfit: 0 }
+      actualsByMonthRep[mk][repId].subtotal += subtotal
+      actualsByMonthRep[mk][repId].profit += profit
+      actualsByMonthRep[mk][repId].deadProfit += deadProfit
+    })
+
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December']
+
+    const historicalVigRates = historicalMonthKeys.map(mk => {
+      const [yyyy, mm] = mk.split('-').map(Number)
+      const monthName = `${monthNames[mm - 1]} ${yyyy}`
+      const repsMap: Record<string, any> = {}
+      users.forEach((u: any) => {
+        const goal = vigByMonth[mk]?.[u.id]
+        const actuals = actualsByMonthRep[mk]?.[u.id] || { subtotal: 0, profit: 0, deadProfit: 0 }
+        const manualVigRate = goal?.manualVigRate ?? null
+        const lastSyncedVigRate = goal?.lastSyncedVigRate ?? null
+        const vigRate = manualVigRate ?? lastSyncedVigRate ?? 1.3
+        repsMap[u.id] = {
+          metric:           goal?.metric       ?? 'PROFIT',
+          profitGoal:       goal?.profitGoal   ?? 20000,
+          subtotalGoal:     goal?.subtotalGoal ?? 40000,
+          manualVigRate, lastSyncedVigRate, vigRate,
+          subtotal:   actuals.subtotal,
+          profit:     actuals.profit,
+          deadProfit: actuals.deadProfit,
+          metGoal: (goal?.metric === 'SUBTOTAL')
+            ? actuals.subtotal  >= (goal?.subtotalGoal ?? 40000)
+            : actuals.deadProfit >= (goal?.profitGoal  ?? 20000),
+        }
+      })
+      return { monthKey: mk, monthName, reps: repsMap }
+    })
+
     // Compute current week boundaries (Mon-Sun)
     const weekNow = new Date()
     const weekDay = weekNow.getDay()
@@ -506,7 +588,8 @@ export const handler: Handler = async (event) => {
           salesOrderSubtotal: totalSalesOrderSubtotal,
           salesOrderDeadProfit: totalSalesOrderDeadProfit,
           salesOrderEstCommission: totalSalesOrderEstCommission
-        }
+        },
+        historicalVigRates
       })
     }
 

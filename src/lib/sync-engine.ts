@@ -13,10 +13,9 @@
  *     SalesOrder / Quote, always updating sync timestamps.
  */
 
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "../../netlify/functions/lib/prisma"
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 
-const prisma = new PrismaClient()
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
 // ---------------------------------------------------------------------------

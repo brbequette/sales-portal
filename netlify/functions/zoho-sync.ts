@@ -88,6 +88,9 @@ export const handler: Handler = async (event, context) => {
               lastPurchaseAt: lastPurchaseDate,
               ownerId: owner.id,
               timeZone: timeZone,
+              rawData: {
+                crmAccountStatus: record.Account_Status || record.account_status || null,
+              },
             },
             create: {
               zohoId: record.id,
@@ -97,6 +100,9 @@ export const handler: Handler = async (event, context) => {
               lastPurchaseAt: lastPurchaseDate,
               ownerId: owner.id,
               timeZone: timeZone,
+              rawData: {
+                crmAccountStatus: record.Account_Status || record.account_status || null,
+              },
             }
           })
         )

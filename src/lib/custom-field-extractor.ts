@@ -57,24 +57,7 @@ export const CANONICAL_FIELD_CATALOG: Record<string, Record<string, string>> = {
 };
 
 import exemptCatalog from "./exempt-catalog.json";
-
-export function isSwagItem(nameOrSku: string): boolean {
-  const normalized = (nameOrSku || "").toLowerCase()
-  return (
-    normalized.includes("hat") ||
-    normalized.includes("knife") ||
-    normalized.includes("shirt") ||
-    normalized.includes("hoodie") ||
-    normalized.includes("cap") ||
-    normalized.includes("swag") ||
-    normalized.includes("apparel") ||
-    normalized.includes("merchandise") ||
-    normalized.includes("mug") ||
-    normalized.includes("pen") ||
-    normalized.includes("bag") ||
-    normalized.includes("jacket")
-  )
-}
+import { isSwagItem, isGiftItem, isNoVigItem } from '../../netlify/functions/lib/cost-calculations'
 
 /**
  * Check if a line item is exempt from VIG (No VIG) based on cf_subject_to_sales_markup,

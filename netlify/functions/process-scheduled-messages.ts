@@ -69,6 +69,31 @@ export const handler = schedule("*/10 * * * *", async () => {
         continue
       }
 
+      // Check if current time is within business hours in recipient's timezone
+      const accountTz = msg.account.timeZone
+      if (accountTz) {
+        try {
+          const localTime = new Date().toLocaleString('en-US', { timeZone: accountTz, hour: 'numeric', hour12: false })
+          const localHour = parseInt(localTime, 10)
+          // If outside 8 AM - 6 PM local time, reschedule to 8 AM tomorrow in their TZ
+          if (localHour < 8 || localHour >= 18) {
+            const tomorrow = new Date()
+            tomorrow.setDate(tomorrow.getDate() + 1)
+            // Calculate 8 AM in the recipient's timezone
+            const nextDelivery = new Date(tomorrow.toLocaleDateString('en-US', { timeZone: accountTz }) + ' 08:00:00')
+            await prisma.scheduledMessage.update({
+              where: { id: msg.id },
+              data: { scheduledTime: nextDelivery }
+            })
+            console.log(`[scheduled-messages] Deferred msg ${msg.id} to ${nextDelivery.toISOString()} for TZ ${accountTz}`)
+            continue
+          }
+        } catch (tzErr) {
+          console.warn(`[scheduled-messages] TZ check failed for ${accountTz}:`, tzErr)
+          // Continue with send if TZ check fails
+        }
+      }
+
       // Format number
       let phoneNumber = rawPhoneNumber.replace(/[^\d+]/g, "")
       if (phoneNumber.length === 10 && !phoneNumber.startsWith("+")) phoneNumber = "+1" + phoneNumber

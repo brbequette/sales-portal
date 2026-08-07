@@ -1,5 +1,6 @@
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
+const ORG_ID = ZOHO_ORGANIZATION_ID
 import { syncRecentBooksInvoices } from "./lib/zoho-books"
 
 import { prisma } from "./lib/prisma"
@@ -14,12 +15,23 @@ export const handler: Handler = async (event, context) => {
 
   try {
     let { zohoId, email, refresh, force, ownerIdFilter, statusFilter, role: passedRole, page: pageParam, limit: limitParam, search, includeDocs, includeHidden } = event.queryStringParameters || {}
-    if (email && email.toLowerCase() === "admin@titandiamond.com") {
-      email = "ben@titandiamond.net";
-    }
-    if (zohoId === "mock-zoho-1783978841420") {
-      zohoId = "6821836000000565001";
-    }
+
+  // Load admin email aliases from SystemSettings (key: 'admin_email_aliases', comma-separated)
+  let adminEmailAliases: Record<string, string> = {}
+  let adminEmailPatterns: string[] = []
+  try {
+    const [aliasRow, patternRow] = await Promise.all([
+      prisma.systemSetting.findUnique({ where: { key: 'admin_email_aliases' } }),
+      prisma.systemSetting.findUnique({ where: { key: 'admin_email_patterns' } })
+    ])
+    if (aliasRow?.value) adminEmailAliases = JSON.parse(aliasRow.value)
+    if (patternRow?.value) adminEmailPatterns = patternRow.value.split(',').map(s => s.trim().toLowerCase())
+  } catch { /* use defaults below */ }
+
+  // Apply email alias (e.g. admin@ → primary email) from DB settings
+  if (email && adminEmailAliases[email.toLowerCase()]) {
+    email = adminEmailAliases[email.toLowerCase()]
+  }
     const wantDocs = includeDocs === 'true'
     const showHidden = includeHidden === 'true'
     const parsedLimit = parseInt(limitParam || '2000', 10)
@@ -59,40 +71,35 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
-    // Auto-heal Ben and Monty's roles/names in the database
+    // Auto-heal roles using DB-configured patterns instead of hard-coded names
     if (user) {
-      const lowerEmail = user.email?.toLowerCase() || "";
-      let needsUpdate = false;
-      let updateData: any = {};
+      let needsUpdate = false
+      const updateData: any = {}
+      const lowerEmail = user.email?.toLowerCase() || ''
 
-      if ((
-        lowerEmail.includes("ben") || 
-        lowerEmail.includes("monty") || 
-        lowerEmail.includes("bequette") || 
-        lowerEmail.includes("morgan")
-      ) && user.role !== "Administrator") {
-        updateData.role = "Administrator";
-        needsUpdate = true;
-      }
+      // Check if this user should be force-elevated to Administrator
+      // Patterns come from SystemSetting 'admin_email_patterns' (comma-separated substrings)
+      const shouldBeAdmin = adminEmailPatterns.length > 0
+        ? adminEmailPatterns.some(p => lowerEmail.includes(p))
+        : false // If no patterns configured, don't auto-elevate anyone
 
-      if (lowerEmail === "ben@titandiamond.net" && user.name !== "Benjamin Bequette") {
-        updateData.name = "Benjamin Bequette";
-        needsUpdate = true;
+      if (shouldBeAdmin && user.role !== 'Administrator') {
+        updateData.role = 'Administrator'
+        needsUpdate = true
       }
 
       if (needsUpdate) {
-        console.log(`Auto-healing role/name for ${user.email}...`);
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: updateData
-        });
+        console.log(`[get-accounts] Auto-healing role for ${user.email}...`)
+        user = await prisma.user.update({ where: { id: user.id }, data: updateData })
       }
     }
 
-    const userEmailLower = (user?.email || email || "").toLowerCase();
-    const userRoleLower = (passedRole || user?.role || "").toLowerCase();
-    const isAdmin = userRoleLower.includes("admin") || userRoleLower.includes("administrator") || userEmailLower.includes("ben") || userEmailLower.includes("monty") || userRoleLower.includes("manager");
-    const isSalesOnly = !isAdmin;
+    const userEmailLower = (user?.email || email || '').toLowerCase()
+    const userRoleLower  = (passedRole || user?.role || '').toLowerCase()
+    // Admin detection: role-based OR matching admin email patterns
+    const isAdmin = userRoleLower.includes('admin') || userRoleLower.includes('administrator') || userRoleLower.includes('manager')
+      || (adminEmailPatterns.length > 0 && adminEmailPatterns.some(p => userEmailLower.includes(p)))
+    const isSalesOnly = !isAdmin
 
     // 3. Only sync LIVE accounts from Zoho CRM if explicitly requested via refresh=true.
     let shouldSync = false
@@ -130,11 +137,9 @@ export const handler: Handler = async (event, context) => {
               console.log(`Found ${zohoUsers.length} active users in Zoho CRM. Syncing them...`)
               for (const zUser of zohoUsers) {
                 if (!zUser.id || !zUser.email) continue;
-                const roleName = zUser.profile?.name || "Sales Representative"
-                let displayName = zUser.full_name || zUser.name
-                if (zUser.email?.toLowerCase() === "ben@titandiamond.net") {
-                  displayName = "Benjamin Bequette"
-                }
+                const roleName = zUser.profile?.name || 'Sales Representative'
+                // displayName comes from Zoho CRM — no hard-coded overrides
+                const displayName = zUser.full_name || zUser.name
                 await prisma.user.upsert({
                   where: { zohoId: zUser.id },
                   update: {
@@ -623,7 +628,6 @@ export const handler: Handler = async (event, context) => {
               if (syncUser.id === usersToSync[0]?.id) {
                 try {
                   const ZOHO_DC = process.env.ZOHO_DC || 'com';
-                  const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
                   const booksBase = `https://www.zohoapis.${ZOHO_DC}/books/v3`;
 
                   // Build a name-to-accountId map for matching

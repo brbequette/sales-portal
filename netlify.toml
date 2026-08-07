@@ -78,11 +78,6 @@
   status = 200
 
 [[redirects]]
-  from = "/api/debug-invoice"
-  to = "/.netlify/functions/debug-invoice"
-  status = 200
-
-[[redirects]]
   from = "/api/admin/sales-stages"
   to = "/.netlify/functions/admin-sales-stages"
   status = 200
@@ -215,11 +210,6 @@
 [[redirects]]
   from = "/api/daily-books-sync"
   to = "/.netlify/functions/daily-books-sync"
-  status = 200
-
-[[redirects]]
-  from = "/api/debug-zoho"
-  to = "/.netlify/functions/debug-zoho"
   status = 200
 
 [[redirects]]
@@ -398,11 +388,6 @@
   status = 200
 
 [[redirects]]
-  from = "/api/run-db-push"
-  to = "/.netlify/functions/run-db-push"
-  status = 200
-
-[[redirects]]
   from = "/api/save-update-config"
   to = "/.netlify/functions/save-update-config"
   status = 200
@@ -430,11 +415,6 @@
 [[redirects]]
   from = "/api/sync-vig-to-zoho"
   to = "/.netlify/functions/sync-vig-to-zoho"
-  status = 200
-
-[[redirects]]
-  from = "/api/test-zoho-invoice"
-  to = "/.netlify/functions/test-zoho-invoice"
   status = 200
 
 [[redirects]]
@@ -588,9 +568,16 @@
   status = 200
 
 [[redirects]]
+  from = "/api/zoho/voice/inbound"
+  to = "/.netlify/functions/zoho-voice-inbound"
+  status = 200
+
+[[redirects]]
+  from = "/api/zoho/voice/status"
+  to = "/.netlify/functions/zoho-voice-status"
+  status = 200
+
+[[redirects]]
   from = "/account/:id"
   to = "/account?id=:id"
   status = 200
-
-
-

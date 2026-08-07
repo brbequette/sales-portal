@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { PrismaClient } from "@prisma/client"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { getZohoAccessToken } from "@/lib/zoho-auth"
+import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 
+const ORG_ID = ZOHO_ORGANIZATION_ID
 const prisma = new PrismaClient()
 
 // GET -- Fetch all sales orders with their packages for the shipping center
@@ -345,7 +346,6 @@ export async function PUT(req: NextRequest) {
       
       const token = await getZohoAccessToken()
       const ZOHO_DC = process.env.ZOHO_DC || "com"
-      const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
       const url = `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders/${salesOrderId}?organization_id=${ORG_ID}`
       
       const res = await fetch(url, {

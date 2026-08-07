@@ -1,11 +1,11 @@
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
+const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 import { handler as processQuoteCosts } from "./process-quote-costs"
 import { handler as processSalesOrderCosts } from "./process-salesorder-costs"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
 
 export const handler: Handler = async (event, context) => {
   if (event.httpMethod !== "POST") {

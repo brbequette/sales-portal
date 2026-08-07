@@ -1,83 +1,9 @@
 import { Handler } from '@netlify/functions'
 import { prisma } from './lib/prisma'
+import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from './lib/zoho-auth'
+import { corsHeaders, handleOptions } from './lib/cors'
 
-const ZOHO_DC = process.env.ZOHO_DC || 'com'
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
-
-let _cachedToken: string | null = null
-let _tokenExpiresAt = 0
-
-async function getToken(): Promise<string> {
-  const now = Date.now()
-
-  // 1. In-memory cache
-  if (_cachedToken && now < _tokenExpiresAt - 5 * 60 * 1000) {
-    return _cachedToken
-  }
-
-  // 2. Database SystemSettings cache
-  try {
-    const [dbTokenSetting, dbExpiresSetting] = await Promise.all([
-      prisma.systemSetting.findUnique({ where: { key: 'zoho_access_token' } }),
-      prisma.systemSetting.findUnique({ where: { key: 'zoho_token_expires_at' } })
-    ])
-
-    if (dbTokenSetting && dbExpiresSetting) {
-      const expiresAt = parseInt(dbExpiresSetting.value, 10)
-      if (!isNaN(expiresAt) && now < expiresAt - 5 * 60 * 1000) {
-        _cachedToken = dbTokenSetting.value
-        _tokenExpiresAt = expiresAt
-        return _cachedToken
-      }
-    }
-  } catch (e: any) {
-    console.warn('Database token cache read error:', e.message)
-  }
-
-  // 3. OAuth refresh flow
-  if (process.env.ZOHO_REFRESH_TOKEN && process.env.ZOHO_CLIENT_ID && process.env.ZOHO_CLIENT_SECRET) {
-    const params = new URLSearchParams({
-      refresh_token: process.env.ZOHO_REFRESH_TOKEN,
-      client_id: process.env.ZOHO_CLIENT_ID,
-      client_secret: process.env.ZOHO_CLIENT_SECRET,
-      grant_type: 'refresh_token',
-    })
-
-    const res = await fetch(`https://accounts.zoho.${ZOHO_DC}/oauth/v2/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
-    })
-
-    const data = await res.json()
-    if (data.access_token) {
-      _cachedToken = data.access_token
-      _tokenExpiresAt = now + (data.expires_in || 3600) * 1000
-
-      // Update SystemSettings in DB
-      try {
-        await Promise.all([
-          prisma.systemSetting.upsert({
-            where: { key: 'zoho_access_token' },
-            update: { value: _cachedToken },
-            create: { key: 'zoho_access_token', value: _cachedToken }
-          }),
-          prisma.systemSetting.upsert({
-            where: { key: 'zoho_token_expires_at' },
-            update: { value: String(_tokenExpiresAt) },
-            create: { key: 'zoho_token_expires_at', value: String(_tokenExpiresAt) }
-          })
-        ])
-      } catch (e) {}
-
-      return _cachedToken
-    } else {
-      throw new Error(`Zoho OAuth refresh failed: ${data.error || 'Unknown error'}`)
-    }
-  }
-
-  throw new Error('Zoho credentials missing in environment variables (ZOHO_REFRESH_TOKEN, ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET).')
-}
+const ORG_ID = ZOHO_ORGANIZATION_ID
 
 async function fetchAllPages(baseUrl: string, token: string, endpoint: string): Promise<any[]> {
   let all: any[] = []
@@ -125,20 +51,11 @@ async function fetchAllPages(baseUrl: string, token: string, endpoint: string): 
   return all
 }
 
-const headers = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Content-Type': 'application/json'
-}
-
 export const handler: Handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' }
-  }
+  if (event.httpMethod === 'OPTIONS') return handleOptions()
 
   try {
-    const token = await getToken()
+    const token = await getZohoAccessToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
     // Sync Packages

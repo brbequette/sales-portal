@@ -19,12 +19,12 @@
  */
 
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
-import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculations"
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
+import { calculateDocumentCosts, buildFieldsToUpdate, isGiftItem } from "./lib/cost-calculations"
 
 import { prisma } from "./lib/prisma"
 const ZOHO_DC = process.env.ZOHO_DC || "com"
-const ORG_ID  = process.env.ZOHO_ORGANIZATION_ID || "664670946"
+const ORG_ID  = ZOHO_ORGANIZATION_ID
 
 const CORS = {
   "Content-Type": "application/json",
@@ -49,17 +49,7 @@ const ENTITY_CONFIG: Record<EntityType, {
 }
 
 // ── Tariff helpers ────────────────────────────────────────────────────────────
-function isGiftItem(item: any): boolean {
-  const name = (item.name || '').toLowerCase()
-  const desc = (item.description || '').toLowerCase()
-  if (name.includes('gift') || desc.includes('gift')) return true
-  for (const cf of (item.item_custom_fields || [])) {
-    if ((cf.label || '').toUpperCase().includes('GIFT')) {
-      return cf.value === true || cf.value === 'true'
-    }
-  }
-  return false
-}
+
 
 function calcTariffAmount(doc: any): number {
   let nonGiftDeadCost = 0

@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getZohoAccessToken } from '../../../../../netlify/functions/lib/zoho-auth'
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from '../../../../../netlify/functions/lib/zoho-auth'
 
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
-
+const ORG_ID = ZOHO_ORGANIZATION_ID
 export async function GET() {
   try {
     const vendors = await prisma.vendor.findMany({

@@ -1,6 +1,7 @@
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
+const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 
 export const handler: Handler = async (event, context) => {
@@ -19,7 +20,6 @@ export const handler: Handler = async (event, context) => {
       const page = parseInt(pageStr, 10)
 
       const token = await getZohoAccessToken()
-      const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
       const ZOHO_DC = process.env.ZOHO_DC || "com"
 
       const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ORG_ID}&page=${page}&per_page=200`, {

@@ -11,17 +11,10 @@
  */
 import { Handler } from "@netlify/functions"
 import { prisma } from "./lib/prisma"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoAccessToken , ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./lib/zoho-auth"
+import { corsHeaders, handleOptions } from "./lib/cors"
 
-const ZOHO_DC = process.env.ZOHO_DC || "com"
-const ORG_ID  = process.env.ZOHO_ORGANIZATION_ID || "664670946"
-
-const cors = {
-  "Access-Control-Allow-Origin":  "*",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Content-Type": "application/json",
-}
+const ORG_ID = ZOHO_ORGANIZATION_ID
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -234,7 +227,7 @@ async function runSync() {
 // ── Handler ────────────────────────────────────────────────────────────────
 
 export const handler: Handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors, body: "" }
+  if (event.httpMethod === "OPTIONS") return handleOptions()
 
   // Mark as running immediately (so the UI can start polling)
   await setStatus("last_package_sync_status", "running")
@@ -246,7 +239,7 @@ export const handler: Handler = async (event) => {
 
   return {
     statusCode: 202,
-    headers: cors,
+    headers: corsHeaders,
     body: JSON.stringify({ started: true, message: "Sync started in background. Refresh in 30–60 seconds." }),
   }
 }

@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
-import { getZohoAccessToken } from '../../../../../netlify/functions/lib/zoho-auth'
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from '../../../../../netlify/functions/lib/zoho-auth'
 import { calculateDocumentCosts } from '../../../../../netlify/functions/lib/cost-calculations'
 import { getSystemSettings } from '../../../../../netlify/functions/lib/settings'
 
-const ZOHO_DC = process.env.ZOHO_DC || "com"
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
+const ORG_ID = ZOHO_ORGANIZATION_ID
 
 export async function POST(req: Request) {
   try {

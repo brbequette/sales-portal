@@ -1,9 +1,7 @@
-import { PrismaClient } from "@prisma/client"
-import { getZohoAccessToken } from "./zoho-auth"
+import { prisma } from "./prisma"
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./zoho-auth"
 
-const prisma = new PrismaClient()
-const ZOHO_DC = process.env.ZOHO_DC || 'com';
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946';
+const ORG_ID = ZOHO_ORGANIZATION_ID;
 
 export async function syncRecentBooksInvoices() {
   try {

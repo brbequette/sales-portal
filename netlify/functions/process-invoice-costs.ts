@@ -1,5 +1,5 @@
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./lib/zoho-auth"
 import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculations"
 import { getSystemSettings } from "./lib/settings"
 import {
@@ -9,8 +9,7 @@ import {
 } from "../../src/lib/sync-engine"
 
 import { prisma } from "./lib/prisma"
-const ZOHO_DC = process.env.ZOHO_DC || "com"
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
+const ORG_ID = ZOHO_ORGANIZATION_ID
 
 // ── Loop Guard ──
 // Prevents re-entry when our PUT triggers a Zoho workflow that calls back
@@ -163,7 +162,7 @@ export const handler: Handler = async (event) => {
       markProcessed(booksInvoiceId)
       const putRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
         method: "PUT",
-        headers: { ...authHeaders, "Content-Type": "application/json" },
+        headers: { ...authHeaders, "Content-Type": "application/json", "x-source": "app-cost-sync" },
         body: JSON.stringify(putPayload),
       })
       const putData: any = await putRes.json()

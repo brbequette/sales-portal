@@ -24,8 +24,9 @@
  */
 
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
+const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 import {
   extractProfit,
@@ -39,7 +40,6 @@ import {
   extractShippingCostBreakdown
 } from "../../src/lib/custom-field-extractor"
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
 const BASE_URL = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
 // How many records to process per Phase 2 invocation (fits in 26s Netlify timeout)

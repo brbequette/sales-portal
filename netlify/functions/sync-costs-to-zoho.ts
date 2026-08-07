@@ -1,12 +1,8 @@
-/**
+﻿/**
  * sync-costs-to-zoho.ts
  *
  * Reads all documents marked pendingCostSync=true from the DB and pushes
  * the pre-calculated custom field values to Zoho Books via PUT.
- *
- * The pendingZohoFields payload was assembled by bulk-calculate-costs.ts and
- * stored in items.pendingZohoFields — this function does NOT need to re-fetch
- * or re-calculate anything; it just executes the queued write operations.
  *
  * OVERLAP PREVENTION:
  *   1. Only processes docs where pendingCostSync=true
@@ -14,28 +10,23 @@
  *   3. Sets pendingCostSync=false + lastCostSyncAt=now on success
  *   4. On failure: leaves pendingCostSync=true so it retries next run
  *
+ * x-source: app-cost-sync header on every PUT so zoho-books-webhook.ts
+ * can detect our own write-backs and skip cost recalculation (loop guard).
+ *
  * POST body params:
- *   docTypes    string[]  — which doc types to sync (all if omitted)
- *   dryRun      boolean   — log what would be sent without actually PUTting
- *   batchDelay  number    — ms delay between batches of 10 (default 1000)
+ *   docTypes    string[]  -- which doc types to sync (all if omitted)
+ *   dryRun      boolean   -- log what would be sent without actually PUTting
+ *   batchDelay  number    -- ms delay between batches of 10 (default 1000)
  */
 
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
-
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./lib/zoho-auth"
 import { prisma } from "./lib/prisma"
-const ZOHO_DC = process.env.ZOHO_DC || "com"
-const ORG_ID = process.env.ZOHO_ORGANIZATION_ID || "664670946"
+import { corsHeaders, handleOptions } from "./lib/cors"
 
-const CORS = {
-  "Content-Type": "application/json",
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-}
+const ORG_ID = ZOHO_ORGANIZATION_ID
 
-// In-memory loop guard — prevents pushing the same doc twice within 60s
-// (guards against concurrent sync runs or Zoho callback recursion)
+// In-memory loop guard -- prevents pushing the same doc twice within 60s
 const recentlySynced = new Map<string, number>()
 const LOOP_GUARD_TTL = 60_000
 
@@ -46,7 +37,6 @@ function isRecentlySynced(id: string): boolean {
 
 function markSynced(id: string) {
   recentlySynced.set(id, Date.now())
-  // Clean up stale entries
   for (const [k, t] of recentlySynced) {
     if (Date.now() - t > LOOP_GUARD_TTL * 2) recentlySynced.delete(k)
   }
@@ -90,12 +80,7 @@ async function syncDocType(
     "Content-Type": "application/json",
   }
 
-  // Find all pending docs of this type
-  let pendingDocs: Array<{
-    id: string
-    zohoId: string | null
-    items: any
-  }> = []
+  let pendingDocs: Array<{ id: string; zohoId: string | null; items: any }> = []
 
   if (docType === "invoices") {
     pendingDocs = await prisma.invoice.findMany({
@@ -115,7 +100,7 @@ async function syncDocType(
   }
 
   stats.total += pendingDocs.length
-  console.log(`\n📤 ${docType.toUpperCase()}: ${pendingDocs.length} docs pending sync`)
+  console.log(`\n${docType.toUpperCase()}: ${pendingDocs.length} docs pending sync`)
 
   const BATCH_SIZE = 10
   for (let i = 0; i < pendingDocs.length; i += BATCH_SIZE) {
@@ -124,13 +109,8 @@ async function syncDocType(
     for (const doc of batch) {
       if (!doc.zohoId) continue
 
-      const result: SyncResult = {
-        zohoId: doc.zohoId,
-        type: docType,
-        status: "skipped",
-      }
+      const result: SyncResult = { zohoId: doc.zohoId, type: docType, status: "skipped" }
 
-      // In-memory loop guard
       if (isRecentlySynced(doc.zohoId)) {
         result.status = "skipped"
         result.reason = "Loop guard: synced within 60s"
@@ -139,28 +119,21 @@ async function syncDocType(
         continue
       }
 
-      // Read the pre-built Zoho payload from items JSON
       const items = (doc.items as any) ?? {}
       const pendingZohoFields: any[] = items.pendingZohoFields ?? []
 
       if (pendingZohoFields.length === 0) {
-        // No actual field changes — mark as done and move on
-        const clearData = {
-          pendingCostSync: false,
-          lastCostSyncAt: new Date(),
-        }
+        const clearData = { pendingCostSync: false, lastCostSyncAt: new Date() }
         if (docType === "invoices") await prisma.invoice.update({ where: { id: doc.id }, data: clearData })
         else if (docType === "quotes") await prisma.quote.update({ where: { id: doc.id }, data: clearData })
         else await prisma.salesOrder.update({ where: { id: doc.id }, data: clearData })
-
         result.status = "no-fields"
-        result.reason = "No field changes to push — cleared flag"
+        result.reason = "No field changes to push -- cleared flag"
         stats.skipped++
         stats.results.push(result)
         continue
       }
 
-      // Extract doc number from items for logging
       result.docNumber =
         items.invoiceNumber || items.estimateNumber || items.salesOrderNumber ||
         `${docType}/${doc.zohoId}`
@@ -179,23 +152,18 @@ async function syncDocType(
         const url = zohoEndpoint(docType, doc.zohoId)
         const putRes = await fetch(url, {
           method: "PUT",
-          headers: authHeaders,
+          // x-source tells zoho-books-webhook this is an app write-back (prevents feedback loop)
+          headers: { ...authHeaders, "x-source": "app-cost-sync" },
           body: JSON.stringify({ custom_fields: pendingZohoFields }),
         })
 
         const putData: any = await putRes.json()
-
         if (!putRes.ok || putData.code !== 0) {
           throw new Error(`Zoho PUT failed: [${putData.code}] ${putData.message}`)
         }
 
-        // Mark as synced in DB — clear pending flag, set lastCostSyncAt, clear stored payload
         const updatedItems = { ...items, pendingZohoFields: [], lastSyncedFields: pendingZohoFields }
-        const markSyncedData = {
-          pendingCostSync: false,
-          lastCostSyncAt: new Date(),
-          items: updatedItems,
-        }
+        const markSyncedData = { pendingCostSync: false, lastCostSyncAt: new Date(), items: updatedItems }
 
         if (docType === "invoices") {
           await prisma.invoice.update({ where: { id: doc.id }, data: markSyncedData })
@@ -208,11 +176,9 @@ async function syncDocType(
         result.status = "synced"
         result.fieldsUpdated = pendingZohoFields.length
         stats.synced++
-
-        console.log(`  ✅ ${docType} ${result.docNumber} — pushed ${pendingZohoFields.length} fields to Zoho`)
+        console.log(`  OK ${docType} ${result.docNumber} -- pushed ${pendingZohoFields.length} fields`)
       } catch (err: any) {
-        console.error(`  ❌ ${docType} ${doc.zohoId}: ${err.message}`)
-        // Leave pendingCostSync=true so it retries on next run
+        console.error(`  ERR ${docType} ${doc.zohoId}: ${err.message}`)
         result.status = "error"
         result.reason = err.message
         stats.errors++
@@ -228,12 +194,12 @@ async function syncDocType(
   }
 }
 
-// ─── Handler ──────────────────────────────────────────────────────────────────
+// Handler
 
 export const handler: Handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: CORS, body: "" }
+  if (event.httpMethod === "OPTIONS") return handleOptions()
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: "Method not allowed" }) }
+    return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: "Method not allowed" }) }
   }
 
   let body: any = {}
@@ -255,29 +221,22 @@ export const handler: Handler = async (event) => {
     }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
-    console.log(
-      `\n🏁 Sync done in ${elapsed}s: ${stats.synced} synced, ${stats.skipped} skipped, ${stats.errors} errors (of ${stats.total} pending)`
-    )
+    console.log(`Sync done in ${elapsed}s: ${stats.synced} synced, ${stats.skipped} skipped, ${stats.errors} errors`)
 
     return {
       statusCode: 200,
-      headers: CORS,
+      headers: corsHeaders,
       body: JSON.stringify({
         success: true,
         dryRun,
         elapsed: `${elapsed}s`,
-        summary: {
-          total:   stats.total,
-          synced:  stats.synced,
-          skipped: stats.skipped,
-          errors:  stats.errors,
-        },
+        summary: { total: stats.total, synced: stats.synced, skipped: stats.skipped, errors: stats.errors },
         results: stats.results,
       }),
     }
   } catch (err: any) {
     console.error("sync-costs-to-zoho fatal error:", err)
-    return { statusCode: 500, headers: CORS, body: JSON.stringify({ success: false, error: err.message }) }
+    return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ success: false, error: err.message }) }
   } finally {
     await prisma.$disconnect()
   }
