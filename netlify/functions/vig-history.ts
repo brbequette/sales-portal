@@ -59,12 +59,11 @@ export const handler: Handler = async (event) => {
       }
     })
 
-    // ── 3a. Load company holidays from SystemSetting ───────────────────────
-    // Stored as JSON array of 'YYYY-MM-DD' strings
-    const holidaySetting = await prisma.systemSetting.findUnique({ where: { key: 'company_holidays' } }).catch(() => null)
-    const companyHolidays = new Set<string>(
-      holidaySetting ? (JSON.parse(holidaySetting.value) as string[]) : []
-    )
+    // ── 3a. Load company holidays from SystemSetting (same key as /admin/holidays page) ──
+    // Stored as JSON array of { date: 'YYYY-MM-DD', name: string }
+    const holidaySetting = await prisma.systemSetting.findUnique({ where: { key: 'holidays' } }).catch(() => null)
+    const rawHolidays: { date: string; name?: string }[] = holidaySetting ? JSON.parse(holidaySetting.value) : []
+    const companyHolidays = new Set<string>(rawHolidays.map(h => h.date))
 
     // ── 3b. Helper: count weekdays in a month minus company holidays ────────
     function calcWorkingDays(monthKey: string): number {
@@ -257,7 +256,8 @@ export const handler: Handler = async (event) => {
         success: true,
         months: result,
         reps: repList,
-        holidays: Array.from(companyHolidays).sort()
+        holidays: rawHolidays.sort((a, b) => a.date.localeCompare(b.date)),
+        holidayCount: rawHolidays.length
       })
     }
 
