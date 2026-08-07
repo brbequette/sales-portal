@@ -98,7 +98,7 @@ export const handler: Handler = async (event) => {
 
     // ── 6. Aggregate invoice actuals + collect mismatches ──────────────────
     type MonthStats = {
-      subtotal: number; deadProfit: number; invoiceCount: number
+      subtotal: number; deadCost: number; deadProfit: number; invoiceCount: number
       mismatches: { id: string; zohoId: string; number: string; date: string; amount: number; actualVig: number; expectedVig: number; customer: string }[]
     }
     const statsMap: Record<string, Record<string, MonthStats>> = {} // monthKey → userId → stats
@@ -128,16 +128,17 @@ export const handler: Handler = async (event) => {
         items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted ?? items.vigRate ?? 0
       ) || 1.3
 
-      const subtotal = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount) || 0
-      const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || 0) || 0
-      const additional = parseFloat(items.additionalCosts || 0) || 0
-      const ccFees = parseFloat(items.ccFees || 0) || 0
-      const deadProfit = subtotal - deadCost - additional - ccFees
+      const subtotal    = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount) || 0
+      const deadCost    = parseFloat(items.deadCostTotal || items.dead_cost_total || 0) || 0
+      const additional  = parseFloat(items.additionalCosts || 0) || 0
+      const ccFees      = parseFloat(items.ccFees || 0) || 0
+      const deadProfit  = subtotal - deadCost - additional - ccFees
 
       if (!statsMap[mk]) statsMap[mk] = {}
-      if (!statsMap[mk][userId]) statsMap[mk][userId] = { subtotal: 0, deadProfit: 0, invoiceCount: 0, mismatches: [] }
+      if (!statsMap[mk][userId]) statsMap[mk][userId] = { subtotal: 0, deadCost: 0, deadProfit: 0, invoiceCount: 0, mismatches: [] }
 
-      statsMap[mk][userId].subtotal += subtotal
+      statsMap[mk][userId].subtotal   += subtotal
+      statsMap[mk][userId].deadCost   += deadCost
       statsMap[mk][userId].deadProfit += deadProfit
       statsMap[mk][userId].invoiceCount++
 
@@ -164,19 +165,32 @@ export const handler: Handler = async (event) => {
 
       users.forEach(u => {
         const goal = goalMap[u.id]?.[mk]
-        const stats = statsMap[mk]?.[u.id] || { subtotal: 0, deadProfit: 0, invoiceCount: 0, mismatches: [] }
+        const stats = statsMap[mk]?.[u.id] || { subtotal: 0, deadCost: 0, deadProfit: 0, invoiceCount: 0, mismatches: [] }
         const manualVigRate   = goal?.manualVigRate   ?? null
         const lastSyncedVigRate = goal?.lastSyncedVigRate ?? null
         const vigRate: number = u.constantVigEnabled
           ? parseFloat(String(u.constantVigValue)) || 1.3
           : (manualVigRate ?? lastSyncedVigRate ?? 1.3)
 
+        // Human-readable explanation of why the VIG rate is what it is
+        let vigReason: string
+        if (u.constantVigEnabled) {
+          vigReason = `Constant override — always ${vigRate.toFixed(2)}x for this rep`
+        } else if (manualVigRate !== null) {
+          vigReason = `Manually set to ${vigRate.toFixed(2)}x for this month`
+        } else if (lastSyncedVigRate !== null) {
+          vigReason = `Synced from Zoho Books goal (${vigRate.toFixed(2)}x)`
+        } else {
+          vigReason = `System default (no goal set for this month)`
+        }
+
         reps[u.id] = {
-          vigRate, manualVigRate, lastSyncedVigRate,
+          vigRate, manualVigRate, lastSyncedVigRate, vigReason,
           metric:       goal?.metric       ?? 'PROFIT',
           profitGoal:   goal?.profitGoal   ?? 20000,
           subtotalGoal: goal?.subtotalGoal ?? 40000,
           subtotal:     stats.subtotal,
+          deadCost:     stats.deadCost,
           deadProfit:   stats.deadProfit,
           invoiceCount: stats.invoiceCount,
           metGoal:      (goal?.metric === 'SUBTOTAL')

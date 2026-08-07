@@ -33,10 +33,12 @@ interface MonthRepData {
   vigRate: number
   manualVigRate: number | null
   lastSyncedVigRate: number | null
+  vigReason: string
   metric: string
   profitGoal: number
   subtotalGoal: number
   subtotal: number
+  deadCost: number
   deadProfit: number
   invoiceCount: number
   metGoal: boolean
@@ -486,43 +488,121 @@ export default function VigManagementBuilder() {
                             const fixKey      = `${rep.id}_${h.monthKey}`
                             const mismatchCount = md.mismatches?.length || 0
 
+                            // Progress calculations
+                            const isProfit      = md.metric !== 'SUBTOTAL'
+                            const goalValue     = isProfit ? md.profitGoal   : md.subtotalGoal
+                            const actualValue   = isProfit ? md.deadProfit   : md.subtotal
+                            const pct           = goalValue > 0 ? Math.min((actualValue / goalValue) * 100, 100) : 0
+                            const overPct       = goalValue > 0 ? Math.max(((actualValue - goalValue) / goalValue) * 100, 0) : 0
+                            const isNoData      = md.invoiceCount === 0
+
                             return (
                               <div key={h.monthKey} className={`rounded-xl border transition-all ${mismatchCount > 0 ? 'border-rose-500/30 bg-rose-950/10' : 'border-white/10 bg-black/20'}`}>
 
                                 {/* Month header row */}
-                                <div className="flex flex-wrap items-center justify-between gap-3 p-3 border-b border-white/5">
-                                  <div className="flex items-center gap-3">
-                                    <div>
+                                <div className="p-3 space-y-2">
+                                  {/* Row 1: month name + VIG badge + fix button */}
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                       <span className="font-bold text-white text-sm">{h.monthName}</span>
-                                      <span className="text-neutral-500 text-[10px] font-mono ml-2">{h.monthKey}</span>
+                                      <span className="text-neutral-600 text-[10px] font-mono">{h.monthKey}</span>
+
+                                      {/* VIG rate badge + reason tooltip */}
+                                      <div className="group relative">
+                                        <div className={`px-2 py-0.5 rounded-lg border text-[11px] font-black cursor-help flex items-center gap-1 ${
+                                          isManual        ? 'border-amber-500/40 text-amber-300 bg-amber-500/10'
+                                          : md.vigRate === 1.3 ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10'
+                                          : 'border-indigo-500/40 text-indigo-300 bg-indigo-500/10'
+                                        }`}>
+                                          {md.vigRate.toFixed(2)}x
+                                          {isManual ? ' 🔧' : md.lastSyncedVigRate ? ' 🔄' : ' ⚙️'}
+                                        </div>
+                                        {/* Tooltip explaining WHY this rate */}
+                                        <div className="absolute left-0 top-7 z-20 hidden group-hover:flex w-56 bg-neutral-900 border border-white/20 rounded-lg p-2.5 shadow-2xl text-[10px] text-neutral-300 leading-relaxed">
+                                          <div>
+                                            <div className="font-bold text-white mb-1">Why {md.vigRate.toFixed(2)}x?</div>
+                                            {md.vigReason || 'System default'}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Goal met/missed badge */}
+                                      {!isNoData && (
+                                        md.metGoal
+                                          ? <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">✓ Goal Met</span>
+                                          : <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">↗ {Math.round(pct)}% of goal</span>
+                                      )}
+
+                                      {/* Mismatch flag */}
+                                      {mismatchCount > 0 && (
+                                        <span className="text-[10px] text-rose-300 font-bold flex items-center gap-1">
+                                          <FiAlertTriangle size={10} /> {mismatchCount} wrong rate
+                                        </span>
+                                      )}
                                     </div>
-                                    {/* VIG badge */}
-                                    <div className={`px-2 py-0.5 rounded-lg border text-[11px] font-black ${isManual ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : md.vigRate === 1.3 ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-rose-500/40 text-rose-300 bg-rose-500/10'}`}>
-                                      {md.vigRate.toFixed(2)}x{isManual ? ' 🔧' : ''}
-                                    </div>
-                                    {/* Actuals */}
-                                    <span className="text-sky-300 text-[11px] font-mono font-bold">
-                                      ${(md.subtotal||0).toLocaleString(undefined,{maximumFractionDigits:0})} sub
-                                    </span>
-                                    <span className={`text-[11px] font-mono font-bold ${md.metGoal ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                      ${(md.deadProfit||0).toLocaleString(undefined,{maximumFractionDigits:0})} profit
-                                    </span>
+
+                                    {/* Fix All button */}
                                     {mismatchCount > 0 && (
-                                      <span className="text-[10px] text-rose-300 font-bold flex items-center gap-1">
-                                        <FiAlertTriangle size={10} /> {mismatchCount} wrong-rate invoice{mismatchCount !== 1 ? 's' : ''}
-                                      </span>
+                                      <button
+                                        onClick={() => fixAllForMonth(rep.id, h.monthKey, md.vigRate, md.mismatches)}
+                                        disabled={fixingAll[fixKey]}
+                                        className="flex items-center gap-1.5 px-3 py-1 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-900 text-white text-xs font-bold rounded-lg transition-all active:scale-95">
+                                        {fixingAll[fixKey] ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiTool size={11} />}
+                                        Fix All {mismatchCount}
+                                      </button>
                                     )}
                                   </div>
 
-                                  {/* Fix All button for this month */}
-                                  {mismatchCount > 0 && (
-                                    <button
-                                      onClick={() => fixAllForMonth(rep.id, h.monthKey, md.vigRate, md.mismatches)}
-                                      disabled={fixingAll[fixKey]}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-900 text-white text-xs font-bold rounded-lg transition-all active:scale-95">
-                                      {fixingAll[fixKey] ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiTool size={12} />}
-                                      Fix All {mismatchCount} in {h.monthName}
-                                    </button>
+                                  {/* Row 2: Stats grid */}
+                                  {isNoData ? (
+                                    <div className="text-[10px] text-neutral-600 italic pl-1">No invoices found this month</div>
+                                  ) : (
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                      {/* Subtotal */}
+                                      <div className="bg-black/30 rounded-lg px-3 py-1.5">
+                                        <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider">Subtotal</div>
+                                        <div className="text-sky-300 font-mono font-bold text-xs">${(md.subtotal||0).toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+                                        <div className="text-[9px] text-neutral-600">Goal: ${(md.subtotalGoal||40000).toLocaleString()}</div>
+                                      </div>
+
+                                      {/* Dead Cost */}
+                                      <div className="bg-black/30 rounded-lg px-3 py-1.5">
+                                        <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider">Dead Cost</div>
+                                        <div className="text-rose-300 font-mono font-bold text-xs">${(md.deadCost||0).toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+                                        <div className="text-[9px] text-neutral-600">{md.subtotal > 0 ? Math.round((md.deadCost/md.subtotal)*100) : 0}% of sub</div>
+                                      </div>
+
+                                      {/* Dead Profit */}
+                                      <div className="bg-black/30 rounded-lg px-3 py-1.5">
+                                        <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider">Dead Profit</div>
+                                        <div className={`font-mono font-bold text-xs ${md.metGoal ? 'text-emerald-400' : 'text-amber-400'}`}>${(md.deadProfit||0).toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+                                        <div className="text-[9px] text-neutral-600">Goal: ${(md.profitGoal||20000).toLocaleString()}</div>
+                                      </div>
+
+                                      {/* Invoices */}
+                                      <div className="bg-black/30 rounded-lg px-3 py-1.5">
+                                        <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider">Invoices</div>
+                                        <div className="text-white font-bold text-xs">{md.invoiceCount}</div>
+                                        <div className="text-[9px] text-neutral-600">~${md.invoiceCount > 0 ? Math.round(md.subtotal/md.invoiceCount).toLocaleString() : 0} avg</div>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Row 3: Goal progress bar */}
+                                  {!isNoData && (
+                                    <div className="space-y-1 pt-0.5">
+                                      <div className="flex items-center justify-between text-[9px] text-neutral-500">
+                                        <span className="font-bold uppercase tracking-wider">{isProfit ? 'Dead Profit' : 'Subtotal'} vs Goal</span>
+                                        <span className="font-mono">${actualValue.toLocaleString(undefined,{maximumFractionDigits:0})} / ${goalValue.toLocaleString()}</span>
+                                      </div>
+                                      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full transition-all duration-500 ${md.metGoal ? 'bg-emerald-500' : pct > 66 ? 'bg-amber-500' : pct > 33 ? 'bg-orange-500' : 'bg-rose-500'}`}
+                                          style={{ width: `${Math.max(pct, 2)}%` }}
+                                        />
+                                      </div>
+                                      {overPct > 0 && <div className="text-[9px] text-emerald-400 font-bold">+{Math.round(overPct)}% over goal 🎯</div>}
+                                    </div>
                                   )}
                                 </div>
 
