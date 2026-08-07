@@ -1,0 +1,217 @@
+import { Handler } from "@netlify/functions"
+import { prisma } from "./lib/prisma"
+import { corsHeaders, handleOptions } from "./lib/cors"
+
+/**
+ * GET /.netlify/functions/vig-history
+ *
+ * Returns 72-month VIG rate history for all reps, aggregated from:
+ *  - MonthlyVigGoal table (stored goals/manual overrides)
+ *  - Invoice table (actual subtotal/profit per rep per month)
+ *
+ * Also returns mismatched invoices per rep per month:
+ *  invoices where the stored cf_salesperson_vig != the expected rate for that rep/month.
+ *
+ * Query params:
+ *  months     number  how many months back (default 24, max 72)
+ *  repId      string  filter to single rep (optional)
+ *  mismatches boolean include mismatch invoice lists (default true, can be slow for large DBs)
+ */
+export const handler: Handler = async (event) => {
+  if (event.httpMethod === "OPTIONS") return handleOptions()
+  if (event.httpMethod !== "GET") {
+    return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: "Method not allowed" }) }
+  }
+
+  try {
+    const params   = event.queryStringParameters || {}
+    const months   = Math.min(parseInt(params.months || "24", 10), 72)
+    const repFilter = params.repId || null
+    const includeMismatches = params.mismatches !== "false"
+
+    const now = new Date()
+
+    // ── 1. Build month key list ────────────────────────────────────────────
+    const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
+    const monthKeys: string[] = []
+    for (let i = 0; i < months; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      monthKeys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+    }
+
+    // ── 2. Load users (active reps) ────────────────────────────────────────
+    const users = await prisma.user.findMany({
+      where: {
+        AND: [
+          { NOT: { email: { contains: "dummy.titandiamond.com" } } },
+          { NOT: { email: { contains: "example.com" } } },
+          { NOT: { name: { contains: "test_migration" } } }
+        ],
+        ...(repFilter ? { id: repFilter } : {})
+      },
+      select: {
+        id: true, name: true, email: true,
+        constantVigEnabled: true, constantVigValue: true,
+        monthlyVigGoals: {
+          where: { monthKey: { in: monthKeys } },
+          select: { monthKey: true, metric: true, profitGoal: true, subtotalGoal: true, manualVigRate: true, lastSyncedVigRate: true }
+        }
+      }
+    })
+
+    // ── 3. Build name → userId map for invoice resolution ─────────────────
+    const nameToId: Record<string, string> = {}
+    const aliases: [string, string][] = [
+      ["ricky griffin", "richard griffin"], ["ricky griffin ", "richard griffin"],
+      ["monty morgan", "montgomery morgan"], ["ben bequette", "benjamin bequette"],
+      ["justin  zastrow", "justin zastrow"]
+    ]
+    users.forEach(u => {
+      if (u.name) nameToId[u.name.replace(/\s+/g, ' ').trim().toLowerCase()] = u.id
+    })
+    aliases.forEach(([alias, target]) => {
+      const u = users.find(u => u.name?.toLowerCase().includes(target))
+      if (u) nameToId[alias] = u.id
+    })
+
+    // ── 4. Fetch invoices in the window ───────────────────────────────────
+    const windowStart = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1)
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        issueDate: { gte: windowStart },
+        NOT: { status: { in: ['Void', 'Draft'] } }
+      },
+      select: {
+        id: true, zohoId: true, issueDate: true, amount: true,
+        items: true,
+        account: { select: { id: true, name: true, ownerId: true } }
+      },
+      orderBy: { issueDate: 'desc' }
+    })
+
+    // ── 5. Index goal data per user ───────────────────────────────────────
+    const goalMap: Record<string, Record<string, any>> = {}  // userId → monthKey → goal
+    users.forEach(u => {
+      goalMap[u.id] = {}
+      u.monthlyVigGoals.forEach((g: any) => { goalMap[u.id][g.monthKey] = g })
+    })
+
+    // ── 6. Aggregate invoice actuals + collect mismatches ──────────────────
+    type MonthStats = {
+      subtotal: number; deadProfit: number; invoiceCount: number
+      mismatches: { id: string; zohoId: string; number: string; date: string; amount: number; actualVig: number; expectedVig: number; customer: string }[]
+    }
+    const statsMap: Record<string, Record<string, MonthStats>> = {} // monthKey → userId → stats
+
+    invoices.forEach((inv: any) => {
+      const items = (inv.items as any) || {}
+      const issueDate = inv.issueDate ? new Date(inv.issueDate) : null
+      if (!issueDate) return
+      const mk = `${issueDate.getFullYear()}-${String(issueDate.getMonth() + 1).padStart(2, '0')}`
+      if (!monthKeys.includes(mk)) return
+
+      const salespersonName = (items.salesperson || '').replace(/\s+/g, ' ').trim().toLowerCase()
+      const userId = nameToId[salespersonName] || inv.account?.ownerId || null
+      if (!userId) return
+
+      // Resolve what vig rate SHOULD be for this rep/month
+      const user = users.find(u => u.id === userId)
+      if (!user) return
+
+      const goal = goalMap[userId]?.[mk]
+      const expectedVig: number = user.constantVigEnabled
+        ? parseFloat(String(user.constantVigValue)) || 1.3
+        : (goal?.manualVigRate ?? goal?.lastSyncedVigRate ?? 1.3)
+
+      // What VIG is actually stored on the invoice?
+      const actualVig = parseFloat(
+        items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted ?? items.vigRate ?? 0
+      ) || 1.3
+
+      const subtotal = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount) || 0
+      const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || 0) || 0
+      const additional = parseFloat(items.additionalCosts || 0) || 0
+      const ccFees = parseFloat(items.ccFees || 0) || 0
+      const deadProfit = subtotal - deadCost - additional - ccFees
+
+      if (!statsMap[mk]) statsMap[mk] = {}
+      if (!statsMap[mk][userId]) statsMap[mk][userId] = { subtotal: 0, deadProfit: 0, invoiceCount: 0, mismatches: [] }
+
+      statsMap[mk][userId].subtotal += subtotal
+      statsMap[mk][userId].deadProfit += deadProfit
+      statsMap[mk][userId].invoiceCount++
+
+      // Flag as mismatch if off by more than 0.01
+      if (includeMismatches && Math.abs(actualVig - expectedVig) > 0.01) {
+        const invNum = items.invoice_number || items.invoiceNumber || inv.zohoId || inv.id
+        statsMap[mk][userId].mismatches.push({
+          id:       inv.id,
+          zohoId:   inv.zohoId || '',
+          number:   invNum,
+          date:     issueDate.toISOString().split('T')[0],
+          amount:   subtotal,
+          actualVig,
+          expectedVig,
+          customer: inv.account?.name || 'Unknown'
+        })
+      }
+    })
+
+    // ── 7. Build response ─────────────────────────────────────────────────
+    const result = monthKeys.map(mk => {
+      const [yyyy, mm] = mk.split('-').map(Number)
+      const reps: Record<string, any> = {}
+
+      users.forEach(u => {
+        const goal = goalMap[u.id]?.[mk]
+        const stats = statsMap[mk]?.[u.id] || { subtotal: 0, deadProfit: 0, invoiceCount: 0, mismatches: [] }
+        const manualVigRate   = goal?.manualVigRate   ?? null
+        const lastSyncedVigRate = goal?.lastSyncedVigRate ?? null
+        const vigRate: number = u.constantVigEnabled
+          ? parseFloat(String(u.constantVigValue)) || 1.3
+          : (manualVigRate ?? lastSyncedVigRate ?? 1.3)
+
+        reps[u.id] = {
+          vigRate, manualVigRate, lastSyncedVigRate,
+          metric:       goal?.metric       ?? 'PROFIT',
+          profitGoal:   goal?.profitGoal   ?? 20000,
+          subtotalGoal: goal?.subtotalGoal ?? 40000,
+          subtotal:     stats.subtotal,
+          deadProfit:   stats.deadProfit,
+          invoiceCount: stats.invoiceCount,
+          metGoal:      (goal?.metric === 'SUBTOTAL')
+            ? stats.subtotal  >= (goal?.subtotalGoal ?? 40000)
+            : stats.deadProfit >= (goal?.profitGoal  ?? 20000),
+          mismatches: stats.mismatches
+        }
+      })
+
+      return {
+        monthKey:  mk,
+        monthName: `${MONTH_NAMES[mm - 1]} ${yyyy}`,
+        reps
+      }
+    })
+
+    // ── 8. Build repList for the UI (id + name) ───────────────────────────
+    const repList = users.map(u => ({
+      id: u.id, name: u.name, email: u.email,
+      constantVigEnabled: u.constantVigEnabled,
+      constantVigValue:   u.constantVigValue
+    }))
+
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: JSON.stringify({ success: true, months: result, reps: repList })
+    }
+
+  } catch (err: any) {
+    console.error("[vig-history] Error:", err)
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({ success: false, error: err.message })
+    }
+  }
+}
