@@ -231,7 +231,13 @@ export function AccountHistory({
                     style: 'currency', 
                     currency: 'USD' 
                   })
-                  const formattedDate = quote.createdAt ? new Date(quote.createdAt).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "--"
+                  const quoteItems = (quote.items as any) || {}
+                  // Use the real Zoho Books estimate date — stored in items.date (e.g. "2024-03-15")
+                  // Fall back to items.estimateDate (custom field), then createdAt (bulk-import date)
+                  const rawDate = quoteItems.date || quoteItems.estimateDate || quote.zohoModifiedTime || quote.createdAt
+                  const formattedDate = rawDate
+                    ? new Date(rawDate).toLocaleDateString(undefined, { timeZone: 'UTC' })
+                    : "--"
 
                   return (
                     <div 
