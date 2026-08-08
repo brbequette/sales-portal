@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions'
-import prisma from './lib/prisma'
+import { prisma } from './lib/prisma'
 
 type UnifiedDoc = {
   id: string
