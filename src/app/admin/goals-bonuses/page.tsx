@@ -198,17 +198,16 @@ export default function GoalsBonusesPage() {
   const fmtCurrency = (val: number) => `$${val.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans min-h-screen bg-neutral-950 p-4 sm:p-6 space-y-6">
-      
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2.5">
-            <FiAward className="text-amber-400" size={28} /> Performance Goals & Bonus Management
-          </h1>
-          <p className="text-xs text-neutral-400 mt-1">
-            Configure goal-completion bonuses tied to daily, weekly, monthly, or annual targets for representatives and team sprints.
-          </p>
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center">
+            <FiAward className="text-amber-500" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">Performance Goals & Bonus Management</h1>
+            <p className="page-subtitle">Configure goal-completion bonuses tied to daily, weekly, monthly, or annual targets for representatives and team sprints.</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -226,6 +225,8 @@ export default function GoalsBonusesPage() {
           </button>
         </div>
       </div>
+
+      <div className="page-body">
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -453,6 +454,7 @@ export default function GoalsBonusesPage() {
           })}
         </div>
       )}
+      </div>
 
       {/* Modal: Create/Edit Goal Bonus */}
       {showModal && (

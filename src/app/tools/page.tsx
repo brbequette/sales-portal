@@ -261,329 +261,216 @@ export default function ToolsRepository() {
   }
 
   return (
-    <div className="min-h-screen bg-black/20 text-neutral-100 font-sans pb-12">
-      {/* â"€â"€ Header â"€â"€ */}
-      <header className="glass-panel border-b border-white/10 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-neutral-400 hover:text-emerald-400 font-medium transition-colors text-sm">
-              &larr; Dashboard
-            </Link>
-            <div className="h-6 w-px bg-neutral-800"></div>
-            <h1 className="text-lg font-bold text-white flex items-center gap-2">
-              ✨"‚ Tools & Media Repository
-            </h1>
+    <div className="page-content">
+
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-center justify-center">
+            <FiPackage className="text-purple-400" size={17} />
           </div>
-          {isAdmin && (
-            <button
-              onClick={openAddModal}
-              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 text-xs rounded-full transition-all shadow-lg hover:shadow-emerald-500/10"
-            >
-              <FiPlus /> Add Asset
+          <div>
+            <h1 className="page-title">Tools & Media Repository</h1>
+            <p className="page-subtitle">Brochures, spec sheets, product catalog, and branded assets</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="glass-panel rounded-xl p-0.5 flex border border-white/10">
+            {(["media", "products"] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeTab === tab
+                    ? "bg-orange-500/20 text-orange-300 border border-orange-500/25"
+                    : "text-neutral-500 hover:text-white"
+                }`}
+              >
+                {tab === "media" ? "📁 Media" : "📦 Products"}
+              </button>
+            ))}
+          </div>
+          {isAdmin && activeTab === "media" && (
+            <button onClick={openAddModal} className="td-btn td-btn-primary td-btn-sm">
+              <FiPlus size={13} /> Add Asset
             </button>
           )}
         </div>
-      </header>
+      </div>
 
-      {/* â"€â"€ Main Container â"€â"€ */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-4">
 
-        {/* Search, Layout Selector, and Roles */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-
-              
-              <div className="flex items-center justify-between md:justify-end gap-3">
-                <div className="text-[10px] uppercase font-bold tracking-widest text-neutral-500">
-                  User Level: <span className={isAdmin ? "text-emerald-400 font-extrabold" : "text-neutral-400"}>{currentUser?.role || "Sales Rep"}</span>
-                </div>
+        {/* MEDIA TAB */}
+        {activeTab === "media" && (
+          <>
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+              <div className="relative flex-1 max-w-xs">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
+                <input type="text" placeholder="Search assets..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="td-input pl-9" />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider hidden sm:inline">{currentUser?.role || "Sales Rep"}</span>
                 <div className="glass-panel rounded-lg p-0.5 flex border border-white/10">
-                  <button 
-                    onClick={() => setViewMode("grid")} 
-                    className={`p-2 rounded ${viewMode === 'grid' ? 'bg-neutral-800 text-emerald-400' : 'text-neutral-500 hover:text-white'}`}
-                    title="Grid view"
-                  >
-                    <FiGrid />
-                  </button>
-                  <button 
-                    onClick={() => setViewMode("list")} 
-                    className={`p-2 rounded ${viewMode === 'list' ? 'bg-neutral-800 text-emerald-400' : 'text-neutral-500 hover:text-white'}`}
-                    title="List view"
-                  >
-                    <FiList />
-                  </button>
+                  <button onClick={() => setViewMode("grid")} className={`p-2 rounded ${viewMode === "grid" ? "bg-neutral-800 text-orange-400" : "text-neutral-500 hover:text-white"}`} title="Grid"><FiGrid size={14} /></button>
+                  <button onClick={() => setViewMode("list")} className={`p-2 rounded ${viewMode === "list" ? "bg-neutral-800 text-orange-400" : "text-neutral-500 hover:text-white"}`} title="List"><FiList size={14} /></button>
                 </div>
               </div>
             </div>
 
-            {/* Categories Bar */}
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
               {categories.map(cat => (
-                <button 
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                    activeCategory === cat 
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                      : 'glass-panel text-neutral-400 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 hover:text-white border border-white/10'
-                  }`}
-                >
-                  {cat}
-                </button>
+                <button key={cat} onClick={() => setActiveCategory(cat)} className={`filter-chip whitespace-nowrap ${activeCategory === cat ? "filter-chip-active" : ""}`}>{cat}</button>
               ))}
             </div>
 
-            {/* Loader */}
             {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+              <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>
+            ) : filteredAssets.length === 0 ? (
+              <div className="p-16 text-center border border-dashed border-white/10 rounded-2xl">
+                <FiSearch className="mx-auto text-neutral-700 mb-3" size={36} />
+                <p className="text-neutral-500 text-sm">No assets match your criteria.</p>
               </div>
-            ) : (
-              <>
-                {/* Grid View */}
-                {viewMode === 'grid' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {filteredAssets.map(asset => (
-                      <div key={asset.id} className="glass-panel/60 border border-white/10 hover:border-neutral-700 rounded-xl overflow-hidden transition-all group flex flex-col shadow-xl">
-                        <div className="h-28 glass-panel flex items-center justify-center text-3xl group-hover:scale-105 transition-transform duration-300 relative border-b border-white/10">
-                          {getIcon(asset.type)}
-                          <div className="absolute top-2 right-2 bg-neutral-800 text-[9px] font-bold px-2 py-0.5 rounded text-neutral-400 border border-neutral-700">
-                            {asset.type}
-                          </div>
-                        </div>
-                        <div className="p-4 flex-1 flex flex-col justify-between">
-                          <div>
-                            <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1">
-                              {asset.category}
-                            </div>
-                            <h3 className="text-xs font-bold text-white mb-2 line-clamp-2" title={asset.title}>
-                              {asset.title}
-                            </h3>
-                          </div>
-                          <div className="pt-3 border-t border-white/10/50 flex items-center justify-between">
-                            <span className="text-[10px] text-neutral-500">{asset.size}</span>
-                            <div className="flex gap-1">
-                              <button 
-                                onClick={() => handleDownload(asset)}
-                                className="p-1.5 bg-neutral-800 hover:bg-emerald-600 rounded text-neutral-300 hover:text-white transition-colors" 
-                                title="Download/Open"
-                              >
-                                <FiDownload size={13} />
-                              </button>
-                              <button 
-                                onClick={() => handleCopyLink(asset)}
-                                className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded text-neutral-300 hover:text-white transition-colors" 
-                                title="Copy link to send"
-                              >
-                                {copiedId === asset.id ? <FiCheck size={13} className="text-emerald-400" /> : <FiShare2 size={13} />}
-                              </button>
-                              {isAdmin && (
-                                <>
-                                  <button 
-                                    onClick={() => openEditModal(asset)}
-                                    className="p-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white transition-colors" 
-                                    title="Edit"
-                                  >
-                                    <FiEdit2 size={13} />
-                                  </button>
-                                  <button 
-                                    onClick={() => handleDeleteAsset(asset)}
-                                    className="p-1.5 bg-neutral-800 hover:bg-red-900 rounded text-neutral-400 hover:text-red-300 transition-colors" 
-                                    title="Delete"
-                                  >
-                                    <FiTrash2 size={13} />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </div>
+            ) : viewMode === "grid" ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {filteredAssets.map(asset => (
+                  <div key={asset.id} className="modern-card group flex flex-col overflow-hidden hover:-translate-y-0.5 transition-all duration-200">
+                    <div className="h-24 flex items-center justify-center text-3xl relative border-b border-white/8 bg-black/20">
+                      {getIcon(asset.type)}
+                      <div className="absolute top-2 right-2 bg-neutral-900 text-[9px] font-bold px-2 py-0.5 rounded-md text-neutral-400 border border-white/10">{asset.type}</div>
+                    </div>
+                    <div className="p-3.5 flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="text-[10px] text-orange-400 font-bold uppercase tracking-wider mb-1">{asset.category}</div>
+                        <h3 className="text-xs font-bold text-white line-clamp-2">{asset.title}</h3>
+                      </div>
+                      <div className="pt-3 mt-2 border-t border-white/8 flex items-center justify-between">
+                        <span className="text-[10px] text-neutral-600">{asset.size}</span>
+                        <div className="flex gap-1">
+                          <button onClick={() => handleDownload(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-emerald-700/50 text-neutral-400 hover:text-white transition-colors"><FiDownload size={12} /></button>
+                          <button onClick={() => handleCopyLink(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-blue-700/50 text-neutral-400 hover:text-white transition-colors">
+                            {copiedId === asset.id ? <FiCheck size={12} className="text-emerald-400" /> : <FiShare2 size={12} />}
+                          </button>
+                          {isAdmin && (<>
+                            <button onClick={() => openEditModal(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-700 text-neutral-500 hover:text-white transition-colors"><FiEdit2 size={12} /></button>
+                            <button onClick={() => handleDeleteAsset(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-red-900/50 text-neutral-500 hover:text-red-400 transition-colors"><FiTrash2 size={12} /></button>
+                          </>)}
                         </div>
                       </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="td-table-wrapper">
+                <table className="td-table">
+                  <thead><tr>
+                    <th className="td-th">Name</th><th className="td-th">Category</th><th className="td-th">Type</th><th className="td-th">Size</th><th className="td-th text-right">Actions</th>
+                  </tr></thead>
+                  <tbody>
+                    {filteredAssets.map(asset => (
+                      <tr key={asset.id} className="hover:bg-white/[0.03] transition-colors">
+                        <td className="td-td"><div className="flex items-center gap-3"><div className="text-base shrink-0">{getIcon(asset.type)}</div><span className="font-semibold text-white truncate max-w-xs">{asset.title}</span></div></td>
+                        <td className="td-td text-orange-400 font-semibold">{asset.category}</td>
+                        <td className="td-td text-neutral-400">{asset.type}</td>
+                        <td className="td-td text-neutral-500">{asset.size}</td>
+                        <td className="td-td text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button onClick={() => handleDownload(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-emerald-700/50 text-neutral-400 hover:text-white transition-colors"><FiDownload size={12} /></button>
+                            <button onClick={() => handleCopyLink(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-blue-700/50 text-neutral-400 hover:text-white transition-colors">{copiedId === asset.id ? <FiCheck size={12} className="text-emerald-400" /> : <FiShare2 size={12} />}</button>
+                            {isAdmin && (<><button onClick={() => openEditModal(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-700 text-neutral-500 hover:text-white transition-colors"><FiEdit2 size={12} /></button><button onClick={() => handleDeleteAsset(asset)} className="p-1.5 rounded-lg bg-neutral-900 hover:bg-red-900/50 text-neutral-500 hover:text-red-400 transition-colors"><FiTrash2 size={12} /></button></>)}
+                          </div>
+                        </td>
+                      </tr>
                     ))}
-                  </div>
-                ) : (
-                  /* List View */
-                  <div className="glass-panel border border-white/10 rounded-xl overflow-x-auto shadow-2xl">
-                    <table className="w-full text-left text-xs min-w-[600px]">
-                      <thead className="bg-neutral-800/80 text-neutral-400 border-b border-white/10 uppercase tracking-wider text-[9px] font-bold">
-                        <tr>
-                          <th className="p-4">Name</th>
-                          <th className="p-4">Category</th>
-                          <th className="p-4">Type</th>
-                          <th className="p-4">Size</th>
-                          <th className="p-4 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-800">
-                        {filteredAssets.map(asset => (
-                          <tr key={asset.id} className="hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30 transition-colors">
-                            <td className="p-4 flex items-center gap-3">
-                              <div className="text-base shrink-0">{getIcon(asset.type)}</div>
-                              <span className="font-semibold text-white truncate max-w-xs sm:max-w-md">{asset.title}</span>
-                            </td>
-                            <td className="p-4 text-emerald-400 font-semibold">{asset.category}</td>
-                            <td className="p-4 text-neutral-400">{asset.type}</td>
-                            <td className="p-4 text-neutral-500">{asset.size}</td>
-                            <td className="p-4 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button 
-                                  onClick={() => handleDownload(asset)}
-                                  className="p-1.5 bg-neutral-800 hover:bg-emerald-600 rounded text-neutral-300 hover:text-white transition-colors" 
-                                  title="Download/Open"
-                                >
-                                  <FiDownload size={12} />
-                                </button>
-                                <button 
-                                  onClick={() => handleCopyLink(asset)}
-                                  className="p-1.5 bg-neutral-800 hover:bg-blue-600 rounded text-neutral-300 hover:text-white transition-colors" 
-                                  title="Copy link to send"
-                                >
-                                  {copiedId === asset.id ? <FiCheck size={12} className="text-emerald-400" /> : <FiShare2 size={12} />}
-                                </button>
-                                {isAdmin && (
-                                  <>
-                                    <button 
-                                      onClick={() => openEditModal(asset)}
-                                      className="p-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white transition-colors" 
-                                      title="Edit"
-                                    >
-                                      <FiEdit2 size={12} />
-                                    </button>
-                                    <button 
-                                      onClick={() => handleDeleteAsset(asset)}
-                                      className="p-1.5 bg-neutral-800 hover:bg-red-900 rounded text-neutral-400 hover:text-red-300 transition-colors" 
-                                      title="Delete"
-                                    >
-                                      <FiTrash2 size={12} />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {filteredAssets.length === 0 && (
-                  <div className="p-16 text-center border border-dashed border-white/10 rounded-xl glass-panel/10">
-                    <FiSearch className="mx-auto text-4xl text-neutral-600 mb-3" />
-                    <p className="text-neutral-400 font-medium text-sm">No assets found matching your criteria.</p>
-                  </div>
-                )}
-              </>
+                  </tbody>
+                </table>
+              </div>
             )}
-      </main>
+          </>
+        )}
 
-      {/* â"€â"€ Add / Edit Asset Modal (Admin Only) â"€â"€ */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="glass-panel border border-white/10 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl">
-            {/* Modal Header */}
-            <div className="bg-neutral-800 px-6 py-4 border-b border-white/10 flex justify-between items-center">
-              <h2 className="font-bold text-white text-base">
-                {editingAsset ? "✍️ Edit Media Asset" : "✨ Add New Media Asset"}
-              </h2>
-              <button 
-                onClick={() => setShowModal(false)}
-                className="text-neutral-400 hover:text-white transition-colors text-xl font-bold"
-              >
-                &times;
-              </button>
+        {/* PRODUCTS TAB */}
+        {activeTab === "products" && (
+          <>
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <div className="relative flex-1 max-w-xs">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
+                <input type="text" placeholder="Search products, SKU, vendor..." value={productSearch} onChange={e => setProductSearch(e.target.value)} className="td-input pl-9" />
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {productCategories.map(cat => (
+                  <button key={cat} onClick={() => setProductCategory(cat)} className={`filter-chip whitespace-nowrap ${productCategory === cat ? "filter-chip-active" : ""}`}>{cat}</button>
+                ))}
+              </div>
             </div>
+            {productsLoading ? (
+              <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="p-16 text-center border border-dashed border-white/10 rounded-2xl">
+                <FiBox className="mx-auto text-neutral-700 mb-3" size={36} /><p className="text-neutral-500 text-sm">No products found.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredProducts.map((product: any) => {
+                  const parsed = parseProductDescription(product.description)
+                  const img = getProductImage(product.name, product.sku)
+                  return (
+                    <div key={product.id} className="modern-card group flex flex-col overflow-hidden cursor-pointer hover:-translate-y-0.5 transition-all duration-200" onClick={() => showProduct(product)}>
+                      <div className="h-28 flex items-center justify-center bg-black/30 border-b border-white/8 relative overflow-hidden">
+                        {img ? <img src={img} alt={product.name} className="h-full w-full object-contain p-2 group-hover:scale-105 transition-transform duration-300" /> : <FiBox size={36} className="text-neutral-700" />}
+                        {parsed.vendor && <div className="absolute top-2 left-2 bg-neutral-900/80 text-[9px] font-bold px-2 py-0.5 rounded-md text-neutral-400 border border-white/10">{parsed.vendor}</div>}
+                      </div>
+                      <div className="p-3.5 flex-1 flex flex-col gap-2">
+                        <div>
+                          <div className="text-[10px] text-orange-400 font-bold uppercase tracking-wider mb-0.5">{product.category || "General"}</div>
+                          <h3 className="text-xs font-bold text-white line-clamp-2">{product.name}</h3>
+                          <div className="text-[10px] text-neutral-600 font-mono mt-0.5">{product.sku}</div>
+                        </div>
+                        <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/8">
+                          {parsed.retail != null && <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold"><FiDollarSign size={11} />{Number(parsed.retail).toFixed(2)}</div>}
+                          {parsed.pertinentInfo && <div className="flex items-center gap-1 text-neutral-500 text-[10px]"><FiInfo size={10} /><span className="truncate max-w-[100px]">{parsed.pertinentInfo}</span></div>}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
-            {/* Modal Form */}
-            <form onSubmit={handleSaveAsset} className="p-6 space-y-4">
-              {errorMsg && (
-                <div className="bg-red-900/30 border border-red-800 text-red-400 text-xs p-3 rounded-lg">
-                  {errorMsg}
-                </div>
-              )}
-
+      {/* ─── Admin Modal ────────────────────────────── */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="td-modal w-full max-w-md">
+            <div className="td-modal-header">
+              <h2 className="td-modal-title">{editingAsset ? "Edit Media Asset" : "Add New Media Asset"}</h2>
+              <button onClick={() => setShowModal(false)} className="td-modal-close">✕</button>
+            </div>
+            <form onSubmit={handleSaveAsset} className="p-5 space-y-4">
+              {errorMsg && <div className="bg-red-950/40 border border-red-500/25 text-red-400 text-xs p-3 rounded-xl">{errorMsg}</div>}
               <div>
-                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Asset Title *</label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="e.g. Wet Core Drill Bit Guide"
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                />
+                <label className="td-label">Asset Title *</label>
+                <input type="text" required placeholder="e.g. Wet Core Drill Bit Guide" value={formTitle} onChange={e => setFormTitle(e.target.value)} className="td-input" />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Asset Type</label>
-                  <select 
-                    value={formType}
-                    onChange={(e) => setFormType(e.target.value)}
-                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                  >
-                    {assetTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Category</label>
-                  <select 
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value)}
-                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                  >
-                    {categories.filter(c => c !== "All").map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="td-label">Asset Type</label><select value={formType} onChange={e => setFormType(e.target.value)} className="td-select">{assetTypes.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+                <div><label className="td-label">Category</label><select value={formCategory} onChange={e => setFormCategory(e.target.value)} className="td-select">{categories.filter(c => c !== "All").map(c => <option key={c} value={c}>{c}</option>)}</select></div>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Asset URL *</label>
-                  <input 
-                    type="url" 
-                    required
-                    placeholder="https://example.com/asset.pdf"
-                    value={formUrl}
-                    onChange={(e) => setFormUrl(e.target.value)}
-                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1.5">Size Label</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. 2.4 MB, 125 MB, Link"
-                    value={formSize}
-                    onChange={(e) => setFormSize(e.target.value)}
-                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
-                </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="td-label">Asset URL *</label><input type="url" required placeholder="https://..." value={formUrl} onChange={e => setFormUrl(e.target.value)} className="td-input" /></div>
+                <div><label className="td-label">Size Label</label><input type="text" placeholder="e.g. 2.4 MB" value={formSize} onChange={e => setFormSize(e.target.value)} className="td-input" /></div>
               </div>
-
-              {/* Action Buttons */}
-              <div className="pt-4 border-t border-white/10 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  disabled={submitting}
-                  className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold px-4 py-2 text-xs rounded-lg transition-colors disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 text-xs rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {submitting ? "Saving..." : "Save Asset"}
-                </button>
+              <div className="pt-3 border-t border-white/10 flex justify-end gap-2">
+                <button type="button" onClick={() => setShowModal(false)} disabled={submitting} className="td-btn td-btn-ghost td-btn-sm">Cancel</button>
+                <button type="submit" disabled={submitting} className="td-btn td-btn-primary td-btn-sm disabled:opacity-50">{submitting ? "Saving..." : "Save Asset"}</button>
               </div>
             </form>
           </div>
         </div>
       )}
-
     </div>
   )
 }
-

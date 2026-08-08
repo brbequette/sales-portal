@@ -209,14 +209,23 @@ export default function NewTaskPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-black text-white p-4 lg:p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-[#151618] border border-white/10 rounded-2xl shadow-2xl p-6 lg:p-8">
-          <div className="mb-6 pb-6 border-b border-white/10">
-            <h1 className="text-2xl font-black text-white">Create New Task</h1>
-            <p className="text-neutral-400 mt-2">Add a new task, call, or email to your agenda.</p>
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center text-lg">
+            ✅
           </div>
-          
+          <div>
+            <h1 className="page-title">Create New Task</h1>
+            <p className="page-subtitle">Add a task, call, or email to your agenda</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="page-body">
+        <div className="max-w-2xl mx-auto">
+          <div className="glass-panel border border-white/10 rounded-2xl shadow-2xl p-6 lg:p-8">
+
           <form onSubmit={handleCreateTask} className="space-y-6">
             <div>
               <label className="block text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-2">Subject *</label>
@@ -453,6 +462,7 @@ export default function NewTaskPage() {
               </button>
             </div>
           </form>
+          </div>
         </div>
       </div>
     </div>

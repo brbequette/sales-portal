@@ -166,16 +166,24 @@ export default function AdminGeofencesPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col text-neutral-100 font-sans h-full">
-        <header className="px-6 py-5 border-b border-white/10 shrink-0">
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <FiMapPin className="text-neutral-400" /> Geofence Location
-          </h1>
-        </header>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex items-center gap-3 text-neutral-400 font-bold">
-            <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-            Loading geofence settings...
+      <div className="page-content">
+        <div className="page-header">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
+              <FiMapPin className="text-emerald-500" size={17} />
+            </div>
+            <div>
+              <h1 className="page-title">Geofence Location</h1>
+              <p className="page-subtitle">Loading settings...</p>
+            </div>
+          </div>
+        </div>
+        <div className="page-body">
+          <div className="flex items-center justify-center h-full">
+            <div className="flex items-center gap-3 text-neutral-400 font-bold">
+              <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              Loading geofence settings...
+            </div>
           </div>
         </div>
       </div>
@@ -183,12 +191,17 @@ export default function AdminGeofencesPage() {
   }
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans h-full">
-      {/* Header */}
-      <header className="px-6 py-5 border-b border-white/10 flex justify-between items-center shrink-0">
-        <h1 className="text-xl font-bold text-white flex items-center gap-2">
-          <FiMapPin className="text-neutral-400" /> Geofence Location
-        </h1>
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
+            <FiMapPin className="text-emerald-500" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">Geofence Location</h1>
+            <p className="page-subtitle">Configure office location for auto clock-in</p>
+          </div>
+        </div>
         <div className="flex items-center gap-3">
           {geofence.id && (
             <button
@@ -213,10 +226,9 @@ export default function AdminGeofencesPage() {
             {geofence.id ? "Save Changes" : "Create Geofence"}
           </button>
         </div>
-      </header>
+      </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6 lg:p-10 bg-[#0a0a0a]">
+      <div className="page-body">
         <div className="max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
           {/* Description */}
           <p className="text-sm text-neutral-400 mb-6 leading-relaxed">

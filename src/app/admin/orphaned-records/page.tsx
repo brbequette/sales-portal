@@ -213,44 +213,40 @@ export default function OrphanedRecordsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-12">
-      <div className="max-w-7xl mx-auto space-y-8">
-        
-        {/* Breadcrumb & Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-slate-400 mb-1">
-              <Link href="/admin" className="hover:text-white transition">Admin Dashboard</Link>
-              <FiArrowRight />
-              <span>Orphaned Records</span>
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-              Orphaned Files Manager
-            </h1>
-            <p className="text-slate-400 mt-1">
-              Link unassociated Purchase Orders and Payment entries to customer Invoices.
-            </p>
+    <div className="page-content">
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-center">
+            <FiPackage className="text-red-400" size={17} />
           </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleAutoMatch}
-              disabled={autoMatching}
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold py-2.5 px-5 rounded-lg transition duration-200 shadow-lg shadow-emerald-500/10 flex items-center gap-2 cursor-pointer"
-            >
-              <FiCheck className={autoMatching ? "animate-spin" : ""} />
-              {autoMatching ? "Matching..." : "⚡ Auto-Link High Confidence Matches"}
-            </button>
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold py-2.5 px-5 rounded-lg transition duration-200 shadow-lg shadow-blue-500/10 flex items-center gap-2"
-            >
-              <FiRefreshCw className={syncing ? "animate-spin" : ""} />
-              {syncing ? "Syncing..." : "Sync POs & Payments"}
-            </button>
+          <div>
+            <h1 className="page-title">Orphaned Files Manager</h1>
+            <p className="page-subtitle">Link unassociated Purchase Orders and Payments to customer Invoices</p>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleAutoMatch}
+            disabled={autoMatching}
+            className="td-btn td-btn-primary td-btn-sm disabled:opacity-50"
+          >
+            <FiCheck size={13} className={autoMatching ? "animate-spin" : ""} />
+            {autoMatching ? "Matching..." : "Auto-Link High Confidence"}
+          </button>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="td-btn td-btn-ghost td-btn-sm disabled:opacity-50"
+          >
+            <FiRefreshCw size={13} className={syncing ? "animate-spin" : ""} />
+            {syncing ? "Syncing..." : "Sync POs &amp; Payments"}
+          </button>
+        </div>
+      </div>
+
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-6">
 
         {/* Sync Progress Banner */}
         {syncMessage && (
@@ -473,8 +469,8 @@ export default function OrphanedRecordsPage() {
               </div>
             )
           )}
-        </div>
       </div>
+    </div>
     </div>
   )
 }

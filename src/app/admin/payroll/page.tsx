@@ -96,22 +96,23 @@ export default function PayrollAdminPage() {
   if (!isInitialized) return <div className="p-8 text-white">Loading...</div>
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans overflow-y-auto" style={{ height: "100%" }}>
-      <main className="flex-1 px-4 sm:px-6 py-4 space-y-5 overflow-y-auto safe-bottom">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/30">
-              <FiDollarSign size={20} className="text-amber-400" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-white tracking-tight">Payroll & Advances</h1>
-              <p className="text-xs text-neutral-500">Manage advances, reimbursements, and weekly vouchers</p>
-            </div>
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center">
+            <FiDollarSign className="text-amber-500" size={17} />
           </div>
-          <button onClick={fetchData} className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm font-bold flex items-center gap-2">
-            <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
-          </button>
+          <div>
+            <h1 className="page-title">Payroll & Advances</h1>
+            <p className="page-subtitle">Manage advances, reimbursements, and weekly vouchers</p>
+          </div>
         </div>
+        <button onClick={fetchData} className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm font-bold flex items-center gap-2">
+          <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
+        </button>
+      </div>
+
+      <div className="page-body">
 
         <div className="flex border-b border-white/10">
           <button
@@ -253,7 +254,7 @@ export default function PayrollAdminPage() {
               </div>
            )}
         </div>
-      </main>
+      </div>
     </div>
   )
 }

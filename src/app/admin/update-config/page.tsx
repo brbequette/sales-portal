@@ -219,21 +219,20 @@ export default function AdminSettingsPage() {
   ]
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans overflow-y-auto" style={{ height: "100%" }}>
-      <main className="flex-1 px-4 sm:px-6 py-4 space-y-5 overflow-y-auto safe-bottom">
-
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/30">
-              <FiSettings size={20} className="text-purple-400" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-white tracking-tight">Update Configuration</h1>
-              <p className="text-xs text-neutral-500">Manage update account configuration &amp; assignments</p>
-            </div>
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-center justify-center">
+            <FiSettings className="text-purple-500" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">Update Configuration</h1>
+            <p className="page-subtitle">Manage update account configuration &amp; assignments</p>
           </div>
         </div>
+      </div>
+
+      <div className="page-body">
 
         {/* Systemwide VIG Management Banner */}
         <div className="bg-yellow-500/10 border border-yellow-500/30 p-3.5 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-yellow-300">
@@ -728,7 +727,7 @@ export default function AdminSettingsPage() {
           </div>
         )}
 
-      </main>
+      </div>
 
       {/* Rebalance Confirmation Modal */}
       {showRebalanceConfirm && (

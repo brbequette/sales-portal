@@ -168,39 +168,37 @@ export default function NotificationTemplatesPage() {
   ]
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="page-content">
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
         <div className="flex items-center gap-3">
-          <Link href="/admin" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors">
-            <FiArrowLeft size={18} />
-          </Link>
+          <div className="w-9 h-9 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-center">
+            <FiMessageSquare className="text-blue-400" size={17} />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Notification Rules</h1>
-            <p className="text-neutral-400 text-xs">Manage automated customer SMS and Email messaging templates.</p>
+            <h1 className="page-title">Notification Rules</h1>
+            <p className="page-subtitle">Manage automated customer SMS and Email messaging templates</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setShowInactive(!showInactive)} 
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
-              showInactive 
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-400" 
-                : "border-white/10 bg-white/5 text-neutral-400 hover:text-white"
-            }`}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowInactive(!showInactive)}
+            className={`td-btn td-btn-sm ${showInactive ? "td-btn-warning" : "td-btn-ghost"}`}
           >
-            {showInactive ? <FiEye size={14} /> : <FiEyeOff size={14} />}
+            {showInactive ? <FiEye size={13} /> : <FiEyeOff size={13} />}
             {showInactive ? "Showing Inactive" : "Show Inactive"}
           </button>
-          <button 
-            onClick={() => handleOpenModal()} 
-            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors"
+          <button
+            onClick={() => handleOpenModal()}
+            className="td-btn td-btn-sm td-btn-primary"
           >
-            <FiPlus size={14} />
-            Create Template
+            <FiPlus size={13} /> Create Template
           </button>
         </div>
       </div>
+
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-4">
 
       {error && (
         <div className="p-4 rounded-xl border border-red-500/20 bg-red-950/20 text-red-400 text-xs">
@@ -408,6 +406,7 @@ export default function NotificationTemplatesPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

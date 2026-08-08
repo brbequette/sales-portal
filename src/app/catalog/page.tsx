@@ -327,40 +327,37 @@ export default function ProductCatalogPage() {
   )
 
   return (
-    <div className="min-h-screen bg-black/20 text-neutral-100 font-sans pb-12">
-      {/* Header */}
-      <header className="glass-panel border-b border-white/10 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-neutral-400 hover:text-emerald-400 font-medium transition-colors text-sm">
-              &larr; Dashboard
-            </Link>
-            <div className="h-6 w-px bg-neutral-800"></div>
-            <h1 className="text-lg font-bold text-white flex items-center gap-2">
-              💎 Product Catalog Lookup
-            </h1>
+    <div className="page-content">
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center text-lg">
+            💎
           </div>
-
-          <div className="flex items-center gap-3">
-            {syncProgress && (
-              <span className="text-[10px] text-neutral-400 font-semibold animate-pulse">{syncProgress}</span>
-            )}
-            <button
-              onClick={handleSyncWithZoho}
-              disabled={syncing}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              <svg className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-5v12" />
-              </svg>
-              <span>{syncing ? "Syncing..." : "Sync from Zoho"}</span>
-            </button>
+          <div>
+            <h1 className="page-title">Product Catalog</h1>
+            <p className="page-subtitle">Browse, filter, and manage all products</p>
           </div>
         </div>
-      </header>
+        <div className="flex items-center gap-3">
+          {syncProgress && (
+            <span className="text-[10px] text-neutral-400 font-semibold animate-pulse">{syncProgress}</span>
+          )}
+          <button
+            onClick={handleSyncWithZoho}
+            disabled={syncing}
+            className="td-btn td-btn-ghost td-btn-sm"
+          >
+            <svg className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-5v12" />
+            </svg>
+            {syncing ? "Syncing..." : "Sync from Zoho"}
+          </button>
+        </div>
+      </div>
 
-      {/* Main Container */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-4">
         
         {/* Search & Basic Filters View */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -466,7 +463,7 @@ export default function ProductCatalogPage() {
         ) : (
           renderTable(groupedProducts["All Products"])
         )}
-      </main>
+      </div>
 
       {/* Edit Modal */}
       {editingProduct && (

@@ -1,19 +1,16 @@
 "use client"
 
-
 import { useState, useCallback } from "react"
 import { FiBookOpen, FiSearch, FiChevronRight, FiDownload } from "react-icons/fi"
 import { trainingModules, trainingCategories, TrainingModule } from "@/lib/trainingData"
-import { toast } from 'react-hot-toast';
+import { toast } from 'react-hot-toast'
 
 function MarkdownContent({ content }: { content: string }) {
-  // A simple parser for basic markdown since we don't have react-markdown installed
   const renderLine = (line: string, i: number) => {
     if (line.startsWith("### ")) {
       return <h3 key={i} className="text-lg font-bold text-white mt-6 mb-2">{line.replace("### ", "")}</h3>
     }
     if (line.startsWith("- ")) {
-      // Bold text inside list item
       const parts = line.replace("- ", "").split(/(\*\*.*?\*\*)/)
       return (
         <li key={i} className="ml-4 list-disc text-neutral-300 mb-1">
@@ -44,13 +41,11 @@ function MarkdownContent({ content }: { content: string }) {
     if (line.trim() === "") {
       return <div key={i} className="h-2"></div>
     }
-    
-    // Bold text inside regular paragraph
     const parts = line.split(/(\*\*.*?\*\*)/)
     return (
       <p key={i} className="text-neutral-300 leading-relaxed">
-        {parts.map((part, j) => 
-          part.startsWith("**") && part.endsWith("**") 
+        {parts.map((part, j) =>
+          part.startsWith("**") && part.endsWith("**")
             ? <strong key={j} className="text-white font-semibold">{part.replace(/\*\*/g, "")}</strong>
             : part
         )}
@@ -87,8 +82,8 @@ export default function TrainingPage() {
   const [search, setSearch] = useState("")
   const [selectedModule, setSelectedModule] = useState<TrainingModule | null>(null)
 
-  const filteredModules = trainingModules.filter(m => 
-    m.title.toLowerCase().includes(search.toLowerCase()) || 
+  const filteredModules = trainingModules.filter(m =>
+    m.title.toLowerCase().includes(search.toLowerCase()) ||
     m.content.toLowerCase().includes(search.toLowerCase()) ||
     m.category.toLowerCase().includes(search.toLowerCase())
   )
@@ -143,58 +138,64 @@ export default function TrainingPage() {
   }, [])
 
   return (
-    <div className="p-4 lg:p-8 flex flex-col h-[calc(100dvh-7rem)] lg:h-screen max-w-7xl mx-auto">
-      <div className="mb-6 shrink-0 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-white flex items-center gap-2">
-            <FiBookOpen className="text-[var(--primary)]" /> Training Hub
-          </h1>
-          <p className="text-neutral-400 mt-1">Learn how to use every part of the Titan Hub -- sales, communication, collections, payroll, and admin.</p>
+    <div className="page-content">
+
+      {/* ─── Header ────────────────────────────────────────────────── */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-teal-500/10 border border-teal-500/20 rounded-xl flex items-center justify-center">
+            <FiBookOpen className="text-teal-400" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">Training Hub</h1>
+            <p className="page-subtitle">Sales, communication, collections, payroll & admin guides</p>
+          </div>
         </div>
         <button
           onClick={() => generatePdf(trainingModules, 'Complete Training Manual')}
-          className="px-4 py-2 bg-[var(--primary)] hover:bg-emerald-500 text-white text-xs font-bold rounded-lg flex items-center gap-2 shrink-0 transition-colors shadow-lg"
+          className="td-btn td-btn-primary td-btn-sm shrink-0"
         >
-          <FiDownload size={14} />
+          <FiDownload size={13} />
           Download PDF
         </button>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 min-h-0 flex-1">
-        
-        {/* Sidebar Menu */}
-        <div className="lg:w-80 flex flex-col gap-4 shrink-0 bg-[var(--surface)] border border-white/10 rounded-2xl p-4 overflow-y-auto hidden-scrollbar shadow-xl">
+      {/* ─── Body ──────────────────────────────────────────────────── */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 p-4 lg:p-6 overflow-hidden animate-fade-in">
+
+        {/* Sidebar */}
+        <div className="lg:w-72 xl:w-80 flex flex-col gap-3 shrink-0 glass-panel rounded-2xl p-4 overflow-y-auto scrollbar-none">
           <div className="relative shrink-0">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-            <input 
-              type="text" 
-              placeholder="Search training..." 
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
+            <input
+              type="text"
+              placeholder="Search training..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full bg-[var(--surface-2)] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--primary)] transition-colors"
+              className="td-input pl-9"
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-6 pt-2">
+          <div className="flex-1 overflow-y-auto space-y-5 pt-1 scrollbar-none">
             {modulesByCategory.length === 0 ? (
               <div className="text-sm text-neutral-500 text-center py-8">No matching guides found.</div>
             ) : (
               modulesByCategory.map(cat => (
                 <div key={cat.category}>
-                  <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">{cat.category}</h4>
-                  <div className="space-y-1">
+                  <h4 className="section-header">{cat.category}</h4>
+                  <div className="space-y-0.5">
                     {cat.modules.map(mod => (
                       <button
                         key={mod.id}
                         onClick={() => setSelectedModule(mod)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${
-                          selectedModule?.id === mod.id 
-                            ? "bg-[var(--primary)]/15 text-[var(--primary)] font-semibold border border-[var(--primary)]/25" 
-                            : "hover:bg-white/5 text-neutral-300 hover:text-white"
+                        className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-all flex items-center justify-between gap-2 ${
+                          selectedModule?.id === mod.id
+                            ? "bg-orange-500/10 text-orange-300 font-semibold border border-orange-500/20"
+                            : "hover:bg-white/5 text-neutral-400 hover:text-white border border-transparent"
                         }`}
                       >
                         <span className="truncate">{mod.title}</span>
-                        {selectedModule?.id === mod.id && <FiChevronRight />}
+                        {selectedModule?.id === mod.id && <FiChevronRight size={13} className="shrink-0" />}
                       </button>
                     ))}
                   </div>
@@ -204,28 +205,32 @@ export default function TrainingPage() {
           </div>
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 bg-[var(--surface)] border border-white/10 rounded-2xl shadow-xl overflow-hidden flex flex-col relative">
+        {/* Content Pane */}
+        <div className="flex-1 glass-panel rounded-2xl overflow-hidden flex flex-col relative">
           {selectedModule ? (
-            <div className="absolute inset-0 overflow-y-auto p-6 lg:p-10 hidden-scrollbar">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-semibold text-[var(--primary)]">{selectedModule.category}</div>
+            <div className="absolute inset-0 overflow-y-auto p-6 lg:p-10 scrollbar-none">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs font-bold text-orange-400 uppercase tracking-wider">{selectedModule.category}</div>
                 <button
                   onClick={() => generatePdf([selectedModule], selectedModule.title)}
-                  className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-colors"
+                  className="td-btn td-btn-ghost td-btn-sm"
                 >
                   <FiDownload size={12} />
-                  Print This Guide
+                  Print Guide
                 </button>
               </div>
-              <h2 className="text-3xl font-black text-white mb-6 pb-6 border-b border-white/10">{selectedModule.title}</h2>
+              <h2 className="text-2xl lg:text-3xl font-black text-white mb-6 pb-5 border-b border-white/10">
+                {selectedModule.title}
+              </h2>
               <MarkdownContent content={selectedModule.content} />
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-neutral-500 p-8 text-center">
-              <FiBookOpen size={48} className="opacity-20 mb-4" />
-              <h3 className="text-lg font-bold text-neutral-400 mb-1">Select a training module</h3>
-              <p className="text-sm max-w-sm">Choose a guide from the sidebar to learn more about how to use the Sales Portal.</p>
+              <div className="w-16 h-16 bg-teal-500/10 border border-teal-500/15 rounded-2xl flex items-center justify-center mb-4">
+                <FiBookOpen size={28} className="text-teal-500/50" />
+              </div>
+              <h3 className="text-base font-bold text-neutral-400 mb-1">Select a training module</h3>
+              <p className="text-sm text-neutral-600 max-w-xs">Choose a guide from the sidebar to learn how to use the Sales Portal.</p>
             </div>
           )}
         </div>
@@ -234,4 +239,3 @@ export default function TrainingPage() {
     </div>
   )
 }
-

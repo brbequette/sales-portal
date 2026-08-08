@@ -179,34 +179,32 @@ export default function AdminHolidaysPage() {
   if (loading) return <div className="p-8 text-neutral-400">Loading Holidays...</div>
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans h-full">
-      <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto safe-bottom">
-        
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/30">
-              <FiActivity size={20} className="text-purple-400" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-white tracking-tight">Holiday Management</h1>
-              <p className="text-xs text-neutral-500">Exclude holidays from the workday target calculations</p>
-            </div>
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-center justify-center">
+            <FiActivity className="text-purple-500" size={17} />
           </div>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-sm font-bold shadow-lg shadow-purple-900/20 flex items-center gap-2 transition-all"
-          >
-            {saving ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <FiSave size={16} />
-            )}
-            Save Changes
-          </button>
+          <div>
+            <h1 className="page-title">Holiday Management</h1>
+            <p className="page-subtitle">Exclude holidays from the workday target calculations</p>
+          </div>
         </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-sm font-bold shadow-lg shadow-purple-900/20 flex items-center gap-2 transition-all"
+        >
+          {saving ? (
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <FiSave size={16} />
+          )}
+          Save Changes
+        </button>
+      </div>
 
+      <div className="page-body">
         {/* Feedback Messages */}
         {apiError && (
           <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-3 text-red-400 text-sm flex items-center gap-2 animate-in fade-in">
@@ -367,8 +365,7 @@ export default function AdminHolidaysPage() {
             )}
           </div>
         </div>
-
-      </main>
+      </div>
     </div>
   )
 }

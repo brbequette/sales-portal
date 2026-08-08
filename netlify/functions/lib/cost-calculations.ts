@@ -73,10 +73,21 @@ export function isSwagItem(nameOrSku: string): boolean {
   )
 }
 
+// Keywords that indicate a gift/promo/swag item — used as fallback when no Zoho field is set
+const GIFT_KEYWORDS = [
+  "gift", "hat", "trucker", "shirt", "t-shirt", "tee", "hoodie", "jacket",
+  "apparel", "swag", "promo", "cup", "mug", "beaver", "sample",
+  "card", "giftcard", "merch", "pant", "beanie", "glove", "pen",
+  "banner", "flyer", "sticker", "decal", "display", "polo", "vest",
+  "sweatshirt", "cap", "bag", "blade bag", "coat", "umbrella", "tumbler",
+  "bottle", "keychain"
+]
+
 export function isGiftItem(item: any): boolean {
   const rate = parseFloat(item.rate || item.price || item.unit_price || 0)
   if (rate === 0) return true
 
+  // 1. Zoho custom field check (primary / explicit)
   const cfs = item.item_custom_fields || item.custom_fields || []
   if (Array.isArray(cfs)) {
     const giftField = cfs.find((c: any) => {
@@ -87,6 +98,16 @@ export function isGiftItem(item: any): boolean {
       return giftField.value === true || giftField.value === "true" || giftField.value === "Yes" || giftField.value === 1
     }
   }
+
+  // 2. Keyword heuristic fallback — catches items like "Gift Card", "Promo Hat" etc.
+  //    that lack a Zoho checkbox but are obviously non-product items.
+  const name = (item.name || "").toLowerCase()
+  const sku  = (item.sku  || item.code || "").toLowerCase()
+  const desc = (item.description || "").toLowerCase()
+  if (GIFT_KEYWORDS.some(k => name.includes(k) || sku.includes(k) || desc.includes(k))) {
+    return true
+  }
+
   return false
 }
 
@@ -151,6 +172,18 @@ export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>)
   if (itemID && noVigOverrides && noVigOverrides[itemID]) {
     return true
   }
+
+  // Keyword heuristic fallback — if no explicit Zoho field was found, check item
+  // name / description for known gift/promo keywords (e.g. "Gift", "Hat", "Swag").
+  // This mirrors the pre-d3b1f23 behaviour and catches older line items that
+  // predate the Zoho custom field rollout.
+  const nameLower = (item.name || "").toLowerCase()
+  const skuLower  = (item.sku  || item.code || "").toLowerCase()
+  const descLower = (item.description || "").toLowerCase()
+  if (GIFT_KEYWORDS.some(k => nameLower.includes(k) || skuLower.includes(k) || descLower.includes(k))) {
+    return true
+  }
+
   return false
 }
 

@@ -103,26 +103,28 @@ export default function AdminLeadDiscrepanciesPage() {
   }, {})
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
-      
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-            <FiAlertTriangle className="text-amber-400" /> Admin Lead Discrepancies & Questionable Matches
-          </h1>
-          <p className="text-xs text-neutral-400 mt-1 font-medium">
-            Review and resolve questionable leads matching on phone number or physical address with conflicting company names.
-          </p>
+    <div className="page-content">
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center">
+            <FiAlertTriangle className="text-amber-400" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">Lead Discrepancies</h1>
+            <p className="page-subtitle">Review and resolve questionable leads with conflicting company names</p>
+          </div>
         </div>
-
         <button
           onClick={() => fetchDiscrepancies(page)}
-          className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 border border-white/10 transition-colors cursor-pointer shrink-0"
+          className="td-btn td-btn-ghost td-btn-sm"
         >
-          <FiRefreshCw size={14} /> Refresh Discrepancies
+          <FiRefreshCw size={13} /> Refresh
         </button>
       </div>
+
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-4">
 
       {/* Main Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -281,6 +283,7 @@ export default function AdminLeadDiscrepanciesPage() {
         </div>
       )}
 
+      </div>
     </div>
   )
 }

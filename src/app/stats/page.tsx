@@ -260,77 +260,77 @@ export default function StatsPage() {
   }
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans overflow-y-auto" style={{ height: "100%" }}>
-      <main className="flex-1 px-4 sm:px-6 py-4 space-y-5 overflow-y-auto safe-bottom">
+    <div className="page-content">
 
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-sky-950/40 border border-sky-500/30">
-              <FiBarChart2 size={20} className="text-sky-400" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-white tracking-tight">Rep Stats Dashboard</h1>
-              <p className="text-xs text-neutral-500">Performance metrics &amp; leaderboard</p>
-            </div>
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-sky-500/10 border border-sky-500/20 rounded-xl flex items-center justify-center">
+            <FiBarChart2 className="text-sky-400" size={17} />
           </div>
-
-          <div className="flex items-center gap-2">
-            <select 
-               className="bg-black/20 border border-neutral-850 text-neutral-400 text-xs font-bold rounded-lg p-2 uppercase tracking-wider focus:outline-none"
-               value={selectedDataDate}
-               onChange={(e) => setSelectedDataDate(e.target.value)}
-            >
-               {selectedPeriod === "monthly" && (
-                 <>
-                   <option value="">Current Month</option>
-                   {historicalVigRates.map(h => (
-                      <option key={h.monthKey} value={h.monthKey}>{h.monthName}</option>
-                   ))}
-                 </>
-               )}
-               {selectedPeriod === "weekly" && (
-                 <>
-                   <option value="">Current Week</option>
-                   {pastWeeks.map(w => (
-                     <option key={w.value} value={w.value}>{w.label}</option>
-                   ))}
-                 </>
-               )}
-               {selectedPeriod === "daily" && (
-                 <>
-                   <option value="">Today</option>
-                   {pastDays.map(d => (
-                     <option key={d.value} value={d.value}>{d.label}</option>
-                   ))}
-                 </>
-               )}
-            </select>
-            {/* Timeframe Filter Selector */}
-            <div className="flex bg-black/20 border border-neutral-850 p-0.5 rounded-xl gap-0.5 shrink-0 self-start sm:self-auto w-full sm:w-auto sm:min-w-[240px]">
-              {(["daily", "weekly", "monthly"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => {
-                    setSelectedPeriod(p)
-                    setSelectedDataDate("")
-                    setSelectedRep(null) // Reset detail panel on timeframe switch
-                  }}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg uppercase tracking-wider transition-all ${
-                    selectedPeriod === p
-                      ? "bg-sky-600 text-white shadow-md shadow-sky-650/20"
-                      : "text-neutral-400 hover:text-white"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
+          <div>
+            <h1 className="page-title">Rep Stats Dashboard</h1>
+            <p className="page-subtitle">Performance metrics, leaderboard & vig rate history</p>
           </div>
         </div>
 
+        <div className="flex items-center gap-2">
+          {/* Date Picker */}
+          <select
+            className="td-select"
+            value={selectedDataDate}
+            onChange={e => setSelectedDataDate(e.target.value)}
+          >
+            {selectedPeriod === "monthly" && (
+              <>
+                <option value="">Current Month</option>
+                {historicalVigRates.map(h => (
+                  <option key={h.monthKey} value={h.monthKey}>{h.monthName}</option>
+                ))}
+              </>
+            )}
+            {selectedPeriod === "weekly" && (
+              <>
+                <option value="">Current Week</option>
+                {pastWeeks.map(w => (
+                  <option key={w.value} value={w.value}>{w.label}</option>
+                ))}
+              </>
+            )}
+            {selectedPeriod === "daily" && (
+              <>
+                <option value="">Today</option>
+                {pastDays.map(d => (
+                  <option key={d.value} value={d.value}>{d.label}</option>
+                ))}
+              </>
+            )}
+          </select>
+
+          {/* Period Toggle */}
+          <div className="glass-panel rounded-xl p-0.5 flex border border-white/10 text-xs font-bold">
+            {(["daily", "weekly", "monthly"] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => { setSelectedPeriod(p); setSelectedDataDate(""); setSelectedRep(null) }}
+                className={`px-3 py-1.5 rounded-lg uppercase tracking-wider transition-all ${
+                  selectedPeriod === p
+                    ? "bg-sky-600 text-white shadow-md shadow-sky-500/20"
+                    : "text-neutral-500 hover:text-white"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-4">
+
         {apiError && (
-          <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-3 text-red-400 text-sm flex items-center gap-2">
+          <div className="bg-red-950/30 border border-red-500/20 rounded-xl p-3 text-red-400 text-sm flex items-center gap-2">
             <span><strong>Error:</strong> {apiError}</span>
           </div>
         )}
@@ -341,109 +341,87 @@ export default function StatsPage() {
             { label: `${selectedPeriod} Revenue`, value: formatPreciseCurrency(periodTotals.revenue), icon: <FiDollarSign />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
             { label: `${selectedPeriod} Profit`, value: formatPreciseCurrency(periodTotals.profit), icon: <FiTrendingUp />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
             { label: `${selectedPeriod} Deals Won`, value: formatNumber(periodTotals.dealsWon), icon: <FiAward />, color: "text-amber-400", border: "border-amber-500/20", bg: "bg-amber-950/20" },
-            { 
-              label: `${selectedPeriod} Target Progress`, 
-              value: periodTotals.target > 0 ? `${((periodTotals.profit / periodTotals.target) * 100).toFixed(1)}%` : "N/A", 
-              icon: <FiTarget />, 
-              color: "text-sky-400", 
-              border: "border-sky-500/20", 
+            {
+              label: `${selectedPeriod} Target Progress`,
+              value: periodTotals.target > 0 ? `${((periodTotals.profit / periodTotals.target) * 100).toFixed(1)}%` : "N/A",
+              icon: <FiTarget />,
+              color: "text-sky-400",
+              border: "border-sky-500/20",
               bg: "bg-sky-950/20",
               subtext: `Target: ${formatCurrency(periodTotals.target)}`
             },
-          ].map((card) => (
-            <div
-              key={card.label}
-              className={`${card.bg} border ${card.border} rounded-2xl p-4 hover:scale-[1.02] transition-all duration-200 backdrop-blur-sm flex flex-col justify-between`}
-            >
+          ].map(card => (
+            <div key={card.label} className={`${card.bg} border ${card.border} rounded-2xl p-4 hover:scale-[1.01] transition-all duration-200 flex flex-col justify-between`}>
               <div>
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-[10px] uppercase text-neutral-500 font-semibold tracking-wider">{card.label}</span>
-                  <span className={`${card.color}`}>{card.icon}</span>
+                  <span className={card.color}>{card.icon}</span>
                 </div>
                 <p className={`text-base sm:text-lg font-bold ${card.color}`}>{card.value}</p>
               </div>
-              {card.subtext && <p className="text-[10px] text-neutral-500 mt-1 font-mono">{card.subtext}</p>}
+              {(card as any).subtext && <p className="text-[10px] text-neutral-500 mt-1 font-mono">{(card as any).subtext}</p>}
             </div>
           ))}
         </div>
 
         {/* Leaderboard Table */}
-        <div className="glass-panel border border-white/10 rounded-2xl shadow-lg overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-white/10 flex items-center gap-2">
-            <FiAward size={16} className="text-sky-400" />
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider">Leaderboard ({selectedPeriod})</h2>
-            <span className="ml-auto text-[10px] text-neutral-500 font-medium">{reps.length} reps</span>
+        <div className="modern-card overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/8 flex items-center gap-2">
+            <FiAward size={15} className="text-sky-400" />
+            <h2 className="text-xs font-bold text-white uppercase tracking-wider">Leaderboard ({selectedPeriod})</h2>
+            <span className="ml-auto text-[10px] text-neutral-500">{reps.length} reps</span>
           </div>
 
           {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="td-table">
               <thead>
-                <tr className="border-b border-white/10 text-neutral-500">
-                  <th className="text-left px-4 py-2.5 font-semibold">#</th>
-                  <th className="text-left px-4 py-2.5 font-semibold">Representative</th>
-                  <th
-                    className="text-right px-4 py-2.5 font-semibold cursor-pointer hover:text-white transition-colors select-none"
-                    onClick={() => handleSort("revenue")}
-                  >
+                <tr>
+                  <th className="td-th">#</th>
+                  <th className="td-th">Representative</th>
+                  <th className="td-th text-right cursor-pointer hover:text-white select-none" onClick={() => handleSort("revenue")}>
                     <span className="inline-flex items-center gap-1">Revenue <SortIcon field="revenue" /></span>
                   </th>
-                  <th
-                    className="text-right px-4 py-2.5 font-semibold cursor-pointer hover:text-white transition-colors select-none"
-                    onClick={() => handleSort("profit")}
-                  >
+                  <th className="td-th text-right cursor-pointer hover:text-white select-none" onClick={() => handleSort("profit")}>
                     <span className="inline-flex items-center gap-1">Profit <SortIcon field="profit" /></span>
                   </th>
-                  <th
-                    className="text-right px-4 py-2.5 font-semibold cursor-pointer hover:text-white transition-colors select-none"
-                    onClick={() => handleSort("totalDeals")}
-                  >
+                  <th className="td-th text-right cursor-pointer hover:text-white select-none" onClick={() => handleSort("totalDeals")}>
                     <span className="inline-flex items-center gap-1">Deals Won <SortIcon field="totalDeals" /></span>
                   </th>
-                  <th className="text-right px-4 py-2.5 font-semibold text-neutral-500">Target</th>
-                  <th className="text-right px-4 py-2.5 font-semibold text-neutral-500">Progress</th>
-                  <th className="text-center px-4 py-2.5 font-semibold text-neutral-500">Vig Rate</th>
+                  <th className="td-th text-right">Target</th>
+                  <th className="td-th text-right">Progress</th>
+                  <th className="td-th text-center">Vig Rate</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-800">
+              <tbody>
                 {pagination.paginatedItems.map((rep, idx) => {
                   const rank = pagination.pageSize === "All" ? idx + 1 : (pagination.currentPage - 1) * (pagination.pageSize as number) + idx + 1
                   const isSelected = selectedRep?.repId === rep.repId
                   const periodStats = rep[selectedPeriod] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
                   const progressPct = periodStats.target > 0 ? (periodStats.profit / periodStats.target) * 100 : 0
-                  
-                  // Monthly vig rate computation
                   const metGoal = periodStats.profit >= periodStats.target
                   const vigRate = periodStats.vigRate ?? (metGoal ? 1.3 : 1.5)
 
                   return (
                     <tr
                       key={rep.repId}
-                      className={`cursor-pointer transition-colors ${
-                        isSelected
-                          ? "bg-sky-950/20 border-l-2 border-l-sky-500"
-                          : "hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50"
-                      }`}
+                      className={`cursor-pointer transition-colors ${isSelected ? "bg-sky-950/20 border-l-2 border-l-sky-500" : "hover:bg-white/[0.03]"}`}
                       onClick={() => setSelectedRep(isSelected ? null : rep)}
                     >
-                      <td className="px-4 py-3 font-bold text-neutral-500">
+                      <td className="td-td font-bold text-neutral-500">
                         {rank <= 3 ? (
                           <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black ${
-                            rank === 1
-                              ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                              : rank === 2
-                              ? "bg-neutral-400/20 text-neutral-300 border border-neutral-400/30"
-                              : "bg-amber-900/20 text-amber-600 border border-amber-900/30"
-                          }`}>
-                            {rank}
-                          </span>
+                            rank === 1 ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                            : rank === 2 ? "bg-neutral-400/20 text-neutral-300 border border-neutral-400/30"
+                            : "bg-amber-900/20 text-amber-600 border border-amber-900/30"
+                          }`}>{rank}</span>
                         ) : (
                           <span className="text-neutral-600 pl-1.5">{rank}</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="td-td">
                         <div className="flex items-center gap-2.5">
-                           <div className="w-7 h-7 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-[10px] font-bold text-neutral-300 shrink-0">
+                          <div className="w-7 h-7 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-[10px] font-bold text-neutral-300 shrink-0">
                             {rep.repName?.charAt(0) || "?"}
                           </div>
                           <div className="min-w-0">
@@ -452,23 +430,21 @@ export default function StatsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right font-bold text-emerald-400">{formatPreciseCurrency(periodStats.revenue)}</td>
-                      <td className="px-4 py-3 text-right font-medium text-emerald-500">{formatPreciseCurrency(periodStats.profit)}</td>
-                      <td className="px-4 py-3 text-right font-medium text-amber-400">{periodStats.dealsWon}</td>
-                      <td className="px-4 py-3 text-right font-medium text-neutral-400">{formatCurrency(periodStats.target)}</td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="td-td text-right font-bold text-emerald-400">{formatPreciseCurrency(periodStats.revenue)}</td>
+                      <td className="td-td text-right font-medium text-emerald-500">{formatPreciseCurrency(periodStats.profit)}</td>
+                      <td className="td-td text-right font-medium text-amber-400">{periodStats.dealsWon}</td>
+                      <td className="td-td text-right font-medium text-neutral-400">{formatCurrency(periodStats.target)}</td>
+                      <td className="td-td text-right">
                         <span className={`font-bold font-mono ${progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>
                           {progressPct.toFixed(1)}%
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <span
-                          className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${
-                            vigRate <= 1.3
-                              ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/30"
-                              : "bg-red-950/40 text-red-400 border-red-500/30"
-                          }`}
-                        >
+                      <td className="td-td text-center">
+                        <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          vigRate <= 1.3
+                            ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/30"
+                            : "bg-red-950/40 text-red-400 border-red-500/30"
+                        }`}>
                           {vigRate.toFixed(1)} vig
                         </span>
                       </td>
@@ -478,7 +454,7 @@ export default function StatsPage() {
               </tbody>
             </table>
             {pagination.pageSize !== "All" && sortedReps.length > (pagination.pageSize as number) && (
-              <div className="border-t border-white/10 glass-panel">
+              <div className="border-t border-white/8">
                 <Pagination
                   currentPage={pagination.currentPage}
                   pageSize={pagination.pageSize}
@@ -491,7 +467,7 @@ export default function StatsPage() {
           </div>
 
           {/* Mobile Card List */}
-          <div className="md:hidden divide-y divide-neutral-800">
+          <div className="md:hidden divide-y divide-white/[0.06]">
             {pagination.paginatedItems.map((rep, idx) => {
               const rank = pagination.pageSize === "All" ? idx + 1 : (pagination.currentPage - 1) * (pagination.pageSize as number) + idx + 1
               const isSelected = selectedRep?.repId === rep.repId
@@ -503,23 +479,17 @@ export default function StatsPage() {
               return (
                 <div
                   key={rep.repId}
-                  className={`p-4 cursor-pointer transition-colors ${
-                    isSelected ? "bg-sky-950/20" : "hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/50"
-                  }`}
+                  className={`p-4 cursor-pointer transition-colors ${isSelected ? "bg-sky-950/20" : "hover:bg-white/[0.03]"}`}
                   onClick={() => setSelectedRep(isSelected ? null : rep)}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
                       {rank <= 3 ? (
                         <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black shrink-0 ${
-                          rank === 1
-                            ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                            : rank === 2
-                            ? "bg-neutral-400/20 text-neutral-300 border border-neutral-400/30"
-                            : "bg-amber-900/20 text-amber-600 border border-amber-900/30"
-                        }`}>
-                          {rank}
-                        </span>
+                          rank === 1 ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                          : rank === 2 ? "bg-neutral-400/20 text-neutral-300 border border-neutral-400/30"
+                          : "bg-amber-900/20 text-amber-600 border border-amber-900/30"
+                        }`}>{rank}</span>
                       ) : (
                         <span className="text-neutral-600 text-xs font-bold w-6 text-center shrink-0">{rank}</span>
                       )}
@@ -528,20 +498,18 @@ export default function StatsPage() {
                         <p className="text-[10px] text-neutral-500 truncate">{rep.email}</p>
                       </div>
                     </div>
-                    <span
-                      className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${
-                        vigRate === 1.3
-                          ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/30"
-                          : "bg-red-950/40 text-red-400 border-red-500/30"
-                      }`}
-                    >
+                    <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${
+                      vigRate === 1.3
+                        ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/30"
+                        : "bg-red-950/40 text-red-400 border-red-500/30"
+                    }`}>
                       {vigRate.toFixed(1)} vig
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <p className="text-[9px] text-neutral-500 uppercase">Profit</p>
-                      <p className="text-xs font-bold text-emerald-405">{formatCurrency(periodStats.profit)}</p>
+                      <p className="text-xs font-bold text-emerald-400">{formatCurrency(periodStats.profit)}</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-neutral-500 uppercase">Progress</p>
@@ -549,14 +517,14 @@ export default function StatsPage() {
                     </div>
                     <div>
                       <p className="text-[9px] text-neutral-500 uppercase">Target</p>
-                      <p className="text-xs font-bold text-neutral-450">{formatCurrency(periodStats.target)}</p>
+                      <p className="text-xs font-bold text-neutral-400">{formatCurrency(periodStats.target)}</p>
                     </div>
                   </div>
                 </div>
               )
             })}
             {pagination.pageSize !== "All" && sortedReps.length > (pagination.pageSize as number) && (
-              <div className="border-t border-white/10 glass-panel">
+              <div className="border-t border-white/8">
                 <Pagination
                   currentPage={pagination.currentPage}
                   pageSize={pagination.pageSize}
@@ -571,30 +539,26 @@ export default function StatsPage() {
 
         {/* Selected Rep Detail Panel */}
         {selectedRep && companyAverages && (
-          <div className="glass-panel border border-sky-500/20 rounded-2xl shadow-lg overflow-hidden animate-in slide-in-from-bottom-2">
-            <div className="px-4 sm:px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
+          <div className="modern-card overflow-hidden border-sky-500/20 animate-fade-in">
+            <div className="px-4 py-3 border-b border-white/8 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-sky-950/40 border border-sky-500/30 flex items-center justify-center text-sm font-bold text-sky-400">
                   {selectedRep.repName?.charAt(0) || "?"}
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">{selectedRep.repName}</h3>
-                  <p className="text-[10px] text-neutral-500">{selectedRep.email} - Margin: {formatPercent(selectedRep.margin / 100)}</p>
+                  <p className="text-[10px] text-neutral-500">{selectedRep.email} · Margin: {formatPercent(selectedRep.margin / 100)}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setSelectedRep(null)}
-                className="text-neutral-500 hover:text-white p-1.5 rounded-full bg-neutral-800 transition-colors"
-              >
+              <button onClick={() => setSelectedRep(null)} className="text-neutral-500 hover:text-white p-1.5 rounded-full bg-neutral-800 transition-colors">
                 <FiX size={14} />
               </button>
             </div>
 
-            {/* Target Tracker Section */}
-            <div className="p-4 sm:p-5 space-y-4">
+            <div className="p-4 space-y-4">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-lg bg-sky-950/60 border border-sky-500/20">
-                  <FiTarget className="text-sky-400" size={16} />
+                  <FiTarget className="text-sky-400" size={15} />
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-white uppercase tracking-wider">{selectedPeriod} Sales Goal Tracker</h4>
@@ -610,36 +574,26 @@ export default function StatsPage() {
                 if (periodStats.target === 0) {
                   statusMsg = "No target configured for this period."
                 } else if (periodStats.profit >= periodStats.target) {
-                  statusMsg = `🏢† Goal Hit! ${formatPreciseCurrency(periodStats.profit - periodStats.target)} over target.`
+                  statusMsg = `🏆 Goal Hit! ${formatPreciseCurrency(periodStats.profit - periodStats.target)} over target.`
                 } else {
-                  statusMsg = `Needs ${formatPreciseCurrency(diff)} more to hit the period profit target.`
+                  statusMsg = `Needs ${formatPreciseCurrency(diff)} more to hit target.`
                 }
 
                 return (
-                  <div className="p-3.5 rounded-xl border border-sky-500/10 glass-panel/60 space-y-2.5">
+                  <div className="p-3.5 rounded-xl border border-sky-500/10 bg-black/20 space-y-2.5">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-neutral-450 uppercase tracking-wider">Profit Goal</span>
+                      <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Profit Goal</span>
                       <div className="text-right">
-                        <span className="text-xs font-black text-white">
-                          {formatPreciseCurrency(periodStats.profit)}
-                        </span>
-                        <span className="text-[10px] text-neutral-500 font-medium">
-                          {" "}/ {formatPreciseCurrency(periodStats.target)}
-                        </span>
+                        <span className="text-xs font-black text-white">{formatPreciseCurrency(periodStats.profit)}</span>
+                        <span className="text-[10px] text-neutral-500 font-medium"> / {formatPreciseCurrency(periodStats.target)}</span>
                       </div>
                     </div>
-                    {/* Progress Bar */}
-                    <div className="h-2 w-full glass-panel rounded-full overflow-hidden border border-white/10">
-                      <div
-                        className={`h-full bg-sky-500 shadow-sm shadow-sky-500/30 rounded-full transition-all duration-500 ease-out`}
-                        style={{ width: `${Math.min(progressPct, 100)}%` }}
-                      />
+                    <div className="h-2 w-full bg-neutral-900 rounded-full overflow-hidden border border-white/8">
+                      <div className="h-full bg-sky-500 shadow-sm shadow-sky-500/30 rounded-full transition-all duration-500" style={{ width: `${Math.min(progressPct, 100)}%` }} />
                     </div>
                     <div className="flex justify-between items-center text-[9px]">
                       <span className="text-neutral-500">{statusMsg}</span>
-                      <span className={`font-bold ${progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>
-                        {progressPct.toFixed(1)}%
-                      </span>
+                      <span className={`font-bold ${progressPct >= 100 ? "text-emerald-400" : "text-sky-400"}`}>{progressPct.toFixed(1)}%</span>
                     </div>
                   </div>
                 )
@@ -650,33 +604,31 @@ export default function StatsPage() {
 
         {/* Historical Vig Rates Table */}
         {historicalVigRates.length > 0 && (
-          <div className="glass-panel border border-white/10 rounded-2xl shadow-lg overflow-hidden">
-            <div className="px-4 sm:px-5 py-3.5 border-b border-white/10 flex items-center gap-2">
-              <FiCalendar size={16} className="text-sky-400" />
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider">Historical Vig Rates</h2>
-              <span className="ml-auto text-[10px] text-neutral-500 font-medium">Last 6 Months</span>
+          <div className="modern-card overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/8 flex items-center gap-2">
+              <FiCalendar size={15} className="text-sky-400" />
+              <h2 className="text-xs font-bold text-white uppercase tracking-wider">Historical Vig Rates</h2>
+              <span className="ml-auto text-[10px] text-neutral-500">Last 6 Months</span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="td-table">
                 <thead>
-                  <tr className="border-b border-white/10 text-neutral-500">
-                    <th className="text-left px-4 py-2.5 font-semibold">Representative</th>
-                    {historicalVigRates.map((h) => (
-                      <th key={h.monthKey} className="text-center px-4 py-2.5 font-semibold">
-                        {h.monthName}
-                      </th>
+                  <tr>
+                    <th className="td-th">Representative</th>
+                    {historicalVigRates.map(h => (
+                      <th key={h.monthKey} className="td-th text-center">{h.monthName}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-800">
-                  {reps.map((rep) => (
-                    <tr key={rep.repId} className="hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30">
-                      <td className="px-4 py-3 font-semibold text-white">{rep.repName}</td>
-                      {historicalVigRates.map((h) => {
+                <tbody>
+                  {reps.map(rep => (
+                    <tr key={rep.repId} className="hover:bg-white/[0.03] transition-colors">
+                      <td className="td-td font-semibold text-white">{rep.repName}</td>
+                      {historicalVigRates.map(h => {
                         const repData = h.reps[rep.repId]
                         const vig = repData ? repData.vigRate : 1.5
                         return (
-                          <td key={h.monthKey} className="px-4 py-3 text-center">
+                          <td key={h.monthKey} className="td-td text-center">
                             <span
                               className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold border ${
                                 vig <= 1.3
@@ -697,9 +649,7 @@ export default function StatsPage() {
             </div>
           </div>
         )}
-
-      </main>
+      </div>
     </div>
   )
 }
-

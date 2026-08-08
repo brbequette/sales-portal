@@ -10,21 +10,17 @@ export default function HomeDashboard() {
   const { zohoContext: currentUser } = useZoho()
   const { preferences, updatePreferences } = usePreferences()
   const [allDbUsers, setAllDbUsers] = useState<any[]>([])
-  // Incrementing this triggers the customizer modal inside DashboardView
   const [customizeTrigger, setCustomizeTrigger] = useState(0)
 
   const effectiveRole = preferences.impersonatedUser ? preferences.impersonatedUser.role : (currentUser?.role || "")
   const normalizedRole = effectiveRole.toLowerCase()
   const isAdminUser = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
 
-  // Derive the display name shown in the header badge
   const displayRepName = preferences.impersonatedUser
     ? preferences.impersonatedUser.name
     : (currentUser?.name || null)
 
-  useEffect(() => {
-    fetchUsers()
-  }, [])
+  useEffect(() => { fetchUsers() }, [])
 
   const fetchUsers = async () => {
     try {
@@ -35,73 +31,61 @@ export default function HomeDashboard() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
-      {/* ── Header Row ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+    <div className="page-content">
 
-        {/* Left: title + subtitle + rep badge */}
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 p-2 rounded-xl bg-orange-500/10 border border-orange-500/20 shrink-0">
-            <FiTarget className="text-orange-500" size={18} />
+      {/* ─── Header ────────────────────────────────────────────── */}
+      <div className="page-header">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center justify-center shrink-0">
+            <FiTarget className="text-orange-400" size={17} />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-black tracking-tight text-white">
-                Executive Dashboard &amp; KPIs
-              </h1>
-              {/* Rep name pill — always visible */}
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/25 text-orange-300 text-[11px] font-bold tracking-wide">
-                <FiUser size={10} />
+              <h1 className="page-title">Executive Dashboard</h1>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-300 text-[10px] font-bold">
+                <FiUser size={9} />
                 {isAdminUser && !preferences.impersonatedUser
                   ? "Company — All Reps"
                   : (displayRepName || "My View")}
               </span>
             </div>
-            <p className="text-xs text-neutral-400 mt-1 font-medium">
-              Live revenue totals, MTD profit, commission goals, win/loss breakdown, and sales leaderboard.
-            </p>
+            <p className="page-subtitle">Live revenue, MTD profit, commission goals &amp; leaderboard</p>
           </div>
         </div>
 
-        {/* Right: Customize Layout button + Admin "View as Rep" dropdown */}
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-
-          {/* ⚙️ Customize Layout — always visible */}
           <button
             onClick={() => setCustomizeTrigger(prev => prev + 1)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white text-xs font-bold border border-white/10 hover:border-white/20 transition-all shadow"
+            className="td-btn td-btn-ghost td-btn-sm"
           >
             <FiSliders size={13} />
-            Customize Layout
+            Customize
           </button>
 
-          {/* Impersonation dropdown — Admin only */}
           {isAdminUser && allDbUsers.length > 0 && (
-            <div className="flex items-center gap-2 bg-neutral-900 border border-white/10 rounded-xl px-3.5 py-2 shadow-lg">
-              <FiEye size={14} className="text-neutral-400" />
-              <span className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">View as Rep:</span>
+            <div className="flex items-center gap-2 glass-panel rounded-xl px-3 py-1.5">
+              <FiEye size={13} className="text-neutral-500 shrink-0" />
+              <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider hidden sm:inline">View as:</span>
               <select
                 value={preferences.impersonatedUser?.id || ""}
                 onChange={e => {
-                  const id = e.target.value;
+                  const id = e.target.value
                   if (!id) {
-                    updatePreferences({ impersonatedUser: null });
+                    updatePreferences({ impersonatedUser: null })
                   } else {
-                    const u = allDbUsers.find(user => user.id === id);
-                    if (u) {
-                      updatePreferences({ impersonatedUser: { id: u.id, name: u.name, email: u.email, role: u.role } });
-                    }
+                    const u = allDbUsers.find(user => user.id === id)
+                    if (u) updatePreferences({ impersonatedUser: { id: u.id, name: u.name, email: u.email, role: u.role } })
                   }
                 }}
-                className="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-orange-500 cursor-pointer"
+                className="bg-transparent border-none text-xs font-bold text-white focus:outline-none cursor-pointer max-w-[160px]"
               >
-                <option value="">🏢 Company Totals (All Reps)</option>
+                <option value="">🏢 Company Totals</option>
                 {allDbUsers
                   .filter(u => u.name && !u.email?.includes("dummy.titandiamond.com") && !u.email?.includes("example.com"))
                   .sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''))
                   .map((u: any) => (
                     <option key={u.id} value={u.id}>
-                      {u.name} {u.role?.toLowerCase().includes('admin') ? '(Admin)' : ''}
+                      {u.name}{u.role?.toLowerCase().includes('admin') ? ' (Admin)' : ''}
                     </option>
                   ))}
               </select>
@@ -110,19 +94,15 @@ export default function HomeDashboard() {
         </div>
       </div>
 
-      {/* ── Dashboard Content ───────────────────────────────────────────── */}
-      <DashboardView
-        repName={preferences.impersonatedUser
-          ? preferences.impersonatedUser.name
-          : (currentUser?.name || null)
-        }
-        isAdmin={isAdminUser}
-        repEmail={preferences.impersonatedUser
-          ? preferences.impersonatedUser.email
-          : currentUser?.email || null
-        }
-        triggerCustomize={customizeTrigger}
-      />
+      {/* ─── Dashboard Body ─────────────────────────────────────── */}
+      <div className="page-body animate-fade-in">
+        <DashboardView
+          repName={preferences.impersonatedUser ? preferences.impersonatedUser.name : (currentUser?.name || null)}
+          isAdmin={isAdminUser}
+          repEmail={preferences.impersonatedUser ? preferences.impersonatedUser.email : currentUser?.email || null}
+          triggerCustomize={customizeTrigger}
+        />
+      </div>
     </div>
   )
 }

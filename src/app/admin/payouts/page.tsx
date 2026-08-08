@@ -331,17 +331,16 @@ export default function PayoutsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-neutral-100 p-4 sm:p-6 lg:p-8 space-y-6">
-      
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-neutral-900/60 p-6 rounded-2xl border border-white/10 backdrop-blur-md">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
-            <FiDollarSign className="text-emerald-500" size={28} /> Commission Ledger & Payout Manager
-          </h1>
-          <p className="text-xs text-neutral-400 mt-1">
-            Track representative balances, view invoices, edit payouts, and view full historical commission timelines.
-          </p>
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
+            <FiDollarSign className="text-emerald-500" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">Commission Ledger & Payout Manager</h1>
+            <p className="page-subtitle">Track representative balances, view invoices, edit payouts, and view full historical commission timelines.</p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -367,6 +366,8 @@ export default function PayoutsPage() {
           )}
         </div>
       </div>
+
+      <div className="page-body">
 
       {/* Main Ledger Table */}
       <div className="bg-neutral-900/60 border border-white/10 rounded-2xl p-5 space-y-4">
@@ -447,6 +448,8 @@ export default function PayoutsPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
       </div>
 
       {/* NEW PAYOUT MODAL */}

@@ -425,31 +425,35 @@ export default function AdminUsersPage() {
   const assignUser = assignUserId ? users.find(u => u.id === assignUserId) : null
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans h-full">
-      <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto safe-bottom">
-        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2">
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
+            <FiShield className="text-emerald-400" size={17} />
+          </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <FiShield className="text-emerald-400" /> User Management
-            </h1>
-            <p className="text-xs text-neutral-500 mt-1">Manage users, permissions, and visibility across the portal. Click a user to expand.</p>
+            <h1 className="page-title">User Management</h1>
+            <p className="page-subtitle">Manage users, permissions, and visibility across the portal. Click a user to expand.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={syncFromZoho}
-              disabled={syncing}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 hover:bg-sky-500/30 transition-colors cursor-pointer disabled:opacity-50"
-            >
-              <FiRefreshCw size={14} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync from Zoho'}
-            </button>
-            <button
-              onClick={() => { setShowAddUser(true); setAddError(""); setNewUser({ name: "", email: "", role: "Sales Representative", zohoId: "", payoutStructure: "two_payment" }) }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors cursor-pointer"
-            >
-              <FiUserPlus size={14} /> Add User
-            </button>
-          </div>
-        </header>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={syncFromZoho}
+            disabled={syncing}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 hover:bg-sky-500/30 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <FiRefreshCw size={14} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync from Zoho'}
+          </button>
+          <button
+            onClick={() => { setShowAddUser(true); setAddError(""); setNewUser({ name: "", email: "", role: "Sales Representative", zohoId: "", payoutStructure: "two_payment" }) }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors cursor-pointer"
+          >
+            <FiUserPlus size={14} /> Add User
+          </button>
+        </div>
+      </div>
+
+      <div className="page-body">
         {syncMessage && (
           <div className={`text-xs font-semibold px-3 py-2 rounded-lg ${syncMessage.startsWith('✅') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
             {syncMessage}
@@ -854,7 +858,8 @@ export default function AdminUsersPage() {
             </div>
           )}
         </div>
-      </main>
+      </div>
+
 
       {/* Add User Modal */}
       {showAddUser && (

@@ -110,11 +110,17 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans h-full">
-      <header className="px-6 py-5 border-b border-white/10 flex justify-between items-center shrink-0">
-        <h1 className="text-xl font-bold text-white flex items-center gap-2">
-          <FiSettings className="text-neutral-400" /> System Settings
-        </h1>
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-neutral-500/10 border border-neutral-500/20 rounded-xl flex items-center justify-center">
+            <FiSettings className="text-neutral-400" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">System Settings</h1>
+            <p className="page-subtitle">Configure application defaults and global preferences</p>
+          </div>
+        </div>
         <button 
           onClick={handleSave}
           disabled={saving || loading}
@@ -123,9 +129,10 @@ export default function AdminSettingsPage() {
           {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiSave />}
           Save Changes
         </button>
-      </header>
+      </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="page-body">
+        <div className="flex flex-1 overflow-hidden h-full">
         {/* Left Rail Navigation */}
         <div className="w-64 border-r border-white/10 bg-black/20 flex flex-col p-4 gap-2 overflow-y-auto shrink-0">
           <button 
@@ -355,6 +362,7 @@ export default function AdminSettingsPage() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   )

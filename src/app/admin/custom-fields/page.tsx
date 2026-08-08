@@ -129,23 +129,17 @@ export default function AdminCustomFieldsPage() {
   const soCount = fields.filter(f => f.entity === 'SALESORDER').length;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 space-y-6">
-      {/* Top Banner / Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-        <div>
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-blue-600/20 text-blue-400 rounded-xl border border-blue-500/30">
-              <FiDatabase className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white">Custom Fields Catalog</h1>
-              <p className="text-sm text-slate-400">
-                Manage, catalog, and standardize custom field mappings across Zoho Books & CRM entities
-              </p>
-            </div>
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-center">
+            <FiDatabase className="text-blue-500" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">Custom Fields Catalog</h1>
+            <p className="page-subtitle">Manage, catalog, and standardize custom field mappings across Zoho Books & CRM entities</p>
           </div>
         </div>
-
         <button
           onClick={fetchCustomFields}
           disabled={loading}
@@ -156,175 +150,179 @@ export default function AdminCustomFieldsPage() {
         </button>
       </div>
 
-      {/* Alert Messages */}
-      {message && (
-        <div className={`p-4 rounded-xl flex items-center justify-between border ${
-          message.type === 'success' ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300' : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
-        }`}>
-          <div className="flex items-center space-x-2">
-            {message.type === 'success' ? <FiCheckCircle className="w-5 h-5" /> : <FiXCircle className="w-5 h-5" />}
-            <span className="text-sm font-medium">{message.text}</span>
-          </div>
-          <button onClick={() => setMessage(null)} className="text-slate-400 hover:text-white">
-            <FiX className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      <div className="page-body">
+        <div className="space-y-6">
+          {/* Alert Messages */}
+          {message && (
+            <div className={`p-4 rounded-xl flex items-center justify-between border ${
+              message.type === 'success' ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300' : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
+            }`}>
+              <div className="flex items-center space-x-2">
+                {message.type === 'success' ? <FiCheckCircle className="w-5 h-5" /> : <FiXCircle className="w-5 h-5" />}
+                <span className="text-sm font-medium">{message.text}</span>
+              </div>
+              <button onClick={() => setMessage(null)} className="text-slate-400 hover:text-white">
+                <FiX className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
-          <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-lg">
-            <FiLayers className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-white">{totalCount}</div>
-            <div className="text-xs text-slate-400 font-medium">Total Cataloged Fields</div>
-          </div>
-        </div>
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
+              <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-lg">
+                <FiLayers className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-white">{totalCount}</div>
+                <div className="text-xs text-slate-400 font-medium">Total Cataloged Fields</div>
+              </div>
+            </div>
 
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
-          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-lg">
-            <FiShield className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-white">{activeCount}</div>
-            <div className="text-xs text-slate-400 font-medium">Active Mappings</div>
-          </div>
-        </div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
+              <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-lg">
+                <FiShield className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-white">{activeCount}</div>
+                <div className="text-xs text-slate-400 font-medium">Active Mappings</div>
+              </div>
+            </div>
 
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
-          <div className="p-3 bg-amber-500/10 text-amber-400 rounded-lg">
-            <FiTag className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-white">{invoiceCount}</div>
-            <div className="text-xs text-slate-400 font-medium">Invoice Fields</div>
-          </div>
-        </div>
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
+              <div className="p-3 bg-amber-500/10 text-amber-400 rounded-lg">
+                <FiTag className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-white">{invoiceCount}</div>
+                <div className="text-xs text-slate-400 font-medium">Invoice Fields</div>
+              </div>
+            </div>
 
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
-          <div className="p-3 bg-cyan-500/10 text-cyan-400 rounded-lg">
-            <FiCode className="w-5 h-5" />
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
+              <div className="p-3 bg-cyan-500/10 text-cyan-400 rounded-lg">
+                <FiCode className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-white">{soCount}</div>
+                <div className="text-xs text-slate-400 font-medium">Sales Order Fields</div>
+              </div>
+            </div>
           </div>
-          <div>
-            <div className="text-2xl font-bold text-white">{soCount}</div>
-            <div className="text-xs text-slate-400 font-medium">Sales Order Fields</div>
+
+          {/* Filter Tabs & Search */}
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-xl">
+            {/* Entity Tabs */}
+            <div className="flex flex-wrap gap-1">
+              {entities.map(e => (
+                <button
+                  key={e}
+                  onClick={() => setSelectedEntity(e)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    selectedEntity === e
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+
+            {/* Search Bar */}
+            <form onSubmit={handleSearchSubmit} className="relative w-full md:w-72">
+              <FiSearch className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search label, API, key..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+              />
+            </form>
           </div>
-        </div>
-      </div>
 
-      {/* Filter Tabs & Search */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-xl">
-        {/* Entity Tabs */}
-        <div className="flex flex-wrap gap-1">
-          {entities.map(e => (
-            <button
-              key={e}
-              onClick={() => setSelectedEntity(e)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                selectedEntity === e
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              {e}
-            </button>
-          ))}
-        </div>
-
-        {/* Search Bar */}
-        <form onSubmit={handleSearchSubmit} className="relative w-full md:w-72">
-          <FiSearch className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search label, API, key..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-blue-500"
-          />
-        </form>
-      </div>
-
-      {/* Table Container */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
-              <tr>
-                <th className="py-3.5 px-4">Entity</th>
-                <th className="py-3.5 px-4">Field Label</th>
-                <th className="py-3.5 px-4">Canonical API Name</th>
-                <th className="py-3.5 px-4">Custom Field ID</th>
-                <th className="py-3.5 px-4">Normalized Internal Key</th>
-                <th className="py-3.5 px-4">Data Type</th>
-                <th className="py-3.5 px-4 text-center">Status</th>
-                <th className="py-3.5 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {loading ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500">
-                    <FiRefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
-                    Loading custom field catalog...
-                  </td>
-                </tr>
-              ) : fields.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500">
-                    No custom fields found matching current filters.
-                  </td>
-                </tr>
-              ) : (
-                fields.map(f => (
-                  <tr key={f.id} className="hover:bg-slate-800/40 transition">
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                        f.entity === 'INVOICE' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                        f.entity === 'SALESORDER' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' :
-                        f.entity === 'ESTIMATE' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                        f.entity === 'ITEM' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                        'bg-slate-800 text-slate-300 border-slate-700'
-                      }`}>
-                        {f.entity}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-white">{f.label}</td>
-                    <td className="py-3 px-4 font-mono text-blue-300">{f.apiName || '—'}</td>
-                    <td className="py-3 px-4 font-mono text-slate-400">{f.customfieldId || '—'}</td>
-                    <td className="py-3 px-4">
-                      <span className="bg-slate-950 px-2 py-1 rounded font-mono text-emerald-400 border border-slate-800">
-                        {f.internalKey}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-mono text-slate-400 uppercase text-[10px]">{f.dataType}</td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleToggleActive(f)}
-                        className={`px-2 py-1 rounded-full text-[10px] font-bold transition border ${
-                          f.isActive
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
-                            : 'bg-slate-800 text-slate-500 border-slate-700 hover:bg-slate-700'
-                        }`}
-                      >
-                        {f.isActive ? 'Active' : 'Inactive'}
-                      </button>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <button
-                        onClick={() => setEditingField(f)}
-                        className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition"
-                        title="Edit Field Mapping"
-                      >
-                        <FiEdit3 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
+          {/* Table Container */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3.5 px-4">Entity</th>
+                    <th className="py-3.5 px-4">Field Label</th>
+                    <th className="py-3.5 px-4">Canonical API Name</th>
+                    <th className="py-3.5 px-4">Custom Field ID</th>
+                    <th className="py-3.5 px-4">Normalized Internal Key</th>
+                    <th className="py-3.5 px-4">Data Type</th>
+                    <th className="py-3.5 px-4 text-center">Status</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-500">
+                        <FiRefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+                        Loading custom field catalog...
+                      </td>
+                    </tr>
+                  ) : fields.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-500">
+                        No custom fields found matching current filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    fields.map(f => (
+                      <tr key={f.id} className="hover:bg-slate-800/40 transition">
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            f.entity === 'INVOICE' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                            f.entity === 'SALESORDER' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' :
+                            f.entity === 'ESTIMATE' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                            f.entity === 'ITEM' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                            'bg-slate-800 text-slate-300 border-slate-700'
+                          }`}>
+                            {f.entity}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-semibold text-white">{f.label}</td>
+                        <td className="py-3 px-4 font-mono text-blue-300">{f.apiName || '—'}</td>
+                        <td className="py-3 px-4 font-mono text-slate-400">{f.customfieldId || '—'}</td>
+                        <td className="py-3 px-4">
+                          <span className="bg-slate-950 px-2 py-1 rounded font-mono text-emerald-400 border border-slate-800">
+                            {f.internalKey}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-mono text-slate-400 uppercase text-[10px]">{f.dataType}</td>
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            onClick={() => handleToggleActive(f)}
+                            className={`px-2 py-1 rounded-full text-[10px] font-bold transition border ${
+                              f.isActive
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                                : 'bg-slate-800 text-slate-500 border-slate-700 hover:bg-slate-700'
+                            }`}
+                          >
+                            {f.isActive ? 'Active' : 'Inactive'}
+                          </button>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            onClick={() => setEditingField(f)}
+                            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition"
+                            title="Edit Field Mapping"
+                          >
+                            <FiEdit3 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -417,7 +415,6 @@ export default function AdminCustomFieldsPage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

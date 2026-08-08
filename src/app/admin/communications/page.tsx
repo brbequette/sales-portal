@@ -93,52 +93,55 @@ export default function CommunicationsDashboard() {
   }
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans h-full bg-[#0a0a0a]">
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto safe-bottom max-w-6xl mx-auto w-full">
-        
-        {/* Header & Settings Toggle */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
-          <div>
-            <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-              <FiMessageSquare className="text-indigo-500" />
-              Communications Center
-            </h1>
-            <p className="text-sm text-neutral-400 mt-1">Review unified history of calls and SMS messages</p>
+    <div className="page-content">
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-center">
+            <FiMessageSquare className="text-indigo-400" size={17} />
           </div>
-          <div className="flex gap-2">
-            <button 
-              onClick={async () => {
-                setSyncingVoice(true)
-                try {
-                  const res = await fetch('/api/admin/communications/sync-voice', { method: 'POST' })
-                  const data = await res.json()
-                  if (data.success) {
-                    toast.success(`Synced ${data.syncedCount} calls!`)
-                    window.location.reload()
-                  } else {
-                    toast.error('Sync error: ' + data.error)
-                  }
-                } catch (e: any) {
-                  toast.error('Sync failed: ' + e.message)
-                }
-                setSyncingVoice(false)
-              }}
-              disabled={syncingVoice}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors font-medium text-sm disabled:opacity-50"
-            >
-              <FiDatabase size={16} className={syncingVoice ? "animate-spin" : ""} />
-              {syncingVoice ? "Syncing..." : "Sync Voice Logs"}
-            </button>
-            <button 
-              onClick={() => setShowSettings(!showSettings)}
-              className="flex items-center gap-2 px-4 py-2 glass-panel hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-neutral-300 border border-white/10 rounded-lg transition-colors font-medium text-sm"
-            >
-              <FiSettings size={16} />
-              Phone Numbers
-              {showSettings ? <FiChevronUp /> : <FiChevronDown />}
-            </button>
+          <div>
+            <h1 className="page-title">Communications Center</h1>
+            <p className="page-subtitle">Unified history of calls and SMS messages</p>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              setSyncingVoice(true)
+              try {
+                const res = await fetch('/api/admin/communications/sync-voice', { method: 'POST' })
+                const data = await res.json()
+                if (data.success) {
+                  toast.success(`Synced ${data.syncedCount} calls!`)
+                  window.location.reload()
+                } else {
+                  toast.error('Sync error: ' + data.error)
+                }
+              } catch (e: any) {
+                toast.error('Sync failed: ' + e.message)
+              }
+              setSyncingVoice(false)
+            }}
+            disabled={syncingVoice}
+            className="td-btn td-btn-primary td-btn-sm disabled:opacity-50"
+          >
+            <FiDatabase size={13} className={syncingVoice ? "animate-spin" : ""} />
+            {syncingVoice ? "Syncing..." : "Sync Voice Logs"}
+          </button>
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className="td-btn td-btn-ghost td-btn-sm"
+          >
+            <FiSettings size={13} />
+            Phone Numbers
+            {showSettings ? <FiChevronUp size={13} /> : <FiChevronDown size={13} />}
+          </button>
+        </div>
+      </div>
+
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-4">
 
         {/* Settings Panel (Collapsible) */}
         {showSettings && (
@@ -366,7 +369,7 @@ export default function CommunicationsDashboard() {
             })
           )}
         </div>
-      </main>
+      </div>
     </div>
   )
 }

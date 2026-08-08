@@ -335,11 +335,22 @@ export default function BooksScriptsPage() {
   const anyBusy = fullSync.running || bulkRunning || loading !== null || zohoSync.running
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Zoho Books Maintenance</h1>
-        <p className="text-neutral-400 mt-1 text-sm">All data is served from the local database. Changes sync automatically to Zoho Books.</p>
+    <div className="page-content">
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-sky-500/10 border border-sky-500/20 rounded-xl flex items-center justify-center">
+            <FiDatabase className="text-sky-400" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">Zoho Books Maintenance</h1>
+            <p className="page-subtitle">Data served from local DB — changes sync automatically to Zoho Books</p>
+          </div>
+        </div>
       </div>
+
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-6">
 
   {/* ── Sync Conflicts Panel ── */}
       {conflicts && conflicts.totalConflicts > 0 && (
@@ -835,7 +846,9 @@ export default function BooksScriptsPage() {
             </div>
           </div>
 
-        </div>
+        </div>{/* end utility scripts grid */}
+      </div>{/* end utility scripts section */}
+
       </div>
     </div>
   )

@@ -367,36 +367,39 @@ export default function ShippingPage() {
   const compilationList = getPackagedButNeedShippedItemsCompilation()
 
   return (
-    <div className="min-h-screen p-4 md:p-6 max-w-[1400px] mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="page-content">
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-orange-600/20 flex items-center justify-center">
-            <FiTruck className="text-orange-400 text-xl" />
+          <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+            <FiTruck className="text-orange-400" size={17} />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-white tracking-tight">Shipping Center</h1>
-            <p className="text-xs text-neutral-500">Manage packages, tracking & shipments</p>
+            <h1 className="page-title">Shipping Center</h1>
+            <p className="page-subtitle">Manage packages, tracking &amp; shipments</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleSyncPackages}
             disabled={syncing}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-800/50 text-sm font-bold transition-all disabled:opacity-50"
+            className="td-btn td-btn-ghost td-btn-sm disabled:opacity-50"
             title="Syncs all packages and POs from Zoho in the background"
           >
-            <FiDownloadCloud className={syncing ? "animate-pulse" : ""} />
+            <FiDownloadCloud size={13} className={syncing ? "animate-pulse" : ""} />
             {syncing ? "Syncing…" : "Sync from Zoho"}
           </button>
           <button
             onClick={fetchOrders}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-sm font-bold transition-all"
+            className="td-btn td-btn-ghost td-btn-sm"
           >
-            <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
+            <FiRefreshCw size={13} className={loading ? "animate-spin" : ""} /> Refresh
           </button>
         </div>
       </div>
+
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-4">
 
       {/* Sync Result Banner */}
       {syncResult && (
@@ -935,7 +938,7 @@ export default function ShippingPage() {
           onSuccess={(_poId: string) => { setDropshipModal(null); fetchOrders() }}
         />
       )}
+      </div>
     </div>
   )
 }
-

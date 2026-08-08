@@ -283,48 +283,45 @@ export default function SalesStagesPage() {
   const visibleStages = stages.filter(s => s.isActive || showInactive)
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div className="page-content">
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
         <div className="flex items-center gap-3">
-          <Link href="/admin" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors">
-            <FiArrowLeft size={18} />
-          </Link>
+          <div className="w-9 h-9 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center justify-center">
+            <FiZap className="text-orange-400" size={17} />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
-              <FiZap className="text-orange-500" /> Continuous Sales Flow Builder
-            </h1>
-            <p className="text-neutral-400 text-xs">Configure customer pipeline stages, SMS outreach, scheduled phone calls, and continuous re-engagement loops.</p>
+            <h1 className="page-title">Continuous Sales Flow Builder</h1>
+            <p className="page-subtitle">Configure pipeline stages, SMS outreach, scheduled calls, and re-engagement loops</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowInactive(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
-              showInactive
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                : "border-white/10 bg-white/5 text-neutral-400 hover:text-white"
-            }`}
+            className={`td-btn td-btn-sm ${showInactive ? "td-btn-warning" : "td-btn-ghost"}`}
           >
-            {showInactive ? <FiEye size={14} /> : <FiEyeOff size={14} />}
+            {showInactive ? <FiEye size={13} /> : <FiEyeOff size={13} />}
             {showInactive ? "Showing Inactive" : "Show Inactive"}
           </button>
-          <button 
+          <button
             onClick={handleRunSalesFlowExecution}
             disabled={executing}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-orange-600 hover:bg-orange-500 text-white shadow-lg shadow-orange-600/20 transition-all cursor-pointer disabled:opacity-50"
+            className="td-btn td-btn-sm td-btn-warning disabled:opacity-50"
           >
-            <FiPlay size={14} className={executing ? "animate-spin" : ""} />
+            <FiPlay size={13} className={executing ? "animate-spin" : ""} />
             {executing ? "Executing..." : "Run Flow Automation"}
           </button>
-          <button 
+          <button
             onClick={() => handleOpenModal()}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all"
+            className="td-btn td-btn-sm td-btn-primary"
           >
-            <FiPlus size={14} /> Add Stage
+            <FiPlus size={13} /> Add Stage
           </button>
         </div>
       </div>
+
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-4">
 
       {error && (
         <div className="p-4 rounded-xl border border-red-500/20 bg-red-950/20 text-red-400 text-xs">{error}</div>
@@ -628,6 +625,7 @@ export default function SalesStagesPage() {
           </div>
         </div>
       )}
+    </div>
     </div>
   )
 }

@@ -697,26 +697,27 @@ export default function SalesPage() {
 
   return (
     <>
-      <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
-          
-          {/* Header & Sub-header Tabs */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                  <FiTrendingUp className="text-emerald-400" /> Sales Pipeline & Call Lists
-                </h1>
-                <Link
-                  href="/sales/leads-calling"
-                  className="px-3 py-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-md transition-all"
-                >
-                  <FiPhoneCall size={12} />
-                  <span>High-Velocity Lead Queue</span>
-                </Link>
+      <div className="page-content">
+
+          {/* Header */}
+          <div className="page-header">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
+                <FiTrendingUp className="text-emerald-400" size={17} />
               </div>
-              <p className="text-xs text-neutral-400 mt-1 font-medium">
-                Manage sales pipeline, cold calls, smart call queue, and deal lifecycle.
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="page-title">Sales Pipeline</h1>
+                  <Link
+                    href="/sales/leads-calling"
+                    className="px-2.5 py-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold rounded-lg text-[10px] flex items-center gap-1.5 shadow-md transition-all"
+                  >
+                    <FiPhoneCall size={11} />
+                    <span>High-Velocity Lead Queue</span>
+                  </Link>
+                </div>
+                <p className="page-subtitle">Manage sales pipeline, cold calls, smart call queue, and deal lifecycle</p>
+              </div>
             </div>
 
             {/* Impersonation dropdown for Admin */}
@@ -2187,7 +2188,7 @@ export default function SalesPage() {
         document.body
       )}
 
-      {/* Call Campaign Modal */}
+      {/* Call Campaign Modal - Portal */}
       {showCallCampaignModal && createPortal(
         <SalesCallCampaignModal
           accounts={accounts.filter(a => selectedAccountIds.includes(a.id))}

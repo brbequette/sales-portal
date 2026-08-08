@@ -304,27 +304,26 @@ export default function AdminUpdateAccountsPage() {
   }
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans h-full bg-[#0f1013]">
-      <main className="flex-1 px-4 sm:px-6 py-6 space-y-5 overflow-y-auto safe-bottom">
-        
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => router.push('/admin')}
-              className="p-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 transition"
-            >
-              <FiArrowLeft size={20} className="text-neutral-400" />
-            </button>
-            <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/30">
-              <FiTarget size={20} className="text-purple-400" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-white tracking-tight">Update Accounts</h1>
-              <p className="text-xs text-neutral-500">Manually reassign accounts marked as 'Update Status'</p>
-            </div>
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => router.push('/admin')}
+            className="p-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 transition"
+          >
+            <FiArrowLeft size={20} className="text-neutral-400" />
+          </button>
+          <div className="w-9 h-9 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-center justify-center">
+            <FiTarget className="text-purple-500" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">Update Accounts</h1>
+            <p className="page-subtitle">Manually reassign accounts marked as 'Update Status'</p>
           </div>
         </div>
+      </div>
+
+      <div className="page-body">
 
         {/* Feedback Messages */}
         {apiError && (
@@ -592,8 +591,7 @@ export default function AdminUpdateAccountsPage() {
           </div>
         </div>
 
-      </main>
+      </div>
     </div>
   )
 }
-

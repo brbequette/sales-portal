@@ -173,35 +173,30 @@ export default function ShippingAuditPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-12">
-      <div className="max-w-7xl mx-auto space-y-8">
-        
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-slate-400 mb-1">
-              <Link href="/admin" className="hover:text-white transition">Admin Dashboard</Link>
-              <FiArrowRight />
-              <span>Shipping Audit</span>
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-              <FiTruck className="text-blue-400" />
-              Item Shipping Audit & Vendor Invoice Extrapolator
-            </h1>
-            <p className="text-slate-400 mt-1">
-              Identify items missing shipping costs, select multiple items sharing a shipping cost, and parse vendor freight bills.
-            </p>
+    <div className="page-content">
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-center">
+            <FiTruck className="text-blue-400" size={17} />
           </div>
-
-          <button
-            onClick={fetchData}
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-5 rounded-lg transition duration-200 shadow-lg shadow-blue-500/10 flex items-center gap-2"
-          >
-            <FiRefreshCw className={loading ? "animate-spin" : ""} />
-            Refresh Audit List
-          </button>
+          <div>
+            <h1 className="page-title">Shipping Audit &amp; Vendor Invoice Extrapolator</h1>
+            <p className="page-subtitle">Identify items missing shipping costs and parse vendor freight bills</p>
+          </div>
         </div>
+        <button
+          onClick={fetchData}
+          disabled={loading}
+          className="td-btn td-btn-ghost td-btn-sm disabled:opacity-50"
+        >
+          <FiRefreshCw size={13} className={loading ? "animate-spin" : ""} />
+          Refresh Audit List
+        </button>
+      </div>
+
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-6">
 
         {/* Vendor Invoice AI Extrapolator Section */}
         <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-2xl p-6 shadow-2xl">

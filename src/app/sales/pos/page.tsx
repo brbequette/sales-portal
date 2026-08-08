@@ -68,16 +68,23 @@ export default function StandalonePosPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6 min-h-screen flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-4 shrink-0">
+    <div className="page-content">
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
         <div className="flex items-center gap-3">
-          <Link href="/sales" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors">
-            <FiArrowLeft size={18} />
+          <Link
+            href="/sales"
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors shrink-0"
+            title="Back to Sales"
+          >
+            <FiArrowLeft size={16} />
           </Link>
+          <div className="w-9 h-9 bg-violet-500/10 border border-violet-500/20 rounded-xl flex items-center justify-center">
+            <FiUser className="text-violet-400" size={17} />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">POS Terminal</h1>
-            <p className="text-neutral-400 text-xs">Dedicated Point of Sale order builder and transaction checkout.</p>
+            <h1 className="page-title">POS Terminal</h1>
+            <p className="page-subtitle">Dedicated Point of Sale order builder and transaction checkout</p>
           </div>
         </div>
         {selectedAccount && (
@@ -89,7 +96,7 @@ export default function StandalonePosPage() {
               <div className="text-xs font-bold text-white leading-none mb-0.5">{selectedAccount.name}</div>
               <div className="text-[10px] text-neutral-400 font-mono leading-none">Zoho ID: {selectedAccount.zohoId}</div>
             </div>
-            <button 
+            <button
               onClick={handleClearSelection}
               className="ml-2 text-neutral-400 hover:text-white transition-colors"
               title="Change Account"
@@ -99,6 +106,9 @@ export default function StandalonePosPage() {
           </div>
         )}
       </div>
+
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in">
 
       {/* Main Panel */}
       <div className="flex-1 flex flex-col min-h-0">
@@ -179,6 +189,7 @@ export default function StandalonePosPage() {
           </div>
         )}
       </div>
+    </div>
     </div>
   )
 }

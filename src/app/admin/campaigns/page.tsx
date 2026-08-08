@@ -72,15 +72,20 @@ export default function AdminCampaignsPage() {
   if (loading) return <div className="p-8 text-neutral-400">Loading...</div>
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans h-full">
-      <main className="flex-1 p-4 sm:p-6 space-y-6 overflow-y-auto safe-bottom">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Campaign Management</h1>
-            <p className="text-xs text-neutral-500 mt-1">Manage blast templates and view historical logs.</p>
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-center justify-center">
+            <FiTarget className="text-purple-500" size={17} />
           </div>
-        </header>
+          <div>
+            <h1 className="page-title">Campaign Management</h1>
+            <p className="page-subtitle">Manage blast templates and view historical logs.</p>
+          </div>
+        </div>
+      </div>
 
+      <div className="page-body">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Templates Section */}
           <div className="glass-panel/50 border border-white/10 rounded-xl p-6">
@@ -181,7 +186,7 @@ export default function AdminCampaignsPage() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

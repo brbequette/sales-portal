@@ -80,29 +80,36 @@ export default function VendorsPage() {
   }
 
   return (
-    <div className="flex flex-col text-neutral-100 font-sans h-full relative">
-      <main className="flex-1 p-6 space-y-6 overflow-y-auto safe-bottom">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-          <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-            <FiTruck className="text-emerald-500" /> VENDOR MANAGEMENT
-          </h1>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={handleSync}
-              disabled={syncing}
-              className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-lg font-bold transition-colors disabled:opacity-50"
-            >
-              <FiRefreshCw className={syncing ? "animate-spin" : ""} />
-              {syncing ? 'SYNCING...' : 'SYNC FROM CSV'}
-            </button>
-            <button 
-              onClick={() => setSelectedVendor({ contactName: '', companyName: '', email: '', phone: '', billingAddress: {}, shippingAddress: {} })}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg font-bold transition-colors"
-            >
-              CREATE VENDOR
-            </button>
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
+            <FiTruck className="text-emerald-500" size={17} />
           </div>
-        </header>
+          <div>
+            <h1 className="page-title">Vendor Management</h1>
+            <p className="page-subtitle">Manage vendors and sync from CSV</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-lg font-bold transition-colors disabled:opacity-50"
+          >
+            <FiRefreshCw className={syncing ? "animate-spin" : ""} />
+            {syncing ? 'SYNCING...' : 'SYNC FROM CSV'}
+          </button>
+          <button 
+            onClick={() => setSelectedVendor({ contactName: '', companyName: '', email: '', phone: '', billingAddress: {}, shippingAddress: {} })}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg font-bold transition-colors"
+          >
+            CREATE VENDOR
+          </button>
+        </div>
+      </div>
+
+      <div className="page-body">
 
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-12">
@@ -139,7 +146,7 @@ export default function VendorsPage() {
             </table>
           </div>
         )}
-      </main>
+      </div>
 
       {/* Editor Modal */}
       {selectedVendor && (

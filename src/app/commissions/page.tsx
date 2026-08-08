@@ -191,462 +191,384 @@ export default function CommissionsPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border)] pb-5">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)] flex items-center gap-2">
-            <FiDollarSign className="text-emerald-500" /> Sales Commissions & Weekly Statements
-          </h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1">
-            Review weekly profit splits, VIG deductions, draw balances, and pay period statements.
-          </p>
-        </div>
+    <div className="page-content">
 
-        <div className="flex flex-wrap items-center gap-3">
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-center">
+            <FiDollarSign className="text-indigo-400" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">Sales Commissions</h1>
+            <p className="page-subtitle">Weekly profit splits, VIG deductions, draw balances & pay period statements</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           {isAdmin && repOptions.length > 0 && (
-            <div className="flex items-center gap-2 bg-[var(--card)] border border-[var(--border)] rounded-lg px-3 py-1.5 shadow-sm">
-              <FiUser className="text-neutral-400 text-xs" />
+            <div className="flex items-center gap-1.5">
+              <FiUser className="text-neutral-500 shrink-0" size={13} />
               <select
                 value={selectedRepId}
-                onChange={(e) => setSelectedRepId(e.target.value)}
-                className="bg-transparent text-sm font-semibold text-[var(--foreground)] focus:outline-none cursor-pointer"
+                onChange={e => setSelectedRepId(e.target.value)}
+                className="td-select"
               >
-                {repOptions.map((r) => (
-                  <option key={r.id} value={r.id} className="bg-[var(--card)] text-[var(--foreground)]">
-                    {r.name}
-                  </option>
+                {repOptions.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </select>
             </div>
           )}
-
           <select
             value={selectedYear}
-            onChange={(e) => setSelectedYear(e.target.value)}
-            className="bg-[var(--card)] border border-[var(--border)] text-sm font-medium text-[var(--foreground)] rounded-lg px-3 py-1.5 shadow-sm focus:outline-none cursor-pointer"
+            onChange={e => setSelectedYear(e.target.value)}
+            className="td-select"
           >
-            <option value={new Date().getFullYear().toString()}>{new Date().getFullYear()} Year</option>
+            <option value={new Date().getFullYear().toString()}>{new Date().getFullYear()}</option>
             {availableYears.filter(y => y !== new Date().getFullYear()).map(y => (
               <option key={y} value={String(y)}>{y}</option>
             ))}
-            <option value="all">All Time (Summary)</option>
+            <option value="all">All Time</option>
           </select>
-
-          <button
-            onClick={() => fetchCommissions()}
-            className="p-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:bg-neutral-800 transition"
-            title="Refresh Data"
-          >
-            <FiRefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <button onClick={() => fetchCommissions()} className="td-btn td-btn-ghost td-btn-sm" title="Refresh">
+            <FiRefreshCw className={loading ? "animate-spin" : ""} size={14} />
           </button>
-
           {currentRepData && (
-            <button
-              onClick={() => setShowStatement(true)}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 flex items-center gap-2 shadow-sm"
-            >
-              <FiAward className="h-4 w-4" />
-              View Pay Statement
+            <button onClick={() => setShowStatement(true)} className="td-btn td-btn-primary td-btn-sm">
+              <FiAward size={13} /> Pay Statement
             </button>
           )}
         </div>
       </div>
 
-      {loading && (
-        <div className="flex items-center justify-center py-20">
-          <FiRefreshCw className="h-8 w-8 animate-spin text-indigo-500" />
-          <span className="ml-3 text-sm text-[var(--muted-foreground)]">Loading commission records...</span>
-        </div>
-      )}
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-4">
 
-      {error && (
-        <div className="p-4 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center gap-3">
-          <FiAlertCircle className="h-5 w-5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {!loading && !error && currentRepData && (
-        <>
-          {/* Summary Metric Cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Total Earned</span>
-                <FiDollarSign className="h-5 w-5 text-emerald-400" />
-              </div>
-              <div className="mt-3 text-2xl font-bold text-emerald-400">{fmt(currentRepData.totalEarned)}</div>
-              <p className="mt-1 text-xs text-[var(--muted-foreground)]">Net 50% split after VIG markup</p>
-            </div>
-
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Total Paid Out</span>
-                <FiCheckCircle className="h-5 w-5 text-indigo-400" />
-              </div>
-              <div className="mt-3 text-2xl font-bold text-[var(--foreground)]">{fmt(currentRepData.totalPaid)}</div>
-              <p className="mt-1 text-xs text-[var(--muted-foreground)]">Disbursed checks & draws</p>
-            </div>
-
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Unpaid Balance</span>
-                <FiClock className="h-5 w-5 text-amber-400" />
-              </div>
-              <div className={`mt-3 text-2xl font-bold ${currentRepData.balance >= 0 ? 'text-amber-400' : 'text-rose-400'}`}>
-                {fmt(currentRepData.balance)}
-              </div>
-              <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                {currentRepData.balance >= 0 ? 'Pending payout' : 'Draw balance advance'}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Total Net Profit</span>
-                <FiTrendingUp className="h-5 w-5 text-sky-400" />
-              </div>
-              <div className="mt-3 text-2xl font-bold text-[var(--foreground)]">{fmt(currentRepData.totalProfit)}</div>
-              <p className="mt-1 text-xs text-[var(--muted-foreground)]">Generated across {currentRepData.invoices?.length || 0} deals</p>
-            </div>
+        {/* Loading */}
+        {loading && (
+          <div className="flex items-center justify-center py-20 gap-3">
+            <FiRefreshCw className="animate-spin text-indigo-500" size={22} />
+            <span className="text-sm text-neutral-400">Loading commission records...</span>
           </div>
+        )}
 
-          {/* Breakdown Tabs & Grouping Controls */}
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[var(--border)] bg-[var(--card)] px-4">
-              <div className="flex">
-                <button
-                  onClick={() => setActiveTab("invoices")}
-                  className={`py-3 px-4 font-semibold text-sm border-b-2 transition ${
-                    activeTab === "invoices"
-                      ? "border-indigo-500 text-indigo-400"
-                      : "border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                  }`}
-                >
-                  Weekly Statements & Invoices ({currentRepData.invoices?.length || 0})
-                </button>
-                <button
-                  onClick={() => setActiveTab("payouts")}
-                  className={`py-3 px-4 font-semibold text-sm border-b-2 transition ${
-                    activeTab === "payouts"
-                      ? "border-indigo-500 text-indigo-400"
-                      : "border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                  }`}
-                >
-                  Payout History ({currentRepData.payouts?.length || 0})
-                </button>
+        {/* Error */}
+        {error && (
+          <div className="p-4 rounded-xl bg-red-950/30 border border-red-500/20 text-red-400 flex items-center gap-3">
+            <FiAlertCircle size={18} className="shrink-0" />
+            <span className="text-sm">{error}</span>
+          </div>
+        )}
+
+        {!loading && !error && currentRepData && (
+          <>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="glass-panel p-4 rounded-2xl border border-emerald-500/20 space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                  <span>Total Earned</span><FiDollarSign className="text-emerald-400" size={15} />
+                </div>
+                <div className="text-xl font-black text-emerald-400">{fmt(currentRepData.totalEarned)}</div>
+                <div className="text-[11px] text-neutral-600">Net 50% split after VIG</div>
+              </div>
+              <div className="glass-panel p-4 rounded-2xl border border-indigo-500/20 space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                  <span>Total Paid Out</span><FiCheckCircle className="text-indigo-400" size={15} />
+                </div>
+                <div className="text-xl font-black text-white">{fmt(currentRepData.totalPaid)}</div>
+                <div className="text-[11px] text-neutral-600">Disbursed checks & draws</div>
+              </div>
+              <div className="glass-panel p-4 rounded-2xl border border-amber-500/20 space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                  <span>Unpaid Balance</span><FiClock className="text-amber-400" size={15} />
+                </div>
+                <div className={`text-xl font-black ${currentRepData.balance >= 0 ? "text-amber-400" : "text-red-400"}`}>
+                  {fmt(currentRepData.balance)}
+                </div>
+                <div className="text-[11px] text-neutral-600">
+                  {currentRepData.balance >= 0 ? "Pending payout" : "Draw balance advance"}
+                </div>
+              </div>
+              <div className="glass-panel p-4 rounded-2xl border border-sky-500/20 space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                  <span>Total Net Profit</span><FiTrendingUp className="text-sky-400" size={15} />
+                </div>
+                <div className="text-xl font-black text-white">{fmt(currentRepData.totalProfit)}</div>
+                <div className="text-[11px] text-neutral-600">Across {currentRepData.invoices?.length || 0} deals</div>
+              </div>
+            </div>
+
+            {/* Breakdown Panel */}
+            <div className="modern-card overflow-hidden">
+
+              {/* Tabs + View Controls */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/8 bg-neutral-950/40 px-4">
+                <div className="flex">
+                  {(["invoices", "payouts"] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`py-3 px-4 text-xs font-bold border-b-2 transition-colors ${
+                        activeTab === tab
+                          ? "border-indigo-500 text-indigo-400"
+                          : "border-transparent text-neutral-500 hover:text-neutral-300"
+                      }`}
+                    >
+                      {tab === "invoices"
+                        ? `Weekly Statements (${currentRepData.invoices?.length || 0})`
+                        : `Payout History (${currentRepData.payouts?.length || 0})`}
+                    </button>
+                  ))}
+                </div>
+
+                {activeTab === "invoices" && (
+                  <div className="flex items-center gap-2 py-2 sm:py-0">
+                    <div className="glass-panel rounded-lg p-0.5 flex border border-white/10 text-xs font-semibold">
+                      <button
+                        onClick={() => setViewMode("weekly")}
+                        className={`px-3 py-1 rounded-md transition ${viewMode === "weekly" ? "bg-indigo-600 text-white" : "text-neutral-400 hover:text-white"}`}
+                      >
+                        By Week
+                      </button>
+                      <button
+                        onClick={() => setViewMode("flat")}
+                        className={`px-3 py-1 rounded-md transition ${viewMode === "flat" ? "bg-indigo-600 text-white" : "text-neutral-400 hover:text-white"}`}
+                      >
+                        Flat List
+                      </button>
+                    </div>
+                    {viewMode === "weekly" && (
+                      <div className="flex items-center gap-1 text-xs">
+                        <button onClick={expandAllWeeks} className="text-neutral-500 hover:text-indigo-400 px-2 py-1">Expand All</button>
+                        <span className="text-neutral-700">•</span>
+                        <button onClick={collapseAllWeeks} className="text-neutral-500 hover:text-indigo-400 px-2 py-1">Collapse All</button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {activeTab === "invoices" && (
-                <div className="flex items-center gap-2 py-2 sm:py-0">
-                  <div className="flex items-center bg-neutral-900 border border-[var(--border)] rounded-lg p-0.5 text-xs font-medium">
-                    <button
-                      onClick={() => setViewMode("weekly")}
-                      className={`px-3 py-1 rounded-md transition ${viewMode === 'weekly' ? 'bg-indigo-600 text-white font-semibold' : 'text-neutral-400 hover:text-white'}`}
-                    >
-                      Grouped by Week
-                    </button>
-                    <button
-                      onClick={() => setViewMode("flat")}
-                      className={`px-3 py-1 rounded-md transition ${viewMode === 'flat' ? 'bg-indigo-600 text-white font-semibold' : 'text-neutral-400 hover:text-white'}`}
-                    >
-                      Flat List
-                    </button>
-                  </div>
+              {/* Weekly Grouped View */}
+              {activeTab === "invoices" && viewMode === "weekly" && (
+                <div className="divide-y divide-white/[0.06]">
+                  {weeklyGroups.map(group => {
+                    const isExpanded = !!expandedWeeks[group.weekKey]
+                    return (
+                      <div key={group.weekKey}>
+                        {/* Week Header Row */}
+                        <div
+                          onClick={() => toggleWeek(group.weekKey)}
+                          className="flex flex-wrap items-center justify-between px-4 py-3 bg-neutral-950/30 hover:bg-neutral-900/40 cursor-pointer select-none transition-colors gap-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-neutral-500">
+                              {isExpanded ? <FiChevronDown size={16} /> : <FiChevronRight size={16} />}
+                            </span>
+                            <div>
+                              <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                                <FiCalendar className="text-indigo-400" size={13} />
+                                Week of {group.weekLabel}
+                                <span className="text-xs font-normal text-neutral-500">({group.invoices.length} invoices)</span>
+                              </div>
+                              <div className="text-xs text-neutral-600 mt-0.5 flex items-center gap-2">
+                                <span className="text-emerald-400 font-medium">{group.paidCount} Paid</span>
+                                <span>•</span>
+                                <span className="text-amber-400 font-medium">{group.unpaidCount} Pending</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6 text-right">
+                            <div>
+                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Weekly Sales</div>
+                              <div className="text-sm font-semibold text-white">{fmt(group.totalSales)}</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Net Profit</div>
+                              <div className="text-sm font-semibold text-sky-400">{fmt(group.totalProfit)}</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Est. Commission</div>
+                              <div className="text-sm font-bold text-emerald-400">{fmt(group.totalCommission)}</div>
+                            </div>
+                          </div>
+                        </div>
 
-                  {viewMode === "weekly" && (
-                    <div className="flex items-center gap-1 text-xs">
-                      <button onClick={expandAllWeeks} className="px-2 py-1 text-neutral-400 hover:text-indigo-400">Expand All</button>
-                      <span className="text-neutral-600">•</span>
-                      <button onClick={collapseAllWeeks} className="px-2 py-1 text-neutral-400 hover:text-indigo-400">Collapse All</button>
+                        {/* Expanded Invoices */}
+                        {isExpanded && (
+                          <div className="overflow-x-auto border-t border-white/[0.05]">
+                            <table className="td-table">
+                              <thead>
+                                <tr>
+                                  <th className="td-th pl-10">Date</th>
+                                  <th className="td-th">Invoice #</th>
+                                  <th className="td-th">Account / Customer</th>
+                                  <th className="td-th text-right">Amount</th>
+                                  <th className="td-th text-right">Profit</th>
+                                  <th className="td-th text-right">Est. Commission</th>
+                                  <th className="td-th text-center">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {group.invoices.map((inv: any) => {
+                                  const isPaid = inv.isPaid || inv.status === 'paid' || inv.status === 'Paid'
+                                  const profit = inv.profit || 0
+                                  const upfrontHalf = inv.commission?.upfront ?? (profit * 0.25)
+                                  const secondHalf = inv.commission?.final ?? inv.commission?.future ?? (profit * 0.25)
+                                  const fullCommission = upfrontHalf + secondHalf
+                                  return (
+                                    <tr
+                                      key={inv.id}
+                                      onClick={() => setActiveInvoiceModal(inv)}
+                                      className="hover:bg-white/[0.03] cursor-pointer transition-colors group"
+                                    >
+                                      <td className="td-td pl-10 text-neutral-500 whitespace-nowrap">{fmtDate(inv.issueDate)}</td>
+                                      <td className="td-td">
+                                        <span className="font-mono font-bold text-indigo-400 group-hover:text-indigo-300 flex items-center gap-1.5">
+                                          <FiFileText size={12} className="shrink-0" />
+                                          #{inv.invoiceNumber || inv.zohoId || "--"}
+                                        </span>
+                                      </td>
+                                      <td className="td-td font-medium text-white">{inv.accountName || inv.name || "Customer"}</td>
+                                      <td className="td-td text-right font-medium text-white">{fmt(inv.amount)}</td>
+                                      <td className="td-td text-right font-medium text-sky-400">{fmt(inv.profit)}</td>
+                                      <td className="td-td text-right whitespace-nowrap">
+                                        {!isPaid ? (
+                                          <div>
+                                            <div className="font-bold text-amber-400 text-xs">{fmt(upfrontHalf)} <span className="text-[10px] font-normal text-amber-300/70">(1st Half)</span></div>
+                                            <div className="text-[10px] text-neutral-600 mt-0.5">2nd: {fmt(secondHalf)} <span className="text-neutral-700">(Pending)</span></div>
+                                          </div>
+                                        ) : (
+                                          <div>
+                                            <div className="font-bold text-emerald-400 text-xs">{fmt(fullCommission)} <span className="text-[10px] font-normal text-emerald-300/70">(Full)</span></div>
+                                            <div className="text-[10px] text-emerald-500/60 mt-0.5">{fmt(upfrontHalf)} + {fmt(secondHalf)}</div>
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="td-td text-center">
+                                        <span className={`status-pill ${isPaid ? "status-pill-green" : "status-pill-amber"}`}>
+                                          {isPaid ? "Paid" : "Unpaid"}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {weeklyGroups.length === 0 && (
+                    <div className="py-12 text-center text-sm text-neutral-500">
+                      No weekly invoice records found for this period.
                     </div>
                   )}
                 </div>
               )}
-            </div>
 
-            {/* Weekly Grouped View */}
-            {activeTab === "invoices" && viewMode === "weekly" && (
-              <div className="divide-y divide-[var(--border)]">
-                {weeklyGroups.map((group) => {
-                  const isExpanded = !!expandedWeeks[group.weekKey]
-                  return (
-                    <div key={group.weekKey} className="transition">
-                      {/* Week Header */}
-                      <div
-                        onClick={() => toggleWeek(group.weekKey)}
-                        className="flex flex-wrap items-center justify-between p-4 bg-neutral-900/40 hover:bg-neutral-800/50 cursor-pointer select-none transition gap-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <button className="text-neutral-400 hover:text-white">
-                            {isExpanded ? <FiChevronDown className="h-5 w-5" /> : <FiChevronRight className="h-5 w-5" />}
-                          </button>
-                          <div>
-                            <div className="font-semibold text-sm text-[var(--foreground)] flex items-center gap-2">
-                              <FiCalendar className="text-indigo-400 h-4 w-4" />
-                              <span>Week of {group.weekLabel}</span>
-                              <span className="text-xs font-normal text-[var(--muted-foreground)]">({group.invoices.length} invoices)</span>
-                            </div>
-                            <div className="text-xs text-[var(--muted-foreground)] mt-0.5 flex items-center gap-2">
-                              <span className="text-emerald-400 font-medium">{group.paidCount} Paid</span>
-                              <span>•</span>
-                              <span className="text-amber-400 font-medium">{group.unpaidCount} Pending</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-6 text-right">
-                          <div>
-                            <div className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider">Weekly Sales</div>
-                            <div className="text-sm font-semibold text-[var(--foreground)]">{fmt(group.totalSales)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider">Net Profit</div>
-                            <div className="text-sm font-semibold text-sky-400">{fmt(group.totalProfit)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider">Est. Commission</div>
-                            <div className="text-sm font-bold text-emerald-400">{fmt(group.totalCommission)}</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Expanded Invoices Table */}
-                      {isExpanded && (
-                        <div className="overflow-x-auto bg-[var(--card)] border-t border-[var(--border)]">
-                          <table className="w-full text-left text-sm">
-                            <thead className="bg-neutral-900/80 text-xs uppercase tracking-wider text-[var(--muted-foreground)] border-b border-[var(--border)]">
-                              <tr>
-                                <th className="py-2.5 px-4 pl-12">Date</th>
-                                <th className="py-2.5 px-4">Invoice #</th>
-                                <th className="py-2.5 px-4">Account / Customer</th>
-                                <th className="py-2.5 px-4 text-right">Amount</th>
-                                <th className="py-2.5 px-4 text-right">Profit</th>
-                                <th className="py-2.5 px-4 text-right">Est. Commission</th>
-                                <th className="py-2.5 px-4 text-center">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--border)]">
-                              {group.invoices.map((inv: any) => (
-                                <tr 
-                                  key={inv.id} 
-                                  onClick={() => setActiveInvoiceModal(inv)}
-                                  className="hover:bg-neutral-800/60 cursor-pointer transition group"
-                                >
-                                  <td className="py-2.5 px-4 pl-12 whitespace-nowrap text-[var(--muted-foreground)]">
-                                    {fmtDate(inv.issueDate)}
-                                  </td>
-                                  <td className="py-2.5 px-4 font-mono font-bold text-indigo-400 group-hover:text-indigo-300 underline-offset-2 group-hover:underline flex items-center gap-1.5">
-                                    <FiFileText size={13} className="shrink-0" />
-                                    <span>#{inv.invoiceNumber || inv.zohoId || "--"}</span>
-                                  </td>
-                                  <td className="py-2.5 px-4 font-medium text-[var(--foreground)]">
-                                    {inv.accountName || inv.name || "Customer"}
-                                  </td>
-                                  <td className="py-2.5 px-4 text-right font-medium text-[var(--foreground)]">
-                                    {fmt(inv.amount)}
-                                  </td>
-                                  <td className="py-2.5 px-4 text-right font-medium text-sky-400">
-                                    {fmt(inv.profit)}
-                                  </td>
-                                  <td className="py-2.5 px-4 text-right whitespace-nowrap">
-                                    {(() => {
-                                      const isPaid = inv.isPaid || inv.status === 'paid' || inv.status === 'Paid'
-                                      const profit = inv.profit || 0
-                                      const upfrontHalf = inv.commission?.upfront ?? (profit * 0.25)
-                                      const secondHalf = inv.commission?.final ?? inv.commission?.future ?? (profit * 0.25)
-                                      const fullCommission = upfrontHalf + secondHalf
-
-                                      if (!isPaid) {
-                                        return (
-                                          <div>
-                                            <div className="font-bold text-amber-400 text-sm">
-                                              {fmt(upfrontHalf)} <span className="text-[10px] font-semibold text-amber-300/90">(1st Half Upfront)</span>
-                                            </div>
-                                            <div className="text-[11px] text-[var(--muted-foreground)] font-normal mt-0.5">
-                                              2nd Half: {fmt(secondHalf)} <span className="text-neutral-400">(Pending Payment)</span>
-                                            </div>
-                                          </div>
-                                        )
-                                      }
-
-                                      return (
-                                        <div>
-                                          <div className="font-bold text-emerald-400 text-sm">
-                                            {fmt(fullCommission)} <span className="text-[10px] font-semibold text-emerald-300/90">(Paid in Full)</span>
-                                          </div>
-                                          <div className="text-[11px] text-emerald-400/80 font-normal mt-0.5">
-                                            1st Half: {fmt(upfrontHalf)} + 2nd Half: {fmt(secondHalf)}
-                                          </div>
-                                        </div>
-                                      )
-                                    })()}
-                                  </td>
-                                  <td className="py-2.5 px-4 text-center">
-                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                      inv.isPaid || inv.status === 'paid'
-                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                    }`}>
-                                      {inv.isPaid || inv.status === 'paid' ? 'Paid' : 'Unpaid'}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-
-                {weeklyGroups.length === 0 && (
-                  <div className="py-12 text-center text-[var(--muted-foreground)]">
-                    No weekly invoice records found for this period.
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Flat Invoices Table */}
-            {activeTab === "invoices" && viewMode === "flat" && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-neutral-900/50 text-xs uppercase tracking-wider text-[var(--muted-foreground)] border-b border-[var(--border)]">
-                    <tr>
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Invoice #</th>
-                      <th className="py-3 px-4">Account / Customer</th>
-                      <th className="py-3 px-4 text-right">Amount</th>
-                      <th className="py-3 px-4 text-right">Profit</th>
-                      <th className="py-3 px-4 text-right">Est. Commission</th>
-                      <th className="py-3 px-4 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--border)]">
-                    {(currentRepData.invoices || []).map((inv: any) => (
-                      <tr 
-                        key={inv.id} 
-                        onClick={() => setActiveInvoiceModal(inv)}
-                        className="hover:bg-neutral-800/60 cursor-pointer transition group"
-                      >
-                        <td className="py-3 px-4 whitespace-nowrap text-[var(--muted-foreground)]">
-                          {fmtDate(inv.issueDate)}
-                        </td>
-                        <td className="py-3 px-4 font-mono font-bold text-indigo-400 group-hover:text-indigo-300 underline-offset-2 group-hover:underline flex items-center gap-1.5">
-                          <FiFileText size={13} className="shrink-0" />
-                          <span>#{inv.invoiceNumber || inv.zohoId || "--"}</span>
-                        </td>
-                        <td className="py-3 px-4 font-medium text-[var(--foreground)]">
-                          {inv.accountName || inv.name || "Customer"}
-                        </td>
-                        <td className="py-3 px-4 text-right font-medium text-[var(--foreground)]">
-                          {fmt(inv.amount)}
-                        </td>
-                        <td className="py-3 px-4 text-right font-medium text-sky-400">
-                          {fmt(inv.profit)}
-                        </td>
-                        <td className="py-3 px-4 text-right whitespace-nowrap">
-                          {(() => {
-                            const isPaid = inv.isPaid || inv.status === 'paid' || inv.status === 'Paid'
-                            const profit = inv.profit || 0
-                            const upfrontHalf = inv.commission?.upfront ?? (profit * 0.25)
-                            const secondHalf = inv.commission?.final ?? inv.commission?.future ?? (profit * 0.25)
-                            const fullCommission = upfrontHalf + secondHalf
-
-                            if (!isPaid) {
-                              return (
-                                <div>
-                                  <div className="font-bold text-amber-400 text-sm">
-                                    {fmt(upfrontHalf)} <span className="text-[10px] font-semibold text-amber-300/90">(1st Half Upfront)</span>
-                                  </div>
-                                  <div className="text-[11px] text-[var(--muted-foreground)] font-normal mt-0.5">
-                                    2nd Half: {fmt(secondHalf)} <span className="text-neutral-400">(Pending Payment)</span>
-                                  </div>
-                                </div>
-                              )
-                            }
-
-                            return (
-                              <div>
-                                <div className="font-bold text-emerald-400 text-sm">
-                                  {fmt(fullCommission)} <span className="text-[10px] font-semibold text-emerald-300/90">(Paid in Full)</span>
-                                </div>
-                                <div className="text-[11px] text-emerald-400/80 font-normal mt-0.5">
-                                  1st Half: {fmt(upfrontHalf)} + 2nd Half: {fmt(secondHalf)}
-                                </div>
-                              </div>
-                            )
-                          })()}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            inv.isPaid || inv.status === 'paid'
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          }`}>
-                            {inv.isPaid || inv.status === 'paid' ? 'Paid' : 'Unpaid'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Payouts Table */}
-            {activeTab === "payouts" && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-neutral-900/50 text-xs uppercase tracking-wider text-[var(--muted-foreground)] border-b border-[var(--border)]">
-                    <tr>
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Method / Check #</th>
-                      <th className="py-3 px-4">Notes</th>
-                      <th className="py-3 px-4 text-right">Amount Paid</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--border)]">
-                    {(currentRepData.payouts || []).map((p: any) => (
-                      <tr key={p.id} className="hover:bg-neutral-800/40 transition">
-                        <td className="py-3 px-4 whitespace-nowrap text-[var(--muted-foreground)]">
-                          {fmtDate(p.date || p.createdAt)}
-                        </td>
-                        <td className="py-3 px-4 font-medium text-[var(--foreground)]">
-                          {p.method || 'Check'}
-                        </td>
-                        <td className="py-3 px-4 text-[var(--muted-foreground)]">
-                          {p.notes || '--'}
-                        </td>
-                        <td className="py-3 px-4 text-right font-bold text-indigo-400">
-                          {fmt(p.amount)}
-                        </td>
-                      </tr>
-                    ))}
-                    {(!currentRepData.payouts || currentRepData.payouts.length === 0) && (
+              {/* Flat Invoices Table */}
+              {activeTab === "invoices" && viewMode === "flat" && (
+                <div className="overflow-x-auto">
+                  <table className="td-table">
+                    <thead>
                       <tr>
-                        <td colSpan={4} className="py-10 text-center text-[var(--muted-foreground)]">
-                          No payout transactions logged yet.
-                        </td>
+                        <th className="td-th">Date</th>
+                        <th className="td-th">Invoice #</th>
+                        <th className="td-th">Account / Customer</th>
+                        <th className="td-th text-right">Amount</th>
+                        <th className="td-th text-right">Profit</th>
+                        <th className="td-th text-right">Est. Commission</th>
+                        <th className="td-th text-center">Status</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </>
-      )}
+                    </thead>
+                    <tbody>
+                      {(currentRepData.invoices || []).map((inv: any) => {
+                        const isPaid = inv.isPaid || inv.status === 'paid' || inv.status === 'Paid'
+                        const profit = inv.profit || 0
+                        const upfrontHalf = inv.commission?.upfront ?? (profit * 0.25)
+                        const secondHalf = inv.commission?.final ?? inv.commission?.future ?? (profit * 0.25)
+                        const fullCommission = upfrontHalf + secondHalf
+                        return (
+                          <tr
+                            key={inv.id}
+                            onClick={() => setActiveInvoiceModal(inv)}
+                            className="hover:bg-white/[0.03] cursor-pointer transition-colors group"
+                          >
+                            <td className="td-td text-neutral-500 whitespace-nowrap">{fmtDate(inv.issueDate)}</td>
+                            <td className="td-td">
+                              <span className="font-mono font-bold text-indigo-400 group-hover:text-indigo-300 flex items-center gap-1.5">
+                                <FiFileText size={12} className="shrink-0" />
+                                #{inv.invoiceNumber || inv.zohoId || "--"}
+                              </span>
+                            </td>
+                            <td className="td-td font-medium text-white">{inv.accountName || inv.name || "Customer"}</td>
+                            <td className="td-td text-right font-medium text-white">{fmt(inv.amount)}</td>
+                            <td className="td-td text-right font-medium text-sky-400">{fmt(inv.profit)}</td>
+                            <td className="td-td text-right whitespace-nowrap">
+                              {!isPaid ? (
+                                <div>
+                                  <div className="font-bold text-amber-400 text-xs">{fmt(upfrontHalf)} <span className="text-[10px] font-normal text-amber-300/70">(1st Half)</span></div>
+                                  <div className="text-[10px] text-neutral-600 mt-0.5">2nd: {fmt(secondHalf)} <span className="text-neutral-700">(Pending)</span></div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="font-bold text-emerald-400 text-xs">{fmt(fullCommission)} <span className="text-[10px] font-normal text-emerald-300/70">(Full)</span></div>
+                                  <div className="text-[10px] text-emerald-500/60 mt-0.5">{fmt(upfrontHalf)} + {fmt(secondHalf)}</div>
+                                </div>
+                              )}
+                            </td>
+                            <td className="td-td text-center">
+                              <span className={`status-pill ${isPaid ? "status-pill-green" : "status-pill-amber"}`}>
+                                {isPaid ? "Paid" : "Unpaid"}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Payouts Table */}
+              {activeTab === "payouts" && (
+                <div className="overflow-x-auto">
+                  <table className="td-table">
+                    <thead>
+                      <tr>
+                        <th className="td-th">Date</th>
+                        <th className="td-th">Method / Check #</th>
+                        <th className="td-th">Notes</th>
+                        <th className="td-th text-right">Amount Paid</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(currentRepData.payouts || []).map((p: any) => (
+                        <tr key={p.id} className="hover:bg-white/[0.03] transition-colors">
+                          <td className="td-td text-neutral-500 whitespace-nowrap">{fmtDate(p.date || p.createdAt)}</td>
+                          <td className="td-td font-medium text-white">{p.method || "Check"}</td>
+                          <td className="td-td text-neutral-400">{p.notes || "--"}</td>
+                          <td className="td-td text-right font-bold text-indigo-400">{fmt(p.amount)}</td>
+                        </tr>
+                      ))}
+                      {(!currentRepData.payouts || currentRepData.payouts.length === 0) && (
+                        <tr>
+                          <td colSpan={4} className="py-10 text-center text-sm text-neutral-500">No payout transactions logged yet.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Pay Period Statement Modal */}
       {showStatement && currentRepData && (
-        <PayPeriodStatementModal
-          rep={currentRepData}
-          onClose={() => setShowStatement(false)}
-        />
+        <PayPeriodStatementModal rep={currentRepData} onClose={() => setShowStatement(false)} />
       )}
 
       {/* Invoice Details Modal */}

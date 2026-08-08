@@ -147,17 +147,16 @@ export default function AdminRepStatsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-neutral-100 p-4 sm:p-6 lg:p-8 space-y-6">
-      
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-neutral-900/60 p-6 rounded-2xl border border-white/10 backdrop-blur-md">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
-            <FiBarChart2 className="text-orange-500" size={28} /> Admin Rep Performance & Financial Board
-          </h1>
-          <p className="text-xs text-neutral-400 mt-1">
-            Separately evaluate Invoices & Sales Orders with exact commission numbers and total profit.
-          </p>
+    <div className="page-content">
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center justify-center">
+            <FiBarChart2 className="text-orange-500" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">Admin Rep Performance & Financial Board</h1>
+            <p className="page-subtitle">Separately evaluate Invoices & Sales Orders with exact commission numbers and total profit.</p>
+          </div>
         </div>
 
         <button
@@ -167,6 +166,8 @@ export default function AdminRepStatsPage() {
           <FiRefreshCw className={loading ? "animate-spin" : ""} size={14} /> Refresh Data
         </button>
       </div>
+
+      <div className="page-body">
 
       {/* Controls: Rep Picker & Date Range Selector */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 bg-neutral-900/40 p-5 rounded-2xl border border-white/10">
@@ -498,6 +499,7 @@ export default function AdminRepStatsPage() {
             </tbody>
           </table>
         </div>
+      </div>
       </div>
 
       {/* POPUP BREAKDOWN MODAL */}

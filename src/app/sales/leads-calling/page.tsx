@@ -177,40 +177,41 @@ export default function LeadsCallingPage() {
   const progressPct = totalLeadsCount > 0 ? Math.round((processedCount / totalLeadsCount) * 100) : 0
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
-      
-      {/* Header & Controls */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/10 pb-4">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-            <FiPhoneCall className="text-orange-400" /> Cold Call Campaign Workstation
-          </h1>
-          <p className="text-xs text-neutral-400 mt-1 font-medium">
-            Random 50-lead batch allocation. Process at least 30 leads before re-upping to top back off to 50 total.
-          </p>
+    <div className="page-content">
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center justify-center">
+            <FiPhoneCall className="text-orange-400" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">Cold Call Campaign Workstation</h1>
+            <p className="page-subtitle">Random 50-lead batch. Process 30+ leads before re-upping</p>
+          </div>
         </div>
-
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => fetchClaimedBatch(true)}
             disabled={claiming || (!canReUp && leads.length > 0)}
-            className="px-4 py-2.5 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 disabled:opacity-40 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-orange-500/20 transition-all cursor-pointer shrink-0"
+            className="td-btn td-btn-warning td-btn-sm disabled:opacity-40"
           >
-            <FiRefreshCw className={claiming ? "animate-spin" : ""} size={14} />
-            <span>{claiming ? "Re-upping Batch..." : "Re-up Batch (Top Off to 50)"}</span>
+            <FiRefreshCw className={claiming ? "animate-spin" : ""} size={13} />
+            {claiming ? "Re-upping..." : "Re-up Batch (Top Off to 50)"}
           </button>
-
           <button
             onClick={handleReleaseBatch}
             disabled={releasing || leads.length === 0}
-            className="px-3.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 text-neutral-300 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 border border-white/10"
+            className="td-btn td-btn-ghost td-btn-sm disabled:opacity-40"
             title="Recirculate unconverted leads back into the pool for other reps"
           >
-            <FiRepeat size={14} className={releasing ? "animate-spin" : ""} />
-            <span>Recirculate to Pool</span>
+            <FiRepeat size={13} className={releasing ? "animate-spin" : ""} />
+            Recirculate to Pool
           </button>
         </div>
       </div>
+
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-4">
 
       {/* Batch Progress Tracker */}
       <div className="glass-panel border border-white/10 rounded-2xl p-4 space-y-2">
@@ -521,6 +522,7 @@ export default function LeadsCallingPage() {
         </div>
       )}
 
+      </div>
     </div>
   )
 }
