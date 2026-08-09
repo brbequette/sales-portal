@@ -84,6 +84,7 @@ export function ProductModalProvider({ children }: { children: React.ReactNode }
 function ProductModal({ product, fallback, onClose }: { product: ProductInfo | null; fallback: any; onClose: () => void }) {
   const [purchases, setPurchases] = useState<any[]>([])
   const [loadingPurchases, setLoadingPurchases] = useState(false)
+  const [activeImgIndex, setActiveImgIndex] = useState(0)
 
   let parsedDesc: any = {}
   let rawDesc = ""
@@ -107,6 +108,11 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
   let vendor = parsedDesc.vendor || ""
   let costVal = parsedDesc.cost !== undefined && parsedDesc.cost !== null ? parseFloat(parsedDesc.cost as any) : null
   let pertinentInfo = parsedDesc.pertinentInfo || ""
+
+  // Collect available images
+  const imagesList = [image]
+  if (parsedDesc.detail_a) imagesList.push(parsedDesc.detail_a)
+  if (parsedDesc.detail_b) imagesList.push(parsedDesc.detail_b)
 
   useEffect(() => {
     if (!sku || sku === "N/A") return
@@ -135,7 +141,6 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
   else if (lowerName.includes("core") || lowerName.includes("bit")) localFallbackImage = "/images/core_bit.png"
   else if (lowerName.includes("cup") || lowerName.includes("wheel")) localFallbackImage = "/images/cup_wheel.png"
   else localFallbackImage = "/images/turbo_blade.png" // default generic
-
 
   if (!vendor && category === "Titan Diamond USA") {
     vendor = "Titan Diamond Factory"
@@ -173,21 +178,45 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
 
         {/* Body */}
         <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
-           {image && (
-             <div className="w-full h-44 rounded-xl overflow-hidden bg-black/20 border border-white/10 flex items-center justify-center relative shadow-inner">
-               {/* eslint-disable-next-line @next/next/no-img-element */}
-               <img 
-                 src={image} 
-                 alt={name} 
-                 className="max-w-full max-h-full object-contain" 
-                 onError={(e) => {
-                   if (e.currentTarget.src !== window.location.origin + localFallbackImage) {
-                     e.currentTarget.src = localFallbackImage;
-                   } else {
-                     e.currentTarget.style.display = 'none';
-                   }
-                 }}
-               />
+           {imagesList.length > 0 && (
+             <div className="space-y-3">
+               <div className="w-full h-48 rounded-xl overflow-hidden bg-black/20 border border-white/10 flex items-center justify-center relative shadow-inner">
+                 {/* eslint-disable-next-line @next/next/no-img-element */}
+                 <img 
+                   src={imagesList[activeImgIndex]} 
+                   alt={name} 
+                   className="max-w-full max-h-full object-contain p-2" 
+                   onError={(e) => {
+                     if (e.currentTarget.src !== window.location.origin + localFallbackImage) {
+                       e.currentTarget.src = localFallbackImage;
+                     } else {
+                       e.currentTarget.style.display = 'none';
+                     }
+                   }}
+                 />
+                 
+                 {imagesList.length > 1 && (
+                   <div className="absolute bottom-2 right-2 bg-black/70 px-2 py-0.5 rounded text-[9px] font-black text-emerald-400 uppercase tracking-widest">
+                     View {activeImgIndex + 1} of {imagesList.length}
+                   </div>
+                 )}
+               </div>
+               
+               {imagesList.length > 1 && (
+                 <div className="flex justify-center gap-1.5">
+                   {imagesList.map((imgUrl, idx) => (
+                     <button
+                       key={idx}
+                       onClick={() => setActiveImgIndex(idx)}
+                       className={`w-7 h-7 rounded-lg overflow-hidden border transition-all ${
+                         activeImgIndex === idx ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-neutral-750 hover:border-neutral-600'
+                       }`}
+                     >
+                       <img src={imgUrl} className="w-full h-full object-cover" alt="" />
+                     </button>
+                   ))}
+                 </div>
+               )}
              </div>
            )}
           <div>

@@ -8,7 +8,7 @@ import {
   FiFileText, FiActivity, FiSettings, FiDatabase,
   FiRefreshCw, FiCheckCircle, FiAlertTriangle, FiZap, FiTruck,
   FiArrowRight, FiSliders, FiCreditCard, FiMapPin, FiCloud,
-  FiPackage, FiList
+  FiPackage, FiList, FiImage
 } from "react-icons/fi"
 
 const sections = [
@@ -71,6 +71,7 @@ const sections = [
     dotColor: "bg-violet-500",
     cards: [
       { title: "Orphaned Records",          desc: "POs and Payments not tied to any invoice.",                                   href: "/admin/orphaned-records",  icon: FiList,      color: "text-red-400",       bg: "bg-red-500/10" },
+      { title: "Product Image Manager",     desc: "Standardise, edit, crop, and stage catalog product images to Zoho & App.",      href: "/admin/image-manager",     icon: FiImage,     color: "text-emerald-400",   bg: "bg-emerald-500/10" },
       { title: "Zoho Books Scripts",        desc: "Run batch operations: tariff updates, draft processing, and maintenance.",    href: "/admin/books-scripts",     icon: FiCloud,     color: "text-amber-400",     bg: "bg-amber-500/10" },
       { title: "Custom Fields",             desc: "Manage custom field definitions and mappings.",                               href: "/admin/custom-fields",     icon: FiList,      color: "text-sky-400",       bg: "bg-sky-500/10" },
       { title: "Data Backfill",             desc: "Populate line items for all invoices, SOs, and quotes from Zoho Books.",      href: "/admin/backfill",          icon: FiDatabase,  color: "text-sky-400",       bg: "bg-sky-500/10" },
