@@ -466,12 +466,20 @@ export function SalesBoard() {
         const rawDocs = combinedDocuments
 
         rawDocs.forEach((doc: any) => {
-          const spName = (doc.salesperson || "").toUpperCase()
-          if (!spName) return
-          if (spName.includes("PAUL") && (spName.includes("GENCUSKI") || spName.includes("GENKUSKI"))) return
-
+          let spName = (doc.salesperson || "").toUpperCase()
           const docType = doc.type || 'Invoice'
-          const matchedRep = getMatchedRep(spName)
+
+          // If no salesperson, fall back to account owner ID matching
+          let matchedRep: any = null
+          if (spName) {
+            if (spName.includes("PAUL") && (spName.includes("GENCUSKI") || spName.includes("GENKUSKI"))) return
+            matchedRep = getMatchedRep(spName)
+          }
+          // Fallback: match by account owner ID when salesperson is missing
+          if (!matchedRep && doc.accountOwnerId) {
+            matchedRep = Object.values(repsMap).find((r: any) => r.id === doc.accountOwnerId) || null
+          }
+          if (!matchedRep && !spName) return // truly unattributable — skip
 
           // --- 1. ESTIMATES / QUOTES (48 Hours active on board or until SO) ---
           if (docType === 'Quote') {
@@ -496,7 +504,9 @@ export function SalesBoard() {
           }
 
           // --- 3. INVOICES & SALES ORDERS (Weekly/MTD/YTD totals) ---
-          if (docType === 'Invoice' || docType === 'SalesOrder') {
+          // Only count uninvoiced SOs here to avoid double-counting (invoiced SOs are captured by their Invoice)
+          const isInvoicedSO = docType === 'SalesOrder' && (doc.isInvoicedOrClosed || false)
+          if ((docType === 'Invoice' || (docType === 'SalesOrder' && !isInvoicedSO))) {
             const saleDate = doc.date ? doc.date.split('T')[0] : ''
             if (!saleDate) return
 

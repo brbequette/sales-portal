@@ -178,9 +178,9 @@ export const handler: Handler = async (event) => {
             gte: rangeStart,
             lte: rangeEnd
           },
-          // Exclude already-invoiced and closed orders so counts reflect only uninvoiced pipeline
+          // Only exclude voided and draft orders — invoiced SOs count as confirmed revenue
           NOT: {
-            status: { in: ['Invoiced', 'invoiced', 'Closed', 'closed', 'Billed', 'billed'] }
+            status: { in: ['Void', 'void', 'VOID', 'Draft', 'draft', 'DRAFT'] }
           }
         },
         select: {
@@ -330,7 +330,8 @@ export const handler: Handler = async (event) => {
         repId = inv.account?.ownerId || unassignedId
       }
 
-      if (repStatsMap[repId] && inv.status !== 'Void' && inv.status !== 'Draft') {
+      const invStatusLower = (inv.status || '').toLowerCase()
+      if (repStatsMap[repId] && invStatusLower !== 'void' && invStatusLower !== 'draft') {
         repStatsMap[repId].revenue += amount
         repStatsMap[repId].profit += profit
         repStatsMap[repId].deadProfit += deadProfit
@@ -348,6 +349,7 @@ export const handler: Handler = async (event) => {
           invoiceNumber: items.invoiceNumber || items.invoice_number || inv.zohoId || inv.id,
           date: inv.issueDate || inv.createdAt,
           customerName: inv.account?.name || "Unknown Customer",
+          repName: repStatsMap[repId]?.repName || "",
           subtotal: amount,
           deadProfit: deadProfit,
           profit: profit,
@@ -390,7 +392,8 @@ export const handler: Handler = async (event) => {
         repId = so.account?.ownerId || unassignedId
       }
 
-      if (repStatsMap[repId] && so.status !== 'Void' && so.status !== 'Draft') {
+      const soStatusLower = (so.status || '').toLowerCase()
+      if (repStatsMap[repId] && soStatusLower !== 'void' && soStatusLower !== 'draft') {
         repStatsMap[repId].salesOrderCount++
         repStatsMap[repId].salesOrderSubtotal += amount
         repStatsMap[repId].salesOrderDeadProfit += deadProfit
@@ -401,7 +404,8 @@ export const handler: Handler = async (event) => {
           accountZohoId: so.account?.zohoId || null,
           salesOrderNumber: items.salesorder_number || items.salesOrderNumber || so.zohoId || so.id,
           date: so.orderDate || so.createdAt,
-          customerName: so.account?.name || "Unknown Customer",
+          customerName: so.account?.name || items.customer_name || "Unknown Customer",
+          repName: repStatsMap[repId]?.repName || "",
           subtotal: amount,
           deadProfit: deadProfit,
           estCommission: estCommission,
