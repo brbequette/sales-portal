@@ -1,29 +1,15 @@
 import { Handler } from '@netlify/functions'
-import { prisma } from './lib/prisma'
+import { prisma, Prisma } from './lib/prisma'
 
-type UnifiedDoc = {
-  id: string
-  zohoId: string | null
-  type: 'invoice' | 'quote' | 'salesorder'
-  docNumber: string
-  customerName: string
-  repName: string
-  date: string // ISO
-  amount: number
-  status: string
-  items: any
-}
-
-export const handler: Handler = async (event, context) => {
+export const handler: Handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Content-Type': 'application/json',
   }
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' }
-  }
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' }
 
   try {
     const {
@@ -43,165 +29,150 @@ export const handler: Handler = async (event, context) => {
       callerRole,
     } = event.queryStringParameters || {}
 
-    const pageNum = parseInt(page as string, 10)
-    const limitNum = parseInt(limit as string, 10)
-    const skip = (pageNum - 1) * limitNum
+    const pageNum  = Math.max(1, parseInt(page  as string, 10) || 1)
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit as string, 10) || 50))
+    const offset   = (pageNum - 1) * limitNum
 
-    const isAdmin = callerRole?.toLowerCase().includes('admin') || callerRole?.toLowerCase().includes('manager')
+    const isAdmin = !!(callerRole?.toLowerCase().includes('admin') || callerRole?.toLowerCase().includes('manager'))
 
-    // Build account ownership filter:
-    // - Admins: optionally filter by a specific rep (repId), otherwise see all
-    // - Sales reps: scope to accounts they own (match ownerId or owner.zohoId)
-    let accountFilter: any = undefined
-    if (!isAdmin && callerDbId) {
-      // Rep sees only docs on accounts they own
-      accountFilter = {
-        OR: [
-          { ownerId: callerDbId },
-          { owner: { id: callerDbId } },
-          { owner: { zohoId: callerDbId } },
-        ]
-      }
-    } else if (isAdmin && repId) {
-      // Admin filtered to a specific rep
-      accountFilter = {
-        OR: [
-          { ownerId: repId },
-          { owner: { id: repId } },
-          { owner: { zohoId: repId } },
-          { owner: { name: { contains: repId, mode: 'insensitive' } } },
-        ]
-      }
+    // ── Sort column mapping ──
+    const sortColMap: Record<string, string> = {
+      date:     'doc_date',
+      amount:   'd.amount',
+      number:   'doc_number',
+      customer: 'account_name',
+      status:   'd.status',
     }
+    const sortCol = sortColMap[sort as string] || 'doc_date'
+    const sortDir = (dir as string)?.toLowerCase() === 'asc' ? 'ASC' : 'DESC'
 
+    // ── Build WHERE fragments ──────────────────────────────────────────────────
+    // We build type-specific UNION queries so each doc type can use its own date column.
 
-    let allDocs: UnifiedDoc[] = []
+    type DocType = 'invoice' | 'quote' | 'salesorder'
+    const types: DocType[] = (type === 'all')
+      ? ['invoice', 'quote', 'salesorder']
+      : [type as DocType]
 
-    if (type === 'all' || type === 'invoice') {
-      const invoices = await prisma.invoice.findMany({
-        where: {
-          ...(status && { status: { equals: status, mode: 'insensitive' } }),
-          ...(dateFrom || dateTo ? { issueDate: { gte: dateFrom ? new Date(dateFrom as string) : undefined, lte: dateTo ? new Date(dateTo as string) : undefined } } : {}),
-          ...(amountMin || amountMax ? { amount: { gte: amountMin ? parseFloat(amountMin as string) : undefined, lte: amountMax ? parseFloat(amountMax as string) : undefined } } : {}),
-          ...(accountFilter ? { account: accountFilter } : {}),
-        },
-        include: { account: { include: { owner: true } } },
-      })
-      allDocs.push(...invoices.map(i => ({
-        id: i.id,
-        zohoId: i.zohoId,
-        type: 'invoice' as const,
-        docNumber: (i.items as any)?.invoiceNumber || i.id.slice(0,8),
-        customerName: i.account?.name || 'Unknown Customer',
-        repName: i.account?.owner?.name || 'Unknown Rep',
-        date: i.issueDate ? i.issueDate.toISOString() : (i as any).createdAt?.toISOString() || new Date().toISOString(),
-        amount: Number(i.amount) || 0,
-        status: i.status || 'Draft',
-        items: i.items,
-      })))
-    }
+    // Helper to build a single-type SQL block
+    const buildTypeBlock = (docType: DocType) => {
+      const tableMap  = { invoice: '"Invoice"', quote: '"Quote"', salesorder: '"SalesOrder"' }
+      const dateCol   = { invoice: 'i."issueDate"', quote: 'i."createdAt"', salesorder: 'i."orderDate"' }
+      const numField  = { invoice: "i.items->>'invoiceNumber'", quote: "i.items->>'estimateNumber'", salesorder: "i.items->>'salesOrderNumber'" }
+      const table     = tableMap[docType]
+      const dateExpr  = dateCol[docType]
+      const numExpr   = numField[docType]
 
-    if (type === 'all' || type === 'quote') {
-      const quotes = await prisma.quote.findMany({
-        where: {
-          ...(status && { status: { equals: status, mode: 'insensitive' } }),
-          ...(dateFrom || dateTo ? { createdAt: { gte: dateFrom ? new Date(dateFrom as string) : undefined, lte: dateTo ? new Date(dateTo as string) : undefined } } : {}),
-          ...(amountMin || amountMax ? { amount: { gte: amountMin ? parseFloat(amountMin as string) : undefined, lte: amountMax ? parseFloat(amountMax as string) : undefined } } : {}),
-          ...(accountFilter ? { account: accountFilter } : {}),
-        },
-        include: { account: { include: { owner: true } } },
-      })
-      allDocs.push(...quotes.map(q => ({
-        id: q.id,
-        zohoId: q.zohoId,
-        type: 'quote' as const,
-        docNumber: (q.items as any)?.estimateNumber || q.id.slice(0,8),
-        customerName: q.account?.name || 'Unknown Customer',
-        repName: q.account?.owner?.name || 'Unknown Rep',
-        date: (q.items as any)?.date ? new Date((q.items as any).date).toISOString() : q.createdAt.toISOString(),
-        amount: Number(q.amount) || 0,
-        status: q.status || 'Draft',
-        items: q.items,
-      })))
-    }
+      const conditions: Prisma.Sql[] = [Prisma.sql`i."accountId" IS NOT NULL`]
 
-    if (type === 'all' || type === 'salesorder') {
-      const salesOrders = await prisma.salesOrder.findMany({
-        where: {
-          ...(status && { status: { equals: status, mode: 'insensitive' } }),
-          ...(dateFrom || dateTo ? { orderDate: { gte: dateFrom ? new Date(dateFrom as string) : undefined, lte: dateTo ? new Date(dateTo as string) : undefined } } : {}),
-          ...(amountMin || amountMax ? { amount: { gte: amountMin ? parseFloat(amountMin as string) : undefined, lte: amountMax ? parseFloat(amountMax as string) : undefined } } : {}),
-          ...(accountFilter ? { account: accountFilter } : {}),
-        },
-        include: { account: { include: { owner: true } } },
-      })
-      allDocs.push(...salesOrders.map(so => ({
-        id: so.id,
-        zohoId: so.zohoId,
-        type: 'salesorder' as const,
-        docNumber: (so.items as any)?.salesOrderNumber || so.id.slice(0,8),
-        customerName: so.account?.name || 'Unknown Customer',
-        repName: so.account?.owner?.name || 'Unknown Rep',
-        date: so.orderDate ? so.orderDate.toISOString() : (so as any).createdAt?.toISOString() || new Date().toISOString(),
-        amount: Number(so.amount) || 0,
-        status: so.status || 'Draft',
-        items: so.items,
-      })))
-    }
+      // Status filter
+      if (status) conditions.push(Prisma.sql`LOWER(i.status) = LOWER(${status as string})`)
 
-    if (q) {
-      const qLower = (q as string).toLowerCase()
-      allDocs = allDocs.filter(doc =>
-        doc.customerName.toLowerCase().includes(qLower) ||
-        doc.docNumber.toLowerCase().includes(qLower) ||
-        (doc.zohoId && doc.zohoId.toLowerCase().includes(qLower)) ||
-        JSON.stringify(doc.items || {}).toLowerCase().includes(qLower)
-      )
-    }
+      // Date range
+      if (dateFrom) conditions.push(Prisma.sql`${Prisma.raw(dateExpr)} >= ${new Date(dateFrom as string)}`)
+      if (dateTo)   conditions.push(Prisma.sql`${Prisma.raw(dateExpr)} <= ${new Date(dateTo as string)}`)
 
-    allDocs.sort((a, b) => {
-      let valA: any = a[sort as keyof UnifiedDoc]
-      let valB: any = b[sort as keyof UnifiedDoc]
+      // Amount range
+      if (amountMin) conditions.push(Prisma.sql`i.amount >= ${parseFloat(amountMin as string)}`)
+      if (amountMax) conditions.push(Prisma.sql`i.amount <= ${parseFloat(amountMax as string)}`)
 
-      if (sort === 'date') {
-        valA = new Date(a.date).getTime()
-        valB = new Date(b.date).getTime()
-      } else if (sort === 'amount') {
-        valA = a.amount
-        valB = b.amount
-      } else if (sort === 'number') {
-        valA = a.docNumber
-        valB = b.docNumber
-      } else if (sort === 'customer') {
-        valA = a.customerName
-        valB = b.customerName
-      } else if (sort === 'status') {
-        valA = a.status
-        valB = b.status
+      // Text search — across customer name, doc number, status
+      if (q) {
+        const pattern = `%${(q as string).toLowerCase()}%`
+        conditions.push(Prisma.sql`(
+          LOWER(a.name) LIKE ${pattern}
+          OR LOWER(COALESCE(${Prisma.raw(numExpr)}, '')) LIKE ${pattern}
+          OR LOWER(i.status) LIKE ${pattern}
+          OR LOWER(COALESCE(u.name, '')) LIKE ${pattern}
+        )`)
       }
 
-      if (valA < valB) return dir === 'asc' ? -1 : 1
-      if (valA > valB) return dir === 'asc' ? 1 : -1
-      return 0
-    })
+      // Ownership / rep scoping
+      if (!isAdmin && callerDbId) {
+        conditions.push(Prisma.sql`(
+          a."ownerId" = ${callerDbId as string}
+          OR u.id = ${callerDbId as string}
+          OR u."zohoId" = ${callerDbId as string}
+        )`)
+      } else if (isAdmin && repId) {
+        conditions.push(Prisma.sql`(
+          a."ownerId" = ${repId as string}
+          OR u.id = ${repId as string}
+          OR u."zohoId" = ${repId as string}
+          OR LOWER(COALESCE(u.name, '')) LIKE ${`%${(repId as string).toLowerCase()}%`}
+        )`)
+      }
 
-    const total = allDocs.length
-    const totalPages = Math.ceil(total / limitNum)
-    const paginatedDocs = allDocs.slice(skip, skip + limitNum)
+      const whereClause = Prisma.sql`${Prisma.join(conditions, ' AND ')}`
+
+      return Prisma.sql`
+        SELECT
+          i.id::text                                                         AS id,
+          i."zohoId"                                                         AS "zohoId",
+          ${docType}                                                         AS type,
+          COALESCE(${Prisma.raw(numExpr)}, i.id::text)                       AS doc_number,
+          COALESCE(a.name, 'Unknown Customer')                               AS account_name,
+          COALESCE(u.name, 'Unknown Rep')                                    AS rep_name,
+          COALESCE(${Prisma.raw(dateExpr)}, i."createdAt")                   AS doc_date,
+          COALESCE(i.amount, 0)                                              AS amount,
+          COALESCE(i.status, 'Draft')                                        AS status
+        FROM ${Prisma.raw(table)} i
+        LEFT JOIN "Account" a ON a.id = i."accountId"
+        LEFT JOIN "User"    u ON u.id = a."ownerId"
+        WHERE ${whereClause}
+      `
+    }
+
+    const typeBlocks = types.map(buildTypeBlock)
+
+    // ── Count query ───────────────────────────────────────────────────────────
+    const unionForCount = typeBlocks.length === 1
+      ? typeBlocks[0]
+      : Prisma.sql`${Prisma.join(typeBlocks, ' UNION ALL ')}`
+
+    const countResult = await prisma.$queryRaw<[{ total: bigint }]>(
+      Prisma.sql`SELECT COUNT(*) AS total FROM (${unionForCount}) AS _c`
+    )
+    const total = Number(countResult[0]?.total ?? 0)
+
+    // ── Data query with sort + pagination ────────────────────────────────────
+    const unionForData = typeBlocks.length === 1
+      ? typeBlocks[0]
+      : Prisma.sql`${Prisma.join(typeBlocks, ' UNION ALL ')}`
+
+    const rows = await prisma.$queryRaw<any[]>(
+      Prisma.sql`
+        SELECT * FROM (${unionForData}) AS docs
+        ORDER BY ${Prisma.raw(sortCol)} ${Prisma.raw(sortDir)}
+        LIMIT ${limitNum} OFFSET ${offset}
+      `
+    )
+
+    const docs = rows.map(r => ({
+      id:           r.id,
+      zohoId:       r.zohoId,
+      type:         r.type,
+      docNumber:    r.doc_number || r.id?.slice(0, 8),
+      customerName: r.account_name,
+      repName:      r.rep_name,
+      date:         r.doc_date instanceof Date ? r.doc_date.toISOString() : String(r.doc_date ?? ''),
+      amount:       Number(r.amount) || 0,
+      status:       r.status,
+    }))
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        docs: paginatedDocs,
+        docs,
         total,
         page: pageNum,
-        totalPages,
+        totalPages: Math.ceil(total / limitNum),
       }),
     }
   } catch (error: any) {
-    console.error('Error fetching docs:', error)
+    console.error('search-docs error:', error)
     return {
       statusCode: 500,
       headers,
