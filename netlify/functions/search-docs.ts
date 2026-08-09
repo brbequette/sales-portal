@@ -47,10 +47,33 @@ export const handler: Handler = async (event, context) => {
     const limitNum = parseInt(limit as string, 10)
     const skip = (pageNum - 1) * limitNum
 
-    const isAdmin = callerRole?.includes('admin')
-    const ownerIdFilter = isAdmin ? (repId ? { equals: repId } : undefined) : (callerDbId ? { equals: callerDbId } : undefined)
+    const isAdmin = callerRole?.toLowerCase().includes('admin') || callerRole?.toLowerCase().includes('manager')
 
-    const accountFilter = ownerIdFilter ? { ownerId: ownerIdFilter } : undefined
+    // Build account ownership filter:
+    // - Admins: optionally filter by a specific rep (repId), otherwise see all
+    // - Sales reps: scope to accounts they own (match ownerId or owner.zohoId)
+    let accountFilter: any = undefined
+    if (!isAdmin && callerDbId) {
+      // Rep sees only docs on accounts they own
+      accountFilter = {
+        OR: [
+          { ownerId: callerDbId },
+          { owner: { id: callerDbId } },
+          { owner: { zohoId: callerDbId } },
+        ]
+      }
+    } else if (isAdmin && repId) {
+      // Admin filtered to a specific rep
+      accountFilter = {
+        OR: [
+          { ownerId: repId },
+          { owner: { id: repId } },
+          { owner: { zohoId: repId } },
+          { owner: { name: { contains: repId, mode: 'insensitive' } } },
+        ]
+      }
+    }
+
 
     let allDocs: UnifiedDoc[] = []
 
@@ -60,7 +83,7 @@ export const handler: Handler = async (event, context) => {
           ...(status && { status: { equals: status, mode: 'insensitive' } }),
           ...(dateFrom || dateTo ? { issueDate: { gte: dateFrom ? new Date(dateFrom as string) : undefined, lte: dateTo ? new Date(dateTo as string) : undefined } } : {}),
           ...(amountMin || amountMax ? { amount: { gte: amountMin ? parseFloat(amountMin as string) : undefined, lte: amountMax ? parseFloat(amountMax as string) : undefined } } : {}),
-          ...(accountFilter && { account: accountFilter }),
+          ...(accountFilter ? { account: accountFilter } : {}),
         },
         include: { account: { include: { owner: true } } },
       })
@@ -84,7 +107,7 @@ export const handler: Handler = async (event, context) => {
           ...(status && { status: { equals: status, mode: 'insensitive' } }),
           ...(dateFrom || dateTo ? { createdAt: { gte: dateFrom ? new Date(dateFrom as string) : undefined, lte: dateTo ? new Date(dateTo as string) : undefined } } : {}),
           ...(amountMin || amountMax ? { amount: { gte: amountMin ? parseFloat(amountMin as string) : undefined, lte: amountMax ? parseFloat(amountMax as string) : undefined } } : {}),
-          ...(accountFilter && { account: accountFilter }),
+          ...(accountFilter ? { account: accountFilter } : {}),
         },
         include: { account: { include: { owner: true } } },
       })
@@ -108,7 +131,7 @@ export const handler: Handler = async (event, context) => {
           ...(status && { status: { equals: status, mode: 'insensitive' } }),
           ...(dateFrom || dateTo ? { orderDate: { gte: dateFrom ? new Date(dateFrom as string) : undefined, lte: dateTo ? new Date(dateTo as string) : undefined } } : {}),
           ...(amountMin || amountMax ? { amount: { gte: amountMin ? parseFloat(amountMin as string) : undefined, lte: amountMax ? parseFloat(amountMax as string) : undefined } } : {}),
-          ...(accountFilter && { account: accountFilter }),
+          ...(accountFilter ? { account: accountFilter } : {}),
         },
         include: { account: { include: { owner: true } } },
       })

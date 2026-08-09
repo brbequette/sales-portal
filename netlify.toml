@@ -163,6 +163,21 @@
   status = 200
 
 [[redirects]]
+  from = "/api/search-docs"
+  to = "/.netlify/functions/search-docs"
+  status = 200
+
+[[redirects]]
+  from = "/api/get-documents"
+  to = "/.netlify/functions/get-documents"
+  status = 200
+
+[[redirects]]
+  from = "/account/:id"
+  to = "/account?id=:id"
+  status = 200
+
+[[redirects]]
   from = "/api/campaign-job-cancel"
   to = "/.netlify/functions/campaign-job-cancel"
   status = 200
