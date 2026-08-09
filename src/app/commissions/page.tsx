@@ -45,7 +45,8 @@ interface WeeklyGroup {
 
 export default function CommissionsPage() {
   const { zohoContext: user } = useZoho()
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [byRep, setByRep] = useState<Record<string, any>>({})
   const [selectedRepId, setSelectedRepId] = useState<string>("")
@@ -66,7 +67,9 @@ export default function CommissionsPage() {
       const cached = sessionGet<any>(cacheKey, TTL.FIFTEEN_MIN)
       if (cached) { setByRep(cached.byRep); setAvailableYears(cached.years); setSelectedRepId(cached.selectedRepId); return }
     }
-    setLoading(true)
+    // First load with no data: full spinner. Subsequent refreshes: subtle bar
+    if (Object.keys(byRep).length === 0) setLoading(true)
+    else setRefreshing(true)
     setError(null)
     try {
       const queryParams = new URLSearchParams({
@@ -101,6 +104,7 @@ export default function CommissionsPage() {
       setError(err.message || "Network error loading commissions")
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -249,13 +253,15 @@ export default function CommissionsPage() {
       {/* ─── Body ───────────────────────────────────── */}
       <div className="page-body animate-fade-in space-y-4">
 
-        {/* Loading */}
-        {loading && (
+        {/* Loading — only shown on first load with no data */}
+        {loading && Object.keys(byRep).length === 0 && (
           <div className="flex items-center justify-center py-20 gap-3">
             <FiRefreshCw className="animate-spin text-indigo-500" size={22} />
             <span className="text-sm text-neutral-400">Loading commission records...</span>
           </div>
         )}
+        {/* Subtle progress bar during background refreshes */}
+        {refreshing && <div className="h-0.5 bg-indigo-500/60 animate-pulse w-full rounded mb-2" />}
 
         {/* Error */}
         {error && (
@@ -265,7 +271,7 @@ export default function CommissionsPage() {
           </div>
         )}
 
-        {!loading && !error && currentRepData && (
+        {(!loading || Object.keys(byRep).length > 0) && !error && currentRepData && (
           <>
             {/* KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

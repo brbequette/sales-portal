@@ -28,7 +28,8 @@ export default function CollectionsPage() {
   const fetchCollections = useCallback(async (force = false) => {
     const cached = !force && sessionGet<Invoice[]>('collections', TTL.TEN_MIN)
     if (cached) { setInvoices(cached); setLoading(false); return }
-    setLoading(true)
+    // First load with no data: full spinner. Subsequent: subtle refresh
+    if (invoices.length === 0) setLoading(true)
     try {
       const res = await fetch("/api/get-collections")
       const data = await res.json()
@@ -177,13 +178,13 @@ export default function CollectionsPage() {
         </div>
 
         {/* Invoices Table */}
-        <div className="td-table-wrapper">
-          {loading ? (
+        <div className="td-table-wrapper relative">
+          {loading && invoices.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <FiRefreshCw className="animate-spin mx-auto text-red-500" size={28} />
               <p className="text-sm text-neutral-400">Loading collections and overdue invoice records...</p>
             </div>
-          ) : filteredInvoices.length === 0 ? (
+          ) : filteredInvoices.length === 0 && !loading ? (
             <div className="p-12 text-center space-y-2">
               <FiAlertCircle className="mx-auto text-neutral-700" size={32} />
               <p className="text-sm font-semibold text-neutral-400">No overdue invoices found</p>

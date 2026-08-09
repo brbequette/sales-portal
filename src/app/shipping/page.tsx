@@ -82,6 +82,7 @@ function formatAddress(addr: any): string {
 export default function ShippingPage() {
   const [orders, setOrders] = useState<ShippingOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [activeTab, setActiveTab] = useState<ShipStatus>("needs_packaging")
   const [search, setSearch] = useState("")
   // counts are fetched independently of the active tab so they
@@ -182,7 +183,8 @@ export default function ShippingPage() {
   // fetchOrders: fetches only the orders for the current active tab.
   // Does NOT update counts so switching tabs never mutates the badge numbers.
   const fetchOrders = useCallback(async () => {
-    setLoading(true)
+    if (orders.length === 0) setLoading(true)
+    else setRefreshing(true)
     try {
       const params = new URLSearchParams({
         status: activeTab,
@@ -203,6 +205,7 @@ export default function ShippingPage() {
       console.error("Failed to fetch shipping data:", e)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }, [activeTab, search, filterSalesperson, filterCarrier, sortBy, sortDir])
 
@@ -536,18 +539,19 @@ export default function ShippingPage() {
       )}
 
       {/* Orders Table */}
-      {loading ? (
+      {refreshing && <div className="h-0.5 bg-orange-500/60 animate-pulse w-full rounded mb-2" />}
+      {loading && orders.length === 0 ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : orders.length === 0 ? (
+      ) : orders.length === 0 && !loading ? (
         <div className="text-center py-20">
           <FiPackage className="text-4xl text-neutral-700 mx-auto mb-3" />
           <p className="text-neutral-500 font-bold">No orders found</p>
           <p className="text-neutral-600 text-sm mt-1">Try changing the filter or search term</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className={`space-y-2 transition-opacity duration-200 ${refreshing ? 'opacity-60' : 'opacity-100'}`}>
           {orders.map(order => {
             const isExpanded = expandedOrder === order.id
             const statusColor: Record<string, string> = {

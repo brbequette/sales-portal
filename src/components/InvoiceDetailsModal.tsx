@@ -144,7 +144,9 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
   const fetchDetails = async (force = false) => {
     if (!zohoId) return
-    setIsLoading(true)
+    // Only show the loading spinner when there's no data yet (initial open)
+    // For force refreshes, show a spinning indicator on the button instead
+    if (!fullInvoiceDetails) setIsLoading(true)
     try {
       const url = `/api/get-invoice-details?targetId=${zohoId}&type=${currentType}${force ? '&force=true' : ''}`
       const res = await fetch(url)
@@ -525,13 +527,14 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                     ✨ Live
                   </span>
                 )}
-                {!isLoading && (
+                {isLoading && !fullInvoiceDetails ? null : (
                   <button
                     onClick={() => fetchDetails(true)}
                     title="Force refresh from Zoho Books"
-                    className="text-[9px] text-neutral-500 hover:text-neutral-300 transition-colors underline"
+                    className="flex items-center gap-1 text-[9px] text-neutral-500 hover:text-neutral-300 transition-colors underline"
                   >
-                    Refresh
+                    {isLoading ? <div className="w-2.5 h-2.5 border border-emerald-500 border-t-transparent rounded-full animate-spin" /> : null}
+                    {isLoading ? 'Refreshing...' : 'Refresh'}
                   </button>
                 )}
               </div>
@@ -1170,7 +1173,8 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
             {/* --- Cost & Commission Panel + Line Items --- */}
             <div className="pt-3 border-t border-white/10 flex flex-col gap-4">
 
-              {isLoading ? (
+              {/* Only blank lower section on true first load with no data */}
+              {isLoading && !fullInvoiceDetails ? (
                 <div className="flex justify-center items-center py-8 gap-2 text-sm font-semibold text-neutral-400">
                   <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
                   Loading details...

@@ -81,6 +81,7 @@ export default function StatsPage() {
   const router = useRouter()
 
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const [reps, setReps] = useState<Rep[]>([])
   const [companyTotals, setCompanyTotals] = useState<CompanyData | null>(null)
@@ -106,8 +107,10 @@ export default function StatsPage() {
         const cached = sessionGet<any>(cacheKey, TTL.TEN_MIN)
         if (cached) { setReps(cached.reps); setCompanyTotals(cached.totals); setCompanyAverages(cached.averages); setHistoricalVigRates(cached.vigRates); return }
       }
+      // First load with no data: show full spinner. Otherwise: subtle refresh indicator
+      if (reps.length === 0) setLoading(true)
+      else setRefreshing(true)
       try {
-        setLoading(true)
         const hiddenParam = preferences.showHiddenReps ? "?includeHidden=true" : ""
         const dateParam = selectedDataDate ? (selectedDataDate.length === 7 ? `month=${selectedDataDate}` : `date=${selectedDataDate}`) : ""
         const prefix = hiddenParam ? "&" : "?"
@@ -139,6 +142,7 @@ export default function StatsPage() {
         setApiError(err.message || "Network error")
       } finally {
         setLoading(false)
+        setRefreshing(false)
       }
     }
     fetchStats()
@@ -255,7 +259,7 @@ export default function StatsPage() {
     return { revenue, profit, dealsWon, target }
   }, [reps, selectedPeriod])
 
-  if (!isInitialized || loading) {
+  if (!isInitialized || (loading && reps.length === 0)) {
     return (
       <div className="flex items-center justify-center min-h-[100dvh] glass-panel text-white">
         <div className="flex flex-col items-center gap-3">
@@ -270,6 +274,7 @@ export default function StatsPage() {
     <div className="page-content">
 
       {/* ─── Header ─────────────────────────────────── */}
+      {refreshing && <div className="h-0.5 bg-sky-500/60 animate-pulse w-full absolute top-0 left-0 rounded" />}
       <div className="page-header">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-sky-500/10 border border-sky-500/20 rounded-xl flex items-center justify-center">

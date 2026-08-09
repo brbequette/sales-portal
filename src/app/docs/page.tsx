@@ -33,6 +33,7 @@ function SalesDocsInner() {
   
   const [docs, setDocs] = useState<UnifiedDoc[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [total, setTotal] = useState(0)
   const [totalPages, setPages] = useState(1)
   
@@ -85,7 +86,8 @@ function SalesDocsInner() {
 
   const fetchDocs = useCallback(async () => {
     try {
-      setLoading(true)
+      if (docs.length === 0) setLoading(true)
+      else setRefreshing(true)
       const params = new URLSearchParams()
       if (q) params.set('q', q)
       if (type !== 'all') params.set('type', type)
@@ -131,6 +133,7 @@ function SalesDocsInner() {
       console.error('Failed to fetch docs', error)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }, [q, type, status, repId, dateFrom, dateTo, amountMin, amountMax, sort, dir, page, user, router, searchParams])
 
@@ -335,6 +338,7 @@ function SalesDocsInner() {
       {/* Results Table */}
       <div className="flex-1 glass-panel rounded-2xl border border-zinc-800/60 overflow-hidden flex flex-col relative z-10 animate-slide-up" style={{animationDelay: '200ms'}}>
         <div className="overflow-x-auto">
+          {refreshing && <div className="h-0.5 bg-orange-500/60 animate-pulse w-full rounded mb-1" />}
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-zinc-800 bg-zinc-900/40 text-xs uppercase tracking-wider text-zinc-500">
@@ -363,8 +367,8 @@ function SalesDocsInner() {
                 <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-800/50">
-              {loading ? (
+            <tbody className={`divide-y divide-zinc-800/50 transition-opacity duration-200 ${refreshing ? 'opacity-50' : 'opacity-100'}`}>
+              {loading && docs.length === 0 ? (
                 Array(10).fill(0).map((_, i) => (
                   <tr key={i} className="animate-pulse">
                     <td className="p-4"><div className="h-4 bg-zinc-800 rounded w-20"></div></td>

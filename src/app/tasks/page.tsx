@@ -1018,18 +1018,9 @@ export default function TasksPage() {
     filters.status !== "open", filters.type !== "all", filters.priority !== "all", filters.sort !== "dueDate"
   ].filter(Boolean).length
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full bg-[#0a0b0d]">
-        <div className="text-center">
-          <div className="w-12 h-12 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-sm text-neutral-500">Loading your tasks"¦</p>
-        </div>
-      </div>
-    )
-  }
 
-  // Full-screen detail
+
+  // Full-screen detail — checked BEFORE loading so a background refresh never unmounts this view
   if (selectedTask) {
     return (
       <TaskDetail
@@ -1040,6 +1031,19 @@ export default function TasksPage() {
       />
     )
   }
+
+  // Only show full-screen spinner on first load when there is no data yet
+  if (loading && tasks.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full bg-[#0a0b0d]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm text-neutral-500">Loading your tasks…</p>
+        </div>
+      </div>
+    )
+  }
+
 
   return (
     <div className="page-content">

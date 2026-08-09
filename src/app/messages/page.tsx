@@ -12,6 +12,8 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState<any[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [loadingMessages, setLoadingMessages] = useState(false)
+  const [refreshingAccounts, setRefreshingAccounts] = useState(false)
+  const [refreshingMessages, setRefreshingMessages] = useState(false)
   const [textInput, setTextInput] = useState("")
   const [sending, setSending] = useState(false)
   const [suggesting, setSuggesting] = useState(false)
@@ -136,7 +138,8 @@ export default function MessagesPage() {
 
   const fetchAccounts = async () => {
     try {
-      setLoadingAccounts(true)
+      if (accounts.length === 0) setLoadingAccounts(true)
+      else setRefreshingAccounts(true)
       const res = await fetch('/api/messages')
       const data = await res.json()
       if (data.success) {
@@ -146,6 +149,7 @@ export default function MessagesPage() {
       console.error(e)
     } finally {
       setLoadingAccounts(false)
+      setRefreshingAccounts(false)
     }
   }
 
@@ -166,7 +170,8 @@ export default function MessagesPage() {
 
   const fetchCampaignAccounts = async (campaignId: string) => {
     try {
-      setLoadingAccounts(true)
+      if (accounts.length === 0) setLoadingAccounts(true)
+      else setRefreshingAccounts(true)
       const res = await fetch(`/api/messages?campaignBlastId=${campaignId}`)
       const data = await res.json()
       if (data.success) {
@@ -176,12 +181,14 @@ export default function MessagesPage() {
       console.error(e)
     } finally {
       setLoadingAccounts(false)
+      setRefreshingAccounts(false)
     }
   }
 
   const fetchMessages = async (accountId: string, showClosed = includeClosedHistory) => {
     try {
-      setLoadingMessages(true)
+      if (messages.length === 0) setLoadingMessages(true)
+      else setRefreshingMessages(true)
       const res = await fetch(`/api/messages/${accountId}?includeClosedHistory=${showClosed}`)
       const data = await res.json()
       if (data.success) {
@@ -193,6 +200,7 @@ export default function MessagesPage() {
       console.error(e)
     } finally {
       setLoadingMessages(false)
+      setRefreshingMessages(false)
     }
   }
 
@@ -405,12 +413,13 @@ export default function MessagesPage() {
           )}
         </div>
         
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto relative">
+          {refreshingAccounts && <div className="sticky top-0 left-0 right-0 h-0.5 bg-indigo-500/60 animate-pulse z-20" />}
           {activeTab === "all" ? (
             /* ALL CHATS LIST */
             loadingAccounts ? (
               <div className="p-8 text-center text-neutral-500 text-sm">Loading conversations...</div>
-            ) : Object.keys(groupedByCampaign).length === 0 ? (
+            ) : Object.keys(groupedByCampaign).length === 0 && !refreshingAccounts ? (
               <div className="p-8 text-center text-neutral-500 text-sm italic">No active conversations found.</div>
             ) : (
               (Object.entries(groupedByCampaign) as [string, any[]][]).map(([campaignName, campaignAccounts]) => (
@@ -643,9 +652,10 @@ export default function MessagesPage() {
                 </div>
               )}
 
+              {refreshingMessages && <div className="h-0.5 bg-emerald-500/50 animate-pulse w-full mb-2 rounded" />}
               {loadingMessages ? (
                 <div className="text-center text-neutral-500 text-sm mt-8">Loading thread...</div>
-              ) : messages.length === 0 ? (
+              ) : messages.length === 0 && !refreshingMessages ? (
                 <div className="text-center text-neutral-500 text-sm mt-8 italic">No active messages in this cycle.</div>
               ) : (
                 messages.map((msg, idx) => {
