@@ -240,8 +240,8 @@ export default function SalesPage() {
       const res = await fetch(`/api/get-accounts?checkOnly=true${emailQuery}${roleQuery}`)
       const data = await res.json()
       if (!data.success || !data.checkOnly) return
-      // Only use count — timestamp changes too easily (background syncs, etc.)
-      const sig = `${data.count}`
+      // NEW-005 fix: combine count + latestUpdatedAt so record modifications (not just new records) trigger the banner
+      const sig = `${data.count}|${data.latestUpdatedAt ?? ''}`
       const prev = updateCheckSigRef.current
       updateCheckSigRef.current = sig
       if (prev !== null && sig !== prev) {

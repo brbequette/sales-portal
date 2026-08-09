@@ -519,10 +519,9 @@ export const handler: Handler = async (event) => {
       const giftsCost       = parseFloat(items.gifts || items.gifts_cost || 0) || 0
       const ccFees          = parseFloat(items.ccFees || items.cc_fees || 0) || 0
 
-      const deadProfit    = amount - deadCost - additionalCosts - giftsCost - ccFees
-      const estCommission = deadProfit * 0.50
       const salespersonName = items.salesperson || ''
 
+      // NEW-002 fix: resolve rep and apply VIG rate to SO (same as invoice loop above)
       let repId = unassignedId
       if (salespersonName) {
         const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
@@ -530,6 +529,25 @@ export const handler: Handler = async (event) => {
         if (matchedId) repId = matchedId
       }
       if (repId === unassignedId) repId = so.accountOwnerId || unassignedId
+
+      const soDate = so.orderDate ? new Date(so.orderDate) : new Date(so.createdAt)
+      const docVigField = items.cf_salesperson_vig || items.salesperson_vig
+
+      let deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig || 'NaN')
+      let deadCostNoVig        = parseFloat(items.deadCostNoVig        || 'NaN')
+      if (isNaN(deadCostSubjectToVig) || isNaN(deadCostNoVig)) {
+        // No VIG split stored — treat all dead cost as subject to VIG
+        deadCostSubjectToVig = deadCost
+        deadCostNoVig = 0
+      }
+
+      const vigRate        = resolveVigRateSync(soDate, salespersonName, repId !== unassignedId ? repId : null, docVigField)
+      const deadCostPlusVig = parseFloat(items.deadCostPlusVig || 'NaN') ||
+        ((deadCostSubjectToVig * vigRate) + deadCostNoVig)
+
+      const deadProfit    = amount - deadCost - additionalCosts - giftsCost - ccFees
+      const profit        = amount - deadCostPlusVig - additionalCosts - giftsCost - ccFees
+      const estCommission = profit * 0.50
 
       const soStatusLower = (so.status || '').toLowerCase()
       if (repStatsMap[repId] && soStatusLower !== 'void' && soStatusLower !== 'draft') {
@@ -552,6 +570,7 @@ export const handler: Handler = async (event) => {
         })
       }
     })
+
 
     const aliasGroups = [
       ["richard", "ricky", "rick", "griffin"],

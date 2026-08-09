@@ -10,12 +10,14 @@ import { toast } from "react-hot-toast"
 import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
 import { UpdateBanner } from '@/lib/useStaleCheck'
 import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
+import { useZoho } from "@/components/ZohoProvider"
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0)
 }
 
 export default function CollectionsPage() {
+  const { zohoContext: currentUser } = useZoho()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [updateAvailable, setUpdateAvailable] = useState(false)
@@ -49,7 +51,8 @@ export default function CollectionsPage() {
     // First load with no data: full spinner. Subsequent: subtle refresh
     if (invoices.length === 0) setLoading(true)
     try {
-      const res = await fetch("/api/get-collections")
+      const emailParam = currentUser?.email ? `?email=${encodeURIComponent(currentUser.email)}` : ''
+      const res = await fetch(`/api/get-collections${emailParam}`)
       const data = await res.json()
       if (data.success && Array.isArray(data.invoices)) {
         setInvoices(data.invoices)
@@ -67,7 +70,7 @@ export default function CollectionsPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [currentUser])
 
   useEffect(() => {
     fetchCollections()

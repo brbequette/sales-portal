@@ -58,8 +58,27 @@ export const handler: Handler = async (event) => {
     // and pushes repId filter into WHERE instead of post-filtering a full JS array.
     const EXCLUDED_STATUSES = ['Paid','Closed','Void','Voided','Draft','Writeoff','Write_off','Write Off','Bad Debt','paid','closed','void','voided','draft','writeoff','write_off','write off','bad debt']
 
-    const repFilterSql = repId
-      ? Prisma.sql`AND a."ownerId" = ${repId}`
+    // NEW-007 fix: enforce rep-scoping for non-admins
+    // The frontend always passes ?email=<currentUser.email>. We look up their role and,
+    // if they are not an admin or manager, force the repId to their own user ID.
+    let effectiveRepId = repId
+    if (email) {
+      const requestingUser = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, role: true }
+      })
+      if (requestingUser) {
+        const roleLower = (requestingUser.role || '').toLowerCase()
+        const isAdmin = roleLower.includes('admin') || roleLower.includes('manager')
+        if (!isAdmin) {
+          // Non-admin: force scope to their own data regardless of repId in URL
+          effectiveRepId = requestingUser.id
+        }
+      }
+    }
+
+    const repFilterSql = effectiveRepId
+      ? Prisma.sql`AND a."ownerId" = ${effectiveRepId}`
       : Prisma.empty
 
     let tabFilterSql: any

@@ -83,8 +83,12 @@ export const handler: Handler = async (event) => {
           console.warn('[zoho-books-webhook] Token mismatch — rejecting request')
           return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: 'Unauthorized' }) }
         }
+      } else {
+        // NEW-001 fix: if a secret is configured, REQUIRE auth — reject requests with no auth header at all.
+        // Zoho Books always sends the configured webhook token/signature; a request with neither is forged.
+        console.warn('[zoho-books-webhook] No auth header provided — rejecting request (webhookSecret is configured)')
+        return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: 'Unauthorized' }) }
       }
-      // If neither header is present, we still process (Zoho may not send tokens on retries)
     }
 
     // ── Parse body ─────────────────────────────────────────────────────────
@@ -140,7 +144,7 @@ export const handler: Handler = async (event) => {
         }
       })
 
-      // Update related invoices
+      // Update related invoices + set Payment FK
       for (const invPayment of invoicePayments) {
         const invId = invPayment.invoice_id
         if (!invId) continue
@@ -168,6 +172,13 @@ export const handler: Handler = async (event) => {
             },
           }
         })
+
+        // NEW-006 fix: set invoiceDbId on the Payment record to establish the Prisma FK relation
+        await prisma.payment.update({
+          where: { zohoId: paymentId },
+          data: { invoiceDbId: localInv.id }
+        })
+
         console.log(`✅ Webhook: Updated invoice ${invId} balance=$${newBalance} ${isPaid ? "(PAID)" : ""}`)
       }
 

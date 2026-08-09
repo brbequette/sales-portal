@@ -90,8 +90,9 @@ export const handler: Handler = async (event) => {
       collectionsManagerSetting,
       payouts,
       allVigGoals,
-      allVigUsers
-    ]: [any[], any[], any[], any[], any, any, any[], any[], any[]] = await Promise.all([
+      allVigUsers,
+      vigSettingRow
+    ]: [any[], any[], any[], any[], any, any, any[], any[], any[], any] = await Promise.all([
       // Use $queryRaw to extract ONLY the scalar fields needed for commission calc.
       // This avoids fetching huge line_items/custom_fields arrays stored by bulk-sync,
       // which were causing Netlify function timeouts (response truncated mid-stream).
@@ -207,8 +208,13 @@ export const handler: Handler = async (event) => {
       // Fetch all users with VIG override settings
       prisma.user.findMany({
         select: { id: true, name: true, constantVigEnabled: true, constantVigValue: true }
-      }).catch(() => [])
+      }).catch(() => []),
+      // Fetch vig_settings JSON blob for prior-month MISSED penalty status
+      prisma.systemSetting.findUnique({ where: { key: 'vig_settings' } }).catch(() => null)
     ])
+
+    // Build per-rep monthly VIG goal status map from vig_settings blob (same as get-rep-stats)
+    const vigSettingsAll: Record<string, any> = vigSettingRow ? JSON.parse(vigSettingRow.value) : {}
 
     const visibleReps: string[] = JSON.parse(visibleRepsSetting?.value || "[]")
     const collectionsManagerId = collectionsManagerSetting?.value || null
@@ -264,11 +270,13 @@ export const handler: Handler = async (event) => {
 
     /**
      * Resolve the correct VIG rate for a rep on a given invoice date.
-     * Priority:
-     *   1. cf_salesperson_vig field stored on the invoice (set by sync-vig-to-zoho)
+     * Priority (matches get-rep-stats.resolveVigRateSync):
+     *   1. Montgomery: always 1.0; pre-2025 everyone: always 1.3
      *   2. User's constant VIG override (constantVigEnabled + constantVigValue)
-     *   3. MonthlyVigGoal for that rep's month
-     *   4. Default 1.3 (company baseline)
+     *   3. MonthlyVigGoal.manualVigRate for that rep's month
+     *   4. NEW-003: Prior month MISSED → penalty 1.5
+     *   5. cf_salesperson_vig field stored on the invoice
+     *   6. Default 1.3 (company baseline)
      */
     function resolveVigRate(
       salespersonName: string | null,
@@ -283,13 +291,11 @@ export const handler: Handler = async (event) => {
       // Historical: pre-2025 everyone was 1.3
       if (docDate.getFullYear() <= 2024) return 1.3
 
-      // 1. Try reading cf_salesperson_vig from the invoice JSON
-      const fieldVal = parseFloat(rawVigField)
-      if (!isNaN(fieldVal) && fieldVal >= 1.0) return fieldVal
-
-      // 2. Constant VIG override on the user record
+      // NEW-004 fix: constantVig checked BEFORE cf field (matches get-rep-stats priority order)
       if (matchedRepId) {
         const userVig = vigUserMap.get(matchedRepId)
+
+        // 2. Constant VIG override on the user record
         if (userVig?.constantVigEnabled && userVig.constantVigValue != null && !isNaN(userVig.constantVigValue)) {
           return userVig.constantVigValue
         }
@@ -298,11 +304,24 @@ export const handler: Handler = async (event) => {
         const monthKey = `${docDate.getFullYear()}-${String(docDate.getMonth() + 1).padStart(2, '0')}`
         const monthlyRate = vigGoalMap.get(matchedRepId)?.get(monthKey)
         if (monthlyRate != null && !isNaN(monthlyRate) && monthlyRate >= 1.0) return monthlyRate
+
+        // 4. NEW-003: Prior month MISSED → penalty 1.5
+        const priorMonth = new Date(docDate.getFullYear(), docDate.getMonth() - 1, 1)
+        const priorMonthKey = `${priorMonth.getFullYear()}-${String(priorMonth.getMonth() + 1).padStart(2, '0')}`
+        // vigSettingsAll[userId].monthlyVigGoals has the status field (stored as JSON blob in SystemSetting)
+        const userVigSettings = vigSettingsAll[matchedRepId]
+        const priorGoal = (userVigSettings?.monthlyVigGoals || []).find((g: any) => g.monthKey === priorMonthKey)
+        if (priorGoal?.status === 'MISSED') return 1.5
       }
 
-      // 4. Default baseline
+      // 5. Try reading cf_salesperson_vig from the invoice JSON
+      const fieldVal = parseFloat(rawVigField)
+      if (!isNaN(fieldVal) && fieldVal >= 1.0) return fieldVal
+
+      // 6. Default baseline
       return 1.3
     }
+
 
     // Deduplicate by invoiceNumber
     const seenInvoiceNumbers = new Map<string, (typeof rawInvoices)[0]>()
