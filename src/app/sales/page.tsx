@@ -297,9 +297,20 @@ export default function SalesPage() {
     fetchZohoNumbers()
   }, [])
 
+  // Guard: only run once per identity change, not on every auth state sub-render
+  const accountsFetchedForRef = useRef<string>("")
+
   useEffect(() => {
+    // Build a stable key for the current effective identity
+    const identityKey = [
+      preferences.impersonatedUser?.email || "",
+      currentUser?.email || "",
+    ].join("|")
+    // Don't re-fetch if the identity hasn't changed
+    if (accountsFetchedForRef.current === identityKey) return
+    accountsFetchedForRef.current = identityKey
     fetchLocalData(1, false)
-  }, [preferences.impersonatedUser, currentUser?.email, currentUser?.role, dbUser?.role, isAdminUser])
+  }, [preferences.impersonatedUser?.email, currentUser?.email])
 
   const fetchUsers = async () => {
     const cached = sessionGet<any[]>('users-list', TTL.THIRTY_MIN)
@@ -343,11 +354,25 @@ export default function SalesPage() {
 
   const fetchLocalData = async (pageNum = 1, isLoadMore = false, triggerRefresh = false) => {
     try {
-      if (!isLoadMore) setLoading(true)
       const userEmail = currentUser?.email || preferences.impersonatedUser?.email || ""
+      const cacheKey = `accounts-${userEmail || "all"}-${effectiveRole || "all"}`
+
+      // Use cache unless explicitly forcing a refresh
+      if (!triggerRefresh && !isLoadMore) {
+        const cached = sessionGet<{ accounts: any[]; tasks: any[] }>(cacheKey, TTL.TEN_MIN)
+        if (cached) {
+          setAccounts(cached.accounts)
+          setAccountsTotalCount(cached.accounts.length)
+          setAccountsHasMore(false)
+          if (cached.tasks) setTasks(cached.tasks)
+          setLoading(false)
+          return
+        }
+      }
+
+      if (!isLoadMore) setLoading(true)
       const emailQuery = userEmail ? `&email=${encodeURIComponent(userEmail)}` : ""
       const roleQuery = effectiveRole ? `&role=${encodeURIComponent(effectiveRole)}` : ""
-      const ownerQuery = "&ownerIdFilter=all"
 
       let allFetchedAccounts: any[] = []
       let currentPage = 1
@@ -377,11 +402,18 @@ export default function SalesPage() {
       setAccountsHasMore(false)
 
       const emailParam = userEmail || currentUser?.email || dbUser?.email || ""
+      let fetchedTasks: any[] = []
       if (emailParam) {
         const tRes = await fetch(`/api/get-tasks?email=${encodeURIComponent(emailParam)}&ownerIdFilter=${ownerFilter}${triggerRefresh ? "&refresh=true" : ""}`)
         const tData = await tRes.json()
-        if (tData.tasks) setTasks(tData.tasks)
+        if (tData.tasks) {
+          fetchedTasks = tData.tasks
+          setTasks(fetchedTasks)
+        }
       }
+
+      // Cache the result for 10 minutes
+      sessionSet(cacheKey, { accounts: allFetchedAccounts, tasks: fetchedTasks })
     } catch (err: any) {
       console.error(err)
       setApiError("Failed to load accounts and tasks")
@@ -399,6 +431,8 @@ export default function SalesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tables: ["accounts", "leads"], force: true }),
       })
+      // Reset identity ref so the freshly-fetched data updates the cache correctly
+      accountsFetchedForRef.current = ""
       await fetchLocalData(1, false, true)
       await fetchLeads()
       toast.success("Synced with Zoho successfully")
@@ -408,6 +442,7 @@ export default function SalesPage() {
       setLoading(false)
     }
   }
+
 
   const handleEffortChange = (newEffort: "sales" | "call_list" | "cold_call" | "pipeline") => {
     setEffort(newEffort)
