@@ -113,6 +113,12 @@
   status = 200
 
 [[redirects]]
+  from = "/api/admin/vig-history"
+  to = "/.netlify/functions/vig-history"
+  status = 200
+
+
+[[redirects]]
   from = "/api/admin/verify-so-costs"
   to = "/.netlify/functions/admin-verify-so-costs"
   status = 200

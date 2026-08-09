@@ -3,7 +3,8 @@ import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { syncRecentBooksInvoices } from "./lib/zoho-books"
 
-import { prisma } from "./lib/prisma"
+import { prisma, Prisma } from "./lib/prisma"
+
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 
