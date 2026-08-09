@@ -192,7 +192,6 @@ select, textarea {
 .glass-panel:hover,
 .glass-panel-strong:hover {
   border-color: rgba(255, 255, 255, 0.15);
-  transform: translateY(-1px);
   transition: all var(--transition-normal);
 }
 

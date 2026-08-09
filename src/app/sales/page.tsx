@@ -1193,7 +1193,7 @@ export default function SalesPage() {
                     </div>
 
                     {/* Account List Box */}
-                    <div className="bg-neutral-900/60 rounded-2xl border border-white/10 overflow-hidden shadow-xl">
+                    <div className="bg-neutral-900/60 rounded-2xl border border-white/10 overflow-hidden shadow-xl flex flex-col" style={{maxHeight: 'calc(100vh - 280px)'}}>
                       {activeAccountsList.length === 0 ? (
                         <div className="p-12 text-center">
                           <FiUsers className="mx-auto text-4xl text-neutral-700 mb-3" />
@@ -1225,8 +1225,8 @@ export default function SalesPage() {
                         </div>
                       ) : (
                         <div className="flex flex-col">
-                          {/* Header Filter Bar */}
-                          <div className="p-3 bg-neutral-900/90 border-b border-[var(--border)] space-y-2.5">
+                          {/* Header Filter Bar - sticky */}
+                          <div className="p-3 bg-neutral-900/90 border-b border-[var(--border)] space-y-2.5 sticky top-0 z-10">
                             {/* Row 1: Search & Inline Filter Dropdowns */}
                             <div className="flex flex-wrap items-center gap-2">
                               <input 
@@ -1447,8 +1447,8 @@ export default function SalesPage() {
                               </div>
                             )}
 
-                            {/* List Items */}
-                            <ul className="divide-y divide-white/5">
+                            {/* List Items - scrollable */}
+                            <ul className="divide-y divide-white/5 overflow-y-auto" style={{maxHeight: 'calc(100vh - 380px)'}}>
                               {accountsPagination.paginatedItems.map(account => {
                                 const isSelected = selectedAccountIds.includes(account.id)
                                 const ltv = account.totalSales || 0
