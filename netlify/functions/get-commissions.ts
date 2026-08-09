@@ -34,8 +34,25 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
 
   try {
-    const { repId, userId, userEmail, year, includeHidden } = event.queryStringParameters || {}
+    const { repId, userId, userEmail, year, includeHidden, checkOnly } = event.queryStringParameters || {}
     const showHidden = includeHidden === 'true'
+
+    // ── checkOnly mode: fast staleness check without full commission calc ──
+    if (checkOnly === 'true') {
+      const [count, latest] = await Promise.all([
+        prisma.invoice.count({ where: { status: { notIn: ['Void', 'void', 'Draft', 'draft'] } } }),
+        prisma.invoice.findFirst({
+          where: { status: { notIn: ['Void', 'void', 'Draft', 'draft'] } },
+          orderBy: { updatedAt: 'desc' },
+          select: { updatedAt: true }
+        })
+      ])
+      return {
+        statusCode: 200,
+        headers: cors,
+        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null })
+      }
+    }
 
     // Default to "all" (from beginning of time) if not specified
     const targetYear = year || "all"
@@ -448,7 +465,7 @@ export const handler: Handler = async (event) => {
 
       const daysOld = inv.issueDate ? (Date.now() - new Date(inv.issueDate).getTime()) / (1000 * 60 * 60 * 24) : 0
       const isAtRisk = !isPaid && daysOld >= 120
-      const atRiskAmount = isAtRisk ? (upfront + future) : 0
+      const atRiskAmount = isAtRisk ? future : 0  // BUG-006 fix: only future half is at risk; upfront is already earned
 
       const rawLineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
 
@@ -671,8 +688,8 @@ export const handler: Handler = async (event) => {
         name: inv.name || inv.accountName || "Invoice",
         accountName: inv.accountName || "Customer",
         amount: inv.amount || 0,
-        profit: inv.deadProfit || inv.profit || 0,
-        deadProfit: inv.deadProfit || inv.profit || 0,
+        profit: inv.profit || 0,           // BUG-001 fix: use after-VIG net profit, not deadProfit
+        deadProfit: inv.deadProfit || 0,   // keep deadProfit separate for display if needed
         deadCost: inv.deadCost || 0,
         status: inv.status || "Paid",
         isPaid: !!inv.isPaid,

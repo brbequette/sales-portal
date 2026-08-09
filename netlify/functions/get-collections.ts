@@ -155,7 +155,7 @@ export const handler: Handler = async (event) => {
         account_owner_email: inv.account?.owner?.email || null,
         due_date: inv.dueDate ? inv.dueDate.toISOString().split("T")[0] : null,
         issue_date: inv.issueDate ? inv.issueDate.toISOString().split("T")[0] : null,
-        balance: inv.amount,
+        balance: inv.balance ?? inv.amount,  // BUG-008 fix: use remaining balance, not full invoice amount
         total: inv.amount,
         status: inv.status,
         days_overdue: daysOverdue(inv.dueDate),
@@ -169,6 +169,7 @@ export const handler: Handler = async (event) => {
       }
     })
 
+    // totalBalance: sum of remaining balances (inv.balance ?? inv.amount) — correctly reflects partial payments
     const totalBalance = formatted.reduce((s, i) => s + (i.balance || 0), 0)
     const totalProfit = formatted.reduce((s, i) => s + (i.profit || 0), 0)
     const uniqueAccounts = new Set(formatted.map(i => i.customer_id)).size

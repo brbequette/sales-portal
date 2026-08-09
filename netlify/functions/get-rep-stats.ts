@@ -128,13 +128,16 @@ export const handler: Handler = async (event) => {
       rangeEnd = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), 23, 59, 59, 999)
     }
 
+    // BUG-003 fix: fetch vig_settings alongside other data so we can replicate
+    // the full VIG resolution chain (constantVigEnabled → monthlyVigGoal → doc field → 1.3)
     const [
       settings,
       users,
       accounts,
       allInvoices,
-      allSalesOrders
-    ]: [any[], any[], any[], any[], any[]] = await Promise.all([
+      allSalesOrders,
+      vigSettingRow
+    ]: [any[], any[], any[], any[], any[], any] = await Promise.all([
       prisma.systemSetting.findMany().catch(() => []),
       prisma.user.findMany({
         where: {
@@ -193,9 +196,16 @@ export const handler: Handler = async (event) => {
             gte: rangeStart,
             lte: rangeEnd
           },
-          // Only exclude voided and draft orders — invoiced SOs count as confirmed revenue
+          // BUG-005 fix: exclude Invoiced/Converted SOs — the Invoice is the source of truth.
+          // Previously only Void/Draft were excluded, causing double-counting when SOs were converted.
           NOT: {
-            status: { in: ['Void', 'void', 'VOID', 'Draft', 'draft', 'DRAFT'] }
+            status: { in: [
+              'Void', 'void', 'VOID',
+              'Draft', 'draft', 'DRAFT',
+              'Cancelled', 'cancelled', 'CANCELLED',
+              'Invoiced', 'invoiced', 'INVOICED',
+              'Converted', 'converted', 'CONVERTED'
+            ]}
           }
         },
         select: {
@@ -212,8 +222,64 @@ export const handler: Handler = async (event) => {
           }
         },
         orderBy: { orderDate: 'desc' }
-      }).catch(() => [])
+      }).catch(() => []),
+      prisma.systemSetting.findUnique({ where: { key: 'vig_settings' } }).catch(() => null)
     ])
+
+    // BUG-003 fix: build per-user VIG goal map from vig_settings (same structure as get-commissions)
+    const vigSettingsAll: Record<string, any> = vigSettingRow ? JSON.parse(vigSettingRow.value) : {}
+
+    /**
+     * Resolves the VIG rate for a document — mirrors the priority chain in cost-calculations.ts:
+     * 1. Pre-2025 or Montgomery → fixed rate (1.3 or 1.0)
+     * 2. constantVigEnabled on user → user.constantVigValue
+     * 3. monthlyVigGoal.manualVigRate for docMonth → that rate
+     * 4. monthlyVigGoal.status === 'MISSED' in prior month → 1.5 penalty
+     * 5. cf_salesperson_vig from the stored document
+     * 6. Default 1.3
+     */
+    function resolveVigRateSync(
+      docDate: Date,
+      salespersonName: string,
+      matchedUserId: string | null,
+      docVigField: string | undefined
+    ): number {
+      const year = docDate.getFullYear()
+      const isMontgomery = salespersonName.toLowerCase().includes('montgomery') || salespersonName.toLowerCase().includes('morgan')
+
+      // 1. Pre-2025 fixed rates
+      if (year <= 2024) return isMontgomery ? 1.0 : 1.3
+      if (isMontgomery) return 1.0
+
+      // 2. constantVigEnabled override
+      if (matchedUserId) {
+        const u = users.find((x: any) => x.id === matchedUserId)
+        if (u?.constantVigEnabled && u.constantVigValue !== null && u.constantVigValue !== undefined) {
+          return u.constantVigValue
+        }
+
+        // 3. monthlyVigGoal.manualVigRate for this specific month
+        const userVig = vigSettingsAll[matchedUserId]
+        const monthKey = docDate.toISOString().substring(0, 7)
+        const monthlyGoal = (userVig?.monthlyVigGoals || []).find((g: any) => g.monthKey === monthKey)
+        if (monthlyGoal?.manualVigRate !== null && monthlyGoal?.manualVigRate !== undefined) {
+          return monthlyGoal.manualVigRate
+        }
+
+        // 4. Prior month MISSED → penalty 1.5
+        const priorMonth = new Date(docDate.getFullYear(), docDate.getMonth() - 1, 1)
+        const priorMonthKey = priorMonth.toISOString().substring(0, 7)
+        const priorGoal = (userVig?.monthlyVigGoals || []).find((g: any) => g.monthKey === priorMonthKey)
+        if (priorGoal?.status === 'MISSED') return 1.5
+      }
+
+      // 5. cf_salesperson_vig from the stored document
+      const docVig = parseFloat(docVigField ?? '')
+      if (!isNaN(docVig) && docVig > 0) return docVig
+
+      // 6. Default
+      return 1.3
+    }
 
     const userNameToIdMap: Record<string, string> = {}
     users.forEach(u => {
@@ -302,29 +368,68 @@ export const handler: Handler = async (event) => {
 
       const amount = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
 
+      // ── Dead cost ─────────────────────────────────────────────────────────
+      // BUG-004 fix: prefer stored split buckets (subjectToVig + noVig) so VIG
+      // is only applied to the correct portion — not the entire dead cost.
+      let deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig || items.dead_cost_subject_to_vig || items.cf_dead_cost_subject_to_vig || 'NaN')
+      let deadCostNoVig = parseFloat(items.deadCostNoVig || items.dead_cost_no_vig || items.cf_dead_cost_no_vig || 'NaN')
+
       let deadCost = parseFloat(
         items.deadCostTotal || items.dead_cost_total || items.deadCost ||
-        items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0
+        items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 'NaN'
       )
-      if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
-        deadCost = lineItems.reduce((sum: number, li: any) => {
-          const qty = parseFloat(li.quantity) || 1
-          const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
-          return sum + (qty * cost)
-        }, 0)
+
+      // If stored split data is present, use it; otherwise fall back to line-item scan / 50% estimate
+      if (!isNaN(deadCostSubjectToVig) && !isNaN(deadCostNoVig)) {
+        deadCost = deadCostSubjectToVig + deadCostNoVig
+      } else {
+        // Stored split not available — compute dead cost from line items or stored total
+        if (isNaN(deadCost) || deadCost === 0) {
+          if (lineItems.length > 0) {
+            deadCost = lineItems.reduce((sum: number, li: any) => {
+              const qty = parseFloat(li.quantity) || 1
+              const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
+              return sum + (qty * cost)
+            }, 0)
+          }
+        }
+        if (isNaN(deadCost)) deadCost = 0
+        // Without split data, conservatively treat all dead cost as subject to VIG
+        deadCostSubjectToVig = deadCost
+        deadCostNoVig = 0
       }
       if (isNaN(deadCost)) deadCost = 0
 
       const docDate = inv.issueDate ? new Date(inv.issueDate) : new Date()
-      const year = docDate.getFullYear()
       const salespersonName = items.salesperson || ""
-      const isMontgomery = salespersonName.toLowerCase().includes("montgomery") || salespersonName.toLowerCase().includes("morgan")
-      const vigRate = (year <= 2024 || isMontgomery) ? (isMontgomery ? 1.0 : 1.3) : (parseFloat(items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted) || 1.3)
-      const deadCostPlusVig = (parseFloat(items.deadCostPlusVig || items.dead_cost_plus_vig || 0) || (deadCost * vigRate)) || 0
+
+      // BUG-003 fix: resolve matched user ID for VIG lookup
+      let matchedUserId: string | null = null
+      if (salespersonName) {
+        const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
+        matchedUserId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()] || null
+      }
+      if (!matchedUserId && inv.account?.ownerId) {
+        matchedUserId = inv.account.ownerId
+      }
+
+      // BUG-003 fix: use full VIG priority chain (matches get-commissions.ts logic)
+      const vigRate = resolveVigRateSync(
+        docDate,
+        salespersonName,
+        matchedUserId,
+        items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted
+      )
+
+      // BUG-004 fix: apply VIG only to the subject-to-VIG portion
+      const deadCostPlusVig = (
+        parseFloat(items.deadCostPlusVig || items.dead_cost_plus_vig || 'NaN') ||
+        ((deadCostSubjectToVig * vigRate) + deadCostNoVig)
+      ) || 0
 
       const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
       const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
-      
+
       const deadProfit = amount - deadCost - additionalCosts - ccFees
       const profit = amount - deadCostPlusVig - additionalCosts - ccFees
 
@@ -335,15 +440,7 @@ export const handler: Handler = async (event) => {
         (profit * 0.50)
       ) || 0
 
-      let repId = unassignedId
-      if (salespersonName) {
-        const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
-        const matchedId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()]
-        if (matchedId) repId = matchedId
-      }
-      if (repId === unassignedId) {
-        repId = inv.account?.ownerId || unassignedId
-      }
+      let repId = matchedUserId || unassignedId
 
       const invStatusLower = (inv.status || '').toLowerCase()
       if (repStatsMap[repId] && invStatusLower !== 'void' && invStatusLower !== 'draft') {
@@ -377,12 +474,13 @@ export const handler: Handler = async (event) => {
     // Process Sales Orders in range
     allSalesOrders.forEach((so: any) => {
       const items = so.items as any || {}
+      const cfs = items.custom_fields || []
       const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
 
       const amount = parseFloat(items.sub_total || items.subTotal) || parseFloat(so.amount as any) || 0
 
       let deadCost = parseFloat(
-        items.deadCostTotal || items.dead_cost_total || items.deadCost || 0
+        items.deadCostTotal || items.dead_cost_total || items.deadCost || 'NaN'
       )
       if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
         deadCost = lineItems.reduce((sum: number, li: any) => {
@@ -393,7 +491,13 @@ export const handler: Handler = async (event) => {
       }
       if (isNaN(deadCost)) deadCost = 0
 
-      const deadProfit = amount - deadCost
+      // BUG-010 fix: subtract additionalCosts, giftsCost, and ccFees from SO deadProfit
+      // Previously: deadProfit = amount - deadCost (missing all deductions)
+      const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
+      const giftsCost = parseFloat(items.gifts || items.gifts_cost || items.giftCost || 0) || 0
+      const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
+
+      const deadProfit = amount - deadCost - additionalCosts - giftsCost - ccFees
       const estCommission = deadProfit * 0.50
       const salespersonName = items.salesperson || ""
 

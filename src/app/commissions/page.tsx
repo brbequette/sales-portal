@@ -115,7 +115,8 @@ export default function CommissionsPage() {
         }
         sessionSet(cacheKey, { byRep: data.byRep || {}, years: data.years || [], selectedRepId: matchedRep })
         
-        const sig = `${Object.keys(data.byRep || {}).length}|${selectedYear}`
+        // BUG-007 fix: use invoice count + latestUpdatedAt (matches checkOnly response format)
+        const sig = `${data.stats?.totalInvoices ?? Object.keys(data.byRep || {}).length}|${data.years?.[0] ?? selectedYear}`
         setUpdateAvailable(false)
         setTimeout(() => checkForUpdates(sig, `/api/get-commissions?year=${selectedYear}`), 2000)
       } else {
@@ -231,13 +232,14 @@ export default function CommissionsPage() {
       }
     }
     // Compute from filtered weeks
-    let earned = 0, paid = 0, profit = 0, deals = 0
+    let earned = 0, profit = 0, deals = 0
     filteredWeeklyGroups.forEach(w => {
       earned += w.totalCommission || 0
-      paid += (w as any).paidAmount || 0
       profit += w.totalProfit || 0
-      deals += (w as any).invoiceCount || w.invoices?.length || 0
+      deals += w.invoices?.length || 0
     })
+    // Payouts are not week-scoped — always show YTD paid out regardless of period filter
+    const paid = currentRepData?.totalPaid || 0
     return { earned, paid, balance: earned - paid, profit, deals }
   }, [filteredWeeklyGroups, weeklyGroups.length, currentRepData])
 
