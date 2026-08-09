@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from "react"
 import {
   FiImage, FiUploadCloud, FiCpu, FiCheck, FiX, FiRefreshCw, FiLoader,
-  FiEdit, FiZap, FiPlus, FiArrowRight, FiFileText, FiTag, FiSearch, FiSliders, FiSun, FiRotateCw
+  FiEdit, FiZap, FiPlus, FiArrowRight, FiFileText, FiTag, FiSearch, FiSliders, FiSun, FiRotateCw, FiAlertTriangle
 } from "react-icons/fi"
 
 interface Match {
@@ -29,8 +29,17 @@ interface ImageFile {
 export default function ImageManagerPage() {
   const [files, setFiles] = useState<ImageFile[]>([])
   const [loading, setLoading] = useState(false)
+  
+  // Tabs: 'all' | 'unmatched' | 'conflicts'
+  const [activeTab, setActiveTab] = useState<'all' | 'unmatched' | 'conflicts'>('all')
   const [selectedFile, setSelectedFile] = useState<ImageFile | null>(null)
   
+  // Selected conflict group: [cleanedStem, filesInGroup]
+  const [selectedConflictGroup, setSelectedConflictGroup] = useState<[string, ImageFile[]] | null>(null)
+  
+  // Conflict assignment mapping: fileName -> 'primary' | 'detail_a' | 'detail_b' | 'discard'
+  const [conflictMappings, setConflictMappings] = useState<Record<string, 'primary' | 'detail_a' | 'detail_b' | 'discard'>>({})
+
   // Carousel State
   const [carouselIndex, setCarouselIndex] = useState(0) // 0: raw, 1: processed, 2: detail_a, 3: detail_b
   
@@ -67,7 +76,7 @@ export default function ImageManagerPage() {
       const data = await res.json()
       if (data.success) {
         setFiles(data.files || [])
-        // Maintain selection if still exists
+        // Keep selection active if still in list
         if (selectedFile) {
           const current = data.files.find((f: ImageFile) => f.fileName === selectedFile.fileName)
           if (current) setSelectedFile(current)
@@ -84,7 +93,7 @@ export default function ImageManagerPage() {
     fetchFiles()
   }, [])
 
-  // Auto populate badge fields when selected file changes
+  // Reset slider settings when file changes
   useEffect(() => {
     if (selectedFile) {
       setBrightness(1.0)
@@ -96,8 +105,44 @@ export default function ImageManagerPage() {
       setBadgeType("")
       setManualSku("")
       setCarouselIndex(selectedFile.isProcessed ? 1 : 0)
+      setSelectedConflictGroup(null)
     }
   }, [selectedFile])
+
+  // Reset conflict mappings when selected group changes
+  useEffect(() => {
+    if (selectedConflictGroup) {
+      setSelectedFile(null)
+      const initialMap: Record<string, 'primary' | 'detail_a' | 'detail_b' | 'discard'> = {}
+      selectedConflictGroup[1].forEach((file, index) => {
+        // Simple heuristic: first is primary, second is detail_a, third is detail_b, etc.
+        if (index === 0) initialMap[file.fileName] = 'primary'
+        else if (index === 1) initialMap[file.fileName] = 'detail_a'
+        else if (index === 2) initialMap[file.fileName] = 'detail_b'
+        else initialMap[file.fileName] = 'discard'
+      })
+      setConflictMappings(initialMap)
+    }
+  }, [selectedConflictGroup])
+
+  // Group conflicts helper
+  const getConflicts = (): [string, ImageFile[]][] => {
+    const map: Record<string, ImageFile[]> = {}
+    files.forEach(f => {
+      const stemUpper = f.cleanedStem || "UNKNOWN"
+      if (!map[stemUpper]) map[stemUpper] = []
+      map[stemUpper].push(f)
+    })
+    return Object.entries(map).filter(([_, group]) => group.length > 1)
+  }
+
+  // Filter sidebar files
+  const filteredFiles = files.filter(f => {
+    if (activeTab === 'unmatched') {
+      return f.matches.length === 0
+    }
+    return true
+  })
 
   // Handles upload of a regular image file
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -257,6 +302,45 @@ export default function ImageManagerPage() {
     }
   }
 
+  // Handle conflict resolution submit
+  const handleResolveConflict = async () => {
+    if (!selectedConflictGroup) return
+    setActionLoading("resolve-conflict")
+    
+    const sku = selectedConflictGroup[0]
+    const primaryFile = Object.entries(conflictMappings).find(([_, type]) => type === 'primary')?.[0]
+    const detailAFile = Object.entries(conflictMappings).find(([_, type]) => type === 'detail_a')?.[0]
+    const detailBFile = Object.entries(conflictMappings).find(([_, type]) => type === 'detail_b')?.[0]
+    const discardFiles = Object.entries(conflictMappings).filter(([_, type]) => type === 'discard').map(([f]) => f)
+
+    try {
+      const res = await fetch("/api/admin/images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "resolve-conflict",
+          sku,
+          primaryFile,
+          detailAFile,
+          detailBFile,
+          discardFiles
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert(`Duplicate conflict resolved successfully for ${sku}!`)
+        setSelectedConflictGroup(null)
+        await fetchFiles()
+      } else {
+        alert("Failed to resolve conflict: " + data.error)
+      }
+    } catch (err: any) {
+      alert("Error resolving conflict: " + err.message)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleBatchAction = async (action: "process" | "stage") => {
     if (selectedFileNames.length === 0) return
     setLoading(true)
@@ -274,7 +358,6 @@ export default function ImageManagerPage() {
           })
           count++
         } else if (action === "stage") {
-          // Find SKU match
           const matchSku = file.matches?.[0]?.sku || file.cleanedStem
           if (matchSku) {
             await fetch("/api/admin/images", {
@@ -313,16 +396,9 @@ export default function ImageManagerPage() {
     }
   }
 
-  // Get image paths for previews
   const getImageUrl = (file: ImageFile, type: "raw" | "processed" | "detail_a" | "detail_b") => {
-    // Note: Netlify dev or local dev accesses C:\Users\titan\Documents\Titan Diamond\All Pics directly or copies to public
-    // To allow previewing raw files, we can host them dynamically or copy them to public. 
-    // For local dev, a simple client-side link or caching is done. Let's return standard relative paths.
-    // If it's already staged or processed, we can preview from our public product-images or stage directories.
+    // Standard static fallback path
     if (type === "processed" && file.isProcessed) {
-      // In local dev, we stage processed files to public/product-images. 
-      // If it isn't copied to public yet, we can serve it if we add static mapping, or just fetch it.
-      // But we can check if it exists in public.
       return `/product-images/${file.stem}.png`
     }
     if (type === "detail_a" && file.hasDetailA) {
@@ -331,10 +407,7 @@ export default function ImageManagerPage() {
     if (type === "detail_b" && file.hasDetailB) {
       return `/product-images/${file.stem}_detail_b.png`
     }
-    
-    // Fallback: the app's api endpoint can serve local images dynamically as a fallback!
-    // Let's make sure we have a fallback or proxy. We can just serve `/api/zoho-image?sku=SKU` or similar.
-    return `/product-images/${file.stem}.png` // default fallback
+    return `/product-images/${file.stem}.png`
   }
 
   return (
@@ -412,19 +485,41 @@ export default function ImageManagerPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left column: Files List (4cols) */}
-        <div className="lg:col-span-4 glass-panel border border-white/10 rounded-2xl overflow-hidden flex flex-col h-[700px] shadow-2xl">
+        <div className="lg:col-span-4 glass-panel border border-white/10 rounded-2xl overflow-hidden flex flex-col h-[750px] shadow-2xl">
           <div className="p-4 border-b border-white/10 bg-neutral-900/60 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-neutral-200">All Pics Directory ({files.length})</h2>
+            <h2 className="text-sm font-bold text-neutral-200">Catalog Directory</h2>
             <button
               onClick={() => {
                 setBatchSelecting(!batchSelecting)
                 setSelectedFileNames([])
               }}
-              className={`text-xs px-2.5 py-1 rounded transition-colors ${
+              className={`text-[10px] uppercase font-bold tracking-widest px-2.5 py-1 rounded transition-colors ${
                 batchSelecting ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-neutral-800 text-neutral-400 hover:text-white"
               }`}
             >
-              {batchSelecting ? "Cancel Batch" : "Select Multiple"}
+              {batchSelecting ? "Cancel" : "Select Batch"}
+            </button>
+          </div>
+
+          {/* Directory Tabs */}
+          <div className="grid grid-cols-3 border-b border-white/5 bg-neutral-900/20 text-[10px] font-bold uppercase tracking-wider">
+            <button
+              onClick={() => { setActiveTab('all'); setSelectedConflictGroup(null); }}
+              className={`py-2 text-center border-b-2 ${activeTab === 'all' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
+            >
+              All ({files.length})
+            </button>
+            <button
+              onClick={() => { setActiveTab('unmatched'); setSelectedConflictGroup(null); }}
+              className={`py-2 text-center border-b-2 ${activeTab === 'unmatched' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
+            >
+              Unmatched ({files.filter(f=>f.matches.length === 0).length})
+            </button>
+            <button
+              onClick={() => { setActiveTab('conflicts'); setSelectedFile(null); }}
+              className={`py-2 text-center border-b-2 ${activeTab === 'conflicts' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
+            >
+              Conflicts ({getConflicts().length})
             </button>
           </div>
 
@@ -440,59 +535,88 @@ export default function ImageManagerPage() {
           )}
 
           <div className="flex-1 overflow-y-auto divide-y divide-neutral-900 scrollbar-none">
-            {files.map(file => {
-              const isSelected = selectedFile?.fileName === file.fileName
-              const hasMatch = file.matches.length > 0
-              return (
-                <div
-                  key={file.fileName}
-                  onClick={() => !batchSelecting && setSelectedFile(file)}
-                  className={`p-3.5 flex items-center justify-between transition-all cursor-pointer ${
-                    isSelected ? "bg-emerald-500/10 border-l-4 border-emerald-500" : "hover:bg-white/5"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {batchSelecting && (
-                      <input
-                        type="checkbox"
-                        checked={selectedFileNames.includes(file.fileName)}
-                        onChange={() => handleToggleSelect(file.fileName)}
-                        className="rounded border-neutral-700 text-emerald-500 focus:ring-emerald-500 h-4 w-4 bg-black/20"
-                        onClick={e => e.stopPropagation()}
-                      />
-                    )}
-                    <div className="w-10 h-10 rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden flex items-center justify-center flex-shrink-0">
-                      {file.isProcessed ? (
-                        <img src={getImageUrl(file, "processed")} alt={file.stem} className="w-full h-full object-cover" />
-                      ) : (
-                        <FiImage className="text-neutral-600" size={16} />
-                      )}
-                    </div>
+            {activeTab === 'conflicts' ? (
+              // Conflicts View
+              getConflicts().map(([sku, groupFiles]) => {
+                const isSelected = selectedConflictGroup?.[0] === sku
+                return (
+                  <div
+                    key={sku}
+                    onClick={() => setSelectedConflictGroup([sku, groupFiles])}
+                    className={`p-4 flex items-center justify-between cursor-pointer transition-all ${
+                      isSelected ? "bg-amber-500/10 border-l-4 border-amber-500" : "hover:bg-white/5"
+                    }`}
+                  >
                     <div>
-                      <div className="text-xs font-bold text-neutral-200 truncate max-w-[150px]">{file.fileName}</div>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        {hasMatch ? (
-                          <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-semibold px-1 rounded truncate max-w-[120px]">
-                            {file.matches[0].sku}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] bg-red-500/10 text-red-400 font-semibold px-1 rounded">No SKU Match</span>
-                        )}
+                      <div className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                        <FiAlertTriangle /> {sku} Conflict Group
+                      </div>
+                      <div className="text-[10px] text-neutral-500 mt-1">
+                        {groupFiles.length} file variations match this SKU stem
                       </div>
                     </div>
+                    <span className="text-[10px] px-2 py-0.5 bg-neutral-800 text-neutral-400 rounded-full font-bold">
+                      Resolve
+                    </span>
                   </div>
+                )
+              })
+            ) : (
+              // Regular Listing
+              filteredFiles.map(file => {
+                const isSelected = selectedFile?.fileName === file.fileName
+                const hasMatch = file.matches.length > 0
+                return (
+                  <div
+                    key={file.fileName}
+                    onClick={() => !batchSelecting && setSelectedFile(file)}
+                    className={`p-3.5 flex items-center justify-between transition-all cursor-pointer ${
+                      isSelected ? "bg-emerald-500/10 border-l-4 border-emerald-500" : "hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {batchSelecting && (
+                        <input
+                          type="checkbox"
+                          checked={selectedFileNames.includes(file.fileName)}
+                          onChange={() => handleToggleSelect(file.fileName)}
+                          className="rounded border-neutral-700 text-emerald-500 focus:ring-emerald-500 h-4 w-4 bg-black/20"
+                          onClick={e => e.stopPropagation()}
+                        />
+                      )}
+                      <div className="w-10 h-10 rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden flex items-center justify-center flex-shrink-0">
+                        {file.isProcessed ? (
+                          <img src={getImageUrl(file, "processed")} alt={file.stem} className="w-full h-full object-cover" />
+                        ) : (
+                          <FiImage className="text-neutral-600" size={16} />
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-neutral-200 truncate max-w-[150px]">{file.fileName}</div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {hasMatch ? (
+                            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-semibold px-1 rounded truncate max-w-[120px]">
+                              {file.matches[0].sku}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] bg-red-500/10 text-red-400 font-semibold px-1 rounded">No SKU Match</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
-                  <div className="flex items-center gap-2">
-                    {file.isProcessed && (
-                      <span className="w-2 h-2 rounded-full bg-blue-400 shadow-lg shadow-blue-500/50" title="Processed (Standardised)" />
-                    )}
-                    {file.isStaged && (
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-lg shadow-emerald-500/50" title="Staged to Zoho/App" />
-                    )}
+                    <div className="flex items-center gap-2">
+                      {file.isProcessed && (
+                        <span className="w-2 h-2 rounded-full bg-blue-400 shadow-lg shadow-blue-500/50" title="Processed" />
+                      )}
+                      {file.isStaged && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-lg shadow-emerald-500/50" title="Staged to Zoho/App" />
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })
+            )}
           </div>
 
           {batchSelecting && selectedFileNames.length > 0 && (
@@ -513,9 +637,92 @@ export default function ImageManagerPage() {
           )}
         </div>
 
-        {/* Right column: Image workspace (8cols) */}
+        {/* Right column: Image workspace / conflict resolution workspace (8cols) */}
         <div className="lg:col-span-8 space-y-6">
-          {selectedFile ? (
+          
+          {selectedConflictGroup ? (
+            /* ──────────────── CONFLICT RESOLUTION WORKSPACE ──────────────── */
+            <div className="glass-panel border border-white/10 rounded-2xl p-6 space-y-6 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div>
+                  <h2 className="text-base font-bold text-amber-400 flex items-center gap-2">
+                    <FiAlertTriangle /> Duplicate Conflict Resolution: {selectedConflictGroup[0]}
+                  </h2>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    Multiple pictures match the SKU prefix. Select the role for each variation, or discard/archive redundant photos.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedConflictGroup(null)}
+                  className="px-3 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-xs font-bold transition-colors"
+                >
+                  Close Workspace
+                </button>
+              </div>
+
+              {/* Side-by-side variation cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {selectedConflictGroup[1].map((file) => {
+                  const currentMapping = conflictMappings[file.fileName] || 'discard'
+                  return (
+                    <div key={file.fileName} className="bg-neutral-900/60 border border-white/5 rounded-xl p-4 flex flex-col justify-between space-y-4">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-neutral-300 truncate max-w-[200px]">{file.fileName}</span>
+                          <span className="text-[10px] text-neutral-500 font-semibold">{((f) => {
+                            if (f.isStaged) return "Staged"
+                            if (f.isProcessed) return "Processed"
+                            return "Raw Source"
+                          })(file)}</span>
+                        </div>
+                        <div className="h-44 w-full bg-black/40 rounded-lg overflow-hidden flex items-center justify-center border border-white/5 relative">
+                          {file.isProcessed ? (
+                            <img src={getImageUrl(file, "processed")} alt={file.stem} className="max-h-full max-w-full object-contain p-2" />
+                          ) : (
+                            <FiImage className="text-neutral-700" size={32} />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Mapping Select Dropdown */}
+                      <div className="space-y-2">
+                        <label className="block text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Assign Picture Role:</label>
+                        <select
+                          value={currentMapping}
+                          onChange={(e) => setConflictMappings({ ...conflictMappings, [file.fileName]: e.target.value as any })}
+                          className="w-full bg-neutral-850 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-emerald-500"
+                        >
+                          <option value="primary">Set as Primary Main Image</option>
+                          <option value="detail_a">Set as Closeup A (Segment detail)</option>
+                          <option value="detail_b">Set as Closeup B (Core profile)</option>
+                          <option value="discard">Discard / Archive (Ignore)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Submit resolution */}
+              <div className="pt-4 border-t border-white/10 flex justify-end gap-3">
+                <button
+                  onClick={() => setSelectedConflictGroup(null)}
+                  className="px-5 py-2 text-xs font-bold text-neutral-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleResolveConflict}
+                  disabled={actionLoading === "resolve-conflict"}
+                  className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 text-xs font-black rounded-lg transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                >
+                  {actionLoading === "resolve-conflict" ? <FiLoader className="animate-spin" /> : <FiCheck />}
+                  <span>Resolve & Re-process Variations</span>
+                </button>
+              </div>
+            </div>
+          ) : selectedFile ? (
+            /* ──────────────── REGULAR WORKSPACE ──────────────── */
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
               
               {/* Carousel Previews (7cols) */}
@@ -532,10 +739,9 @@ export default function ImageManagerPage() {
 
                   {carouselIndex === 0 && (
                     <div className="text-center">
-                      {/* Raw file path */}
                       <span className="text-xs text-neutral-500 font-semibold block mb-2">{selectedFile.fileName}</span>
-                      <FiImage size={64} className="text-neutral-700 mx-auto my-12" />
-                      <p className="text-neutral-500 text-xs font-medium">Original local source image preview</p>
+                      <FiImage size={64} className="text-neutral-700 mx-auto my-12 animate-pulse" />
+                      <p className="text-neutral-500 text-xs font-medium">Original raw catalog photo</p>
                     </div>
                   )}
 
@@ -779,7 +985,6 @@ export default function ImageManagerPage() {
                           <button
                             onClick={() => {
                               if (manualSku) {
-                                // Add temporary mapping locally to preview before staging
                                 const updated = { ...selectedFile, matches: [{ id: "temp", sku: manualSku, name: "Custom Manual Map", price: 0, category: "Manual" }] }
                                 setSelectedFile(updated)
                                 setEditingSku(false)
@@ -816,8 +1021,8 @@ export default function ImageManagerPage() {
           ) : (
             <div className="glass-panel border border-white/10 rounded-2xl p-16 text-center text-neutral-500 shadow-2xl flex flex-col items-center justify-center h-[500px]">
               <FiImage size={48} className="text-neutral-700 mb-4 animate-pulse" />
-              <p className="font-semibold text-neutral-400">No Image Selected</p>
-              <p className="text-xs text-neutral-500 mt-1 max-w-xs mx-auto">Select a picture from the sidebar directory listing to standardize, crop, edit and publish.</p>
+              <p className="font-semibold text-neutral-400">No Item Selected</p>
+              <p className="text-xs text-neutral-500 mt-1 max-w-xs mx-auto">Select a picture or conflict group from the sidebar directory listing to standardize, crop, edit and publish.</p>
             </div>
           )}
         </div>

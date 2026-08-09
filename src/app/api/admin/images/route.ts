@@ -259,6 +259,62 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (action === "resolve-conflict") {
+      const { sku, primaryFile, detailAFile, detailBFile, discardFiles } = body
+      if (!sku) return NextResponse.json({ success: false, error: "Missing sku" }, { status: 400 })
+
+      // 1. Process / Rename Primary main image
+      if (primaryFile) {
+        const srcPath = path.join(ALL_PICS_DIR, primaryFile)
+        const destPath = path.join(ALL_PICS_DIR, `${sku}${path.extname(primaryFile)}`)
+        if (fs.existsSync(srcPath) && srcPath !== destPath) {
+          fs.renameSync(srcPath, destPath)
+        }
+      }
+
+      // 2. Handle Detail crop mapping if provided
+      if (detailAFile) {
+        const srcPath = path.join(ALL_PICS_DIR, detailAFile)
+        const destPath = path.join(ALL_PICS_DIR, `${sku}_detail_a${path.extname(detailAFile)}`)
+        if (fs.existsSync(srcPath) && srcPath !== destPath) {
+          fs.renameSync(srcPath, destPath)
+        }
+      }
+
+      if (detailBFile) {
+        const srcPath = path.join(ALL_PICS_DIR, detailBFile)
+        const destPath = path.join(ALL_PICS_DIR, `${sku}_detail_b${path.extname(detailBFile)}`)
+        if (fs.existsSync(srcPath) && srcPath !== destPath) {
+          fs.renameSync(srcPath, destPath)
+        }
+      }
+
+      // 3. Move discarded conflicting files to archive
+      const archiveDir = path.join(ALL_PICS_DIR, "archive")
+      if (discardFiles && Array.isArray(discardFiles)) {
+        if (!fs.existsSync(archiveDir)) {
+          fs.mkdirSync(archiveDir, { recursive: true })
+        }
+        for (const f of discardFiles) {
+          const srcPath = path.join(ALL_PICS_DIR, f)
+          if (fs.existsSync(srcPath)) {
+            fs.renameSync(srcPath, path.join(archiveDir, f))
+          }
+        }
+      }
+
+      // 4. Trigger auto re-process on the new set
+      const targetFileName = `${sku}${path.extname(primaryFile || ".png")}`
+      const cmd = `python "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS\\process_product_images.py" --edit-json "{\\"file\\": \\"${targetFileName}\\"}"`
+      execSync(cmd, { cwd: "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS" })
+
+      // Update static map
+      const mapCmd = `python "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS\\generate_image_map.py"`
+      execSync(mapCmd, { cwd: "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS" })
+
+      return NextResponse.json({ success: true, message: `Successfully resolved duplicate conflict for SKU ${sku}` })
+    }
+
     return NextResponse.json({ success: false, error: "Unknown action" }, { status: 400 })
   } catch (error: any) {
     console.error("POST staged images error:", error)
