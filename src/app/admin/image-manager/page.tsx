@@ -30,9 +30,16 @@ export default function ImageManagerPage() {
   const [files, setFiles] = useState<ImageFile[]>([])
   const [loading, setLoading] = useState(false)
   
-  // Tabs: 'all' | 'unmatched' | 'conflicts'
-  const [activeTab, setActiveTab] = useState<'all' | 'unmatched' | 'conflicts'>('all')
+  // Tabs: 'all' | 'unmatched' | 'conflicts' | 'needs-images'
+  const [activeTab, setActiveTab] = useState<'all' | 'unmatched' | 'conflicts' | 'needs-images'>('all')
   const [selectedFile, setSelectedFile] = useState<ImageFile | null>(null)
+  
+  // Stored state lists
+  const [needsImages, setNeedsImages] = useState<Match[]>([])
+  const [allProducts, setAllProducts] = useState<Match[]>([])
+  const [storage, setStorage] = useState<any>(null)
+  const [searchProductQuery, setSearchProductQuery] = useState("")
+  const [showProductDropdown, setShowProductDropdown] = useState(false)
   
   // Selected conflict group: [cleanedStem, filesInGroup]
   const [selectedConflictGroup, setSelectedConflictGroup] = useState<[string, ImageFile[]] | null>(null)
@@ -62,7 +69,6 @@ export default function ImageManagerPage() {
   const [selectedFileNames, setSelectedFileNames] = useState<string[]>([])
   
   // Catalog extraction state
-  const [catalogFile, setCatalogFile] = useState<File | null>(null)
   const [catalogProgress, setCatalogProgress] = useState("")
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -76,10 +82,36 @@ export default function ImageManagerPage() {
       const data = await res.json()
       if (data.success) {
         setFiles(data.files || [])
-        // Keep selection active if still in list
-        if (selectedFile) {
-          const current = data.files.find((f: ImageFile) => f.fileName === selectedFile.fileName)
-          if (current) setSelectedFile(current)
+        setNeedsImages(data.needsImages || [])
+        setAllProducts(data.allProducts || [])
+        setStorage(data.storage || null)
+        
+        // Auto pre-focus if query parameter sku exists
+        const urlParams = new URLSearchParams(window.location.search)
+        const skuParam = urlParams.get("sku")
+        if (skuParam) {
+          const matchingFile = data.files.find((f: ImageFile) => 
+            f.matches.some(m => m.sku.toUpperCase() === skuParam.toUpperCase()) ||
+            f.cleanedStem === skuParam.toUpperCase()
+          )
+          if (matchingFile) {
+            setSelectedFile(matchingFile)
+          } else {
+            const dbProduct = data.allProducts.find((p: Match) => p.sku.toUpperCase() === skuParam.toUpperCase())
+            if (dbProduct) {
+              setSelectedFile({
+                fileName: `NEW_${dbProduct.sku}.png`,
+                stem: dbProduct.sku,
+                cleanedStem: dbProduct.sku,
+                isProcessed: false,
+                hasDetailA: false,
+                hasDetailB: false,
+                isStaged: false,
+                stagedUrl: null,
+                matches: [dbProduct]
+              })
+            }
+          }
         }
       }
     } catch (e) {
@@ -341,6 +373,29 @@ export default function ImageManagerPage() {
     }
   }
 
+  const handleClearArchive = async () => {
+    if (!confirm("Are you sure you want to clear all files in the archive folder? This cannot be undone.")) return
+    setLoading(true)
+    try {
+      const res = await fetch("/api/admin/images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear-archive" })
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert("Archive cleared successfully!")
+        await fetchFiles()
+      } else {
+        alert("Failed to clear archive: " + data.error)
+      }
+    } catch (e: any) {
+      alert("Error: " + e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleBatchAction = async (action: "process" | "stage") => {
     if (selectedFileNames.length === 0) return
     setLoading(true)
@@ -501,8 +556,71 @@ export default function ImageManagerPage() {
             </button>
           </div>
 
+          {/* Global DB Search bar inside sidebar */}
+          <div className="p-3 border-b border-white/5 bg-neutral-900/10 relative">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search catalog or DB SKUs..."
+                value={searchProductQuery}
+                onChange={e => {
+                  setSearchProductQuery(e.target.value)
+                  setShowProductDropdown(e.target.value.length > 0)
+                }}
+                className="w-full bg-black/45 border border-white/10 rounded-lg px-8 py-1.5 text-xs text-white outline-none focus:border-emerald-500"
+              />
+              <FiSearch className="absolute left-2.5 top-2.5 text-neutral-500" size={12} />
+              {searchProductQuery && (
+                <button
+                  onClick={() => { setSearchProductQuery(""); setShowProductDropdown(false); }}
+                  className="absolute right-2.5 top-2.5 text-neutral-500 hover:text-white"
+                >
+                  <FiX size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* Autocomplete selector */}
+            {showProductDropdown && (
+              <div className="absolute left-3 right-3 mt-1.5 bg-neutral-900 border border-white/15 rounded-xl shadow-2xl max-h-60 overflow-y-auto z-50 divide-y divide-white/5 scrollbar-none">
+                {allProducts
+                  .filter(p => p.sku.toLowerCase().includes(searchProductQuery.toLowerCase()) || p.name.toLowerCase().includes(searchProductQuery.toLowerCase()))
+                  .slice(0, 10)
+                  .map(p => (
+                    <div
+                      key={p.id}
+                      onClick={() => {
+                        const existing = files.find(f => f.matches.some(m => m.sku === p.sku) || f.cleanedStem === p.sku)
+                        if (existing) {
+                          setSelectedFile(existing)
+                        } else {
+                          setSelectedFile({
+                            fileName: `NEW_${p.sku}.png`,
+                            stem: p.sku,
+                            cleanedStem: p.sku,
+                            isProcessed: false,
+                            hasDetailA: false,
+                            hasDetailB: false,
+                            isStaged: false,
+                            stagedUrl: null,
+                            matches: [p]
+                          })
+                        }
+                        setSearchProductQuery("")
+                        setShowProductDropdown(false)
+                      }}
+                      className="p-2.5 hover:bg-emerald-500/10 cursor-pointer text-left transition-colors"
+                    >
+                      <div className="text-xs font-bold text-emerald-400 font-mono">{p.sku}</div>
+                      <div className="text-[10px] text-neutral-300 truncate mt-0.5">{p.name}</div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+
           {/* Directory Tabs */}
-          <div className="grid grid-cols-3 border-b border-white/5 bg-neutral-900/20 text-[10px] font-bold uppercase tracking-wider">
+          <div className="grid grid-cols-4 border-b border-white/5 bg-neutral-900/20 text-[9px] font-bold uppercase tracking-wider">
             <button
               onClick={() => { setActiveTab('all'); setSelectedConflictGroup(null); }}
               className={`py-2 text-center border-b-2 ${activeTab === 'all' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
@@ -513,13 +631,19 @@ export default function ImageManagerPage() {
               onClick={() => { setActiveTab('unmatched'); setSelectedConflictGroup(null); }}
               className={`py-2 text-center border-b-2 ${activeTab === 'unmatched' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
             >
-              Unmatched ({files.filter(f=>f.matches.length === 0).length})
+              Unmatched
+            </button>
+            <button
+              onClick={() => { setActiveTab('needs-images'); setSelectedConflictGroup(null); }}
+              className={`py-2 text-center border-b-2 ${activeTab === 'needs-images' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
+            >
+              No Image
             </button>
             <button
               onClick={() => { setActiveTab('conflicts'); setSelectedFile(null); }}
               className={`py-2 text-center border-b-2 ${activeTab === 'conflicts' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
             >
-              Conflicts ({getConflicts().length})
+              Conflicts
             </button>
           </div>
 
@@ -558,6 +682,36 @@ export default function ImageManagerPage() {
                     <span className="text-[10px] px-2 py-0.5 bg-neutral-800 text-neutral-400 rounded-full font-bold">
                       Resolve
                     </span>
+                  </div>
+                )
+              })
+            ) : activeTab === 'needs-images' ? (
+              // Needs Images listing
+              needsImages.map(p => {
+                const isSelected = selectedFile?.stem === p.sku
+                return (
+                  <div
+                    key={p.sku}
+                    onClick={() => setSelectedFile({
+                      fileName: `NEW_${p.sku}.png`,
+                      stem: p.sku,
+                      cleanedStem: p.sku,
+                      isProcessed: false,
+                      hasDetailA: false,
+                      hasDetailB: false,
+                      isStaged: false,
+                      stagedUrl: null,
+                      matches: [p]
+                    })}
+                    className={`p-3.5 flex items-center justify-between cursor-pointer transition-colors ${
+                      isSelected ? "bg-emerald-500/10 border-l-4 border-emerald-500" : "hover:bg-white/5"
+                    }`}
+                  >
+                    <div>
+                      <div className="text-xs font-bold text-red-400 font-mono">{p.sku}</div>
+                      <div className="text-[10px] text-neutral-300 mt-1 truncate max-w-[200px]">{p.name}</div>
+                    </div>
+                    <FiPlus className="text-neutral-500" size={14} />
                   </div>
                 )
               })
@@ -633,6 +787,44 @@ export default function ImageManagerPage() {
               >
                 Batch Publish
               </button>
+            </div>
+          )}
+          {/* Storage Management Panel */}
+          {storage && (
+            <div className="p-3.5 border-t border-white/5 bg-neutral-900/40 text-[10px] space-y-2.5">
+              <div className="flex justify-between items-center text-neutral-400 font-bold uppercase tracking-wider">
+                <span>📁 Storage Management</span>
+                {storage.archive.count > 0 && (
+                  <button
+                    onClick={handleClearArchive}
+                    className="text-[9px] bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-neutral-950 font-black px-1.5 py-0.5 rounded transition-all uppercase tracking-widest"
+                  >
+                    Clear Archive
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-neutral-400 font-semibold font-mono">
+                <div className="bg-black/20 p-2 rounded border border-white/5">
+                  <div className="text-neutral-500 text-[8px] uppercase font-bold">Raw Pics</div>
+                  <div className="text-xs text-white mt-0.5">{storage.raw.count} files</div>
+                  <div className="text-[9px] text-neutral-500">{(storage.raw.size / 1024 / 1024).toFixed(1)} MB</div>
+                </div>
+                <div className="bg-black/20 p-2 rounded border border-white/5">
+                  <div className="text-neutral-500 text-[8px] uppercase font-bold">Processed</div>
+                  <div className="text-xs text-blue-400 mt-0.5">{storage.processed.count} files</div>
+                  <div className="text-[9px] text-neutral-500">{(storage.processed.size / 1024 / 1024).toFixed(1)} MB</div>
+                </div>
+                <div className="bg-black/20 p-2 rounded border border-white/5">
+                  <div className="text-neutral-500 text-[8px] uppercase font-bold">Archive</div>
+                  <div className="text-xs text-amber-400 mt-0.5">{storage.archive.count} files</div>
+                  <div className="text-[9px] text-neutral-500">{(storage.archive.size / 1024 / 1024).toFixed(1)} MB</div>
+                </div>
+                <div className="bg-black/20 p-2 rounded border border-white/5">
+                  <div className="text-neutral-500 text-[8px] uppercase font-bold">Static App</div>
+                  <div className="text-xs text-emerald-400 mt-0.5">{storage.public.count} files</div>
+                  <div className="text-[9px] text-neutral-500">{(storage.public.size / 1024 / 1024).toFixed(1)} MB</div>
+                </div>
+              </div>
             </div>
           )}
         </div>

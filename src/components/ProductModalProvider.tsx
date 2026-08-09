@@ -3,6 +3,7 @@
 
 import { createContext, useContext, useState, useEffect } from "react"
 import { FiX, FiBox, FiDollarSign, FiTag, FiInfo } from "react-icons/fi"
+import Link from "next/link"
 
 type ProductInfo = {
   id: string
@@ -171,6 +172,13 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
               {category}
             </span>
             <span className="font-mono text-neutral-400 text-xs font-bold">{sku}</span>
+            <Link 
+              href={`/admin/image-manager?sku=${encodeURIComponent(sku)}`}
+              onClick={onClose}
+              className="text-[9px] text-blue-400 hover:text-blue-300 font-bold ml-2 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded transition-colors"
+            >
+              Edit Images
+            </Link>
           </div>
           <button 
             onClick={onClose}
