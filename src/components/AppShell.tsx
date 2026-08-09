@@ -681,7 +681,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         flex-1 overflow-hidden flex flex-col
         pt-14 md:pt-0
         pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0
-        ${isAdminPage ? "" : "md:pl-[3.75rem]"}
+        ${isAdminPage ? "" : "md:pl-[4.75rem]"}
       `}>
         <GlobalTopBar />
         <div className="flex-1 overflow-y-auto">
