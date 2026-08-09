@@ -15,20 +15,17 @@ function getPeriodBounds(cadence: string, referenceDate: Date = new Date()) {
     const diff = start.getDate() - day + (day === 0 ? -6 : 1) // Monday start
     start.setDate(diff)
     start.setHours(0, 0, 0, 0)
-
     end.setDate(start.getDate() + 6)
     end.setHours(23, 59, 59, 999)
   } else if (cadence === "ANNUALLY") {
     start.setMonth(0, 1)
     start.setHours(0, 0, 0, 0)
-
     end.setMonth(11, 31)
     end.setHours(23, 59, 59, 999)
   } else {
     // Default: MONTHLY
     start.setDate(1)
     start.setHours(0, 0, 0, 0)
-
     end.setMonth(start.getMonth() + 1, 0)
     end.setHours(23, 59, 59, 999)
   }
@@ -48,45 +45,71 @@ export async function GET(req: Request) {
     if (scope) where.scope = scope
     if (cadence) where.cadence = cadence
 
-    const goals = await prisma.performanceGoalBonus.findMany({
-      where,
-      orderBy: [{ isActive: "desc" }, { createdAt: "desc" }]
+    const [goals, reps] = await Promise.all([
+      prisma.performanceGoalBonus.findMany({
+        where,
+        orderBy: [{ isActive: "desc" }, { createdAt: "desc" }]
+      }),
+      prisma.user.findMany({
+        where: {
+          AND: [
+            { NOT: { email: { contains: "dummy.titandiamond.com" } } },
+            { NOT: { email: { contains: "example.com" } } },
+            { NOT: { name: { contains: "test_migration" } } }
+          ]
+        },
+        select: { id: true, name: true, email: true, role: true }
+      })
+    ])
+
+    // Build a name→id map for salesperson field matching
+    const nameToRepId: Record<string, string> = {}
+    reps.forEach(r => {
+      if (r.name) nameToRepId[r.name.toLowerCase().trim()] = r.id
     })
 
-    // Calculate current progress for each active goal
-    const activeInvoices = await prisma.invoice.findMany({
-      where: {
-        status: { notIn: ["Void", "Draft", "writeoff", "write_off", "bad debt"] }
-      },
-      select: {
-        id: true,
-        issueDate: true,
-        createdAt: true,
-        amount: true,
-        items: true,
-        account: { select: { ownerId: true } }
+    // PERF FIX: group goals by cadence so we only query each date window once
+    // Instead of fetching ALL invoices once, fetch per unique period window
+    const cadenceWindows = new Map<string, { start: Date; end: Date }>()
+    goals.forEach(g => {
+      if (!cadenceWindows.has(g.cadence)) {
+        cadenceWindows.set(g.cadence, getPeriodBounds(g.cadence))
       }
     })
 
-    const reps = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, role: true }
-    })
+    // Fetch invoices per cadence window (not all invoices at once)
+    const invoicesByCadence = new Map<string, any[]>()
+    await Promise.all(
+      Array.from(cadenceWindows.entries()).map(async ([cad, { start, end }]) => {
+        const invs = await prisma.invoice.findMany({
+          where: {
+            issueDate: { gte: start, lte: end },
+            status: { notIn: ["Void", "Draft", "writeoff", "write_off", "bad debt"] }
+          },
+          select: {
+            id: true,
+            issueDate: true,
+            createdAt: true,
+            amount: true,
+            items: true,
+            account: { select: { ownerId: true } }
+          }
+        })
+        invoicesByCadence.set(cad, invs)
+      })
+    )
 
     const goalsWithProgress = goals.map(goal => {
-      const { start, end } = getPeriodBounds(goal.cadence)
-      
-      // Filter invoices within current period
-      const periodInvoices = activeInvoices.filter(inv => {
-        const invDate = inv.issueDate ? new Date(inv.issueDate) : new Date(inv.createdAt)
-        if (invDate < start || invDate > end) return false
+      const { start, end } = cadenceWindows.get(goal.cadence)!
+      const allPeriodInvoices = invoicesByCadence.get(goal.cadence) || []
 
+      // Filter to this goal's rep if individual scope
+      const periodInvoices = allPeriodInvoices.filter(inv => {
         if (goal.scope === "INDIVIDUAL" && goal.repId) {
           const items = (inv.items as any) || {}
           const salesperson = (items.salesperson || "").toLowerCase().trim()
-          const matchedUser = reps.find(r => r.id === goal.repId)
-          const repNameLower = matchedUser?.name?.toLowerCase().trim() || ""
-
-          const belongsToRep = (repNameLower && salesperson.includes(repNameLower)) || inv.account?.ownerId === goal.repId
+          const matchedRepId = nameToRepId[salesperson]
+          const belongsToRep = matchedRepId === goal.repId || inv.account?.ownerId === goal.repId
           if (!belongsToRep) return false
         }
         return true
@@ -118,11 +141,7 @@ export async function GET(req: Request) {
       }
     })
 
-    return NextResponse.json({
-      success: true,
-      goals: goalsWithProgress,
-      reps
-    })
+    return NextResponse.json({ success: true, goals: goalsWithProgress, reps })
 
   } catch (error: any) {
     console.error("GET Goals & Bonuses Error:", error)
