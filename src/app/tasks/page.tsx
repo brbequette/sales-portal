@@ -1042,13 +1042,13 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0b0d]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+    <div className="page-content">
 
       {/* â"€â"€ Header â"€â"€ */}
-      <div className="shrink-0 px-4 pt-4 pb-2 border-b border-white/8">
+      <div className="page-header flex-col items-start gap-3 pb-3">
         <div className="flex items-center gap-3 mb-3">
           <div className="flex-1">
-            <h1 className="text-2xl font-black text-white leading-tight">Task Hub</h1>
+            <h1 className="page-title">Task Hub</h1>
             {/* Stats pills */}
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-sky-400 font-bold">{stats.open} open</span>
@@ -1093,7 +1093,7 @@ export default function TasksPage() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search tasks, accounts..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-violet-500/50"
+              className="td-input focus:border-violet-500/50"
             />
           </div>
         )}

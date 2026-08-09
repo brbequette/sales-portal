@@ -745,21 +745,21 @@ function AccountHubContent() {
             {cleanPhone ? (
               <button
                 onClick={handleHeaderDial}
-                className="hidden sm:flex shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 text-xs rounded-full font-bold transition-colors flex items-center gap-1.5"
+                className="hidden sm:flex shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 text-xs rounded-lg font-bold transition-colors items-center gap-1.5"
               >
                 <FiPhone size={12} /> Call
               </button>
             ) : null}
             <button
               onClick={handleHeaderSms}
-              className="hidden sm:flex shrink-0 bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-1.5 text-xs rounded-full font-bold transition-colors flex items-center gap-1.5"
+              className="hidden sm:flex shrink-0 bg-neutral-700 hover:bg-neutral-600 text-white px-3 py-1.5 text-xs rounded-lg font-bold transition-colors items-center gap-1.5"
             >
               <FiMessageSquare size={12} /> SMS
             </button>
 
             <button
               onClick={() => router.push(`/tasks/new?accountId=${account.zohoId}&accountName=${encodeURIComponent(account.name)}`)}
-              className="shrink-0 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-3 py-1.5 text-xs rounded-full font-bold transition-colors border border-neutral-700"
+              className="shrink-0 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-3 py-1.5 text-xs rounded-lg font-bold transition-colors border border-neutral-700"
             >
               + Task
             </button>
@@ -777,7 +777,7 @@ function AccountHubContent() {
                   toast.error("Error: " + e.message)
                 }
               }}
-              className="hidden sm:flex shrink-0 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-3 py-1.5 text-xs rounded-full font-bold transition-colors border border-neutral-700"
+              className="hidden sm:flex shrink-0 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-3 py-1.5 text-xs rounded-lg font-bold transition-colors border border-neutral-700"
             >
               + Books
             </button>

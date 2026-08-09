@@ -7,6 +7,7 @@ import { useZoho } from "@/components/ZohoProvider"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { SalesCallCampaignModal } from "@/components/SalesCallCampaignModal"
 import { OrderNextSteps } from "@/components/OrderNextSteps"
+import { NewCustomerModal } from "@/components/NewCustomerModal"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -18,9 +19,9 @@ import { Pagination, usePagination } from "@/components/Pagination"
 import { PhoneLink } from "@/components/PhoneLink"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { DealPipeline } from "@/components/DealPipeline"
-import { GlobalTopBar } from "@/components/GlobalTopBar"
 
-import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiPhone, FiMail, FiMessageSquare, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiAlertCircle, FiBox, FiLayers, FiEye, FiTarget, FiImage } from "react-icons/fi"
+
+import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiPhone, FiMail, FiMessageSquare, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiAlertCircle, FiBox, FiLayers, FiEye, FiTarget, FiImage, FiUserPlus } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
 import { useCampaignProgress } from "@/components/CampaignProgressProvider"
 
@@ -219,6 +220,7 @@ export default function SalesPage() {
   const [dbUser, setDbUser] = useState<any>(null)
   const [showAssetSelector, setShowAssetSelector] = useState(false)
   const [leads, setLeads] = useState<any[]>([])
+  const [showAddAccount, setShowAddAccount] = useState(false)
 
   useEffect(() => {
     fetchLeads()
@@ -1085,6 +1087,14 @@ export default function SalesPage() {
                         >
                           <FiRefreshCw size={12} className={loading ? "animate-spin" : ""} />
                           <span>{loading ? "Syncing..." : "Sync CRM"}</span>
+                        </button>
+
+                        <button
+                          onClick={() => setShowAddAccount(true)}
+                          className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white transition-all cursor-pointer shadow-[0_2px_8px_rgba(249,115,22,0.25)] hover:shadow-[0_4px_16px_rgba(249,115,22,0.4)] whitespace-nowrap"
+                        >
+                          <FiUserPlus size={12} />
+                          <span>Add Account</span>
                         </button>
                       </div>
                     </div>
@@ -2201,6 +2211,16 @@ export default function SalesPage() {
           accounts={accounts.filter(a => selectedAccountIds.includes(a.id))}
           onClose={() => setShowCallCampaignModal(false)}
           onRefresh={() => fetchLocalData(1, false, true)}
+        />,
+        document.body
+      )}
+
+      {/* Add Account Modal */}
+      {showAddAccount && typeof window !== "undefined" && createPortal(
+        <NewCustomerModal
+          isOpen={showAddAccount}
+          onClose={() => setShowAddAccount(false)}
+          currentUserId={currentUser?.id}
         />,
         document.body
       )}

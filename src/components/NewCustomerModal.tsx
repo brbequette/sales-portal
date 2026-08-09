@@ -85,7 +85,7 @@ export function NewCustomerModal({ isOpen, onClose, currentUserId }: NewCustomer
             </h2>
             <p className="text-xs text-neutral-400 mt-1">Create a new Account & Contact in Zoho</p>
           </div>
-          <button onClick={onClose} className="text-neutral-400 hover:text-white p-2 bg-neutral-800 hover:bg-neutral-750 transition-colors rounded-full flex items-center justify-center font-bold">
+          <button onClick={onClose} className="text-neutral-400 hover:text-white p-2 bg-neutral-800 hover:bg-neutral-700 transition-colors rounded-xl flex items-center justify-center">
             <FiX size={20} />
           </button>
         </div>
@@ -102,23 +102,23 @@ export function NewCustomerModal({ isOpen, onClose, currentUserId }: NewCustomer
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Company / Account Name *</label>
-                  <input required name="accountName" value={formData.accountName} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="e.g. Titan Diamond LLC" />
+                  <input required name="accountName" value={formData.accountName} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="e.g. Titan Diamond LLC" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Company Phone</label>
-                  <input name="phone" value={formData.phone} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="(555) 555-5555" />
+                  <input name="phone" value={formData.phone} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="(555) 555-5555" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Company Email</label>
-                  <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="sales@example.com" />
+                  <input type="email" name="email" value={formData.email} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="sales@example.com" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Industry</label>
-                  <input name="industry" value={formData.industry} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="e.g. Construction" />
+                  <input name="industry" value={formData.industry} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="e.g. Construction" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Tags (Comma separated)</label>
-                  <input name="tags" value={formData.tags} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="VIP, Wholesale" />
+                  <input name="tags" value={formData.tags} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="VIP, Wholesale" />
                 </div>
               </div>
             </section>
@@ -131,19 +131,19 @@ export function NewCustomerModal({ isOpen, onClose, currentUserId }: NewCustomer
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">First Name</label>
-                  <input name="firstName" value={formData.firstName} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="John" />
+                  <input name="firstName" value={formData.firstName} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="John" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Last Name</label>
-                  <input name="lastName" value={formData.lastName} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Doe" />
+                  <input name="lastName" value={formData.lastName} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="Doe" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Contact Phone</label>
-                  <input name="contactPhone" value={formData.contactPhone} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="(555) 555-1234" />
+                  <input name="contactPhone" value={formData.contactPhone} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="(555) 555-1234" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Contact Email</label>
-                  <input type="email" name="contactEmail" value={formData.contactEmail} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="john@example.com" />
+                  <input type="email" name="contactEmail" value={formData.contactEmail} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="john@example.com" />
                 </div>
               </div>
             </section>
@@ -158,19 +158,19 @@ export function NewCustomerModal({ isOpen, onClose, currentUserId }: NewCustomer
                 <h4 className="text-xs font-bold text-white mb-3">Billing Address</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
-                    <input name="billingStreet" value={formData.billingStreet} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Street Address" />
+                    <input name="billingStreet" value={formData.billingStreet} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="Street Address" />
                   </div>
                   <div>
-                    <input name="billingCity" value={formData.billingCity} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="City" />
+                    <input name="billingCity" value={formData.billingCity} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="City" />
                   </div>
                   <div>
-                    <input name="billingState" value={formData.billingState} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="State/Province" />
+                    <input name="billingState" value={formData.billingState} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="State/Province" />
                   </div>
                   <div>
-                    <input name="billingCode" value={formData.billingCode} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Zip/Postal Code" />
+                    <input name="billingCode" value={formData.billingCode} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="Zip/Postal Code" />
                   </div>
                   <div>
-                    <input name="billingCountry" value={formData.billingCountry} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Country" />
+                    <input name="billingCountry" value={formData.billingCountry} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="Country" />
                   </div>
                 </div>
               </div>
@@ -194,19 +194,19 @@ export function NewCustomerModal({ isOpen, onClose, currentUserId }: NewCustomer
                   <h4 className="text-xs font-bold text-white mb-3">Shipping Address</h4>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2">
-                      <input name="shippingStreet" value={formData.shippingStreet} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Street Address" />
+                      <input name="shippingStreet" value={formData.shippingStreet} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="Street Address" />
                     </div>
                     <div>
-                      <input name="shippingCity" value={formData.shippingCity} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="City" />
+                      <input name="shippingCity" value={formData.shippingCity} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="City" />
                     </div>
                     <div>
-                      <input name="shippingState" value={formData.shippingState} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="State/Province" />
+                      <input name="shippingState" value={formData.shippingState} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="State/Province" />
                     </div>
                     <div>
-                      <input name="shippingCode" value={formData.shippingCode} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Zip/Postal Code" />
+                      <input name="shippingCode" value={formData.shippingCode} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="Zip/Postal Code" />
                     </div>
                     <div>
-                      <input name="shippingCountry" value={formData.shippingCountry} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500" placeholder="Country" />
+                      <input name="shippingCountry" value={formData.shippingCountry} onChange={handleChange} className="td-input focus:border-amber-500" placeholder="Country" />
                     </div>
                   </div>
                 </div>

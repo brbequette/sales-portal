@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { toast } from "react-hot-toast"
 import { useProductModal } from "@/components/ProductModalProvider"
-import { NewCustomerModal } from "@/components/NewCustomerModal"
 import { TaskModal } from "@/components/TaskModal"
 import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
@@ -36,7 +35,6 @@ export function GlobalTopBar() {
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  const [showAddAccount, setShowAddAccount] = useState(false)
   const [showAddTaskModal, setShowAddTaskModal] = useState(false)
   const [showTaskDrawer, setShowTaskDrawer] = useState(false)
   const [taskDrawerTab, setTaskDrawerTab] = useState<"due" | "all" | "completed">("due")
@@ -385,8 +383,12 @@ export function GlobalTopBar() {
 
   return (
     <>
+    {/* Single sticky wrapper — contains impersonation banner, topbar, and stats strip.
+        This ensures the stats strip always renders directly below the topbar,
+        regardless of whether the impersonation banner is visible. */}
+    <div className="sticky top-0 z-40 flex flex-col">
     {preferences.impersonatedUser && (
-      <div className="bg-amber-500/20 border-b border-amber-500/30 text-amber-200 px-4 py-2 flex items-center justify-center gap-3 text-sm font-bold z-50 relative">
+      <div className="bg-amber-500/20 border-b border-amber-500/30 text-amber-200 px-4 py-2 flex items-center justify-center gap-3 text-sm font-bold relative">
         <FiUserPlus size={16} />
         <span>Viewing as {preferences.impersonatedUser.name}</span>
         <button
@@ -397,7 +399,7 @@ export function GlobalTopBar() {
         </button>
       </div>
     )}
-    <div className="glass-panel border-x-0 border-t-0 px-4 py-3 flex items-center justify-between sticky top-0 z-40 rounded-none shadow-lg">
+    <div className="glass-panel border-x-0 border-t-0 px-4 py-3 flex items-center justify-between rounded-none shadow-lg">
       
       {/* Left side: Search */}
       <div className="flex-1 max-w-2xl relative" ref={searchRef}>
@@ -699,12 +701,6 @@ export function GlobalTopBar() {
         {/* Notifications Dropdown */}
         <NotificationCenter />
 
-        <button
-          onClick={() => router.push("/catalog")}
-          className="hidden sm:flex bg-white/[0.045] hover:bg-white/[0.075] text-neutral-300 hover:text-white font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all items-center gap-2 border border-white/10"
-        >
-          <FiBox size={14} /> <span className="hidden sm:inline">Catalog Lookup</span>
-        </button>
 
         {/* Task List Button with Glowing Visual Badge */}
         {(() => {
@@ -954,20 +950,9 @@ export function GlobalTopBar() {
           )
         })()}
 
-        <button
-          onClick={() => setShowAddAccount(true)}
-          className="bg-[var(--primary)] hover:brightness-110 text-black font-bold px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm transition-all flex items-center gap-2 whitespace-nowrap"
-        >
-          <FiUserPlus size={14} /> <span className="hidden sm:inline">Add Account</span>
-        </button>
       </div>
 
       {/* Modals */}
-      {showAddAccount && typeof window !== "undefined" && createPortal(
-        <NewCustomerModal isOpen={showAddAccount} onClose={() => setShowAddAccount(false)} currentUserId={currentUser?.id} />,
-        document.body
-      )}
-
       {showAddTaskModal && typeof window !== "undefined" && createPortal(
         <TaskModal
           onClose={() => setShowAddTaskModal(false)}
@@ -981,9 +966,11 @@ export function GlobalTopBar() {
       )}
     </div>
 
-    {/* Persistent Stats Strip */}
+    {/* Persistent Stats Strip — inside sticky wrapper, no top offset needed */}
     {stripStats && (
-      <div className="glass-panel border-x-0 border-t-0 px-4 py-1.5 sticky top-[56px] z-[39] rounded-none flex items-center gap-0 overflow-x-auto scrollbar-none">
+      <div className="glass-panel border-x-0 border-t-0 px-4 py-1.5 rounded-none flex items-center gap-0 overflow-x-auto scrollbar-none relative">
+        {/* Fade indicator for hidden overflow content */}
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-black/40 to-transparent" />
         <div className="flex items-center gap-4 min-w-max mx-auto">
           <div 
             onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "weeklyGoal" } }))}
@@ -1047,7 +1034,7 @@ export function GlobalTopBar() {
       </div>
     )}
 
-    {/* -- Campaign Progress Pill -- */}
+    {/* Campaign Progress Pill — inside sticky wrapper */}
     {(campaignState.status === 'running' || campaignState.status === 'done' || campaignState.status === 'cancelled') && (() => {
       const pct = campaignState.total > 0 ? Math.round((campaignState.progress / campaignState.total) * 100) : 0
       const isDone = campaignState.status === 'done'
@@ -1062,7 +1049,7 @@ export function GlobalTopBar() {
               ? 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.08))'
               : 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(234,88,12,0.08))',
           }}
-          className={`border-x-0 border-t-0 px-4 py-2 sticky top-[56px] z-[38] rounded-none flex items-center gap-3 overflow-x-auto scrollbar-none border-b ${
+          className={`border-x-0 border-t-0 px-4 py-2 rounded-none flex items-center gap-3 overflow-x-auto scrollbar-none border-b ${
             isDone ? 'border-emerald-500/20' : isCancelled ? 'border-red-500/20' : 'border-orange-500/20'
           }`}
         >
@@ -1133,6 +1120,7 @@ export function GlobalTopBar() {
         </div>
       )
     })()}
+    </div>{/* end sticky wrapper */}
     {showClockInPrompt && currentUser?.id && (
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] animate-[slideUp_0.3s_ease-out]">
         <div className="flex items-center gap-3 bg-gradient-to-r from-blue-900/95 to-indigo-900/95 backdrop-blur-xl border border-blue-500/30 rounded-2xl px-5 py-3 shadow-[0_8px_32px_rgba(59,130,246,0.3)] text-white">

@@ -364,7 +364,7 @@ export default function MessagesPage() {
               placeholder={activeTab === "campaigns" && !selectedCampaignId ? "Search campaigns..." : "Search accounts..."}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+              className="td-input pl-9 focus:border-emerald-500"
             />
           </div>
 

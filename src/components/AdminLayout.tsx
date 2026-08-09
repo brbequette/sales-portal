@@ -102,13 +102,13 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-full overflow-hidden bg-[#0f1013]">
+    <div className="flex flex-col md:flex-row h-full overflow-hidden" style={{ background: "var(--background)" }}>
       
       {/* Mobile Drawer Slideout Overlay */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 md:hidden flex">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="relative w-72 max-w-[80vw] bg-[#0d0e11] border-r border-white/10 h-full flex flex-col z-50 overflow-y-auto">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+          <div className="relative w-72 max-w-[80vw] bg-[var(--surface)] border-r border-[var(--border)] h-full flex flex-col z-50 overflow-y-auto">
             <div className="p-4 flex items-center justify-between border-b border-white/10">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
@@ -119,7 +119,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Titan Hub</div>
                 </div>
               </div>
-              <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 text-neutral-400 hover:text-white transition-colors cursor-pointer">
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                aria-label="Close admin menu"
+                className="p-2 text-neutral-400 hover:text-white transition-colors cursor-pointer rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center"
+              >
                 <FiX size={18} />
               </button>
             </div>
@@ -137,10 +141,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                           key={item.href}
                           href={item.href}
                           onClick={() => setIsMobileMenuOpen(false)}
-                          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            isActive 
-                              ? "bg-emerald-500/10 text-emerald-400" 
-                              : "text-neutral-400 hover:text-white hover:bg-white/5"
+                          aria-current={isActive ? "page" : undefined}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
+                            isActive
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                              : "text-neutral-400 hover:text-white hover:bg-white/5 border border-transparent"
                           }`}
                         >
                           <item.icon size={16} className={isActive ? "text-emerald-400" : "text-neutral-500"} />
@@ -156,35 +161,46 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Desktop Sidebar (hidden on mobile) */}
-      <div className="hidden md:flex w-64 shrink-0 glass-panel border-r border-white/10 flex-col h-full overflow-y-auto bg-[#0d0e11]">
-        <div className="p-4 flex items-center gap-2 border-b border-white/10">
-          <div className="w-8 h-8 rounded bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-            <FiShield size={16} />
+      {/* Desktop Sidebar — full-width text nav for admin area */}
+      <div className="hidden md:flex w-56 shrink-0 border-r flex-col h-full overflow-y-auto" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+        <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: "var(--border)" }}>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+              <FiShield size={16} />
+            </div>
+            <div>
+              <div className="font-bold text-white text-sm">Admin Panel</div>
+              <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Titan Hub</div>
+            </div>
           </div>
-          <div>
-            <div className="font-bold text-white text-sm">Admin Panel</div>
-            <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Titan Hub</div>
-          </div>
+          <Link
+            href="/"
+            title="Back to Hub"
+            aria-label="Back to Hub"
+            className="p-2 rounded-xl text-neutral-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all border border-transparent hover:border-emerald-500/20"
+          >
+            <FiChevronLeft size={16} />
+          </Link>
         </div>
 
-        <div className="p-3 space-y-6">
+        <div className="p-3 space-y-5 flex-1">
           {adminLinks.map((group, idx) => (
             <div key={idx}>
               <div className="px-3 mb-2 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">
                 {group.group}
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {group.items.map(item => {
                   const isActive = pathname === item.href
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        isActive 
-                          ? "bg-emerald-500/10 text-emerald-400" 
-                          : "text-neutral-400 hover:text-white hover:bg-white/5"
+                      aria-current={isActive ? "page" : undefined}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                        isActive
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : "text-neutral-400 hover:text-white hover:bg-white/5 border border-transparent"
                       }`}
                     >
                       <item.icon size={16} className={isActive ? "text-emerald-400" : "text-neutral-500"} />
@@ -199,19 +215,23 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden relative flex flex-col bg-[#0f1013]">
+      <div className="flex-1 overflow-hidden relative flex flex-col" style={{ background: "var(--background)" }}>
         {/* Mobile Header Bar */}
-        <div className="md:hidden p-3 border-b border-white/10 glass-panel flex items-center justify-between bg-black/40 backdrop-blur-md">
-          <button 
+        <div className="md:hidden border-b flex items-center justify-between px-4 h-12" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+          <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className="p-1.5 text-neutral-400 hover:text-white transition-colors cursor-pointer"
-            title="Open navigation menu"
+            aria-label="Open admin navigation"
+            aria-expanded={isMobileMenuOpen}
+            className="p-2 text-neutral-400 hover:text-white transition-colors cursor-pointer rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <FiMenu size={18} />
           </button>
           <span className="text-sm font-bold text-white">Admin Panel</span>
-          <Link href="/" className="text-xs text-emerald-400 flex items-center gap-1">
-            <FiChevronLeft /> Back to Hub
+          <Link
+            href="/"
+            className="text-xs text-emerald-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-emerald-500/10 transition-colors min-h-[44px] items-center"
+          >
+            <FiChevronLeft size={14} /> Back to Hub
           </Link>
         </div>
         
