@@ -2,96 +2,17 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { getZohoAccessToken } from "@/lib/zoho-auth"
-
-const ZOHO_DC = process.env.ZOHO_DC || "com"
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
+    await getServerSession(authOptions) // still validate session
     const { searchParams } = new URL(req.url)
     const search = searchParams.get("search") || ""
     const ownerId = searchParams.get("ownerId")
-    const sync = searchParams.get("sync") === "true"
 
-    const localCount = await prisma.lead.count()
-
-    // Auto-sync Leads from Zoho CRM if explicit sync requested OR if local leads count is 0
-    if ((sync || localCount === 0) && session?.user) {
-      try {
-        const token = await getZohoAccessToken()
-        const zRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads?per_page=200`, {
-          headers: { Authorization: `Zoho-oauthtoken ${token}` }
-        })
-        if (zRes.ok) {
-          const zData = await zRes.json()
-          const zLeads = zData.data || []
-          for (const zLead of zLeads) {
-            if (!zLead.id) continue
-            
-            // Map Zoho Lead Owner to User
-            const ownerZohoId = zLead.Owner?.id
-            let localUser = null
-            if (ownerZohoId) {
-              localUser = await prisma.user.findFirst({
-                where: { OR: [{ zohoId: ownerZohoId }, { email: zLead.Owner?.email || "" }] }
-              })
-            }
-            if (!localUser && session.user.id) {
-              localUser = await prisma.user.findUnique({ where: { id: session.user.id } })
-            }
-
-            if (localUser) {
-              await prisma.lead.upsert({
-                where: { zohoId: zLead.id },
-                update: {
-                  company: zLead.Company || zLead.Last_Name || "Unnamed Lead",
-                  firstName: zLead.First_Name || null,
-                  lastName: zLead.Last_Name || null,
-                  email: zLead.Email || null,
-                  phone: zLead.Phone || null,
-                  mobile: zLead.Mobile || null,
-                  title: zLead.Designation || null,
-                  industry: zLead.Industry || null,
-                  status: zLead.Lead_Status || "New Lead",
-                  street: zLead.Street || null,
-                  city: zLead.City || null,
-                  state: zLead.State || null,
-                  zip: zLead.Zip_Code || null,
-                  rawData: zLead,
-                  zohoModifiedTime: zLead.Modified_Time ? new Date(zLead.Modified_Time) : null
-                },
-                create: {
-                  zohoId: zLead.id,
-                  company: zLead.Company || zLead.Last_Name || "Unnamed Lead",
-                  firstName: zLead.First_Name || null,
-                  lastName: zLead.Last_Name || null,
-                  email: zLead.Email || null,
-                  phone: zLead.Phone || null,
-                  mobile: zLead.Mobile || null,
-                  title: zLead.Designation || null,
-                  industry: zLead.Industry || null,
-                  status: zLead.Lead_Status || "New Lead",
-                  ownerId: localUser.id,
-                  street: zLead.Street || null,
-                  city: zLead.City || null,
-                  state: zLead.State || null,
-                  zip: zLead.Zip_Code || null,
-                  rawData: zLead,
-                  zohoModifiedTime: zLead.Modified_Time ? new Date(zLead.Modified_Time) : null
-                }
-              })
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Zoho Lead Sync error:", e)
-      }
-    }
-
-    const where: any = {
-      convertedAccountId: null
-    }
+    // Zoho sync is no longer triggered here.
+    // Use POST /api/sync-now with { tables: ['leads'] } for manual or scheduled syncs.
+    const where: any = { convertedAccountId: null }
 
     if (ownerId && ownerId !== "all" && ownerId !== "All") {
       where.ownerId = ownerId
@@ -103,17 +24,15 @@ export async function GET(req: Request) {
         { firstName: { contains: search, mode: "insensitive" } },
         { lastName: { contains: search, mode: "insensitive" } },
         { phone: { contains: search } },
-        { email: { contains: search, mode: "insensitive" } }
+        { email: { contains: search, mode: "insensitive" } },
       ]
     }
 
     const leads = await prisma.lead.findMany({
       where,
-      include: {
-        owner: { select: { id: true, name: true, email: true } }
-      },
+      include: { owner: { select: { id: true, name: true, email: true } } },
       orderBy: { updatedAt: "desc" },
-      take: 200
+      take: 200,
     })
 
     return NextResponse.json({ success: true, leads })
@@ -121,6 +40,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
+
+
+
 
 export async function POST(req: Request) {
   try {

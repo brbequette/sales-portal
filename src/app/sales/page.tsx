@@ -226,7 +226,8 @@ export default function SalesPage() {
 
   const fetchLeads = async () => {
     try {
-      const res = await fetch("/api/leads?sync=true")
+      // DB-only fetch — no Zoho call. Use Sync button for fresh data.
+      const res = await fetch("/api/leads")
       const d = await res.json()
       if (d.success && d.leads) {
         setLeads(d.leads)
@@ -379,8 +380,14 @@ export default function SalesPage() {
   const handleSync = async () => {
     try {
       setLoading(true)
-      await fetch("/api/zoho-sync", { method: "POST" })
+      // Smart delta-sync: only fetches records changed since last sync
+      await fetch("/api/sync-now", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tables: ["accounts", "leads"], force: true }),
+      })
       await fetchLocalData(1, false, true)
+      await fetchLeads()
       toast.success("Synced with Zoho successfully")
     } catch (err) {
       toast.error("Sync failed")
