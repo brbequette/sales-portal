@@ -15,6 +15,20 @@ export const handler: Handler = async (event) => {
   try {
     const getCampaigns = event.queryStringParameters?.getCampaigns
     const campaignBlastId = event.queryStringParameters?.campaignBlastId
+    const checkOnly = event.queryStringParameters?.checkOnly
+
+    // ── checkOnly mode: returns count + latestUpdatedAt only ──────────────
+    if (checkOnly === 'true') {
+      const [count, latest] = await Promise.all([
+        prisma.smsMessage.count({}),
+        prisma.smsMessage.findFirst({ orderBy: { createdAt: 'desc' }, select: { createdAt: true } })
+      ])
+      return {
+        statusCode: 200,
+        headers: cors,
+        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.createdAt ?? null })
+      }
+    }
 
     if (getCampaigns === "true") {
       const campaigns = await prisma.campaignBlast.findMany({

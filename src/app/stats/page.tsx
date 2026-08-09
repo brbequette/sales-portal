@@ -11,6 +11,7 @@ import {
   FiChevronDown, FiChevronUp, FiX, FiTarget, FiCalendar
 } from "react-icons/fi"
 import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
+import { UpdateBanner } from '@/lib/useStaleCheck'
 
 interface RepPeriodStats {
   revenue: number
@@ -96,6 +97,19 @@ export default function StatsPage() {
   const [sortAsc, setSortAsc] = useState(false)
   const [trackerPeriod, setTrackerPeriod] = useState<"week" | "month">("month")
   const [selectedDataDate, setSelectedDataDate] = useState<string>("")
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  const checkForUpdates = async (sig: string, url: string) => {
+    try {
+      const separator = url.includes('?') ? '&' : '?'
+      const res = await fetch(`${url}${separator}checkOnly=true`)
+      const data = await res.json()
+      if (!data.checkOnly) return
+      const remoteSig = `${data.count}|${data.latestUpdatedAt ?? ''}`
+      if (remoteSig !== sig) setUpdateAvailable(true)
+    } catch {}
+  }
 
   useEffect(() => {
     if (!isInitialized) return
@@ -144,6 +158,10 @@ export default function StatsPage() {
           setCompanyAverages(data.companyAverages || totals)
           setHistoricalVigRates(data.historicalVigRates || [])
           sessionSet(cacheKey, { reps: data.reps || [], totals, averages: data.companyAverages || totals, vigRates: data.historicalVigRates || [] })
+          
+          const sig = `${(data.reps || []).length}|${(data.reps || [])[0]?.repId ?? ''}`
+          setUpdateAvailable(false)
+          setTimeout(() => checkForUpdates(sig, '/api/get-rep-stats'), 2000)
         } else {
           setApiError(data.error || "Failed to load stats")
         }
@@ -155,7 +173,7 @@ export default function StatsPage() {
       }
     }
     fetchStats()
-  }, [isInitialized, currentUser, router, selectedDataDate, selectedPeriod])
+  }, [isInitialized, currentUser, router, selectedDataDate, selectedPeriod, refreshTrigger])
 
   const pastWeeks = useMemo(() => {
     const weeks = []
@@ -281,6 +299,7 @@ export default function StatsPage() {
 
   return (
     <div className="page-content">
+      <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); setRefreshTrigger(n => n + 1) }} accentColor="sky" label="Stats updated" />
 
       {/* ─── Header ─────────────────────────────────── */}
       {refreshing && <div className="h-0.5 bg-sky-500/60 animate-pulse w-full absolute top-0 left-0 rounded" />}

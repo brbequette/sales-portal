@@ -1,4 +1,4 @@
-﻿import { Handler } from "@netlify/functions"
+import { Handler } from "@netlify/functions"
 import { prisma } from "./lib/prisma"
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./lib/zoho-auth"
 
@@ -25,6 +25,20 @@ export const handler: Handler = async (event) => {
     const sortDir = params.sortDir || "desc"
     const page = parseInt(params.page || "1")
     const limit = parseInt(params.limit || "100")
+    const checkOnly = params.checkOnly
+
+    // ── checkOnly mode: returns count + latestUpdatedAt only ──────────────
+    if (checkOnly === 'true') {
+      const [count, latest] = await Promise.all([
+        prisma.salesOrder.count({}),
+        prisma.salesOrder.findFirst({ orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } })
+      ])
+      return {
+        statusCode: 200,
+        headers: cors,
+        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null })
+      }
+    }
 
     if (event.httpMethod === "PUT") {
       const body = JSON.parse(event.body || "{}")

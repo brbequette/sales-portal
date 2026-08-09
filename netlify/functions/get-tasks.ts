@@ -10,7 +10,7 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    const { zohoId, email, refresh, ownerIdFilter, role: passedRole } = event.queryStringParameters || {}
+    const { zohoId, email, refresh, ownerIdFilter, role: passedRole, checkOnly } = event.queryStringParameters || {}
 
     if (!zohoId && !email) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing zohoId or email parameter" }) }
@@ -79,6 +79,20 @@ export const handler: Handler = async (event, context) => {
                         !normalizedRole.includes("administrator") && 
                         !normalizedRole.includes("manager") && 
                         !normalizedRole.includes("collections");
+
+    // ── checkOnly mode: returns count + latestUpdatedAt only ──────────────
+    if (checkOnly === 'true') {
+      const whereClause = (isSalesOnly && user.zohoId) ? { ownerId: user.zohoId } : {}
+      const [count, latest] = await Promise.all([
+        prisma.task.count({ where: whereClause }),
+        prisma.task.findFirst({ where: whereClause, orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } })
+      ])
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null })
+      }
+    }
 
     if (refresh === "true") {
       // Sync tasks from Zoho CRM

@@ -8,6 +8,7 @@ import {
 import { CollectionsModal, Invoice } from "@/components/CollectionsModal"
 import { toast } from "react-hot-toast"
 import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
+import { UpdateBanner } from '@/lib/useStaleCheck'
 import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
 
 function fmt(n: number) {
@@ -17,6 +18,8 @@ function fmt(n: number) {
 export default function CollectionsPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [dataSig, setDataSig] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [selectedRep, setSelectedRep] = useState<string>("all")
   const [collPeriod, setCollPeriod] = useState<PeriodValue>("all")
@@ -29,6 +32,17 @@ export default function CollectionsPage() {
     invoice: Invoice | null;
   }>({ mode: null, invoice: null })
 
+  const checkForUpdates = async (currentSig: string, apiUrl: string) => {
+    try {
+      const separator = apiUrl.includes('?') ? '&' : '?'
+      const res = await fetch(`${apiUrl}${separator}checkOnly=true`)
+      const data = await res.json()
+      if (!data.checkOnly) return
+      const remoteSig = `${data.count}|${data.latestUpdatedAt ?? ''}`
+      if (remoteSig !== currentSig) setUpdateAvailable(true)
+    } catch {}
+  }
+
   const fetchCollections = useCallback(async (force = false) => {
     const cached = !force && sessionGet<Invoice[]>('collections', TTL.TEN_MIN)
     if (cached) { setInvoices(cached); setLoading(false); return }
@@ -40,6 +54,10 @@ export default function CollectionsPage() {
       if (data.success && Array.isArray(data.invoices)) {
         setInvoices(data.invoices)
         sessionSet('collections', data.invoices)
+        const sig = `${data.invoices.length}|${data.invoices[0]?.updated_at ?? ''}`
+        setDataSig(sig)
+        setUpdateAvailable(false)
+        setTimeout(() => checkForUpdates(sig, '/api/get-collections'), 2000)
       } else {
         toast.error(data.error || "Failed to load collections")
       }
@@ -136,6 +154,8 @@ export default function CollectionsPage() {
 
       {/* ─── Body ──────────────────────────────────────────── */}
       <div className="page-body animate-fade-in space-y-4">
+
+        <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); fetchCollections(true) }} accentColor="red" label="Collections data updated" />
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

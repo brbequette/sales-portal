@@ -25,6 +25,7 @@ import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevr
 import { toast } from 'react-hot-toast';
 import { useCampaignProgress } from "@/components/CampaignProgressProvider"
 import { sessionGet, sessionSet, localGet, localSet, TTL } from "@/lib/dataCache"
+import { UpdateBanner } from "@/lib/useStaleCheck"
 
 const optimizeImage = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -807,23 +808,12 @@ export default function SalesPage() {
             </div>
 
             {/* Update Available Banner */}
-            {updateAvailable && (
-              <div className="flex items-center justify-between gap-3 px-4 py-2 bg-emerald-950/40 border border-emerald-500/30 rounded-xl animate-pulse-subtle">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs font-bold text-emerald-300">New account data available</span>
-                </div>
-                <button
-                  onClick={() => {
-                    setUpdateAvailable(false)
-                    fetchLocalData(1, false, true)
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors"
-                >
-                  <FiRefreshCw size={11} /> Update Now
-                </button>
-              </div>
-            )}
+            <UpdateBanner
+              show={updateAvailable}
+              onUpdate={() => { setUpdateAvailable(false); fetchLocalData(1, false, true) }}
+              accentColor="emerald"
+              label="Account data updated"
+            />
 
             {/* Impersonation dropdown for Admin */}
             {isAdminUser && allDbUsers.length > 0 && (

@@ -13,8 +13,21 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod !== "GET") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
-    const { tab = "overdue", repId, refresh, zohoId, email } = event.queryStringParameters || {}
+    const { tab = "overdue", repId, refresh, zohoId, email, checkOnly } = event.queryStringParameters || {}
     const now = new Date()
+
+    // ── checkOnly mode: returns count + latestUpdatedAt only ──────────────
+    if (checkOnly === 'true') {
+      const [count, latest] = await Promise.all([
+        prisma.invoice.count({}),
+        prisma.invoice.findFirst({ orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } })
+      ])
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null })
+      }
+    }
 
     if (refresh === "true" && (zohoId || email)) {
       // --- 60-minute sync cooldown ---

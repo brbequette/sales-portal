@@ -5,6 +5,7 @@ import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap, FiExtern
 import { AccountSlideout } from "@/components/AccountSlideout"
 import { toast } from 'react-hot-toast';
 import { localGet, localSet, TTL } from "@/lib/dataCache"
+import { UpdateBanner } from '@/lib/useStaleCheck'
 
 export default function MessagesPage() {
   const [accounts, setAccounts] = useState<any[]>([])
@@ -42,6 +43,20 @@ export default function MessagesPage() {
   const [loadingCampaigns, setLoadingCampaigns] = useState(false)
   const [zohoNumbers, setOutboundNumbers] = useState<any[]>([])
   const [selectedOutboundNumber, setSelectedOutboundNumber] = useState("")
+
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [dataSig, setDataSig] = useState<string | null>(null)
+
+  const checkForUpdates = async (currentSig: string, apiUrl: string) => {
+    try {
+      const separator = apiUrl.includes('?') ? '&' : '?'
+      const res = await fetch(`${apiUrl}${separator}checkOnly=true`)
+      const data = await res.json()
+      if (!data.checkOnly) return
+      const remoteSig = `${data.count}|${data.latestUpdatedAt ?? ''}`
+      if (remoteSig !== currentSig) setUpdateAvailable(true)
+    } catch {}
+  }
 
   // Check URL parameters on mount — only auto-sync if viewing a specific campaign
   useEffect(() => {
@@ -143,7 +158,12 @@ export default function MessagesPage() {
       const res = await fetch('/api/messages')
       const data = await res.json()
       if (data.success) {
-        setAccounts(data.accounts || [])
+        const accs = data.accounts || []
+        setAccounts(accs)
+        const sig = `${accs.length}|${accs[0]?.updatedAt ?? accs[0]?.lastMessageAt ?? ''}`
+        setDataSig(sig)
+        setUpdateAvailable(false)
+        setTimeout(() => checkForUpdates(sig, '/api/messages'), 2000)
       }
     } catch (e) {
       console.error(e)
@@ -338,6 +358,7 @@ export default function MessagesPage() {
       
       {/* LEFT PANE - Account List */}
       <div className={`w-full md:w-80 flex-shrink-0 flex flex-col border-r border-white/10 ${selectedAccountId ? 'hidden md:flex' : 'flex'}`}>
+        <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); fetchAccounts() }} accentColor="sky" label="New messages available" />
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">

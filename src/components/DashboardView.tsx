@@ -14,6 +14,7 @@ import {
 import { useZoho } from "@/components/ZohoProvider"
 import { MetricDerivationModal, MetricDerivationInfo } from "@/components/MetricDerivationModal"
 import { extractProfit, extractCommissionAmount, extractVigRate, extractDeadCostTotal, extractCustomFieldValue } from "@/lib/custom-field-extractor"
+import { UpdateBanner } from '@/lib/useStaleCheck'
 
 
 // â"€â"€â"€ Types â"€â"€â"€
@@ -308,6 +309,20 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
   const [repStatsActiveTab, setRepStatsActiveTab] = useState<"invoices" | "salesOrders">("invoices")
   const [repStatsSearchQuery, setRepStatsSearchQuery] = useState("")
   const [repStatsTileModalInfo, setRepStatsTileModalInfo] = useState<{ title: string; type: "invoices" | "salesOrders"; docs: any[] } | null>(null)
+  
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  const checkForUpdates = async (sig: string, url: string) => {
+    try {
+      const separator = url.includes('?') ? '&' : '?'
+      const res = await fetch(`${url}${separator}checkOnly=true`)
+      const data = await res.json()
+      if (!data.checkOnly) return
+      const remoteSig = `${data.count}|${data.latestUpdatedAt ?? ''}`
+      if (remoteSig !== sig) setUpdateAvailable(true)
+    } catch {}
+  }
 
   // --- Company-Wide Stats (always all reps, same period) ---
   const [companyTotals, setCompanyTotals] = useState<any>({
@@ -335,6 +350,10 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
       if (d.success) {
         setRepStatsReps(d.reps || [])
         if (d.totals) setRepStatsTotals(d.totals)
+
+        const sig = `${(d.reps || []).length}|${(d.reps || [])[0]?.repId ?? ''}`
+        setUpdateAvailable(false)
+        setTimeout(() => checkForUpdates(sig, `/api/get-rep-stats?${params.toString()}`), 2000)
       }
     } catch (e) {
       console.error("Failed to load rep stats on dashboard", e)
@@ -370,7 +389,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
     fetchRepStatsData()
     fetchCompanyStats()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repStatsSelectedRepId, repStatsPeriod, repStatsStartDate, repStatsEndDate])
+  }, [repStatsSelectedRepId, repStatsPeriod, repStatsStartDate, repStatsEndDate, refreshTrigger])
 
   const repStatsAllInvoices = useMemo(() => {
     let list: any[] = []
@@ -458,7 +477,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repName, isAdmin, repEmail, repStatsSelectedRepId])
+  }, [repName, isAdmin, repEmail, repStatsSelectedRepId, refreshTrigger])
 
   useEffect(() => {
     if (!currentUser?.id) return
@@ -923,6 +942,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
         </div>
 
         {/* Filters Bar: Rep Selector (for Admin) & Date Periods */}
+        <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); setRefreshTrigger(n => n + 1) }} accentColor="orange" label="Dashboard data updated" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 bg-black/40 p-3.5 rounded-xl border border-white/5">
           {/* Admin Rep Selector Dropdown */}
           {isAdmin ? (

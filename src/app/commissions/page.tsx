@@ -10,6 +10,7 @@ import {
   FiChevronDown, FiChevronRight, FiCalendar, FiFilter, FiExternalLink
 } from "react-icons/fi"
 import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
+import { UpdateBanner } from '@/lib/useStaleCheck'
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n || 0)
@@ -60,6 +61,19 @@ export default function CommissionsPage() {
   const [commPeriod, setCommPeriod] = useState<"this_month" | "last_month" | "this_quarter" | "this_year" | "all">("this_year")
   const [commCustomStart, setCommCustomStart] = useState("")
   const [commCustomEnd, setCommCustomEnd] = useState("")
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  const checkForUpdates = async (sig: string, url: string) => {
+    try {
+      const separator = url.includes('?') ? '&' : '?'
+      const res = await fetch(`${url}${separator}checkOnly=true`)
+      const data = await res.json()
+      if (!data.checkOnly) return
+      const remoteSig = `${data.count}|${data.latestUpdatedAt ?? ''}`
+      if (remoteSig !== sig) setUpdateAvailable(true)
+    } catch {}
+  }
 
   const normalizedRole = (user?.role || "").toLowerCase()
   const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("manager")
@@ -100,6 +114,10 @@ export default function CommissionsPage() {
           setSelectedRepId(matchedRep)
         }
         sessionSet(cacheKey, { byRep: data.byRep || {}, years: data.years || [], selectedRepId: matchedRep })
+        
+        const sig = `${Object.keys(data.byRep || {}).length}|${selectedYear}`
+        setUpdateAvailable(false)
+        setTimeout(() => checkForUpdates(sig, `/api/get-commissions?year=${selectedYear}`), 2000)
       } else {
         setError(data.error || "Failed to load commission data")
       }
@@ -113,7 +131,7 @@ export default function CommissionsPage() {
 
   useEffect(() => {
     fetchCommissions()
-  }, [selectedYear, user?.id, user?.email])
+  }, [selectedYear, user?.id, user?.email, refreshTrigger])
 
   const repOptions = useMemo(() => {
     return Object.values(byRep).map((r: any) => ({ id: r.repId, name: r.repName }))
@@ -246,6 +264,7 @@ export default function CommissionsPage() {
 
   return (
     <div className="page-content">
+      <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); setRefreshTrigger(n => n + 1) }} accentColor="indigo" label="Commission data updated" />
 
       {/* ─── Header ─────────────────────────────────── */}
       <div className="page-header">

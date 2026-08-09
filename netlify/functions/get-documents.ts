@@ -24,7 +24,8 @@ export const handler: Handler = async (event, context) => {
       ownerIds = '', 
       sortBy = 'date-desc',
       loadAll = '',
-      startDate = ''
+      startDate = '',
+      checkOnly
     } = event.queryStringParameters || {}
 
     const pageNum = parseInt(page, 10) || 1
@@ -66,6 +67,19 @@ export const handler: Handler = async (event, context) => {
 
     const statusFilterArr = status ? status.split(',').filter(Boolean) : []
     const statusFilters = statusFilterArr.map(s => s.toLowerCase())
+
+    // ── checkOnly mode: returns count + latestUpdatedAt only ──────────────
+    if (checkOnly === 'true') {
+      const [count, latest] = await Promise.all([
+        prisma.invoice.count({ where: invoiceWhere }),
+        prisma.invoice.findFirst({ where: invoiceWhere, orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } })
+      ])
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null })
+      }
+    }
 
     // Fetch data from local database in parallel
     const [quotes, salesOrders, invoices] = await Promise.all([

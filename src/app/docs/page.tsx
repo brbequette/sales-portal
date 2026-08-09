@@ -9,6 +9,7 @@ import {
   FiChevronDown, FiChevronUp, FiRefreshCw, FiExternalLink, 
   FiActivity, FiDollarSign, FiPackage, FiCalendar, FiUser
 } from 'react-icons/fi'
+import { UpdateBanner } from '@/lib/useStaleCheck'
 
 type UnifiedDoc = {
   id: string
@@ -39,6 +40,20 @@ function SalesDocsInner() {
   
   // Stats
   const [stats, setStats] = useState({ invoices: 0, quotes: 0, salesOrders: 0 })
+
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [dataSig, setDataSig] = useState<string | null>(null)
+
+  const checkForUpdates = async (currentSig: string, apiUrl: string) => {
+    try {
+      const separator = apiUrl.includes('?') ? '&' : '?'
+      const res = await fetch(`${apiUrl}${separator}checkOnly=true`)
+      const data = await res.json()
+      if (!data.checkOnly) return
+      const remoteSig = `${data.count}|${data.latestUpdatedAt ?? ''}`
+      if (remoteSig !== currentSig) setUpdateAvailable(true)
+    } catch {}
+  }
 
   // Filters
   const [q, setQ] = useState(searchParams.get('q') || '')
@@ -128,6 +143,11 @@ function SalesDocsInner() {
           })
           setStats({ invoices: iCount, quotes: qCount, salesOrders: sCount })
         }
+        
+        const sig = `${data.docs.length}|${data.docs[0]?.date ?? ''}`
+        setDataSig(sig)
+        setUpdateAvailable(false)
+        setTimeout(() => checkForUpdates(sig, '/api/get-documents'), 2000)
       }
     } catch (error) {
       console.error('Failed to fetch docs', error)
@@ -226,7 +246,8 @@ function SalesDocsInner() {
     <div className="page-content">
 
       {/* ─── Header ─────────────────────────────────── */}
-      <div className="page-header">
+      <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); fetchDocs() }} accentColor="amber" label="Documents updated" />
+      <div className="page-header mt-2">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center justify-center">
             <FiFileText className="text-orange-400" size={17} />

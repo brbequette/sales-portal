@@ -66,6 +66,21 @@ export const handler: Handler = async (event) => {
     const periodParam = params.period || "this_month"
     const customStartDate = params.startDate
     const customEndDate = params.endDate
+    const checkOnly = params.checkOnly
+
+    // ── checkOnly mode: returns count + latestUpdatedAt only ──────────────
+    if (checkOnly === 'true') {
+      const whereClause = repIdFilter !== "all" ? { account: { ownerId: repIdFilter } } : {}
+      const [count, latest] = await Promise.all([
+        prisma.invoice.count({ where: whereClause }),
+        prisma.invoice.findFirst({ where: whereClause, orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } })
+      ])
+      return {
+        statusCode: 200,
+        headers: cors,
+        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null })
+      }
+    }
 
     let now = new Date()
     let rangeStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)

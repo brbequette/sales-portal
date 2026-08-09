@@ -14,6 +14,7 @@ import {
 } from "react-icons/fi"
 import { PhoneLink } from "@/components/PhoneLink"
 import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
+import { UpdateBanner } from '@/lib/useStaleCheck'
 
 // â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 type TaskType     = "Task" | "Call" | "Email" | "Text" | "Processing"
@@ -895,7 +896,7 @@ function FilterDrawer({ open, onClose, filters, setFilters }: {
   )
 }
 
-// â"€â"€â"€ MAIN PAGE â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ─── MAIN PAGE ──────────────────────────────────────────────────────────────
 export default function TasksPage() {
   const { zohoContext: user } = useZoho()
 
@@ -914,7 +915,21 @@ export default function TasksPage() {
   const [taskCustomEnd, setTaskCustomEnd] = useState("")
   const [showCompleted, setShowCompleted] = useState(false)
 
-  // â"€â"€ Load tasks â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [dataSig, setDataSig] = useState<string | null>(null)
+
+  const checkForUpdates = async (currentSig: string, apiUrl: string) => {
+    try {
+      const separator = apiUrl.includes('?') ? '&' : '?'
+      const res = await fetch(`${apiUrl}${separator}checkOnly=true`)
+      const data = await res.json()
+      if (!data.checkOnly) return
+      const remoteSig = `${data.count}|${data.latestUpdatedAt ?? ''}`
+      if (remoteSig !== currentSig) setUpdateAvailable(true)
+    } catch {}
+  }
+
+  // ─── Load tasks ──────────────────────────────────────────────────────────────
   const loadTasks = useCallback(async (forceRefresh = false) => {
     if (!user) return
     if (forceRefresh) setRefreshing(true)
@@ -931,7 +946,12 @@ export default function TasksPage() {
       const res  = await fetch(`/api/get-tasks?${p}`)
       const data = await res.json()
       if (data.tasks) {
-        setTasks(data.tasks.map((t: Task) => ({ ...t, title: t.title || "Untitled Task" })))
+        const processedTasks = data.tasks.map((t: Task) => ({ ...t, title: t.title || "Untitled Task" }))
+        setTasks(processedTasks)
+        const sig = `${processedTasks.length}|${processedTasks[0]?.updatedAt ?? ''}`
+        setDataSig(sig)
+        setUpdateAvailable(false)
+        setTimeout(() => checkForUpdates(sig, '/api/get-tasks'), 2000)
       }
     } catch (err) {
       console.error("Task load error", err)
@@ -943,7 +963,7 @@ export default function TasksPage() {
 
   useEffect(() => { loadTasks() }, [loadTasks])
 
-  // â"€â"€ Update task â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  // ─── Update task ────────────────────────────────────────────────────────────
   const handleUpdate = useCallback(async (zohoId: string, data: Partial<Task>) => {
     try {
       await fetch("/api/update-task", {
@@ -960,7 +980,7 @@ export default function TasksPage() {
     await handleUpdate(zohoId, { status: "Completed" })
   }, [handleUpdate])
 
-  // â"€â"€ Filtered tasks â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  // ─── Filtered tasks ────────────────────────────────────────────────────────
   const filteredTasks = useMemo(() => {
     let list = tasks
 
@@ -1009,14 +1029,14 @@ export default function TasksPage() {
     })
   }, [tasks, category, filters, searchQuery, showCompleted, taskPeriod, taskCustomStart, taskCustomEnd])
 
-  // â"€â"€ Group by category â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  // ─── Group by category ──────────────────────────────────────────────────────
   const groups = useMemo(() => ({
     communication: filteredTasks.filter(t => classifyTask(t) === "communication"),
     sales:         filteredTasks.filter(t => classifyTask(t) === "sales"),
     process:       filteredTasks.filter(t => classifyTask(t) === "process"),
   }), [filteredTasks])
 
-  // â"€â"€ Stats â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  // ─── Stats ──────────────────────────────────────────────────────────────────
   const stats = useMemo(() => ({
     open:     tasks.filter(t => t.status !== "Completed").length,
     overdue:  tasks.filter(t => isOverdue(t)).length,
@@ -1059,9 +1079,10 @@ export default function TasksPage() {
   return (
     <div className="page-content">
 
-      {/* â"€â"€ Header â"€â"€ */}
+      {/* ─── Header ─── */}
       <div className="page-header flex-col items-start gap-3 pb-3">
-        <div className="flex items-center gap-3 mb-3">
+        <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); loadTasks(true) }} accentColor="violet" label="Tasks updated" />
+        <div className="flex items-center gap-3 mb-3 w-full">
           <div className="flex-1">
             <h1 className="page-title">Task Hub</h1>
             {/* Stats pills */}
