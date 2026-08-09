@@ -15,7 +15,7 @@ import { haversineDistance, type GeoPosition, type GeofenceLocation } from './ge
 // -- Thresholds --
 const ENTER_DWELL_MS  = 30_000   // 30s inside fence before clock-in
 const EXIT_DWELL_MS   = 300_000  // 5min outside all fences before clock-out
-const GEOFENCE_POLL_MS = 600_000 // Re-fetch geofences every 10min
+const GEOFENCE_POLL_MS = 3_600_000 // Re-fetch geofences every 60min (geofences change rarely)
 const STORAGE_KEY = 'geofence_monitor_state'
 
 export type MonitorStatus = 'idle' | 'monitoring' | 'denied' | 'unavailable'

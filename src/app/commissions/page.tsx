@@ -9,6 +9,7 @@ import {
   FiCheckCircle, FiClock, FiFileText, FiRefreshCw, FiAlertCircle,
   FiChevronDown, FiChevronRight, FiCalendar, FiFilter, FiExternalLink
 } from "react-icons/fi"
+import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n || 0)
@@ -59,7 +60,12 @@ export default function CommissionsPage() {
   const normalizedRole = (user?.role || "").toLowerCase()
   const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("manager")
 
-  const fetchCommissions = async () => {
+  const fetchCommissions = async (force = false) => {
+    const cacheKey = `commissions-${selectedYear}-${user?.id || user?.email}`
+    if (!force) {
+      const cached = sessionGet<any>(cacheKey, TTL.FIFTEEN_MIN)
+      if (cached) { setByRep(cached.byRep); setAvailableYears(cached.years); setSelectedRepId(cached.selectedRepId); return }
+    }
     setLoading(true)
     setError(null)
     try {
@@ -76,19 +82,18 @@ export default function CommissionsPage() {
         if (data.years && data.years.length > 0) setAvailableYears(data.years)
         
         const repsList = Object.keys(data.byRep || {})
+        let matchedRep = repsList[0]
         if (repsList.length > 0) {
           const userEmail = (user?.email || "").toLowerCase()
           const userId = user?.id
           const userName = (user?.name || "").toLowerCase()
-
-          // Match by ID first, then by email prefix, then by name
-          let matchedRep = repsList.find(r => r === userId) ||
-                           repsList.find(r => (data.byRep[r]?.repName || "").toLowerCase().includes(userName) || userName.includes((data.byRep[r]?.repName || "").toLowerCase())) ||
-                           repsList.find(r => r.toLowerCase().includes(userEmail.split('@')[0])) ||
-                           repsList[0]
-
+          matchedRep = repsList.find(r => r === userId) ||
+                       repsList.find(r => (data.byRep[r]?.repName || "").toLowerCase().includes(userName) || userName.includes((data.byRep[r]?.repName || "").toLowerCase())) ||
+                       repsList.find(r => r.toLowerCase().includes(userEmail.split('@')[0])) ||
+                       repsList[0]
           setSelectedRepId(matchedRep)
         }
+        sessionSet(cacheKey, { byRep: data.byRep || {}, years: data.years || [], selectedRepId: matchedRep })
       } else {
         setError(data.error || "Failed to load commission data")
       }
@@ -230,7 +235,7 @@ export default function CommissionsPage() {
             ))}
             <option value="all">All Time</option>
           </select>
-          <button onClick={() => fetchCommissions()} className="td-btn td-btn-ghost td-btn-sm" title="Refresh">
+          <button onClick={() => fetchCommissions(true)} className="td-btn td-btn-ghost td-btn-sm" title="Refresh">
             <FiRefreshCw className={loading ? "animate-spin" : ""} size={14} />
           </button>
           {currentRepData && (

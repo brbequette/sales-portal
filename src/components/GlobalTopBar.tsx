@@ -57,11 +57,7 @@ export function GlobalTopBar() {
     fetchTopBarTasks()
     const handleTaskUpdated = () => fetchTopBarTasks()
     window.addEventListener("task-updated", handleTaskUpdated)
-    const interval = setInterval(fetchTopBarTasks, 60000)
-    return () => {
-      window.removeEventListener("task-updated", handleTaskUpdated)
-      clearInterval(interval)
-    }
+    return () => window.removeEventListener("task-updated", handleTaskUpdated)
   }, [fetchTopBarTasks])
 
   const searchRef = useRef<HTMLDivElement>(null)
@@ -141,7 +137,6 @@ export function GlobalTopBar() {
           const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Phoenix', year: 'numeric', month: '2-digit', day: '2-digit' })
           const parts = formatter.formatToParts(now)
           const phoenixDate = `${parts.find(p => p.type === 'year')?.value}-${parts.find(p => p.type === 'month')?.value}-${parts.find(p => p.type === 'day')?.value}`
-          
           if (data.entries[0].date === phoenixDate) {
             setTimeEntry(data.entries[0])
           }
@@ -149,8 +144,7 @@ export function GlobalTopBar() {
       } catch (e) {}
     }
     fetchTime()
-    const interval = setInterval(fetchTime, 60000)
-    return () => clearInterval(interval)
+    // No interval — toggle action updates state optimistically via setTimeEntry(data.entry)
   }, [currentUser?.id])
 
   // -- Activity-based Clock-In Prompt --

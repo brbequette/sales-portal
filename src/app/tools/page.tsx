@@ -9,6 +9,7 @@ import {
   FiSearch, FiFileText, FiImage, FiVideo, FiDownload, FiShare2, 
   FiGrid, FiList, FiPlus, FiEdit2, FiTrash2, FiGlobe, FiCheck, FiPackage, FiBox, FiInfo, FiDollarSign, FiTag
 } from "react-icons/fi"
+import { localGet, localSet, localDel, TTL } from "@/lib/dataCache"
 
 interface MediaAsset {
   id: string
@@ -86,14 +87,17 @@ export default function ToolsRepository() {
                   currentUser?.role === "Administrator" || 
                   currentUser?.role === "Admin"
 
-  // 2. Fetch Assets
-  const fetchAssets = async () => {
+  // Fetch Assets (1hr local cache — media assets change rarely)
+  const fetchAssets = async (force = false) => {
+    const cached = !force && localGet<MediaAsset[]>('media-assets', TTL.ONE_HOUR)
+    if (cached) { setAssets(cached); setLoading(false); return }
     setLoading(true)
     try {
       const res = await fetch("/api/get-media-assets")
       const data = await res.json()
       if (data.success) {
         setAssets(data.assets)
+        localSet('media-assets', data.assets)
       }
     } catch (e) {
       console.error("Error fetching media assets:", e)
@@ -102,14 +106,17 @@ export default function ToolsRepository() {
     }
   }
 
-  // Fetch Products
-  const fetchProducts = async () => {
+  // Fetch Products (24hr local cache — product catalog changes rarely)
+  const fetchProducts = async (force = false) => {
+    const cached = !force && localGet<any[]>('products-catalog', TTL.ONE_DAY)
+    if (cached) { setProducts(cached); return }
     setProductsLoading(true)
     try {
       const res = await fetch("/api/get-products")
       const data = await res.json()
       if (data.success) {
         setProducts(data.products)
+        localSet('products-catalog', data.products)
       }
     } catch (e) {
       console.error("Error fetching products:", e)
@@ -197,7 +204,8 @@ export default function ToolsRepository() {
       const data = await res.json()
       if (data.success) {
         setShowModal(false)
-        fetchAssets()
+        localDel('media-assets') // bust cache so fresh list reloads
+        fetchAssets(true)
       } else {
         setErrorMsg(data.message || "An error occurred while saving.")
       }
@@ -223,7 +231,8 @@ export default function ToolsRepository() {
 
       const data = await res.json()
       if (data.success) {
-        fetchAssets()
+        localDel('media-assets') // bust cache so fresh list reloads
+        fetchAssets(true)
       } else {
         alert(data.message || "Failed to delete asset.")
       }

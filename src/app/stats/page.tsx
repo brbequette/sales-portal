@@ -10,6 +10,7 @@ import {
   FiBarChart2, FiTrendingUp, FiDollarSign, FiUsers, FiAward,
   FiChevronDown, FiChevronUp, FiX, FiTarget, FiCalendar
 } from "react-icons/fi"
+import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
 
 interface RepPeriodStats {
   revenue: number
@@ -99,7 +100,12 @@ export default function StatsPage() {
       return
     }
 
-    const fetchStats = async () => {
+    const fetchStats = async (force = false) => {
+      const cacheKey = `rep-stats-${selectedDataDate}-${preferences.showHiddenReps ? '1' : '0'}`
+      if (!force) {
+        const cached = sessionGet<any>(cacheKey, TTL.TEN_MIN)
+        if (cached) { setReps(cached.reps); setCompanyTotals(cached.totals); setCompanyAverages(cached.averages); setHistoricalVigRates(cached.vigRates); return }
+      }
       try {
         setLoading(true)
         const hiddenParam = preferences.showHiddenReps ? "?includeHidden=true" : ""
@@ -125,6 +131,7 @@ export default function StatsPage() {
           setCompanyTotals(totals)
           setCompanyAverages(data.companyAverages || totals)
           setHistoricalVigRates(data.historicalVigRates || [])
+          sessionSet(cacheKey, { reps: data.reps || [], totals, averages: data.companyAverages || totals, vigRates: data.historicalVigRates || [] })
         } else {
           setApiError(data.error || "Failed to load stats")
         }

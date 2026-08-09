@@ -24,6 +24,7 @@ import { DealPipeline } from "@/components/DealPipeline"
 import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiPhone, FiMail, FiMessageSquare, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiAlertCircle, FiBox, FiLayers, FiEye, FiTarget, FiImage, FiUserPlus } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
 import { useCampaignProgress } from "@/components/CampaignProgressProvider"
+import { sessionGet, sessionSet, localGet, localSet, TTL } from "@/lib/dataCache"
 
 const optimizeImage = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -301,31 +302,41 @@ export default function SalesPage() {
   }, [preferences.impersonatedUser, currentUser?.email, currentUser?.role, dbUser?.role, isAdminUser])
 
   const fetchUsers = async () => {
+    const cached = sessionGet<any[]>('users-list', TTL.THIRTY_MIN)
+    if (cached) { setAllDbUsers(cached); return }
     try {
       const res = await fetch("/api/get-users")
       const d = await res.json()
-      if (d.users) setAllDbUsers(d.users)
+      if (d.users) { setAllDbUsers(d.users); sessionSet('users-list', d.users) }
     } catch (e) {}
   }
 
   const fetchCampaignTemplates = async () => {
+    const cached = sessionGet<any[]>('campaign-templates', TTL.THIRTY_MIN)
+    if (cached) { setCampaignTemplates(cached); return }
     try {
       const res = await fetch("/api/admin/campaigns")
       const data = await res.json()
       if (data.success) {
-        setCampaignTemplates(data.templates || [])
+        const templates = data.templates || []
+        setCampaignTemplates(templates)
+        sessionSet('campaign-templates', templates)
       }
     } catch (e) {}
   }
 
   const fetchZohoNumbers = async () => {
+    const cached = localGet<{ numbers: any[]; defaultNumber: string }>('zoho-numbers', TTL.ONE_DAY)
+    if (cached) { setZohoNumbers(cached.numbers); setSelectedZohoNumber(cached.defaultNumber); return }
     try {
       const res = await fetch("/api/manage-zoho-numbers")
       const d = await res.json()
       if (d.success && d.numbers) {
         setZohoNumbers(d.numbers)
         const def = d.numbers.find((n: any) => n.isDefault)
-        setSelectedZohoNumber(def ? def.number : (d.numbers[0]?.number || ""))
+        const defaultNumber = def ? def.number : (d.numbers[0]?.number || "")
+        setSelectedZohoNumber(defaultNumber)
+        localSet('zoho-numbers', { numbers: d.numbers, defaultNumber })
       }
     } catch (e) {}
   }

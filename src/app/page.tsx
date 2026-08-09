@@ -6,6 +6,7 @@ import { DashboardView } from "@/components/DashboardView"
 import { ExecDashboardModal } from "@/components/ExecDashboardModal"
 import { useState, useEffect } from "react"
 import { FiSliders, FiTrendingUp, FiTarget } from "react-icons/fi"
+import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
 
 export default function HomeDashboard() {
   const { zohoContext: currentUser } = useZoho()
@@ -29,10 +30,12 @@ export default function HomeDashboard() {
   useEffect(() => { fetchUsers() }, [])
 
   const fetchUsers = async () => {
+    const cached = sessionGet<any[]>('users-list', TTL.THIRTY_MIN)
+    if (cached) { setAllDbUsers(cached); return }
     try {
       const res = await fetch("/api/get-users")
       const d = await res.json()
-      if (d.users) setAllDbUsers(d.users)
+      if (d.users) { setAllDbUsers(d.users); sessionSet('users-list', d.users) }
     } catch (e) {}
   }
 

@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap, FiExternalLink, FiChevronDown, FiChevronRight, FiCheckCircle, FiAlertCircle } from "react-icons/fi"
+import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap, FiExternalLink, FiChevronDown, FiChevronRight, FiCheckCircle, FiAlertCircle, FiRefreshCw } from "react-icons/fi"
 import { AccountSlideout } from "@/components/AccountSlideout"
 import { toast } from 'react-hot-toast';
+import { localGet, localSet, TTL } from "@/lib/dataCache"
 
 export default function MessagesPage() {
   const [accounts, setAccounts] = useState<any[]>([])
@@ -29,6 +30,7 @@ export default function MessagesPage() {
 
   const [syncing, setSyncing] = useState(false)
   const [syncOffset, setSyncOffset] = useState(0)
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null)
 
   // Campaign & Search States
   const [searchQuery, setSearchQuery] = useState("")
@@ -39,7 +41,7 @@ export default function MessagesPage() {
   const [zohoNumbers, setOutboundNumbers] = useState<any[]>([])
   const [selectedOutboundNumber, setSelectedOutboundNumber] = useState("")
 
-  // Check URL parameters on mount
+  // Check URL parameters on mount — only auto-sync if viewing a specific campaign
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search)
@@ -47,21 +49,28 @@ export default function MessagesPage() {
       if (campaignBlastId) {
         setActiveTab("campaigns")
         setSelectedCampaignId(campaignBlastId)
-      } else {
-        handleSync(0)
       }
+      // No auto-sync on mount — user clicks the sync button when they want fresh data
     }
   }, [])
 
-  // Sync available Zoho numbers
+  // Sync available Zoho numbers (24hr local cache — numbers change rarely)
   useEffect(() => {
+    const cached = localGet<{ numbers: any[]; defaultNumber: string }>('zoho-numbers', TTL.ONE_DAY)
+    if (cached) {
+      setOutboundNumbers(cached.numbers)
+      setSelectedOutboundNumber(cached.defaultNumber)
+      return
+    }
     fetch("/api/manage-zoho-numbers")
       .then(r => r.json())
       .then(d => {
         if (d.success && d.numbers?.length > 0) {
           setOutboundNumbers(d.numbers)
           const def = d.numbers.find((n: any) => n.isDefault)
-          setSelectedOutboundNumber(def ? def.number : d.numbers[0].number)
+          const defaultNumber = def ? def.number : d.numbers[0].number
+          setSelectedOutboundNumber(defaultNumber)
+          localSet('zoho-numbers', { numbers: d.numbers, defaultNumber })
         }
       })
       .catch(console.error)
@@ -93,6 +102,8 @@ export default function MessagesPage() {
       if (!data.success) {
         console.error('Zoho Sync API Error:', data.error)
         toast.error('Could not sync Zoho SMS: ' + data.error)
+      } else {
+        setLastSyncedAt(new Date())
       }
     } catch (e) {
       console.error('Failed to sync Zoho SMS', e)
@@ -324,7 +335,17 @@ export default function MessagesPage() {
             <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
               <FiMessageSquare className="text-emerald-500" /> Messages
             </h1>
-            {syncing && <div className="text-xs text-emerald-500 animate-pulse flex items-center gap-1"><FiZap /> Syncing...</div>}
+            {syncing
+              ? <div className="text-xs text-emerald-500 animate-pulse flex items-center gap-1"><FiZap /> Syncing...</div>
+              : <button
+                  onClick={() => handleSync(0)}
+                  title="Sync latest messages from Zoho"
+                  className="flex items-center gap-1 text-xs text-neutral-500 hover:text-emerald-400 transition-colors"
+                >
+                  <FiRefreshCw size={12} />
+                  <span>{lastSyncedAt ? `Synced ${Math.round((Date.now() - lastSyncedAt.getTime()) / 60000)}m ago` : 'Sync'}</span>
+                </button>
+            }
           </div>
 
           {/* Segmented Control Selector Tabs */}

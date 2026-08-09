@@ -21,7 +21,7 @@ export interface SyncStatusState {
   error: string | null
 }
 
-const POLL_INTERVAL_MS = 5 * 60 * 1000 // re-check staleness every 5 min (DB only, no Zoho)
+
 
 const DEFAULT_TABLE: TableSyncState = {
   lastSyncAt: null,
@@ -95,11 +95,9 @@ export function useSyncStatus() {
     }
   }, [refreshStatus])
 
-  // Initial status load + 5-min polling (DB only, zero Zoho calls)
+  // Initial status load — no interval; user triggers re-check via refresh button
   useEffect(() => {
     refreshStatus()
-    const timer = setInterval(refreshStatus, POLL_INTERVAL_MS)
-    return () => clearInterval(timer)
   }, [refreshStatus])
 
   return { ...state, syncNow, refreshStatus }

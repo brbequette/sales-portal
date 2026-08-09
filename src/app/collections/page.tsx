@@ -7,6 +7,7 @@ import {
 } from "react-icons/fi"
 import { CollectionsModal, Invoice } from "@/components/CollectionsModal"
 import { toast } from "react-hot-toast"
+import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0)
@@ -24,13 +25,16 @@ export default function CollectionsPage() {
     invoice: Invoice | null;
   }>({ mode: null, invoice: null })
 
-  const fetchCollections = useCallback(async () => {
+  const fetchCollections = useCallback(async (force = false) => {
+    const cached = !force && sessionGet<Invoice[]>('collections', TTL.TEN_MIN)
+    if (cached) { setInvoices(cached); setLoading(false); return }
     setLoading(true)
     try {
       const res = await fetch("/api/get-collections")
       const data = await res.json()
       if (data.success && Array.isArray(data.invoices)) {
         setInvoices(data.invoices)
+        sessionSet('collections', data.invoices)
       } else {
         toast.error(data.error || "Failed to load collections")
       }
@@ -105,7 +109,7 @@ export default function CollectionsPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={fetchCollections}
+            onClick={() => fetchCollections(true)}
             disabled={loading}
             className="td-btn td-btn-ghost td-btn-sm"
             title="Refresh"
