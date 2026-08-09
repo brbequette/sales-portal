@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import { Handler } from "@netlify/functions"
 import { getSystemSettings } from "./lib/settings"
-import { prisma } from "./lib/prisma"
+import { prisma, Prisma } from "./lib/prisma"
 
 // Workday calculation helpers
 function getWorkdaysCount(startDate: Date, endDate: Date, holidays: any[]): number {
@@ -130,6 +130,15 @@ export const handler: Handler = async (event) => {
 
     // BUG-003 fix: fetch vig_settings alongside other data so we can replicate
     // the full VIG resolution chain (constantVigEnabled → monthlyVigGoal → doc field → 1.3)
+    // PERF: invoices and salesOrders now use $queryRaw — extracts only needed JSON keys
+    //       at the DB layer instead of hydrating the entire items blob in JS.
+    //       Also reads new computedProfit/deadProfit columns when available (post-migration).
+    const soExcludedStatuses = ['Void','void','VOID','Draft','draft','DRAFT','Cancelled','cancelled','CANCELLED','Invoiced','invoiced','INVOICED','Converted','converted','CONVERTED']
+    const soExcludedSql = Prisma.sql`AND s.status NOT IN (${Prisma.join(soExcludedStatuses)})`
+    const repFilterSql = repIdFilter !== 'all'
+      ? Prisma.sql`AND a."ownerId" = ${repIdFilter}`
+      : Prisma.empty
+
     const [
       settings,
       users,
@@ -168,61 +177,99 @@ export const handler: Handler = async (event) => {
           status: true
         }
       }).catch(() => []),
-      prisma.invoice.findMany({
-        where: {
-          issueDate: {
-            gte: rangeStart,
-            lte: rangeEnd
-          }
-        },
-        select: {
-          id: true,
-          zohoId: true,
-          amount: true,
-          status: true,
-          issueDate: true,
-          items: true,
-          accountId: true,
-          createdAt: true,
-          account: {
-            select: { id: true, name: true, ownerId: true, zohoId: true }
-          }
-        },
-        orderBy: { issueDate: 'desc' }
-      }).catch(() => []),
-      prisma.salesOrder.findMany({
-        where: {
-          orderDate: {
-            gte: rangeStart,
-            lte: rangeEnd
-          },
-          // BUG-005 fix: exclude Invoiced/Converted SOs — the Invoice is the source of truth.
-          // Previously only Void/Draft were excluded, causing double-counting when SOs were converted.
-          NOT: {
-            status: { in: [
-              'Void', 'void', 'VOID',
-              'Draft', 'draft', 'DRAFT',
-              'Cancelled', 'cancelled', 'CANCELLED',
-              'Invoiced', 'invoiced', 'INVOICED',
-              'Converted', 'converted', 'CONVERTED'
-            ]}
-          }
-        },
-        select: {
-          id: true,
-          zohoId: true,
-          amount: true,
-          status: true,
-          orderDate: true,
-          items: true,
-          accountId: true,
-          createdAt: true,
-          account: {
-            select: { id: true, name: true, ownerId: true, zohoId: true }
-          }
-        },
-        orderBy: { orderDate: 'desc' }
-      }).catch(() => []),
+
+      // PERF: $queryRaw — extracts only the scalar JSON keys needed for calc.
+      // Reads computedProfit/deadProfit columns first when populated (fast path).
+      // Falls back to JSON key extraction for legacy rows.
+      prisma.$queryRaw<any[]>(Prisma.sql`
+        SELECT
+          i.id::text,
+          i."zohoId",
+          i.amount,
+          i.status,
+          i."issueDate",
+          i."createdAt",
+          a.id::text          AS "accountId",
+          a.name              AS "accountName",
+          a."ownerId"         AS "accountOwnerId",
+          a."zohoId"          AS "accountZohoId",
+          -- Fast path: pre-computed scalar columns (NULL for legacy rows)
+          i."computedProfit"        AS "computedProfit",
+          i."computedDeadProfit"    AS "computedDeadProfit",
+          i."computedDeadCost"      AS "computedDeadCost",
+          i."computedVigRate"       AS "computedVigRate",
+          i."computedSalesperson"   AS "computedSalesperson",
+          i."computedInvoiceNumber" AS "computedInvoiceNumber",
+          i."computedUpfront"       AS "computedUpfront",
+          i."computedFinal"         AS "computedFinal",
+          -- Fallback: extract only the scalar JSON fields we actually need
+          jsonb_build_object(
+            'salesperson',            i.items->>'salesperson',
+            'invoiceNumber',          i.items->>'invoiceNumber',
+            'invoice_number',         i.items->>'invoice_number',
+            'sub_total',              i.items->>'sub_total',
+            'subTotal',               i.items->>'subTotal',
+            'deadCostTotal',          i.items->>'deadCostTotal',
+            'dead_cost_total',        i.items->>'dead_cost_total',
+            'deadCostPlusVig',        i.items->>'deadCostPlusVig',
+            'deadCostSubjectToVig',   i.items->>'deadCostSubjectToVig',
+            'deadCostNoVig',          i.items->>'deadCostNoVig',
+            'cf_salesperson_vig',     i.items->>'cf_salesperson_vig',
+            'cf_salesperson_vig_unformatted', i.items->>'cf_salesperson_vig_unformatted',
+            'additionalCosts',        i.items->>'additionalCosts',
+            'additional_costs',       i.items->>'additional_costs',
+            'ccFees',                 i.items->>'ccFees',
+            'cc_fees',                i.items->>'cc_fees',
+            'gifts',                  i.items->>'gifts',
+            'gifts_cost',             i.items->>'gifts_cost',
+            'profit',                 i.items->>'profit',
+            'commission',             i.items->>'commission',
+            'cf_commission_amount_unformatted', i.items->>'cf_commission_amount_unformatted'
+          ) AS items
+        FROM "Invoice" i
+        JOIN "Account" a ON a.id = i."accountId"
+        WHERE i."issueDate" >= ${rangeStart} AND i."issueDate" <= ${rangeEnd}
+          AND i.status NOT IN ('Void','void','Draft','draft')
+          ${repFilterSql}
+        ORDER BY i."issueDate" DESC
+      `).catch(() => []),
+
+      // PERF: $queryRaw for SalesOrders — same pattern
+      prisma.$queryRaw<any[]>(Prisma.sql`
+        SELECT
+          s.id::text,
+          s."zohoId",
+          s.amount,
+          s.status,
+          s."orderDate",
+          s."createdAt",
+          a.id::text   AS "accountId",
+          a.name       AS "accountName",
+          a."ownerId"  AS "accountOwnerId",
+          a."zohoId"   AS "accountZohoId",
+          jsonb_build_object(
+            'salesperson',     s.items->>'salesperson',
+            'salesorder_number', s.items->>'salesorder_number',
+            'salesOrderNumber',  s.items->>'salesOrderNumber',
+            'customer_name',   s.items->>'customer_name',
+            'sub_total',       s.items->>'sub_total',
+            'subTotal',        s.items->>'subTotal',
+            'deadCostTotal',   s.items->>'deadCostTotal',
+            'dead_cost_total', s.items->>'dead_cost_total',
+            'additionalCosts', s.items->>'additionalCosts',
+            'gifts',           s.items->>'gifts',
+            'gifts_cost',      s.items->>'gifts_cost',
+            'ccFees',          s.items->>'ccFees',
+            'cc_fees',         s.items->>'cc_fees'
+          ) AS items
+        FROM "SalesOrder" s
+        JOIN "Account" a ON a.id = s."accountId"
+        WHERE s."orderDate" >= ${rangeStart} AND s."orderDate" <= ${rangeEnd}
+          ${soExcludedSql}
+          ${repFilterSql}
+        ORDER BY s."orderDate" DESC
+      `).catch(() => []),
+
       prisma.systemSetting.findUnique({ where: { key: 'vig_settings' } }).catch(() => null)
     ])
 
@@ -361,95 +408,83 @@ export const handler: Handler = async (event) => {
     }
 
     // Process Invoices in range
+    // PERF: inv now comes from $queryRaw — items is a plain scalar JSON object,
+    //       no line_items array. Uses computedProfit/deadProfit columns when available.
     allInvoices.forEach((inv: any) => {
       const items = inv.items as any || {}
-      const cfs = items.custom_fields || []
-      const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
-
       const amount = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount as any) || 0
 
-      // ── Dead cost ─────────────────────────────────────────────────────────
-      // BUG-004 fix: prefer stored split buckets (subjectToVig + noVig) so VIG
-      // is only applied to the correct portion — not the entire dead cost.
-      let deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig || items.dead_cost_subject_to_vig || items.cf_dead_cost_subject_to_vig || 'NaN')
-      let deadCostNoVig = parseFloat(items.deadCostNoVig || items.dead_cost_no_vig || items.cf_dead_cost_no_vig || 'NaN')
+      // ── FAST PATH: use pre-computed scalar columns when available ──────────
+      const hasComputed = inv.computedProfit !== null && inv.computedProfit !== undefined
+      let profit: number, deadProfit: number, deadCost: number, vigRate: number, commission: number
+      let salespersonName: string
+      let matchedUserId: string | null = null
 
-      let deadCost = parseFloat(
-        items.deadCostTotal || items.dead_cost_total || items.deadCost ||
-        items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 'NaN'
-      )
-
-      // If stored split data is present, use it; otherwise fall back to line-item scan / 50% estimate
-      if (!isNaN(deadCostSubjectToVig) && !isNaN(deadCostNoVig)) {
-        deadCost = deadCostSubjectToVig + deadCostNoVig
+      if (hasComputed) {
+        profit      = parseFloat(inv.computedProfit)     || 0
+        deadProfit  = parseFloat(inv.computedDeadProfit) || 0
+        deadCost    = parseFloat(inv.computedDeadCost)   || 0
+        vigRate     = parseFloat(inv.computedVigRate)    || 1.3
+        const upfront = parseFloat(inv.computedUpfront)  || (profit * 0.25)
+        const final   = parseFloat(inv.computedFinal)    || (profit * 0.25)
+        commission  = upfront + final
+        salespersonName = inv.computedSalesperson || items.salesperson || ''
       } else {
-        // Stored split not available — compute dead cost from line items or stored total
-        if (isNaN(deadCost) || deadCost === 0) {
-          if (lineItems.length > 0) {
-            deadCost = lineItems.reduce((sum: number, li: any) => {
-              const qty = parseFloat(li.quantity) || 1
-              const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
-              return sum + (qty * cost)
-            }, 0)
-          }
+        // ── FALLBACK: parse from extracted JSON scalar fields ─────────────────
+        salespersonName = items.salesperson || ''
+
+        // BUG-004 fix: prefer stored VIG-split buckets
+        let deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig || 'NaN')
+        let deadCostNoVig        = parseFloat(items.deadCostNoVig        || 'NaN')
+        deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || 'NaN')
+
+        if (!isNaN(deadCostSubjectToVig) && !isNaN(deadCostNoVig)) {
+          deadCost = deadCostSubjectToVig + deadCostNoVig
+        } else {
+          if (isNaN(deadCost)) deadCost = 0
+          deadCostSubjectToVig = deadCost
+          deadCostNoVig = 0
         }
         if (isNaN(deadCost)) deadCost = 0
-        // Without split data, conservatively treat all dead cost as subject to VIG
-        deadCostSubjectToVig = deadCost
-        deadCostNoVig = 0
+
+        const docDate = inv.issueDate ? new Date(inv.issueDate) : new Date()
+        if (salespersonName) {
+          const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
+          matchedUserId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()] || null
+        }
+        if (!matchedUserId) matchedUserId = inv.accountOwnerId || null
+
+        // BUG-003 fix: full VIG priority chain
+        vigRate = resolveVigRateSync(docDate, salespersonName, matchedUserId,
+          items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted)
+
+        const deadCostPlusVig = parseFloat(items.deadCostPlusVig || 'NaN') ||
+          ((deadCostSubjectToVig * vigRate) + deadCostNoVig)
+
+        const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || 0) || 0
+        const ccFees          = parseFloat(items.ccFees          || items.cc_fees          || 0) || 0
+
+        deadProfit = amount - deadCost - additionalCosts - ccFees
+        profit     = amount - deadCostPlusVig - additionalCosts - ccFees
+        commission = parseFloat(items.commission || items.cf_commission_amount_unformatted || 'NaN') ||
+          (profit * 0.50)
       }
-      if (isNaN(deadCost)) deadCost = 0
 
-      const docDate = inv.issueDate ? new Date(inv.issueDate) : new Date()
-      const salespersonName = items.salesperson || ""
-
-      // BUG-003 fix: resolve matched user ID for VIG lookup
-      let matchedUserId: string | null = null
-      if (salespersonName) {
+      // Resolve repId from salesperson name or account owner
+      if (!matchedUserId && salespersonName) {
         const normalized = salespersonName.replace(/\s+/g, ' ').trim().toLowerCase()
         matchedUserId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()] || null
       }
-      if (!matchedUserId && inv.account?.ownerId) {
-        matchedUserId = inv.account.ownerId
-      }
-
-      // BUG-003 fix: use full VIG priority chain (matches get-commissions.ts logic)
-      const vigRate = resolveVigRateSync(
-        docDate,
-        salespersonName,
-        matchedUserId,
-        items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted
-      )
-
-      // BUG-004 fix: apply VIG only to the subject-to-VIG portion
-      const deadCostPlusVig = (
-        parseFloat(items.deadCostPlusVig || items.dead_cost_plus_vig || 'NaN') ||
-        ((deadCostSubjectToVig * vigRate) + deadCostNoVig)
-      ) || 0
-
-      const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
-      const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
-
-      const deadProfit = amount - deadCost - additionalCosts - ccFees
-      const profit = amount - deadCostPlusVig - additionalCosts - ccFees
-
-      const commission = (
-        parseFloat(items.commission) ||
-        parseFloat(items.cf_commission_amount_unformatted) ||
-        parseFloat(items.cf_commision_amount_unformatted) ||
-        (profit * 0.50)
-      ) || 0
-
-      let repId = matchedUserId || unassignedId
+      if (!matchedUserId) matchedUserId = inv.accountOwnerId || null
+      const repId = matchedUserId || unassignedId
 
       const invStatusLower = (inv.status || '').toLowerCase()
       if (repStatsMap[repId] && invStatusLower !== 'void' && invStatusLower !== 'draft') {
-        repStatsMap[repId].revenue += amount
-        repStatsMap[repId].profit += profit
+        repStatsMap[repId].revenue    += amount
+        repStatsMap[repId].profit     += profit
         repStatsMap[repId].deadProfit += deadProfit
         repStatsMap[repId].commissions += commission
         repStatsMap[repId].invoiceCount++
-        // Track weekly revenue (always based on current week, regardless of period filter)
         const invDateForWeek = inv.issueDate ? new Date(inv.issueDate) : null
         if (invDateForWeek && invDateForWeek >= weekMonday && invDateForWeek <= weekSunday) {
           repStatsMap[repId].weeklyRevenue += amount
@@ -457,49 +492,36 @@ export const handler: Handler = async (event) => {
         repStatsMap[repId].invoices.push({
           id: inv.id,
           zohoId: inv.zohoId,
-          accountZohoId: inv.account?.zohoId || null,
-          invoiceNumber: items.invoiceNumber || items.invoice_number || inv.zohoId || inv.id,
+          accountZohoId: inv.accountZohoId || null,
+          invoiceNumber: inv.computedInvoiceNumber || items.invoiceNumber || items.invoice_number || inv.zohoId || inv.id,
           date: inv.issueDate || inv.createdAt,
-          customerName: inv.account?.name || "Unknown Customer",
-          repName: repStatsMap[repId]?.repName || "",
+          customerName: inv.accountName || 'Unknown Customer',
+          repName: repStatsMap[repId]?.repName || '',
           subtotal: amount,
-          deadProfit: deadProfit,
-          profit: profit,
-          commission: commission,
-          status: inv.status || "Paid"
+          deadProfit,
+          profit,
+          commission,
+          status: inv.status || 'Paid'
         })
       }
     })
 
     // Process Sales Orders in range
+    // PERF: so now comes from $queryRaw — items is a scalar JSON object (no line_items)
     allSalesOrders.forEach((so: any) => {
       const items = so.items as any || {}
-      const cfs = items.custom_fields || []
-      const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
-
       const amount = parseFloat(items.sub_total || items.subTotal) || parseFloat(so.amount as any) || 0
 
-      let deadCost = parseFloat(
-        items.deadCostTotal || items.dead_cost_total || items.deadCost || 'NaN'
-      )
-      if ((isNaN(deadCost) || deadCost === 0) && lineItems.length > 0) {
-        deadCost = lineItems.reduce((sum: number, li: any) => {
-          const qty = parseFloat(li.quantity) || 1
-          const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
-          return sum + (qty * cost)
-        }, 0)
-      }
-      if (isNaN(deadCost)) deadCost = 0
+      const deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || 0) || 0
 
       // BUG-010 fix: subtract additionalCosts, giftsCost, and ccFees from SO deadProfit
-      // Previously: deadProfit = amount - deadCost (missing all deductions)
-      const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
-      const giftsCost = parseFloat(items.gifts || items.gifts_cost || items.giftCost || 0) || 0
-      const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
+      const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || 0) || 0
+      const giftsCost       = parseFloat(items.gifts || items.gifts_cost || 0) || 0
+      const ccFees          = parseFloat(items.ccFees || items.cc_fees || 0) || 0
 
-      const deadProfit = amount - deadCost - additionalCosts - giftsCost - ccFees
+      const deadProfit    = amount - deadCost - additionalCosts - giftsCost - ccFees
       const estCommission = deadProfit * 0.50
-      const salespersonName = items.salesperson || ""
+      const salespersonName = items.salesperson || ''
 
       let repId = unassignedId
       if (salespersonName) {
@@ -507,9 +529,7 @@ export const handler: Handler = async (event) => {
         const matchedId = userNameToIdMap[normalized] || userNameToIdMap[salespersonName.toLowerCase().trim()]
         if (matchedId) repId = matchedId
       }
-      if (repId === unassignedId) {
-        repId = so.account?.ownerId || unassignedId
-      }
+      if (repId === unassignedId) repId = so.accountOwnerId || unassignedId
 
       const soStatusLower = (so.status || '').toLowerCase()
       if (repStatsMap[repId] && soStatusLower !== 'void' && soStatusLower !== 'draft') {

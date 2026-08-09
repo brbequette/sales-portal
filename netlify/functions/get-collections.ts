@@ -1,7 +1,6 @@
 import { Handler } from "@netlify/functions"
 import { syncRecentBooksInvoices } from "./lib/zoho-books"
-
-import { prisma } from "./lib/prisma"
+import { prisma, Prisma } from "./lib/prisma"
 
 export const handler: Handler = async (event) => {
   const cors = {
@@ -40,12 +39,9 @@ export const handler: Handler = async (event) => {
         console.log('Collections sync skipped — cooldown active (last sync:', lastSync!.value, ')')
       } else {
         try {
-          // Only sync invoice statuses from Books — the heavy CRM account sync is handled by get-accounts
           console.log('Collections: syncing recent invoice statuses from Zoho Books...')
           await syncRecentBooksInvoices()
           console.log('Collections: Books invoice status sync complete.')
-
-          // Record successful sync timestamp for cooldown
           await prisma.systemSetting.upsert({
             where: { key: COOLDOWN_KEY },
             update: { value: new Date().toISOString() },
@@ -54,81 +50,77 @@ export const handler: Handler = async (event) => {
         } catch (zohoError) {
           console.error("Failed to sync with Zoho Books from collections page:", zohoError)
         }
-      } // end cooldown else
+      }
     }
 
-    let invoices: any[]
+    // PERF: $queryRaw replaces three separate findMany(include:{account:{include:{owner:true}}}) calls.
+    // Selects only the 8 columns used in the response shape, joins Account+User in SQL,
+    // and pushes repId filter into WHERE instead of post-filtering a full JS array.
+    const EXCLUDED_STATUSES = ['Paid','Closed','Void','Voided','Draft','Writeoff','Write_off','Write Off','Bad Debt','paid','closed','void','voided','draft','writeoff','write_off','write off','bad debt']
 
+    const repFilterSql = repId
+      ? Prisma.sql`AND a."ownerId" = ${repId}`
+      : Prisma.empty
+
+    let tabFilterSql: any
     if (tab === "all") {
-      // All Outstanding: unpaid status
-      invoices = await prisma.invoice.findMany({
-        where: {
-          status: { notIn: ["Paid", "Closed", "Void", "Voided", "Draft", "Writeoff", "Write_off", "Write Off", "Bad Debt", "paid", "closed", "void", "voided", "draft", "writeoff", "write_off", "write off", "bad debt"] }
-        },
-        include: {
-          account: {
-            include: { owner: true }
-          }
-        },
-        orderBy: { dueDate: "asc" },
-      })
+      tabFilterSql = Prisma.sql`AND i.status NOT IN (${Prisma.join(EXCLUDED_STATUSES)})`
     } else if (tab === "overdue") {
-      // Overdue: status contains "Overdue" OR (not Paid and past due date)
-      invoices = await prisma.invoice.findMany({
-        where: {
-          AND: [
-            { status: { notIn: ["Paid", "Closed", "Void", "Voided", "Draft", "Writeoff", "Write_off", "Write Off", "Bad Debt", "paid", "closed", "void", "voided", "draft", "writeoff", "write_off", "write off", "bad debt"] } },
-            {
-              OR: [
-                // Explicit Overdue status
-                { status: { contains: "Overdue", mode: "insensitive" } },
-                // Past due with unpaid status
-                {
-                  dueDate: { lt: now },
-                },
-              ]
-            }
-          ]
-        },
-        include: {
-          account: {
-            include: { owner: true }
-          }
-        },
-        orderBy: { dueDate: "asc" },
-      })
+      tabFilterSql = Prisma.sql`
+        AND i.status NOT IN (${Prisma.join(EXCLUDED_STATUSES)})
+        AND (
+          i.status ILIKE '%overdue%'
+          OR i."dueDate" < ${now}
+        )`
     } else {
-      // Current: unpaid and not overdue
-      invoices = await prisma.invoice.findMany({
-        where: {
-          status: { notIn: ["Paid", "Closed", "Void", "Voided", "Draft", "Writeoff", "Write_off", "Write Off", "Bad Debt", "paid", "closed", "void", "voided", "draft", "writeoff", "write_off", "write off", "bad debt"] },
-          AND: [
-            {
-              NOT: {
-                status: { contains: "Overdue", mode: "insensitive" }
-              }
-            },
-            {
-              OR: [
-                { dueDate: { gte: now } },
-                { dueDate: null },
-              ]
-            }
-          ]
-        },
-        include: {
-          account: {
-            include: { owner: true }
-          }
-        },
-        orderBy: { dueDate: "asc" },
-      })
+      // current: unpaid, not overdue, not past due
+      tabFilterSql = Prisma.sql`
+        AND i.status NOT IN (${Prisma.join(EXCLUDED_STATUSES)})
+        AND i.status NOT ILIKE '%overdue%'
+        AND (i."dueDate" >= ${now} OR i."dueDate" IS NULL)`
     }
 
-    // Filter by rep
-    if (repId) {
-      invoices = invoices.filter(inv => inv.account?.ownerId === repId)
-    }
+    const invoices: any[] = await prisma.$queryRaw<any[]>(Prisma.sql`
+      SELECT
+        i.id::text,
+        i."zohoId",
+        i.amount,
+        i.balance,
+        i.status,
+        i."issueDate",
+        i."dueDate",
+        i."createdAt",
+        -- Account fields
+        a.id::text        AS "accountId",
+        a."zohoId"        AS "accountZohoId",
+        a.name            AS "accountName",
+        a."billingCity",
+        a."billingState",
+        a.quality         AS "accountQuality",
+        -- Owner (salesperson) fields
+        u.id::text        AS "ownerId",
+        u.name            AS "ownerName",
+        u.email           AS "ownerEmail",
+        u."zohoId"        AS "ownerZohoId",
+        -- Computed/fallback salesperson from items JSON
+        COALESCE(i.items->>'salesperson', u.name) AS "salesperson",
+        -- Only pull the minimal JSON fields we need
+        jsonb_build_object(
+          'invoiceNumber',   i.items->>'invoiceNumber',
+          'invoice_number',  i.items->>'invoice_number',
+          'booksInvoiceId',  i.items->>'booksInvoiceId',
+          'profit',          i.items->>'profit',
+          'deadCostTotal',   i.items->>'deadCostTotal',
+          'shippingCharge',  i.items->>'shippingCharge'
+        ) AS items
+      FROM "Invoice" i
+      JOIN "Account" a ON a.id = i."accountId"
+      LEFT JOIN "User" u ON u.id = a."ownerId"
+      WHERE 1=1
+        ${tabFilterSql}
+        ${repFilterSql}
+      ORDER BY i."dueDate" ASC NULLS LAST
+    `).catch(() => [])
 
     const daysOverdue = (dueDate: Date | null) => {
       if (!dueDate) return 0
@@ -137,35 +129,38 @@ export const handler: Handler = async (event) => {
 
     const formatted = invoices.map(inv => {
       const items = inv.items as any
-      const salespersonVal = items?.salesperson || inv.account?.owner?.name || "Unassigned"
+      // PERF: fields now come from $queryRaw flat projection — no nested .account.owner chain
+      const salespersonVal = inv.salesperson || inv.ownerName || "Unassigned"
+      const dueDateVal  = inv.dueDate  ? new Date(inv.dueDate).toISOString().split("T")[0]  : null
+      const issueDateVal = inv.issueDate ? new Date(inv.issueDate).toISOString().split("T")[0] : null
       return {
         id: inv.id,
         zohoId: inv.zohoId,
         invoice_id: inv.zohoId,
         invoice_number: items?.invoiceNumber || items?.invoice_number || inv.zohoId?.slice(-6) || "—",
-        customer_name: inv.account?.name || "Unknown",
-        customer_id: inv.account?.zohoId || inv.accountId,
+        customer_name: inv.accountName || "Unknown",
+        customer_id: inv.accountZohoId || inv.accountId,
         salesperson_name: salespersonVal,
-        salesperson_id: inv.account?.owner?.id,
-        salesperson_zoho_id: inv.account?.owner?.zohoId || null,
-        salesperson_email: inv.account?.owner?.email || null,
-        account_owner_name: inv.account?.owner?.name || "Unassigned",
-        account_owner_id: inv.account?.owner?.id || null,
-        account_owner_zoho_id: inv.account?.owner?.zohoId || null,
-        account_owner_email: inv.account?.owner?.email || null,
-        due_date: inv.dueDate ? inv.dueDate.toISOString().split("T")[0] : null,
-        issue_date: inv.issueDate ? inv.issueDate.toISOString().split("T")[0] : null,
-        balance: inv.balance ?? inv.amount,  // BUG-008 fix: use remaining balance, not full invoice amount
+        salesperson_id: inv.ownerId,
+        salesperson_zoho_id: inv.ownerZohoId || null,
+        salesperson_email: inv.ownerEmail || null,
+        account_owner_name: inv.ownerName || "Unassigned",
+        account_owner_id: inv.ownerId || null,
+        account_owner_zoho_id: inv.ownerZohoId || null,
+        account_owner_email: inv.ownerEmail || null,
+        due_date: dueDateVal,
+        issue_date: issueDateVal,
+        balance: inv.balance ?? inv.amount,  // BUG-008 fix: remaining balance, not full amount
         total: inv.amount,
         status: inv.status,
-        days_overdue: daysOverdue(inv.dueDate),
+        days_overdue: daysOverdue(inv.dueDate ? new Date(inv.dueDate) : null),
         books_invoice_id: items?.booksInvoiceId || null,
-        profit: items?.profit || 0,
-        dead_cost: items?.deadCostTotal || 0,
-        customer_city: inv.account?.billingCity || null,
-        customer_state: inv.account?.billingState || null,
+        profit: parseFloat(items?.profit || 0) || 0,
+        dead_cost: parseFloat(items?.deadCostTotal || 0) || 0,
+        customer_city: inv.billingCity || null,
+        customer_state: inv.billingState || null,
         shipping_charge: items?.shippingCharge ?? null,
-        account_quality: inv.account?.quality || null,
+        account_quality: inv.accountQuality || null,
       }
     })
 

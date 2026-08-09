@@ -312,6 +312,23 @@ model Invoice {
   @@index([syncConflict])
   @@index([pendingZohoFetch])
   @@index([lastSyncedAt])
+  // PERF: fast range + status queries for get-rep-stats
+  @@index([issueDate, status, accountId])
+  // PERF: fast due-date + status queries for get-collections
+  @@index([dueDate, status])
+
+  // ── Denormalized computed columns (populated by process-invoice-costs) ──────
+  // Storing these as real columns avoids parsing the items JSON blob on every
+  // request. get-rep-stats and get-collections read these directly via $queryRaw.
+  // All nullable — rows processed before this migration fall back to JSON parsing.
+  computedProfit        Float?   // after-VIG net profit
+  computedDeadProfit    Float?   // pre-VIG gross profit (deadCost subtracted from amount)
+  computedDeadCost      Float?   // total dead cost (subject-to-VIG + no-VIG)
+  computedVigRate       Float?   // resolved VIG rate applied to this invoice
+  computedSalesperson   String?  // salesperson name string
+  computedInvoiceNumber String?  // invoice/document number
+  computedUpfront       Float?   // upfront commission half
+  computedFinal         Float?   // final commission half
 }
 
 model Note {
