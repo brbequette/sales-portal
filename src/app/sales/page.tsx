@@ -403,56 +403,63 @@ export default function SalesPage() {
       const emailQuery = userEmail ? `&email=${encodeURIComponent(userEmail)}` : ""
       const roleQuery = effectiveRole ? `&role=${encodeURIComponent(effectiveRole)}` : ""
 
-      let allFetchedAccounts: any[] = []
-      let currentPage = 1
-      let hasMoreToFetch = true
+      // --- PERF: Render first page immediately, load rest silently in background ---
+      const firstRes = await fetch(`/api/get-accounts?page=1&limit=200${emailQuery}${roleQuery}`)
+      const firstData = await firstRes.json()
+      const firstBatch: any[] = firstData.accounts || []
+      const serverHasMore = firstData.pagination?.hasMore || firstData.hasMore || false
 
-      while (hasMoreToFetch) {
-        const res = await fetch(`/api/get-accounts?page=${currentPage}&limit=1000${emailQuery}${roleQuery}`)
-        const data = await res.json()
-
-        if (data.accounts || data.success) {
-          const batch = data.accounts || []
-          allFetchedAccounts = [...allFetchedAccounts, ...batch]
-
-          const serverHasMore = data.pagination?.hasMore || data.hasMore || false
-          if (serverHasMore && batch.length > 0 && currentPage < 20) {
-            currentPage++
-          } else {
-            hasMoreToFetch = false
-          }
-        } else {
-          hasMoreToFetch = false
-        }
-      }
-
-      setAccounts(allFetchedAccounts)
-      setAccountsTotalCount(allFetchedAccounts.length)
-      setAccountsHasMore(false)
+      setAccounts(firstBatch)
+      setAccountsTotalCount(firstData.pagination?.totalCount || firstBatch.length)
+      setAccountsHasMore(serverHasMore)
+      setLoading(false) // ← renders HERE, not after all pages done
 
       const emailParam = userEmail || currentUser?.email || dbUser?.email || ""
       let fetchedTasks: any[] = []
-      if (emailParam) {
-        const tRes = await fetch(`/api/get-tasks?email=${encodeURIComponent(emailParam)}&ownerIdFilter=${ownerFilter}${triggerRefresh ? "&refresh=true" : ""}`)
-        const tData = await tRes.json()
-        if (tData.tasks) {
-          fetchedTasks = tData.tasks
-          setTasks(fetchedTasks)
-        }
-      }
+      const tasksPromise = emailParam
+        ? fetch(`/api/get-tasks?email=${encodeURIComponent(emailParam)}&ownerIdFilter=${ownerFilter}${triggerRefresh ? "&refresh=true" : ""}`)
+            .then(r => r.json())
+            .then(tData => { if (tData.tasks) { fetchedTasks = tData.tasks; setTasks(fetchedTasks) } })
+            .catch(() => {})
+        : Promise.resolve()
 
-      // Cache the result for 10 minutes and set the freshness signature
-      sessionSet(cacheKey, { accounts: allFetchedAccounts, tasks: fetchedTasks })
-      const sig = `${allFetchedAccounts.length}|${allFetchedAccounts[0]?.updatedAt ?? ''}`
-      setUpdateCheckSig(sig)
-      setUpdateAvailable(false)
+      if (serverHasMore) {
+        let allAccounts = [...firstBatch]
+        let currentPage = 2
+        let hasMoreToFetch = true
+        while (hasMoreToFetch && currentPage <= 20) {
+          try {
+            const res = await fetch(`/api/get-accounts?page=${currentPage}&limit=200${emailQuery}${roleQuery}`)
+            const data = await res.json()
+            const batch: any[] = data.accounts || []
+            if (batch.length === 0) { hasMoreToFetch = false; break }
+            allAccounts = [...allAccounts, ...batch]
+            setAccounts([...allAccounts])
+            setAccountsTotalCount(data.pagination?.totalCount || allAccounts.length)
+            if (!(data.pagination?.hasMore || data.hasMore)) hasMoreToFetch = false
+            else currentPage++
+          } catch { hasMoreToFetch = false }
+        }
+        setAccountsHasMore(false)
+        await tasksPromise
+        sessionSet(cacheKey, { accounts: allAccounts, tasks: fetchedTasks })
+        const sig = `${allAccounts.length}|${allAccounts[0]?.updatedAt ?? ''}`
+        setUpdateCheckSig(sig)
+        setUpdateAvailable(false)
+      } else {
+        await tasksPromise
+        sessionSet(cacheKey, { accounts: firstBatch, tasks: fetchedTasks })
+        const sig = `${firstBatch.length}|${firstBatch[0]?.updatedAt ?? ''}`
+        setUpdateCheckSig(sig)
+        setUpdateAvailable(false)
+      }
     } catch (err: any) {
       console.error(err)
       setApiError("Failed to load accounts and tasks")
-    } finally {
       setLoading(false)
     }
   }
+
 
   const handleSync = async () => {
     try {

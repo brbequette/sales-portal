@@ -981,254 +981,157 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
-    // Scoping query:
-    // 1. Account Owner can see all docs for their owned accounts.
-    // 2. Sales rep can see any accounts where they are the salesperson on any invoice, quote, or salesOrder, with minimal account info if they do not own the account.
-    // To support this, we must fetch accounts, quotes, and salesOrders, plus the items inside invoices.
-    
-    let dbAccounts: any[] = [];
-    if (isSalesOnly && user) {
-      // Sales rep: fetch accounts strictly owned by user id, zohoId, email, or owner relation
-      const ownerIds = [user.id, user.zohoId, user.email].filter(Boolean) as string[];
-      const salesRepWhere: any = {
-        OR: [
-          { ownerId: { in: ownerIds } },
-          { owner: { id: { in: ownerIds } } },
-          { owner: { zohoId: { in: ownerIds } } }
-        ]
-      };
-      if (user.email) {
-        salesRepWhere.OR.push({ owner: { email: { equals: user.email, mode: 'insensitive' } } });
-      }
-      if (search) {
-        salesRepWhere.name = { contains: search, mode: 'insensitive' };
-      }
-      if (statusFilter) {
-        salesRepWhere.status = statusFilter;
-      } else {
-        salesRepWhere.status = { notIn: ["Inactive", "Do Not Contact", "DNR"] };
-      }
-      const totalCount = await prisma.account.count({ where: salesRepWhere });
-      dbAccounts = await prisma.account.findMany({
-        where: salesRepWhere,
-        orderBy: { name: 'asc' },
-        skip: (page - 1) * PAGE_SIZE,
-        take: PAGE_SIZE,
-        select: {
-          id: true,
-          zohoId: true,
-          name: true,
-          tags: true,
-          status: true,
-          quality: true,
-          lastCalledAt: true,
-          lastPurchaseAt: true,
-          ownerId: true,
-          industry: true,
-          timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true, shippingStreet: true, shippingCity: true, shippingState: true, shippingZip: true, bladeSizes: true, materialsCut: true, currentSupplier: true, averageBladeCost: true, crewCount: true, bladesPerOrder: true, improvementPriority: true,
-          invoices: {
-            select: {
-              id: true, zohoId: true, amount: true, status: true, items: true, issueDate: true, createdAt: true,
-              ...(wantDocs ? { dueDate: true } : {})
-            }
-          },
-          ...(wantDocs ? {
-            quotes: { select: { id: true, zohoId: true, amount: true, status: true, items: true, createdAt: true } },
-            salesOrders: { select: { id: true, zohoId: true, amount: true, status: true, items: true, orderDate: true, createdAt: true } }
-          } : {}),
-          contacts: {
-            select: {
-              phone: true, mobilePhone: true, isPrimary: true, firstName: true, lastName: true, mailingStreet: true, mailingCity: true, mailingState: true, mailingZip: true
-            }
-          },
-          owner: {
-            select: { id: true, name: true, email: true, role: true }
-          }
-        }
-      });
-      (dbAccounts as any)._totalCount = totalCount;
+    // PERF: single $queryRaw does all SUM/COUNT/json_agg in PostgreSQL.
+    // Static status exclusion list is embedded as a literal SQL string (safe — not user input).
+    // Parameterized values (owner IDs, search, status) use Prisma.sql interpolation.
 
-    } else {
-      // Admin / Manager / Collections: can see all
-      let adminWhere: any = {};
-      if (ownerIdFilter && 
-          ownerIdFilter !== "all" && 
-          ownerIdFilter !== "All" && 
-          ownerIdFilter.toLowerCase() !== "myself" && 
-          !ownerIdFilter.toLowerCase().includes("myself")
-      ) {
-        const matchingUsers = await prisma.user.findMany({
-          where: {
-            OR: [
-              { id: ownerIdFilter },
-              { zohoId: ownerIdFilter },
-              { email: { equals: ownerIdFilter, mode: 'insensitive' } },
-              { name: { contains: ownerIdFilter, mode: 'insensitive' } }
-            ]
-          }
-        });
-        if (matchingUsers.length > 0) {
-          const ids = matchingUsers.flatMap(u => [u.id, u.zohoId, u.email]).filter(Boolean) as string[];
-          adminWhere.OR = [
-            { ownerId: { in: ids } },
-            { owner: { name: { contains: ownerIdFilter, mode: 'insensitive' } } }
-          ];
-        } else {
-          adminWhere.OR = [
-            { ownerId: ownerIdFilter },
-            { owner: { name: { contains: ownerIdFilter, mode: 'insensitive' } } }
-          ];
+    // Build scope filter
+    let scopeSql: Prisma.Sql = Prisma.empty
+    if (isSalesOnly && user) {
+      const ownerIds = [user.id, user.zohoId, user.email].filter(Boolean) as string[]
+      scopeSql = Prisma.sql`AND a."ownerId" = ANY(ARRAY[${Prisma.join(ownerIds)}]::text[])`
+    } else if (ownerIdFilter && ownerIdFilter !== 'all' && ownerIdFilter !== 'All' && !ownerIdFilter.toLowerCase().includes('myself')) {
+      const matchingUsers = await prisma.user.findMany({
+        where: {
+          OR: [
+            { id: ownerIdFilter },
+            { zohoId: ownerIdFilter },
+            { email: { equals: ownerIdFilter, mode: 'insensitive' } },
+            { name: { contains: ownerIdFilter, mode: 'insensitive' } }
+          ]
         }
+      })
+      if (matchingUsers.length > 0) {
+        const ids = matchingUsers.flatMap((u: any) => [u.id, u.zohoId, u.email].filter(Boolean)) as string[]
+        scopeSql = Prisma.sql`AND a."ownerId" = ANY(ARRAY[${Prisma.join(ids)}]::text[])`
       }
-      
-      if (search) adminWhere.name = { contains: search, mode: 'insensitive' };
-      if (statusFilter) {
-        adminWhere.status = statusFilter;
-      } else {
-        adminWhere.status = { notIn: ["Inactive", "Do Not Contact", "DNR"] };
-      }
-      const totalCount = await prisma.account.count({ where: adminWhere });
-      dbAccounts = await prisma.account.findMany({
-        where: adminWhere,
-        orderBy: { name: 'asc' },
-        skip: (page - 1) * PAGE_SIZE,
-        take: PAGE_SIZE,
-        select: {
-          id: true,
-          zohoId: true,
-          name: true,
-          tags: true,
-          status: true,
-          quality: true,
-          lastCalledAt: true,
-          lastPurchaseAt: true,
-          ownerId: true,
-          industry: true,
-          timeZone: true, billingStreet: true, billingCity: true, billingState: true, billingZip: true, shippingStreet: true, shippingCity: true, shippingState: true, shippingZip: true, bladeSizes: true, materialsCut: true, currentSupplier: true, averageBladeCost: true, crewCount: true, bladesPerOrder: true, improvementPriority: true,
-          invoices: {
-            select: {
-              id: true, zohoId: true, amount: true, status: true, items: true, issueDate: true, createdAt: true,
-              ...(wantDocs ? { dueDate: true } : {})
-            }
-          },
-          ...(wantDocs ? {
-            quotes: { select: { id: true, zohoId: true, amount: true, status: true, items: true, createdAt: true } },
-            salesOrders: { select: { id: true, zohoId: true, amount: true, status: true, items: true, orderDate: true, createdAt: true } }
-          } : {}),
-          contacts: {
-            select: {
-              id: true, zohoId: true, email: true, phone: true, mobilePhone: true, isPrimary: true, firstName: true, lastName: true, designation: true, mailingStreet: true, mailingCity: true, mailingState: true, mailingZip: true
-            }
-          },
-          owner: {
-            select: { id: true, name: true, email: true, role: true }
-          }
-        }
-      });
-      (dbAccounts as any)._totalCount = totalCount;
     }
 
-    // Prune: aggregate invoices server-side, keep only primary contact. Stays well under 6MB Lambda limit.
-    const totalCount = (dbAccounts as any)._totalCount ?? dbAccounts.length;
-    const EXCLUDED_STATUSES = new Set(['writeoff', 'write_off', 'write off', 'bad debt', 'void', 'voided', 'draft']);
+    const statusSql: Prisma.Sql = statusFilter
+      ? Prisma.sql`AND a.status = ${statusFilter}`
+      : Prisma.sql`AND a.status NOT IN ('Inactive','Do Not Contact','DNR')`
 
-    // The full document `items` blob carries huge nested arrays (line items, custom fields,
-    // per-line cost breakdowns) that the list/dashboard views never read — the detailed invoice
-    // modal fetches those separately via /api/get-invoice-details. Left in, a single admin page
-    // of 400 accounts serialized to 6.4MB and blew past the 6MB Lambda response limit, so the
-    // whole home page failed to load. Strip the heavy keys, keep the scalar fields the UI uses.
-    const HEAVY_ITEM_KEYS = ['line_items', 'lineItems', 'items', 'custom_fields', 'lineItemDetails', 'lineItemBreakdownStrings', 'itemsDcBreakdown'];
-    const slimDoc = (doc: any) => {
-      if (!doc || !doc.items || typeof doc.items !== 'object') return doc;
-      const slimItems: any = {};
-      for (const k of Object.keys(doc.items)) {
-        if (!HEAVY_ITEM_KEYS.includes(k)) slimItems[k] = doc.items[k];
-      }
-      return { ...doc, items: slimItems };
-    };
-    const accounts = dbAccounts.map((acc: any) => {
-      const invoices: any[] = acc.invoices || [];
-      let totalSales = 0, totalProfit = 0, overdueBalance = 0, overdueCount = 0, unpaidBalance = 0, unpaidCount = 0;
-      const unpaidInvoiceSummary: { invoiceNumber: string; dueDate: string | null; balance: number; status: string; amount: number }[] = [];
-      let latestPaidInvoiceDate: Date | null = null;
-      for (const inv of invoices) {
-        const s = inv.status || '';
-        const sLower = s.toLowerCase();
-        if (EXCLUDED_STATUSES.has(sLower)) continue;
-        totalSales += inv.amount || 0;
-        totalProfit += parseFloat(inv.items?.profit || 0);
-        // Track all open/unpaid invoices (any with a balance > 0)
-        const bal = inv.items?.balance != null ? parseFloat(inv.items.balance) : 0;
-        if (bal > 0 && s !== 'Paid') {
-          unpaidCount++;
-          unpaidBalance += isNaN(bal) ? 0 : bal;
-          unpaidInvoiceSummary.push({
-            invoiceNumber: inv.items?.invoiceNumber || inv.zohoId || inv.id,
-            dueDate: inv.dueDate || inv.items?.dueDate || null,
-            balance: isNaN(bal) ? 0 : bal,
-            status: s,
-            amount: inv.amount || 0
-          });
-        }
-        if (s === 'Overdue' || s.toLowerCase() === 'overdue') {
-          overdueCount++;
-          const oBal = inv.items?.balance != null ? parseFloat(inv.items.balance) : (inv.amount || 0);
-          overdueBalance += isNaN(oBal) ? 0 : oBal;
-        }
-        // Track latest invoice date for lastPurchaseAt fallback (any non-excluded invoice = a purchase)
-        const invDate = inv.issueDate || inv.items?.date || inv.createdAt;
-        if (invDate) {
-          const d = new Date(invDate);
-          if (!latestPaidInvoiceDate || d > latestPaidInvoiceDate) {
-            latestPaidInvoiceDate = d;
-          }
-        }
-      }
-      // If CRM didn't provide lastPurchaseAt but we have paid invoices, derive it
-      const effectiveLastPurchaseAt = acc.lastPurchaseAt || latestPaidInvoiceDate;
+    const searchSql: Prisma.Sql = search
+      ? Prisma.sql`AND a.name ILIKE ${'%' + search + '%'}`
+      : Prisma.empty
 
-      // Collect unique product names from cached line_items for product buyer search
-      const purchasedProductNamesSet = new Set<string>()
-      for (const inv of invoices) {
-        const lineItems: any[] = (inv.items as any)?.line_items || []
-        for (const li of lineItems) {
-          const name = (li.name || li.item_name || li.description || '').trim()
-          if (name) purchasedProductNamesSet.add(name.toLowerCase())
-        }
-      }
-      const purchasedProductNames = Array.from(purchasedProductNamesSet)
+    // Static exclusion list embedded as SQL literal — never comes from user input
+    const EXCL_SQL = `'Void','void','Voided','voided','Draft','draft','Writeoff','Write_off','Write Off','Bad Debt','writeoff','write_off','write off','bad debt'`
 
-      const primaryContact = acc.contacts?.find((c: any) => c.isPrimary) || acc.contacts?.[0] || null;
-      return {
-        id: acc.id,
-        zohoId: acc.zohoId,
-        name: acc.name,
-        tags: acc.tags,
-        status: acc.status,
-        quality: acc.quality,
-        lastCalledAt: acc.lastCalledAt,
-        lastPurchaseAt: effectiveLastPurchaseAt,
-        ownerId: acc.ownerId,
-        industry: acc.industry,
-        timeZone: acc.timeZone, billingStreet: acc.billingStreet, billingCity: acc.billingCity, billingState: acc.billingState, billingZip: acc.billingZip, shippingStreet: acc.shippingStreet, shippingCity: acc.shippingCity, shippingState: acc.shippingState, shippingZip: acc.shippingZip, bladeSizes: acc.bladeSizes, materialsCut: acc.materialsCut, currentSupplier: acc.currentSupplier, averageBladeCost: acc.averageBladeCost, crewCount: acc.crewCount, bladesPerOrder: acc.bladesPerOrder, improvementPriority: acc.improvementPriority,
-        owner: acc.owner,
-        totalSales,
-        totalProfit,
-        overdueBalance,
-        overdueCount,
-        unpaidBalance,
-        unpaidCount,
-        unpaidInvoiceSummary,
-        purchasedProductNames,
-        contacts: primaryContact ? [primaryContact] : [],
-        ...(wantDocs ? {
-          invoices: (acc.invoices || []).map(slimDoc),
-          quotes: (acc.quotes || []).map(slimDoc),
-          salesOrders: (acc.salesOrders || []).map(slimDoc),
-        } : {}),
-        _count: acc._count || { invoices: 0, quotes: 0, salesOrders: 0 },
-      };
-    });
+    // Fast count for pagination
+    const countResult = await prisma.$queryRaw<[{ count: bigint }]>(
+      Prisma.sql`SELECT COUNT(*)::bigint AS count FROM "Account" a WHERE 1=1 ${scopeSql} ${statusSql} ${searchSql}`
+    )
+    const totalCount = Number(countResult[0]?.count ?? 0)
+
+    // Main aggregation query — all invoice math in PostgreSQL, zero items blobs on the wire
+    const dbAccounts: any[] = await prisma.$queryRaw<any[]>(Prisma.sql`
+      SELECT
+        a.id::text, a."zohoId", a.name, a.tags, a.status, a.quality,
+        a."lastCalledAt", a."lastPurchaseAt", a."ownerId", a.industry, a."timeZone",
+        a."billingStreet", a."billingCity", a."billingState", a."billingZip",
+        a."shippingStreet", a."shippingCity", a."shippingState", a."shippingZip",
+        a."bladeSizes", a."materialsCut", a."currentSupplier", a."averageBladeCost",
+        a."crewCount", a."bladesPerOrder", a."improvementPriority",
+        u.id::text AS "ownerId_u", u.name AS "ownerName", u.email AS "ownerEmail", u.role AS "ownerRole",
+        -- totalSales: sum of all non-excluded invoice amounts
+        COALESCE(SUM(i.amount) FILTER (
+          WHERE i.status NOT IN (${Prisma.raw(EXCL_SQL)})
+        ), 0)::float AS "totalSales",
+        -- totalProfit: prefer computed column, fall back to items JSON
+        COALESCE(SUM(COALESCE(i."computedProfit", (i.items->>'profit')::float)) FILTER (
+          WHERE i.status NOT IN (${Prisma.raw(EXCL_SQL)})
+        ), 0)::float AS "totalProfit",
+        -- overdue
+        COALESCE(SUM(COALESCE(i.balance, i.amount)) FILTER (
+          WHERE i.status ILIKE '%overdue%'
+        ), 0)::float AS "overdueBalance",
+        COALESCE(COUNT(i.id) FILTER (
+          WHERE i.status ILIKE '%overdue%'
+        ), 0)::int AS "overdueCount",
+        -- unpaid (open balance > 0, not paid/excluded)
+        COALESCE(SUM(COALESCE(i.balance, i.amount)) FILTER (
+          WHERE i.status NOT IN (${Prisma.raw(EXCL_SQL)})
+            AND i.status <> 'Paid'
+            AND COALESCE(i.balance, i.amount) > 0
+        ), 0)::float AS "unpaidBalance",
+        COALESCE(COUNT(i.id) FILTER (
+          WHERE i.status NOT IN (${Prisma.raw(EXCL_SQL)})
+            AND i.status <> 'Paid'
+            AND COALESCE(i.balance, i.amount) > 0
+        ), 0)::int AS "unpaidCount",
+        -- latest invoice date for lastPurchaseAt fallback
+        MAX(i."issueDate") FILTER (
+          WHERE i.status NOT IN (${Prisma.raw(EXCL_SQL)})
+        ) AS "latestInvoiceDate",
+        -- lightweight unpaid invoice list (no items blob)
+        COALESCE(json_agg(json_build_object(
+          'invoiceNumber', COALESCE(i."computedInvoiceNumber", i.items->>'invoiceNumber', i.items->>'invoice_number', i."zohoId"),
+          'dueDate',       i."dueDate",
+          'balance',       COALESCE(i.balance, i.amount),
+          'status',        i.status,
+          'amount',        i.amount
+        )) FILTER (
+          WHERE i.status NOT IN (${Prisma.raw(EXCL_SQL)})
+            AND i.status <> 'Paid'
+            AND COALESCE(i.balance, i.amount) > 0
+        ), '[]'::json) AS "unpaidInvoiceSummary",
+        -- primary contact only (no full array)
+        (SELECT row_to_json(c) FROM (
+          SELECT c2.phone, c2."mobilePhone", c2."isPrimary", c2."firstName", c2."lastName",
+                 c2."mailingStreet", c2."mailingCity", c2."mailingState", c2."mailingZip"
+          FROM "Contact" c2 WHERE c2."accountId" = a.id ORDER BY c2."isPrimary" DESC LIMIT 1
+        ) c) AS "primaryContact"
+      FROM "Account" a
+      LEFT JOIN "User" u ON u.id = a."ownerId"
+      LEFT JOIN "Invoice" i ON i."accountId" = a.id
+      WHERE 1=1 ${scopeSql} ${statusSql} ${searchSql}
+      GROUP BY
+        a.id, a."zohoId", a.name, a.tags, a.status, a.quality,
+        a."lastCalledAt", a."lastPurchaseAt", a."ownerId", a.industry, a."timeZone",
+        a."billingStreet", a."billingCity", a."billingState", a."billingZip",
+        a."shippingStreet", a."shippingCity", a."shippingState", a."shippingZip",
+        a."bladeSizes", a."materialsCut", a."currentSupplier", a."averageBladeCost",
+        a."crewCount", a."bladesPerOrder", a."improvementPriority",
+        u.id, u.name, u.email, u.role
+      ORDER BY a.name ASC
+      LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}
+    `)
+
+    // Map flat rows → response shape, no JS aggregation loops
+    const accounts = dbAccounts.map((acc: any) => ({
+      id: acc.id,
+      zohoId: acc.zohoId,
+      name: acc.name,
+      tags: acc.tags,
+      status: acc.status,
+      quality: acc.quality,
+      lastCalledAt: acc.lastCalledAt,
+      lastPurchaseAt: acc.lastPurchaseAt || acc.latestInvoiceDate,
+      ownerId: acc.ownerId,
+      industry: acc.industry,
+      timeZone: acc.timeZone,
+      billingStreet: acc.billingStreet, billingCity: acc.billingCity,
+      billingState: acc.billingState,   billingZip: acc.billingZip,
+      shippingStreet: acc.shippingStreet, shippingCity: acc.shippingCity,
+      shippingState: acc.shippingState,   shippingZip: acc.shippingZip,
+      bladeSizes: acc.bladeSizes, materialsCut: acc.materialsCut,
+      currentSupplier: acc.currentSupplier, averageBladeCost: acc.averageBladeCost,
+      crewCount: acc.crewCount, bladesPerOrder: acc.bladesPerOrder,
+      improvementPriority: acc.improvementPriority,
+      owner: acc.ownerName ? { id: acc.ownerId_u, name: acc.ownerName, email: acc.ownerEmail, role: acc.ownerRole } : null,
+      totalSales:           parseFloat(acc.totalSales)    || 0,
+      totalProfit:          parseFloat(acc.totalProfit)   || 0,
+      overdueBalance:       parseFloat(acc.overdueBalance)|| 0,
+      overdueCount:         parseInt(acc.overdueCount)    || 0,
+      unpaidBalance:        parseFloat(acc.unpaidBalance) || 0,
+      unpaidCount:          parseInt(acc.unpaidCount)     || 0,
+      unpaidInvoiceSummary: Array.isArray(acc.unpaidInvoiceSummary) ? acc.unpaidInvoiceSummary : [],
+      purchasedProductNames: [],
+      contacts: acc.primaryContact ? [acc.primaryContact] : [],
+      _count: { invoices: parseInt(acc.unpaidCount) || 0, quotes: 0, salesOrders: 0 },
+    }))
+
 
     // Query list of reps for admin dropdown population
     let reps: any[] = [];
