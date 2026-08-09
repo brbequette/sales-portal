@@ -167,7 +167,7 @@ export const handler: Handler = async (event) => {
           accountId: true,
           createdAt: true,
           account: {
-            select: { id: true, name: true, ownerId: true }
+            select: { id: true, name: true, ownerId: true, zohoId: true }
           }
         },
         orderBy: { issueDate: 'desc' }
@@ -193,7 +193,7 @@ export const handler: Handler = async (event) => {
           accountId: true,
           createdAt: true,
           account: {
-            select: { id: true, name: true, ownerId: true }
+            select: { id: true, name: true, ownerId: true, zohoId: true }
           }
         },
         orderBy: { orderDate: 'desc' }
@@ -343,6 +343,8 @@ export const handler: Handler = async (event) => {
         }
         repStatsMap[repId].invoices.push({
           id: inv.id,
+          zohoId: inv.zohoId,
+          accountZohoId: inv.account?.zohoId || null,
           invoiceNumber: items.invoiceNumber || items.invoice_number || inv.zohoId || inv.id,
           date: inv.issueDate || inv.createdAt,
           customerName: inv.account?.name || "Unknown Customer",
@@ -395,6 +397,8 @@ export const handler: Handler = async (event) => {
         repStatsMap[repId].salesOrderEstCommission += estCommission
         repStatsMap[repId].salesOrders.push({
           id: so.id,
+          zohoId: so.zohoId,
+          accountZohoId: so.account?.zohoId || null,
           salesOrderNumber: items.salesorder_number || items.salesOrderNumber || so.zohoId || so.id,
           date: so.orderDate || so.createdAt,
           customerName: so.account?.name || "Unknown Customer",

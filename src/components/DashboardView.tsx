@@ -1226,7 +1226,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
                       <tr key={inv.id || idx} className="hover:bg-white/5 transition-colors">
                         <td className="p-3">
                           <a
-                            href={`/invoices/${inv.id || inv.invoiceNumber}`}
+                            href={inv.accountZohoId ? `/account?id=${inv.accountZohoId}&invoiceId=${inv.zohoId || inv.id}` : "#"}
                             className="font-mono font-bold text-sky-400 hover:text-sky-300 hover:underline transition-colors"
                             onClick={e => e.stopPropagation()}
                           >
@@ -1275,7 +1275,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
                       <tr key={so.id || idx} className="hover:bg-white/5 transition-colors">
                         <td className="p-3">
                           <a
-                            href={`/sales/orders/${so.id || so.salesOrderNumber}`}
+                            href={so.accountZohoId ? `/account?id=${so.accountZohoId}` : "#"}
                             className="font-mono font-bold text-purple-400 hover:text-purple-300 hover:underline transition-colors"
                             onClick={e => e.stopPropagation()}
                           >
@@ -1345,7 +1345,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
                       <td className="p-3">
                         {doc.invoiceNumber ? (
                           <a
-                            href={`/invoices/${doc.id || doc.invoiceNumber}`}
+                            href={doc.accountZohoId ? `/account?id=${doc.accountZohoId}&invoiceId=${doc.zohoId || doc.id}` : "#"}
                             className="font-mono font-bold text-sky-400 hover:text-sky-300 hover:underline transition-colors"
                             onClick={e => e.stopPropagation()}
                           >
@@ -1353,7 +1353,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
                           </a>
                         ) : (
                           <a
-                            href={`/sales/orders/${doc.id || doc.salesOrderNumber}`}
+                            href={doc.accountZohoId ? `/account?id=${doc.accountZohoId}` : "#"}
                             className="font-mono font-bold text-purple-400 hover:text-purple-300 hover:underline transition-colors"
                             onClick={e => e.stopPropagation()}
                           >
@@ -1432,7 +1432,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
                   ) : companyTileModal.docs.map((doc: any, idx: number) => (
                     <tr key={doc.id || idx} className="hover:bg-white/5">
                       <td className="p-3">
-                        <a href={`/invoices/${doc.id || doc.invoiceNumber}`} className="font-mono font-bold text-indigo-400 hover:text-indigo-300 hover:underline" onClick={e => e.stopPropagation()}>
+                        <a href={doc.accountZohoId ? `/account?id=${doc.accountZohoId}&invoiceId=${doc.zohoId || doc.id}` : "#"} className="font-mono font-bold text-indigo-400 hover:text-indigo-300 hover:underline" onClick={e => e.stopPropagation()}>
                           #{doc.invoiceNumber || doc.id}
                         </a>
                       </td>
