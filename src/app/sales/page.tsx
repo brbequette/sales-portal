@@ -222,10 +222,33 @@ export default function SalesPage() {
   const [showAssetSelector, setShowAssetSelector] = useState(false)
   const [leads, setLeads] = useState<any[]>([])
   const [showAddAccount, setShowAddAccount] = useState(false)
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [updateCheckSig, setUpdateCheckSig] = useState<string | null>(null)
 
   useEffect(() => {
     fetchLeads()
   }, [])
+
+  // Silent staleness check — runs after accounts load from cache.
+  // Calls a lightweight endpoint (count + latestUpdatedAt only, no data).
+  // If the DB has changed since our cached snapshot, show the update button.
+  const checkForUpdates = async () => {
+    try {
+      const userEmail = currentUser?.email || preferences.impersonatedUser?.email || ""
+      const roleQuery = effectiveRole ? `&role=${encodeURIComponent(effectiveRole)}` : ""
+      const emailQuery = userEmail ? `&email=${encodeURIComponent(userEmail)}` : ""
+      const res = await fetch(`/api/get-accounts?checkOnly=true${emailQuery}${roleQuery}`)
+      const data = await res.json()
+      if (!data.success || !data.checkOnly) return
+      // Build a signature from count + latest timestamp
+      const sig = `${data.count}|${data.latestUpdatedAt}`
+      if (updateCheckSig && sig !== updateCheckSig) {
+        // DB has new data since we last loaded
+        setUpdateAvailable(true)
+      }
+      setUpdateCheckSig(sig)
+    } catch { /* silent — network blip shouldn't surface */ }
+  }
 
   const fetchLeads = async () => {
     try {
@@ -309,7 +332,12 @@ export default function SalesPage() {
     // Don't re-fetch if the identity hasn't changed
     if (accountsFetchedForRef.current === identityKey) return
     accountsFetchedForRef.current = identityKey
-    fetchLocalData(1, false)
+    // Load from DB (cache or fresh fetch), then quietly check for staleness
+    fetchLocalData(1, false).then(() => {
+      // After data is displayed, silently check if there's newer data in DB
+      // Small delay so the page feels instant before the check fires
+      setTimeout(() => checkForUpdates(), 2000)
+    })
   }, [preferences.impersonatedUser?.email, currentUser?.email])
 
   const fetchUsers = async () => {
@@ -412,8 +440,11 @@ export default function SalesPage() {
         }
       }
 
-      // Cache the result for 10 minutes
+      // Cache the result for 10 minutes and set the freshness signature
       sessionSet(cacheKey, { accounts: allFetchedAccounts, tasks: fetchedTasks })
+      const sig = `${allFetchedAccounts.length}|${allFetchedAccounts[0]?.updatedAt ?? ''}`
+      setUpdateCheckSig(sig)
+      setUpdateAvailable(false)
     } catch (err: any) {
       console.error(err)
       setApiError("Failed to load accounts and tasks")
@@ -774,6 +805,25 @@ export default function SalesPage() {
                 <p className="page-subtitle">Manage sales pipeline, cold calls, smart call queue, and deal lifecycle</p>
               </div>
             </div>
+
+            {/* Update Available Banner */}
+            {updateAvailable && (
+              <div className="flex items-center justify-between gap-3 px-4 py-2 bg-emerald-950/40 border border-emerald-500/30 rounded-xl animate-pulse-subtle">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs font-bold text-emerald-300">New account data available</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setUpdateAvailable(false)
+                    fetchLocalData(1, false, true)
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors"
+                >
+                  <FiRefreshCw size={11} /> Update Now
+                </button>
+              </div>
+            )}
 
             {/* Impersonation dropdown for Admin */}
             {isAdminUser && allDbUsers.length > 0 && (

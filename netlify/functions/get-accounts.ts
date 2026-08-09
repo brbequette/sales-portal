@@ -14,7 +14,7 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    let { zohoId, email, refresh, force, ownerIdFilter, statusFilter, role: passedRole, page: pageParam, limit: limitParam, search, includeDocs, includeHidden } = event.queryStringParameters || {}
+    let { zohoId, email, refresh, force, ownerIdFilter, statusFilter, role: passedRole, page: pageParam, limit: limitParam, search, includeDocs, includeHidden, checkOnly } = event.queryStringParameters || {}
 
   // Load admin email aliases from SystemSettings (key: 'admin_email_aliases', comma-separated)
   let adminEmailAliases: Record<string, string> = {}
@@ -117,6 +117,27 @@ export const handler: Handler = async (event, context) => {
         shouldSync = true
       } else {
         console.log(`Skipping Zoho sync — synced within the last hour. (Pass force=true to bypass cooldown)`)
+      }
+    }
+
+    // ── checkOnly mode: single fast DB query, no data returned ────────────
+    // Used by the frontend to silently check if new data is available.
+    // Returns: { hasUpdates: bool, count: number, latestUpdatedAt: string }
+    if (checkOnly === 'true') {
+      const where = isSalesOnly && user ? { ownerId: user.id } : {}
+      const [count, latest] = await Promise.all([
+        prisma.account.count({ where }),
+        prisma.account.findFirst({ where, orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } })
+      ])
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({
+          success: true,
+          checkOnly: true,
+          count,
+          latestUpdatedAt: latest?.updatedAt ?? null,
+        })
       }
     }
 
