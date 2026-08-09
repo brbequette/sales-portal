@@ -142,11 +142,10 @@ export const handler: Handler = async (event) => {
     const [
       settings,
       users,
-      accounts,
       allInvoices,
       allSalesOrders,
       vigSettingRow
-    ]: [any[], any[], any[], any[], any[], any] = await Promise.all([
+    ]: [any[], any[], any[], any[], any] = await Promise.all([
       prisma.systemSetting.findMany().catch(() => []),
       prisma.user.findMany({
         where: {
@@ -168,14 +167,6 @@ export const handler: Handler = async (event) => {
           payoutStructure: true
         },
         orderBy: { name: "asc" }
-      }).catch(() => []),
-      prisma.account.findMany({
-        select: {
-          id: true,
-          name: true,
-          ownerId: true,
-          status: true
-        }
       }).catch(() => []),
 
       // PERF: $queryRaw — extracts only the scalar JSON keys needed for calc.
@@ -558,10 +549,10 @@ export const handler: Handler = async (event) => {
         repStatsMap[repId].salesOrders.push({
           id: so.id,
           zohoId: so.zohoId,
-          accountZohoId: so.account?.zohoId || null,
+          accountZohoId: so.accountZohoId || null,
           salesOrderNumber: items.salesorder_number || items.salesOrderNumber || so.zohoId || so.id,
           date: so.orderDate || so.createdAt,
-          customerName: so.account?.name || items.customer_name || "Unknown Customer",
+          customerName: so.accountName || items.customer_name || "Unknown Customer",
           repName: repStatsMap[repId]?.repName || "",
           subtotal: amount,
           deadProfit: deadProfit,
