@@ -8,9 +8,17 @@ function formatMonthKey(d: Date): string {
   return `${y}-${m}`
 }
 
+function monthKeyToDateRange(mk: string): { gte: Date; lte: Date } {
+  const [yyyy, mm] = mk.split('-').map(Number)
+  return {
+    gte: new Date(yyyy, mm - 1, 1),
+    lte: new Date(yyyy, mm, 0, 23, 59, 59)
+  }
+}
+
 export async function POST(req: Request) {
   try {
-    const { repId, monthKey, applyToAll } = await req.json().catch(() => ({}))
+    const { repId, monthKey, applyToAll, invoiceIds, newVigRate } = await req.json().catch(() => ({}))
 
     // Fetch target user(s)
     let targetUsers: any[] = []
@@ -37,21 +45,59 @@ export async function POST(req: Request) {
     let cascadedMonthsCount = 0
 
     for (const user of targetUsers) {
-      const repNameLower = user.name?.toLowerCase().trim() || ""
+      const repNameLower = (user.name || '').toLowerCase().trim()
 
-      // Fetch all invoices for this rep
-      const allInvoices = await prisma.invoice.findMany({
+      // PERF FIX: scope at DB level — only load invoices for this rep.
+      // If specific invoiceIds are passed, filter to those directly.
+      // If monthKey is provided, restrict to that month's date range.
+      const dateFilter = invoiceIds?.length
+        ? undefined  // exact IDs supplied — no date filter needed
+        : monthKey
+          ? monthKeyToDateRange(monthKey)
+          : undefined  // applyToAll: no date restriction
+
+      const repInvoices = await prisma.invoice.findMany({
+        where: {
+          ...(invoiceIds?.length ? { id: { in: invoiceIds } } : {
+            OR: [
+              { account: { ownerId: user.id } },
+              { items: { path: ['salesperson'], string_contains: user.name || '' } }
+            ],
+            ...(dateFilter ? { issueDate: dateFilter } : {})
+          }),
+          NOT: { status: { in: ['Void', 'Draft'] } }
+        },
         include: { account: { select: { id: true, ownerId: true } } },
         orderBy: { issueDate: 'asc' }
       })
 
-      const repInvoices = allInvoices.filter(inv => {
-        const items = (inv.items as any) || {}
-        const salesperson = (items.salesperson || "").toLowerCase().trim()
-        return salesperson.includes(repNameLower) || repNameLower.includes(salesperson) || inv.account?.ownerId === user.id
-      })
-
-      if (repInvoices.length === 0) continue
+      // If newVigRate is explicitly passed (from fix-vig-rate), skip cascading logic
+      if (newVigRate != null && !isNaN(parseFloat(newVigRate))) {
+        const rate = parseFloat(newVigRate)
+        // Batch update all supplied invoices to the specified rate
+        const updates = repInvoices.map(async (inv: any) => {
+          const items = (inv.items as any) || {}
+          const itemsForCalc = { ...items, cf_salesperson_vig: rate }
+          const calcResult = await calculateDocumentCosts(itemsForCalc)
+          const updatedItems = {
+            ...items,
+            vigRate: rate, cf_salesperson_vig: rate,
+            deadCostTotal: calcResult.deadCostTotal,
+            deadCostPlusVig: calcResult.deadCostPlusVig,
+            deadProfit: calcResult.deadProfitActual,
+            profit: calcResult.profit,
+            salesCommission: calcResult.salesCommission
+          }
+          totalInvoicesUpdated++
+          return prisma.invoice.update({ where: { id: inv.id }, data: { items: updatedItems } })
+        })
+        // Batch in chunks of 20 to avoid DB connection saturation
+        for (let i = 0; i < updates.length; i += 20) {
+          await Promise.all(updates.slice(i, i + 20))
+        }
+        cascadedMonthsCount++
+        continue
+      }
 
       // Group invoices by monthKey (YYYY-MM)
       const monthlyInvoicesMap: Record<string, any[]> = {}
@@ -97,13 +143,11 @@ export async function POST(req: Request) {
         let monthlyTotalProfit = 0
         let monthlyTotalSubtotal = 0
 
-        for (const inv of invoicesInMonth) {
+        // PERF FIX: batch invoice recalcs with Promise.all in chunks of 20
+        const batchUpdates = invoicesInMonth.map(async (inv: any) => {
           const items = (inv.items as any) || {}
-          
-          // Override vigRate in payload for calculation
           const itemsForCalc = { ...items, cf_salesperson_vig: effectiveVigRate }
           const calcResult = await calculateDocumentCosts(itemsForCalc)
-
           const updatedItems = {
             ...items,
             vigRate: effectiveVigRate,
@@ -114,18 +158,15 @@ export async function POST(req: Request) {
             profit: calcResult.profit,
             salesCommission: calcResult.salesCommission
           }
-
-          await prisma.invoice.update({
-            where: { id: inv.id },
-            data: { items: updatedItems }
-          })
-
           if (inv.status !== 'Void' && inv.status !== 'Draft') {
-            monthlyTotalProfit += calcResult.profit
+            monthlyTotalProfit   += calcResult.profit
             monthlyTotalSubtotal += calcResult.subTotal
           }
-
           totalInvoicesUpdated++
+          return prisma.invoice.update({ where: { id: inv.id }, data: { items: updatedItems } })
+        })
+        for (let bi = 0; bi < batchUpdates.length; bi += 20) {
+          await Promise.all(batchUpdates.slice(bi, bi + 20))
         }
 
         // Determine if goal was met in currentMonthKey

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { calculateDocumentCosts } from "../../../../../netlify/functions/lib/cost-calculations"
 
 /**
  * POST /api/admin/fix-vig-rate
@@ -9,7 +10,7 @@ import { prisma } from "@/lib/prisma"
  * Body:
  *   { invoiceIds: string[], repId: string, monthKey: string, newVigRate: number }
  *   OR
- *   { fixAll: true, repId: string, monthKey: string }
+ *   { fixAll: true, repId: string, monthKey: string, newVigRate: number }
  */
 export async function POST(req: NextRequest) {
   try {
@@ -22,30 +23,20 @@ export async function POST(req: NextRequest) {
 
     const vigRate = parseFloat(newVigRate) || 1.3
 
-    // If fixAll, find all mismatched invoices for this rep+month
+    // Build the list of invoice IDs to fix
     let targetIds: string[] = invoiceIds || []
 
     if (fixAll && targetIds.length === 0) {
-      // Find all invoices in this month for this rep where stored vig != vigRate
       const [yyyy, mm] = monthKey.split('-').map(Number)
       const monthStart = new Date(yyyy, mm - 1, 1)
       const monthEnd = new Date(yyyy, mm, 0, 23, 59, 59)
 
-      const user = await prisma.user.findUnique({
-        where: { id: repId },
-        select: { name: true }
-      })
-
+      // PERF: scope query to this rep's accounts, not all invoices
       const allInvoices = await prisma.invoice.findMany({
         where: {
           issueDate: { gte: monthStart, lte: monthEnd },
           NOT: { status: { in: ['Void', 'Draft'] } },
-          ...(user ? {
-            OR: [
-              { account: { owner: { id: repId } } },
-              { items: { path: ['salesperson'], string_contains: user.name || '' } }
-            ]
-          } : {})
+          account: { ownerId: repId }
         },
         select: { id: true, items: true }
       })
@@ -63,19 +54,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, updatedCount: 0, message: "No invoices needed fixing." })
     }
 
-    // Trigger recalculation via the existing recalculate-vig-documents endpoint
-    const res = await fetch(`${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/admin/recalculate-vig-documents`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ invoiceIds: targetIds, repId, monthKey, newVigRate: vigRate })
+    // Apply recalculation directly — no internal HTTP self-call needed
+    const targetInvoices = await prisma.invoice.findMany({
+      where: { id: { in: targetIds } },
+      select: { id: true, items: true, status: true }
     })
-    const data = await res.json()
+
+    // Build all update promises
+    const updates = targetInvoices.map(async (inv: any) => {
+      const items = (inv.items as any) || {}
+      const itemsForCalc = { ...items, cf_salesperson_vig: vigRate }
+      const calcResult = await calculateDocumentCosts(itemsForCalc)
+      const updatedItems = {
+        ...items,
+        vigRate,
+        cf_salesperson_vig: vigRate,
+        deadCostTotal: calcResult.deadCostTotal,
+        deadCostPlusVig: calcResult.deadCostPlusVig,
+        deadProfit: calcResult.deadProfitActual,
+        profit: calcResult.profit,
+        salesCommission: calcResult.salesCommission
+      }
+      return prisma.invoice.update({ where: { id: inv.id }, data: { items: updatedItems } })
+    })
+
+    // Execute in batches of 20 to avoid DB connection saturation
+    for (let i = 0; i < updates.length; i += 20) {
+      await Promise.all(updates.slice(i, i + 20))
+    }
 
     return NextResponse.json({
-      success: data.success ?? res.ok,
-      updatedCount: data.updatedCount ?? targetIds.length,
-      message: data.message || `Fixed ${targetIds.length} invoice(s).`,
-      error: data.error
+      success: true,
+      updatedCount: targetIds.length,
+      message: `Fixed ${targetIds.length} invoice(s).`
     })
 
   } catch (err: any) {
