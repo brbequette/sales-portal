@@ -224,15 +224,14 @@ export default function SalesPage() {
   const [leads, setLeads] = useState<any[]>([])
   const [showAddAccount, setShowAddAccount] = useState(false)
   const [updateAvailable, setUpdateAvailable] = useState(false)
-  const [updateCheckSig, setUpdateCheckSig] = useState<string | null>(null)
+  const updateCheckSigRef = useRef<string | null>(null)
 
   useEffect(() => {
     fetchLeads()
   }, [])
 
-  // Silent staleness check — runs after accounts load from cache.
-  // Calls a lightweight endpoint (count + latestUpdatedAt only, no data).
-  // If the DB has changed since our cached snapshot, show the update button.
+  // Silent staleness check — runs after accounts load.
+  // Only shows banner if the account COUNT changed (not just a timestamp).
   const checkForUpdates = async () => {
     try {
       const userEmail = currentUser?.email || preferences.impersonatedUser?.email || ""
@@ -241,14 +240,14 @@ export default function SalesPage() {
       const res = await fetch(`/api/get-accounts?checkOnly=true${emailQuery}${roleQuery}`)
       const data = await res.json()
       if (!data.success || !data.checkOnly) return
-      // Build a signature from count + latest timestamp
-      const sig = `${data.count}|${data.latestUpdatedAt}`
-      if (updateCheckSig && sig !== updateCheckSig) {
-        // DB has new data since we last loaded
+      // Only use count — timestamp changes too easily (background syncs, etc.)
+      const sig = `${data.count}`
+      const prev = updateCheckSigRef.current
+      updateCheckSigRef.current = sig
+      if (prev !== null && sig !== prev) {
         setUpdateAvailable(true)
       }
-      setUpdateCheckSig(sig)
-    } catch { /* silent — network blip shouldn't surface */ }
+    } catch { /* silent */ }
   }
 
   const fetchLeads = async () => {
