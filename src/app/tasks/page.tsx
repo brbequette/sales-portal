@@ -13,6 +13,7 @@ import {
   FiMoreVertical, FiSliders, FiEye
 } from "react-icons/fi"
 import { PhoneLink } from "@/components/PhoneLink"
+import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
 
 // â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 type TaskType     = "Task" | "Call" | "Email" | "Text" | "Processing"
@@ -908,6 +909,9 @@ export default function TasksPage() {
   const [showFilter,     setShowFilter]     = useState(false)
   const [showSearch,     setShowSearch]     = useState(false)
   const [filters, setFilters] = useState({ status: "open", type: "all", priority: "all", sort: "dueDate" })
+  const [taskPeriod, setTaskPeriod] = useState<PeriodValue>("all")
+  const [taskCustomStart, setTaskCustomStart] = useState("")
+  const [taskCustomEnd, setTaskCustomEnd] = useState("")
   const [showCompleted, setShowCompleted] = useState(false)
 
   // â"€â"€ Load tasks â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -974,6 +978,11 @@ export default function TasksPage() {
     // Priority
     if (filters.priority !== "all") list = list.filter(t => t.priority === filters.priority)
 
+    // Due date period filter
+    if (taskPeriod !== 'all') {
+      list = list.filter(t => isInPeriod(t.dueDate, taskPeriod, taskCustomStart, taskCustomEnd))
+    }
+
     // Search
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
@@ -998,7 +1007,7 @@ export default function TasksPage() {
       if (!b.dueDate) return -1
       return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
     })
-  }, [tasks, category, filters, searchQuery, showCompleted])
+  }, [tasks, category, filters, searchQuery, showCompleted, taskPeriod, taskCustomStart, taskCustomEnd])
 
   // â"€â"€ Group by category â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const groups = useMemo(() => ({
@@ -1013,6 +1022,8 @@ export default function TasksPage() {
     overdue:  tasks.filter(t => isOverdue(t)).length,
     dueToday: tasks.filter(t => t.dueDate && sameDay(new Date(t.dueDate), new Date()) && t.status !== "Completed").length,
   }), [tasks])
+
+  const periodLabel = taskPeriod === 'all' ? '' : taskPeriod === 'today' ? 'Today' : taskPeriod === 'this_week' ? 'This Week' : taskPeriod === 'this_month' ? 'This Month' : taskPeriod === 'this_quarter' ? 'This Qtr' : ''
 
   const activeFilterCount = [
     filters.status !== "open", filters.type !== "all", filters.priority !== "all", filters.sort !== "dueDate"
@@ -1055,7 +1066,9 @@ export default function TasksPage() {
             <h1 className="page-title">Task Hub</h1>
             {/* Stats pills */}
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-sky-400 font-bold">{stats.open} open</span>
+              <span className="text-xs text-sky-400 font-bold">
+                {taskPeriod !== 'all' ? `${filteredTasks.length} tasks` : `${stats.open} open`}
+              </span>
               {stats.overdue > 0  && <span className="text-xs text-red-400 font-bold">. {stats.overdue} overdue</span>}
               {stats.dueToday > 0 && <span className="text-xs text-amber-400 font-bold">. {stats.dueToday} due today</span>}
             </div>
@@ -1086,6 +1099,21 @@ export default function TasksPage() {
             <FiPlus size={16} />
             <span className="hidden sm:inline">New</span>
           </Link>
+        </div>
+
+        {/* Period Selector for due dates */}
+        <div className="mb-2">
+          <PeriodSelector
+            value={taskPeriod}
+            onChange={setTaskPeriod}
+            options={["today", "this_week", "this_month", "this_quarter", "all"]}
+            accentColor="violet"
+            customStart={taskCustomStart}
+            customEnd={taskCustomEnd}
+            onCustomStartChange={setTaskCustomStart}
+            onCustomEndChange={setTaskCustomEnd}
+            compact
+          />
         </div>
 
         {/* Search bar */}

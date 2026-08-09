@@ -57,6 +57,9 @@ export default function CommissionsPage() {
   const [activeTab, setActiveTab] = useState<"invoices" | "payouts">("invoices")
   const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({})
   const [viewMode, setViewMode] = useState<"weekly" | "flat">("weekly")
+  const [commPeriod, setCommPeriod] = useState<"this_month" | "last_month" | "this_quarter" | "this_year" | "all">("this_year")
+  const [commCustomStart, setCommCustomStart] = useState("")
+  const [commCustomEnd, setCommCustomEnd] = useState("")
 
   const normalizedRole = (user?.role || "").toLowerCase()
   const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("manager")
@@ -178,6 +181,48 @@ export default function CommissionsPage() {
     return sorted
   }, [currentRepData])
 
+  // Filter weekly groups by the selected sub-period
+  const filteredWeeklyGroups = useMemo(() => {
+    if (commPeriod === 'this_year' || commPeriod === 'all' || selectedYear !== new Date().getFullYear().toString()) return weeklyGroups
+    const now = new Date()
+    let start: Date, end: Date
+    if (commPeriod === 'this_month') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1)
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    } else if (commPeriod === 'last_month') {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      end = new Date(now.getFullYear(), now.getMonth(), 1)
+    } else if (commPeriod === 'this_quarter') {
+      const q = Math.floor(now.getMonth() / 3)
+      start = new Date(now.getFullYear(), q * 3, 1)
+      end = new Date(now.getFullYear(), q * 3 + 3, 1)
+    } else {
+      return weeklyGroups
+    }
+    return weeklyGroups.filter(g => g.startDate >= start && g.startDate < end)
+  }, [weeklyGroups, commPeriod, selectedYear])
+
+  const filteredTotals = useMemo(() => {
+    if (filteredWeeklyGroups.length === weeklyGroups.length) {
+      return {
+        earned: currentRepData?.totalEarned || 0,
+        paid: currentRepData?.totalPaid || 0,
+        balance: currentRepData?.balance || 0,
+        profit: currentRepData?.totalProfit || 0,
+        deals: currentRepData?.invoices?.length || 0,
+      }
+    }
+    // Compute from filtered weeks
+    let earned = 0, paid = 0, profit = 0, deals = 0
+    filteredWeeklyGroups.forEach(w => {
+      earned += w.totalCommission || 0
+      paid += (w as any).paidAmount || 0
+      profit += w.totalProfit || 0
+      deals += (w as any).invoiceCount || w.invoices?.length || 0
+    })
+    return { earned, paid, balance: earned - paid, profit, deals }
+  }, [filteredWeeklyGroups, weeklyGroups.length, currentRepData])
+
   // Auto-expand first week on change
   useEffect(() => {
     if (weeklyGroups.length > 0 && Object.keys(expandedWeeks).length === 0) {
@@ -273,28 +318,34 @@ export default function CommissionsPage() {
 
         {(!loading || Object.keys(byRep).length > 0) && !error && currentRepData && (
           <>
+            {/* Period label for KPI context */}
+            {commPeriod !== 'this_year' && commPeriod !== 'all' && (
+              <div className="text-xs text-indigo-400 font-bold -mb-1">
+                Showing: {commPeriod === 'this_month' ? 'This Month' : commPeriod === 'last_month' ? 'Last Month' : 'This Quarter'}
+              </div>
+            )}
             {/* KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="glass-panel p-4 rounded-2xl border border-emerald-500/20 space-y-1">
                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
                   <span>Total Earned</span><FiDollarSign className="text-emerald-400" size={15} />
                 </div>
-                <div className="text-xl font-black text-emerald-400">{fmt(currentRepData.totalEarned)}</div>
+                <div className="text-xl font-black text-emerald-400">{fmt(filteredTotals.earned)}</div>
                 <div className="text-[11px] text-neutral-600">Net 50% split after VIG</div>
               </div>
               <div className="glass-panel p-4 rounded-2xl border border-indigo-500/20 space-y-1">
                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
                   <span>Total Paid Out</span><FiCheckCircle className="text-indigo-400" size={15} />
                 </div>
-                <div className="text-xl font-black text-white">{fmt(currentRepData.totalPaid)}</div>
+                <div className="text-xl font-black text-white">{fmt(filteredTotals.paid)}</div>
                 <div className="text-[11px] text-neutral-600">Disbursed checks & draws</div>
               </div>
               <div className="glass-panel p-4 rounded-2xl border border-amber-500/20 space-y-1">
                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
                   <span>Unpaid Balance</span><FiClock className="text-amber-400" size={15} />
                 </div>
-                <div className={`text-xl font-black ${currentRepData.balance >= 0 ? "text-amber-400" : "text-red-400"}`}>
-                  {fmt(currentRepData.balance)}
+                <div className={`text-xl font-black ${filteredTotals.balance >= 0 ? "text-amber-400" : "text-red-400"}`}>
+                  {fmt(filteredTotals.balance)}
                 </div>
                 <div className="text-[11px] text-neutral-600">
                   {currentRepData.balance >= 0 ? "Pending payout" : "Draw balance advance"}
@@ -304,8 +355,8 @@ export default function CommissionsPage() {
                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
                   <span>Total Net Profit</span><FiTrendingUp className="text-sky-400" size={15} />
                 </div>
-                <div className="text-xl font-black text-white">{fmt(currentRepData.totalProfit)}</div>
-                <div className="text-[11px] text-neutral-600">Across {currentRepData.invoices?.length || 0} deals</div>
+                <div className="text-xl font-black text-white">{fmt(filteredTotals.profit)}</div>
+                <div className="text-[11px] text-neutral-600">Across {filteredTotals.deals} deals</div>
               </div>
             </div>
 
@@ -359,10 +410,41 @@ export default function CommissionsPage() {
                 )}
               </div>
 
+              {/* Period Sub-Filter */}
+              {viewMode === 'weekly' && (
+                <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 border-b border-white/8 bg-neutral-950/20">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mr-1">Period:</span>
+                  {([
+                    { id: 'this_month', label: 'This Month' },
+                    { id: 'last_month', label: 'Last Month' },
+                    { id: 'this_quarter', label: 'This Quarter' },
+                    { id: 'this_year', label: 'Full Year' },
+                    { id: 'all', label: 'All Time' },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setCommPeriod(opt.id)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                        commPeriod === opt.id
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                          : 'bg-neutral-800 text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                  {filteredWeeklyGroups.length !== weeklyGroups.length && (
+                    <span className="text-[10px] text-indigo-400 font-bold ml-2">
+                      {filteredWeeklyGroups.length} of {weeklyGroups.length} weeks
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Weekly Grouped View */}
               {activeTab === "invoices" && viewMode === "weekly" && (
                 <div className="divide-y divide-white/[0.06]">
-                  {weeklyGroups.map(group => {
+                  {filteredWeeklyGroups.map(group => {
                     const isExpanded = !!expandedWeeks[group.weekKey]
                     return (
                       <div key={group.weekKey}>
@@ -470,7 +552,7 @@ export default function CommissionsPage() {
                       </div>
                     )
                   })}
-                  {weeklyGroups.length === 0 && (
+                  {filteredWeeklyGroups.length === 0 && (
                     <div className="py-12 text-center text-sm text-neutral-500">
                       No weekly invoice records found for this period.
                     </div>

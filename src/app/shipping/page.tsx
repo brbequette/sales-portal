@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud } from "react-icons/fi"
 import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
 import { toast } from 'react-hot-toast';
+import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
 
 type ShipStatus = "all" | "needs_packaging" | "packaged" | "shipped" | "delivered"
 
@@ -95,6 +96,9 @@ export default function ShippingPage() {
   const [filterCarrier, setFilterCarrier] = useState("")
   const [sortBy, setSortBy] = useState("orderDate")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
+  const [shipPeriod, setShipPeriod] = useState<PeriodValue>("all")
+  const [shipCustomStart, setShipCustomStart] = useState("")
+  const [shipCustomEnd, setShipCustomEnd] = useState("")
 
   // Dynamic Metadata
   const [isAdmin, setIsAdmin] = useState(false)
@@ -346,10 +350,16 @@ export default function ShippingPage() {
     }
   }
 
+  // Client-side period filter on orderDate
+  const filteredOrders = useMemo(() => {
+    if (shipPeriod === 'all') return orders
+    return orders.filter(o => isInPeriod((o as any).orderDate || (o as any).order_date || (o as any).date, shipPeriod, shipCustomStart, shipCustomEnd))
+  }, [orders, shipPeriod, shipCustomStart, shipCustomEnd])
+
   // Compilation of items that are packaged but need shipped
   const getPackagedButNeedShippedItemsCompilation = () => {
     const compilation: Record<string, { sku: string; name: string; quantity: number }> = {}
-    orders.forEach(order => {
+    filteredOrders.forEach(order => {
       if (order.shipStatus === "packaged" && Array.isArray(order.lineItems)) {
         order.lineItems.forEach(item => {
           const sku = item.sku || item.name || "Unknown SKU"
@@ -403,6 +413,18 @@ export default function ShippingPage() {
 
       {/* ─── Body ───────────────────────────────────── */}
       <div className="page-body animate-fade-in space-y-4">
+
+        {/* Period Filter */}
+        <PeriodSelector
+          value={shipPeriod}
+          onChange={setShipPeriod}
+          options={["today", "this_week", "this_month", "this_quarter", "this_year", "all"]}
+          accentColor="orange"
+          customStart={shipCustomStart}
+          customEnd={shipCustomEnd}
+          onCustomStartChange={setShipCustomStart}
+          onCustomEndChange={setShipCustomEnd}
+        />
 
       {/* Sync Result Banner */}
       {syncResult && (
@@ -517,9 +539,14 @@ export default function ShippingPage() {
                 <p className="text-[10px] text-neutral-500">Consolidated list of items packed and ready to go out</p>
               </div>
             </div>
-            <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase bg-indigo-950/60 border border-indigo-500/30 text-indigo-300">
-              {compilationList.reduce((sum, item) => sum + item.quantity, 0)} Total Units
-            </span>
+            <div className="flex items-center gap-2">
+              {shipPeriod !== 'all' && (
+                <span className="text-[10px] text-indigo-400 font-bold">Filtered Period</span>
+              )}
+              <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase bg-indigo-950/60 border border-indigo-500/30 text-indigo-300">
+                {compilationList.reduce((sum, item) => sum + item.quantity, 0)} Total Units
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-[220px] overflow-y-auto pr-1">
@@ -540,11 +567,11 @@ export default function ShippingPage() {
 
       {/* Orders Table */}
       {refreshing && <div className="h-0.5 bg-orange-500/60 animate-pulse w-full rounded mb-2" />}
-      {loading && orders.length === 0 ? (
+      {loading && filteredOrders.length === 0 ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : orders.length === 0 && !loading ? (
+      ) : filteredOrders.length === 0 && !loading ? (
         <div className="text-center py-20">
           <FiPackage className="text-4xl text-neutral-700 mx-auto mb-3" />
           <p className="text-neutral-500 font-bold">No orders found</p>
@@ -552,7 +579,7 @@ export default function ShippingPage() {
         </div>
       ) : (
         <div className={`space-y-2 transition-opacity duration-200 ${refreshing ? 'opacity-60' : 'opacity-100'}`}>
-          {orders.map(order => {
+          {filteredOrders.map(order => {
             const isExpanded = expandedOrder === order.id
             const statusColor: Record<string, string> = {
               needs_packaging: "text-amber-400 bg-amber-950/40 border-amber-800/50",

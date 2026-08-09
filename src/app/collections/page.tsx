@@ -8,6 +8,7 @@ import {
 import { CollectionsModal, Invoice } from "@/components/CollectionsModal"
 import { toast } from "react-hot-toast"
 import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
+import { PeriodSelector, isInPeriod, type PeriodValue } from "@/components/PeriodSelector"
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0)
@@ -18,6 +19,9 @@ export default function CollectionsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [selectedRep, setSelectedRep] = useState<string>("all")
+  const [collPeriod, setCollPeriod] = useState<PeriodValue>("all")
+  const [collCustomStart, setCollCustomStart] = useState("")
+  const [collCustomEnd, setCollCustomEnd] = useState("")
   
   // Modal state
   const [activeModal, setActiveModal] = useState<{
@@ -73,9 +77,11 @@ export default function CollectionsPage() {
         selectedRep === "all" || 
         inv.salesperson_name === selectedRep
 
-      return matchesSearch && matchesRep
+      const matchesPeriod = collPeriod === "all" || isInPeriod(inv.issue_date, collPeriod, collCustomStart, collCustomEnd)
+
+      return matchesSearch && matchesRep && matchesPeriod
     })
-  }, [invoices, search, selectedRep])
+  }, [invoices, search, selectedRep, collPeriod, collCustomStart, collCustomEnd])
 
   // Summary Metrics
   const metrics = useMemo(() => {
@@ -134,7 +140,7 @@ export default function CollectionsPage() {
         {/* KPI Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: "Total Overdue", value: fmt(metrics.totalBalance), sub: `${metrics.count} invoices pending`, icon: FiDollarSign, iconColor: "text-red-400", accent: "border-red-500/20" },
+            { label: "Total Overdue", value: fmt(metrics.totalBalance), sub: `${metrics.count} invoices${collPeriod !== 'all' ? ' in period' : ' pending'}`, icon: FiDollarSign, iconColor: "text-red-400", accent: "border-red-500/20" },
             { label: "90+ Days Overdue", value: fmt(metrics.over90Balance), sub: "Critical attention required", icon: FiAlertCircle, iconColor: "text-amber-400", accent: "border-amber-500/20", valueColor: "text-amber-400" },
             { label: "Avg Overdue Days", value: `${metrics.avgOverdue} Days`, sub: "Across all open accounts", icon: FiClock, iconColor: "text-blue-400", accent: "border-blue-500/20" },
             { label: "Open Accounts", value: String(metrics.count), sub: "Active collection targets", icon: FiUser, iconColor: "text-emerald-400", accent: "border-emerald-500/20" },
@@ -151,8 +157,20 @@ export default function CollectionsPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex flex-col gap-3">
+          {/* Period Filter */}
+          <PeriodSelector
+            value={collPeriod}
+            onChange={setCollPeriod}
+            options={["this_month", "last_month", "this_quarter", "this_year", "all"]}
+            accentColor="red"
+            customStart={collCustomStart}
+            customEnd={collCustomEnd}
+            onCustomStartChange={setCollCustomStart}
+            onCustomEndChange={setCollCustomEnd}
+          />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1 max-w-sm">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
             <input
               type="text"
@@ -175,6 +193,7 @@ export default function CollectionsPage() {
               ))}
             </select>
           </div>
+        </div>
         </div>
 
         {/* Invoices Table */}

@@ -38,6 +38,7 @@ interface Rep {
   daily: RepPeriodStats
   weekly: RepPeriodStats
   monthly: RepPeriodStats
+  annually?: RepPeriodStats  // alias: API returns YTD totals in the monthly bucket
 }
 
 interface CompanyData {
@@ -87,7 +88,9 @@ export default function StatsPage() {
   const [companyTotals, setCompanyTotals] = useState<CompanyData | null>(null)
   const [companyAverages, setCompanyAverages] = useState<CompanyData | null>(null)
   const [historicalVigRates, setHistoricalVigRates] = useState<any[]>([])
-  const [selectedPeriod, setSelectedPeriod] = useState<"daily" | "weekly" | "monthly">("monthly")
+  const [selectedPeriod, setSelectedPeriod] = useState<"daily" | "weekly" | "monthly" | "annually">("monthly")
+  // Map 'annually' → 'monthly' since the API returns YTD totals in the monthly slot
+  const repPeriodKey = (selectedPeriod === 'annually' ? 'monthly' : selectedPeriod) as 'daily' | 'weekly' | 'monthly'
   const [selectedRep, setSelectedRep] = useState<Rep | null>(null)
   const [sortField, setSortField] = useState<SortField>("revenue")
   const [sortAsc, setSortAsc] = useState(false)
@@ -112,7 +115,13 @@ export default function StatsPage() {
       else setRefreshing(true)
       try {
         const hiddenParam = preferences.showHiddenReps ? "?includeHidden=true" : ""
-        const dateParam = selectedDataDate ? (selectedDataDate.length === 7 ? `month=${selectedDataDate}` : `date=${selectedDataDate}`) : ""
+        let dateParam = ""
+        if (selectedPeriod === "annually") {
+          const currentYear = new Date().getFullYear().toString()
+          dateParam = (!selectedDataDate || selectedDataDate === currentYear) ? `period=this_year` : `period=last_year`
+        } else if (selectedDataDate) {
+          dateParam = selectedDataDate.length === 7 ? `month=${selectedDataDate}` : `date=${selectedDataDate}`
+        }
         const prefix = hiddenParam ? "&" : "?"
         const urlParams = dateParam ? `${prefix}${dateParam}` : ""
         const res = await fetch(`/api/get-rep-stats${hiddenParam}${urlParams}`)
@@ -146,7 +155,7 @@ export default function StatsPage() {
       }
     }
     fetchStats()
-  }, [isInitialized, currentUser, router, selectedDataDate])
+  }, [isInitialized, currentUser, router, selectedDataDate, selectedPeriod])
 
   const pastWeeks = useMemo(() => {
     const weeks = []
@@ -183,11 +192,11 @@ export default function StatsPage() {
       let av = 0
       let bv = 0
       if (sortField === "revenue" || sortField === "profit") {
-        av = a[selectedPeriod][sortField] ?? 0
-        bv = b[selectedPeriod][sortField] ?? 0
+        av = a[repPeriodKey][sortField] ?? 0
+        bv = b[repPeriodKey][sortField] ?? 0
       } else if (sortField === "totalDeals") {
-        av = a[selectedPeriod].dealsWon ?? 0
-        bv = b[selectedPeriod].dealsWon ?? 0
+        av = a[repPeriodKey].dealsWon ?? 0
+        bv = b[repPeriodKey].dealsWon ?? 0
       } else {
         av = (a as any)[sortField] ?? 0
         bv = (b as any)[sortField] ?? 0
@@ -250,7 +259,7 @@ export default function StatsPage() {
     let dealsWon = 0
     let target = 0
     reps.forEach(r => {
-      const stats = r[selectedPeriod] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
+      const stats = r[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
       revenue += stats.revenue || 0
       profit += stats.profit || 0
       dealsWon += stats.dealsWon || 0
@@ -317,11 +326,19 @@ export default function StatsPage() {
                 ))}
               </>
             )}
+            {selectedPeriod === "annually" && (
+              <>
+                <option value="">This Year</option>
+                <option value={`${new Date().getFullYear() - 1}`}>{new Date().getFullYear() - 1}</option>
+                <option value={`${new Date().getFullYear() - 2}`}>{new Date().getFullYear() - 2}</option>
+                <option value={`${new Date().getFullYear() - 3}`}>{new Date().getFullYear() - 3}</option>
+              </>
+            )}
           </select>
 
           {/* Period Toggle */}
           <div className="glass-panel rounded-xl p-0.5 flex border border-white/10 text-xs font-bold">
-            {(["daily", "weekly", "monthly"] as const).map(p => (
+            {(["daily", "weekly", "monthly", "annually"] as const).map(p => (
               <button
                 key={p}
                 onClick={() => { setSelectedPeriod(p); setSelectedDataDate(""); setSelectedRep(null) }}
@@ -348,33 +365,38 @@ export default function StatsPage() {
         )}
 
         {/* Company Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { label: `${selectedPeriod} Revenue`, value: formatPreciseCurrency(periodTotals.revenue), icon: <FiDollarSign />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
-            { label: `${selectedPeriod} Profit`, value: formatPreciseCurrency(periodTotals.profit), icon: <FiTrendingUp />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
-            { label: `${selectedPeriod} Deals Won`, value: formatNumber(periodTotals.dealsWon), icon: <FiAward />, color: "text-amber-400", border: "border-amber-500/20", bg: "bg-amber-950/20" },
-            {
-              label: `${selectedPeriod} Target Progress`,
-              value: periodTotals.target > 0 ? `${((periodTotals.profit / periodTotals.target) * 100).toFixed(1)}%` : "N/A",
-              icon: <FiTarget />,
-              color: "text-sky-400",
-              border: "border-sky-500/20",
-              bg: "bg-sky-950/20",
-              subtext: `Target: ${formatCurrency(periodTotals.target)}`
-            },
-          ].map(card => (
-            <div key={card.label} className={`${card.bg} border ${card.border} rounded-2xl p-4 hover:scale-[1.01] transition-all duration-200 flex flex-col justify-between`}>
-              <div>
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-[10px] uppercase text-neutral-500 font-semibold tracking-wider">{card.label}</span>
-                  <span className={card.color}>{card.icon}</span>
+        {(() => {
+          const periodLabel = selectedPeriod === 'annually' ? 'Annual' : selectedPeriod === 'monthly' ? 'Monthly' : selectedPeriod === 'weekly' ? 'Weekly' : 'Daily';
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: `${periodLabel} Revenue`, value: formatPreciseCurrency(periodTotals.revenue), icon: <FiDollarSign />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
+                { label: `${periodLabel} Profit`, value: formatPreciseCurrency(periodTotals.profit), icon: <FiTrendingUp />, color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-950/20" },
+                { label: `${periodLabel} Deals Won`, value: formatNumber(periodTotals.dealsWon), icon: <FiAward />, color: "text-amber-400", border: "border-amber-500/20", bg: "bg-amber-950/20" },
+                {
+                  label: `${periodLabel} Target Progress`,
+                  value: periodTotals.target > 0 ? `${((periodTotals.profit / periodTotals.target) * 100).toFixed(1)}%` : "N/A",
+                  icon: <FiTarget />,
+                  color: "text-sky-400",
+                  border: "border-sky-500/20",
+                  bg: "bg-sky-950/20",
+                  subtext: `Target: ${formatCurrency(periodTotals.target)}`
+                },
+              ].map(card => (
+                <div key={card.label} className={`${card.bg} border ${card.border} rounded-2xl p-4 hover:scale-[1.01] transition-all duration-200 flex flex-col justify-between`}>
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-[10px] uppercase text-neutral-500 font-semibold tracking-wider">{card.label}</span>
+                      <span className={card.color}>{card.icon}</span>
+                    </div>
+                    <p className={`text-base sm:text-lg font-bold ${card.color}`}>{card.value}</p>
+                  </div>
+                  {(card as any).subtext && <p className="text-[10px] text-neutral-500 mt-1 font-mono">{(card as any).subtext}</p>}
                 </div>
-                <p className={`text-base sm:text-lg font-bold ${card.color}`}>{card.value}</p>
-              </div>
-              {(card as any).subtext && <p className="text-[10px] text-neutral-500 mt-1 font-mono">{(card as any).subtext}</p>}
+              ))}
             </div>
-          ))}
-        </div>
+          )
+        })()}
 
         {/* Leaderboard Table */}
         <div className="modern-card overflow-hidden">
@@ -409,7 +431,7 @@ export default function StatsPage() {
                 {pagination.paginatedItems.map((rep, idx) => {
                   const rank = pagination.pageSize === "All" ? idx + 1 : (pagination.currentPage - 1) * (pagination.pageSize as number) + idx + 1
                   const isSelected = selectedRep?.repId === rep.repId
-                  const periodStats = rep[selectedPeriod] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
+                  const periodStats = rep[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
                   const progressPct = periodStats.target > 0 ? (periodStats.profit / periodStats.target) * 100 : 0
                   const metGoal = periodStats.profit >= periodStats.target
                   const vigRate = periodStats.vigRate ?? (metGoal ? 1.3 : 1.5)
@@ -483,7 +505,7 @@ export default function StatsPage() {
             {pagination.paginatedItems.map((rep, idx) => {
               const rank = pagination.pageSize === "All" ? idx + 1 : (pagination.currentPage - 1) * (pagination.pageSize as number) + idx + 1
               const isSelected = selectedRep?.repId === rep.repId
-              const periodStats = rep[selectedPeriod] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
+              const periodStats = rep[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
               const progressPct = periodStats.target > 0 ? (periodStats.profit / periodStats.target) * 100 : 0
               const metGoal = rep.monthly.profit >= rep.monthly.target
               const vigRate = metGoal ? 1.3 : 1.5
@@ -579,7 +601,7 @@ export default function StatsPage() {
               </div>
 
               {(() => {
-                const periodStats = selectedRep[selectedPeriod] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
+                const periodStats = selectedRep[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
                 const progressPct = periodStats.target > 0 ? (periodStats.profit / periodStats.target) * 100 : 0
                 const diff = periodStats.target - periodStats.profit
                 let statusMsg = ""
