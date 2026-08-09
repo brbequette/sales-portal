@@ -12,14 +12,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "No file provided" }, { status: 400 })
     }
 
-    // Check directory
+    // Graceful fallback to relative path if Windows path is not found (e.g. running on Netlify Serverless)
+    let uploadDir = ALL_PICS_DIR
     if (!fs.existsSync(ALL_PICS_DIR)) {
-      fs.mkdirSync(ALL_PICS_DIR, { recursive: true })
+      uploadDir = path.join(process.cwd(), "all-pics-storage")
+    }
+
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true })
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
     const filename = file.name
-    const targetPath = path.join(ALL_PICS_DIR, filename)
+    const targetPath = path.join(uploadDir, filename)
 
     // Save file
     fs.writeFileSync(targetPath, buffer)

@@ -5,19 +5,48 @@ import fs from "fs"
 import path from "path"
 import { execSync } from "child_process"
 
-const ALL_PICS_DIR = "C:\\Users\\titan\\Documents\\Titan Diamond\\All Pics"
+const BASE_ALL_PICS_DIR = "C:\\Users\\titan\\Documents\\Titan Diamond\\All Pics"
+const ALL_PICS_DIR = fs.existsSync(BASE_ALL_PICS_DIR)
+  ? BASE_ALL_PICS_DIR
+  : path.join(process.cwd(), "all-pics-storage")
+
 const PROCESSED_DIR = path.join(ALL_PICS_DIR, "processed")
-const PUBLIC_PRODUCT_IMAGES_DIR = "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS\\sales-portal\\public\\product-images"
+
+const BASE_PUBLIC_DIR = "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS\\sales-portal\\public\\product-images"
+const PUBLIC_PRODUCT_IMAGES_DIR = fs.existsSync(BASE_PUBLIC_DIR)
+  ? BASE_PUBLIC_DIR
+  : path.join(process.cwd(), "public", "product-images")
 
 // Utility to clean SKU
 function cleanSkuStem(stem: string) {
   return stem.replace(/\s*\([\w\s,\./]+\)\s*\d*$/, "").trim().toUpperCase()
 }
 
+function getDirStats(dirPath: string) {
+  if (!fs.existsSync(dirPath)) return { count: 0, size: 0 }
+  const files = fs.readdirSync(dirPath)
+  let count = 0
+  let size = 0
+  for (const f of files) {
+    const filePath = path.join(dirPath, f)
+    try {
+      const stat = fs.statSync(filePath)
+      if (stat.isFile()) {
+        count++
+        size += stat.size
+      }
+    } catch {}
+  }
+  return { count, size }
+}
+
 export async function GET(req: NextRequest) {
   try {
     if (!fs.existsSync(ALL_PICS_DIR)) {
-      return NextResponse.json({ success: false, error: "Images directory not found" }, { status: 404 })
+      fs.mkdirSync(ALL_PICS_DIR, { recursive: true })
+    }
+    if (!fs.existsSync(PROCESSED_DIR)) {
+      fs.mkdirSync(PROCESSED_DIR, { recursive: true })
     }
 
     // List all files in All Pics
@@ -85,7 +114,40 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({ success: true, files: results })
+    // Filter products needing images
+    const needsImages = dbProducts.filter(p => {
+      try {
+        const desc = JSON.parse(p.description || "{}")
+        return !desc.image
+      } catch {
+        return !p.description
+      }
+    }).map(p => ({
+      id: p.id,
+      sku: p.sku,
+      name: p.name,
+      price: p.price,
+      category: p.category
+    }))
+
+    // Storage metrics
+    const rawStats = getDirStats(ALL_PICS_DIR)
+    const processedStats = getDirStats(PROCESSED_DIR)
+    const archiveStats = getDirStats(path.join(ALL_PICS_DIR, "archive"))
+    const publicStats = getDirStats(PUBLIC_PRODUCT_IMAGES_DIR)
+
+    return NextResponse.json({
+      success: true,
+      files: results,
+      needsImages,
+      allProducts: dbProducts.map(p => ({ id: p.id, sku: p.sku, name: p.name, price: p.price, category: p.category })),
+      storage: {
+        raw: rawStats,
+        processed: processedStats,
+        archive: archiveStats,
+        public: publicStats
+      }
+    })
   } catch (error: any) {
     console.error("GET staged images error:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -97,13 +159,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { action } = body
 
+    const AUTOMATIONS_DIR = "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS"
+    const isLocal = fs.existsSync(AUTOMATIONS_DIR)
+
     if (action === "process") {
       const { fileName } = body
       if (!fileName) return NextResponse.json({ success: false, error: "Missing fileName" }, { status: 400 })
 
+      if (!isLocal) {
+        return NextResponse.json({
+          success: false,
+          error: "Image processing requires Python. Please run the sales portal locally to process raw files."
+        })
+      }
+
       // Run python processing script
-      const cmd = `python "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS\\process_product_images.py" --edit-json "{\\"file\\": \\"${fileName}\\"}"`
-      const output = execSync(cmd, { cwd: "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS" }).toString()
+      const cmd = `python "${AUTOMATIONS_DIR}\\process_product_images.py" --edit-json "{\\"file\\": \\"${fileName}\\"}"`
+      const output = execSync(cmd, { cwd: AUTOMATIONS_DIR }).toString()
       
       try {
         const res = JSON.parse(output)
@@ -126,10 +198,17 @@ export async function POST(req: NextRequest) {
         badges: badges || {}
       }
 
+      if (!isLocal) {
+        return NextResponse.json({
+          success: false,
+          error: "Image editing requires Python. Please run the sales portal locally to edit images."
+        })
+      }
+
       // Escaping double quotes inside double quotes for windows cmd
       const escapedJson = JSON.stringify(config).replace(/"/g, '\\"')
-      const cmd = `python "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS\\process_product_images.py" --edit-json "${escapedJson}"`
-      const output = execSync(cmd, { cwd: "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS" }).toString()
+      const cmd = `python "${AUTOMATIONS_DIR}\\process_product_images.py" --edit-json "${escapedJson}"`
+      const output = execSync(cmd, { cwd: AUTOMATIONS_DIR }).toString()
 
       try {
         const res = JSON.parse(output)
@@ -246,8 +325,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: `File not found at ${filePath}` }, { status: 404 })
       }
 
-      const cmd = `python "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS\\smart_image_extractor.py" "${filePath}"`
-      const output = execSync(cmd, { cwd: "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS" }).toString()
+      if (!isLocal) {
+        return NextResponse.json({
+          success: false,
+          error: "Catalog extraction requires Python. Please run the sales portal locally to extract catalogs."
+        })
+      }
+
+      const cmd = `python "${AUTOMATIONS_DIR}\\smart_image_extractor.py" "${filePath}"`
+      const output = execSync(cmd, { cwd: AUTOMATIONS_DIR }).toString()
 
       try {
         const lines = output.trim().split("\n")
@@ -303,16 +389,36 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      if (!isLocal) {
+        return NextResponse.json({
+          success: false,
+          error: "Conflict resolution re-processing requires Python. Please run the sales portal locally to resolve conflicts."
+        })
+      }
+
       // 4. Trigger auto re-process on the new set
       const targetFileName = `${sku}${path.extname(primaryFile || ".png")}`
-      const cmd = `python "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS\\process_product_images.py" --edit-json "{\\"file\\": \\"${targetFileName}\\"}"`
-      execSync(cmd, { cwd: "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS" })
+      const cmd = `python "${AUTOMATIONS_DIR}\\process_product_images.py" --edit-json "{\\"file\\": \\"${targetFileName}\\"}"`
+      execSync(cmd, { cwd: AUTOMATIONS_DIR })
 
       // Update static map
-      const mapCmd = `python "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS\\generate_image_map.py"`
-      execSync(mapCmd, { cwd: "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS" })
+      const mapCmd = `python "${AUTOMATIONS_DIR}\\generate_image_map.py"`
+      execSync(mapCmd, { cwd: AUTOMATIONS_DIR })
 
       return NextResponse.json({ success: true, message: `Successfully resolved duplicate conflict for SKU ${sku}` })
+    }
+
+    if (action === "clear-archive") {
+      const archiveDir = path.join(ALL_PICS_DIR, "archive")
+      if (fs.existsSync(archiveDir)) {
+        const archivedFiles = fs.readdirSync(archiveDir)
+        for (const f of archivedFiles) {
+          try {
+            fs.unlinkSync(path.join(archiveDir, f))
+          } catch {}
+        }
+      }
+      return NextResponse.json({ success: true, message: "Archived folders cleared successfully." })
     }
 
     return NextResponse.json({ success: false, error: "Unknown action" }, { status: 400 })
