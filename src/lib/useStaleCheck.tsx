@@ -72,27 +72,45 @@ export function useStaleCheck({
 export function UpdateBanner({
   show,
   onUpdate,
+  onDismiss,
   label = "New data available",
   accentColor = "emerald",
+  autoDismissMs = 8000,
 }: {
   show: boolean
   onUpdate: () => void
+  onDismiss?: () => void
   label?: string
   accentColor?: "emerald" | "sky" | "indigo" | "orange" | "violet" | "red" | "amber"
+  autoDismissMs?: number
 }) {
-  if (!show) return null
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (show) {
+      setVisible(true)
+      const timer = setTimeout(() => {
+        setVisible(false)
+        onDismiss?.()
+      }, autoDismissMs)
+      return () => clearTimeout(timer)
+    } else {
+      setVisible(false)
+    }
+  }, [show, autoDismissMs])
+
+  if (!visible) return null
 
   const colors: Record<string, string> = {
-    emerald: "bg-emerald-950/50 border-emerald-500/30 text-emerald-300 [--dot:theme(colors.emerald.400)] [--btn:theme(colors.emerald.600)] [--btnhover:theme(colors.emerald.500)]",
-    sky:     "bg-sky-950/50 border-sky-500/30 text-sky-300 [--dot:theme(colors.sky.400)] [--btn:theme(colors.sky.600)] [--btnhover:theme(colors.sky.500)]",
-    indigo:  "bg-indigo-950/50 border-indigo-500/30 text-indigo-300 [--dot:theme(colors.indigo.400)] [--btn:theme(colors.indigo.600)] [--btnhover:theme(colors.indigo.500)]",
-    orange:  "bg-orange-950/50 border-orange-500/30 text-orange-300 [--dot:theme(colors.orange.400)] [--btn:theme(colors.orange.600)] [--btnhover:theme(colors.orange.500)]",
-    violet:  "bg-violet-950/50 border-violet-500/30 text-violet-300 [--dot:theme(colors.violet.400)] [--btn:theme(colors.violet.600)] [--btnhover:theme(colors.violet.500)]",
-    red:     "bg-red-950/50 border-red-500/30 text-red-300 [--dot:theme(colors.red.400)] [--btn:theme(colors.red.600)] [--btnhover:theme(colors.red.500)]",
-    amber:   "bg-amber-950/50 border-amber-500/30 text-amber-300 [--dot:theme(colors.amber.400)] [--btn:theme(colors.amber.600)] [--btnhover:theme(colors.amber.500)]",
+    emerald: "bg-emerald-950/50 border-emerald-500/30 text-emerald-300",
+    sky:     "bg-sky-950/50 border-sky-500/30 text-sky-300",
+    indigo:  "bg-indigo-950/50 border-indigo-500/30 text-indigo-300",
+    orange:  "bg-orange-950/50 border-orange-500/30 text-orange-300",
+    violet:  "bg-violet-950/50 border-violet-500/30 text-violet-300",
+    red:     "bg-red-950/50 border-red-500/30 text-red-300",
+    amber:   "bg-amber-950/50 border-amber-500/30 text-amber-300",
   }
 
-  // Simple inline styles to avoid TW arbitrary value issues
   const dotColor: Record<string, string> = {
     emerald: "#34d399", sky: "#38bdf8", indigo: "#818cf8",
     orange: "#fb923c", violet: "#a78bfa", red: "#f87171", amber: "#fbbf24",
@@ -100,6 +118,11 @@ export function UpdateBanner({
   const btnColor: Record<string, string> = {
     emerald: "#059669", sky: "#0284c7", indigo: "#4f46e5",
     orange: "#ea580c", violet: "#7c3aed", red: "#dc2626", amber: "#d97706",
+  }
+
+  const handleDismiss = () => {
+    setVisible(false)
+    onDismiss?.()
   }
 
   return (
@@ -111,13 +134,22 @@ export function UpdateBanner({
         />
         <span className="text-xs font-bold">{label}</span>
       </div>
-      <button
-        onClick={onUpdate}
-        className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-white rounded-lg transition-colors"
-        style={{ backgroundColor: btnColor[accentColor] }}
-      >
-        <FiRefreshCw size={11} /> Update Now
-      </button>
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={onUpdate}
+          className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-white rounded-lg transition-colors"
+          style={{ backgroundColor: btnColor[accentColor] }}
+        >
+          <FiRefreshCw size={11} /> Update Now
+        </button>
+        <button
+          onClick={handleDismiss}
+          className="p-1 text-current opacity-50 hover:opacity-100 transition-opacity rounded cursor-pointer"
+          aria-label="Dismiss"
+        >
+          ×
+        </button>
+      </div>
     </div>
   )
 }

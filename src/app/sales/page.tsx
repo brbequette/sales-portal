@@ -818,6 +818,7 @@ export default function SalesPage() {
             <UpdateBanner
               show={updateAvailable}
               onUpdate={() => { setUpdateAvailable(false); fetchLocalData(1, false, true) }}
+              onDismiss={() => setUpdateAvailable(false)}
               accentColor="emerald"
               label="Account data updated"
             />
