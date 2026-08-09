@@ -141,25 +141,24 @@ export default function StatsPage() {
         const res = await fetch(`/api/get-rep-stats${hiddenParam}${urlParams}`)
         const data = await res.json()
         if (data.success) {
-          setReps(data.reps || [])
-          const totals = data.totals || data.companyTotals || {
-            revenue: (data.reps || []).reduce((s: number, r: any) => s + (r.revenue || 0), 0),
-            profit: (data.reps || []).reduce((s: number, r: any) => s + (r.profit || 0), 0),
-            deadProfit: (data.reps || []).reduce((s: number, r: any) => s + (r.deadProfit || 0), 0),
-            activeAccounts: (data.reps || []).reduce((s: number, r: any) => s + (r.activeAccounts || 0), 0),
-            updateAccounts: (data.reps || []).reduce((s: number, r: any) => s + (r.updateAccounts || 0), 0),
-            totalDeals: (data.reps || []).reduce((s: number, r: any) => s + (r.totalDeals || 0), 0),
-            closedWonDeals: (data.reps || []).reduce((s: number, r: any) => s + (r.closedWonDeals || 0), 0),
-            dealRevenue: (data.reps || []).reduce((s: number, r: any) => s + (r.dealRevenue || 0), 0),
-            commissions: (data.reps || []).reduce((s: number, r: any) => s + (r.commissions || 0), 0),
-            overdueCollections: (data.reps || []).reduce((s: number, r: any) => s + (r.overdueCollections || 0), 0)
-          }
+          // Normalize: get-rep-stats returns flat revenue/profit/commissions fields.
+          // The page expects sub-period objects (rep.monthly, rep.weekly, etc.).
+          // Synthesize them here so all downstream rep[repPeriodKey] reads work.
+          const normalizedReps = (data.reps || []).map((r: any) => ({
+            ...r,
+            // The API filters by the requested period, so flat values ARE the period values.
+            daily:    { revenue: r.revenue || 0, profit: r.profit || 0, dealsWon: r.invoiceCount || 0, target: 0, vigRate: undefined },
+            weekly:   { revenue: r.revenue || 0, profit: r.profit || 0, dealsWon: r.invoiceCount || 0, target: 0, vigRate: undefined },
+            monthly:  { revenue: r.revenue || 0, profit: r.profit || 0, dealsWon: r.invoiceCount || 0, target: 0, vigRate: undefined },
+            annually: { revenue: r.revenue || 0, profit: r.profit || 0, dealsWon: r.invoiceCount || 0, target: 0, vigRate: undefined },
+          }))
+          setReps(normalizedReps)
+          const totals = data.totals || {}
           setCompanyTotals(totals)
           setCompanyAverages(data.companyAverages || totals)
           setHistoricalVigRates(data.historicalVigRates || [])
-          sessionSet(cacheKey, { reps: data.reps || [], totals, averages: data.companyAverages || totals, vigRates: data.historicalVigRates || [] })
-          
-          const sig = `${(data.reps || []).length}|${(data.reps || [])[0]?.repId ?? ''}`
+          sessionSet(cacheKey, { reps: normalizedReps, totals, averages: data.companyAverages || totals, vigRates: data.historicalVigRates || [] })
+          const sig = `${normalizedReps.length}|${normalizedReps[0]?.repId ?? ''}`
           setUpdateAvailable(false)
           setTimeout(() => checkForUpdates(sig, '/api/get-rep-stats'), 2000)
         } else {
@@ -207,17 +206,19 @@ export default function StatsPage() {
 
   const sortedReps = useMemo(() => {
     return [...reps].sort((a, b) => {
+      const ra = a as any
+      const rb = b as any
       let av = 0
       let bv = 0
       if (sortField === "revenue" || sortField === "profit") {
-        av = a[repPeriodKey][sortField] ?? 0
-        bv = b[repPeriodKey][sortField] ?? 0
+        av = (ra[repPeriodKey] || {})[sortField] ?? ra[sortField] ?? 0
+        bv = (rb[repPeriodKey] || {})[sortField] ?? rb[sortField] ?? 0
       } else if (sortField === "totalDeals") {
-        av = a[repPeriodKey].dealsWon ?? 0
-        bv = b[repPeriodKey].dealsWon ?? 0
+        av = (ra[repPeriodKey] || {}).dealsWon ?? ra.invoiceCount ?? 0
+        bv = (rb[repPeriodKey] || {}).dealsWon ?? rb.invoiceCount ?? 0
       } else {
-        av = (a as any)[sortField] ?? 0
-        bv = (b as any)[sortField] ?? 0
+        av = ra[sortField] ?? 0
+        bv = rb[sortField] ?? 0
       }
       return sortAsc ? av - bv : bv - av
     })
@@ -526,7 +527,7 @@ export default function StatsPage() {
               const isSelected = selectedRep?.repId === rep.repId
               const periodStats = rep[repPeriodKey] || { revenue: 0, profit: 0, dealsWon: 0, target: 0 }
               const progressPct = periodStats.target > 0 ? (periodStats.profit / periodStats.target) * 100 : 0
-              const metGoal = rep.monthly.profit >= rep.monthly.target
+              const metGoal = (rep.monthly?.profit ?? 0) >= (rep.monthly?.target ?? 1)
               const vigRate = metGoal ? 1.3 : 1.5
 
               return (
