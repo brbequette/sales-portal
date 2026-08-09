@@ -115,7 +115,7 @@ function SalesDocsInner() {
       params.set('sort', sort)
       params.set('dir', dir)
       params.set('page', page.toString())
-      if (user?.dbId) params.set('callerDbId', user.dbId)
+      if (user?.id) params.set('callerDbId', user.id)
       if (user?.role) params.set('callerRole', user.role)
 
       // Sync URL
@@ -158,10 +158,10 @@ function SalesDocsInner() {
   }, [q, type, status, repId, dateFrom, dateTo, amountMin, amountMax, sort, dir, page, user, router, searchParams])
 
   useEffect(() => {
-    if (user?.dbId) {
+    if (user?.email) {
       fetchDocs()
     }
-  }, [fetchDocs, user?.dbId])
+  }, [fetchDocs, user?.email])
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
