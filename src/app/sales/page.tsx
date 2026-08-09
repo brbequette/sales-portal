@@ -442,14 +442,12 @@ export default function SalesPage() {
         setAccountsHasMore(false)
         await tasksPromise
         sessionSet(cacheKey, { accounts: allAccounts, tasks: fetchedTasks })
-        const sig = `${allAccounts.length}|${allAccounts[0]?.updatedAt ?? ''}`
-        setUpdateCheckSig(sig)
+        updateCheckSigRef.current = `${allAccounts.length}`
         setUpdateAvailable(false)
       } else {
         await tasksPromise
         sessionSet(cacheKey, { accounts: firstBatch, tasks: fetchedTasks })
-        const sig = `${firstBatch.length}|${firstBatch[0]?.updatedAt ?? ''}`
-        setUpdateCheckSig(sig)
+        updateCheckSigRef.current = `${firstBatch.length}`
         setUpdateAvailable(false)
       }
     } catch (err: any) {
