@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox, FiClock, FiTrendingUp, FiAlertCircle, FiList, FiCheck, FiCalendar, FiCheckCircle, FiX } from "react-icons/fi"
+import { FiSearch, FiPlus, FiUserPlus, FiCheckSquare, FiFileText, FiDollarSign, FiBox, FiClock, FiTrendingUp, FiAlertCircle, FiList, FiCheck, FiCalendar, FiCheckCircle, FiX, FiArrowLeft } from "react-icons/fi"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { toast } from "react-hot-toast"
@@ -27,7 +27,15 @@ export function GlobalTopBar() {
   const [results, setResults] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [showResults, setShowResults] = useState(false)
-  
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
   const [showAddAccount, setShowAddAccount] = useState(false)
   const [showAddTaskModal, setShowAddTaskModal] = useState(false)
   const [showTaskDrawer, setShowTaskDrawer] = useState(false)
@@ -408,8 +416,8 @@ export function GlobalTopBar() {
           )}
         </div>
 
-        {/* Dropdown Results */}
-        {showResults && results && (
+        {/* Desktop Dropdown Results */}
+        {!isMobile && showResults && results && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-[#151618] border border-white/10 rounded-xl shadow-[0_22px_70px_rgba(0,0,0,0.45)] overflow-hidden max-h-[80vh] overflow-y-auto z-50">
             {Object.keys(results).every(k => results[k].length === 0) ? (
               <div className="p-4 text-center text-sm text-neutral-500">No results found for &quot;{query}&quot;</div>
@@ -506,6 +514,113 @@ export function GlobalTopBar() {
           </div>
         )}
       </div>
+
+      {/* Mobile Full-Screen Search Results Portal */}
+      {isMobile && showResults && results && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex flex-col" style={{ background: 'rgba(10,10,12,0.98)' }}>
+          {/* Header bar */}
+          <div className="flex items-center gap-3 px-4 py-3 bg-[#111214] border-b border-white/10" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
+            <button
+              onClick={() => { setShowResults(false); setQuery('') }}
+              className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/[0.07] text-neutral-300 shrink-0"
+            >
+              <FiArrowLeft size={18} />
+            </button>
+            <div className="relative flex-1">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={15} />
+              <input
+                type="text"
+                autoFocus
+                placeholder="Search accounts, invoices, products..."
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                className="w-full bg-white/[0.055] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors"
+              />
+              {loading && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+              )}
+            </div>
+          </div>
+
+          {/* Results list */}
+          <div className="flex-1 overflow-y-auto">
+            {Object.keys(results).every(k => results[k].length === 0) ? (
+              <div className="p-8 text-center">
+                <div className="text-4xl mb-3">🔍</div>
+                <p className="text-sm text-neutral-400 font-medium">No results for <span className="text-white">&quot;{query}&quot;</span></p>
+                <p className="text-xs text-neutral-600 mt-1">Try searching by name, invoice number, or SKU</p>
+              </div>
+            ) : (
+              <div className="py-1">
+                {results.accounts?.length > 0 && (
+                  <div>
+                    <div className="px-4 py-2 text-[10px] font-black text-neutral-500 uppercase tracking-widest bg-black/40 sticky top-0 backdrop-blur">Accounts</div>
+                    {results.accounts.map((a: any) => (
+                      <div key={a.id} onClick={() => handleResultClick('accounts', a)}
+                        className="flex items-center gap-4 px-4 py-3.5 border-b border-white/5 active:bg-white/5 cursor-pointer">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0"><FiUserPlus size={18} /></div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-white truncate">{a.name}</div>
+                          <div className="text-xs text-neutral-500 truncate">{a.zohoId} · {a.industry || 'No Industry'}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {results.invoices?.length > 0 && (
+                  <div>
+                    <div className="px-4 py-2 text-[10px] font-black text-neutral-500 uppercase tracking-widest bg-black/40 sticky top-0 backdrop-blur">Invoices & Orders</div>
+                    {results.invoices.map((i: any) => (
+                      <div key={i.id} onClick={() => handleResultClick('invoices', i)}
+                        className="flex items-center gap-4 px-4 py-3.5 border-b border-white/5 active:bg-white/5 cursor-pointer">
+                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0"><FiFileText size={18} /></div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-bold text-white truncate">{i.invoiceNumber || i.items?.invoice_number || i.items?.salesorder_number || 'Draft'}</div>
+                          <div className="text-xs text-neutral-500 truncate">{i.docType ? `${i.docType} · ` : ''}{i.status}{i.accountName ? ` · ${i.accountName}` : ''}</div>
+                        </div>
+                        <div className="text-sm font-black text-emerald-400 shrink-0">${parseFloat(i.amount).toFixed(2)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {results.deals?.length > 0 && (
+                  <div>
+                    <div className="px-4 py-2 text-[10px] font-black text-neutral-500 uppercase tracking-widest bg-black/40 sticky top-0 backdrop-blur">Deals</div>
+                    {results.deals.map((d: any) => (
+                      <div key={d.id} onClick={() => handleResultClick('deals', d)}
+                        className="flex items-center gap-4 px-4 py-3.5 border-b border-white/5 active:bg-white/5 cursor-pointer">
+                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0"><FiDollarSign size={18} /></div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-bold text-white truncate">{d.name}</div>
+                          <div className="text-xs text-neutral-500 truncate">{d.stage}</div>
+                        </div>
+                        <div className="text-sm font-black text-emerald-400 shrink-0">${parseFloat(d.amount).toFixed(2)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {results.products?.length > 0 && (
+                  <div>
+                    <div className="px-4 py-2 text-[10px] font-black text-neutral-500 uppercase tracking-widest bg-black/40 sticky top-0 backdrop-blur">Products</div>
+                    {results.products.map((p: any) => (
+                      <div key={p.id || p.sku} onClick={() => handleResultClick('products', p)}
+                        className="flex items-center gap-4 px-4 py-3.5 border-b border-white/5 active:bg-white/5 cursor-pointer">
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0"><FiBox size={18} /></div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-bold text-white truncate">{p.name}</div>
+                          <div className="text-xs text-neutral-500 truncate">{p.sku}</div>
+                        </div>
+                        <div className="text-sm font-black text-white shrink-0">${parseFloat(p.price || 0).toFixed(2)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Right side: Quick Add Actions */}
       <div className="flex items-center gap-2 lg:gap-3 ml-4 shrink-0">

@@ -3,22 +3,28 @@
 import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { DashboardView } from "@/components/DashboardView"
+import { ExecDashboardModal } from "@/components/ExecDashboardModal"
 import { useState, useEffect } from "react"
-import { FiEye, FiTarget, FiSliders, FiUser } from "react-icons/fi"
+import { FiSliders, FiTrendingUp, FiTarget } from "react-icons/fi"
 
 export default function HomeDashboard() {
   const { zohoContext: currentUser } = useZoho()
-  const { preferences, updatePreferences } = usePreferences()
+  const { preferences } = usePreferences()
   const [allDbUsers, setAllDbUsers] = useState<any[]>([])
   const [customizeTrigger, setCustomizeTrigger] = useState(0)
+  const [showExecModal, setShowExecModal] = useState(false)
 
-  const effectiveRole = preferences.impersonatedUser ? preferences.impersonatedUser.role : (currentUser?.role || "")
+  const effectiveRole = currentUser?.role || ""
   const normalizedRole = effectiveRole.toLowerCase()
-  const isAdminUser = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
+  const isAdminUser =
+    normalizedRole.includes("admin") ||
+    normalizedRole === "administrator" ||
+    normalizedRole.includes("collections") ||
+    normalizedRole.includes("manager")
 
-  const displayRepName = preferences.impersonatedUser
-    ? preferences.impersonatedUser.name
-    : (currentUser?.name || null)
+  // Always show the personal rep view on the homepage
+  const displayRepName = currentUser?.name || null
+  const displayRepEmail = currentUser?.email || null
 
   useEffect(() => { fetchUsers() }, [])
 
@@ -33,76 +39,61 @@ export default function HomeDashboard() {
   return (
     <div className="page-content">
 
-      {/* ─── Header ────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="page-header">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center justify-center shrink-0">
             <FiTarget className="text-orange-400" size={17} />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="page-title">Executive Dashboard</h1>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-300 text-[10px] font-bold">
-                <FiUser size={9} />
-                {isAdminUser && !preferences.impersonatedUser
-                  ? "Company — All Reps"
-                  : (displayRepName || "My View")}
-              </span>
-            </div>
-            <p className="page-subtitle">Live revenue, MTD profit, commission goals &amp; leaderboard</p>
+            <h1 className="page-title">My Dashboard</h1>
+            <p className="page-subtitle">Your personal sales activity, goals &amp; pipeline</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Customize personal view */}
           <button
             onClick={() => setCustomizeTrigger(prev => prev + 1)}
             className="td-btn td-btn-ghost td-btn-sm"
           >
             <FiSliders size={13} />
-            Customize
+            <span className="hidden sm:inline">Customize</span>
           </button>
 
-          {isAdminUser && allDbUsers.length > 0 && (
-            <div className="flex items-center gap-2 glass-panel rounded-xl px-3 py-1.5">
-              <FiEye size={13} className="text-neutral-500 shrink-0" />
-              <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider hidden sm:inline">View as:</span>
-              <select
-                value={preferences.impersonatedUser?.id || ""}
-                onChange={e => {
-                  const id = e.target.value
-                  if (!id) {
-                    updatePreferences({ impersonatedUser: null })
-                  } else {
-                    const u = allDbUsers.find(user => user.id === id)
-                    if (u) updatePreferences({ impersonatedUser: { id: u.id, name: u.name, email: u.email, role: u.role } })
-                  }
-                }}
-                className="bg-transparent border-none text-xs font-bold text-white focus:outline-none cursor-pointer max-w-[160px]"
-              >
-                <option value="">🏢 Company Totals</option>
-                {allDbUsers
-                  .filter(u => u.name && !u.email?.includes("dummy.titandiamond.com") && !u.email?.includes("example.com"))
-                  .sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''))
-                  .map((u: any) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}{u.role?.toLowerCase().includes('admin') ? ' (Admin)' : ''}
-                    </option>
-                  ))}
-              </select>
-            </div>
+          {/* Admin-only: Open Exec Dashboard modal */}
+          {isAdminUser && (
+            <button
+              onClick={() => setShowExecModal(true)}
+              className="td-btn td-btn-sm flex items-center gap-2"
+              style={{ background: "linear-gradient(135deg,#c2410c,#ea580c)", color: "#fff", border: "none" }}
+            >
+              <FiTrendingUp size={13} />
+              <span className="hidden sm:inline">Exec View</span>
+              <span className="sm:hidden">📊</span>
+            </button>
           )}
         </div>
       </div>
 
-      {/* ─── Dashboard Body ─────────────────────────────────────── */}
+      {/* Personal Rep Dashboard — no admin company data */}
       <div className="page-body animate-fade-in">
         <DashboardView
-          repName={preferences.impersonatedUser ? preferences.impersonatedUser.name : (currentUser?.name || null)}
-          isAdmin={isAdminUser}
-          repEmail={preferences.impersonatedUser ? preferences.impersonatedUser.email : currentUser?.email || null}
+          repName={displayRepName}
+          isAdmin={false}
+          repEmail={displayRepEmail}
           triggerCustomize={customizeTrigger}
         />
       </div>
+
+      {/* Admin-only: Full Executive Dashboard Modal (portal, rendered outside layout) */}
+      {isAdminUser && (
+        <ExecDashboardModal
+          isOpen={showExecModal}
+          onClose={() => setShowExecModal(false)}
+          allDbUsers={allDbUsers}
+        />
+      )}
     </div>
   )
 }
