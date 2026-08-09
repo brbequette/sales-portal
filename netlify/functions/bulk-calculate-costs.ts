@@ -78,6 +78,7 @@ interface ProcessOptions {
   force: boolean
   dryRun: boolean
   limit?: number
+  skip?: number
   batchDelay: number
   month?: string
 }
@@ -173,7 +174,11 @@ async function processDocType(
     dbDocs = await prisma.salesOrder.findMany({ where: { zohoId: { not: "" } }, select: selectFields })
   }
 
-  if (opts.limit) dbDocs = dbDocs.slice(0, opts.limit)
+  if (opts.skip != null || opts.limit) {
+    const s = opts.skip ?? 0
+    const e = opts.limit != null ? s + opts.limit : undefined
+    dbDocs = dbDocs.slice(s, e)
+  }
 
   console.log(`\n📋 ${docType.toUpperCase()}: ${dbDocs.length} docs in DB`)
 
@@ -312,12 +317,13 @@ export const handler: Handler = async (event) => {
   let body: any = {}
   try { body = JSON.parse(event.body || "{}") } catch { /* use defaults */ }
 
-  const { docTypes, force, dryRun, limit, batchDelay, month } = body
+  const { docTypes, force, dryRun, limit, skip, batchDelay, month } = body
 
   const opts: ProcessOptions = {
     force: force === true,
     dryRun: dryRun === true,
-    limit: limit ? parseInt(limit, 10) : undefined,
+    limit: limit != null ? parseInt(limit, 10) : undefined,
+    skip: skip != null ? parseInt(skip, 10) : undefined,
     batchDelay: batchDelay ? parseInt(batchDelay, 10) : 600,
     month: month || undefined
   }
