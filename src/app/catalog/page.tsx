@@ -114,12 +114,12 @@ export default function ProductCatalogPage() {
 
   const getProductImage = (name: string, sku: string) => {
     if (!sku) return null
-    // Clean variations from the SKU to get the base stem (e.g. ID30ATR1412E -> ID30ATR)
-    const stem = sku.replace(/\s*\([\w\s,\./]+\)\s*\d*$/, "").trim().toUpperCase()
-    // Extract base alphabetic/numeric prefix from SKU if it matches typical prefixes
-    const prefixMatch = stem.match(/^([A-Z0-9-]{3,10})/)
-    if (prefixMatch) {
-      return `/product-images/${prefixMatch[1]}.png`
+    const skuUpper = sku.trim().toUpperCase()
+    
+    // Check our pre-calculated static image map first
+    const imageMap = require("@/lib/image-map.json")
+    if (imageMap[skuUpper] && imageMap[skuUpper].image) {
+      return imageMap[skuUpper].image
     }
     
     const s = (sku || "").toLowerCase()

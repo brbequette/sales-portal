@@ -103,16 +103,20 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
   const category = product?.category || fallback?.category || "Uncategorized"
   const stock = product?.stock || 0
   
+  const skuUpper = sku.trim().toUpperCase()
+  const imageMap = require("@/lib/image-map.json")
+  const mapped = imageMap[skuUpper]
+
   // Smart fallbacks for missing data
-  let image = parsedDesc.image || fallback?.image || `/api/zoho-image?sku=${encodeURIComponent(sku)}`
+  let image = parsedDesc.image || mapped?.image || fallback?.image || `/api/zoho-image?sku=${encodeURIComponent(sku)}`
   let vendor = parsedDesc.vendor || ""
   let costVal = parsedDesc.cost !== undefined && parsedDesc.cost !== null ? parseFloat(parsedDesc.cost as any) : null
   let pertinentInfo = parsedDesc.pertinentInfo || ""
 
   // Collect available images
   const imagesList = [image]
-  if (parsedDesc.detail_a) imagesList.push(parsedDesc.detail_a)
-  if (parsedDesc.detail_b) imagesList.push(parsedDesc.detail_b)
+  if (parsedDesc.detail_a || mapped?.detail_a) imagesList.push(parsedDesc.detail_a || mapped.detail_a)
+  if (parsedDesc.detail_b || mapped?.detail_b) imagesList.push(parsedDesc.detail_b || mapped.detail_b)
 
   useEffect(() => {
     if (!sku || sku === "N/A") return
