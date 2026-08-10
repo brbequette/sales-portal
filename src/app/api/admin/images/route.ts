@@ -49,14 +49,21 @@ export async function GET(req: NextRequest) {
       fs.mkdirSync(PROCESSED_DIR, { recursive: true })
     }
 
-    // Gather file names from ALL_PICS_DIR
+    const { searchParams } = new URL(req.url)
+    const page = parseInt(searchParams.get("page") || "1", 10)
+    const limit = parseInt(searchParams.get("limit") || "32", 10)
+    const activeTab = searchParams.get("tab") || "all" // "all" | "unmatched" | "needs-images" | "conflicts" | "products"
+    const search = (searchParams.get("search") || "").trim().toUpperCase()
+
+    const skip = (page - 1) * limit
+
+    // 1. Gather all main files from storage and public directories
     const imageFiles: string[] = []
     if (fs.existsSync(ALL_PICS_DIR)) {
       const files = fs.readdirSync(ALL_PICS_DIR)
       imageFiles.push(...files.filter(f => /\.(png|jpg|jpeg)$/i.test(f)))
     }
 
-    // Gather file names from PUBLIC_PRODUCT_IMAGES_DIR and merge unique items (avoid duplicate stems)
     if (fs.existsSync(PUBLIC_PRODUCT_IMAGES_DIR)) {
       const publicFiles = fs.readdirSync(PUBLIC_PRODUCT_IMAGES_DIR)
       const mainPublicImages = publicFiles.filter(f => /\.(png|jpg|jpeg)$/i.test(f) && !f.includes("_detail_"))
@@ -67,7 +74,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Fetch all products from Database
+    // 2. Fetch all products from Database
     const dbProducts = await prisma.product.findMany({
       select: {
         id: true,
@@ -79,25 +86,104 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    const results = []
-
-    for (const f of imageFiles) {
+    // 3. Perform pre-matching in memory (extremely fast)
+    const matchedFiles = imageFiles.map(f => {
       const ext = path.extname(f)
       const stem = path.basename(f, ext)
       const cleanedStem = cleanSkuStem(stem)
-
-      // Find matching db products
+      
       const matches = dbProducts.filter(p => {
         const skuUpper = p.sku.toUpperCase()
         return skuUpper === cleanedStem || skuUpper.startsWith(cleanedStem) || cleanedStem.startsWith(skuUpper)
       })
 
-      // Check if processed file exists in either transient processed or public static folder
+      return {
+        fileName: f,
+        stem,
+        cleanedStem,
+        matches
+      }
+    })
+
+    // Search filter helper
+    const matchesSearch = (text: string) => !search || text.toUpperCase().includes(search)
+
+    // Compute Tab Categories (Unpaginated counts)
+    const allFilesFiltered = matchedFiles.filter(f => matchesSearch(f.fileName) || matchesSearch(f.cleanedStem))
+    const unmatchedFiltered = matchedFiles.filter(f => f.matches.length === 0 && (matchesSearch(f.fileName) || matchesSearch(f.cleanedStem)))
+    
+    const needsImagesList = dbProducts.filter(p => {
+      let hasImg = false
+      try {
+        const desc = JSON.parse(p.description || "{}")
+        hasImg = !!desc.image
+      } catch {
+        hasImg = !!p.description
+      }
+      return !hasImg && (matchesSearch(p.sku) || matchesSearch(p.name))
+    })
+
+    const allProductsList = dbProducts.filter(p => matchesSearch(p.sku) || matchesSearch(p.name))
+
+    // Conflict groups: Cleaned stems that map to > 1 file
+    const stemGroups: Record<string, typeof matchedFiles> = {}
+    for (const mf of matchedFiles) {
+      if (!stemGroups[mf.cleanedStem]) {
+        stemGroups[mf.cleanedStem] = []
+      }
+      stemGroups[mf.cleanedStem].push(mf)
+    }
+    const allConflictGroups = Object.entries(stemGroups)
+      .filter(([_, groupFiles]) => groupFiles.length > 1)
+      .map(([cleanedStem, groupFiles]) => ({
+        cleanedStem,
+        files: groupFiles
+      }))
+      .filter(g => matchesSearch(g.cleanedStem) || g.files.some(f => matchesSearch(f.fileName)))
+
+    const counts = {
+      all: allFilesFiltered.length,
+      unmatched: unmatchedFiltered.length,
+      products: allProductsList.length,
+      needsImages: needsImagesList.length,
+      conflicts: allConflictGroups.length
+    }
+
+    // 4. Paginate the active tab
+    let paginatedFiles: typeof matchedFiles = []
+    let paginatedNeedsImages: typeof needsImagesList = []
+    let paginatedConflicts: typeof allConflictGroups = []
+    let paginatedProducts: typeof dbProducts = []
+    let totalItems = 0
+
+    if (activeTab === "needs-images") {
+      totalItems = needsImagesList.length
+      paginatedNeedsImages = needsImagesList.slice(skip, skip + limit)
+    } else if (activeTab === "conflicts") {
+      totalItems = allConflictGroups.length
+      paginatedConflicts = allConflictGroups.slice(skip, skip + limit)
+    } else if (activeTab === "unmatched") {
+      totalItems = unmatchedFiltered.length
+      paginatedFiles = unmatchedFiltered.slice(skip, skip + limit)
+    } else if (activeTab === "products") {
+      totalItems = allProductsList.length
+      paginatedProducts = allProductsList.slice(skip, skip + limit)
+    } else {
+      totalItems = allFilesFiltered.length
+      paginatedFiles = allFilesFiltered.slice(skip, skip + limit)
+    }
+
+    const totalPages = Math.ceil(totalItems / limit)
+
+    // 5. Hydrate ONLY the paginated page records with slow Disk I/O checks
+    const hydratedFiles = []
+    for (const mf of paginatedFiles) {
+      const { fileName, stem, cleanedStem, matches } = mf
+
       const processedPath = path.join(PROCESSED_DIR, `${stem}.png`)
       const publicPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}.png`)
       const isProcessed = fs.existsSync(processedPath) || fs.existsSync(publicPath)
 
-      // Check for closeups in either directory
       const detailAPath = path.join(PROCESSED_DIR, `${stem}_detail_a.png`)
       const publicDetailAPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_a.png`)
       const hasDetailA = fs.existsSync(detailAPath) || fs.existsSync(publicDetailAPath)
@@ -106,7 +192,6 @@ export async function GET(req: NextRequest) {
       const publicDetailBPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_b.png`)
       const hasDetailB = fs.existsSync(detailBPath) || fs.existsSync(publicDetailBPath)
 
-      // Check if already staged in Zoho or public app
       let isStaged = false
       let stagedUrl = null
       if (matches.length > 0) {
@@ -119,8 +204,8 @@ export async function GET(req: NextRequest) {
         } catch {}
       }
 
-      results.push({
-        fileName: f,
+      hydratedFiles.push({
+        fileName,
         stem,
         cleanedStem,
         isProcessed,
@@ -128,27 +213,122 @@ export async function GET(req: NextRequest) {
         hasDetailB,
         isStaged,
         stagedUrl,
-        matches: matches.map(m => ({ id: m.id, sku: m.sku, name: m.name, price: m.price, category: m.category })),
+        matches: matches.map(m => ({ id: m.id, sku: m.sku, name: m.name, price: m.price, category: m.category }))
       })
     }
 
-    // Filter products needing images
-    const needsImages = dbProducts.filter(p => {
-      try {
-        const desc = JSON.parse(p.description || "{}")
-        return !desc.image
-      } catch {
-        return !p.description
-      }
-    }).map(p => ({
-      id: p.id,
-      sku: p.sku,
-      name: p.name,
-      price: p.price,
-      category: p.category
-    }))
+    // Hydrate conflicts with Disk I/O
+    const hydratedConflicts = []
+    for (const group of paginatedConflicts) {
+      const hydratedGroupFiles = []
+      for (const mf of group.files) {
+        const { fileName, stem, cleanedStem, matches } = mf
 
-    // Storage metrics
+        const processedPath = path.join(PROCESSED_DIR, `${stem}.png`)
+        const publicPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}.png`)
+        const isProcessed = fs.existsSync(processedPath) || fs.existsSync(publicPath)
+
+        const detailAPath = path.join(PROCESSED_DIR, `${stem}_detail_a.png`)
+        const publicDetailAPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_a.png`)
+        const hasDetailA = fs.existsSync(detailAPath) || fs.existsSync(publicDetailAPath)
+
+        const detailBPath = path.join(PROCESSED_DIR, `${stem}_detail_b.png`)
+        const publicDetailBPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_b.png`)
+        const hasDetailB = fs.existsSync(detailBPath) || fs.existsSync(publicDetailBPath)
+
+        let isStaged = false
+        let stagedUrl = null
+        if (matches.length > 0) {
+          try {
+            const parsed = JSON.parse(matches[0].description || "{}")
+            if (parsed.image && parsed.image.includes("/product-images/")) {
+              isStaged = true
+              stagedUrl = parsed.image
+            }
+          } catch {}
+        }
+
+        hydratedGroupFiles.push({
+          fileName,
+          stem,
+          cleanedStem,
+          isProcessed,
+          hasDetailA,
+          hasDetailB,
+          isStaged,
+          stagedUrl,
+          matches: matches.map(m => ({ id: m.id, sku: m.sku, name: m.name, price: m.price, category: m.category }))
+        })
+      }
+
+      hydratedConflicts.push({
+        cleanedStem: group.cleanedStem,
+        files: hydratedGroupFiles
+      })
+    }
+
+    // Hydrate paginated products list with their matching image details
+    const hydratedProductsList = []
+    for (const p of paginatedProducts) {
+      const cleanedSku = cleanSkuStem(p.sku)
+      // Look for a raw image file in our list that matches this SKU
+      const matchingFile = matchedFiles.find(mf => mf.cleanedStem === cleanedSku)
+
+      let isStaged = false
+      let stagedUrl = null
+      try {
+        const parsed = JSON.parse(p.description || "{}")
+        if (parsed.image && parsed.image.includes("/product-images/")) {
+          isStaged = true
+          stagedUrl = parsed.image
+        }
+      } catch {}
+
+      let isProcessed = false
+      let hasDetailA = false
+      let hasDetailB = false
+      let fileName = matchingFile ? matchingFile.fileName : `NEW_${p.sku}.png`
+      const ext = path.extname(fileName)
+      const stem = path.basename(fileName, ext)
+
+      if (matchingFile) {
+        const processedPath = path.join(PROCESSED_DIR, `${stem}.png`)
+        const publicPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}.png`)
+        isProcessed = fs.existsSync(processedPath) || fs.existsSync(publicPath)
+
+        const detailAPath = path.join(PROCESSED_DIR, `${stem}_detail_a.png`)
+        const publicDetailAPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_a.png`)
+        hasDetailA = fs.existsSync(detailAPath) || fs.existsSync(publicDetailAPath)
+
+        const detailBPath = path.join(PROCESSED_DIR, `${stem}_detail_b.png`)
+        const publicDetailBPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_b.png`)
+        hasDetailB = fs.existsSync(detailBPath) || fs.existsSync(publicDetailBPath)
+      } else if (isStaged && stagedUrl) {
+        const publicPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}.png`)
+        isProcessed = fs.existsSync(publicPath)
+      }
+
+      hydratedProductsList.push({
+        id: p.id,
+        sku: p.sku,
+        name: p.name,
+        price: p.price,
+        category: p.category,
+        imageFile: {
+          fileName,
+          stem,
+          cleanedStem: cleanedSku,
+          isProcessed,
+          hasDetailA,
+          hasDetailB,
+          isStaged,
+          stagedUrl,
+          matches: [{ id: p.id, sku: p.sku, name: p.name, price: p.price, category: p.category }]
+        }
+      })
+    }
+
+    // 6. Gather Storage Metrics
     const rawStats = getDirStats(ALL_PICS_DIR)
     const processedStats = getDirStats(PROCESSED_DIR)
     const archiveStats = getDirStats(path.join(ALL_PICS_DIR, "archive"))
@@ -156,9 +336,24 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      files: results,
-      needsImages,
+      files: hydratedFiles,
+      needsImages: paginatedNeedsImages.map(p => ({
+        id: p.id,
+        sku: p.sku,
+        name: p.name,
+        price: p.price,
+        category: p.category
+      })),
+      products: hydratedProductsList,
+      conflicts: hydratedConflicts,
       allProducts: dbProducts.map(p => ({ id: p.id, sku: p.sku, name: p.name, price: p.price, category: p.category })),
+      counts,
+      pagination: {
+        page,
+        limit,
+        totalItems,
+        totalPages
+      },
       storage: {
         raw: rawStats,
         processed: processedStats,

@@ -30,13 +30,14 @@ export default function ImageManagerPage() {
   const [files, setFiles] = useState<ImageFile[]>([])
   const [loading, setLoading] = useState(false)
   
-  // Tabs: 'all' | 'unmatched' | 'conflicts' | 'needs-images'
-  const [activeTab, setActiveTab] = useState<'all' | 'unmatched' | 'conflicts' | 'needs-images'>('all')
+  // Tabs: 'all' | 'unmatched' | 'conflicts' | 'needs-images' | 'products'
+  const [activeTab, setActiveTab] = useState<'all' | 'unmatched' | 'conflicts' | 'needs-images' | 'products'>('all')
   const [selectedFile, setSelectedFile] = useState<ImageFile | null>(null)
   
   // Stored state lists
   const [needsImages, setNeedsImages] = useState<Match[]>([])
   const [allProducts, setAllProducts] = useState<Match[]>([])
+  const [products, setProducts] = useState<any[]>([])
   const [conflicts, setConflicts] = useState<{ cleanedStem: string, files: ImageFile[] }[]>([])
   const [storage, setStorage] = useState<any>(null)
   const [searchProductQuery, setSearchProductQuery] = useState("")
@@ -77,7 +78,7 @@ export default function ImageManagerPage() {
   const [limit] = useState(32)
   const [totalPages, setTotalPages] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
-  const [counts, setCounts] = useState({ all: 0, unmatched: 0, needsImages: 0, conflicts: 0 })
+  const [counts, setCounts] = useState({ all: 0, unmatched: 0, products: 0, needsImages: 0, conflicts: 0 })
   const [fileSearch, setFileSearch] = useState("")
   const [fileSearchQuery, setFileSearchQuery] = useState("")
 
@@ -94,6 +95,7 @@ export default function ImageManagerPage() {
       if (data.success) {
         setFiles(data.files || [])
         setNeedsImages(data.needsImages || [])
+        setProducts(data.products || [])
         setConflicts(data.conflicts || [])
         setAllProducts(data.allProducts || [])
         setStorage(data.storage || null)
@@ -650,7 +652,7 @@ export default function ImageManagerPage() {
           </div>
 
           {/* Directory Tabs */}
-          <div className="grid grid-cols-4 border-b border-white/5 bg-neutral-900/20 text-[9px] font-bold uppercase tracking-wider font-mono">
+          <div className="grid grid-cols-5 border-b border-white/5 bg-neutral-900/20 text-[8px] font-bold uppercase tracking-wider font-mono">
             <button
               onClick={() => handleTabChange('all')}
               className={`py-2 text-center border-b-2 ${activeTab === 'all' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
@@ -662,6 +664,12 @@ export default function ImageManagerPage() {
               className={`py-2 text-center border-b-2 ${activeTab === 'unmatched' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
             >
               No SKU ({counts.unmatched})
+            </button>
+            <button
+              onClick={() => handleTabChange('products')}
+              className={`py-2 text-center border-b-2 ${activeTab === 'products' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
+            >
+              Catalog ({counts.products})
             </button>
             <button
               onClick={() => handleTabChange('needs-images')}
@@ -744,6 +752,47 @@ export default function ImageManagerPage() {
                       <div className="text-[10px] text-neutral-300 mt-1 truncate max-w-[200px]">{p.name}</div>
                     </div>
                     <FiPlus className="text-neutral-500" size={14} />
+                  </div>
+                )
+              })
+            ) : activeTab === 'products' ? (
+              // All Products listing (Catalog)
+              products.map(p => {
+                const isSelected = selectedFile?.stem === p.sku
+                const hasImage = p.imageFile.isProcessed || p.imageFile.isStaged
+                return (
+                  <div
+                    key={p.sku}
+                    onClick={() => setSelectedFile(p.imageFile)}
+                    className={`p-3.5 flex items-center justify-between cursor-pointer transition-colors ${
+                      isSelected ? "bg-emerald-500/10 border-l-4 border-emerald-500" : "hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden flex items-center justify-center flex-shrink-0">
+                        {hasImage ? (
+                          <img src={getImageUrl(p.imageFile, "processed")} alt={p.sku} className="w-full h-full object-cover" />
+                        ) : (
+                          <FiImage className="text-neutral-700" size={16} />
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-neutral-200 font-mono truncate max-w-[150px]">{p.sku}</div>
+                        <div className="text-[10px] text-neutral-400 mt-1 truncate max-w-[180px]">{p.name}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {p.imageFile.isProcessed && (
+                        <span className="w-2 h-2 rounded-full bg-blue-400 shadow-lg shadow-blue-500/50" title="Processed" />
+                      )}
+                      {p.imageFile.isStaged && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-lg shadow-emerald-500/50" title="Staged" />
+                      )}
+                      {!hasImage && (
+                        <span className="text-[9px] text-neutral-600 font-bold font-mono">NO IMG</span>
+                      )}
+                    </div>
                   </div>
                 )
               })
@@ -985,11 +1034,63 @@ export default function ImageManagerPage() {
                   </div>
 
                   {carouselIndex === 0 && (
-                    <div className="text-center">
-                      <span className="text-xs text-neutral-500 font-semibold block mb-2">{selectedFile.fileName}</span>
-                      <FiImage size={64} className="text-neutral-700 mx-auto my-12 animate-pulse" />
-                      <p className="text-neutral-500 text-xs font-medium">Original raw catalog photo</p>
-                    </div>
+                    selectedFile.fileName.startsWith("NEW_") ? (
+                      <div className="text-center p-8 flex flex-col items-center">
+                        <FiImage size={48} className="text-neutral-600 mx-auto mb-4 animate-pulse" />
+                        <p className="text-neutral-300 text-xs font-bold mb-4 font-mono">No photo uploaded for {selectedFile.stem} yet.</p>
+                        <input
+                          type="file"
+                          id="product-specific-upload"
+                          onChange={async (e) => {
+                            const uploaded = e.target.files?.[0]
+                            if (!uploaded) return
+                            setLoading(true)
+                            const formData = new FormData()
+                            const ext = uploaded.name.split('.').pop()
+                            const targetName = `${selectedFile.stem}.${ext}`
+                            formData.append("file", uploaded, targetName)
+
+                            try {
+                              const res = await fetch("/api/admin/images/upload", {
+                                method: "POST",
+                                body: formData
+                              })
+                              const data = await res.json()
+                              if (data.success) {
+                                alert("Image uploaded and mapped successfully!")
+                                await fetchFiles()
+                                setCarouselIndex(1)
+                              } else {
+                                alert("Upload failed: " + data.error)
+                              }
+                            } catch (err: any) {
+                              alert("Error: " + err.message)
+                            } finally {
+                              setLoading(false)
+                            }
+                          }}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                        <button
+                          onClick={() => document.getElementById("product-specific-upload")?.click()}
+                          className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 text-xs font-black rounded-lg transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"
+                        >
+                          <FiUploadCloud />
+                          <span>Upload Photo</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <span className="text-xs text-neutral-500 font-semibold block mb-2">{selectedFile.fileName}</span>
+                        <img
+                          src={getImageUrl(selectedFile, "raw")}
+                          alt="Raw Source"
+                          className="max-h-[380px] w-auto object-contain rounded-lg shadow-lg border border-white/5 mx-auto"
+                        />
+                        <p className="text-neutral-500 text-[10px] mt-2 font-medium">Original raw catalog photo</p>
+                      </div>
+                    )
                   )}
 
                   {carouselIndex === 1 && (
