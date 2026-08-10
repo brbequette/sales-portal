@@ -30,7 +30,7 @@ async function fetchAllZohoItems(token: string) {
   const orgId = ZOHO_ORGANIZATION_ID
   
   const firstData = await fetchWithRetry(
-    `${baseUrl}?organization_id=${orgId}&page=1&per_page=200`,
+    `${baseUrl}?organization_id=${orgId}&page=1&per_page=200&filter_by=Status.All`,
     { Authorization: `Zoho-oauthtoken ${token}` }
   )
   
@@ -43,7 +43,7 @@ async function fetchAllZohoItems(token: string) {
   while (hasMore) {
     try {
       const data = await fetchWithRetry(
-        `${baseUrl}?organization_id=${orgId}&page=${page}&per_page=200`,
+        `${baseUrl}?organization_id=${orgId}&page=${page}&per_page=200&filter_by=Status.All`,
         { Authorization: `Zoho-oauthtoken ${token}` }
       )
       if (data.items && data.items.length > 0) {
