@@ -2,42 +2,60 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from '../../../../../../netlify/functions/lib/zoho-auth'
 
+async function fetchWithRetry(url: string, headers: HeadersInit, retries = 3, delay = 1000): Promise<any> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, { headers })
+      if (res.status === 429) {
+        console.warn(`Zoho API rate limited (429). Retrying in ${delay}ms... (Attempt ${i + 1}/${retries})`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+        delay *= 2
+        continue
+      }
+      if (!res.ok) {
+        throw new Error(`HTTP status ${res.status}: ${res.statusText}`)
+      }
+      return await res.json()
+    } catch (e: any) {
+      if (i === retries - 1) throw e
+      console.warn(`Fetch failed: ${e.message}. Retrying in ${delay}ms...`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+      delay *= 2
+    }
+  }
+}
+
 async function fetchAllZohoItems(token: string) {
   const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/items`
   const orgId = ZOHO_ORGANIZATION_ID
   
-  const firstRes = await fetch(`${baseUrl}?organization_id=${orgId}&page=1&per_page=200`, {
-    headers: { Authorization: `Zoho-oauthtoken ${token}` }
-  })
+  const firstData = await fetchWithRetry(
+    `${baseUrl}?organization_id=${orgId}&page=1&per_page=200`,
+    { Authorization: `Zoho-oauthtoken ${token}` }
+  )
   
-  if (!firstRes.ok) {
-    throw new Error(`Failed to fetch items from Zoho: ${firstRes.statusText}`)
-  }
-  
-  const firstData = await firstRes.json()
   const items = firstData.items || []
   
   const pageContext = firstData.page_context || {}
-  const totalItems = pageContext.total || 0
-  const perPage = pageContext.per_page || 200
-  const totalPages = Math.ceil(totalItems / perPage)
+  let hasMore = pageContext.has_more_page || false
+  let page = 2
   
-  if (totalPages > 1) {
-    const promises = []
-    for (let page = 2; page <= totalPages; page++) {
-      promises.push(
-        fetch(`${baseUrl}?organization_id=${orgId}&page=${page}&per_page=200`, {
-          headers: { Authorization: `Zoho-oauthtoken ${token}` }
-        }).then(async r => {
-          if (!r.ok) return []
-          const d = await r.json()
-          return d.items || []
-        }).catch(() => [])
+  while (hasMore) {
+    try {
+      const data = await fetchWithRetry(
+        `${baseUrl}?organization_id=${orgId}&page=${page}&per_page=200`,
+        { Authorization: `Zoho-oauthtoken ${token}` }
       )
-    }
-    const results = await Promise.all(promises)
-    for (const r of results) {
-      items.push(...r)
+      if (data.items && data.items.length > 0) {
+        items.push(...data.items)
+        hasMore = data.page_context?.has_more_page || false
+        page++
+      } else {
+        hasMore = false
+      }
+    } catch (err: any) {
+      console.error(`Failed to fetch page ${page} after retries:`, err.message)
+      hasMore = false
     }
   }
   

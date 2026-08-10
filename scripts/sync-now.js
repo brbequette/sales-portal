@@ -55,49 +55,62 @@ async function getZohoAccessToken() {
   return tokenVal
 }
 
+async function fetchWithRetry(url, headers, retries = 3, delay = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, { headers })
+      if (res.status === 429) {
+        console.warn(`Zoho API rate limited (429). Retrying in ${delay}ms... (Attempt ${i + 1}/${retries})`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+        delay *= 2
+        continue
+      }
+      if (!res.ok) {
+        throw new Error(`HTTP status ${res.status}: ${res.statusText}`)
+      }
+      return await res.json()
+    } catch (e) {
+      if (i === retries - 1) throw e
+      console.warn(`Fetch failed: ${e.message}. Retrying in ${delay}ms...`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+      delay *= 2
+    }
+  }
+}
+
 async function fetchAllZohoItems(token) {
   const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/items`
   const orgId = ZOHO_ORGANIZATION_ID
   
-  console.log("Fetching first page of Zoho items...")
-  const firstRes = await fetch(`${baseUrl}?organization_id=${orgId}&page=1&per_page=200`, {
-    headers: { Authorization: `Zoho-oauthtoken ${token}` }
-  })
+  console.log("Fetching page 1 of Zoho items...")
+  const firstData = await fetchWithRetry(
+    `${baseUrl}?organization_id=${orgId}&page=1&per_page=200`,
+    { Authorization: `Zoho-oauthtoken ${token}` }
+  )
   
-  if (!firstRes.ok) {
-    throw new Error(`Failed to fetch items from Zoho: ${firstRes.statusText}`)
-  }
-  
-  const firstData = await firstRes.json()
   const items = firstData.items || []
   
   const pageContext = firstData.page_context || {}
-  const totalItems = pageContext.total || 0
-  const perPage = pageContext.per_page || 200
-  const totalPages = Math.ceil(totalItems / perPage)
+  let hasMore = pageContext.has_more_page || false
+  let page = 2
   
-  console.log(`Total Zoho Items: ${totalItems}, Total Pages: ${totalPages}`)
-  
-  if (totalPages > 1) {
-    console.log(`Fetching remaining ${totalPages - 1} pages in parallel...`)
-    const promises = []
-    for (let page = 2; page <= totalPages; page++) {
-      promises.push(
-        fetch(`${baseUrl}?organization_id=${orgId}&page=${page}&per_page=200`, {
-          headers: { Authorization: `Zoho-oauthtoken ${token}` }
-        }).then(async r => {
-          if (!r.ok) return []
-          const d = await r.json()
-          return d.items || []
-        }).catch((e) => {
-          console.error(`Page ${page} fetch error:`, e.message)
-          return []
-        })
+  while (hasMore) {
+    console.log(`Fetching page ${page} of Zoho items sequentially...`)
+    try {
+      const data = await fetchWithRetry(
+        `${baseUrl}?organization_id=${orgId}&page=${page}&per_page=200`,
+        { Authorization: `Zoho-oauthtoken ${token}` }
       )
-    }
-    const results = await Promise.all(promises)
-    for (const r of results) {
-      items.push(...r)
+      if (data.items && data.items.length > 0) {
+        items.push(...data.items)
+        hasMore = data.page_context?.has_more_page || false
+        page++
+      } else {
+        hasMore = false
+      }
+    } catch (err) {
+      console.error(`Failed to fetch page ${page} after retries:`, err.message)
+      hasMore = false
     }
   }
   
