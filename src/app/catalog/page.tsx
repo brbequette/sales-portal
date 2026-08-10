@@ -8,6 +8,7 @@ import { useProductModal } from "@/components/ProductModalProvider"
 import { 
   FiSearch, FiPackage, FiBox, FiInfo, FiDollarSign, FiTag, FiEdit2, FiX, FiCheck
 } from "react-icons/fi"
+import imageMapData from "@/lib/image-map.json"
 
 export default function ProductCatalogPage() {
   const { isInitialized } = useZoho()
@@ -117,9 +118,9 @@ export default function ProductCatalogPage() {
     const skuUpper = sku.trim().toUpperCase()
     
     // Check our pre-calculated static image map
-    const imageMap = require("@/lib/image-map.json")
-    if (imageMap[skuUpper] && imageMap[skuUpper].image) {
-      return imageMap[skuUpper].image
+    const entry = (imageMapData as Record<string, { image?: string }>)[skuUpper]
+    if (entry && entry.image) {
+      return entry.image
     }
     
     return null
