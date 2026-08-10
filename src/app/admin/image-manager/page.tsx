@@ -452,17 +452,7 @@ export default function ImageManagerPage() {
   }
 
   const getImageUrl = (file: ImageFile, type: "raw" | "processed" | "detail_a" | "detail_b") => {
-    // Standard static fallback path
-    if (type === "processed" && file.isProcessed) {
-      return `/product-images/${file.stem}.png`
-    }
-    if (type === "detail_a" && file.hasDetailA) {
-      return `/product-images/${file.stem}_detail_a.png`
-    }
-    if (type === "detail_b" && file.hasDetailB) {
-      return `/product-images/${file.stem}_detail_b.png`
-    }
-    return `/product-images/${file.stem}.png`
+    return `/api/admin/images/serve?file=${encodeURIComponent(file.fileName)}&type=${type}`
   }
 
   return (
