@@ -9,23 +9,56 @@ export function CommandPalette() {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const router = useRouter()
+  const inputRef = React.useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      // Toggle palette
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         setOpen((open) => !open)
       }
+      
+      // Global shortcuts (only when not typing in an input, unless it's the palette itself)
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        // Only handle specific shortcuts if we're inside the palette search
+        if (open && e.key === "?" && query === "") {
+          e.preventDefault()
+          setShowHelp(true)
+        }
+        return
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "n") {
+        e.preventDefault()
+        router.push("/orders/new")
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "i") {
+        e.preventDefault()
+        router.push("/collections")
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+        e.preventDefault()
+        setOpen(true)
+        setTimeout(() => inputRef.current?.focus(), 10)
+      }
+      if (e.key === "?") {
+        e.preventDefault()
+        setOpen(true)
+        setShowHelp(true)
+      }
     }
     document.addEventListener("keydown", down)
     return () => document.removeEventListener("keydown", down)
-  }, [])
+  }, [open, query, router])
 
   useEffect(() => {
     if (!open) {
       setQuery("")
       setResults([])
+      setShowHelp(false)
     }
   }, [open])
 
@@ -67,27 +100,60 @@ export function CommandPalette() {
         <div className="flex items-center px-4 py-4 border-b border-white/10">
           <FiSearch size={20} className="text-neutral-500 mr-3" />
           <input
+            ref={inputRef}
             autoFocus
             className="flex-1 bg-transparent text-lg text-white placeholder-neutral-500 outline-none border-none focus:ring-0 p-0"
-            placeholder="Search accounts, invoices, or type a command..."
+            placeholder="Search accounts, invoices, or type a command... (? for help)"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value === "?") {
+                setShowHelp(true)
+                setQuery("")
+              } else {
+                setShowHelp(false)
+                setQuery(e.target.value)
+              }
+            }}
           />
           <div className="text-[10px] font-bold text-neutral-500 bg-white/5 px-2 py-1 rounded-md ml-2 border border-white/10">ESC</div>
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto p-2">
-          {loading && (
+          {showHelp && (
+            <div className="p-4">
+              <h3 className="text-sm font-bold text-neutral-400 mb-3 uppercase tracking-wider">Keyboard Shortcuts</h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-2 rounded hover:bg-white/5">
+                  <span className="text-sm text-white">Global Search</span>
+                  <div className="flex gap-1"><kbd className="bg-white/10 px-2 py-1 rounded text-xs font-mono">Ctrl</kbd><kbd className="bg-white/10 px-2 py-1 rounded text-xs font-mono">/</kbd></div>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded hover:bg-white/5">
+                  <span className="text-sm text-white">New Order</span>
+                  <div className="flex gap-1"><kbd className="bg-white/10 px-2 py-1 rounded text-xs font-mono">Ctrl</kbd><kbd className="bg-white/10 px-2 py-1 rounded text-xs font-mono">N</kbd></div>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded hover:bg-white/5">
+                  <span className="text-sm text-white">Invoices</span>
+                  <div className="flex gap-1"><kbd className="bg-white/10 px-2 py-1 rounded text-xs font-mono">Ctrl</kbd><kbd className="bg-white/10 px-2 py-1 rounded text-xs font-mono">I</kbd></div>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded hover:bg-white/5">
+                  <span className="text-sm text-white">Show Help</span>
+                  <kbd className="bg-white/10 px-2 py-1 rounded text-xs font-mono">?</kbd>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!showHelp && loading && (
              <div className="p-4 text-center text-sm text-neutral-500">Searching Titan Network...</div>
           )}
-          {!loading && results.length === 0 && query.length > 2 && (
+          {!showHelp && !loading && results.length === 0 && query.length > 2 && (
              <div className="p-4 text-center text-sm text-neutral-500">No results found for "{query}"</div>
           )}
-          {!loading && query.length <= 2 && (
+          {!showHelp && !loading && query.length <= 2 && (
              <div className="p-4 text-center text-sm text-neutral-500">Type at least 3 characters to search</div>
           )}
 
-          {!loading && results.length > 0 && (
+          {!showHelp && !loading && results.length > 0 && (
              <div className="space-y-1">
                 {results.map((r, i) => (
                    <button 

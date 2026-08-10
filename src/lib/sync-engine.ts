@@ -176,16 +176,17 @@ export async function syncInvoicePayments(
       const data = await res.json()
       payments = data.payments ?? []
     } else {
-      console.warn(`[sync-engine] Payment fetch returned ${res.status} for invoice ${zohoInvoiceId}`)
+      throw new Error(`[sync-engine] Payment fetch returned ${res.status} for invoice ${zohoInvoiceId}`)
     }
   } catch (err: unknown) {
-    console.warn("[sync-engine] Payment fetch failed:", (err as Error).message)
+    throw new Error(`[sync-engine] Payment fetch failed: ${(err as Error).message}`)
   }
 
   // Upsert each payment
   let totalPaid   = 0
   let lastPayDate: Date | null = null
 
+  const ops = []
   for (const pmt of payments) {
     const pmtDate = pmt.date ? new Date(pmt.date) : null
     if (pmtDate && (!lastPayDate || pmtDate > lastPayDate)) {
@@ -193,8 +194,8 @@ export async function syncInvoicePayments(
     }
     totalPaid += pmt.amount ?? 0
 
-    try {
-      await prisma.payment.upsert({
+    ops.push(
+      prisma.payment.upsert({
         where: { zohoId: pmt.payment_id },
         create: {
           zohoId:          pmt.payment_id,
@@ -220,9 +221,11 @@ export async function syncInvoicePayments(
           description:     pmt.description ?? null,
         },
       })
-    } catch (e: unknown) {
-      console.warn("[sync-engine] Payment upsert failed:", (e as Error).message)
-    }
+    )
+  }
+
+  if (ops.length > 0) {
+    await prisma.$transaction(ops)
   }
 
   return {

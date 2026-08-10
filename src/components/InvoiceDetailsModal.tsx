@@ -16,6 +16,8 @@ import { SaleCommunications } from "./SaleCommunications"
 import { DocumentTasks } from "./DocumentTasks"
 import { InvoiceFinancialBreakdown } from "./InvoiceFinancialBreakdown"
 import { isItemExemptFromVig } from "@/lib/custom-field-extractor"
+import { Skeleton } from "@/components/ui/skeleton"
+import { EmptyState } from "@/components/ui/empty-state"
 
 
 interface InvoiceDetailsModalProps {
@@ -55,15 +57,24 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
   const [discountPercentage, setDiscountPercentage] = useState<number>(5)
 
   const [usersList, setUsersList] = useState<any[]>([])
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true)
+  
   useEffect(() => {
     fetch('/api/admin/users')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`Failed to load users: ${res.status}`)
+        return res.json()
+      })
       .then(data => {
         if (data.users) {
           setUsersList(data.users)
         }
+        setIsLoadingUsers(false)
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error('Failed to load users list:', err)
+        setIsLoadingUsers(false)
+      })
   }, [])
 
   // Line item editing state
@@ -851,7 +862,11 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 {displayData.salesperson_name && (
                   <div className="flex flex-col">
                     <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Salesperson</label>
-                    <div className="text-sm text-white font-semibold truncate">{displayData.salesperson_name}</div>
+                    {isLoadingUsers ? (
+                      <Skeleton variant="text" className="w-24 h-4 mt-1" />
+                    ) : (
+                      <div className="text-sm text-white font-semibold truncate">{displayData.salesperson_name}</div>
+                    )}
                     <div className="text-[9px] text-sky-400 font-mono mt-1">
                       Session: user={effectiveName || "none"} role={effectiveRole || "none"} email={effectiveEmail || "none"} (isAdmin={String(isAdmin)} canEdit={String(canEdit)})
                     </div>
@@ -1175,9 +1190,15 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
               {/* Only blank lower section on true first load with no data */}
               {isLoading && !fullInvoiceDetails ? (
-                <div className="flex justify-center items-center py-8 gap-2 text-sm font-semibold text-neutral-400">
-                  <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                  Loading details...
+                <div className="w-full space-y-4">
+                  <div className="flex justify-center items-center py-8 gap-2 text-sm font-semibold text-neutral-400">
+                    <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    Loading details...
+                  </div>
+                  <Skeleton variant="card" className="w-full h-32" />
+                  <Skeleton variant="table-row" className="w-full h-12" />
+                  <Skeleton variant="table-row" className="w-full h-12" />
+                  <Skeleton variant="table-row" className="w-full h-12" />
                 </div>
               ) : (
                 <>

@@ -16,6 +16,8 @@ const SalesBoardCustomizer = dynamic(
 
 import { WidgetConfig, DEFAULT_WIDGET_LAYOUT } from "./SalesBoardCustomizer"
 import { RevenueVsGoalWidget, VigCostAllocationWidget, PipelineFunnelWidget, ZDialerActivityWidget, TimeclockStatusWidget } from "./DashboardWidgetCatalog"
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 
 const REP_GRADIENTS = [
   "from-purple-500 to-indigo-500",
@@ -681,9 +683,19 @@ export function SalesBoard() {
 
   if (loading && !data) {
     return (
-      <div className="w-full h-full min-h-[600px] flex flex-col items-center justify-center glass-panel-strong rounded-2xl border border-white/10 text-white shadow-2xl relative overflow-hidden">
-        <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-neutral-400 font-medium tracking-widest uppercase text-sm animate-pulse">Loading Live Metrics</p>
+      <div className="w-full h-full min-h-[600px] flex flex-col items-center justify-center glass-panel-strong rounded-2xl border border-white/10 text-white shadow-2xl relative overflow-hidden p-8 space-y-8">
+        <div className="w-full space-y-4">
+          <Skeleton variant="card" className="w-1/3 h-8" />
+          <div className="flex gap-4">
+            <Skeleton variant="card" className="w-1/4 h-24" />
+            <Skeleton variant="card" className="w-1/4 h-24" />
+            <Skeleton variant="card" className="w-1/4 h-24" />
+            <Skeleton variant="card" className="w-1/4 h-24" />
+          </div>
+          <Skeleton variant="table-row" className="w-full h-12" />
+          <Skeleton variant="table-row" className="w-full h-12" />
+          <Skeleton variant="table-row" className="w-full h-12" />
+        </div>
       </div>
     )
   }
@@ -801,7 +813,17 @@ export function SalesBoard() {
                   </tr>
                </thead>
                <tbody>
-                  {(data?.reps || []).slice().sort((a:any, b:any) => (b.weekly?.totalSales || 0) - (a.weekly?.totalSales || 0)).map((rep: any, idx: number) => {
+                  {(!data?.reps || data.reps.length === 0) ? (
+                    <tr>
+                      <td colSpan={8} className="p-8">
+                        <EmptyState 
+                          title="No sales to display"
+                          description="Sales will appear here once invoices are created."
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                  (data?.reps || []).slice().sort((a:any, b:any) => (b.weekly?.totalSales || 0) - (a.weekly?.totalSales || 0)).map((rep: any, idx: number) => {
                      const isExpanded = expandedRows.has(`weekly-${rep.id}`)
                      return (
                      <React.Fragment key={rep.id}>
@@ -874,7 +896,8 @@ export function SalesBoard() {
                            </tr>
                         )}
                      </React.Fragment>
-                  )})}
+                  )}))
+                  }
                </tbody>
             </table>
           </div>
@@ -1002,7 +1025,17 @@ export function SalesBoard() {
                   </tr>
                </thead>
                <tbody>
-                  {(data?.reps || []).slice().sort((a:any, b:any) => (b.mtd?.profit || 0) - (a.mtd?.profit || 0)).map((rep: any) => {
+                  {(!data?.reps || data.reps.length === 0) ? (
+                    <tr>
+                      <td colSpan={7} className="p-8">
+                        <EmptyState 
+                          title="No sales to display"
+                          description="Sales will appear here once invoices are created."
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                  (data?.reps || []).slice().sort((a:any, b:any) => (b.mtd?.profit || 0) - (a.mtd?.profit || 0)).map((rep: any) => {
                      const avgDeal = rep.mtd.dealsClosed > 0 ? rep.mtd.sales / rep.mtd.dealsClosed : 0
                      const profitMargin = rep.mtd.sales > 0 ? (rep.mtd.profit / rep.mtd.sales) * 100 : 0
                      const isExpanded = expandedRows.has(`mtd-${rep.id}`)
@@ -1091,7 +1124,8 @@ export function SalesBoard() {
                         </tr>
                      )}
                      </React.Fragment>
-                  )})}
+                  )}))
+                  }
                </tbody>
             </table>
           </div>
@@ -1115,7 +1149,17 @@ export function SalesBoard() {
                   </tr>
                </thead>
                <tbody>
-                  {(data?.reps || []).slice().sort((a:any, b:any) => (b.ytd?.profit || 0) - (a.ytd?.profit || 0)).map((rep: any) => {
+                  {(!data?.reps || data.reps.length === 0) ? (
+                    <tr>
+                      <td colSpan={6} className="p-8">
+                        <EmptyState 
+                          title="No sales to display"
+                          description="Sales will appear here once invoices are created."
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                  (data?.reps || []).slice().sort((a:any, b:any) => (b.ytd?.profit || 0) - (a.ytd?.profit || 0)).map((rep: any) => {
                      const avgDeal = rep.ytd.dealsClosed > 0 ? rep.ytd.sales / rep.ytd.dealsClosed : 0
                      const profitMargin = rep.ytd.sales > 0 ? (rep.ytd.profit / rep.ytd.sales) * 100 : 0
                      const isExpanded = expandedRows.has(`ytd-${rep.id}`)
@@ -1180,7 +1224,8 @@ export function SalesBoard() {
                         </tr>
                      )}
                      </React.Fragment>
-                  )})}
+                  )}))
+                  }
                </tbody>
             </table>
           </div>
@@ -1219,7 +1264,17 @@ export function SalesBoard() {
                   </tr>
                </thead>
                <tbody>
-                  {Object.values(data.repOverdueMap || {}).sort((a:any, b:any) => b.totalBalance - a.totalBalance).map((rep: any) => {
+                  {(!data?.repOverdueMap || Object.values(data.repOverdueMap).length === 0) ? (
+                    <tr>
+                      <td colSpan={5} className="p-8">
+                        <EmptyState 
+                          title="No overdue invoices"
+                          description="You're all caught up!"
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                  Object.values(data.repOverdueMap || {}).sort((a:any, b:any) => b.totalBalance - a.totalBalance).map((rep: any) => {
                      const isExpanded = expandedRows.has(`overdue-${rep.repId}`)
                      return (
                      <React.Fragment key={rep.repId}>
@@ -1296,7 +1351,8 @@ export function SalesBoard() {
                          </tr>
                       )}
                       </React.Fragment>
-                   )})}
+                   )}))
+                   }
                 </tbody>
              </table>
            </div>

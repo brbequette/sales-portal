@@ -74,10 +74,6 @@ export const authOptions: NextAuthOptions = {
         }
 
         let lookupEmail = credentials.email;
-        if (lookupEmail && lookupEmail.toLowerCase() === "admin@titandiamond.com") {
-          lookupEmail = "ben@titandiamond.net";
-        }
-
         const user = await prisma.user.findUnique({
           where: { email: lookupEmail }
         })
@@ -104,10 +100,6 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === "zoho") {
         let email = user.email
         if (!email) return false
-        if (email.toLowerCase() === "admin@titandiamond.com") {
-          email = "ben@titandiamond.net";
-        }
-
         const zohoProfile: any = profile
         let fullName = user.name ||
           zohoProfile?.Display_Name ||
@@ -193,7 +185,11 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
     error: '/login',
   },
-  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "titan_diamond_sales_portal_production_secret_key_2026",
+  secret: (() => {
+    const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+    if (!secret) throw new Error('NEXTAUTH_SECRET environment variable is required');
+    return secret;
+  })(),
 }
 
 export default NextAuth(authOptions)

@@ -15,6 +15,9 @@ import { useZoho } from "@/components/ZohoProvider"
 import { MetricDerivationModal, MetricDerivationInfo } from "@/components/MetricDerivationModal"
 import { extractProfit, extractCommissionAmount, extractVigRate, extractDeadCostTotal, extractCustomFieldValue } from "@/lib/custom-field-extractor"
 import { UpdateBanner } from '@/lib/useStaleCheck'
+import { useDashboardData } from '@/hooks/useDashboardData'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 
 
 // â"€â"€â"€ Types â"€â"€â"€
@@ -262,8 +265,7 @@ function getStatusBadgeClass(statusStr?: string): string {
 // ------ Main Dashboard Component ------
 export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: DashboardViewProps) {
   const { zohoContext: currentUser } = useZoho()
-  const [data, setData] = useState<DashboardData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { data: rawData, isLoading, isError, refetch } = useDashboardData(repName)
   const [showCompanyWide, setShowCompanyWide] = useState<boolean>(false)
   const [timeEntry, setTimeEntry] = useState<any | null>(null)
   const [clockLoading, setClockLoading] = useState(false)
@@ -457,6 +459,199 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
     return repWidgets.find(w => w.id === id)?.visible !== false
   }
 
+  const filterRepName = repName || null
+  const showTopPerformers = isAdmin === true
+  const showCompanyBreakdown = isAdmin === true
+
+  const data = useMemo<DashboardData | null>(() => {
+    if (!rawData || !rawData.success) return null
+
+    try {
+      const companyTotalsKpi = rawData.companyTotals || rawData.totals || {}
+      const repTotalsKpi = rawData.totals || {}
+      const companyRepsList = rawData.companyReps || rawData.reps || []
+      const scopedReps = rawData.reps || []
+
+      let repProfitGoal = rawData.repProfitGoal || 20000
+      let repSubtotalGoal = rawData.repSubtotalGoal || 40000
+      let repVigRate = rawData.repVigRate || 1.3
+      let monthlyVigPenaltyLoss = rawData.monthlyVigPenaltyLoss || 0
+
+      // --- Build chart data from company reps list (DB-backed) ---
+      const now = new Date()
+      const currentMonth = now.getMonth()
+      const currentYear = now.getFullYear()
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+      const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+      const dayOfWeek = now.getDay()
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+      const monday = new Date(now)
+      monday.setDate(now.getDate() + mondayOffset)
+      monday.setHours(0, 0, 0, 0)
+
+      // Trailing 6-month revenue from company invoices
+      const monthlyRevData: Record<string, number> = {}
+      const commData: Record<string, number> = {}
+      for (let i = 5; i >= 0; i--) {
+        const m = new Date(currentYear, currentMonth - i, 1)
+        const key = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`
+        monthlyRevData[key] = 0
+        commData[key] = 0
+      }
+
+      // Daily data for weekly trend
+      const dailySales: Record<string, number> = {}
+      const dailyProfit: Record<string, number> = {}
+      for (let d = 0; d < 5; d++) {
+        const dt = new Date(monday)
+        dt.setDate(monday.getDate() + d)
+        const key = dt.toISOString().slice(0, 10)
+        dailySales[key] = 0
+        dailyProfit[key] = 0
+      }
+
+      // Status counts for donut
+      const statusCounts: Record<string, number> = {}
+      let totalDealsWon = 0, totalDealsLost = 0, totalDealsRevenue = 0
+
+      // Per-rep aggregation (for leaderboard, use current rep scope invoices)
+      const repData: Record<string, { sales: number; profit: number; deals: number; commission: number; weeklySales: number }> = {}
+
+      // Build chart data from the DB invoices on the scoped reps (this_month query)
+      for (const rep of scopedReps) {
+        if (!repData[rep.repName]) repData[rep.repName] = { sales: 0, profit: 0, deals: 0, commission: 0, weeklySales: rep.weeklyRevenue || 0 }
+        for (const inv of (rep.invoices || [])) {
+          const invDate = inv.date ? new Date(inv.date) : null
+          if (!invDate) continue
+          const amount = inv.subtotal || 0
+          const profit = inv.profit || 0
+          const commission = inv.commission || 0
+          const status = (inv.status || "").toLowerCase()
+
+          // Monthly revenue chart
+          const invMonth = `${invDate.getFullYear()}-${String(invDate.getMonth() + 1).padStart(2, "0")}`
+          if (monthlyRevData[invMonth] !== undefined) monthlyRevData[invMonth] += amount
+          if (commData[invMonth] !== undefined) commData[invMonth] += commission
+
+          // Status donut
+          const statusKey = status === "paid" ? "Paid" : status === "overdue" ? "Overdue" : status === "draft" ? "Draft" : status === "sent" ? "Sent" : status === "partially_paid" ? "Partial" : "Other"
+          statusCounts[statusKey] = (statusCounts[statusKey] || 0) + 1
+
+          // Won/Lost
+          if (status === "void") { totalDealsLost++ } else { totalDealsWon++; totalDealsRevenue += amount }
+
+          // Weekly trend
+          const dayKey = invDate.toISOString().slice(0, 10)
+          if (dailySales[dayKey] !== undefined) {
+            dailySales[dayKey] += amount
+            dailyProfit[dayKey] += profit
+          }
+
+          repData[rep.repName].sales += amount
+          repData[rep.repName].profit += profit
+          repData[rep.repName].deals++
+          repData[rep.repName].commission += commission
+        }
+      }
+
+      const revenueByMonth = Object.entries(monthlyRevData).map(([key, rev]) => ({
+        month: monthNames[parseInt(key.split("-")[1]) - 1],
+        revenue: Math.round(rev),
+        goal: 64000
+      }))
+
+      const weeklyTrend = Object.entries(dailySales).map(([key, sales], i) => ({
+        day: dayNames[i] || key,
+        sales: Math.round(sales),
+        profit: Math.round(dailyProfit[key] || 0)
+      }))
+
+      const CHART_COLORS_LOCAL = { accent: "#10b981", rose: "#f43f5e", sky: "#38bdf8", amber: "#f59e0b", purple: "#a855f7", text: "#6b7280" }
+      const statusColors: Record<string, string> = { Paid: CHART_COLORS_LOCAL.accent, Overdue: CHART_COLORS_LOCAL.rose, Sent: CHART_COLORS_LOCAL.sky, Draft: CHART_COLORS_LOCAL.text, Partial: CHART_COLORS_LOCAL.amber, Other: CHART_COLORS_LOCAL.purple }
+      const dealsByStatus = Object.entries(statusCounts).map(([name, value]) => ({ name, value, color: statusColors[name] || CHART_COLORS_LOCAL.text }))
+      const commissionByMonth = Object.entries(commData).map(([key, commission]) => ({ month: monthNames[parseInt(key.split("-")[1]) - 1], commission: Math.round(commission) }))
+
+      const topReps = Object.entries(repData)
+        .map(([name, d]) => ({ name, sales: Math.round(d.sales), profit: Math.round(d.profit), deals: d.deals, quota: 10000 }))
+        .sort((a, b) => b.sales - a.sales).slice(0, 5)
+
+      const allRepData = companyRepsList.map((r: any) => ({
+        name: r.repName,
+        weeklySales: Math.round(r.weeklyRevenue || 0),
+        mtdSales: Math.round(r.revenue || 0),
+        mtdProfit: Math.round(r.profit || 0),
+        mtdCommission: Math.round(r.commissions || 0),
+        deals: r.invoiceCount || 0,
+      })).sort((a: { mtdSales: number }, b: { mtdSales: number }) => b.mtdSales - a.mtdSales)
+
+      const avgDealSize = totalDealsWon > 0 ? Math.round(totalDealsRevenue / totalDealsWon) : 0
+      const winLossData = [
+        { name: "Won", value: totalDealsWon || 1, color: "#10b981" },
+        { name: "Lost", value: totalDealsLost || 0, color: "#f43f5e" }
+      ]
+      const avgDealSizeTrend = revenueByMonth.map(m => ({ month: m.month, avgSize: m.revenue > 0 ? Math.round(m.revenue / Math.max(1, topReps.length)) : 0 }))
+
+      // Use rep-scoped totals for the individual KPI cards
+      const weeklyTotal = repTotalsKpi.invoiceWeeklyRevenue || 0
+      const monthlyTotal = repTotalsKpi.invoiceSubtotal || 0
+      const monthlyProfit = repTotalsKpi.invoiceNetProfit || 0
+      const monthlyCommission = repTotalsKpi.invoiceCommission || 0
+      const monthlyDeals = repTotalsKpi.invoiceCount || 0
+
+      const companyWeeklyTotal = companyTotalsKpi.invoiceWeeklyRevenue || 0
+      const companyMonthlyTotal = companyTotalsKpi.invoiceSubtotal || 0
+
+      // Pipeline and overdue from current rep scope
+      let pipelineValue = 0, pipelineCount = 0, overdueCount = 0, overdueBalance = 0
+      for (const rep of scopedReps) {
+        for (const inv of (rep.invoices || [])) {
+          const status = (inv.status || "").toLowerCase()
+          if (status !== "paid" && status !== "void" && status !== "draft") {
+            pipelineValue += inv.subtotal || 0
+            pipelineCount++
+          }
+          if (status === "overdue") {
+            overdueCount++
+            overdueBalance += inv.subtotal || 0
+          }
+        }
+      }
+
+      return {
+        companyWeeklyTotal: Math.round(companyWeeklyTotal),
+        companyMonthlyTotal: Math.round(companyMonthlyTotal),
+        weeklyTotal: Math.round(weeklyTotal),
+        weeklyTarget: 64000,
+        monthlyTotal: Math.round(monthlyTotal),
+        monthlyProfit: Math.round(monthlyProfit),
+        monthlyCommission: Math.round(monthlyCommission),
+        monthlyDeals,
+        monthlyProfitGoal: repProfitGoal,
+        monthlySubtotalGoal: repSubtotalGoal,
+        currentVigRate: repVigRate,
+        monthlyVigPenaltyLoss,
+        pipelineValue: Math.round(pipelineValue),
+        pipelineCount,
+        overdueCount,
+        overdueBalance: Math.round(overdueBalance),
+        revenueByMonth,
+        weeklyTrend,
+        dealsByStatus,
+        commissionByMonth,
+        topReps,
+        allRepData,
+        dealsWon: totalDealsWon,
+        dealsLost: totalDealsLost,
+        avgDealSize,
+        winLossData,
+        avgDealSizeTrend,
+      }
+    } catch (err) {
+      console.error("Dashboard data transformation error:", err)
+      return null
+    }
+  }, [rawData])
+
   useEffect(() => {
     const handleGlobalMetricEvent = (e: any) => {
       if (e.detail?.key && data) {
@@ -467,17 +662,6 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
     window.addEventListener("open-metric-derivation", handleGlobalMetricEvent as any)
     return () => window.removeEventListener("open-metric-derivation", handleGlobalMetricEvent as any)
   }, [data, timeEntry, rawInvoicesList, repName, repEmail, isAdmin])
-  const filterRepName = repName || null
-  const showTopPerformers = isAdmin === true
-  const showCompanyBreakdown = isAdmin === true
-
-  useEffect(() => {
-    fetchDashboardData()
-    const handleVisibility = () => { if (document.visibilityState === 'visible') fetchDashboardData() }
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repName, isAdmin, repEmail, repStatsSelectedRepId, refreshTrigger])
 
   useEffect(() => {
     if (!currentUser?.id) return
@@ -494,7 +678,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
             setTimeEntry(tdata.entries[0])
           }
         }
-      } catch (e) {}
+      } catch (e) { console.error('Timeclock fetch error:', e) }
     }
     fetchTime()
     const interval = setInterval(fetchTime, 60000)
@@ -559,323 +743,41 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
     }
   }
 
-  async function fetchDashboardData() {
-    try {
-      // --- Pull all KPI data from the app DB via get-rep-stats ---
-      // Fetch company-wide (all reps) stats for chart, KPI, and company totals
-      // Using this_month for KPI cards (weekly totals always uses current week from API)
-      const companyRes = await fetch("/api/get-rep-stats?repId=all&period=this_month")
-      let companyKpiData: any = null
-      if (companyRes.ok) {
-        const companyJson = await companyRes.json()
-        if (companyJson.success) companyKpiData = companyJson
-      }
-
-      // Fetch rep-scoped stats for KPI cards (the active rep scope)
-      const repScope = repStatsSelectedRepId !== "all" ? repStatsSelectedRepId : null
-      const activeRepFilter = repScope || filterRepName || repName
-      let repKpiData: any = null
-      if (activeRepFilter) {
-        const repRes = await fetch(`/api/get-rep-stats?repId=${encodeURIComponent(activeRepFilter)}&period=this_month`)
-        if (repRes.ok) {
-          const repJson = await repRes.json()
-          if (repJson.success) repKpiData = repJson
-        }
-      } else {
-        // Admin viewing all reps – use company data
-        repKpiData = companyKpiData
-      }
-
-      const companyTotalsKpi = companyKpiData?.totals || {}
-      const repTotalsKpi = repKpiData?.totals || {}
-      const companyRepsList: any[] = companyKpiData?.reps || []
-
-      // Fetch Rep VIG / Goal Configurations
-      let repProfitGoal = 20000
-      let repSubtotalGoal = 40000
-      let repVigRate = 1.3
-      let monthlyVigPenaltyLoss = 0
-
-      try {
-        const vigRes = await fetch("/api/admin/users/vig")
-        if (vigRes.ok) {
-          const vigData = await vigRes.json()
-          if (vigData.success && Array.isArray(vigData.repConfigs)) {
-            const isCompanyWideView = !activeRepFilter || activeRepFilter === "all"
-            if (isCompanyWideView) {
-              const today = new Date()
-              const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-              const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-              let workdaysInMonth = 0
-              const curDate = new Date(firstDayOfMonth)
-              while (curDate <= lastDayOfMonth) {
-                if (curDate.getDay() !== 0 && curDate.getDay() !== 6) workdaysInMonth++
-                curDate.setDate(curDate.getDate() + 1)
-              }
-              workdaysInMonth = Math.max(1, workdaysInMonth)
-              let sumProfit = 0, sumSubtotal = 0
-              vigData.repConfigs.forEach((r: any) => {
-                if (!r.showOnSalesBoard) return
-                const el = (r.email || "").toLowerCase()
-                const nl = (r.name || "").toLowerCase()
-                if (el.includes("dummy") || el.includes("example.com") || el.includes("test_migration") || nl.includes("admin") || nl.includes("benjamin")) return
-                sumProfit += (r.dailyProfitGoal > 0 ? r.dailyProfitGoal * workdaysInMonth : 1000 * workdaysInMonth)
-                sumSubtotal += (r.dailySubtotalGoal > 0 ? r.dailySubtotalGoal * workdaysInMonth : 2000 * workdaysInMonth)
-              })
-              if (sumProfit > 0) repProfitGoal = sumProfit
-              if (sumSubtotal > 0) repSubtotalGoal = sumSubtotal
-            } else {
-              const matchRep = vigData.repConfigs.find((r: any) =>
-                (activeRepFilter && r.name?.toLowerCase().includes(activeRepFilter.toLowerCase())) ||
-                (repEmail && r.email?.toLowerCase() === repEmail.toLowerCase())
-              )
-              if (matchRep) {
-                const today = new Date()
-                const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-                const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-                let workdaysInMonth = 0
-                const curDate = new Date(firstDayOfMonth)
-                while (curDate <= lastDayOfMonth) {
-                  if (curDate.getDay() !== 0 && curDate.getDay() !== 6) workdaysInMonth++
-                  curDate.setDate(curDate.getDate() + 1)
-                }
-                workdaysInMonth = Math.max(1, workdaysInMonth)
-                if (matchRep.dailyProfitGoal > 0) repProfitGoal = matchRep.dailyProfitGoal * workdaysInMonth
-                if (matchRep.dailySubtotalGoal > 0) repSubtotalGoal = matchRep.dailySubtotalGoal * workdaysInMonth
-                if (matchRep.constantVigValue) repVigRate = parseFloat(matchRep.constantVigValue)
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Failed to load rep VIG/Goal configs", e)
-      }
-
-      // --- Build chart data from company reps list (DB-backed) ---
-      const now = new Date()
-      const currentMonth = now.getMonth()
-      const currentYear = now.getFullYear()
-      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-      const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri"]
-      const dayOfWeek = now.getDay()
-      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-      const monday = new Date(now)
-      monday.setDate(now.getDate() + mondayOffset)
-      monday.setHours(0, 0, 0, 0)
-
-      // Trailing 6-month revenue from company invoices
-      const monthlyRevData: Record<string, number> = {}
-      const commData: Record<string, number> = {}
-      for (let i = 5; i >= 0; i--) {
-        const m = new Date(currentYear, currentMonth - i, 1)
-        const key = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`
-        monthlyRevData[key] = 0
-        commData[key] = 0
-      }
-
-      // Daily data for weekly trend
-      const dailySales: Record<string, number> = {}
-      const dailyProfit: Record<string, number> = {}
-      for (let d = 0; d < 5; d++) {
-        const dt = new Date(monday)
-        dt.setDate(monday.getDate() + d)
-        const key = dt.toISOString().slice(0, 10)
-        dailySales[key] = 0
-        dailyProfit[key] = 0
-      }
-
-      // Status counts for donut
-      const statusCounts: Record<string, number> = {}
-      let totalDealsWon = 0, totalDealsLost = 0, totalDealsRevenue = 0
-
-      // Per-rep aggregation (for leaderboard, use current rep scope invoices)
-      const repData: Record<string, { sales: number; profit: number; deals: number; commission: number; weeklySales: number }> = {}
-
-      const scopedReps = repKpiData?.reps || []
-
-      // Build chart data from the DB invoices on the scoped reps (this_month query)
-      for (const rep of scopedReps) {
-        if (!repData[rep.repName]) repData[rep.repName] = { sales: 0, profit: 0, deals: 0, commission: 0, weeklySales: rep.weeklyRevenue || 0 }
-        for (const inv of (rep.invoices || [])) {
-          const invDate = inv.date ? new Date(inv.date) : null
-          if (!invDate) continue
-          const amount = inv.subtotal || 0
-          const profit = inv.profit || 0
-          const commission = inv.commission || 0
-          const status = (inv.status || "").toLowerCase()
-
-          // Monthly revenue chart
-          const invMonth = `${invDate.getFullYear()}-${String(invDate.getMonth() + 1).padStart(2, "0")}`
-          if (monthlyRevData[invMonth] !== undefined) monthlyRevData[invMonth] += amount
-          if (commData[invMonth] !== undefined) commData[invMonth] += commission
-
-          // Status donut
-          const statusKey = status === "paid" ? "Paid" : status === "overdue" ? "Overdue" : status === "draft" ? "Draft" : status === "sent" ? "Sent" : status === "partially_paid" ? "Partial" : "Other"
-          statusCounts[statusKey] = (statusCounts[statusKey] || 0) + 1
-
-          // Won/Lost
-          if (status === "void") { totalDealsLost++ } else { totalDealsWon++; totalDealsRevenue += amount }
-
-          // Weekly trend
-          const dayKey = invDate.toISOString().slice(0, 10)
-          if (dailySales[dayKey] !== undefined) {
-            dailySales[dayKey] += amount
-            dailyProfit[dayKey] += profit
-          }
-
-          repData[rep.repName].sales += amount
-          repData[rep.repName].profit += profit
-          repData[rep.repName].deals++
-          repData[rep.repName].commission += commission
-        }
-      }
-
-      // If we need trailing 6 months (current query is this_month only), fetch YTD for charts
-      try {
-        const chartRes = await fetch("/api/get-rep-stats?repId=all&period=this_year")
-        if (chartRes.ok) {
-          const chartJson = await chartRes.json()
-          if (chartJson.success) {
-            for (const rep of (chartJson.reps || [])) {
-              for (const inv of (rep.invoices || [])) {
-                const invDate = inv.date ? new Date(inv.date) : null
-                if (!invDate) continue
-                const invMonth = `${invDate.getFullYear()}-${String(invDate.getMonth() + 1).padStart(2, "0")}`
-                if (monthlyRevData[invMonth] !== undefined && monthlyRevData[invMonth] === 0) {
-                  // Only fill months we haven't already filled from this_month
-                  monthlyRevData[invMonth] += inv.subtotal || 0
-                }
-                if (commData[invMonth] !== undefined && commData[invMonth] === 0) {
-                  commData[invMonth] += inv.commission || 0
-                }
-              }
-            }
-          }
-        }
-      } catch (e) { /* chart trailing data optional */ }
-
-      const revenueByMonth = Object.entries(monthlyRevData).map(([key, rev]) => ({
-        month: monthNames[parseInt(key.split("-")[1]) - 1],
-        revenue: Math.round(rev),
-        goal: 64000
-      }))
-
-      const weeklyTrend = Object.entries(dailySales).map(([key, sales], i) => ({
-        day: dayNames[i] || key,
-        sales: Math.round(sales),
-        profit: Math.round(dailyProfit[key] || 0)
-      }))
-
-      const CHART_COLORS_LOCAL = { accent: "#10b981", rose: "#f43f5e", sky: "#38bdf8", amber: "#f59e0b", purple: "#a855f7", text: "#6b7280" }
-      const statusColors: Record<string, string> = { Paid: CHART_COLORS_LOCAL.accent, Overdue: CHART_COLORS_LOCAL.rose, Sent: CHART_COLORS_LOCAL.sky, Draft: CHART_COLORS_LOCAL.text, Partial: CHART_COLORS_LOCAL.amber, Other: CHART_COLORS_LOCAL.purple }
-      const dealsByStatus = Object.entries(statusCounts).map(([name, value]) => ({ name, value, color: statusColors[name] || CHART_COLORS_LOCAL.text }))
-      const commissionByMonth = Object.entries(commData).map(([key, commission]) => ({ month: monthNames[parseInt(key.split("-")[1]) - 1], commission: Math.round(commission) }))
-
-      const topReps = Object.entries(repData)
-        .map(([name, d]) => ({ name, sales: Math.round(d.sales), profit: Math.round(d.profit), deals: d.deals, quota: 10000 }))
-        .sort((a, b) => b.sales - a.sales).slice(0, 5)
-
-      const allRepData = companyRepsList.map((r: any) => ({
-        name: r.repName,
-        weeklySales: Math.round(r.weeklyRevenue || 0),
-        mtdSales: Math.round(r.revenue || 0),
-        mtdProfit: Math.round(r.profit || 0),
-        mtdCommission: Math.round(r.commissions || 0),
-        deals: r.invoiceCount || 0,
-      })).sort((a, b) => b.mtdSales - a.mtdSales)
-
-      const avgDealSize = totalDealsWon > 0 ? Math.round(totalDealsRevenue / totalDealsWon) : 0
-      const winLossData = [
-        { name: "Won", value: totalDealsWon || 1, color: "#10b981" },
-        { name: "Lost", value: totalDealsLost || 0, color: "#f43f5e" }
-      ]
-      const avgDealSizeTrend = revenueByMonth.map(m => ({ month: m.month, avgSize: m.revenue > 0 ? Math.round(m.revenue / Math.max(1, topReps.length)) : 0 }))
-
-      // Use rep-scoped totals for the individual KPI cards
-      const weeklyTotal = repTotalsKpi.invoiceWeeklyRevenue || 0
-      const monthlyTotal = repTotalsKpi.invoiceSubtotal || 0
-      const monthlyProfit = repTotalsKpi.invoiceNetProfit || 0
-      const monthlyCommission = repTotalsKpi.invoiceCommission || 0
-      const monthlyDeals = repTotalsKpi.invoiceCount || 0
-
-      const companyWeeklyTotal = companyTotalsKpi.invoiceWeeklyRevenue || 0
-      const companyMonthlyTotal = companyTotalsKpi.invoiceSubtotal || 0
-
-      // Pipeline and overdue from current rep scope
-      let pipelineValue = 0, pipelineCount = 0, overdueCount = 0, overdueBalance = 0
-      for (const rep of scopedReps) {
-        for (const inv of (rep.invoices || [])) {
-          const status = (inv.status || "").toLowerCase()
-          if (status !== "paid" && status !== "void" && status !== "draft") {
-            pipelineValue += inv.subtotal || 0
-            pipelineCount++
-          }
-          if (status === "overdue") {
-            overdueCount++
-            overdueBalance += inv.subtotal || 0
-          }
-        }
-      }
-
-      setData({
-        companyWeeklyTotal: Math.round(companyWeeklyTotal),
-        companyMonthlyTotal: Math.round(companyMonthlyTotal),
-        weeklyTotal: Math.round(weeklyTotal),
-        weeklyTarget: 64000,
-        monthlyTotal: Math.round(monthlyTotal),
-        monthlyProfit: Math.round(monthlyProfit),
-        monthlyCommission: Math.round(monthlyCommission),
-        monthlyDeals,
-        monthlyProfitGoal: repProfitGoal,
-        monthlySubtotalGoal: repSubtotalGoal,
-        currentVigRate: repVigRate,
-        monthlyVigPenaltyLoss,
-        pipelineValue: Math.round(pipelineValue),
-        pipelineCount,
-        overdueCount,
-        overdueBalance: Math.round(overdueBalance),
-        revenueByMonth,
-        weeklyTrend,
-        dealsByStatus,
-        commissionByMonth,
-        topReps,
-        allRepData,
-        dealsWon: totalDealsWon,
-        dealsLost: totalDealsLost,
-        avgDealSize,
-        winLossData,
-        avgDealSizeTrend,
-      })
-    } catch (err) {
-      console.error("Dashboard fetch error:", err)
-      setData({
-        companyWeeklyTotal: 0, companyMonthlyTotal: 0,
-        weeklyTotal: 0, weeklyTarget: 64000, monthlyTotal: 0, monthlyProfit: 0,
-        monthlyCommission: 0, monthlyDeals: 0, monthlyProfitGoal: 20000, monthlySubtotalGoal: 40000,
-        currentVigRate: 1.3, monthlyVigPenaltyLoss: 0, pipelineValue: 0, pipelineCount: 0,
-        overdueCount: 0, overdueBalance: 0, revenueByMonth: [], weeklyTrend: [],
-        dealsByStatus: [], commissionByMonth: [], topReps: [], allRepData: [],
-        dealsWon: 0, dealsLost: 0, avgDealSize: 0, winLossData: [], avgDealSizeTrend: []
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading || !data) {
+  if (isLoading) {
     return (
-      <div className="space-y-4 animate-fade-in p-2">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="glass-panel rounded-2xl h-36 skeleton bg-neutral-900/60 border border-white/5" />
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} variant="card" height="140px" />
           ))}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="glass-panel rounded-2xl h-64 skeleton bg-neutral-900/60 border border-white/5" />
-          ))}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Skeleton variant="card" height="280px" />
+          <Skeleton variant="card" height="280px" />
+          <Skeleton variant="card" height="280px" />
         </div>
       </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <EmptyState
+        icon={<span>⚠️</span>}
+        title="Failed to load dashboard"
+        description="There was an error loading your dashboard data. Please try again."
+        action={<button onClick={() => refetch()} className="td-btn td-btn-primary">Retry</button>}
+      />
+    )
+  }
+
+  if (!data) {
+    return (
+      <EmptyState
+        icon={<span>📊</span>}
+        title="No data available"
+        description="Dashboard data will appear once you have invoices and sales activity."
+      />
     )
   }
 
@@ -1776,15 +1678,19 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
             </div>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={data.revenueByMonth} barGap={4}>
-              <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
-              <XAxis dataKey="month" tick={{ fill: CHART_COLORS.text, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: CHART_COLORS.text, fontSize: 11 }} axisLine={false} tickLine={false}
-                tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-              <Tooltip content={<ChartTooltip />} />
-              <Bar dataKey="goal" fill={CHART_COLORS.muted} radius={[4, 4, 0, 0]} name="Goal" />
-              <Bar dataKey="revenue" fill={CHART_COLORS.primary} radius={[4, 4, 0, 0]} name="Revenue" />
-            </BarChart>
+            {data.revenueByMonth.length === 0 ? (
+              <EmptyState title="No Revenue Data" description="There is no revenue data to display for the current period." />
+            ) : (
+              <BarChart data={data.revenueByMonth} barGap={4}>
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
+                <XAxis dataKey="month" tick={{ fill: CHART_COLORS.text, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: CHART_COLORS.text, fontSize: 11 }} axisLine={false} tickLine={false}
+                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                <Tooltip content={<ChartTooltip />} />
+                <Bar dataKey="goal" fill={CHART_COLORS.muted} radius={[4, 4, 0, 0]} name="Goal" />
+                <Bar dataKey="revenue" fill={CHART_COLORS.primary} radius={[4, 4, 0, 0]} name="Revenue" />
+              </BarChart>
+            )}
           </ResponsiveContainer>
         </div>
 
@@ -1931,9 +1837,12 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
       )}
 
       {/* ─── Top Performers (admin only) ─── */}
-      {showTopPerformers && isVisible("LEADERBOARD") && data.topReps.length > 0 && (
+      {showTopPerformers && isVisible("LEADERBOARD") && (
         <div className="glass-panel rounded-2xl p-5 border border-white/[0.06]">
           <h3 className="text-sm font-bold text-white mb-4">Top Performers -- This Month</h3>
+          {data.topReps.length === 0 ? (
+            <EmptyState title="No Top Performers" description="No rep data available." />
+          ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {data.topReps.map((rep, i) => {
               const quotaPct = rep.quota > 0 ? Math.min((rep.sales / (rep.quota * 4)) * 100, 100) : 0
@@ -1967,6 +1876,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
               )
             })}
           </div>
+          )}
         </div>
       )}
 

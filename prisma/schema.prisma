@@ -8,6 +8,37 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  ADMIN
+  MANAGER
+  AGENT
+  VIEWER
+}
+
+enum AccountQuality {
+  A_PLUS
+  A
+  B
+  C
+  D
+  NEVER_STATUSED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum PayoutStructure {
+  TWO_PAYMENT
+  THREE_PAYMENT
+  SINGLE_PAYMENT
+}
+
 model User {
   id                 String           @id @default(cuid())
   email              String           @unique
@@ -19,6 +50,7 @@ model User {
   vcardCompany       String?          @default("Titan Diamond USA")
   vcardWebsite       String?          @default("https://tdusales.com")
   zohoId             String?          @unique
+  /// @future Use UserRole enum
   role               String           @default("AGENT")
   autoAttachVCard    Boolean          @default(false)
   createdAt          DateTime         @default(now())
@@ -28,6 +60,7 @@ model User {
   canSendCampaigns   Boolean          @default(false)
   permissions        Json?
   showOnSalesBoard   Boolean          @default(false)
+  /// @future Use PayoutStructure enum
   payoutStructure    String           @default("two_payment")
   accounts           Account[]
   campaignBlasts     CampaignBlast[]
@@ -64,6 +97,7 @@ model Account {
   updatedAt        DateTime     @updatedAt
   nextActionDate   DateTime?
   tags             String?
+  /// @future Use AccountQuality enum
   quality          String       @default("NEVER_STATUSED")
   lastCalledAt     DateTime?
   lastClosedCycleAt DateTime?
@@ -176,6 +210,7 @@ model SalesOrder {
   deal              Deal?     @relation(fields: [dealId], references: [id])
   actualShippingCost    Float?
   shippingCostBreakdown String?
+  lineItems         LineItem[]
 
   // Bidirectional sync tracking
   lastZohoModifiedTime  DateTime?   // last_modified_time returned by Zoho
@@ -213,6 +248,7 @@ model Quote {
   account           Account   @relation(fields: [accountId], references: [id])
   dealId            String?
   deal              Deal?     @relation(fields: [dealId], references: [id])
+  lineItems         LineItem[]
 
   // Bidirectional sync tracking
   lastZohoModifiedTime  DateTime?
@@ -258,6 +294,7 @@ model Invoice {
   zohoId            String    @unique
   accountId         String
   amount            Float
+  /// @future Use InvoiceStatus enum
   status            String
   issueDate         DateTime
   dueDate           DateTime?
@@ -301,6 +338,7 @@ model Invoice {
 
   // Payment records relation
   payments          Payment[]
+  lineItems         LineItem[]
 
   @@index([accountId])
   @@index([dealId])
@@ -937,4 +975,29 @@ model PerformanceGoalBonus {
   @@index([repId])
   @@index([cadence])
   @@index([isActive])
+}
+
+model LineItem {
+  id            String    @id @default(cuid())
+  invoiceId     String?
+  invoice       Invoice?  @relation(fields: [invoiceId], references: [id])
+  salesOrderId  String?
+  salesOrder    SalesOrder? @relation(fields: [salesOrderId], references: [id])
+  quoteId       String?
+  quote         Quote?    @relation(fields: [quoteId], references: [id])
+  zohoLineItemId String?  @unique
+  productName   String
+  sku           String?
+  quantity      Float     @default(1)
+  unitPrice     Float     @default(0)
+  discount      Float     @default(0)
+  total         Float     @default(0)
+  description   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([invoiceId])
+  @@index([salesOrderId])
+  @@index([quoteId])
+  @@index([sku])
 }
