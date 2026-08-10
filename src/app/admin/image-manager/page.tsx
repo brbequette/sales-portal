@@ -37,6 +37,7 @@ export default function ImageManagerPage() {
   // Stored state lists
   const [needsImages, setNeedsImages] = useState<Match[]>([])
   const [allProducts, setAllProducts] = useState<Match[]>([])
+  const [conflicts, setConflicts] = useState<{ cleanedStem: string, files: ImageFile[] }[]>([])
   const [storage, setStorage] = useState<any>(null)
   const [searchProductQuery, setSearchProductQuery] = useState("")
   const [showProductDropdown, setShowProductDropdown] = useState(false)
@@ -71,6 +72,15 @@ export default function ImageManagerPage() {
   // Catalog extraction state
   const [catalogProgress, setCatalogProgress] = useState("")
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [limit] = useState(32)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+  const [counts, setCounts] = useState({ all: 0, unmatched: 0, needsImages: 0, conflicts: 0 })
+  const [fileSearch, setFileSearch] = useState("")
+  const [fileSearchQuery, setFileSearchQuery] = useState("")
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const catalogInputRef = useRef<HTMLInputElement>(null)
 
@@ -78,26 +88,35 @@ export default function ImageManagerPage() {
   const fetchFiles = async () => {
     setLoading(true)
     try {
-      const res = await fetch("/api/admin/images")
+      const url = `/api/admin/images?page=${currentPage}&limit=${limit}&tab=${activeTab}&search=${encodeURIComponent(fileSearchQuery)}`
+      const res = await fetch(url)
       const data = await res.json()
       if (data.success) {
         setFiles(data.files || [])
         setNeedsImages(data.needsImages || [])
+        setConflicts(data.conflicts || [])
         setAllProducts(data.allProducts || [])
         setStorage(data.storage || null)
+        if (data.counts) {
+          setCounts(data.counts)
+        }
+        if (data.pagination) {
+          setTotalPages(data.pagination.totalPages || 1)
+          setTotalItems(data.pagination.totalItems || 0)
+        }
         
         // Auto pre-focus if query parameter sku exists
         const urlParams = new URLSearchParams(window.location.search)
         const skuParam = urlParams.get("sku")
         if (skuParam) {
-          const matchingFile = data.files.find((f: ImageFile) => 
+          const matchingFile = (data.files || []).find((f: ImageFile) => 
             f.matches.some(m => m.sku.toUpperCase() === skuParam.toUpperCase()) ||
             f.cleanedStem === skuParam.toUpperCase()
           )
           if (matchingFile) {
             setSelectedFile(matchingFile)
           } else {
-            const dbProduct = data.allProducts.find((p: Match) => p.sku.toUpperCase() === skuParam.toUpperCase())
+            const dbProduct = (data.allProducts || []).find((p: Match) => p.sku.toUpperCase() === skuParam.toUpperCase())
             if (dbProduct) {
               setSelectedFile({
                 fileName: `NEW_${dbProduct.sku}.png`,
@@ -121,9 +140,19 @@ export default function ImageManagerPage() {
     }
   }
 
+  // Debounce search query so we don't spam the API on every keypress
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFileSearchQuery(fileSearch)
+      setCurrentPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [fileSearch])
+
+  // Trigger load when page/tab/search changes
   useEffect(() => {
     fetchFiles()
-  }, [])
+  }, [currentPage, activeTab, fileSearchQuery])
 
   // Reset slider settings when file changes
   useEffect(() => {
@@ -147,7 +176,6 @@ export default function ImageManagerPage() {
       setSelectedFile(null)
       const initialMap: Record<string, 'primary' | 'detail_a' | 'detail_b' | 'discard'> = {}
       selectedConflictGroup[1].forEach((file, index) => {
-        // Simple heuristic: first is primary, second is detail_a, third is detail_b, etc.
         if (index === 0) initialMap[file.fileName] = 'primary'
         else if (index === 1) initialMap[file.fileName] = 'detail_a'
         else if (index === 2) initialMap[file.fileName] = 'detail_b'
@@ -157,24 +185,14 @@ export default function ImageManagerPage() {
     }
   }, [selectedConflictGroup])
 
-  // Group conflicts helper
-  const getConflicts = (): [string, ImageFile[]][] => {
-    const map: Record<string, ImageFile[]> = {}
-    files.forEach(f => {
-      const stemUpper = f.cleanedStem || "UNKNOWN"
-      if (!map[stemUpper]) map[stemUpper] = []
-      map[stemUpper].push(f)
-    })
-    return Object.entries(map).filter(([_, group]) => group.length > 1)
+  const handleTabChange = (tab: typeof activeTab) => {
+    setActiveTab(tab)
+    setCurrentPage(1)
+    setSelectedConflictGroup(null)
+    setSelectedFile(null)
   }
 
-  // Filter sidebar files
-  const filteredFiles = files.filter(f => {
-    if (activeTab === 'unmatched') {
-      return f.matches.length === 0
-    }
-    return true
-  })
+  const filteredFiles = files
 
   // Handles upload of a regular image file
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -609,31 +627,53 @@ export default function ImageManagerPage() {
             )}
           </div>
 
+          {/* Directory Filter Input */}
+          <div className="p-3 border-b border-white/5 bg-neutral-900/10">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Filter files or SKUs by text..."
+                value={fileSearch}
+                onChange={e => setFileSearch(e.target.value)}
+                className="w-full bg-black/45 border border-white/10 rounded-lg px-8 py-1.5 text-xs text-white outline-none focus:border-emerald-500"
+              />
+              <FiSearch className="absolute left-2.5 top-2.5 text-neutral-500" size={12} />
+              {fileSearch && (
+                <button
+                  onClick={() => setFileSearch("")}
+                  className="absolute right-2.5 top-2.5 text-neutral-500 hover:text-white"
+                >
+                  <FiX size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Directory Tabs */}
-          <div className="grid grid-cols-4 border-b border-white/5 bg-neutral-900/20 text-[9px] font-bold uppercase tracking-wider">
+          <div className="grid grid-cols-4 border-b border-white/5 bg-neutral-900/20 text-[9px] font-bold uppercase tracking-wider font-mono">
             <button
-              onClick={() => { setActiveTab('all'); setSelectedConflictGroup(null); }}
+              onClick={() => handleTabChange('all')}
               className={`py-2 text-center border-b-2 ${activeTab === 'all' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
             >
-              All ({files.length})
+              All ({counts.all})
             </button>
             <button
-              onClick={() => { setActiveTab('unmatched'); setSelectedConflictGroup(null); }}
+              onClick={() => handleTabChange('unmatched')}
               className={`py-2 text-center border-b-2 ${activeTab === 'unmatched' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
             >
-              Unmatched
+              No SKU ({counts.unmatched})
             </button>
             <button
-              onClick={() => { setActiveTab('needs-images'); setSelectedConflictGroup(null); }}
+              onClick={() => handleTabChange('needs-images')}
               className={`py-2 text-center border-b-2 ${activeTab === 'needs-images' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
             >
-              No Image
+              No Img ({counts.needsImages})
             </button>
             <button
-              onClick={() => { setActiveTab('conflicts'); setSelectedFile(null); }}
+              onClick={() => handleTabChange('conflicts')}
               className={`py-2 text-center border-b-2 ${activeTab === 'conflicts' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
             >
-              Conflicts
+              Dupes ({counts.conflicts})
             </button>
           </div>
 
@@ -651,7 +691,9 @@ export default function ImageManagerPage() {
           <div className="flex-1 overflow-y-auto divide-y divide-neutral-900 scrollbar-none">
             {activeTab === 'conflicts' ? (
               // Conflicts View
-              getConflicts().map(([sku, groupFiles]) => {
+              conflicts.map(group => {
+                const sku = group.cleanedStem
+                const groupFiles = group.files
                 const isSelected = selectedConflictGroup?.[0] === sku
                 return (
                   <div
@@ -662,14 +704,14 @@ export default function ImageManagerPage() {
                     }`}
                   >
                     <div>
-                      <div className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
-                        <FiAlertTriangle /> {sku} Conflict Group
+                      <div className="text-xs font-bold text-amber-400 flex items-center gap-1.5 font-mono">
+                        <FiAlertTriangle /> {sku}
                       </div>
                       <div className="text-[10px] text-neutral-500 mt-1">
-                        {groupFiles.length} file variations match this SKU stem
+                        {groupFiles.length} files match this stem
                       </div>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 bg-neutral-800 text-neutral-400 rounded-full font-bold">
+                    <span className="text-[10px] px-2 py-0.5 bg-neutral-850 border border-white/10 text-neutral-300 rounded font-mono font-bold">
                       Resolve
                     </span>
                   </div>
@@ -815,6 +857,29 @@ export default function ImageManagerPage() {
                   <div className="text-[9px] text-neutral-500">{(storage.public.size / 1024 / 1024).toFixed(1)} MB</div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="p-3 border-t border-white/5 bg-neutral-900/40 flex items-center justify-between text-xs">
+              <button
+                disabled={currentPage === 1 || loading}
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className="px-2.5 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 disabled:opacity-30 disabled:hover:bg-neutral-800 transition-colors font-bold"
+              >
+                Prev
+              </button>
+              <span className="text-neutral-400 font-mono">
+                Page <span className="text-white font-bold">{currentPage}</span> of <span className="text-white font-bold">{totalPages}</span>
+              </span>
+              <button
+                disabled={currentPage === totalPages || loading}
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                className="px-2.5 py-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 disabled:opacity-30 disabled:hover:bg-neutral-800 transition-colors font-bold"
+              >
+                Next
+              </button>
             </div>
           )}
         </div>
@@ -1196,9 +1261,7 @@ export default function ImageManagerPage() {
                     </button>
                   </div>
                 </div>
-
               </div>
-
             </div>
           ) : (
             <div className="glass-panel border border-white/10 rounded-2xl p-16 text-center text-neutral-500 shadow-2xl flex flex-col items-center justify-center h-[500px]">
