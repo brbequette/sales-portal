@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     // Graceful fallback to relative path if Windows path is not found (e.g. running on Netlify Serverless)
     let uploadDir = ALL_PICS_DIR
     if (!fs.existsSync(ALL_PICS_DIR)) {
-      uploadDir = path.join(process.cwd(), "all-pics-storage")
+      uploadDir = "/tmp/all-pics-storage"
     }
 
     if (!fs.existsSync(uploadDir)) {

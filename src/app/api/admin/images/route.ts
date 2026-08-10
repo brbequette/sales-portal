@@ -8,14 +8,14 @@ import { execSync } from "child_process"
 const BASE_ALL_PICS_DIR = "C:\\Users\\titan\\Documents\\Titan Diamond\\All Pics"
 const ALL_PICS_DIR = fs.existsSync(BASE_ALL_PICS_DIR)
   ? BASE_ALL_PICS_DIR
-  : path.join(process.cwd(), "all-pics-storage")
+  : "/tmp/all-pics-storage"
 
 const PROCESSED_DIR = path.join(ALL_PICS_DIR, "processed")
 
 const BASE_PUBLIC_DIR = "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS\\sales-portal\\public\\product-images"
 const PUBLIC_PRODUCT_IMAGES_DIR = fs.existsSync(BASE_PUBLIC_DIR)
   ? BASE_PUBLIC_DIR
-  : path.join(process.cwd(), "public", "product-images")
+  : "/tmp/product-images"
 
 // Utility to clean SKU
 function cleanSkuStem(stem: string) {
