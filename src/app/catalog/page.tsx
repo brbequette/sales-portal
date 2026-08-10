@@ -116,19 +116,12 @@ export default function ProductCatalogPage() {
     if (!sku) return null
     const skuUpper = sku.trim().toUpperCase()
     
-    // Check our pre-calculated static image map first
+    // Check our pre-calculated static image map
     const imageMap = require("@/lib/image-map.json")
     if (imageMap[skuUpper] && imageMap[skuUpper].image) {
       return imageMap[skuUpper].image
     }
     
-    const s = (sku || "").toLowerCase()
-    const n = (name || "").toLowerCase()
-    if (s.includes("td-bl-100") || n.includes("turbo blade")) return "/images/turbo_blade.png"
-    if (s.includes("td-bl-102") || n.includes("continuous rim")) return "/images/continuous_rim_blade.png"
-    if (s.includes("td-pp-200") || n.includes("polishing pad")) return "/images/polishing_pads.png"
-    if (s.includes("td-cb-300") || n.includes("core bit")) return "/images/core_bit.png"
-    if (s.includes("td-cw-400") || n.includes("cup wheel") || n.includes("grinding")) return "/images/cup_wheel.png"
     return null
   }
 
