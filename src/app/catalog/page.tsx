@@ -253,15 +253,20 @@ export default function ProductCatalogPage() {
                 <td className="p-4 font-semibold text-white">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg glass-panel border border-neutral-700/50 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                      {parsed.image || getProductImage(p.name, p.sku) ? (
-                        <img 
-                          src={parsed.image || getProductImage(p.name, p.sku) || undefined} 
-                          alt={p.name} 
-                          className="w-full h-full object-cover" 
-                        />
-                      ) : (
-                        <FiPackage className="text-neutral-500" size={14} />
-                      )}
+                      {(() => {
+                        const mapImage = getProductImage(p.name, p.sku)
+                        const descImage = parsed.image && !parsed.image.includes('placeholder') && parsed.image.startsWith('/product-images/') ? parsed.image : null
+                        const finalImage = mapImage || descImage
+                        return finalImage ? (
+                          <img 
+                            src={finalImage} 
+                            alt={p.name} 
+                            className="w-full h-full object-cover" 
+                          />
+                        ) : (
+                          <FiPackage className="text-neutral-500" size={14} />
+                        )
+                      })()}
                     </div>
                     <div>
                       <span>{p.name}</span>
