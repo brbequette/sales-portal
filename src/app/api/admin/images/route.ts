@@ -49,9 +49,23 @@ export async function GET(req: NextRequest) {
       fs.mkdirSync(PROCESSED_DIR, { recursive: true })
     }
 
-    // List all files in All Pics
-    const files = fs.readdirSync(ALL_PICS_DIR)
-    const imageFiles = files.filter(f => /\.(png|jpg|jpeg)$/i.test(f))
+    // Gather file names from ALL_PICS_DIR
+    const imageFiles: string[] = []
+    if (fs.existsSync(ALL_PICS_DIR)) {
+      const files = fs.readdirSync(ALL_PICS_DIR)
+      imageFiles.push(...files.filter(f => /\.(png|jpg|jpeg)$/i.test(f)))
+    }
+
+    // Gather file names from PUBLIC_PRODUCT_IMAGES_DIR and merge unique items (avoid duplicate stems)
+    if (fs.existsSync(PUBLIC_PRODUCT_IMAGES_DIR)) {
+      const publicFiles = fs.readdirSync(PUBLIC_PRODUCT_IMAGES_DIR)
+      const mainPublicImages = publicFiles.filter(f => /\.(png|jpg|jpeg)$/i.test(f) && !f.includes("_detail_"))
+      for (const f of mainPublicImages) {
+        if (!imageFiles.includes(f)) {
+          imageFiles.push(f)
+        }
+      }
+    }
 
     // Fetch all products from Database
     const dbProducts = await prisma.product.findMany({
@@ -78,15 +92,19 @@ export async function GET(req: NextRequest) {
         return skuUpper === cleanedStem || skuUpper.startsWith(cleanedStem) || cleanedStem.startsWith(skuUpper)
       })
 
-      // Check if processed file exists
+      // Check if processed file exists in either transient processed or public static folder
       const processedPath = path.join(PROCESSED_DIR, `${stem}.png`)
-      const isProcessed = fs.existsSync(processedPath)
+      const publicPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}.png`)
+      const isProcessed = fs.existsSync(processedPath) || fs.existsSync(publicPath)
 
-      // Check for closeups
+      // Check for closeups in either directory
       const detailAPath = path.join(PROCESSED_DIR, `${stem}_detail_a.png`)
+      const publicDetailAPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_a.png`)
+      const hasDetailA = fs.existsSync(detailAPath) || fs.existsSync(publicDetailAPath)
+
       const detailBPath = path.join(PROCESSED_DIR, `${stem}_detail_b.png`)
-      const hasDetailA = fs.existsSync(detailAPath)
-      const hasDetailB = fs.existsSync(detailBPath)
+      const publicDetailBPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_b.png`)
+      const hasDetailB = fs.existsSync(detailBPath) || fs.existsSync(publicDetailBPath)
 
       // Check if already staged in Zoho or public app
       let isStaged = false
