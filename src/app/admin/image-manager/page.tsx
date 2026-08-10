@@ -21,6 +21,8 @@ interface ImageFile {
   isProcessed: boolean
   hasDetailA: boolean
   hasDetailB: boolean
+  hasDetailC: boolean
+  hasDetailD: boolean
   isStaged: boolean
   stagedUrl: string | null
   matches: Match[]
@@ -62,6 +64,14 @@ export default function ImageManagerPage() {
   const [badgeSegHeight, setBadgeSegHeight] = useState("")
   const [badgeBond, setBadgeBond] = useState("")
   const [badgeType, setBadgeType] = useState("")
+  
+  // Enhancement controls
+  const [sharpness, setSharpness] = useState(1.0)
+  const [saturation, setSaturation] = useState(1.0)
+  const [autoLevels, setAutoLevels] = useState(false)
+  const [denoise, setDenoise] = useState(false)
+  const [bgRemovalLoading, setBgRemovalLoading] = useState(false)
+  const [lastSaved, setLastSaved] = useState<string | null>(null)
   
   // Matching and uploading state
   const [manualSku, setManualSku] = useState("")
@@ -127,6 +137,8 @@ export default function ImageManagerPage() {
                 isProcessed: false,
                 hasDetailA: false,
                 hasDetailB: false,
+                hasDetailC: false,
+                hasDetailD: false,
                 isStaged: false,
                 stagedUrl: null,
                 matches: [dbProduct]
@@ -166,6 +178,11 @@ export default function ImageManagerPage() {
       setBadgeSegHeight("")
       setBadgeBond("")
       setBadgeType("")
+      setSharpness(1.0)
+      setSaturation(1.0)
+      setAutoLevels(false)
+      setDenoise(false)
+      setLastSaved(null)
       setManualSku("")
       setCarouselIndex(selectedFile.isProcessed ? 1 : 0)
       setSelectedConflictGroup(null)
@@ -305,6 +322,10 @@ export default function ImageManagerPage() {
           brightness,
           contrast,
           rotation,
+          sharpness,
+          saturation,
+          autoLevels,
+          denoise,
           badges: {
             size: badgeSize || undefined,
             seg_height: badgeSegHeight || undefined,
@@ -317,6 +338,7 @@ export default function ImageManagerPage() {
       if (data.success) {
         await fetchFiles()
         setCarouselIndex(1)
+        setLastSaved(new Date().toLocaleTimeString())
         alert("Edits applied and re-processed successfully!")
       } else {
         alert("Edits failed: " + data.error)
@@ -416,6 +438,34 @@ export default function ImageManagerPage() {
     }
   }
 
+  const handleRemoveBg = async (bgReplace: string = 'white') => {
+    if (!selectedFile) return
+    setBgRemovalLoading(true)
+    try {
+      const res = await fetch('/api/admin/images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'remove-bg',
+          fileName: selectedFile.fileName,
+          bgReplace
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setLastSaved(new Date().toLocaleTimeString())
+        await fetchFiles()
+        setCarouselIndex(1)
+      } else {
+        alert('Background removal failed: ' + data.error)
+      }
+    } catch (err: any) {
+      alert('Error: ' + err.message)
+    } finally {
+      setBgRemovalLoading(false)
+    }
+  }
+
   const handleBatchAction = async (action: "process" | "stage") => {
     if (selectedFileNames.length === 0) return
     setLoading(true)
@@ -471,7 +521,7 @@ export default function ImageManagerPage() {
     }
   }
 
-  const getImageUrl = (file: ImageFile, type: "raw" | "processed" | "detail_a" | "detail_b") => {
+  const getImageUrl = (file: ImageFile, type: "raw" | "processed" | "detail_a" | "detail_b" | "detail_c" | "detail_d") => {
     return `/api/admin/images/serve?file=${encodeURIComponent(file.fileName)}&type=${type}`
   }
 
@@ -611,6 +661,8 @@ export default function ImageManagerPage() {
                             isProcessed: false,
                             hasDetailA: false,
                             hasDetailB: false,
+                            hasDetailC: false,
+                            hasDetailD: false,
                             isStaged: false,
                             stagedUrl: null,
                             matches: [p]
@@ -739,6 +791,8 @@ export default function ImageManagerPage() {
                       isProcessed: false,
                       hasDetailA: false,
                       hasDetailB: false,
+                      hasDetailC: false,
+                      hasDetailD: false,
                       isStaged: false,
                       stagedUrl: null,
                       matches: [p]
@@ -1031,6 +1085,8 @@ export default function ImageManagerPage() {
                     {carouselIndex === 1 && "Processed Main Image"}
                     {carouselIndex === 2 && "Closeup A: Segment detail"}
                     {carouselIndex === 3 && "Closeup B: Body profile"}
+                    {carouselIndex === 4 && "Closeup C: Blade Face"}
+                    {carouselIndex === 5 && "Closeup D: Arbor Hub"}
                   </div>
 
                   {carouselIndex === 0 && (
@@ -1130,10 +1186,40 @@ export default function ImageManagerPage() {
                       </div>
                     )
                   )}
+
+                  {carouselIndex === 4 && (
+                    selectedFile.hasDetailC ? (
+                      <img
+                        src={getImageUrl(selectedFile, "detail_c")}
+                        alt="Face View"
+                        className="max-h-[380px] w-auto object-contain rounded-lg shadow-lg border border-white/5"
+                      />
+                    ) : (
+                      <div className="text-center p-8">
+                        <FiX className="text-red-500 mx-auto mb-2" size={32} />
+                        <p className="text-xs text-neutral-500 font-bold">Blade face view not available.</p>
+                      </div>
+                    )
+                  )}
+
+                  {carouselIndex === 5 && (
+                    selectedFile.hasDetailD ? (
+                      <img
+                        src={getImageUrl(selectedFile, "detail_d")}
+                        alt="Arbor Closeup"
+                        className="max-h-[380px] w-auto object-contain rounded-lg shadow-lg border border-white/5"
+                      />
+                    ) : (
+                      <div className="text-center p-8">
+                        <FiX className="text-red-500 mx-auto mb-2" size={32} />
+                        <p className="text-xs text-neutral-500 font-bold">Arbor hub closeup not available.</p>
+                      </div>
+                    )
+                  )}
                 </div>
 
                 {/* Carousel Selector Buttons */}
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-6 gap-2">
                   <button
                     onClick={() => setCarouselIndex(0)}
                     className={`p-2.5 rounded-xl border text-xs font-bold transition-all ${
@@ -1171,6 +1257,24 @@ export default function ImageManagerPage() {
                   >
                     Closeup B
                   </button>
+                  <button
+                    onClick={() => setCarouselIndex(4)}
+                    disabled={!selectedFile.hasDetailC}
+                    className={`p-2.5 rounded-xl border text-xs font-bold transition-all disabled:opacity-30 ${
+                      carouselIndex === 4 ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-neutral-900 border-white/5 hover:bg-neutral-800 text-neutral-400"
+                    }`}
+                  >
+                    Face C
+                  </button>
+                  <button
+                    onClick={() => setCarouselIndex(5)}
+                    disabled={!selectedFile.hasDetailD}
+                    className={`p-2.5 rounded-xl border text-xs font-bold transition-all disabled:opacity-30 ${
+                      carouselIndex === 5 ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-neutral-900 border-white/5 hover:bg-neutral-800 text-neutral-400"
+                    }`}
+                  >
+                    Arbor D
+                  </button>
                 </div>
               </div>
 
@@ -1183,6 +1287,42 @@ export default function ImageManagerPage() {
                     <h3 className="text-xs font-bold text-neutral-300 uppercase tracking-widest flex items-center gap-1.5">
                       <FiSliders /> Photo Editor Tools
                     </h3>
+                    {lastSaved && (
+                      <span className="text-[9px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                        ✓ Saved {lastSaved}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Background Removal */}
+                  <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-3 space-y-2">
+                    <div className="text-[10px] font-bold text-purple-300 uppercase tracking-widest">✨ AI Background Removal</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => handleRemoveBg('white')}
+                        disabled={bgRemovalLoading}
+                        className="py-1.5 text-[10px] font-bold rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 transition-all disabled:opacity-40"
+                      >
+                        {bgRemovalLoading ? '...' : 'White BG'}
+                      </button>
+                      <button
+                        onClick={() => handleRemoveBg('transparent')}
+                        disabled={bgRemovalLoading}
+                        className="py-1.5 text-[10px] font-bold rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 transition-all disabled:opacity-40"
+                      >
+                        Transparent
+                      </button>
+                      <button
+                        onClick={() => handleRemoveBg('gradient')}
+                        disabled={bgRemovalLoading}
+                        className="py-1.5 text-[10px] font-bold rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 transition-all disabled:opacity-40"
+                      >
+                        Gradient
+                      </button>
+                    </div>
+                    {bgRemovalLoading && (
+                      <div className="text-[10px] text-purple-300 text-center animate-pulse font-semibold">Removing background with AI... (may take 15-30s)</div>
+                    )}
                   </div>
 
                   <div className="space-y-3.5 text-xs">
@@ -1208,6 +1348,50 @@ export default function ImageManagerPage() {
                         value={contrast} onChange={e => setContrast(parseFloat(e.target.value))}
                         className="w-full accent-emerald-500"
                       />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-neutral-400 mb-1">
+                        <span className="flex items-center gap-1">🔪 Sharpness</span>
+                        <span className="font-bold">{sharpness.toFixed(1)}x</span>
+                      </div>
+                      <input
+                        type="range" min="0.5" max="3.0" step="0.1"
+                        value={sharpness} onChange={e => setSharpness(parseFloat(e.target.value))}
+                        className="w-full accent-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-neutral-400 mb-1">
+                        <span className="flex items-center gap-1">🎨 Saturation</span>
+                        <span className="font-bold">{saturation.toFixed(1)}x</span>
+                      </div>
+                      <input
+                        type="range" min="0.5" max="2.0" step="0.1"
+                        value={saturation} onChange={e => setSaturation(parseFloat(e.target.value))}
+                        className="w-full accent-amber-500"
+                      />
+                    </div>
+
+                    {/* Toggle Enhancements */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setAutoLevels(!autoLevels)}
+                        className={`py-2 rounded-lg border text-[10px] font-bold transition-all ${
+                          autoLevels ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-neutral-800 border-white/5 hover:bg-neutral-700 text-neutral-400'
+                        }`}
+                      >
+                        ⚡ Auto-Levels {autoLevels ? 'ON' : 'OFF'}
+                      </button>
+                      <button
+                        onClick={() => setDenoise(!denoise)}
+                        className={`py-2 rounded-lg border text-[10px] font-bold transition-all ${
+                          denoise ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-neutral-800 border-white/5 hover:bg-neutral-700 text-neutral-400'
+                        }`}
+                      >
+                        🔇 Denoise {denoise ? 'ON' : 'OFF'}
+                      </button>
                     </div>
 
                     <div>

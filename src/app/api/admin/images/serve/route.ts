@@ -26,14 +26,10 @@ export async function GET(req: NextRequest) {
     // Resolve file based on requested type
     if (type === "processed") {
       filePath = path.join(PROCESSED_DIR, safeFile.endsWith(".png") ? safeFile : `${path.basename(safeFile, path.extname(safeFile))}.png`)
-    } else if (type === "detail_a") {
+    } else if (type === "detail_a" || type === "detail_b" || type === "detail_c" || type === "detail_d") {
       const ext = path.extname(safeFile)
       const stem = path.basename(safeFile, ext)
-      filePath = path.join(PROCESSED_DIR, `${stem}_detail_a.png`)
-    } else if (type === "detail_b") {
-      const ext = path.extname(safeFile)
-      const stem = path.basename(safeFile, ext)
-      filePath = path.join(PROCESSED_DIR, `${stem}_detail_b.png`)
+      filePath = path.join(PROCESSED_DIR, `${stem}_${type}.png`)
     } else {
       filePath = path.join(ALL_PICS_DIR, safeFile)
     }
@@ -47,10 +43,8 @@ export async function GET(req: NextRequest) {
       let relativeFileName = safeFile
       if (type === "processed" && !safeFile.endsWith(".png")) {
         relativeFileName = `${stem}.png`
-      } else if (type === "detail_a") {
-        relativeFileName = `${stem}_detail_a.png`
-      } else if (type === "detail_b") {
-        relativeFileName = `${stem}_detail_b.png`
+      } else if (type === "detail_a" || type === "detail_b" || type === "detail_c" || type === "detail_d") {
+        relativeFileName = `${stem}_${type}.png`
       }
 
       const publicPath = path.join(process.cwd(), "public", "product-images", relativeFileName)

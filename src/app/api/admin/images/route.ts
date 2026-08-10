@@ -17,6 +17,17 @@ const PUBLIC_PRODUCT_IMAGES_DIR = fs.existsSync(BASE_PUBLIC_DIR)
   ? BASE_PUBLIC_DIR
   : "/tmp/product-images"
 
+const AUTOMATIONS_DIR = "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS"
+const IS_LOCAL = fs.existsSync(AUTOMATIONS_DIR)
+
+// Detail variant suffixes for hydration
+const DETAIL_SUFFIXES = ["detail_a", "detail_b", "detail_c", "detail_d"] as const
+
+function checkDetailExists(stem: string, suffix: string): boolean {
+  return fs.existsSync(path.join(PROCESSED_DIR, `${stem}_${suffix}.png`)) ||
+         fs.existsSync(path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_${suffix}.png`))
+}
+
 // Utility to clean SKU
 function cleanSkuStem(stem: string) {
   return stem.replace(/\s*\([\w\s,\./]+\)\s*\d*$/, "").trim().toUpperCase()
@@ -184,13 +195,10 @@ export async function GET(req: NextRequest) {
       const publicPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}.png`)
       const isProcessed = fs.existsSync(processedPath) || fs.existsSync(publicPath)
 
-      const detailAPath = path.join(PROCESSED_DIR, `${stem}_detail_a.png`)
-      const publicDetailAPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_a.png`)
-      const hasDetailA = fs.existsSync(detailAPath) || fs.existsSync(publicDetailAPath)
-
-      const detailBPath = path.join(PROCESSED_DIR, `${stem}_detail_b.png`)
-      const publicDetailBPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_b.png`)
-      const hasDetailB = fs.existsSync(detailBPath) || fs.existsSync(publicDetailBPath)
+      const hasDetailA = checkDetailExists(stem, "detail_a")
+      const hasDetailB = checkDetailExists(stem, "detail_b")
+      const hasDetailC = checkDetailExists(stem, "detail_c")
+      const hasDetailD = checkDetailExists(stem, "detail_d")
 
       let isStaged = false
       let stagedUrl = null
@@ -211,6 +219,8 @@ export async function GET(req: NextRequest) {
         isProcessed,
         hasDetailA,
         hasDetailB,
+        hasDetailC,
+        hasDetailD,
         isStaged,
         stagedUrl,
         matches: matches.map(m => ({ id: m.id, sku: m.sku, name: m.name, price: m.price, category: m.category }))
@@ -228,13 +238,10 @@ export async function GET(req: NextRequest) {
         const publicPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}.png`)
         const isProcessed = fs.existsSync(processedPath) || fs.existsSync(publicPath)
 
-        const detailAPath = path.join(PROCESSED_DIR, `${stem}_detail_a.png`)
-        const publicDetailAPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_a.png`)
-        const hasDetailA = fs.existsSync(detailAPath) || fs.existsSync(publicDetailAPath)
-
-        const detailBPath = path.join(PROCESSED_DIR, `${stem}_detail_b.png`)
-        const publicDetailBPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_b.png`)
-        const hasDetailB = fs.existsSync(detailBPath) || fs.existsSync(publicDetailBPath)
+        const hasDetailA = checkDetailExists(stem, "detail_a")
+        const hasDetailB = checkDetailExists(stem, "detail_b")
+        const hasDetailC = checkDetailExists(stem, "detail_c")
+        const hasDetailD = checkDetailExists(stem, "detail_d")
 
         let isStaged = false
         let stagedUrl = null
@@ -255,6 +262,8 @@ export async function GET(req: NextRequest) {
           isProcessed,
           hasDetailA,
           hasDetailB,
+          hasDetailC,
+          hasDetailD,
           isStaged,
           stagedUrl,
           matches: matches.map(m => ({ id: m.id, sku: m.sku, name: m.name, price: m.price, category: m.category }))
@@ -287,6 +296,8 @@ export async function GET(req: NextRequest) {
       let isProcessed = false
       let hasDetailA = false
       let hasDetailB = false
+      let hasDetailC = false
+      let hasDetailD = false
       let fileName = matchingFile ? matchingFile.fileName : `NEW_${p.sku}.png`
       const ext = path.extname(fileName)
       const stem = path.basename(fileName, ext)
@@ -296,13 +307,10 @@ export async function GET(req: NextRequest) {
         const publicPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}.png`)
         isProcessed = fs.existsSync(processedPath) || fs.existsSync(publicPath)
 
-        const detailAPath = path.join(PROCESSED_DIR, `${stem}_detail_a.png`)
-        const publicDetailAPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_a.png`)
-        hasDetailA = fs.existsSync(detailAPath) || fs.existsSync(publicDetailAPath)
-
-        const detailBPath = path.join(PROCESSED_DIR, `${stem}_detail_b.png`)
-        const publicDetailBPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_b.png`)
-        hasDetailB = fs.existsSync(detailBPath) || fs.existsSync(publicDetailBPath)
+        hasDetailA = checkDetailExists(stem, "detail_a")
+        hasDetailB = checkDetailExists(stem, "detail_b")
+        hasDetailC = checkDetailExists(stem, "detail_c")
+        hasDetailD = checkDetailExists(stem, "detail_d")
       } else if (isStaged && stagedUrl) {
         const publicPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}.png`)
         isProcessed = fs.existsSync(publicPath)
@@ -321,6 +329,8 @@ export async function GET(req: NextRequest) {
           isProcessed,
           hasDetailA,
           hasDetailB,
+          hasDetailC: hasDetailC || false,
+          hasDetailD: hasDetailD || false,
           isStaged,
           stagedUrl,
           matches: [{ id: p.id, sku: p.sku, name: p.name, price: p.price, category: p.category }]
@@ -372,8 +382,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { action } = body
 
-    const AUTOMATIONS_DIR = "C:\\Users\\titan\\Documents\\Titan Diamond\\AUTOMATIONS"
-    const isLocal = fs.existsSync(AUTOMATIONS_DIR)
+    const isLocal = IS_LOCAL
 
     if (action === "process") {
       const { fileName } = body
@@ -399,15 +408,19 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "edit") {
-      const { fileName, brightness, contrast, rotation, badges } = body
+      const { fileName, brightness, contrast, rotation, sharpness, saturation, autoLevels, denoise, badges } = body
       if (!fileName) return NextResponse.json({ success: false, error: "Missing fileName" }, { status: 400 })
 
-      // Build JSON options for python script
-      const config = {
+      // Build JSON options for python script (includes new enhancement params)
+      const config: any = {
         file: fileName,
         brightness: brightness || 1.0,
         contrast: contrast || 1.0,
         rotation: rotation || 0,
+        sharpness: sharpness || 1.0,
+        saturation: saturation || 1.0,
+        auto_levels: autoLevels || false,
+        denoise: denoise || false,
         badges: badges || {}
       }
 
@@ -424,10 +437,37 @@ export async function POST(req: NextRequest) {
       const output = execSync(cmd, { cwd: AUTOMATIONS_DIR }).toString()
 
       try {
-        const res = JSON.parse(output)
+        const lines = output.trim().split("\n")
+        const jsonStr = lines[lines.length - 1]
+        const res = JSON.parse(jsonStr)
         return NextResponse.json({ success: true, data: res })
       } catch {
         return NextResponse.json({ success: false, error: "Failed to apply edits", output })
+      }
+    }
+
+    if (action === "remove-bg") {
+      const { fileName, bgReplace } = body
+      if (!fileName) return NextResponse.json({ success: false, error: "Missing fileName" }, { status: 400 })
+
+      if (!isLocal) {
+        return NextResponse.json({
+          success: false,
+          error: "Background removal requires Python + rembg. Please run the sales portal locally."
+        })
+      }
+
+      const opts = JSON.stringify({ file: fileName, bg_replace: bgReplace || "white" }).replace(/"/g, '\\"')
+      const cmd = `python "${AUTOMATIONS_DIR}\\process_product_images.py" --remove-bg "${opts}"`
+      
+      try {
+        const output = execSync(cmd, { cwd: AUTOMATIONS_DIR, timeout: 120000 }).toString()
+        const lines = output.trim().split("\n")
+        const jsonStr = lines[lines.length - 1]
+        const res = JSON.parse(jsonStr)
+        return NextResponse.json({ success: true, data: res })
+      } catch (e: any) {
+        return NextResponse.json({ success: false, error: "Background removal failed: " + e.message })
       }
     }
 
@@ -439,8 +479,6 @@ export async function POST(req: NextRequest) {
       const stem = path.basename(fileName, ext)
 
       const processedMain = path.join(PROCESSED_DIR, `${stem}.png`)
-      const processedA = path.join(PROCESSED_DIR, `${stem}_detail_a.png`)
-      const processedB = path.join(PROCESSED_DIR, `${stem}_detail_b.png`)
 
       if (!fs.existsSync(processedMain)) {
         return NextResponse.json({ success: false, error: "Processed main image not found" }, { status: 404 })
@@ -455,11 +493,12 @@ export async function POST(req: NextRequest) {
       const publicMain = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}.png`)
       fs.copyFileSync(processedMain, publicMain)
       
-      if (fs.existsSync(processedA)) {
-        fs.copyFileSync(processedA, path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_a.png`))
-      }
-      if (fs.existsSync(processedB)) {
-        fs.copyFileSync(processedB, path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_detail_b.png`))
+      // Copy all detail variation crops (A, B, C, D)
+      for (const suffix of DETAIL_SUFFIXES) {
+        const detailSrc = path.join(PROCESSED_DIR, `${stem}_${suffix}.png`)
+        if (fs.existsSync(detailSrc)) {
+          fs.copyFileSync(detailSrc, path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}_${suffix}.png`))
+        }
       }
 
       // 2. Fetch the Product from DB
@@ -511,8 +550,11 @@ export async function POST(req: NextRequest) {
       // 4. Update Product Description with the App path
       parsedDesc.image = `/product-images/${stem}.png`
       // Save details to the info metadata if available
-      parsedDesc.detail_a = fs.existsSync(processedA) ? `/product-images/${stem}_detail_a.png` : null
-      parsedDesc.detail_b = fs.existsSync(processedB) ? `/product-images/${stem}_detail_b.png` : null
+      // Save detail variant paths
+      for (const suffix of DETAIL_SUFFIXES) {
+        const detailPath = path.join(PROCESSED_DIR, `${stem}_${suffix}.png`)
+        parsedDesc[suffix] = fs.existsSync(detailPath) ? `/product-images/${stem}_${suffix}.png` : null
+      }
 
       await prisma.product.update({
         where: { sku },
