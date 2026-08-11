@@ -39,18 +39,16 @@ export const handler: Handler = async (event) => {
 
     // ── checkOnly mode: fast staleness check without full commission calc ──
     if (checkOnly === 'true') {
-      const [count, latest] = await Promise.all([
-        prisma.invoice.count({ where: { status: { notIn: ['Void', 'void', 'Draft', 'draft'] } } }),
-        prisma.invoice.findFirst({
-          where: { status: { notIn: ['Void', 'void', 'Draft', 'draft'] } },
-          orderBy: { updatedAt: 'desc' },
-          select: { updatedAt: true }
-        })
-      ])
+      const targetYr = year || 'all'
+      let countWhere: any = { status: { notIn: ['Void', 'void', 'Draft', 'draft'] } }
+      if (targetYr !== 'all' && !isNaN(parseInt(targetYr))) {
+        countWhere.issueDate = { gte: new Date(`${targetYr}-01-01`), lt: new Date(`${parseInt(targetYr)+1}-01-01`) }
+      }
+      const count = await prisma.invoice.count({ where: countWhere })
       return {
         statusCode: 200,
         headers: cors,
-        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null })
+        body: JSON.stringify({ success: true, checkOnly: true, count })
       }
     }
 
@@ -110,7 +108,8 @@ export const handler: Handler = async (event) => {
           c."firstName" || ' ' || c."lastName" AS "contactName",
           COALESCE(c.phone, c."mobilePhone") AS "contactPhone",
           jsonb_build_object(
-            'salesperson',                i.items->>'salesperson',
+            'salesperson',                COALESCE(i.items->>'salesperson_name', i.items->>'salesperson'),
+            'salesperson_name',           i.items->>'salesperson_name',
             'invoiceNumber',              i.items->>'invoiceNumber',
             'invoice_number',             i.items->>'invoice_number',
             'sub_total',                  i.items->>'sub_total',
@@ -125,7 +124,7 @@ export const handler: Handler = async (event) => {
             'deadCostPlusVig',            i.items->>'deadCostPlusVig',
             'cf_salesperson_vig',         i.items->>'cf_salesperson_vig',
             'cf_salesperson_vig_unformatted', i.items->>'cf_salesperson_vig_unformatted',
-            'paymentDate',               i.items->>'paymentDate',
+            'paymentDate',               COALESCE(i.items->>'last_payment_date', i.items->>'paymentDate'),
             'ccFees',                    i.items->>'ccFees',
             'cc_fees',                   i.items->>'cc_fees',
             'cf_credit_card_processing_fees', i.items->>'cf_credit_card_processing_fees',
@@ -170,7 +169,8 @@ export const handler: Handler = async (event) => {
           a.name     AS "accountName",
           a."zohoId"  AS "accountZohoId",
           jsonb_build_object(
-            'salesperson',            s.items->>'salesperson',
+            'salesperson',            COALESCE(s.items->>'salesperson_name', s.items->>'salesperson'),
+            'salesperson_name',       s.items->>'salesperson_name',
             'salesorder_number',      s.items->>'salesorder_number',
             'salesorderNumber',       s.items->>'salesorderNumber',
             'sub_total',              s.items->>'sub_total',
@@ -405,7 +405,7 @@ export const handler: Handler = async (event) => {
     const invoiceRecords = invoices.map(inv => {
       const items = inv.items as any || {}
       const cfs = items.custom_fields || []
-      const salespersonName = items.salesperson as string | null
+      const salespersonName = (items.salesperson_name || items.salesperson) as string | null
       const subTotal = getSubTotal(items, inv.amount)
       const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
 

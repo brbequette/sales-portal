@@ -74,11 +74,12 @@ export default function SalesSheetPage() {
     const invoices = rep.invoices || []
     return invoices
       .filter((inv: any) => {
-        if (!inv.issueDate) return false
-        const d = new Date(inv.issueDate)
+        const dateStr = inv.issueDate || inv.createdAt
+        if (!dateStr) return false
+        const d = new Date(dateStr)
         return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear
       })
-      .sort((a: any, b: any) => new Date(a.issueDate).getTime() - new Date(b.issueDate).getTime())
+      .sort((a: any, b: any) => new Date(a.issueDate || a.createdAt).getTime() - new Date(b.issueDate || b.createdAt).getTime())
   }, [data, selectedRepId, selectedMonth, selectedYear])
 
   const totals = useMemo(() => {

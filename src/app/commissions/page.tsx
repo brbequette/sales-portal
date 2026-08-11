@@ -77,7 +77,7 @@ export default function CommissionsPage() {
       const res = await fetch(`${url}${separator}checkOnly=true`)
       const data = await res.json()
       if (!data.checkOnly) return
-      const remoteSig = `${data.count}|${data.latestUpdatedAt ?? ''}`
+      const remoteSig = `${data.count}`
       if (remoteSig !== sig) setUpdateAvailable(true)
     } catch {}
   }
@@ -129,8 +129,8 @@ export default function CommissionsPage() {
         }
         sessionSet(cacheKey, { byRep: data.byRep || {}, years: data.years || [], selectedRepId: matchedRep, clawbackSettings: data.clawbackSettings })
         
-        // BUG-007 fix: use invoice count + latestUpdatedAt (matches checkOnly response format)
-        const sig = `${data.stats?.totalInvoices ?? Object.keys(data.byRep || {}).length}|${data.years?.[0] ?? selectedYear}`
+        // Staleness check: sig = invoice count (matches checkOnly response)
+        const sig = `${data.stats?.totalInvoices ?? 0}`
         setUpdateAvailable(false)
         setTimeout(() => checkForUpdates(sig, `/api/get-commissions?year=${selectedYear}`), 2000)
       } else {
