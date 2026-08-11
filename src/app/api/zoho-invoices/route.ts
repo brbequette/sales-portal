@@ -70,18 +70,19 @@ export async function GET(request: Request) {
 
       return {
         invoice_id: inv.zohoId,
-        invoice_number: items.invoiceNumber || `INV-${inv.zohoId?.slice(-6)}`,
+        invoice_number: (inv as any).invoiceNumber || items.invoice_number || items.invoiceNumber || `INV-${inv.zohoId?.slice(-6)}`,
         customer_name: items.customer_name || inv.account?.name || 'Unknown',
-        salesperson_name: items.salesperson || items.salesperson_name || null,
+        salesperson_name: items.salesperson_name || items.salesperson || null,
         sub_total: subTotalVal,
         total: subTotalVal,
-        balance: items.balance ?? 0,
+        balance: inv.balance ?? items.balance ?? 0,
         date: formattedDate,
         due_date: inv.dueDate ? inv.dueDate.toISOString().split('T')[0] : formattedDate,
         status: mapStatusForClient(inv.status),
+        entity_type: 'invoice',
         is_sales_order: false,
         salesorder_date: formattedDate,
-        salesorder_salesperson_name: items.salesorder_salesperson_name || items.salesperson || null,
+        salesorder_salesperson_name: items.salesorder_salesperson_name || items.salesperson_name || items.salesperson || null,
         reference_number: items.reference_number || null,
         cf_profit_unformatted: extractProfit(items),
         deadProfit: (() => {
@@ -94,8 +95,8 @@ export async function GET(request: Request) {
         cf_salesperson_vig_unformatted: extractVigRate(items),
         line_items: items.line_items || [],
         custom_fields: items.custom_fields || [],
-        shipping_charge: items.shippingCharge ?? 0,
-        payment_date: items.paymentDate || null,
+        shipping_charge: items.shipping_charge ?? items.shippingCharge ?? 0,
+        payment_date: items.last_payment_date || items.paymentDate || null,
       };
     });
 
@@ -118,6 +119,7 @@ export async function GET(request: Request) {
         date: formattedDate,
         due_date: null,
         status: so.status?.toLowerCase() || 'open',
+        entity_type: 'salesorder',
         is_sales_order: true,
         salesorder_date: formattedDate,
         salesorder_salesperson_name: items.salesperson || items.salesperson_name || null,
