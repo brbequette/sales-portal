@@ -65,7 +65,13 @@ export async function GET(req: Request) {
     // Build a name→id map for salesperson field matching
     const nameToRepId: Record<string, string> = {}
     reps.forEach(r => {
-      if (r.name) nameToRepId[r.name.toLowerCase().trim()] = r.id
+      if (r.name) {
+        const lower = r.name.toLowerCase().trim()
+        nameToRepId[lower] = r.id
+        if (lower.includes("brian basiliere")) {
+          nameToRepId["brian basilierre"] = r.id
+        }
+      }
     })
 
     // PERF FIX: group goals by cadence so we only query each date window once

@@ -109,6 +109,7 @@ export async function POST(req: NextRequest) {
       if (val === "ben bequette") return "benjamin bequette"
       if (val === "monty morgan") return "montgomery morgan"
       if (val === "ricky griffin") return "richard griffin"
+      if (val === "brian basilierre") return "brian basiliere"
       return val
     }
 
