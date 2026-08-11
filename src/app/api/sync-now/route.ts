@@ -166,6 +166,9 @@ export async function POST(req: NextRequest) {
                 update: {
                   status: inv.status,
                   balance: parseFloat(inv.balance || 0),
+                  amount: parseFloat(inv.total || 0),
+                  issueDate: inv.date ? new Date(inv.date) : undefined,
+                  accountId: localAccount.id,
                   items: inv as any,
                 },
                 create: {
