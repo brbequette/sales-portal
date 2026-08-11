@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect, useMemo } from "react"
 import { useZoho } from "@/components/ZohoProvider"
+import Link from "next/link"
 import { PayPeriodStatementModal } from "@/components/PayPeriodStatementModal"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { 
   FiDollarSign, FiPercent, FiTrendingUp, FiAward, FiUser, 
   FiCheckCircle, FiClock, FiFileText, FiRefreshCw, FiAlertCircle,
-  FiChevronDown, FiChevronRight, FiCalendar, FiFilter, FiExternalLink
+  FiChevronDown, FiChevronRight, FiCalendar, FiFilter, FiExternalLink, FiGrid
 } from "react-icons/fi"
 import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
 import { UpdateBanner } from '@/lib/useStaleCheck'
@@ -309,9 +310,14 @@ export default function CommissionsPage() {
             <FiRefreshCw className={loading ? "animate-spin" : ""} size={14} />
           </button>
           {currentRepData && (
-            <button onClick={() => setShowStatement(true)} className="td-btn td-btn-primary td-btn-sm">
-              <FiAward size={13} /> Pay Statement
-            </button>
+            <>
+              <Link href={`/commissions/sales-sheet?repId=${selectedRepId}&month=${new Date().getMonth()}&year=${new Date().getFullYear()}`} className="td-btn td-btn-ghost td-btn-sm" title="Monthly Sales Sheet">
+                <FiGrid size={13} /> Sales Sheet
+              </Link>
+              <button onClick={() => setShowStatement(true)} className="td-btn td-btn-primary td-btn-sm">
+                <FiAward size={13} /> Pay Statement
+              </button>
+            </>
           )}
         </div>
       </div>
