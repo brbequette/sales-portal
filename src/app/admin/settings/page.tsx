@@ -316,7 +316,12 @@ export default function AdminSettingsPage() {
               
               {/* FINANCIAL TAB */}
               {activeTab === 'financial' && (
-                <VigManagementBuilder />
+                <div className="space-y-8">
+                  <VigManagementBuilder />
+
+                  {/* ── Clawback Rules ──────────────────────────────────────── */}
+                  <ClawbackSettingsSection />
+                </div>
               )}
 
               {/* COMMUNICATIONS TAB */}
@@ -596,6 +601,209 @@ export default function AdminSettingsPage() {
           )}
         </div>
       </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Clawback Settings Sub-Component ─────────────────────────────────────────
+
+function ClawbackSettingsSection() {
+  const [clawback, setClawback] = useState({
+    clawback_threshold_days: 365,
+    warning_window_days: 90,
+    rep_cost_split_pct: 0.50,
+    auto_cascade: false,
+    auto_bonus_reversal: false,
+    cascade_depth: 'one_month' as 'one_month' | 'recursive',
+  })
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.settings?.clawback_settings) {
+          try {
+            const parsed = typeof data.settings.clawback_settings === 'string'
+              ? JSON.parse(data.settings.clawback_settings)
+              : data.settings.clawback_settings
+            setClawback(prev => ({ ...prev, ...parsed }))
+          } catch {}
+        }
+        setLoaded(true)
+      })
+      .catch(() => setLoaded(true))
+  }, [])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clawback_settings: JSON.stringify(clawback) })
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (e) {
+      alert('Failed to save clawback settings')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!loaded) return <div className="glass-panel border border-white/10 rounded-xl p-6 text-neutral-500 text-sm">Loading clawback settings...</div>
+
+  const Field = ({ label, desc, children }: { label: string; desc: string; children: React.ReactNode }) => (
+    <div>
+      <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">{label}</label>
+      <p className="text-xs text-neutral-500 mb-3 font-semibold">{desc}</p>
+      {children}
+    </div>
+  )
+
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-8 h-8 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-center">
+          <FiAlertCircle className="text-red-400" size={16} />
+        </div>
+        <div>
+          <h2 className="text-xl font-black text-white">Clawback Rules</h2>
+          <p className="text-xs text-neutral-500">Configure when invoices are clawed back and how costs cascade</p>
+        </div>
+      </div>
+
+      <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-6 shadow-xl">
+        <Field label="Clawback Threshold (Days)" desc="Unpaid invoices older than this are eligible for clawback. Default: 365 (12 months).">
+          <div className="flex items-center gap-3">
+            <input
+              type="number" min={30} max={730}
+              value={clawback.clawback_threshold_days}
+              onChange={e => setClawback(p => ({ ...p, clawback_threshold_days: parseInt(e.target.value) || 365 }))}
+              className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-red-400 font-mono font-bold focus:outline-none focus:border-red-500"
+            />
+            <span className="text-neutral-500 font-black">days</span>
+          </div>
+        </Field>
+
+        <hr className="border-white/10" />
+
+        <Field label="Warning Window (Days)" desc="How many days before the threshold to start showing clawback warnings. Default: 90 days.">
+          <div className="flex items-center gap-3">
+            <input
+              type="number" min={14} max={180}
+              value={clawback.warning_window_days}
+              onChange={e => setClawback(p => ({ ...p, warning_window_days: parseInt(e.target.value) || 90 }))}
+              className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+            />
+            <span className="text-neutral-500 font-black">days</span>
+          </div>
+        </Field>
+
+        <hr className="border-white/10" />
+
+        <Field label="Rep Cost Split (%)" desc="When an invoice is charged off, the rep pays this percentage of (dead cost + shipping). Default: 50%.">
+          <div className="flex items-center gap-3">
+            <input
+              type="number" min={0} max={100} step={5}
+              value={Math.round(clawback.rep_cost_split_pct * 100)}
+              onChange={e => setClawback(p => ({ ...p, rep_cost_split_pct: (parseInt(e.target.value) || 50) / 100 }))}
+              className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono font-bold focus:outline-none focus:border-blue-500"
+            />
+            <span className="text-neutral-500 font-black">%</span>
+          </div>
+        </Field>
+
+        <hr className="border-white/10" />
+
+        <Field label="Cascade Mode" desc="When a clawback changes a month's goal status, should the system auto-apply VIG rate changes or flag for review?">
+          <div className="flex gap-3">
+            {([
+              { val: false, label: 'Warning Only (Review Required)', color: 'amber' },
+              { val: true, label: 'Auto-Cascade (Apply Immediately)', color: 'red' },
+            ] as const).map(opt => (
+              <button
+                key={String(opt.val)}
+                onClick={() => setClawback(p => ({ ...p, auto_cascade: opt.val }))}
+                className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${
+                  clawback.auto_cascade === opt.val
+                    ? `bg-${opt.color}-500/10 border-${opt.color}-500/30 text-${opt.color}-400`
+                    : 'border-white/10 text-neutral-500 hover:text-white'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        <hr className="border-white/10" />
+
+        <Field label="Bonus Reversal" desc="If a clawback causes a goal to be missed, should earned bonuses be reversed automatically or flagged?">
+          <div className="flex gap-3">
+            {([
+              { val: false, label: 'Flag for Review', color: 'amber' },
+              { val: true, label: 'Auto-Reverse', color: 'red' },
+            ] as const).map(opt => (
+              <button
+                key={String(opt.val)}
+                onClick={() => setClawback(p => ({ ...p, auto_bonus_reversal: opt.val }))}
+                className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${
+                  clawback.auto_bonus_reversal === opt.val
+                    ? `bg-${opt.color}-500/10 border-${opt.color}-500/30 text-${opt.color}-400`
+                    : 'border-white/10 text-neutral-500 hover:text-white'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        <hr className="border-white/10" />
+
+        <Field label="VIG Cascade Depth" desc="If a clawback causes Month A's goal to flip, the VIG changes in Month B. Should it check if Month B also misses and cascade to Month C?">
+          <div className="flex gap-3">
+            {([
+              { val: 'one_month' as const, label: 'One Month (Recommended)', color: 'emerald' },
+              { val: 'recursive' as const, label: 'Recursive (Full Cascade)', color: 'red' },
+            ]).map(opt => (
+              <button
+                key={opt.val}
+                onClick={() => setClawback(p => ({ ...p, cascade_depth: opt.val }))}
+                className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${
+                  clawback.cascade_depth === opt.val
+                    ? `bg-${opt.color}-500/10 border-${opt.color}-500/30 text-${opt.color}-400`
+                    : 'border-white/10 text-neutral-500 hover:text-white'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        <hr className="border-white/10" />
+
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold rounded-lg shadow-lg shadow-red-900/30 disabled:opacity-50 transition-all flex items-center gap-2"
+          >
+            {saving ? <FiRefreshCw className="animate-spin" size={14} /> : <FiSave size={14} />}
+            {saving ? 'Saving...' : 'Save Clawback Rules'}
+          </button>
+          {saved && (
+            <span className="flex items-center gap-1.5 text-emerald-400 text-sm font-bold">
+              <FiCheckCircle size={14} /> Saved!
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )

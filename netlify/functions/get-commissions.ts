@@ -91,10 +91,11 @@ export const handler: Handler = async (event) => {
       payouts,
       allVigGoals,
       allVigUsers,
-      vigSettingRow
-    ]: [any[], any[], any[], any[], any, any, any[], any[], any[], any] = await Promise.all([
+      vigSettingRow,
+      clawbackSettingRow
+    ]: [any[], any[], any[], any[], any, any, any[], any[], any[], any, any] = await Promise.all([
       // Use $queryRaw to extract the fields needed for commission calc.
-      // Now includes line_items and cost breakdown fields that the calc code depends on.
+      // Now includes line_items, cost breakdown fields, shipping cost, and primary contact.
       prisma.$queryRaw<any[]>(Prisma.sql`
         SELECT
           i.id::text,
@@ -103,8 +104,11 @@ export const handler: Handler = async (event) => {
           i.status,
           i."issueDate",
           i."createdAt",
+          i."actualShippingCost",
           a.name    AS "accountName",
           a."zohoId" AS "accountZohoId",
+          c."firstName" || ' ' || c."lastName" AS "contactName",
+          COALESCE(c.phone, c."mobilePhone") AS "contactPhone",
           jsonb_build_object(
             'salesperson',                i.items->>'salesperson',
             'invoiceNumber',              i.items->>'invoiceNumber',
@@ -144,6 +148,13 @@ export const handler: Handler = async (event) => {
           ) AS items
         FROM "Invoice" i
         LEFT JOIN "Account" a ON a.id = i."accountId"
+        LEFT JOIN LATERAL (
+          SELECT "firstName", "lastName", phone, "mobilePhone"
+          FROM "Contact"
+          WHERE "accountId" = a.id
+          ORDER BY "isPrimary" DESC NULLS LAST, "createdAt" ASC
+          LIMIT 1
+        ) c ON true
         WHERE i.status NOT IN ('Void','void','Draft','draft')
         ${invDateSql}
         ORDER BY i."issueDate" DESC NULLS LAST
@@ -235,7 +246,9 @@ export const handler: Handler = async (event) => {
         select: { id: true, name: true, constantVigEnabled: true, constantVigValue: true }
       }).catch(() => []),
       // Fetch vig_settings JSON blob for prior-month MISSED penalty status
-      prisma.systemSetting.findUnique({ where: { key: 'vig_settings' } }).catch(() => null)
+      prisma.systemSetting.findUnique({ where: { key: 'vig_settings' } }).catch(() => null),
+      // Fetch clawback configuration
+      prisma.systemSetting.findUnique({ where: { key: 'clawback_settings' } }).catch(() => null),
     ])
 
     // Build per-rep monthly VIG goal status map from vig_settings blob (same as get-rep-stats)
@@ -254,7 +267,10 @@ export const handler: Handler = async (event) => {
       issueDate: row.issueDate ? new Date(row.issueDate) : null,
       createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
       amount: row.amount != null ? parseFloat(row.amount) : 0,
-      account: { name: row.accountName || null, zohoId: row.accountZohoId || null }
+      account: { name: row.accountName || null, zohoId: row.accountZohoId || null },
+      contactName: row.contactName || null,
+      contactPhone: row.contactPhone || null,
+      actualShippingCost: row.actualShippingCost != null ? parseFloat(row.actualShippingCost) : 0,
     }))
     const rawSalesOrders = rawSalesOrdersRaw.map((row: any) => ({
       ...row,
@@ -523,6 +539,7 @@ export const handler: Handler = async (event) => {
         deadProfit: safeDeadProfit,
         deadCost,
         vigRate,
+        actualShippingCost: inv.actualShippingCost || 0,
         status: inv.status,
         isPaid,
         isSameDayPaid,
@@ -537,6 +554,8 @@ export const handler: Handler = async (event) => {
         repName: matchedRep?.name || salespersonName || "Unassigned",
         accountName: inv.account?.name || "Unknown",
         accountZohoId: inv.account?.zohoId || null,
+        contactName: inv.contactName || null,
+        contactPhone: inv.contactPhone || null,
         commission: { total, upfront, final, future, atRiskAmount },
         type: "invoice" as const
       }
@@ -660,10 +679,13 @@ export const handler: Handler = async (event) => {
         isAtRisk: false,
         issueDate: so.orderDate,
         paymentDate: null,
+        actualShippingCost: 0,
         repId: matchedRepId || salespersonName?.toLowerCase().trim() || "unassigned",
         repName: matchedRep?.name || salespersonName || "Unassigned",
         accountName: so.account?.name || "Unknown",
         accountZohoId: so.account?.zohoId || null,
+        contactName: null as string | null,
+        contactPhone: null as string | null,
         commission: { total, upfront, final, future, atRiskAmount: 0 },
         type: "invoice" as const
       }
@@ -732,14 +754,20 @@ export const handler: Handler = async (event) => {
         name: inv.name || inv.accountName || "Invoice",
         accountName: inv.accountName || "Customer",
         amount: inv.amount || 0,
-        profit: inv.profit || 0,           // BUG-001 fix: use after-VIG net profit, not deadProfit
-        deadProfit: inv.deadProfit || 0,   // keep deadProfit separate for display if needed
+        profit: inv.profit || 0,
+        deadProfit: inv.deadProfit || 0,
         deadCost: inv.deadCost || 0,
+        actualShippingCost: inv.actualShippingCost || 0,
+        vigRate: inv.vigRate || 1.3,
         status: inv.status || "Paid",
         isPaid: !!inv.isPaid,
+        daysOld: inv.daysOld || 0,
+        isAtRisk: !!inv.isAtRisk,
         issueDate: inv.issueDate || null,
         paymentDate: inv.paymentDate || null,
-        commission: inv.commission || { total: 0, upfront: 0, final: 0 },
+        contactName: inv.contactName || null,
+        contactPhone: inv.contactPhone || null,
+        commission: inv.commission || { total: 0, upfront: 0, final: 0, future: 0, atRiskAmount: 0 },
         repName: inv.repName || byRep[key].repName || null,
         salesperson: inv.repName || byRep[key].repName || null
       })
@@ -914,6 +942,18 @@ export const handler: Handler = async (event) => {
       totalPipelineValue: dealRecords.reduce((s, d) => s + d.amount, 0),
     }
 
+    // Parse clawback settings
+    const clawbackSettings = clawbackSettingRow
+      ? JSON.parse(clawbackSettingRow.value)
+      : {
+          clawback_threshold_days: 365,
+          warning_window_days: 90,
+          rep_cost_split_pct: 0.50,
+          auto_cascade: false,
+          auto_bonus_reversal: false,
+          cascade_depth: 'one_month',
+        }
+
     const responseBody = JSON.stringify({
       success: true,
       year: targetYear,
@@ -921,6 +961,7 @@ export const handler: Handler = async (event) => {
       users,
       years,
       stats,
+      clawbackSettings,
     })
 
     return { statusCode: 200, headers: cors, body: responseBody }

@@ -16,6 +16,7 @@ export interface AppSettings {
   ai_reply_prompt: string
   tv_pin: string
   pause_mass_zoho_updates: boolean
+  clawback_settings?: string  // JSON blob with clawback config
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -56,7 +57,8 @@ export async function getSystemSettings(): Promise<AppSettings> {
     sms_daily_account_limit: map.sms_daily_account_limit ? parseInt(map.sms_daily_account_limit) : DEFAULT_SETTINGS.sms_daily_account_limit,
     ai_reply_prompt: map.ai_reply_prompt || DEFAULT_SETTINGS.ai_reply_prompt,
     tv_pin: map.tv_pin || DEFAULT_SETTINGS.tv_pin,
-    pause_mass_zoho_updates: map.pause_mass_zoho_updates === 'true' || map.pause_mass_zoho_updates === '1'
+    pause_mass_zoho_updates: map.pause_mass_zoho_updates === 'true' || map.pause_mass_zoho_updates === '1',
+    clawback_settings: map.clawback_settings || undefined,
   }
 }
 

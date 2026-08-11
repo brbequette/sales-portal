@@ -10,6 +10,7 @@ import {
   FiCheckCircle, FiClock, FiFileText, FiRefreshCw, FiAlertCircle,
   FiChevronDown, FiChevronRight, FiCalendar, FiFilter, FiExternalLink, FiGrid
 } from "react-icons/fi"
+import { classifyAtRiskInvoices, DEFAULT_CLAWBACK_SETTINGS, type AtRiskInvoice, type ClawbackSettings } from '@/lib/clawback-calculator'
 import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
 import { UpdateBanner } from '@/lib/useStaleCheck'
 
@@ -67,6 +68,8 @@ export default function CommissionsPage() {
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [expandedKpi, setExpandedKpi] = useState<string | null>(null)
+  const [showClawbackPanel, setShowClawbackPanel] = useState(false)
+  const [apiClawbackSettings, setApiClawbackSettings] = useState<ClawbackSettings | null>(null)
 
   const checkForUpdates = async (sig: string, url: string) => {
     try {
@@ -86,7 +89,13 @@ export default function CommissionsPage() {
     const cacheKey = `commissions-${selectedYear}-${user?.id || user?.email}`
     if (!force) {
       const cached = sessionGet<any>(cacheKey, TTL.FIFTEEN_MIN)
-      if (cached) { setByRep(cached.byRep); setAvailableYears(cached.years); setSelectedRepId(cached.selectedRepId); return }
+      if (cached) { 
+        setByRep(cached.byRep); 
+        setAvailableYears(cached.years); 
+        setSelectedRepId(cached.selectedRepId); 
+        if (cached.clawbackSettings) setApiClawbackSettings(cached.clawbackSettings);
+        return 
+      }
     }
     // First load with no data: full spinner. Subsequent refreshes: subtle bar
     if (Object.keys(byRep).length === 0) setLoading(true)
@@ -104,6 +113,7 @@ export default function CommissionsPage() {
       if (data.success) {
         setByRep(data.byRep || {})
         if (data.years && data.years.length > 0) setAvailableYears(data.years)
+        if (data.clawbackSettings) setApiClawbackSettings(data.clawbackSettings)
         
         const repsList = Object.keys(data.byRep || {})
         let matchedRep = repsList[0]
@@ -117,7 +127,7 @@ export default function CommissionsPage() {
                        repsList[0]
           setSelectedRepId(matchedRep)
         }
-        sessionSet(cacheKey, { byRep: data.byRep || {}, years: data.years || [], selectedRepId: matchedRep })
+        sessionSet(cacheKey, { byRep: data.byRep || {}, years: data.years || [], selectedRepId: matchedRep, clawbackSettings: data.clawbackSettings })
         
         // BUG-007 fix: use invoice count + latestUpdatedAt (matches checkOnly response format)
         const sig = `${data.stats?.totalInvoices ?? Object.keys(data.byRep || {}).length}|${data.years?.[0] ?? selectedYear}`
@@ -251,6 +261,50 @@ export default function CommissionsPage() {
     return { earned, paid, balance: earned - paid, profit, deals }
   }, [filteredWeeklyGroups, weeklyGroups.length, currentRepData])
 
+  // Clawback settings from API response
+  const clawbackSettings: ClawbackSettings = apiClawbackSettings || DEFAULT_CLAWBACK_SETTINGS
+
+  // Compute pending commissions and clawback risk from current rep's invoices
+  const { pendingCommission, atRiskInvoices, clawbackTotals } = useMemo(() => {
+    if (!currentRepData?.invoices) return { pendingCommission: 0, atRiskInvoices: [] as AtRiskInvoice[], clawbackTotals: { count: 0, repLoss: 0, commissionAtRisk: 0 } }
+    
+    // Pending commission = sum of future commission on all unpaid invoices
+    const pending = currentRepData.invoices
+      .filter((inv: any) => !inv.isPaid)
+      .reduce((sum: number, inv: any) => sum + (inv.commission?.future || 0), 0)
+
+    // Map invoices to the shape needed by the clawback calculator  
+    const mappedInvoices = currentRepData.invoices
+      .filter((inv: any) => !inv.isPaid && inv.daysOld > 0)
+      .map((inv: any) => ({
+        id: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        issueDate: inv.issueDate,
+        amount: inv.amount || 0,
+        deadCost: inv.deadCost || 0,
+        deadProfit: inv.deadProfit || 0,
+        profit: inv.profit || 0,
+        vigRate: inv.vigRate || 1.3,
+        actualShippingCost: inv.actualShippingCost || 0,
+        isPaid: false,
+        daysOld: inv.daysOld || 0,
+        repId: inv.repId || currentRepData.repId,
+        accountName: inv.accountName || inv.name || 'Unknown',
+        contactName: inv.contactName || null,
+        contactPhone: inv.contactPhone || null,
+        commission: inv.commission || { upfront: 0, final: 0, future: 0, total: 0 },
+      }))
+
+    const atRisk = classifyAtRiskInvoices(mappedInvoices, clawbackSettings)
+    const clawTotals = {
+      count: atRisk.length,
+      repLoss: atRisk.reduce((s, inv) => s + inv.chargeOffRepCost, 0),
+      commissionAtRisk: atRisk.reduce((s, inv) => s + inv.pendingCommission, 0),
+    }
+    
+    return { pendingCommission: pending, atRiskInvoices: atRisk, clawbackTotals: clawTotals }
+  }, [currentRepData, clawbackSettings])
+
   // Auto-expand first week on change
   useEffect(() => {
     if (weeklyGroups.length > 0 && Object.keys(expandedWeeks).length === 0) {
@@ -360,12 +414,14 @@ export default function CommissionsPage() {
             )}
             {/* KPI Cards — Clickable to expand weekly breakdown */}
             <div className="space-y-2">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
                 {[
                   { key: "earned", label: "Total Earned", value: fmt(filteredTotals.earned), color: "emerald", icon: FiDollarSign, sub: "Net 50% split after VIG" },
                   { key: "paid", label: "Total Paid Out", value: fmt(filteredTotals.paid), color: "indigo", icon: FiCheckCircle, sub: "Disbursed checks & draws" },
                   { key: "balance", label: "Unpaid Balance", value: fmt(filteredTotals.balance), color: filteredTotals.balance >= 0 ? "amber" : "red", icon: FiClock, sub: currentRepData.balance >= 0 ? "Pending payout" : "Draw balance advance" },
                   { key: "profit", label: "Total Net Profit", value: fmt(filteredTotals.profit), color: "sky", icon: FiTrendingUp, sub: `Across ${filteredTotals.deals} deals` },
+                  { key: "pending", label: "Pending Commission", value: fmt(pendingCommission), color: "violet", icon: FiClock, sub: `On ${currentRepData?.invoices?.filter((i: any) => !i.isPaid).length || 0} unpaid invoices` },
+                  { key: "clawback", label: "Clawback Risk", value: fmt(clawbackTotals.repLoss), color: clawbackTotals.count > 0 ? "red" : "neutral", icon: FiAlertCircle, sub: clawbackTotals.count > 0 ? `${clawbackTotals.count} invoices approaching` : "No invoices at risk" },
                 ].map(card => (
                   <div
                     key={card.key}
@@ -391,10 +447,11 @@ export default function CommissionsPage() {
                 <div className="glass-panel rounded-xl border border-white/10 overflow-hidden animate-fade-in">
                   <div className="px-4 py-2.5 bg-neutral-950/50 border-b border-white/[0.06] flex items-center justify-between">
                     <span className="text-xs font-bold text-white uppercase tracking-wider">
-                      {expandedKpi === 'earned' ? 'Commission' : expandedKpi === 'paid' ? 'Payouts' : expandedKpi === 'balance' ? 'Balance' : 'Profit'} — Weekly Breakdown
+                      {expandedKpi === 'earned' ? 'Commission' : expandedKpi === 'paid' ? 'Payouts' : expandedKpi === 'balance' ? 'Balance' : expandedKpi === 'pending' ? 'Pending Commission' : expandedKpi === 'clawback' ? 'Clawback Risk' : 'Profit'} — {expandedKpi === 'pending' || expandedKpi === 'clawback' ? 'Invoice Breakdown' : 'Weekly Breakdown'}
                     </span>
                     <button onClick={() => setExpandedKpi(null)} className="text-neutral-500 hover:text-white text-xs">✕</button>
                   </div>
+                  {expandedKpi !== 'pending' && expandedKpi !== 'clawback' && (
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
@@ -434,6 +491,101 @@ export default function CommissionsPage() {
                       </tfoot>
                     </table>
                   </div>
+                  )}
+                  {expandedKpi === 'pending' && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-white/[0.06]">
+                            <th className="text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Invoice</th>
+                            <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Account</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Amount</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">After VIG Profit</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Upfront (Earned)</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Pending (2nd Half)</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Days Old</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(currentRepData?.invoices || []).filter((i: any) => !i.isPaid && (i.commission?.future || 0) > 0).map((inv: any) => (
+                            <tr key={inv.id} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                              <td className="px-4 py-2 font-mono font-bold text-indigo-400">#{inv.invoiceNumber || '--'}</td>
+                              <td className="px-3 py-2 text-neutral-300 font-medium">{inv.accountName || 'Customer'}</td>
+                              <td className="px-3 py-2 text-right text-white font-medium tabular-nums">{fmt(inv.amount)}</td>
+                              <td className="px-3 py-2 text-right text-sky-400 tabular-nums">{fmt(inv.profit)}</td>
+                              <td className="px-3 py-2 text-right text-emerald-400 tabular-nums">{fmt(inv.commission?.upfront || 0)}</td>
+                              <td className="px-3 py-2 text-right text-violet-400 font-bold tabular-nums">{fmt(inv.commission?.future || 0)}</td>
+                              <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{Math.round(inv.daysOld || 0)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-white/10 bg-neutral-950/40">
+                            <td className="px-4 py-2.5 text-white font-bold" colSpan={5}>Total Pending</td>
+                            <td className="px-3 py-2.5 text-right text-violet-400 font-bold tabular-nums">{fmt(pendingCommission)}</td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                  {expandedKpi === 'clawback' && atRiskInvoices.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-white/[0.06]">
+                            <th className="text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Invoice</th>
+                            <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Account</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Days Old</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Days to Clawback</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Amount</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Dead Cost</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Shipping</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Rep Loss (50%)</th>
+                            <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Contact</th>
+                            <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Phone</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {atRiskInvoices.map((inv) => (
+                            <tr key={inv.id} className={`border-b border-white/[0.03] ${
+                              inv.urgency === 'critical' ? 'bg-red-950/20' : inv.urgency === 'warning' ? 'bg-amber-950/10' : 'hover:bg-white/[0.02]'
+                            }`}>
+                              <td className="px-4 py-2 font-mono font-bold text-indigo-400">#{inv.invoiceNumber || '--'}</td>
+                              <td className="px-3 py-2 text-neutral-300 font-medium">{inv.accountName}</td>
+                              <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{Math.round(inv.daysOld)}</td>
+                              <td className={`px-3 py-2 text-right font-bold tabular-nums ${
+                                inv.urgency === 'critical' ? 'text-red-400' : inv.urgency === 'warning' ? 'text-amber-400' : 'text-neutral-300'
+                              }`}>{inv.daysToClawback}</td>
+                              <td className="px-3 py-2 text-right text-white font-medium tabular-nums">{fmt(inv.amount)}</td>
+                              <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{fmt(inv.deadCost)}</td>
+                              <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{fmt(inv.actualShippingCost)}</td>
+                              <td className="px-3 py-2 text-right text-red-400 font-bold tabular-nums">{fmt(inv.chargeOffRepCost)}</td>
+                              <td className="px-3 py-2 text-neutral-300">{inv.contactName || '—'}</td>
+                              <td className="px-3 py-2">
+                                {inv.contactPhone ? (
+                                  <a href={`tel:${inv.contactPhone}`} className="text-indigo-400 hover:text-indigo-300 underline">{inv.contactPhone}</a>
+                                ) : <span className="text-neutral-600">—</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-white/10 bg-neutral-950/40">
+                            <td className="px-4 py-2.5 text-white font-bold" colSpan={4}>Total Risk ({atRiskInvoices.length} invoices)</td>
+                            <td className="px-3 py-2.5 text-right text-white font-bold tabular-nums">{fmt(atRiskInvoices.reduce((s, i) => s + i.amount, 0))}</td>
+                            <td className="px-3 py-2.5 text-right text-neutral-300 font-bold tabular-nums">{fmt(atRiskInvoices.reduce((s, i) => s + i.deadCost, 0))}</td>
+                            <td className="px-3 py-2.5 text-right text-neutral-300 font-bold tabular-nums">{fmt(atRiskInvoices.reduce((s, i) => s + i.actualShippingCost, 0))}</td>
+                            <td className="px-3 py-2.5 text-right text-red-400 font-bold tabular-nums">{fmt(clawbackTotals.repLoss)}</td>
+                            <td colSpan={2}></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                  {expandedKpi === 'clawback' && atRiskInvoices.length === 0 && (
+                    <div className="px-6 py-8 text-center text-neutral-500 text-sm">No invoices approaching clawback threshold</div>
+                  )}
                 </div>
               )}
             </div>
