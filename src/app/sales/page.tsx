@@ -19,6 +19,7 @@ import { Pagination, usePagination } from "@/components/Pagination"
 import { PhoneLink } from "@/components/PhoneLink"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { DealPipeline } from "@/components/DealPipeline"
+import { ExclusivityCountdown } from "@/components/ExclusivityCountdown"
 
 
 import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiPhone, FiMail, FiMessageSquare, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiAlertCircle, FiBox, FiLayers, FiEye, FiTarget, FiImage, FiUserPlus } from "react-icons/fi"
@@ -222,7 +223,7 @@ export default function SalesPage() {
   useEffect(() => {
     const interval = setInterval(() => {
       setNowMs(Date.now())
-    }, 1000)
+    }, 60000) // Update once per minute for filtering/sorting; per-second ticking handled by ExclusivityCountdown
     return () => clearInterval(interval)
   }, [])
 
@@ -1667,21 +1668,7 @@ export default function SalesPage() {
                                       </div>
                                        {/* Exclusivity Countdown Clock */}
                                        <div className="hidden md:flex items-center shrink-0">
-                                         {(() => {
-                                           const excl = getExclusivityDetails(account, nowMs)
-                                           return (
-                                             <div
-                                               title={`Account Exclusivity Countdown: ${excl.daysLeft} days left before account becomes unlocked / reassignable`}
-                                               className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border font-mono tracking-tight shrink-0 transition-all ${excl.badgeClass}`}
-                                             >
-                                               <FiClock size={13} className={excl.textClass} />
-                                               <div className="flex flex-col text-left">
-                                                 <span className="text-[9px] font-sans font-bold uppercase tracking-wider opacity-75 leading-none">Exclusivity</span>
-                                                 <span className={`text-xs font-black ${excl.textClass}`}>{excl.formatted}</span>
-                                               </div>
-                                             </div>
-                                           )
-                                         })()}
+                                         <ExclusivityCountdown account={account} />
                                        </div>
 
                                        <div className="hidden sm:flex flex-col text-right shrink-0 min-w-[130px]">
