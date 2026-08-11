@@ -373,6 +373,15 @@ model Invoice {
   computedInvoiceNumber String?  // invoice/document number
   computedUpfront       Float?   // upfront commission half
   computedFinal         Float?   // final commission half
+
+  // Linked documents (populated by backfill from individual Zoho GET calls)
+  salesOrderZohoId      String?  // Zoho salesorder_id linked to this invoice
+  estimateZohoId        String?  // Zoho estimate_id linked to this invoice
+  invoiceNumber         String?  // Zoho invoice_number (e.g. "INV-00123")
+  salesorderNumber      String?  // Zoho salesorder_number linked
+
+  @@index([salesOrderZohoId])
+  @@index([estimateZohoId])
 }
 
 model Note {

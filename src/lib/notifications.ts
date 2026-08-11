@@ -132,6 +132,34 @@ export async function sendEmailNotification(userId: string, title: string, body:
   }
 }
 
+/** Send email directly to an address without needing a userId */
+export async function sendDirectEmail(toEmail: string, toName: string, subject: string, htmlBody: string) {
+  const zeptoApiKey = process.env.ZEPTO_MAIL_API_KEY
+  if (!zeptoApiKey) {
+    console.log(`[Direct Email] To: ${toEmail} | ${subject}`)
+    return { sent: false, reason: 'no_api_key' }
+  }
+  try {
+    const res = await fetch('https://api.zeptomail.com/v1.1/email', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Zoho-enczapikey ${zeptoApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: { address: process.env.ZEPTO_FROM_EMAIL || 'notifications@tdusales.com', name: 'Titan Diamond Sales' },
+        to: [{ email_address: { address: toEmail, name: toName } }],
+        subject,
+        htmlbody: htmlBody,
+      })
+    })
+    return { sent: res.ok, status: res.status }
+  } catch (e: any) {
+    console.error('Direct email failed:', e)
+    return { sent: false, error: e.message }
+  }
+}
+
 // -- SMS via Zoho Voice -----------------------------------------
 
 export async function sendSmsNotification(userId: string, body: string) {
