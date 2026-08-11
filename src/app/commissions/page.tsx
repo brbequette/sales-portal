@@ -39,6 +39,8 @@ interface WeeklyGroup {
   endDate: Date
   invoices: any[]
   totalSales: number
+  totalDeadCost: number
+  totalDeadProfit: number
   totalProfit: number
   totalCommission: number
   paidCount: number
@@ -64,6 +66,7 @@ export default function CommissionsPage() {
   const [commCustomEnd, setCommCustomEnd] = useState("")
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [expandedKpi, setExpandedKpi] = useState<string | null>(null)
 
   const checkForUpdates = async (sig: string, url: string) => {
     try {
@@ -172,6 +175,8 @@ export default function CommissionsPage() {
           endDate: sunday,
           invoices: [],
           totalSales: 0,
+          totalDeadCost: 0,
+          totalDeadProfit: 0,
           totalProfit: 0,
           totalCommission: 0,
           paidCount: 0,
@@ -187,6 +192,8 @@ export default function CommissionsPage() {
 
       groupsMap[weekKey].invoices.push(inv)
       groupsMap[weekKey].totalSales += (inv.amount || 0)
+      groupsMap[weekKey].totalDeadCost += (inv.deadCost || 0)
+      groupsMap[weekKey].totalDeadProfit += (inv.deadProfit || 0)
       groupsMap[weekKey].totalProfit += profit
       groupsMap[weekKey].totalCommission += earnedCommissionVal
       if (isPaid) {
@@ -351,40 +358,84 @@ export default function CommissionsPage() {
                 Showing: {commPeriod === 'this_month' ? 'This Month' : commPeriod === 'last_month' ? 'Last Month' : 'This Quarter'}
               </div>
             )}
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="glass-panel p-4 rounded-2xl border border-emerald-500/20 space-y-1">
-                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                  <span>Total Earned</span><FiDollarSign className="text-emerald-400" size={15} />
-                </div>
-                <div className="text-xl font-black text-emerald-400">{fmt(filteredTotals.earned)}</div>
-                <div className="text-[11px] text-neutral-600">Net 50% split after VIG</div>
+            {/* KPI Cards — Clickable to expand weekly breakdown */}
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  { key: "earned", label: "Total Earned", value: fmt(filteredTotals.earned), color: "emerald", icon: FiDollarSign, sub: "Net 50% split after VIG" },
+                  { key: "paid", label: "Total Paid Out", value: fmt(filteredTotals.paid), color: "indigo", icon: FiCheckCircle, sub: "Disbursed checks & draws" },
+                  { key: "balance", label: "Unpaid Balance", value: fmt(filteredTotals.balance), color: filteredTotals.balance >= 0 ? "amber" : "red", icon: FiClock, sub: currentRepData.balance >= 0 ? "Pending payout" : "Draw balance advance" },
+                  { key: "profit", label: "Total Net Profit", value: fmt(filteredTotals.profit), color: "sky", icon: FiTrendingUp, sub: `Across ${filteredTotals.deals} deals` },
+                ].map(card => (
+                  <div
+                    key={card.key}
+                    onClick={() => setExpandedKpi(expandedKpi === card.key ? null : card.key)}
+                    className={`glass-panel p-4 rounded-2xl border space-y-1 cursor-pointer transition-all hover:scale-[1.01] hover:brightness-110 ${
+                      expandedKpi === card.key ? `border-${card.color}-500/40 ring-1 ring-${card.color}-500/20` : `border-${card.color}-500/20`
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                      <span>{card.label}</span><card.icon className={`text-${card.color}-400`} size={15} />
+                    </div>
+                    <div className={`text-xl font-black text-${card.color === "indigo" || card.color === "sky" ? "white" : card.color + "-400"}`}>{card.value}</div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-neutral-600">{card.sub}</span>
+                      <FiChevronDown className={`text-neutral-600 transition-transform ${expandedKpi === card.key ? 'rotate-180' : ''}`} size={12} />
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="glass-panel p-4 rounded-2xl border border-indigo-500/20 space-y-1">
-                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                  <span>Total Paid Out</span><FiCheckCircle className="text-indigo-400" size={15} />
+
+              {/* Expanded KPI Breakdown by Week */}
+              {expandedKpi && (
+                <div className="glass-panel rounded-xl border border-white/10 overflow-hidden animate-fade-in">
+                  <div className="px-4 py-2.5 bg-neutral-950/50 border-b border-white/[0.06] flex items-center justify-between">
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">
+                      {expandedKpi === 'earned' ? 'Commission' : expandedKpi === 'paid' ? 'Payouts' : expandedKpi === 'balance' ? 'Balance' : 'Profit'} — Weekly Breakdown
+                    </span>
+                    <button onClick={() => setExpandedKpi(null)} className="text-neutral-500 hover:text-white text-xs">✕</button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-white/[0.06]">
+                          <th className="text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Week</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">#</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Sales</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Dead Cost</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Dead Profit</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">After VIG Profit</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Est. Commission</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredWeeklyGroups.map(g => (
+                          <tr key={g.weekKey} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                            <td className="px-4 py-2 text-neutral-300 font-medium whitespace-nowrap">{g.weekLabel}</td>
+                            <td className="px-3 py-2 text-right text-neutral-400">{g.invoices.length}</td>
+                            <td className="px-3 py-2 text-right text-white font-medium tabular-nums">{fmt(g.totalSales)}</td>
+                            <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{fmt(g.totalDeadCost)}</td>
+                            <td className="px-3 py-2 text-right text-amber-400 tabular-nums">{fmt(g.totalDeadProfit)}</td>
+                            <td className="px-3 py-2 text-right text-sky-400 font-medium tabular-nums">{fmt(g.totalProfit)}</td>
+                            <td className="px-3 py-2 text-right text-emerald-400 font-bold tabular-nums">{fmt(g.totalCommission)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 border-white/10 bg-neutral-950/40">
+                          <td className="px-4 py-2.5 text-white font-bold">Grand Total</td>
+                          <td className="px-3 py-2.5 text-right text-neutral-300 font-bold">{filteredTotals.deals}</td>
+                          <td className="px-3 py-2.5 text-right text-white font-bold tabular-nums">{fmt(filteredWeeklyGroups.reduce((s, g) => s + g.totalSales, 0))}</td>
+                          <td className="px-3 py-2.5 text-right text-neutral-300 font-bold tabular-nums">{fmt(filteredWeeklyGroups.reduce((s, g) => s + g.totalDeadCost, 0))}</td>
+                          <td className="px-3 py-2.5 text-right text-amber-400 font-bold tabular-nums">{fmt(filteredWeeklyGroups.reduce((s, g) => s + g.totalDeadProfit, 0))}</td>
+                          <td className="px-3 py-2.5 text-right text-sky-400 font-bold tabular-nums">{fmt(filteredTotals.profit)}</td>
+                          <td className="px-3 py-2.5 text-right text-emerald-400 font-bold tabular-nums">{fmt(filteredTotals.earned)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 </div>
-                <div className="text-xl font-black text-white">{fmt(filteredTotals.paid)}</div>
-                <div className="text-[11px] text-neutral-600">Disbursed checks & draws</div>
-              </div>
-              <div className="glass-panel p-4 rounded-2xl border border-amber-500/20 space-y-1">
-                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                  <span>Unpaid Balance</span><FiClock className="text-amber-400" size={15} />
-                </div>
-                <div className={`text-xl font-black ${filteredTotals.balance >= 0 ? "text-amber-400" : "text-red-400"}`}>
-                  {fmt(filteredTotals.balance)}
-                </div>
-                <div className="text-[11px] text-neutral-600">
-                  {currentRepData.balance >= 0 ? "Pending payout" : "Draw balance advance"}
-                </div>
-              </div>
-              <div className="glass-panel p-4 rounded-2xl border border-sky-500/20 space-y-1">
-                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                  <span>Total Net Profit</span><FiTrendingUp className="text-sky-400" size={15} />
-                </div>
-                <div className="text-xl font-black text-white">{fmt(filteredTotals.profit)}</div>
-                <div className="text-[11px] text-neutral-600">Across {filteredTotals.deals} deals</div>
-              </div>
+              )}
             </div>
 
             {/* Breakdown Panel */}
@@ -497,13 +548,21 @@ export default function CommissionsPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-6 text-right">
-                            <div>
-                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Weekly Sales</div>
+                          <div className="flex items-center gap-4 text-right">
+                            <div className="hidden sm:block">
+                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Subtotal</div>
                               <div className="text-sm font-semibold text-white">{fmt(group.totalSales)}</div>
                             </div>
+                            <div className="hidden md:block">
+                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Dead Cost</div>
+                              <div className="text-sm font-semibold text-neutral-400">{fmt(group.totalDeadCost)}</div>
+                            </div>
+                            <div className="hidden md:block">
+                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Dead Profit</div>
+                              <div className="text-sm font-semibold text-amber-400">{fmt(group.totalDeadProfit)}</div>
+                            </div>
                             <div>
-                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Net Profit</div>
+                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">After VIG Profit</div>
                               <div className="text-sm font-semibold text-sky-400">{fmt(group.totalProfit)}</div>
                             </div>
                             <div>
