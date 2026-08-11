@@ -13,23 +13,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { leadId, factFinding, address, companyName, contactFirstName, contactLastName, phone, email } = await req.json()
+    const {
+      leadId,
+      buyerLeadId,
+      excludedLeadIds = [],
+      factFinding,
+      address,
+      companyName,
+      contactFirstName,
+      contactLastName,
+      phone,
+      email,
+    } = await req.json()
 
-    // Fetch Lead if leadId passed
+    // Determine target lead
+    const targetLeadId = buyerLeadId || leadId
     let lead = null
-    if (leadId) {
+    if (targetLeadId) {
       lead = await prisma.lead.findFirst({
-        where: { OR: [{ id: leadId }, { zohoId: leadId }] }
+        where: { OR: [{ id: targetLeadId }, { zohoId: targetLeadId }] },
       })
     }
 
     const targetCompanyName = companyName || lead?.company || "New Converted Account"
-    const targetOwnerId = session.user.id // Always default owner to logged in user creating/converting
+    const targetOwnerId = session.user.id
 
-    // Generate unique zohoId for account if not converted from Zoho
-    const accountZohoId = lead?.zohoId && !lead.zohoId.startsWith("lead_local_")
-      ? `acc_from_${lead.zohoId}`
-      : `acc_local_${Date.now()}`
+    const accountZohoId =
+      lead?.zohoId && !lead.zohoId.startsWith("lead_local_")
+        ? `acc_from_${lead.zohoId}`
+        : `acc_local_${Date.now()}`
 
     // Merge fact-finding specs
     const bladeSizes = factFinding?.bladeSizes || lead?.bladeSizes || null
@@ -68,11 +80,11 @@ export async function POST(req: Request) {
         shippingStreet: street,
         shippingCity: city,
         shippingState: state,
-        shippingZip: zip
-      }
+        shippingZip: zip,
+      },
     })
 
-    // 2. Create Primary Contact
+    // 2. Create Primary Buyer Contact
     const firstName = contactFirstName || lead?.firstName || null
     const lastName = contactLastName || lead?.lastName || "Contact"
     const contactPhone = phone || lead?.phone || lead?.mobile || null
@@ -85,93 +97,102 @@ export async function POST(req: Request) {
         firstName,
         lastName,
         phone: contactPhone,
+        mobilePhone: lead?.mobile || null,
         email: contactEmail,
+        designation: lead?.title || "Primary Buyer",
         isPrimary: true,
         mailingStreet: street,
         mailingCity: city,
         mailingState: state,
-        mailingZip: zip
-      }
+        mailingZip: zip,
+      },
     })
 
-    // 3. Mark Lead as Converted if Lead exists
-    if (lead) {
+    // 3. Convert all other non-excluded matching leads for this company
+    const excludedSet = new Set<string>(excludedLeadIds.map((id: any) => String(id)))
+    if (lead?.id) excludedSet.add(lead.id)
+
+    const matchingLeads = await prisma.lead.findMany({
+      where: {
+        company: { equals: targetCompanyName, mode: "insensitive" },
+        status: { not: "Converted" },
+      },
+    })
+
+    for (const otherLead of matchingLeads) {
+      // Mark as converted
       await prisma.lead.update({
-        where: { id: lead.id },
+        where: { id: otherLead.id },
         data: {
           status: "Converted",
-          convertedAccountId: newAccount.id
-        }
+          convertedAccountId: newAccount.id,
+        },
       })
 
-      // Gather ALL matching CRM Leads that share the same company name and convert them into Contacts under the Account
-      if (targetCompanyName && targetCompanyName !== "New Converted Account") {
-        const matchingLeads = await prisma.lead.findMany({
-          where: {
-            company: { equals: targetCompanyName, mode: 'insensitive' },
-            status: { not: "Converted" },
-            id: { not: lead.id }
-          }
-        })
+      // Skip excluded contacts from being converted as contacts under the Account
+      if (excludedSet.has(otherLead.id)) continue
+      const isExcludedDisp = [
+        "NO_LONGER_WITH_COMPANY",
+        "OUT_OF_BUSINESS",
+        "WRONG_NUMBER",
+        "DO_NOT_CALL",
+        "LEFT_COMPANY",
+        "EXCLUDED",
+      ].includes(otherLead.disposition || "")
 
-        for (const otherLead of matchingLeads) {
-          await prisma.contact.create({
-            data: {
-              zohoId: otherLead.zohoId ? `cnt_lead_${otherLead.zohoId}` : `cnt_lead_${otherLead.id}`,
-              accountId: newAccount.id,
-              firstName: otherLead.firstName,
-              lastName: otherLead.lastName || "Contact",
-              email: otherLead.email,
-              phone: otherLead.phone || otherLead.mobile,
-              mobilePhone: otherLead.mobile,
-              isPrimary: false,
-              mailingStreet: otherLead.street,
-              mailingCity: otherLead.city,
-              mailingState: otherLead.state,
-              mailingZip: otherLead.zip
-            }
-          })
+      if (isExcludedDisp) continue
 
-          await prisma.lead.update({
-            where: { id: otherLead.id },
-            data: {
-              status: "Converted",
-              convertedAccountId: newAccount.id
-            }
-          })
-        }
-      }
+      await prisma.contact.create({
+        data: {
+          zohoId: otherLead.zohoId ? `cnt_lead_${otherLead.zohoId}` : `cnt_lead_${otherLead.id}`,
+          accountId: newAccount.id,
+          firstName: otherLead.firstName,
+          lastName: otherLead.lastName || "Contact",
+          email: otherLead.email,
+          phone: otherLead.phone || otherLead.mobile,
+          mobilePhone: otherLead.mobile,
+          designation: otherLead.title || null,
+          isPrimary: false,
+          mailingStreet: otherLead.street,
+          mailingCity: otherLead.city,
+          mailingState: otherLead.state,
+          mailingZip: otherLead.zip,
+        },
+      })
+    }
 
-      // Try converting in Zoho CRM if real Zoho Lead
-      if (lead.zohoId && !lead.zohoId.startsWith("lead_local_")) {
-        try {
-          const token = await getZohoAccessToken()
-          await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads/${lead.zohoId}/actions/convert`, {
-            method: "POST",
-            headers: {
-              Authorization: `Zoho-oauthtoken ${token}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              data: [{
+    // Try converting in Zoho CRM if real Zoho Lead
+    if (lead?.zohoId && !lead.zohoId.startsWith("lead_local_")) {
+      try {
+        const token = await getZohoAccessToken()
+        await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads/${lead.zohoId}/actions/convert`, {
+          method: "POST",
+          headers: {
+            Authorization: `Zoho-oauthtoken ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            data: [
+              {
                 overwrite: true,
                 notify_lead_owner: true,
-                notify_new_entity_owner: true
-              }]
-            })
-          })
-        } catch (e) {
-          console.error("Zoho Lead convert API error:", e)
-        }
+                notify_new_entity_owner: true,
+              },
+            ],
+          }),
+        })
+      } catch (e) {
+        console.error("Zoho Lead convert API error:", e)
       }
     }
 
     return NextResponse.json({
       success: true,
       accountId: newAccount.id,
-      message: "Lead successfully converted to Account"
+      message: `Company '${targetCompanyName}' successfully converted to Account!`,
     })
   } catch (error: any) {
+    console.error("Error converting company to account:", error)
     return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }

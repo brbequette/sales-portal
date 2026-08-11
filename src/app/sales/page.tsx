@@ -852,7 +852,7 @@ export default function SalesPage() {
           </div>
 
           {/* Sub-header Tabs Navigation */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
             
             {/* Sales Pipeline Tab */}
             <button
@@ -1191,7 +1191,7 @@ export default function SalesPage() {
                     </div>
 
                     {/* Account List Box */}
-                    <div className="bg-neutral-900/60 rounded-2xl border border-white/10 overflow-hidden shadow-xl flex flex-col" style={{maxHeight: 'calc(100vh - 280px)'}}>
+                    <div className="bg-neutral-900/60 rounded-2xl border border-white/10 overflow-hidden shadow-xl flex flex-col">
                       {activeAccountsList.length === 0 ? (
                         <div className="p-12 text-center">
                           <FiUsers className="mx-auto text-4xl text-neutral-700 mb-3" />
@@ -1446,7 +1446,7 @@ export default function SalesPage() {
                             )}
 
                             {/* List Items - scrollable */}
-                            <ul className="divide-y divide-white/5 overflow-y-auto" style={{maxHeight: 'calc(100vh - 380px)'}}>
+                            <ul className="divide-y divide-white/5 overflow-y-auto max-h-[600px] xl:max-h-[680px]">
                               {accountsPagination.paginatedItems.map(account => {
                                 const isSelected = selectedAccountIds.includes(account.id)
                                 const ltv = account.totalSales || 0
@@ -1646,7 +1646,7 @@ export default function SalesPage() {
                   </div>
 
                   {/* Right Column: Tasks List */}
-                <div className={`w-full lg:w-96 shrink-0 space-y-4 ${mobileTab === 'tasks' ? 'block' : 'hidden lg:block'}`}>
+                <div className={`w-full lg:w-72 xl:w-80 2xl:w-96 shrink-0 space-y-4 ${mobileTab === 'tasks' ? 'block' : 'hidden lg:block'}`}>
                   <div className="bg-neutral-900/60 rounded-2xl border border-white/10 p-4 space-y-4 shadow-xl">
                     <div className="flex items-center justify-between">
                       <h2 className="text-base font-bold text-white flex items-center gap-2">

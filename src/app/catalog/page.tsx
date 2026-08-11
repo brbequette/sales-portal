@@ -26,6 +26,7 @@ export default function ProductCatalogPage() {
   const [filterVendor, setFilterVendor] = useState("")
 
   const [showInactive, setShowInactive] = useState(false)
+  const [onlyWithImages, setOnlyWithImages] = useState(false)
   
   const [syncing, setSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState("")
@@ -116,14 +117,28 @@ export default function ProductCatalogPage() {
   const getProductImage = (name: string, sku: string) => {
     if (!sku) return null
     const skuUpper = sku.trim().toUpperCase()
+    const map = imageMapData as Record<string, { image?: string }>
     
-    // Check our pre-calculated static image map
-    const entry = (imageMapData as Record<string, { image?: string }>)[skuUpper]
-    if (entry && entry.image) {
-      return entry.image
+    // 1. Exact match
+    if (map[skuUpper]?.image) {
+      return map[skuUpper].image
     }
     
-    return null
+    // 2. Cleaned stem match (strip -WHS, (1), etc.)
+    const cleanSku = skuUpper.replace(/-WHS$/i, "").replace(/\s*\([\w\s,\./]+\)\s*\d*$/i, "").trim()
+    if (map[cleanSku]?.image) {
+      return map[cleanSku].image
+    }
+    
+    // 3. Prefix matching against keys in map
+    for (const key of Object.keys(map)) {
+      if (skuUpper.startsWith(key) || key.startsWith(skuUpper)) {
+        if (map[key]?.image) return map[key].image
+      }
+    }
+    
+    // 4. Fallback to Zoho Image proxy route
+    return `/api/zoho-image?sku=${encodeURIComponent(skuUpper)}`
   }
 
   // Derive filter options dynamically
@@ -149,7 +164,10 @@ export default function ProductCatalogPage() {
     const matchesMfg = !filterMfg || p.manufacturer === filterMfg
     const matchesVendor = !filterVendor || p.vendor === filterVendor || parsed.vendor === filterVendor
 
-    return matchesSearch && matchesCategory && (showInactive || isActive) && matchesSize && matchesApp && matchesMfg && matchesVendor
+    const hasImg = !!getProductImage(p.name, p.sku) || (parsed.image && !parsed.image.includes('placeholder'))
+    const matchesImage = !onlyWithImages || hasImg
+
+    return matchesSearch && matchesCategory && (showInactive || isActive) && matchesSize && matchesApp && matchesMfg && matchesVendor && matchesImage
   })
 
   // Group by Quality Tier if Application or Size is selected
@@ -384,10 +402,20 @@ export default function ProductCatalogPage() {
             <div className="flex items-center gap-2 text-sm text-neutral-400">
               <input 
                 type="checkbox" 
+                id="onlyWithImages" 
+                checked={onlyWithImages} 
+                onChange={e => setOnlyWithImages(e.target.checked)} 
+                className="rounded border-neutral-700 glass-panel text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+              />
+              <label htmlFor="onlyWithImages" className="cursor-pointer select-none text-xs font-bold uppercase tracking-wide text-amber-400">Products with Images</label>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-neutral-400">
+              <input 
+                type="checkbox" 
                 id="showInactive" 
                 checked={showInactive} 
                 onChange={e => setShowInactive(e.target.checked)} 
-                className="rounded border-neutral-700 glass-panel text-emerald-500 focus:ring-emerald-500"
+                className="rounded border-neutral-700 glass-panel text-emerald-500 focus:ring-emerald-500 cursor-pointer"
               />
               <label htmlFor="showInactive" className="cursor-pointer select-none text-xs font-bold uppercase tracking-wide">Show Inactive</label>
             </div>

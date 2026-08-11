@@ -46,7 +46,7 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    const [invoices, salesOrders] = await Promise.all([
+    const [invoices, salesOrders, quotes] = await Promise.all([
       prisma.invoice.findMany({
         where: invoiceWhere,
         include: { account: { select: { name: true } } },
@@ -59,6 +59,11 @@ export const handler: Handler = async (event) => {
         },
         include: { account: { select: { name: true } } },
         orderBy: { orderDate: 'desc' },
+        take: 500,
+      }),
+      prisma.quote.findMany({
+        include: { account: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
         take: 500,
       }),
     ])
@@ -98,6 +103,7 @@ export const handler: Handler = async (event) => {
         due_date: inv.dueDate?.toISOString().split('T')[0] || '',
         status: mapStatusForClient(inv.status),
         is_sales_order: false,
+        entity_type: 'invoice',
         salesorder_date: items.salesorder_date || null,
         salesorder_salesperson_name: items.salesorder_salesperson_name || null,
         reference_number: items.reference_number || null,
@@ -135,6 +141,7 @@ export const handler: Handler = async (event) => {
         due_date: null,
         status: so.status?.toLowerCase() || 'open',
         is_sales_order: true,
+        entity_type: 'salesorder',
         salesorder_date: so.orderDate?.toISOString().split('T')[0] || null,
         salesorder_salesperson_name: items.salesperson || null,
         reference_number: items.reference_number || null,
@@ -155,8 +162,44 @@ export const handler: Handler = async (event) => {
       }
     })
 
+    const quotesMapped = quotes.map(q => {
+      const items = (q.items as any) || {}
+      const subTotalVal = getSubTotal(items, q.amount)
 
-    const combined = [...invoicesMapped, ...sosMapped].sort((a: any, b: any) => {
+      return {
+        invoice_id: q.zohoId || q.id,
+        invoice_number: `EST-${items.estimate_number || items.estimateNumber || q.zohoId?.slice(-6) || q.id.slice(-6)}`,
+        customer_name: items.customer_name || q.account?.name || 'Unknown',
+        salesperson_name: items.salesperson || null,
+        sub_total: subTotalVal,
+        total: subTotalVal,
+        balance: items.balance ?? q.amount ?? 0,
+        date: q.createdAt?.toISOString().split('T')[0] || '',
+        due_date: null,
+        status: q.status?.toLowerCase() || 'draft',
+        is_sales_order: false,
+        entity_type: 'estimate',
+        salesorder_date: q.createdAt?.toISOString().split('T')[0] || null,
+        salesorder_salesperson_name: items.salesperson || null,
+        reference_number: items.reference_number || null,
+        cf_profit_unformatted: extractProfit(items),
+        deadProfit: (() => {
+          const sub = subTotalVal
+          let dc = (items.deadCostTotal ?? 0)
+          if ((isNaN(dc) || dc === 0) && sub > 0) dc = sub * 0.50
+          const cc = extractCcFees(items)
+          const add = extractAdditionalCosts(items)
+          return sub - dc - cc - add
+        })(),
+        cf_commision_amount_unformatted: extractCommissionAmount(items),
+        cf_salesperson_vig_unformatted: extractVigRate(items),
+        line_items: items.line_items || [],
+        custom_fields: items.custom_fields || [],
+        shipping_charge: items.shippingCharge ?? 0,
+      }
+    })
+
+    const combined = [...invoicesMapped, ...sosMapped, ...quotesMapped].sort((a: any, b: any) => {
       const dateA = a.salesorder_date || a.date
       const dateB = b.salesorder_date || b.date
       return new Date(dateB).getTime() - new Date(dateA).getTime()

@@ -720,8 +720,9 @@ export default function ImageManagerPage() {
             <button
               onClick={() => handleTabChange('products')}
               className={`py-2 text-center border-b-2 ${activeTab === 'products' ? 'border-emerald-500 text-white bg-white/5' : 'border-transparent text-neutral-500 hover:text-neutral-300'}`}
+              title="Products with Images"
             >
-              Catalog ({counts.products})
+              Products with Images ({counts.products})
             </button>
             <button
               onClick={() => handleTabChange('needs-images')}

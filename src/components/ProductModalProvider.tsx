@@ -106,10 +106,19 @@ function ProductModal({ product, fallback, onClose }: { product: ProductInfo | n
   
   const skuUpper = sku.trim().toUpperCase()
   const imageMap = require("@/lib/image-map.json")
-  const mapped = imageMap[skuUpper]
+  const cleanSku = skuUpper.replace(/-WHS$/i, "").replace(/\s*\([\w\s,\./]+\)\s*\d*$/i, "").trim()
+  let mapped = imageMap[skuUpper] || imageMap[cleanSku]
+  if (!mapped) {
+    for (const key of Object.keys(imageMap)) {
+      if (skuUpper.startsWith(key) || key.startsWith(skuUpper)) {
+        mapped = imageMap[key]
+        break
+      }
+    }
+  }
 
   // Smart fallbacks for missing data
-  let image = parsedDesc.image || mapped?.image || fallback?.image || `/api/zoho-image?sku=${encodeURIComponent(sku)}`
+  let image = mapped?.image || (parsedDesc.image && !parsedDesc.image.includes('placeholder') ? parsedDesc.image : null) || fallback?.image || `/api/zoho-image?sku=${encodeURIComponent(skuUpper)}`
   let vendor = parsedDesc.vendor || ""
   let costVal = parsedDesc.cost !== undefined && parsedDesc.cost !== null ? parseFloat(parsedDesc.cost as any) : null
   let pertinentInfo = parsedDesc.pertinentInfo || ""

@@ -94,6 +94,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Resources",
     items: [
+      { href: "/catalog",     icon: FiGrid,          label: "Product Catalog",color: "text-amber-400"   },
       { href: "/tools",       icon: FiTool,          label: "Tools & Media",  color: "text-indigo-400"  },
       { href: "/training",    icon: FiBookOpen,      label: "Training Hub",   color: "text-teal-400"    },
       { href: "/timeclock",   icon: FiClock,         label: "Timeclock",      color: "text-lime-400"    },
@@ -684,7 +685,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ${isAdminPage ? "" : "md:pl-[4.75rem]"}
       `}>
         <GlobalTopBar />
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {children}
         </div>
       </main>

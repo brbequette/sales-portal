@@ -4,6 +4,7 @@ import { toastConfirm } from '@/lib/toastConfirm'
 
 import { useState, useEffect } from "react"
 import { FiMapPin, FiNavigation, FiSave, FiToggleLeft, FiToggleRight, FiTrash2 } from "react-icons/fi"
+import GeofenceMap from "@/components/GeofenceMap"
 
 interface GeofenceData {
   id?: string
@@ -229,181 +230,202 @@ export default function AdminGeofencesPage() {
       </div>
 
       <div className="page-body">
-        <div className="max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
-          {/* Description */}
-          <p className="text-sm text-neutral-400 mb-6 leading-relaxed">
-            Configure the office geofence for automatic clock-in and clock-out. When employees enter the
-            geofence radius, they will be automatically clocked in. When they leave for an extended period,
-            they will be automatically clocked out.
-          </p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-300">
+          
+          {/* Left Column: Form Controls */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Description */}
+            <p className="text-sm text-neutral-400 leading-relaxed">
+              Configure the office geofence for automatic clock-in and clock-out. When employees enter the
+              geofence radius, they will be automatically clocked in. When they leave for an extended period,
+              they will be automatically clocked out.
+            </p>
 
-          {/* Main Card */}
-          <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-6 shadow-xl">
-            {/* Status Toggle */}
-            <div className="flex items-center justify-between">
+            {/* Main Card */}
+            <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-6 shadow-xl">
+              {/* Status Toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
+                    Status
+                  </label>
+                  <p className="text-xs text-neutral-500 font-semibold">
+                    {geofence.isActive ? "Geofence is active -- auto clock-in/out is enabled" : "Geofence is disabled -- manual clock only"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => updateField("isActive", !geofence.isActive)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all border ${
+                    geofence.isActive
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                      : "bg-neutral-800 text-neutral-500 border-neutral-700"
+                  }`}
+                >
+                  {geofence.isActive ? <FiToggleRight size={20} /> : <FiToggleLeft size={20} />}
+                  {geofence.isActive ? "Active" : "Inactive"}
+                </button>
+              </div>
+
+              <hr className="border-white/10" />
+
+              {/* Name */}
               <div>
                 <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
-                  Status
+                  Location Name
                 </label>
-                <p className="text-xs text-neutral-500 font-semibold">
-                  {geofence.isActive ? "Geofence is active -- auto clock-in/out is enabled" : "Geofence is disabled -- manual clock only"}
+                <p className="text-xs text-neutral-500 mb-3 font-semibold">
+                  A friendly name for this geofence (e.g., "Titan Diamond Office").
                 </p>
-              </div>
-              <button
-                onClick={() => updateField("isActive", !geofence.isActive)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all border ${
-                  geofence.isActive
-                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                    : "bg-neutral-800 text-neutral-500 border-neutral-700"
-                }`}
-              >
-                {geofence.isActive ? <FiToggleRight size={20} /> : <FiToggleLeft size={20} />}
-                {geofence.isActive ? "Active" : "Inactive"}
-              </button>
-            </div>
-
-            <hr className="border-white/10" />
-
-            {/* Name */}
-            <div>
-              <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
-                Location Name
-              </label>
-              <p className="text-xs text-neutral-500 mb-3 font-semibold">
-                A friendly name for this geofence (e.g., "Titan Diamond Office").
-              </p>
-              <input
-                type="text"
-                value={geofence.name}
-                onChange={(e) => updateField("name", e.target.value)}
-                placeholder="Titan Diamond Office"
-                className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors"
-              />
-            </div>
-
-            <hr className="border-white/10" />
-
-            {/* Address */}
-            <div>
-              <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
-                Address
-              </label>
-              <p className="text-xs text-neutral-500 mb-3 font-semibold">
-                Display address for reference (not used for geofencing).
-              </p>
-              <input
-                type="text"
-                value={geofence.address}
-                onChange={(e) => updateField("address", e.target.value)}
-                placeholder="123 Diamond Blvd, Phoenix, AZ 85001"
-                className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors"
-              />
-            </div>
-
-            <hr className="border-white/10" />
-
-            {/* Coordinates */}
-            <div>
-              <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
-                Coordinates
-              </label>
-              <p className="text-xs text-neutral-500 mb-3 font-semibold">
-                GPS coordinates for the center of the geofence.
-              </p>
-              <div className="flex items-start gap-4">
-                <div className="flex-1">
-                  <label className="block text-xs font-bold text-neutral-500 mb-1 uppercase tracking-wide">Latitude</label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    value={geofence.latitude}
-                    onChange={(e) => updateField("latitude", e.target.value)}
-                    placeholder="33.448376"
-                    className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-bold text-neutral-500 mb-1 uppercase tracking-wide">Longitude</label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    value={geofence.longitude}
-                    onChange={(e) => updateField("longitude", e.target.value)}
-                    placeholder="-112.074036"
-                    className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
-                </div>
-              </div>
-              <button
-                onClick={handleUseCurrentLocation}
-                disabled={locating}
-                className="mt-3 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg font-bold text-sm transition-colors flex items-center gap-2 disabled:opacity-50"
-              >
-                {locating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-                    Locating...
-                  </>
-                ) : (
-                  <>
-                    <FiNavigation size={14} />
-                    Use My Current Location
-                  </>
-                )}
-              </button>
-            </div>
-
-            <hr className="border-white/10" />
-
-            {/* Radius */}
-            <div>
-              <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
-                Radius (meters)
-              </label>
-              <p className="text-xs text-neutral-500 mb-3 font-semibold">
-                Employees within <span className="text-emerald-400 font-bold">{geofence.radiusMeters || 150}m</span> of the
-                coordinates will be auto-clocked in. Default is 150m (~500 ft).
-              </p>
-              <div className="flex items-center gap-4">
                 <input
-                  type="number"
-                  min="50"
-                  max="5000"
-                  step="10"
-                  value={geofence.radiusMeters}
-                  onChange={(e) => updateField("radiusMeters", e.target.value)}
-                  className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+                  type="text"
+                  value={geofence.name}
+                  onChange={(e) => updateField("name", e.target.value)}
+                  placeholder="Titan Diamond Office"
+                  className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors"
                 />
-                <div className="flex gap-2">
-                  {[100, 150, 200, 300].map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => updateField("radiusMeters", String(r))}
-                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors border ${
-                        String(r) === geofence.radiusMeters
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                          : "bg-neutral-800 text-neutral-400 border-neutral-700 hover:text-white hover:bg-neutral-700"
-                      }`}
-                    >
-                      {r}m
-                    </button>
-                  ))}
+              </div>
+
+              <hr className="border-white/10" />
+
+              {/* Address */}
+              <div>
+                <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
+                  Address
+                </label>
+                <p className="text-xs text-neutral-500 mb-3 font-semibold">
+                  Display address for reference (not used for geofencing).
+                </p>
+                <input
+                  type="text"
+                  value={geofence.address}
+                  onChange={(e) => updateField("address", e.target.value)}
+                  placeholder="123 Diamond Blvd, Phoenix, AZ 85001"
+                  className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+              </div>
+
+              <hr className="border-white/10" />
+
+              {/* Coordinates */}
+              <div>
+                <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
+                  Coordinates
+                </label>
+                <p className="text-xs text-neutral-500 mb-3 font-semibold">
+                  GPS coordinates for the center of the geofence.
+                </p>
+                <div className="flex items-start gap-4">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-neutral-500 mb-1 uppercase tracking-wide">Latitude</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={geofence.latitude}
+                      onChange={(e) => updateField("latitude", e.target.value)}
+                      placeholder="33.448376"
+                      className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold text-neutral-500 mb-1 uppercase tracking-wide">Longitude</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={geofence.longitude}
+                      onChange={(e) => updateField("longitude", e.target.value)}
+                      placeholder="-112.074036"
+                      className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleUseCurrentLocation}
+                  disabled={locating}
+                  className="mt-3 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg font-bold text-sm transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  {locating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                      Locating...
+                    </>
+                  ) : (
+                    <>
+                      <FiNavigation size={14} />
+                      Use My Current Location
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <hr className="border-white/10" />
+
+              {/* Radius */}
+              <div>
+                <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
+                  Radius (meters)
+                </label>
+                <p className="text-xs text-neutral-500 mb-3 font-semibold">
+                  Employees within <span className="text-emerald-400 font-bold">{geofence.radiusMeters || 150}m</span> of the
+                  coordinates will be auto-clocked in. Default is 150m (~500 ft).
+                </p>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="number"
+                    min="50"
+                    max="5000"
+                    step="10"
+                    value={geofence.radiusMeters}
+                    onChange={(e) => updateField("radiusMeters", e.target.value)}
+                    className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                  <div className="flex gap-2">
+                    {[100, 150, 200, 300].map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => updateField("radiusMeters", String(r))}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors border ${
+                          String(r) === geofence.radiusMeters
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                            : "bg-neutral-800 text-neutral-400 border-neutral-700 hover:text-white hover:bg-neutral-700"
+                        }`}
+                      >
+                        {r}m
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Info Box */}
+            <div className="bg-blue-950/30 border border-blue-500/20 rounded-xl p-5">
+              <h3 className="text-sm font-black uppercase tracking-wider text-blue-400 mb-2">How It Works</h3>
+              <ul className="text-xs text-neutral-400 space-y-1.5 font-medium leading-relaxed">
+                <li>- GPS is monitored in the background when the portal is open</li>
+                <li>- Employee enters geofence &rarr; <span className="text-emerald-400 font-bold">auto clock-in</span> after 30 seconds</li>
+                <li>- Employee leaves geofence &rarr; <span className="text-red-400 font-bold">auto clock-out</span> after 5 minutes</li>
+                <li>- Manual clock-in/out always overrides the geofence</li>
+                <li>- GPS accuracy must be within 500m for geofence checks</li>
+              </ul>
+            </div>
           </div>
 
-          {/* Info Box */}
-          <div className="mt-6 bg-blue-950/30 border border-blue-500/20 rounded-xl p-5">
-            <h3 className="text-sm font-black uppercase tracking-wider text-blue-400 mb-2">How It Works</h3>
-            <ul className="text-xs text-neutral-400 space-y-1.5 font-medium leading-relaxed">
-              <li>- GPS is monitored in the background when the portal is open</li>
-              <li>- Employee enters geofence â†' <span className="text-emerald-400 font-bold">auto clock-in</span> after 30 seconds</li>
-              <li>- Employee leaves geofence â†' <span className="text-red-400 font-bold">auto clock-out</span> after 5 minutes</li>
-              <li>- Manual clock-in/out always overrides the geofence</li>
-              <li>- GPS accuracy must be within 500m for geofence checks</li>
-            </ul>
+          {/* Right Column: Interactive Map showing Geofences and Proximity Boundary */}
+          <div className="lg:col-span-7 sticky top-6 h-[680px]">
+            <GeofenceMap
+              lat={parseFloat(geofence.latitude) || 33.616222}
+              lng={parseFloat(geofence.longitude) || -111.901662}
+              radiusMeters={parseFloat(geofence.radiusMeters) || 150}
+              name={geofence.name || "Main Office"}
+              address={geofence.address || "8321 East Evans Road"}
+              isActive={geofence.isActive}
+              onLocationSelect={(newLat, newLng) => {
+                updateField("latitude", newLat.toFixed(6))
+                updateField("longitude", newLng.toFixed(6))
+              }}
+            />
           </div>
+
         </div>
       </div>
 

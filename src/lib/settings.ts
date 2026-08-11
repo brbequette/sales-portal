@@ -2,6 +2,12 @@ import { prisma } from './prisma'
 
 export interface AppSettings {
   default_vig_rate: number
+  target_vig_rate: number
+  baseline_vig_rate: number
+  tariff_surcharge_rate: number
+  default_daily_profit_goal: number
+  default_daily_subtotal_goal: number
+  default_working_days_per_month: number
   commission_rate_pct: number
   shipping_multiplier: number
   cc_fee_rate: number
@@ -14,6 +20,12 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   default_vig_rate: 1.3,
+  target_vig_rate: 1.5,
+  baseline_vig_rate: 1.3,
+  tariff_surcharge_rate: 0.125,
+  default_daily_profit_goal: 1500,
+  default_daily_subtotal_goal: 3000,
+  default_working_days_per_month: 21,
   commission_rate_pct: 50,
   shipping_multiplier: 1.5,
   cc_fee_rate: 4.5, // 4.5%
@@ -31,6 +43,12 @@ export async function getSystemSettings(): Promise<AppSettings> {
 
   return {
     default_vig_rate: map.default_vig_rate ? parseFloat(map.default_vig_rate) : DEFAULT_SETTINGS.default_vig_rate,
+    target_vig_rate: map.target_vig_rate ? parseFloat(map.target_vig_rate) : DEFAULT_SETTINGS.target_vig_rate,
+    baseline_vig_rate: map.baseline_vig_rate ? parseFloat(map.baseline_vig_rate) : DEFAULT_SETTINGS.baseline_vig_rate,
+    tariff_surcharge_rate: map.tariff_surcharge_rate ? parseFloat(map.tariff_surcharge_rate) : DEFAULT_SETTINGS.tariff_surcharge_rate,
+    default_daily_profit_goal: map.default_daily_profit_goal ? parseFloat(map.default_daily_profit_goal) : DEFAULT_SETTINGS.default_daily_profit_goal,
+    default_daily_subtotal_goal: map.default_daily_subtotal_goal ? parseFloat(map.default_daily_subtotal_goal) : DEFAULT_SETTINGS.default_daily_subtotal_goal,
+    default_working_days_per_month: map.default_working_days_per_month ? parseInt(map.default_working_days_per_month) : DEFAULT_SETTINGS.default_working_days_per_month,
     commission_rate_pct: map.commission_rate_pct ? parseFloat(map.commission_rate_pct) : DEFAULT_SETTINGS.commission_rate_pct,
     shipping_multiplier: map.shipping_multiplier ? parseFloat(map.shipping_multiplier) : DEFAULT_SETTINGS.shipping_multiplier,
     cc_fee_rate: map.cc_fee_rate ? parseFloat(map.cc_fee_rate) : DEFAULT_SETTINGS.cc_fee_rate,

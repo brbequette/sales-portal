@@ -1,13 +1,15 @@
 "use client"
 import { useState, useEffect, useCallback } from "react"
-import { FiSave, FiSettings, FiDollarSign, FiMessageSquare, FiTruck, FiTool, FiRefreshCw, FiClock, FiAlertCircle, FiCheckCircle, FiMonitor } from "react-icons/fi"
+import { FiSave, FiSettings, FiDollarSign, FiMessageSquare, FiTruck, FiTool, FiRefreshCw, FiMonitor, FiAlertCircle, FiCheckCircle } from "react-icons/fi"
 import VigManagementBuilder from "@/components/VigManagementBuilder"
+import { ThemeSettingsModal } from "@/components/ThemeSettingsModal"
 
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState<'financial'|'communications'|'shipping'|'developer'|'sync'>('financial')
   const [settings, setSettings] = useState<any>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false)
 
   // ── Sync Control state ──────────────────────────────────────────────
   const [syncConfig, setSyncConfig] = useState<any>({
@@ -200,6 +202,7 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="page-content">
+      <ThemeSettingsModal isOpen={isThemeModalOpen} onClose={() => setIsThemeModalOpen(false)} />
       <div className="page-header">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-neutral-500/10 border border-neutral-500/20 rounded-xl flex items-center justify-center">
@@ -210,14 +213,22 @@ export default function AdminSettingsPage() {
             <p className="page-subtitle">Configure application defaults and global preferences</p>
           </div>
         </div>
-        <button 
-          onClick={handleSave}
-          disabled={saving || loading}
-          className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold transition-colors flex items-center gap-2 disabled:opacity-50"
-        >
-          {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiSave />}
-          Save Changes
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsThemeModalOpen(true)}
+            className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg font-bold text-xs transition-all flex items-center gap-2"
+          >
+            <FiSettings size={15} /> Theme & Colors
+          </button>
+          <button 
+            onClick={handleSave}
+            disabled={saving || loading}
+            className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold transition-colors flex items-center gap-2 disabled:opacity-50"
+          >
+            {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiSave />}
+            Save Changes
+          </button>
+        </div>
       </div>
 
       <div className="page-body">

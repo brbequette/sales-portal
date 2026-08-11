@@ -4,8 +4,202 @@ import {
   FiSave, FiCheck, FiRefreshCw, FiZap, FiEye, FiEyeOff,
   FiTrendingUp, FiLayers, FiChevronDown, FiChevronUp,
   FiAlertTriangle, FiTool, FiCalendar, FiEdit2, FiExternalLink,
-  FiArrowUp
+  FiArrowUp, FiFileText, FiX, FiDollarSign
 } from "react-icons/fi"
+
+// ────────────────────────────────────────────────────────────────
+// Month Documents Breakdown Modal (showing Invoices, SOs, Quotes & 1.3x vs 1.5x Loss)
+// ────────────────────────────────────────────────────────────────
+function MonthDocumentsModal({
+  monthKey,
+  monthName,
+  repId,
+  repName,
+  onClose,
+}: {
+  monthKey: string
+  monthName: string
+  repId: string
+  repName: string
+  onClose: () => void
+}) {
+  const [data, setData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [filterType, setFilterType] = useState<"All" | "Invoice" | "Sales Order" | "Estimate">("All")
+  const [search, setSearch] = useState("")
+
+  useEffect(() => {
+    const fetchDocs = async () => {
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/admin/month-documents?monthKey=${monthKey}&repId=${repId}`)
+        const json = await res.json()
+        if (json.success) setData(json)
+      } catch (e) {
+        console.error("Failed to fetch month documents:", e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchDocs()
+  }, [monthKey, repId])
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="bg-neutral-900 border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs text-neutral-300 font-bold">Loading {monthName} documents & VIG loss analysis...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const docs = data?.documents || []
+  const totals = data?.totals || {}
+  const settings = data?.settings || { baselineVig: 1.3, targetVig: 1.5 }
+
+  const filteredDocs = docs.filter((d: any) => {
+    const matchesType = filterType === "All" || d.docType === filterType
+    const matchesSearch =
+      d.number.toLowerCase().includes(search.toLowerCase()) ||
+      d.customerName.toLowerCase().includes(search.toLowerCase())
+    return matchesType && matchesSearch
+  })
+
+  return (
+    <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-neutral-950 border border-white/15 rounded-2xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="p-5 border-b border-white/10 bg-neutral-900/80 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest">
+              <FiFileText size={14} />
+              <span>Document & VIG Analysis</span>
+              <span>•</span>
+              <span className="text-white">{repName}</span>
+            </div>
+            <h2 className="text-xl font-black text-white mt-0.5">{monthName} ({monthKey}) All Documents</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors"
+          >
+            <FiX size={18} />
+          </button>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-neutral-900/40 border-b border-white/10">
+          <div className="bg-black/50 border border-white/10 rounded-xl p-3">
+            <div className="text-[10px] font-bold uppercase text-neutral-400">Total Subtotal</div>
+            <div className="text-base font-black text-white font-mono mt-0.5">${totals.subtotal?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || 0}</div>
+            <div className="text-[10px] text-neutral-500">{totals.documentCount || 0} total documents</div>
+          </div>
+
+          <div className="bg-black/50 border border-emerald-500/30 rounded-xl p-3">
+            <div className="text-[10px] font-bold uppercase text-emerald-400">Profit @ {settings.baselineVig}x VIG</div>
+            <div className="text-base font-black text-emerald-300 font-mono mt-0.5">${totals.baselineProfit?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || 0}</div>
+            <div className="text-[10px] text-neutral-500">Baseline VIG</div>
+          </div>
+
+          <div className="bg-black/50 border border-amber-500/30 rounded-xl p-3">
+            <div className="text-[10px] font-bold uppercase text-amber-400">Target @ {settings.targetVig}x VIG</div>
+            <div className="text-base font-black text-amber-300 font-mono mt-0.5">${totals.targetProfit?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || 0}</div>
+            <div className="text-[10px] text-neutral-500">Target 1.5x Goal</div>
+          </div>
+
+          <div className={`bg-black/50 border rounded-xl p-3 ${totals.lossToTarget > 0 ? "border-rose-500/40 bg-rose-950/20" : "border-emerald-500/40 bg-emerald-950/20"}`}>
+            <div className="text-[10px] font-bold uppercase text-neutral-300">
+              {settings.targetVig}x vs {settings.baselineVig}x Loss
+            </div>
+            <div className={`text-base font-black font-mono mt-0.5 ${totals.lossToTarget > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+              {totals.lossToTarget > 0 ? `-$${totals.lossToTarget?.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "✓ Target Met"}
+            </div>
+            <div className="text-[10px] text-neutral-400">
+              {totals.lossToTarget > 0 ? "Potential loss to 1.5x target" : "Full 1.5x margin captured"}
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Controls */}
+        <div className="p-3 border-b border-white/10 bg-neutral-900/20 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-xl p-1 text-xs">
+            {(["All", "Invoice", "Sales Order", "Estimate"] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setFilterType(t)}
+                className={`px-3 py-1 rounded-lg font-bold transition-all ${
+                  filterType === t ? "bg-emerald-500 text-black shadow-md" : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                {t}s
+              </button>
+            ))}
+          </div>
+
+          <input
+            type="text"
+            placeholder="Search documents or customers..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500 max-w-xs w-full"
+          />
+        </div>
+
+        {/* Document Table */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {filteredDocs.length === 0 ? (
+            <div className="p-8 text-center text-neutral-500 text-xs font-bold">No documents found for this selection.</div>
+          ) : (
+            <table className="w-full text-left text-xs font-sans">
+              <thead className="bg-white/5 text-neutral-400 font-bold uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th className="p-3">Doc #</th>
+                  <th className="p-3">Type</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Customer</th>
+                  <th className="p-3 text-right">Subtotal</th>
+                  <th className="p-3 text-right">Profit @ 1.3x</th>
+                  <th className="p-3 text-right">Profit @ 1.5x</th>
+                  <th className="p-3 text-right">Loss / Variance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {filteredDocs.map((d: any) => (
+                  <tr key={d.id} className="hover:bg-white/[0.03] transition-colors">
+                    <td className="p-3 font-mono font-bold text-white">{d.number}</td>
+                    <td className="p-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        d.docType === 'Invoice' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                        d.docType === 'Sales Order' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                        'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      }`}>
+                        {d.docType}
+                      </span>
+                    </td>
+                    <td className="p-3 text-neutral-400">{d.date}</td>
+                    <td className="p-3 text-neutral-200 font-medium truncate max-w-[180px]">{d.customerName}</td>
+                    <td className="p-3 text-right font-mono font-bold text-white">${d.subtotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                    <td className="p-3 text-right font-mono text-emerald-400">${d.deadProfitBaseline.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                    <td className="p-3 text-right font-mono text-amber-300">${d.deadProfitTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                    <td className="p-3 text-right font-mono font-bold">
+                      {d.lossToTarget > 0 ? (
+                        <span className="text-rose-400">-${d.lossToTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                      ) : (
+                        <span className="text-emerald-400">-$0</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ────────────────────────────────────────────────────────────────
 // Types
@@ -87,13 +281,16 @@ function vigRateBadge(rate: number, isManual: boolean, isSynced: boolean) {
 // Main component
 // ────────────────────────────────────────────────────────────────
 export default function VigManagementBuilder() {
-  const [defaultVigRate, setDefaultVigRate] = useState<number | string>(1.3)
-  const [repConfigs, setRepConfigs]         = useState<RepConfig[]>([])
-  const [loading, setLoading]               = useState(true)
-  const [saving, setSaving]                 = useState(false)
-  const [saveSuccess, setSaveSuccess]       = useState(false)
-  const [errorMsg, setErrorMsg]             = useState<string | null>(null)
-  const [showAll, setShowAll]               = useState(false)
+  const [defaultVigRate, setDefaultVigRate]   = useState<number | string>(1.3)
+  const [targetVigRate, setTargetVigRate]     = useState<number | string>(1.5)
+  const [baselineVigRate, setBaselineVigRate] = useState<number | string>(1.3)
+  const [tariffRate, setTariffRate]           = useState<number | string>(12.5)
+  const [repConfigs, setRepConfigs]           = useState<RepConfig[]>([])
+  const [loading, setLoading]                 = useState(true)
+  const [saving, setSaving]                   = useState(false)
+  const [saveSuccess, setSaveSuccess]         = useState(false)
+  const [errorMsg, setErrorMsg]               = useState<string | null>(null)
+  const [showAll, setShowAll]                 = useState(false)
 
   const [historicalMonths, setHistoricalMonths]   = useState<HistoricalMonth[]>([])
   const [holidayCount, setHolidayCount]           = useState(0)
@@ -112,6 +309,7 @@ export default function VigManagementBuilder() {
   const [recalcMessage, setRecalcMessage]       = useState<string | null>(null)
   const [syncingZoho, setSyncingZoho]           = useState(false)
   const [syncZohoMessage, setSyncZohoMessage]   = useState<string | null>(null)
+  const [activeDocModal, setActiveDocModal]     = useState<{ monthKey: string; monthName: string; repId: string; repName: string } | null>(null)
 
   useEffect(() => { fetchVigData() }, [])
   useEffect(() => { fetchHistoricalRates(monthsToLoad) }, [monthsToLoad])
@@ -119,10 +317,20 @@ export default function VigManagementBuilder() {
   const fetchVigData = async () => {
     try {
       setLoading(true); setErrorMsg(null)
-      const res  = await fetch('/api/admin/users/vig')
+      const [res, sRes] = await Promise.all([
+        fetch('/api/admin/users/vig'),
+        fetch('/api/admin/settings')
+      ])
       const data = await res.json()
+      const sData = await sRes.json()
       if (data.success) { setDefaultVigRate(data.defaultVigRate); setRepConfigs(data.repConfigs || []) }
       else throw new Error(data.error)
+
+      if (sData.success && sData.settings) {
+        setTargetVigRate(sData.settings.target_vig_rate ?? 1.5)
+        setBaselineVigRate(sData.settings.baseline_vig_rate ?? 1.3)
+        setTariffRate(sData.settings.tariff_surcharge_rate ? sData.settings.tariff_surcharge_rate * 100 : 12.5)
+      }
     } catch (e: any) { setErrorMsg(e.message) }
     finally { setLoading(false) }
   }
@@ -242,13 +450,24 @@ export default function VigManagementBuilder() {
   const handleSaveAll = async () => {
     try {
       setSaving(true); setSaveSuccess(false)
-      const res  = await fetch('/api/admin/users/vig', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ defaultVigRate: parseFloat(String(defaultVigRate)) || 1.3, repConfigs })
-      })
+      const [res, sRes] = await Promise.all([
+        fetch('/api/admin/users/vig', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ defaultVigRate: parseFloat(String(defaultVigRate)) || 1.3, repConfigs })
+        }),
+        fetch('/api/admin/settings', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            target_vig_rate: parseFloat(String(targetVigRate)) || 1.5,
+            baseline_vig_rate: parseFloat(String(baselineVigRate)) || 1.3,
+            tariff_surcharge_rate: (parseFloat(String(tariffRate)) || 12.5) / 100
+          })
+        })
+      ])
       const data = await res.json()
-      if (data.success) { setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000) }
-      else alert('Error: ' + data.error)
+      const sData = await sRes.json()
+      if (data.success && sData.success) { setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000) }
+      else alert('Error saving: ' + (data.error || sData.error))
     } catch { alert('Save failed.') }
     finally { setSaving(false) }
   }
@@ -348,31 +567,41 @@ export default function VigManagementBuilder() {
       {syncZohoMessage && <div className="p-4 bg-indigo-950/40 border border-indigo-500/40 rounded-xl text-indigo-300 text-xs font-bold flex items-center gap-2"><FiZap size={16}/> {syncZohoMessage}</div>}
       {fixMessage     && <div className="p-4 bg-emerald-950/40 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2"><FiCheck size={16}/> {fixMessage}</div>}
 
-      {/* ── Global Presets ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* ── Global Presets & System Multipliers ─────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-2">
-          <label className="text-xs font-black uppercase tracking-wider text-neutral-400 block">Global Default VIG Rate</label>
+          <label className="text-xs font-black uppercase tracking-wider text-neutral-400 block">Baseline VIG Rate</label>
           <div className="flex items-center gap-3">
-            <input type="number" step="0.05" value={defaultVigRate} onChange={e => setDefaultVigRate(e.target.value)}
-              className="w-32 bg-black/40 border border-white/15 rounded-xl px-4 py-2.5 text-white font-mono text-lg font-bold focus:outline-none focus:border-emerald-500"/>
-            <span className="text-xs text-neutral-400">Standard 1.30× fallback</span>
+            <input type="number" step="0.05" value={baselineVigRate} onChange={e => setBaselineVigRate(e.target.value)}
+              className="w-28 bg-black/40 border border-white/15 rounded-xl px-3 py-2 text-white font-mono text-base font-bold focus:outline-none focus:border-emerald-500"/>
+            <span className="text-[11px] text-neutral-400">1.30× Baseline</span>
           </div>
         </div>
+
+        <div className="glass-panel p-5 rounded-2xl border border-amber-500/20 space-y-2">
+          <label className="text-xs font-black uppercase tracking-wider text-amber-400 block">Target VIG Rate</label>
+          <div className="flex items-center gap-3">
+            <input type="number" step="0.05" value={targetVigRate} onChange={e => setTargetVigRate(e.target.value)}
+              className="w-28 bg-black/40 border border-amber-500/30 rounded-xl px-3 py-2 text-amber-300 font-mono text-base font-bold focus:outline-none focus:border-amber-500"/>
+            <span className="text-[11px] text-neutral-400">1.50× Target</span>
+          </div>
+        </div>
+
+        <div className="glass-panel p-5 rounded-2xl border border-rose-500/20 space-y-2">
+          <label className="text-xs font-black uppercase tracking-wider text-rose-400 block">Tariff Surcharge Rate</label>
+          <div className="flex items-center gap-2">
+            <input type="number" step="0.5" value={tariffRate} onChange={e => setTariffRate(e.target.value)}
+              className="w-28 bg-black/40 border border-rose-500/30 rounded-xl px-3 py-2 text-rose-300 font-mono text-base font-bold focus:outline-none focus:border-rose-500"/>
+            <span className="text-xs text-neutral-400">%</span>
+          </div>
+        </div>
+
         <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-2">
-          <label className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5"><FiZap /> Quick Profit Presets</label>
+          <label className="text-xs font-black uppercase tracking-wider text-cyan-400 flex items-center gap-1.5"><FiZap /> Daily Presets</label>
           <div className="flex gap-2">
             {[1000,1500,2000].map(a => (
               <button key={a} onClick={() => setRepConfigs(p => p.map(r => ({...r, dailyProfitGoal: a})))}
-                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold text-white transition-colors">${a.toLocaleString()}/day</button>
-            ))}
-          </div>
-        </div>
-        <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-2">
-          <label className="text-xs font-black uppercase tracking-wider text-cyan-400 flex items-center gap-1.5"><FiTrendingUp /> Quick Subtotal Presets</label>
-          <div className="flex gap-2">
-            {[2000,3000,4000].map(a => (
-              <button key={a} onClick={() => setRepConfigs(p => p.map(r => ({...r, dailySubtotalGoal: a})))}
-                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold text-white transition-colors">${a.toLocaleString()}/day</button>
+                className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold text-white transition-colors">${a.toLocaleString()}/d</button>
             ))}
           </div>
         </div>
@@ -607,22 +836,20 @@ export default function VigManagementBuilder() {
                                       </div>
                                     </div>
 
-                                    {/* Metric selector */}
-                                    <div className="flex rounded-lg overflow-hidden border border-white/10 text-[10px] font-bold">
-                                      <button onClick={() => saveMonthGoal(rep.id, h.monthKey, { metric: 'PROFIT' })}
-                                        className={`px-2 py-0.5 transition-colors ${isProfit ? 'bg-amber-500/30 text-amber-300' : 'bg-black/40 text-neutral-500 hover:text-neutral-300'}`}>
-                                        Profit
-                                      </button>
-                                      <button onClick={() => saveMonthGoal(rep.id, h.monthKey, { metric: 'SUBTOTAL' })}
-                                        className={`px-2 py-0.5 transition-colors ${!isProfit ? 'bg-sky-500/30 text-sky-300' : 'bg-black/40 text-neutral-500 hover:text-neutral-300'}`}>
-                                        Subtotal
-                                      </button>
-                                    </div>
+                                    {/* View All Docs Button */}
+                                    <button
+                                      onClick={() => setActiveDocModal({ monthKey: h.monthKey, monthName: h.monthName, repId: rep.id, repName: rep.name })}
+                                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-all cursor-pointer"
+                                      title="View all invoices, sales orders, and estimates for this month"
+                                    >
+                                      <FiFileText size={12} />
+                                      <span>View Docs &amp; Loss</span>
+                                    </button>
 
                                     {/* Goal met/missed */}
                                     {!isNoData && (md.metGoal
                                       ? <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">✓ Goal Met</span>
-                                      : <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">↗ {Math.round(pct)}% of goal</span>
+                                      : <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">↗ {Math.round(Math.min((isProfit ? (md.deadProfit / md.profitGoal) * 100 : (md.subtotal / md.subtotalGoal) * 100), 100))}% of goal</span>
                                     )}
 
                                     {mismatchCount > 0 && (
@@ -665,57 +892,78 @@ export default function VigManagementBuilder() {
                                   </div>
                                 )}
 
-                                {/* ── Row 2: Stats Grid (4 cards) ── */}
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                 {/* ── Row 2: Stats Grid (5 cards) ── */}
+                                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
 
-                                  {/* Working Days (editable) */}
-                                  <div className="bg-black/40 rounded-lg px-3 py-2 border border-white/5">
-                                    <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center gap-1">
-                                      <FiCalendar size={8}/> Working Days
-                                    </div>
-                                    <EditCell value={md.workingDays} step={1} min={1} prefix="" suffix=" days"
-                                      textClass={isStoredDays ? 'text-amber-300' : 'text-white'}
-                                      onSave={v => saveMonthGoal(rep.id, h.monthKey, { workingDays: v })}/>
-                                    <div className="text-[9px] text-neutral-600 mt-0.5">
-                                      {isStoredDays ? `Override (auto: ${md.computedWorkingDays}d)` : `Auto (excl. ${holidayCount} holiday${holidayCount !== 1 ? 's' : ''})`}
-                                    </div>
-                                  </div>
+                                   {/* Working Days (editable) */}
+                                   <div className="bg-black/40 rounded-lg px-3 py-2 border border-white/5">
+                                     <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center gap-1">
+                                       <FiCalendar size={8}/> Working Days
+                                     </div>
+                                     <EditCell value={md.workingDays} step={1} min={1} prefix="" suffix=" days"
+                                       textClass={isStoredDays ? 'text-amber-300' : 'text-white'}
+                                       onSave={v => saveMonthGoal(rep.id, h.monthKey, { workingDays: v })}/>
+                                     <div className="text-[9px] text-neutral-600 mt-0.5">
+                                       {isStoredDays ? `Override (auto: ${md.computedWorkingDays}d)` : `Auto (excl. ${holidayCount} holiday${holidayCount !== 1 ? 's' : ''})`}
+                                     </div>
+                                   </div>
 
-                                  {/* Dead Profit Goal (editable) */}
-                                  <div className={`bg-black/40 rounded-lg px-3 py-2 border ${isProfit ? 'border-amber-500/20' : 'border-white/5'}`}>
-                                    <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center gap-1">
-                                      {isProfit && <span className="text-amber-400">●</span>} Profit Goal
-                                    </div>
-                                    <EditCell value={md.profitGoal} step={500} textClass="text-amber-300"
-                                      onSave={v => saveMonthGoal(rep.id, h.monthKey, { profitGoal: v })}/>
-                                    <div className="text-[9px] text-neutral-600 mt-0.5">
-                                      ${md.workingDays > 0 ? Math.round(md.profitGoal / md.workingDays).toLocaleString() : '—'}/day
-                                    </div>
-                                  </div>
+                                   {/* Dead Profit Goal (editable) */}
+                                   <div className={`bg-black/40 rounded-lg px-3 py-2 border ${isProfit ? 'border-amber-500/20' : 'border-white/5'}`}>
+                                     <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center gap-1">
+                                       {isProfit && <span className="text-amber-400">●</span>} Profit Goal
+                                     </div>
+                                     <EditCell value={md.profitGoal} step={500} textClass="text-amber-300"
+                                       onSave={v => saveMonthGoal(rep.id, h.monthKey, { profitGoal: v })}/>
+                                     <div className="text-[9px] text-neutral-600 mt-0.5">
+                                       ${md.workingDays > 0 ? Math.round(md.profitGoal / md.workingDays).toLocaleString() : '—'}/day
+                                     </div>
+                                   </div>
 
-                                  {/* Subtotal Goal (editable) */}
-                                  <div className={`bg-black/40 rounded-lg px-3 py-2 border ${!isProfit ? 'border-sky-500/20' : 'border-white/5'}`}>
-                                    <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center gap-1">
-                                      {!isProfit && <span className="text-sky-400">●</span>} Subtotal Goal
-                                    </div>
-                                    <EditCell value={md.subtotalGoal} step={1000} textClass="text-sky-300"
-                                      onSave={v => saveMonthGoal(rep.id, h.monthKey, { subtotalGoal: v })}/>
-                                    <div className="text-[9px] text-neutral-600 mt-0.5">
-                                      ${md.workingDays > 0 ? Math.round(md.subtotalGoal / md.workingDays).toLocaleString() : '—'}/day
-                                    </div>
-                                  </div>
+                                   {/* Subtotal Goal (editable) */}
+                                   <div className={`bg-black/40 rounded-lg px-3 py-2 border ${!isProfit ? 'border-sky-500/20' : 'border-white/5'}`}>
+                                     <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center gap-1">
+                                       {!isProfit && <span className="text-sky-400">●</span>} Subtotal Goal
+                                     </div>
+                                     <EditCell value={md.subtotalGoal} step={1000} textClass="text-sky-300"
+                                       onSave={v => saveMonthGoal(rep.id, h.monthKey, { subtotalGoal: v })}/>
+                                     <div className="text-[9px] text-neutral-600 mt-0.5">
+                                       ${md.workingDays > 0 ? Math.round(md.subtotalGoal / md.workingDays).toLocaleString() : '—'}/day
+                                     </div>
+                                   </div>
 
-                                  {/* Actuals: Dead Profit */}
-                                  <div className="bg-black/40 rounded-lg px-3 py-2 border border-white/5">
-                                    <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1">Dead Profit Actual</div>
-                                    <div className={`font-mono font-bold text-xs ${isNoData ? 'text-neutral-600' : md.metGoal && isProfit ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                      ${(md.deadProfit || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                    </div>
-                                    <div className="text-[9px] text-neutral-600 mt-0.5">
-                                      {md.invoiceCount} inv · ${md.invoiceCount > 0 ? Math.round(md.subtotal / md.invoiceCount).toLocaleString() : 0} avg sub
-                                    </div>
-                                  </div>
-                                </div>
+                                   {/* Dead Profit Actual */}
+                                   <div className="bg-black/40 rounded-lg px-3 py-2 border border-white/5">
+                                     <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1">Dead Profit Actual</div>
+                                     <div className={`font-mono font-bold text-xs ${isNoData ? 'text-neutral-600' : md.metGoal && isProfit ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                       ${(md.deadProfit || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                     </div>
+                                     <div className="text-[9px] text-neutral-600 mt-0.5">
+                                       {md.invoiceCount} inv · ${md.invoiceCount > 0 ? Math.round(md.subtotal / md.invoiceCount).toLocaleString() : 0} avg sub
+                                     </div>
+                                   </div>
+
+                                   {/* 1.3x vs 1.5x VIG Loss Comparison */}
+                                   {(() => {
+                                     const target1_5 = md.subtotal * (1.5 / 1.3) - (md.subtotal - md.deadProfit)
+                                     const lossVal = Math.max(0, target1_5 - md.deadProfit)
+                                     const isLoss = lossVal > 10
+                                     return (
+                                       <div className={`rounded-lg px-3 py-2 border ${isLoss ? 'bg-rose-950/20 border-rose-500/40' : 'bg-emerald-950/20 border-emerald-500/40'}`}>
+                                         <div className="text-[9px] uppercase font-bold tracking-wider mb-1 flex items-center justify-between">
+                                           <span className={isLoss ? 'text-rose-400' : 'text-emerald-400'}>1.3x vs 1.5x VIG</span>
+                                           <span className="text-[8px] font-mono font-bold">{isLoss ? 'LOSS' : 'OK'}</span>
+                                         </div>
+                                         <div className={`font-mono font-bold text-xs ${isLoss ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                           {isLoss ? `-$${Math.round(lossVal).toLocaleString()}` : '✓ Target Met'}
+                                         </div>
+                                         <div className="text-[9px] text-neutral-400 mt-0.5 truncate">
+                                           {isLoss ? 'Potential loss to 1.5x target' : 'Full 1.5x margin captured'}
+                                         </div>
+                                       </div>
+                                     )
+                                   })()}
+                                 </div>
 
                                 {/* ── Row 3: Subtotal actual (secondary stat) ── */}
                                 {!isNoData && (
@@ -784,6 +1032,17 @@ export default function VigManagementBuilder() {
           </div>
         )}
       </div>
+
+      {/* Month Documents Modal */}
+      {activeDocModal && (
+        <MonthDocumentsModal
+          monthKey={activeDocModal.monthKey}
+          monthName={activeDocModal.monthName}
+          repId={activeDocModal.repId}
+          repName={activeDocModal.repName}
+          onClose={() => setActiveDocModal(null)}
+        />
+      )}
     </div>
   )
 }

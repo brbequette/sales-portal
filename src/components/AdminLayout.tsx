@@ -12,6 +12,8 @@ import {
   FiMenu, FiX, FiBarChart2, FiPackage, FiAlertTriangle, FiTool, FiCloud, FiSliders, FiCreditCard, FiTrendingUp
 } from "react-icons/fi"
 
+import { ThemeSettingsModal, loadSavedTheme, applyThemeToCss } from "@/components/ThemeSettingsModal"
+
 const adminLinks = [
   { group: "General", items: [
     { name: "Dashboard", href: "/admin", icon: FiGrid },
@@ -57,9 +59,14 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false)
 
   const normalizedRole = currentUser?.role?.toLowerCase() || ""
   const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
+
+  useEffect(() => {
+    applyThemeToCss(loadSavedTheme())
+  }, [])
 
   useEffect(() => {
     if (!isInitialized) return
@@ -173,14 +180,24 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Titan Hub</div>
             </div>
           </div>
-          <Link
-            href="/"
-            title="Back to Hub"
-            aria-label="Back to Hub"
-            className="p-2 rounded-xl text-neutral-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all border border-transparent hover:border-emerald-500/20"
-          >
-            <FiChevronLeft size={16} />
-          </Link>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsThemeModalOpen(true)}
+              title="Theme Settings"
+              aria-label="Theme Settings"
+              className="p-2 rounded-xl text-neutral-400 hover:text-amber-400 hover:bg-amber-500/10 transition-all border border-transparent hover:border-amber-500/20 cursor-pointer"
+            >
+              <FiSliders size={16} />
+            </button>
+            <Link
+              href="/"
+              title="Back to Hub"
+              aria-label="Back to Hub"
+              className="p-2 rounded-xl text-neutral-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all border border-transparent hover:border-emerald-500/20"
+            >
+              <FiChevronLeft size={16} />
+            </Link>
+          </div>
         </div>
 
         <div className="p-3 space-y-5 flex-1">
@@ -227,18 +244,32 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <FiMenu size={18} />
           </button>
           <span className="text-sm font-bold text-white">Admin Panel</span>
-          <Link
-            href="/"
-            className="text-xs text-emerald-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-emerald-500/10 transition-colors min-h-[44px] items-center"
-          >
-            <FiChevronLeft size={14} /> Back to Hub
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsThemeModalOpen(true)}
+              className="text-xs text-amber-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-amber-500/10 transition-colors"
+            >
+              <FiSliders size={14} /> Theme
+            </button>
+            <Link
+              href="/"
+              className="text-xs text-emerald-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-emerald-500/10 transition-colors min-h-[44px] items-center"
+            >
+              <FiChevronLeft size={14} /> Hub
+            </Link>
+          </div>
         </div>
         
         <div className="flex-1 overflow-y-auto w-full max-w-7xl mx-auto">
           {children}
         </div>
       </div>
+
+      {/* Theme Settings Modal */}
+      <ThemeSettingsModal
+        isOpen={isThemeModalOpen}
+        onClose={() => setIsThemeModalOpen(false)}
+      />
     </div>
   )
 }
