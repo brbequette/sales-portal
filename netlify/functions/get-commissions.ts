@@ -93,9 +93,8 @@ export const handler: Handler = async (event) => {
       allVigUsers,
       vigSettingRow
     ]: [any[], any[], any[], any[], any, any, any[], any[], any[], any] = await Promise.all([
-      // Use $queryRaw to extract ONLY the scalar fields needed for commission calc.
-      // This avoids fetching huge line_items/custom_fields arrays stored by bulk-sync,
-      // which were causing Netlify function timeouts (response truncated mid-stream).
+      // Use $queryRaw to extract the fields needed for commission calc.
+      // Now includes line_items and cost breakdown fields that the calc code depends on.
       prisma.$queryRaw<any[]>(Prisma.sql`
         SELECT
           i.id::text,
@@ -112,23 +111,36 @@ export const handler: Handler = async (event) => {
             'invoice_number',             i.items->>'invoice_number',
             'sub_total',                  i.items->>'sub_total',
             'subTotal',                   i.items->>'subTotal',
+            'total',                      i.items->>'total',
             'deadCostTotal',              i.items->>'deadCostTotal',
             'dead_cost_total',            i.items->>'dead_cost_total',
             'cf_dead_cost_total',         i.items->>'cf_dead_cost_total',
+            'cf_dead_cost_total_unformatted', i.items->>'cf_dead_cost_total_unformatted',
+            'deadCostSubjectToVig',       i.items->>'deadCostSubjectToVig',
+            'deadCostNoVig',              i.items->>'deadCostNoVig',
             'deadCostPlusVig',            i.items->>'deadCostPlusVig',
             'cf_salesperson_vig',         i.items->>'cf_salesperson_vig',
             'cf_salesperson_vig_unformatted', i.items->>'cf_salesperson_vig_unformatted',
             'paymentDate',               i.items->>'paymentDate',
             'ccFees',                    i.items->>'ccFees',
             'cc_fees',                   i.items->>'cc_fees',
+            'cf_credit_card_processing_fees', i.items->>'cf_credit_card_processing_fees',
+            'cf_credit_card_processing_fees_unformatted', i.items->>'cf_credit_card_processing_fees_unformatted',
             'additionalCosts',           i.items->>'additionalCosts',
             'additional_costs',          i.items->>'additional_costs',
+            'cf_additional_costs_to_order', i.items->>'cf_additional_costs_to_order',
+            'cf_additional_costs_to_order_unformatted', i.items->>'cf_additional_costs_to_order_unformatted',
             'gifts',                     i.items->>'gifts',
             'gifts_cost',                i.items->>'gifts_cost',
             'giftCost',                  i.items->>'giftCost',
             'balance',                   i.items->>'balance',
             'profit',                    i.items->>'profit',
-            'vigRate',                   i.items->>'vigRate'
+            'vigRate',                   i.items->>'vigRate',
+            'vig',                       i.items->>'vig',
+            'line_items',                i.items->'line_items',
+            'items',                     i.items->'items',
+            'custom_fields',             i.items->'custom_fields',
+            'custom_field_hash',         i.items->'custom_field_hash'
           ) AS items
         FROM "Invoice" i
         LEFT JOIN "Account" a ON a.id = i."accountId"
@@ -152,23 +164,36 @@ export const handler: Handler = async (event) => {
             'salesorderNumber',       s.items->>'salesorderNumber',
             'sub_total',              s.items->>'sub_total',
             'subTotal',               s.items->>'subTotal',
+            'total',                  s.items->>'total',
             'deadCostTotal',          s.items->>'deadCostTotal',
             'dead_cost_total',        s.items->>'dead_cost_total',
             'cf_dead_cost_total',     s.items->>'cf_dead_cost_total',
+            'cf_dead_cost_total_unformatted', s.items->>'cf_dead_cost_total_unformatted',
+            'deadCostSubjectToVig',   s.items->>'deadCostSubjectToVig',
+            'deadCostNoVig',          s.items->>'deadCostNoVig',
             'deadCostPlusVig',        s.items->>'deadCostPlusVig',
             'cf_salesperson_vig',     s.items->>'cf_salesperson_vig',
             'cf_salesperson_vig_unformatted', s.items->>'cf_salesperson_vig_unformatted',
             'paymentDate',            s.items->>'paymentDate',
             'ccFees',                 s.items->>'ccFees',
             'cc_fees',                s.items->>'cc_fees',
+            'cf_credit_card_processing_fees', s.items->>'cf_credit_card_processing_fees',
+            'cf_credit_card_processing_fees_unformatted', s.items->>'cf_credit_card_processing_fees_unformatted',
             'additionalCosts',        s.items->>'additionalCosts',
             'additional_costs',       s.items->>'additional_costs',
+            'cf_additional_costs_to_order', s.items->>'cf_additional_costs_to_order',
+            'cf_additional_costs_to_order_unformatted', s.items->>'cf_additional_costs_to_order_unformatted',
             'gifts',                  s.items->>'gifts',
             'gifts_cost',             s.items->>'gifts_cost',
             'giftCost',               s.items->>'giftCost',
             'balance',                s.items->>'balance',
             'profit',                 s.items->>'profit',
-            'vigRate',                s.items->>'vigRate'
+            'vigRate',                s.items->>'vigRate',
+            'vig',                    s.items->>'vig',
+            'line_items',             s.items->'line_items',
+            'items',                  s.items->'items',
+            'custom_fields',          s.items->'custom_fields',
+            'custom_field_hash',      s.items->'custom_field_hash'
           ) AS items
         FROM "SalesOrder" s
         LEFT JOIN "Account" a ON a.id = s."accountId"
