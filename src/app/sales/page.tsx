@@ -857,111 +857,102 @@ export default function SalesPage() {
             {/* Sales Pipeline Tab */}
             <button
               onClick={() => handleEffortChange("sales")}
-              className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
+              className={`relative overflow-hidden rounded-xl p-3.5 text-left border transition-all duration-300 flex items-center gap-3 ${
                 effort === "sales"
                   ? "bg-[#17191a] border-emerald-400/45 text-white shadow-[0_0_20px_rgba(16,185,129,0.15)]"
-                  : "bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] text-neutral-400"
+                  : "bg-white/[0.035] border-[var(--border)] hover:border-white/20 text-neutral-400"
               }`}
             >
-              {effort === "sales" && <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-emerald-400" />}
-              <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-xl border transition-colors ${effort === "sales" ? "bg-emerald-950 border-emerald-500/30 text-emerald-400" : "bg-white/[0.045] border-[var(--border)] text-neutral-500"}`}>
-                  <FiTrendingUp size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold tracking-tight">Sales Pipeline</h3>
-                  <p className="text-xs text-neutral-500 mt-0.5">Manage accounts & deals</p>
-                </div>
-                <div className="ml-auto shrink-0 flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md text-xs font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                  {filteredAccounts.length}
-                </div>
+              {effort === "sales" && <div className="absolute right-2.5 top-2.5 w-2 h-2 rounded-full bg-emerald-400" />}
+              <div className={`p-2.5 rounded-xl border shrink-0 transition-colors ${effort === "sales" ? "bg-emerald-950 border-emerald-500/30 text-emerald-400" : "bg-white/[0.045] border-[var(--border)] text-neutral-500"}`}>
+                <FiTrendingUp size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xs font-bold tracking-tight text-white truncate">Sales Pipeline</h3>
+                <p className="text-[11px] text-neutral-400 truncate mt-0.5">Manage accounts &amp; deals</p>
+              </div>
+              <div className="shrink-0 flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded-md text-[11px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                {filteredAccounts.length}
               </div>
             </button>
 
             {/* Accounts Without Purchase History Tab */}
             <button
               onClick={() => handleEffortChange("cold_call")}
-              className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
+              title="Accounts Without Purchase History ($0 Total Sales)"
+              className={`relative overflow-hidden rounded-xl p-3.5 text-left border transition-all duration-300 flex items-center gap-3 ${
                 effort === "cold_call"
                   ? "bg-[#17191a] border-blue-400/45 text-white shadow-[0_0_20px_rgba(59,130,246,0.15)]"
-                  : "bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] text-neutral-400"
+                  : "bg-white/[0.035] border-[var(--border)] hover:border-white/20 text-neutral-400"
               }`}
             >
-              {effort === "cold_call" && <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-blue-400" />}
-              <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-xl border transition-colors ${effort === "cold_call" ? "bg-blue-950 border-blue-500/30 text-blue-400" : "bg-white/[0.045] border-[var(--border)] text-neutral-500"}`}>
-                  <FiPhoneCall size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold tracking-tight">Accounts Without Purchase History</h3>
-                  <p className="text-xs text-neutral-500 mt-0.5">$0 total sales accounts</p>
-                </div>
+              {effort === "cold_call" && <div className="absolute right-2.5 top-2.5 w-2 h-2 rounded-full bg-blue-400" />}
+              <div className={`p-2.5 rounded-xl border shrink-0 transition-colors ${effort === "cold_call" ? "bg-blue-950 border-blue-500/30 text-blue-400" : "bg-white/[0.045] border-[var(--border)] text-neutral-500"}`}>
+                <FiPhoneCall size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xs font-bold tracking-tight text-white truncate" title="Accounts Without Purchase History">No-Purchase Accounts</h3>
+                <p className="text-[11px] text-neutral-400 truncate mt-0.5">$0 sales accounts</p>
               </div>
             </button>
 
             {/* CRM Leads List Tab */}
             <button
               onClick={() => handleEffortChange("leads" as any)}
-              className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
+              className={`relative overflow-hidden rounded-xl p-3.5 text-left border transition-all duration-300 flex items-center gap-3 ${
                 (effort as any) === "leads"
                   ? "bg-[#17191a] border-orange-400/45 text-white shadow-[0_0_20px_rgba(249,115,22,0.15)]"
-                  : "bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] text-neutral-400"
+                  : "bg-white/[0.035] border-[var(--border)] hover:border-white/20 text-neutral-400"
               }`}
             >
-              {(effort as any) === "leads" && <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-orange-400" />}
-              <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-xl border transition-colors ${(effort as any) === "leads" ? "bg-orange-950 border-orange-500/30 text-orange-400" : "bg-white/[0.045] border-[var(--border)] text-neutral-500"}`}>
-                  <FiUsers size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold tracking-tight">CRM Leads List</h3>
-                  <p className="text-xs text-neutral-500 mt-0.5">Unconverted CRM leads</p>
-                </div>
+              {(effort as any) === "leads" && <div className="absolute right-2.5 top-2.5 w-2 h-2 rounded-full bg-orange-400" />}
+              <div className={`p-2.5 rounded-xl border shrink-0 transition-colors ${(effort as any) === "leads" ? "bg-orange-950 border-orange-500/30 text-orange-400" : "bg-white/[0.045] border-[var(--border)] text-neutral-500"}`}>
+                <FiUsers size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xs font-bold tracking-tight text-white truncate">CRM Leads List</h3>
+                <p className="text-[11px] text-neutral-400 truncate mt-0.5">Unconverted CRM leads</p>
               </div>
             </button>
 
             {/* Smart Call List Tab */}
             <button
               onClick={() => handleEffortChange("call_list")}
-              className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
+              className={`relative overflow-hidden rounded-xl p-3.5 text-left border transition-all duration-300 flex items-center gap-3 ${
                 effort === "call_list"
                   ? "bg-[#17191a] border-sky-400/45 text-white shadow-[0_0_20px_rgba(56,189,248,0.15)]"
-                  : "bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] text-neutral-400"
+                  : "bg-white/[0.035] border-[var(--border)] hover:border-white/20 text-neutral-400"
               }`}
             >
-              {effort === "call_list" && <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-sky-400" />}
-              <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-xl border transition-colors ${effort === "call_list" ? "bg-sky-950 border-sky-500/30 text-sky-400" : "bg-white/[0.045] border-[var(--border)] text-neutral-500"}`}>
-                  <FiClock size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold tracking-tight">Smart Call List</h3>
-                  <p className="text-xs text-neutral-500 mt-0.5">Follow-ups prioritized</p>
-                </div>
-                <div className="ml-auto shrink-0 flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md text-xs font-black bg-sky-500/10 text-sky-300 border border-sky-500/20">
-                  {callListAccounts.length}
-                </div>
+              {effort === "call_list" && <div className="absolute right-2.5 top-2.5 w-2 h-2 rounded-full bg-sky-400" />}
+              <div className={`p-2.5 rounded-xl border shrink-0 transition-colors ${effort === "call_list" ? "bg-sky-950 border-sky-500/30 text-sky-400" : "bg-white/[0.045] border-[var(--border)] text-neutral-500"}`}>
+                <FiClock size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xs font-bold tracking-tight text-white truncate">Smart Call List</h3>
+                <p className="text-[11px] text-neutral-400 truncate mt-0.5">Follow-ups prioritized</p>
+              </div>
+              <div className="shrink-0 flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded-md text-[11px] font-black bg-sky-500/10 text-sky-300 border border-sky-500/20">
+                {callListAccounts.length}
               </div>
             </button>
 
             {/* Deal Pipeline Tab */}
             <button
               onClick={() => handleEffortChange("pipeline")}
-              className={`relative overflow-hidden rounded-xl p-4 text-left border transition-all duration-300 ${
+              className={`relative overflow-hidden rounded-xl p-3.5 text-left border transition-all duration-300 flex items-center gap-3 ${
                 effort === "pipeline"
                   ? "bg-[#17191a] border-purple-400/45 text-white shadow-[0_0_20px_rgba(168,85,247,0.15)]"
-                  : "bg-white/[0.035] border-[var(--border)] hover:border-[var(--border)] text-neutral-400"
+                  : "bg-white/[0.035] border-[var(--border)] hover:border-white/20 text-neutral-400"
               }`}
             >
-              {effort === "pipeline" && <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-purple-400" />}
-              <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-xl border transition-colors ${effort === "pipeline" ? "bg-purple-950 border-purple-500/30 text-purple-400" : "bg-white/[0.045] border-[var(--border)] text-neutral-500"}`}>
-                  <FiLayers size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold tracking-tight">Deal Pipeline</h3>
-                  <p className="text-xs text-neutral-500 mt-0.5">Kanban lifecycle</p>
-                </div>
+              {effort === "pipeline" && <div className="absolute right-2.5 top-2.5 w-2 h-2 rounded-full bg-purple-400" />}
+              <div className={`p-2.5 rounded-xl border shrink-0 transition-colors ${effort === "pipeline" ? "bg-purple-950 border-purple-500/30 text-purple-400" : "bg-white/[0.045] border-[var(--border)] text-neutral-500"}`}>
+                <FiLayers size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xs font-bold tracking-tight text-white truncate">Deal Pipeline</h3>
+                <p className="text-[11px] text-neutral-400 truncate mt-0.5">Kanban lifecycle</p>
               </div>
             </button>
 
@@ -1646,7 +1637,7 @@ export default function SalesPage() {
                   </div>
 
                   {/* Right Column: Tasks List */}
-                <div className={`w-full lg:w-72 xl:w-80 2xl:w-96 shrink-0 space-y-4 ${mobileTab === 'tasks' ? 'block' : 'hidden lg:block'}`}>
+                <div className={`w-full lg:w-72 xl:w-80 2xl:w-96 shrink-0 space-y-4 lg:sticky lg:top-4 ${mobileTab === 'tasks' ? 'block' : 'hidden lg:block'}`}>
                   <div className="bg-neutral-900/60 rounded-2xl border border-white/10 p-4 space-y-4 shadow-xl">
                     <div className="flex items-center justify-between">
                       <h2 className="text-base font-bold text-white flex items-center gap-2">
