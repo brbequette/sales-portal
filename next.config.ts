@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  outputFileTracingExcludes: {
+    '*': [
+      'public/product-images/**/*',
+      'public/product-images/**',
+    ],
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '*.zoho.com' },
