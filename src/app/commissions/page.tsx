@@ -195,17 +195,17 @@ export default function CommissionsPage() {
       }
 
       const isPaid = inv.isPaid || inv.status === 'paid' || inv.status === 'Paid'
-      const profit = inv.profit || 0
-      const upfrontHalf = inv.commission?.upfront ?? (profit * 0.25)
-      const secondHalf = inv.commission?.final ?? inv.commission?.future ?? (profit * 0.25)
-      const earnedCommissionVal = isPaid ? (upfrontHalf + secondHalf) : upfrontHalf
+      // Use the API-computed commission values directly
+      // total = upfront + final (earned so far), future = pending 2nd half
+      // "Est. Commission" = total estimated = earned + future
+      const estimatedCommission = (inv.commission?.total || 0) + (inv.commission?.future || 0)
 
       groupsMap[weekKey].invoices.push(inv)
       groupsMap[weekKey].totalSales += (inv.amount || 0)
       groupsMap[weekKey].totalDeadCost += (inv.deadCost || 0)
       groupsMap[weekKey].totalDeadProfit += (inv.deadProfit || 0)
-      groupsMap[weekKey].totalProfit += profit
-      groupsMap[weekKey].totalCommission += earnedCommissionVal
+      groupsMap[weekKey].totalProfit += (inv.profit || 0)
+      groupsMap[weekKey].totalCommission += estimatedCommission
       if (isPaid) {
         groupsMap[weekKey].paidCount += 1
       } else {
