@@ -210,6 +210,7 @@ export default function SalesPage() {
   const [drillTitle, setDrillTitle] = useState("")
   const [drillItems, setDrillItems] = useState<any[] | null>(null)
   const [drillType, setDrillType] = useState<"invoices" | "deals" | "accounts" | null>(null)
+  const [quickInvoiceFilter, setQuickInvoiceFilter] = useState<"ALL" | "PAID" | "UNPAID" | "OVERDUE">("ALL")
   const [effort, setEffort] = useState<"sales" | "call_list" | "cold_call" | "pipeline">("sales")
   const [allDbUsers, setAllDbUsers] = useState<any[]>([])
   const [ownerFilter, setOwnerFilter] = useState("All")
@@ -633,6 +634,10 @@ export default function SalesPage() {
       if (!matchesProduct) return false
     }
 
+    if (quickInvoiceFilter === "PAID" && (account.totalSales || 0) <= 0) return false
+    if (quickInvoiceFilter === "UNPAID" && (account.unpaidCount || 0) <= 0 && (account.unpaidBalance || 0) <= 0) return false
+    if (quickInvoiceFilter === "OVERDUE" && (account.overdueCount || 0) <= 0) return false
+
     if (exclusivityFilter !== "All") {
       const excl = getExclusivityDetails(account, nowMs)
       if (exclusivityFilter === "green" && excl.category !== "green") return false
@@ -695,6 +700,8 @@ export default function SalesPage() {
     setTimezoneFilter("All")
     setQualityFilter("All")
     setExclusivityFilter("All")
+    setQuickInvoiceFilter("ALL")
+    setDrillItems(null)
     setYearFilter("All")
     setOnlyWithSales(false)
     setLtvMin("")
@@ -713,6 +720,7 @@ export default function SalesPage() {
     (timezoneFilter !== "All" ? 1 : 0) +
     (qualityFilter !== "All" ? 1 : 0) +
     (exclusivityFilter !== "All" ? 1 : 0) +
+    (quickInvoiceFilter !== "ALL" ? 1 : 0) +
     (yearFilter !== "All" ? 1 : 0) +
     (onlyWithSales ? 1 : 0) +
     (productSearch ? 1 : 0) +
@@ -933,7 +941,7 @@ export default function SalesPage() {
           </div>
 
           {/* Sub-header Tabs Navigation */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 mb-6">
             
             {/* Sales Pipeline Tab */}
             <button
@@ -1145,10 +1153,10 @@ export default function SalesPage() {
               <div className="flex flex-col lg:flex-row gap-6 items-start">
                 
                 {/* Left Column: Accounts List */}
-                <div className={`w-full lg:flex-1 space-y-4 ${mobileTab === 'accounts' ? 'block' : 'hidden lg:block'}`}>
+                <div className={`w-full lg:flex-1 space-y-6 ${mobileTab === 'accounts' ? 'block' : 'hidden lg:block'}`}>
                   {/* Quick Invoice View Toolbar */}
-                  <div className="flex flex-wrap gap-2.5 glass-panel p-3 rounded-xl border border-[var(--border)]">
-                    <span className="text-xs text-neutral-400 font-semibold flex items-center gap-1.5 mr-2 self-center">
+                  <div className="flex flex-wrap items-center gap-3 glass-panel p-3.5 rounded-xl border border-[var(--border)] mb-6 shadow-lg">
+                    <span className="text-xs text-neutral-400 font-bold flex items-center gap-1.5 mr-2 self-center">
                       Quick Invoice View:
                     </span>
                     <button
@@ -1174,11 +1182,22 @@ export default function SalesPage() {
                           .filter(a => a._latestPaymentTime > 0)
                           .sort((a, b) => b._latestPaymentTime - a._latestPaymentTime)
                           .slice(0, 50)
-                        setDrillType("accounts")
-                        setDrillTitle("Recent Paid Accounts (Last 50)")
-                        setDrillItems(recentPaid)
+
+                        if (quickInvoiceFilter === "PAID") {
+                          setQuickInvoiceFilter("ALL")
+                          setDrillItems(null)
+                        } else {
+                          setQuickInvoiceFilter("PAID")
+                          setDrillType("accounts")
+                          setDrillTitle("Recent Paid Accounts (Last 50)")
+                          setDrillItems(recentPaid)
+                        }
                       }}
-                      className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer"
+                      className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                        quickInvoiceFilter === 'PAID'
+                          ? 'bg-emerald-500/30 text-white border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.3)] ring-1 ring-emerald-400'
+                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                      }`}
                     >
                       <FiCheckCircle size={13} />
                       <span>Recent Paid Accounts</span>
@@ -1191,11 +1210,22 @@ export default function SalesPage() {
                           .filter(a => matchesOwnerFilter(a, ownerFilter))
                           .filter(a => (a.unpaidCount || 0) > 0 || (a.unpaidBalance || 0) > 0)
                           .sort((a: any, b: any) => (b.unpaidBalance || 0) - (a.unpaidBalance || 0))
-                        setDrillType("accounts")
-                        setDrillTitle("Accounts with Unpaid Invoices")
-                        setDrillItems(unpaidAccounts)
+
+                        if (quickInvoiceFilter === "UNPAID") {
+                          setQuickInvoiceFilter("ALL")
+                          setDrillItems(null)
+                        } else {
+                          setQuickInvoiceFilter("UNPAID")
+                          setDrillType("accounts")
+                          setDrillTitle("Accounts with Unpaid Invoices")
+                          setDrillItems(unpaidAccounts)
+                        }
                       }}
-                      className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-all cursor-pointer"
+                      className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                        quickInvoiceFilter === 'UNPAID'
+                          ? 'bg-amber-500/30 text-white border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)] ring-1 ring-amber-400'
+                          : 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
+                      }`}
                     >
                       <FiAlertCircle size={13} />
                       <span>Accounts with Unpaid</span>
@@ -1208,11 +1238,22 @@ export default function SalesPage() {
                           .filter(a => matchesOwnerFilter(a, ownerFilter))
                           .filter(a => (a.overdueCount || 0) > 0)
                           .sort((a: any, b: any) => (b.overdueBalance || 0) - (a.overdueBalance || 0))
-                        setDrillType("accounts")
-                        setDrillTitle("Accounts with Overdue Invoices")
-                        setDrillItems(overdueAccounts)
+
+                        if (quickInvoiceFilter === "OVERDUE") {
+                          setQuickInvoiceFilter("ALL")
+                          setDrillItems(null)
+                        } else {
+                          setQuickInvoiceFilter("OVERDUE")
+                          setDrillType("accounts")
+                          setDrillTitle("Accounts with Overdue Invoices")
+                          setDrillItems(overdueAccounts)
+                        }
                       }}
-                      className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-all cursor-pointer"
+                      className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                        quickInvoiceFilter === 'OVERDUE'
+                          ? 'bg-rose-500/30 text-white border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.3)] ring-1 ring-rose-400'
+                          : 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
+                      }`}
                     >
                       <FiAlertCircle size={13} />
                       <span>All Overdue Accounts</span>
@@ -1430,8 +1471,7 @@ export default function SalesPage() {
                                 </div>
                               )}
                             </div>
-
-                            {/* Active Filters Tag Bar */}
+                          {/* Active Filters Tag Bar */}
                             {activeFilterCount > 0 && (
                               <div className="px-4 py-2 bg-neutral-900/60 border-b border-white/5 flex items-center gap-1.5 flex-wrap text-xs">
                                 <span className="text-[10px] uppercase font-bold text-neutral-500 mr-1 flex items-center gap-1">
@@ -1442,6 +1482,13 @@ export default function SalesPage() {
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[11px] font-medium">
                                     Rep: {owners.find(o => o.id === ownerFilter)?.name || ownerFilter}
                                     <button onClick={() => setOwnerFilter("All")} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                {quickInvoiceFilter !== "ALL" && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[11px] font-medium">
+                                    Quick View: {quickInvoiceFilter}
+                                    <button onClick={() => { setQuickInvoiceFilter("ALL"); setDrillItems(null) }} className="hover:text-white ml-0.5">×</button>
                                   </span>
                                 )}
 
@@ -2425,6 +2472,101 @@ export default function SalesPage() {
           onClose={() => setShowAddAccount(false)}
           currentUserId={currentUser?.id}
         />,
+        document.body
+      )}
+
+      {/* Quick Invoice View Drilldown Modal */}
+      {drillItems && typeof window !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#121316] border border-white/15 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between bg-neutral-900/80">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {drillTitle}
+                </h3>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Showing {drillItems.length} accounts in this quick view breakdown
+                </p>
+              </div>
+              <button
+                onClick={() => setDrillItems(null)}
+                className="p-2 rounded-xl bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors"
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+
+            {/* Account List */}
+            <div className="p-6 overflow-y-auto space-y-3 flex-1">
+              {drillItems.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500 text-sm font-medium">
+                  No accounts found for this quick view filter.
+                </div>
+              ) : (
+                drillItems.map((acc: any) => (
+                  <div key={acc.id} className="p-3.5 bg-white/[0.03] border border-white/10 rounded-xl flex items-center justify-between hover:border-white/20 transition-all gap-4">
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/account?id=${acc.zohoId}`}
+                        onClick={() => setDrillItems(null)}
+                        className="text-sm font-bold text-white hover:text-emerald-400 transition-colors block truncate"
+                      >
+                        {acc.name}
+                      </Link>
+                      <div className="flex items-center gap-3 text-xs text-neutral-400 mt-1 flex-wrap">
+                        {acc.owner?.name && <span>Rep: <strong className="text-neutral-200">{acc.owner.name}</strong></span>}
+                        {acc.phone && <span>📞 {acc.phone}</span>}
+                        {acc.email && <span>✉️ {acc.email}</span>}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 flex items-center gap-4">
+                      <div>
+                        <div className="text-sm font-black text-emerald-400">${(acc.totalSales || 0).toLocaleString()}</div>
+                        <div className="text-[10px] text-neutral-500 font-medium">Total Sales</div>
+                      </div>
+                      {(acc.unpaidBalance || 0) > 0 && (
+                        <div>
+                          <div className="text-sm font-black text-amber-400">${(acc.unpaidBalance || 0).toLocaleString()}</div>
+                          <div className="text-[10px] text-amber-500/70 font-medium">Unpaid</div>
+                        </div>
+                      )}
+                      {(acc.overdueBalance || 0) > 0 && (
+                        <div>
+                          <div className="text-sm font-black text-rose-400">${(acc.overdueBalance || 0).toLocaleString()}</div>
+                          <div className="text-[10px] text-rose-500/70 font-medium">Overdue</div>
+                        </div>
+                      )}
+                      <Link
+                        href={`/account?id=${acc.zohoId}`}
+                        onClick={() => setDrillItems(null)}
+                        className="p-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 rounded-xl transition-all font-bold text-xs flex items-center gap-1"
+                      >
+                        View <FiChevronRight size={14} />
+                      </Link>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3 border-t border-white/10 bg-neutral-900/80 flex items-center justify-between">
+              <span className="text-xs text-neutral-400 font-medium">
+                Tip: Click any account to view detailed history
+              </span>
+              <button
+                onClick={() => setDrillItems(null)}
+                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-xl text-xs transition-colors"
+              >
+                Close Breakdown
+              </button>
+            </div>
+
+          </div>
+        </div>,
         document.body
       )}
 
