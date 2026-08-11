@@ -15,42 +15,45 @@ import {
 import { ThemeSettingsModal, loadSavedTheme, applyThemeToCss } from "@/components/ThemeSettingsModal"
 
 const adminLinks = [
-  { group: "General", items: [
+  { group: "Overview", items: [
     { name: "Dashboard", href: "/admin", icon: FiGrid },
   ]},
-  { group: "Users & Teams", items: [
-    { name: "Users", href: "/admin/users", icon: FiUsers },
-    { name: "Timeclock", href: "/admin/timeclock", icon: FiClock },
-    { name: "Geofences", href: "/admin/geofences", icon: FiMapPin },
+  { group: "Sync & Data", items: [
+    { name: "Books Scripts", href: "/admin/books-scripts", icon: FiCloud },
+    { name: "Invoices", href: "/admin/invoices", icon: FiFileText },
+    { name: "Custom Fields", href: "/admin/custom-fields", icon: FiDatabase },
+    { name: "Settings", href: "/admin/settings", icon: FiSettings },
+    { name: "Update Configs", href: "/admin/update-config", icon: FiSettings },
+    { name: "Orphaned Records", href: "/admin/orphaned-records", icon: FiTool },
+  ]},
+  { group: "Compensation", items: [
+    { name: "VIG Management", href: "/admin/vig", icon: FiSliders },
     { name: "Payouts", href: "/admin/payouts", icon: FiDollarSign },
     { name: "Payroll", href: "/admin/payroll", icon: FiCreditCard },
     { name: "Goals & Bonuses", href: "/admin/goals-bonuses", icon: FiAward },
     { name: "Rep Stats", href: "/admin/rep-stats", icon: FiBarChart2 },
   ]},
-  { group: "CRM & Operations", items: [
-    { name: "Vendors", href: "/admin/vendors", icon: FiTruck },
+  { group: "Sales Tools", items: [
     { name: "Sales Stages", href: "/admin/sales-stages", icon: FiTrendingUp },
-    { name: "Update Accounts", href: "/admin/update-accounts", icon: FiTarget },
-    { name: "Update Configs", href: "/admin/update-config", icon: FiSettings },
-    { name: "VIG Management", href: "/admin/vig", icon: FiSliders },
+    { name: "Scripts", href: "/admin/scripts", icon: FiFileText },
     { name: "Intro Offer Landing", href: "/admin/intro-offer", icon: FiZap },
-    { name: "Holidays", href: "/admin/holidays", icon: FiCalendar },
-    { name: "Invoices", href: "/admin/invoices", icon: FiFileText },
-    { name: "Shipping Audit", href: "/admin/shipping-audit", icon: FiPackage },
+    { name: "Update Accounts", href: "/admin/update-accounts", icon: FiTarget },
     { name: "Lead Discrepancies", href: "/admin/lead-discrepancies", icon: FiAlertTriangle },
+    { name: "Vendors", href: "/admin/vendors", icon: FiTruck },
   ]},
   { group: "Communications", items: [
     { name: "Campaigns", href: "/admin/campaigns", icon: FiMessageSquare },
-    { name: "Scripts", href: "/admin/scripts", icon: FiFileText },
     { name: "Comm Log", href: "/admin/communications", icon: FiActivity },
     { name: "Notification Templates", href: "/admin/notification-templates", icon: FiMessageSquare },
   ]},
-  { group: "System", items: [
-    { name: "Books Scripts", href: "/admin/books-scripts", icon: FiCloud },
-    { name: "Custom Fields", href: "/admin/custom-fields", icon: FiDatabase },
-    { name: "Settings", href: "/admin/settings", icon: FiSettings },
-    { name: "Orphaned Records", href: "/admin/orphaned-records", icon: FiTool },
-  ]}
+  { group: "Operations", items: [
+    { name: "Users", href: "/admin/users", icon: FiUsers },
+    { name: "Timeclock", href: "/admin/timeclock", icon: FiClock },
+    { name: "Geofences", href: "/admin/geofences", icon: FiMapPin },
+    { name: "Holidays", href: "/admin/holidays", icon: FiCalendar },
+    { name: "Shipping Audit", href: "/admin/shipping-audit", icon: FiPackage },
+    { name: "Image Manager", href: "/admin/image-manager", icon: FiActivity },
+  ]},
 ]
 
 

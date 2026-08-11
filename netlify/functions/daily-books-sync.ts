@@ -1,6 +1,9 @@
 import { schedule } from "@netlify/functions"
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./lib/zoho-auth"
 import { prisma } from "./lib/prisma"
+import { handler as processInvoiceCosts } from "./process-invoice-costs"
+import { handler as processSalesOrderCosts } from "./process-salesorder-costs"
+import { handler as processQuoteCosts } from "./process-quote-costs"
 import {
   detectConflict,
   syncInvoicePayments,
@@ -41,7 +44,16 @@ export const handler = schedule("0 6 * * *", async () => {
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
     let invoicesSynced = 0, sosSynced = 0, quotesSynced = 0
-    let conflictsFlagged = 0, pendingProcessed = 0
+    let conflictsFlagged = 0, pendingProcessed = 0, newRecordsCreated = 0
+
+    // Build account name map for resolving new documents
+    const allAccounts = await prisma.account.findMany({ select: { id: true, name: true, zohoId: true } })
+    const accountByZohoId = new Map<string, string>()
+    const accountByName = new Map<string, string>()
+    allAccounts.forEach(a => {
+      if (a.zohoId) accountByZohoId.set(a.zohoId, a.id)
+      accountByName.set(a.name.toLowerCase().trim(), a.id)
+    })
 
     // ── Pass 1: Process pendingZohoFetch queue ────────────────────────────
     // These were flagged by the real-time webhook and need a full detail pull.
@@ -99,11 +111,22 @@ export const handler = schedule("0 6 * * *", async () => {
         console.log(`Invoice page ${page}: ${invoices.length}`)
 
         for (const inv of invoices) {
-          const dbDoc = await prisma.invoice.findFirst({
+          let dbDoc = await prisma.invoice.findFirst({
             where: { zohoId: inv.invoice_id },
             select: { id: true, zohoId: true, status: true, items: true, lastSyncedAt: true, appModifiedAt: true, lastZohoModifiedTime: true }
           })
-          if (!dbDoc) continue
+          if (!dbDoc) {
+            // NEW: Create record for new Zoho invoice
+            const accountId = resolveAccountId(inv.customer_id, inv.customer_name, accountByZohoId, accountByName)
+            if (!accountId) { console.log(`Skipping invoice ${inv.invoice_id}: no matching account`); continue }
+            dbDoc = await prisma.invoice.upsert({
+              where: { zohoId: inv.invoice_id },
+              update: {},
+              create: { zohoId: inv.invoice_id, accountId, amount: parseFloat(inv.total || '0') || 0, status: inv.status || 'draft', issueDate: inv.date ? new Date(inv.date) : new Date(), items: {} }
+            })
+            newRecordsCreated++
+            console.log(`[daily-sync] Created new Invoice ${inv.invoice_id} for ${inv.customer_name}`)
+          }
           // Skip if already processed in Pass 1 (pendingZohoFetch already cleared)
           if (!dbDoc.lastSyncedAt || isStale(dbDoc.lastSyncedAt, inv.last_modified_time)) {
             const r = await syncFullDocument(token, baseUrl, "Invoice", inv.invoice_id, dbDoc, inv)
@@ -129,11 +152,21 @@ export const handler = schedule("0 6 * * *", async () => {
         console.log(`SalesOrder page ${page}: ${orders.length}`)
 
         for (const so of orders) {
-          const dbDoc = await prisma.salesOrder.findFirst({
+          let dbDoc = await prisma.salesOrder.findFirst({
             where: { zohoId: so.salesorder_id },
             select: { id: true, zohoId: true, status: true, items: true, lastSyncedAt: true, appModifiedAt: true, lastZohoModifiedTime: true }
           })
-          if (!dbDoc) continue
+          if (!dbDoc) {
+            const accountId = resolveAccountId(so.customer_id, so.customer_name, accountByZohoId, accountByName)
+            if (!accountId) { console.log(`Skipping SO ${so.salesorder_id}: no matching account`); continue }
+            dbDoc = await prisma.salesOrder.upsert({
+              where: { zohoId: so.salesorder_id },
+              update: {},
+              create: { zohoId: so.salesorder_id, accountId, amount: parseFloat(so.total || '0') || 0, status: so.status || 'draft', orderDate: so.date ? new Date(so.date) : new Date(), items: {} }
+            })
+            newRecordsCreated++
+            console.log(`[daily-sync] Created new SalesOrder ${so.salesorder_id} for ${so.customer_name}`)
+          }
           if (!dbDoc.lastSyncedAt || isStale(dbDoc.lastSyncedAt, so.last_modified_time)) {
             const r = await syncFullDocument(token, baseUrl, "SalesOrder", so.salesorder_id, dbDoc, so)
             if (r === "conflict") conflictsFlagged++
@@ -159,11 +192,21 @@ export const handler = schedule("0 6 * * *", async () => {
 
         for (const est of estimates) {
           if ((est.status || "").toLowerCase() !== "invoiced") continue
-          const dbDoc = await prisma.quote.findFirst({
+          let dbDoc = await prisma.quote.findFirst({
             where: { zohoId: est.estimate_id },
             select: { id: true, zohoId: true, status: true, items: true, lastSyncedAt: true, appModifiedAt: true, lastZohoModifiedTime: true }
           })
-          if (!dbDoc) continue
+          if (!dbDoc) {
+            const accountId = resolveAccountId(est.customer_id, est.customer_name, accountByZohoId, accountByName)
+            if (!accountId) { console.log(`Skipping estimate ${est.estimate_id}: no matching account`); continue }
+            dbDoc = await prisma.quote.upsert({
+              where: { zohoId: est.estimate_id },
+              update: {},
+              create: { zohoId: est.estimate_id, accountId, amount: parseFloat(est.total || '0') || 0, status: est.status || 'draft', quoteDate: est.date ? new Date(est.date) : new Date(), items: {} }
+            })
+            newRecordsCreated++
+            console.log(`[daily-sync] Created new Quote ${est.estimate_id} for ${est.customer_name}`)
+          }
           if (!dbDoc.lastSyncedAt || isStale(dbDoc.lastSyncedAt, est.last_modified_time)) {
             const r = await syncFullDocument(token, baseUrl, "Quote", est.estimate_id, dbDoc, est)
             if (r === "conflict") conflictsFlagged++
@@ -179,6 +222,7 @@ export const handler = schedule("0 6 * * *", async () => {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
     console.log(`=== Daily Books Sync Complete in ${elapsed}s ===`)
     console.log(`  Invoices: ${invoicesSynced} | SOs: ${sosSynced} | Quotes: ${quotesSynced}`)
+    console.log(`  New records created: ${newRecordsCreated}`)
     console.log(`  Pending processed: ${pendingProcessed} | Conflicts flagged: ${conflictsFlagged}`)
 
   } catch (err: any) {
@@ -187,6 +231,21 @@ export const handler = schedule("0 6 * * *", async () => {
 })
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
+
+/** Resolve account ID from Zoho customer_id or customer_name */
+function resolveAccountId(
+  customerZohoId: string | undefined,
+  customerName: string | undefined,
+  byZohoId: Map<string, string>,
+  byName: Map<string, string>
+): string | null {
+  if (customerZohoId && byZohoId.has(String(customerZohoId))) return byZohoId.get(String(customerZohoId))!
+  if (customerName) {
+    const key = customerName.toLowerCase().trim()
+    if (byName.has(key)) return byName.get(key)!
+  }
+  return null
+}
 
 /** Returns true if the local record is stale relative to Zoho's modified time */
 function isStale(lastSyncedAt: Date | null, zohoModTime: string | undefined): boolean {

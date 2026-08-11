@@ -226,8 +226,10 @@ export const handler: Handler = async (event) => {
 
     // ── Invoice / SalesOrder / Quote ────────────────────────────────────────
 
-    // Find the local record
+    // Find or create the local record
     let dbDoc: any = null
+    let isNewRecord = false
+
     if (type === "Invoice") {
       dbDoc = await prisma.invoice.findFirst({ where: { zohoId: booksId } })
     } else if (type === "SalesOrder") {
@@ -237,8 +239,130 @@ export const handler: Handler = async (event) => {
     }
 
     if (!dbDoc) {
-      console.log(`${type} ${booksId} not found in local DB — skipping webhook update`)
-      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: "Record not in local DB" }) }
+      // NEW: Record doesn't exist locally — create it
+      console.log(`[zoho-books-webhook] ${type} ${booksId} not in local DB — creating from webhook payload`)
+
+      // Resolve account: find by customer_id (Zoho contact ID) or customer_name
+      let accountId: string | null = null
+      const customerIdFromZoho = doc.customer_id || doc.contact_id || null
+      const customerName = (doc.customer_name || '').trim()
+
+      if (customerIdFromZoho) {
+        const account = await prisma.account.findFirst({ where: { zohoId: String(customerIdFromZoho) } })
+        if (account) accountId = account.id
+      }
+
+      // Fallback: match by name
+      if (!accountId && customerName) {
+        const account = await prisma.account.findFirst({
+          where: { name: { equals: customerName, mode: 'insensitive' } }
+        })
+        if (account) accountId = account.id
+      }
+
+      // If still no account, sync the specific customer from Zoho
+      if (!accountId && customerIdFromZoho) {
+        try {
+          const { getZohoAccessToken, ZOHO_ORGANIZATION_ID } = await import('./lib/zoho-auth')
+          const token = await getZohoAccessToken()
+          const zohoRes = await fetch(
+            `https://www.zohoapis.com/books/v3/contacts/${customerIdFromZoho}?organization_id=${ZOHO_ORGANIZATION_ID}`,
+            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+          )
+          if (zohoRes.ok) {
+            const contactData = await zohoRes.json()
+            const contact = contactData.contact || {}
+            
+            // We need a fallback ownerId for new accounts. Let's find any admin or default user.
+            const defaultOwner = await prisma.user.findFirst()
+            
+            if (defaultOwner) {
+              const newAccount = await prisma.account.upsert({
+                where: { zohoId: String(customerIdFromZoho) },
+                update: { name: contact.contact_name || customerName },
+                create: {
+                  zohoId: String(customerIdFromZoho),
+                  name: contact.contact_name || customerName || 'Unknown',
+                  status: 'active',
+                  ownerId: defaultOwner.id
+                }
+              })
+              accountId = newAccount.id
+              console.log(`[zoho-books-webhook] Synced new account: ${contact.contact_name} (${customerIdFromZoho})`)
+            }
+          }
+        } catch (e: any) {
+          console.error(`[zoho-books-webhook] Failed to sync account ${customerIdFromZoho}:`, e.message)
+        }
+      }
+
+      if (!accountId) {
+        console.error(`[zoho-books-webhook] Could not resolve account for ${type} ${booksId}, cannot create record.`)
+        return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: `Skipping: could not resolve account` }) }
+      }
+
+      // Create the document record
+      const amount = parseFloat(doc.sub_total || doc.total || '0') || 0
+      const issueDate = doc.date ? new Date(doc.date) : new Date()
+      const dueDate = doc.due_date ? new Date(doc.due_date) : null
+      const now = new Date()
+
+      try {
+        if (type === "Invoice") {
+          dbDoc = await prisma.invoice.upsert({
+            where: { zohoId: booksId },
+            update: {},
+            create: {
+              zohoId: booksId,
+              accountId: accountId,
+              amount,
+              status: doc.status || 'draft',
+              issueDate,
+              dueDate,
+              items: {},
+              lastSyncedAt: now,
+              appModifiedAt: now,
+              lastZohoModifiedTime: doc.last_modified_time ? new Date(doc.last_modified_time) : now,
+            }
+          })
+        } else if (type === "SalesOrder") {
+          dbDoc = await prisma.salesOrder.upsert({
+            where: { zohoId: booksId },
+            update: {},
+            create: {
+              zohoId: booksId,
+              accountId: accountId,
+              amount,
+              status: doc.status || 'draft',
+              orderDate: issueDate,
+              items: {},
+              lastSyncedAt: now,
+              appModifiedAt: now,
+              lastZohoModifiedTime: doc.last_modified_time ? new Date(doc.last_modified_time) : now,
+            }
+          })
+        } else if (type === "Quote") {
+          dbDoc = await prisma.quote.upsert({
+            where: { zohoId: booksId },
+            update: {},
+            create: {
+              zohoId: booksId,
+              accountId: accountId,
+              amount,
+              status: doc.status || 'draft',
+              items: {},
+              lastSyncedAt: now,
+              appModifiedAt: now,
+              lastZohoModifiedTime: doc.last_modified_time ? new Date(doc.last_modified_time) : now,
+            }
+          })
+        }
+        isNewRecord = true
+        console.log(`[zoho-books-webhook] Created new ${type} ${booksId} (account: ${accountId})`)
+      } catch (createErr: any) {
+        console.error(`[zoho-books-webhook] Failed to create ${type} ${booksId}:`, createErr.message)
+        return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, message: `Failed to create ${type}: ${createErr.message}` }) }
+      }
     }
 
     // ── Conflict check (Plan B) ─────────────────────────────────────────────
