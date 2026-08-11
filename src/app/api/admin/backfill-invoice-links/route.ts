@@ -4,7 +4,7 @@ import { getZohoAccessToken } from '@/lib/zoho-auth'
 import { sendDirectEmail } from '@/lib/notifications'
 
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
-const ORG_ID = process.env.ZOHO_ORG_ID
+const ORG_ID = process.env.ZOHO_ORG_ID || process.env.ZOHO_ORGANIZATION_ID
 
 // Process in smaller chunks to stay within Netlify's function timeout (~26s)
 // Each individual Zoho GET takes ~200-400ms, so ~50 per batch is safe
@@ -45,13 +45,14 @@ export async function POST(req: NextRequest) {
     for (const inv of invoices) {
       try {
         const res = await fetch(
-          `https://books.zoho.${ZOHO_DC}/api/v3/invoices/${inv.zohoId}?organization_id=${ORG_ID}`,
+          `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${inv.zohoId}?organization_id=${ORG_ID}`,
           { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
         )
 
         if (!res.ok) {
           errors++
-          if (errors <= 5) errorDetails.push(`${inv.zohoId}: HTTP ${res.status}`)
+          const errBody = await res.text().catch(() => 'no body')
+          if (errors <= 5) errorDetails.push(`${inv.zohoId}: HTTP ${res.status} - ${errBody.slice(0, 200)}`)
           // Mark it so we don't retry forever — set invoiceNumber to 'ERROR'
           await prisma.invoice.update({
             where: { id: inv.id },
