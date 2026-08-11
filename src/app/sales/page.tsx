@@ -137,6 +137,62 @@ function isDoNotCallAccount(account: any): boolean {
   return false
 }
 
+export function getExclusivityDetails(account: any, nowMs: number) {
+  const originDateStr = account.lastPurchaseAt || account.lastOrderDate || account.createdAt
+  const originTime = originDateStr ? new Date(originDateStr).getTime() : nowMs
+  const endMs = originTime + (365 * 24 * 60 * 60 * 1000)
+  const msLeft = endMs - nowMs
+
+  if (msLeft <= 0) {
+    return {
+      msLeft: 0,
+      daysLeft: 0,
+      category: "expired",
+      formatted: "UNLOCKED",
+      badgeClass: "bg-neutral-800 text-neutral-400 border-neutral-700",
+      textClass: "text-neutral-400 font-semibold",
+    }
+  }
+
+  const secondsTotal = Math.floor(msLeft / 1000)
+  const days = Math.floor(secondsTotal / 86400)
+  const hours = Math.floor((secondsTotal % 86400) / 3600)
+  const minutes = Math.floor((secondsTotal % 3600) / 60)
+  const seconds = secondsTotal % 60
+
+  const formatted = `${days}d ${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`
+
+  let category: "green" | "yellow" | "red" = "green"
+  let badgeClass = ""
+  let textClass = ""
+
+  if (days > 180) {
+    // Green: > 6 months left (> 180 days)
+    category = "green"
+    badgeClass = "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+    textClass = "text-emerald-400 font-bold"
+  } else if (days >= 90) {
+    // Yellow: 3 to 6 months left (90 to 180 days)
+    category = "yellow"
+    badgeClass = "bg-amber-500/15 text-amber-300 border-amber-500/30"
+    textClass = "text-amber-400 font-bold"
+  } else {
+    // Red: 1 to 3 months left (< 90 days)
+    category = "red"
+    badgeClass = "bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse"
+    textClass = "text-rose-400 font-bold"
+  }
+
+  return {
+    msLeft,
+    daysLeft: days,
+    category,
+    formatted,
+    badgeClass,
+    textClass,
+  }
+}
+
 export default function SalesPage() {
   const { isInitialized, zohoContext: currentUser } = useZoho()
   const { preferences, updatePreferences } = usePreferences()
@@ -159,7 +215,17 @@ export default function SalesPage() {
   const [ownerFilter, setOwnerFilter] = useState("All")
   const [timezoneFilter, setTimezoneFilter] = useState("All")
   const [yearFilter, setYearFilter] = useState("All")
-  const [sortBy, setSortBy] = useState<"default" | "timezone_asc" | "timezone_desc" | "recentOrders_desc" | "recentOrders_asc" | "ltv_desc" | "ltv_asc">("default")
+  const [exclusivityFilter, setExclusivityFilter] = useState("All")
+  const [nowMs, setNowMs] = useState<number>(() => Date.now())
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNowMs(Date.now())
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const [sortBy, setSortBy] = useState<"default" | "timezone_asc" | "timezone_desc" | "recentOrders_desc" | "recentOrders_asc" | "ltv_desc" | "ltv_asc" | "exclusivity_asc">("default")
   const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [showDoNotCall, setShowDoNotCall] = useState(false)
   const [ltvMin, setLtvMin] = useState("")
@@ -567,6 +633,14 @@ export default function SalesPage() {
       if (!matchesProduct) return false
     }
 
+    if (exclusivityFilter !== "All") {
+      const excl = getExclusivityDetails(account, nowMs)
+      if (exclusivityFilter === "green" && excl.category !== "green") return false
+      if (exclusivityFilter === "yellow" && excl.category !== "yellow") return false
+      if (exclusivityFilter === "red" && excl.category !== "red") return false
+      if (exclusivityFilter === "expired" && excl.category !== "expired") return false
+    }
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       const nameMatch = account.name?.toLowerCase().includes(q)
@@ -583,6 +657,11 @@ export default function SalesPage() {
 
     return true
   }).sort((a, b) => {
+    if (sortBy === "exclusivity_asc") {
+      const msA = getExclusivityDetails(a, nowMs).msLeft
+      const msB = getExclusivityDetails(b, nowMs).msLeft
+      return msA - msB
+    }
     if (sortBy === "timezone_asc") return (a.timeZone || "").localeCompare(b.timeZone || "")
     if (sortBy === "timezone_desc") return (b.timeZone || "").localeCompare(a.timeZone || "")
     if (sortBy === "recentOrders_desc") return new Date(b.lastOrderDate || 0).getTime() - new Date(a.lastOrderDate || 0).getTime()
@@ -615,6 +694,7 @@ export default function SalesPage() {
     setIndustryFilter("All")
     setTimezoneFilter("All")
     setQualityFilter("All")
+    setExclusivityFilter("All")
     setYearFilter("All")
     setOnlyWithSales(false)
     setLtvMin("")
@@ -632,6 +712,7 @@ export default function SalesPage() {
     (industryFilter !== "All" ? 1 : 0) +
     (timezoneFilter !== "All" ? 1 : 0) +
     (qualityFilter !== "All" ? 1 : 0) +
+    (exclusivityFilter !== "All" ? 1 : 0) +
     (yearFilter !== "All" ? 1 : 0) +
     (onlyWithSales ? 1 : 0) +
     (productSearch ? 1 : 0) +
@@ -798,7 +879,7 @@ export default function SalesPage() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="page-title">Sales Pipeline</h1>
+                  <h1 className="page-title">My Sales Pipeline</h1>
                   <Link
                     href="/sales/leads-calling"
                     className="px-2.5 py-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold rounded-lg text-[10px] flex items-center gap-1.5 shadow-md transition-all"
@@ -868,7 +949,7 @@ export default function SalesPage() {
                 <FiTrendingUp size={18} />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-xs font-bold tracking-tight text-white truncate">Sales Pipeline</h3>
+                <h3 className="text-xs font-bold tracking-tight text-white truncate">My Sales Pipeline</h3>
                 <p className="text-[11px] text-neutral-400 truncate mt-0.5">Manage accounts &amp; deals</p>
               </div>
               <div className="shrink-0 flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded-md text-[11px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
@@ -1284,13 +1365,27 @@ export default function SalesPage() {
                                   {allTimezones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
                                 </select>
 
+                                {/* Inline Exclusivity Filter */}
+                                <select
+                                  value={exclusivityFilter}
+                                  onChange={(e) => setExclusivityFilter(e.target.value)}
+                                  className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-amber-500 focus:outline-none cursor-pointer max-w-[150px]"
+                                >
+                                  <option value="All">All Exclusivity</option>
+                                  <option value="green">🟢 &gt; 6 Mos Left</option>
+                                  <option value="yellow">🟡 3-6 Mos Left</option>
+                                  <option value="red">🔴 1-3 Mos Left</option>
+                                  <option value="expired">⚪ Unlocked (&lt; 0d)</option>
+                                </select>
+
                                 {/* Inline Sort By */}
                                 <select
                                   value={sortBy}
                                   onChange={(e) => setSortBy(e.target.value as any)}
-                                  className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none cursor-pointer max-w-[140px]"
+                                  className="bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-neutral-200 focus:border-emerald-500 focus:outline-none cursor-pointer max-w-[160px]"
                                 >
                                   <option value="default">Sort: Default</option>
+                                  <option value="exclusivity_asc">Sort: Closest to Losing</option>
                                   <option value="ltv_desc">Sort: High LTV ($)</option>
                                   <option value="ltv_asc">Sort: Low LTV ($)</option>
                                   <option value="timezone_asc">Sort: Time Zone</option>
@@ -1361,6 +1456,13 @@ export default function SalesPage() {
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[11px] font-medium">
                                     Timezone: {timezoneFilter}
                                     <button onClick={() => setTimezoneFilter("All")} className="hover:text-white ml-0.5">×</button>
+                                  </span>
+                                )}
+
+                                {exclusivityFilter !== "All" && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[11px] font-medium">
+                                    Exclusivity: {exclusivityFilter === "green" ? "> 6 Mos" : exclusivityFilter === "yellow" ? "3-6 Mos" : exclusivityFilter === "red" ? "1-3 Mos" : "Unlocked"}
+                                    <button onClick={() => setExclusivityFilter("All")} className="hover:text-white ml-0.5">×</button>
                                   </span>
                                 )}
 
@@ -1515,16 +1617,35 @@ export default function SalesPage() {
                                           </div>
                                         </div>
                                       </div>
-                                      <div className="hidden sm:flex flex-col text-right shrink-0 min-w-[130px]">
-                                        <p className="text-sm font-bold text-emerald-400">
-                                          ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)}
-                                        </p>
-                                        <p className="text-[10px] text-neutral-500 mt-0.5">Total Sales</p>
-                                        <div className="text-[11px] font-semibold text-purple-300 mt-1 flex items-center justify-end gap-1">
-                                          <FiClock size={11} className="text-purple-400" />
-                                          <span>{formatLastCalled(account.lastCalledAt)}</span>
-                                        </div>
-                                      </div>
+                                       {/* Exclusivity Countdown Clock */}
+                                       <div className="hidden md:flex items-center shrink-0">
+                                         {(() => {
+                                           const excl = getExclusivityDetails(account, nowMs)
+                                           return (
+                                             <div
+                                               title={`Account Exclusivity Countdown: ${excl.daysLeft} days left before account becomes unlocked / reassignable`}
+                                               className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border font-mono tracking-tight shrink-0 transition-all ${excl.badgeClass}`}
+                                             >
+                                               <FiClock size={13} className={excl.textClass} />
+                                               <div className="flex flex-col text-left">
+                                                 <span className="text-[9px] font-sans font-bold uppercase tracking-wider opacity-75 leading-none">Exclusivity</span>
+                                                 <span className={`text-xs font-black ${excl.textClass}`}>{excl.formatted}</span>
+                                               </div>
+                                             </div>
+                                           )
+                                         })()}
+                                       </div>
+
+                                       <div className="hidden sm:flex flex-col text-right shrink-0 min-w-[130px]">
+                                         <p className="text-sm font-bold text-emerald-400">
+                                           ${ltv >= 1000000 ? `${(ltv / 1000000).toFixed(1)}M` : ltv >= 1000 ? `${(ltv / 1000).toFixed(1)}k` : ltv.toFixed(0)}
+                                         </p>
+                                         <p className="text-[10px] text-neutral-500 mt-0.5">Total Sales</p>
+                                         <div className="text-[11px] font-semibold text-purple-300 mt-1 flex items-center justify-end gap-1">
+                                           <FiClock size={11} className="text-purple-400" />
+                                           <span>{formatLastCalled(account.lastCalledAt)}</span>
+                                         </div>
+                                       </div>
                                       <div className="flex items-center gap-2 shrink-0">
                                         {hasPhone && (
                                           <Link
