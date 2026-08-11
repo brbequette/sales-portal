@@ -8,6 +8,7 @@ import {
   FiCheckCircle, FiList, FiActivity, FiTrendingUp, FiRefreshCw,
   FiExternalLink, FiFlag, FiMessageSquare
 } from "react-icons/fi"
+import { getZohoBooksUrl } from "@/lib/zoho-urls"
 import { useZoho } from "@/components/ZohoProvider"
 import { toast } from "react-hot-toast"
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
@@ -778,7 +779,7 @@ Thank you for your time — we appreciate your business and look forward to keep
                         cls:   "border-neutral-700 text-neutral-300 hover:bg-white/5",
                         action: () => {
                           if (activeAccount.invoices[0]?.books_invoice_id) {
-                            window.open(`https://books.zoho.com/app/titandiamondllc#/invoices/${activeAccount.invoices[0].books_invoice_id}`, "_blank", "noopener")
+                            window.open(getZohoBooksUrl('invoices', activeAccount.invoices[0].books_invoice_id), "_blank", "noopener")
                           }
                         }
                       },

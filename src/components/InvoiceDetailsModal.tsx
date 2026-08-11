@@ -8,6 +8,7 @@ import { usePreferences } from "@/components/PreferencesProvider"
 import { createPortal } from "react-dom"
 import Link from "next/link"
 import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight, FiCheckSquare, FiExternalLink } from "react-icons/fi"
+import { getZohoBooksUrl } from "@/lib/zoho-urls"
 import { CreatePackageModal } from "./CreatePackageModal"
 import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
 import { RecordPaymentModal } from "./RecordPaymentModal"
@@ -520,7 +521,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 <div className="flex items-center gap-2">
                   <p className="text-[10px] text-neutral-400 font-mono truncate">Zoho ID: {zohoId}</p>
                   <a
-                    href={`https://books.zoho.com/app/685934575#/${currentType === 'Quote' ? 'estimates' : currentType === 'SalesOrder' ? 'salesorders' : 'invoices'}/${zohoId}`}
+                    href={getZohoBooksUrl(currentType, zohoId)}
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center gap-1 text-[9px] font-bold uppercase text-sky-400 hover:text-sky-300 hover:underline bg-sky-950/40 border border-sky-500/30 px-1.5 py-0.5 rounded transition-colors"
@@ -1007,7 +1008,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
 
                         {pmt.payment_id && (
                           <a
-                            href={`https://books.zoho.com/app/685934575#/customerpayments/${pmt.payment_id}`}
+                            href={getZohoBooksUrl('customerpayments', pmt.payment_id)}
                             target="_blank"
                             rel="noreferrer"
                             className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 hover:underline bg-emerald-950/40 border border-emerald-500/30 px-2 py-1 rounded transition-colors"
@@ -1055,7 +1056,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                           <div className="text-sm font-bold text-white flex items-center gap-2">
                             PKG: {packageId ? (
                               <a
-                                href={`https://books.zoho.com/app/685934575#/packages/${packageId}`}
+                                href={getZohoBooksUrl('packages', packageId)}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-sky-400 hover:text-sky-300 hover:underline flex items-center gap-1"

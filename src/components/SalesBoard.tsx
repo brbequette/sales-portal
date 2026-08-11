@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo, useRef } from "react"
 import dynamic from "next/dynamic"
 import { FiTrendingUp, FiDollarSign, FiTarget, FiActivity, FiAward, FiClock, FiStar, FiMaximize, FiMinimize, FiPlay, FiPause, FiChevronLeft, FiChevronRight, FiAlertCircle, FiSliders } from "react-icons/fi"
+import { getZohoBooksUrl } from "@/lib/zoho-urls"
 
 const KpiBreakdownModal = dynamic(
   () => import("./KpiBreakdownModal").then((mod) => mod.KpiBreakdownModal),
@@ -869,7 +870,7 @@ export function SalesBoard() {
                                            <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                            <td className="p-2">
                                               <a 
-                                                href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                                href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                                 target="_blank" 
                                                 rel="noopener noreferrer"
                                                 className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
@@ -877,7 +878,7 @@ export function SalesBoard() {
                                                 {inv.customer}
                                               </a>
                                               <a 
-                                                href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                                href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                                 target="_blank" 
                                                 rel="noopener noreferrer"
                                                 className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"
@@ -1097,7 +1098,7 @@ export function SalesBoard() {
                                         <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                         <td className="p-2">
                                            <a 
-                                             href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                             href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                              target="_blank" 
                                              rel="noopener noreferrer"
                                              className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
@@ -1105,7 +1106,7 @@ export function SalesBoard() {
                                              {inv.customer}
                                            </a>
                                            <a 
-                                             href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                             href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                              target="_blank" 
                                              rel="noopener noreferrer"
                                              className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"
@@ -1197,7 +1198,7 @@ export function SalesBoard() {
                                         <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                         <td className="p-2">
                                            <a 
-                                             href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                             href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                              target="_blank" 
                                              rel="noopener noreferrer"
                                              className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
@@ -1205,7 +1206,7 @@ export function SalesBoard() {
                                              {inv.customer}
                                            </a>
                                            <a 
-                                             href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                             href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                              target="_blank" 
                                              rel="noopener noreferrer"
                                              className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"
@@ -1315,7 +1316,7 @@ export function SalesBoard() {
                                          </td>
                                          <td className="p-2">
                                             <a 
-                                              href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                              href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                               target="_blank" 
                                               rel="noopener noreferrer"
                                               className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
@@ -1323,7 +1324,7 @@ export function SalesBoard() {
                                               {inv.customer}
                                             </a>
                                             <a 
-                                              href={`https://books.zoho.com/app/685934575#/invoices/${inv.zohoId || inv.id}`} 
+                                              href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
                                               target="_blank" 
                                               rel="noopener noreferrer"
                                               className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"

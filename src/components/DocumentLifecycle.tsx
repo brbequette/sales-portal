@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { FiFileText, FiShoppingBag, FiTruck, FiBox, FiDollarSign, FiCheckCircle } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
+import { getZohoBooksUrl } from "@/lib/zoho-urls"
 
 interface DocumentLifecycleProps {
   zohoId: string
@@ -65,17 +66,17 @@ export function DocumentLifecycle({ zohoId, type, onNavigateDoc }: DocumentLifec
     const id = data.zohoId || data.id || data.package_id || data.payment_id || data.purchaseorder_id
 
     if (docType === 'Package' && (data.package_id || data.id)) {
-      window.open(`https://books.zoho.com/app/685934575#/packages/${data.package_id || data.id}`, '_blank')
+      window.open(getZohoBooksUrl('packages', data.package_id || data.id), '_blank')
       return
     }
 
     if (docType === 'Payment' && (data.payment_id || data.id)) {
-      window.open(`https://books.zoho.com/app/685934575#/customerpayments/${data.payment_id || data.id}`, '_blank')
+      window.open(getZohoBooksUrl('customerpayments', data.payment_id || data.id), '_blank')
       return
     }
 
     if (docType === 'Purchase Order' && (data.purchaseorder_id || data.id)) {
-      window.open(`https://books.zoho.com/app/685934575#/purchaseorders/${data.purchaseorder_id || data.id}`, '_blank')
+      window.open(getZohoBooksUrl('purchaseorders', data.purchaseorder_id || data.id), '_blank')
       return
     }
 
