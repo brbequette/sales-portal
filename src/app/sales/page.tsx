@@ -20,6 +20,7 @@ import { PhoneLink } from "@/components/PhoneLink"
 import { usePreferences } from "@/components/PreferencesProvider"
 import { DealPipeline } from "@/components/DealPipeline"
 import { ExclusivityCountdown } from "@/components/ExclusivityCountdown"
+import { CallTaskSidebar } from "@/components/CallTaskSidebar"
 
 
 import { FiSearch, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiUser, FiChevronRight, FiCheckCircle, FiFileText, FiPhoneCall, FiPhone, FiMail, FiMessageSquare, FiX, FiRefreshCw, FiFilter, FiPlus, FiEdit, FiCalendar, FiCheck, FiAlertCircle, FiBox, FiLayers, FiEye, FiTarget, FiImage, FiUserPlus } from "react-icons/fi"
@@ -1793,135 +1794,16 @@ export default function SalesPage() {
                   </div>
 
                   {/* Right Column: Tasks List */}
-                <div className={`w-full lg:w-72 xl:w-80 2xl:w-96 shrink-0 space-y-4 lg:sticky lg:top-4 ${mobileTab === 'tasks' ? 'block' : 'hidden lg:block'}`}>
-                  <div className="bg-neutral-900/60 rounded-2xl border border-white/10 p-4 space-y-4 shadow-xl">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-base font-bold text-white flex items-center gap-2">
-                        <FiCheckCircle className="text-emerald-400" />
-                        <span>Call Tasks & Follow-ups</span>
-                        <span className="text-xs font-normal text-neutral-400">({effortTasks.length})</span>
-                      </h2>
-                      <button
-                        onClick={() => {
-                          setEditingTask(null)
-                          setTaskSubject("")
-                          setTaskDescription("")
-                          setTaskPriority("Normal")
-                          setTaskStatus("Not Started")
-                          setTaskWhatId("")
-                          setTaskInvoiceId("")
-                          setTaskSalesOrderId("")
-                          setTaskQuoteId("")
-                          setTaskEstimateId("")
-                          setTaskDueDate(new Date().toISOString().split("T")[0])
-                          setTaskDueTime("12:00")
-                          setShowEditTaskModal(true)
-                        }}
-                        className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer flex items-center justify-center shrink-0"
-                        title="Add New Task"
-                      >
-                        <FiPlus size={14} />
-                      </button>
-                    </div>
-
-                    {/* Task Filters tabs */}
-                    <div className="grid grid-cols-4 bg-black/40 border border-white/5 p-0.5 rounded-lg text-[10px] font-bold text-center">
-                      {["due", "pending", "completed", "all"].map((tab) => (
-                        <button
-                          key={tab}
-                          onClick={() => setTaskFilterTab(tab as any)}
-                          className={`py-1 rounded capitalize transition-all ${
-                            taskFilterTab === tab 
-                              ? "bg-neutral-800 text-white shadow-sm" 
-                              : "text-neutral-500 hover:text-neutral-300"
-                          }`}
-                        >
-                          {tab}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Tasks List */}
-                    <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
-                      {tasksPagination.paginatedItems.length === 0 ? (
-                        <div className="p-8 text-center text-xs text-neutral-500 font-medium">
-                          No tasks in this category.
-                        </div>
-                      ) : (
-                        tasksPagination.paginatedItems.map((t: any) => {
-                          const isOverdue = t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "Completed"
-                          const associatedAcc = accounts.find(a => a.id === t.accountId || a.zohoId === t.accountId)
-                          return (
-                            <div key={t.id} className="p-3 bg-white/[0.02] border border-white/5 rounded-xl space-y-2 hover:border-white/10 transition-colors">
-                              <div className="flex items-start gap-2.5">
-                                <button
-                                  onClick={() => handleCompleteTask(t)}
-                                  disabled={t.status === "Completed"}
-                                  className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 cursor-pointer transition-all ${
-                                    t.status === "Completed" 
-                                      ? "bg-emerald-500 border-emerald-500 text-white" 
-                                      : "border-neutral-600 hover:border-neutral-400"
-                                  }`}
-                                >
-                                  {t.status === "Completed" && <FiCheck size={10} />}
-                                </button>
-                                
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <h4 className={`text-xs font-bold text-white truncate ${t.status === "Completed" ? "line-through text-neutral-500" : ""}`}>
-                                      {t.subject || t.title}
-                                    </h4>
-                                    <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase shrink-0 ${
-                                      t.priority === "High" ? "bg-red-500/10 text-red-400 border-red-500/20" :
-                                      t.priority === "Low" ? "bg-neutral-800 text-neutral-400 border-neutral-700" :
-                                      "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                                    }`}>
-                                      {t.priority}
-                                    </span>
-                                  </div>
-
-                                  {t.description && (
-                                    <p className="text-[10px] text-neutral-400 mt-1 leading-relaxed line-clamp-2">
-                                      {t.description}
-                                    </p>
-                                  )}
-
-                                  {/* Associated entity metadata */}
-                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-[9px] text-neutral-500 font-medium">
-                                    {associatedAcc && (
-                                      <Link 
-                                        href={`/account?id=${associatedAcc.zohoId}`} 
-                                        className="text-emerald-400 hover:underline flex items-center gap-0.5"
-                                      >
-                                        <FiUser size={10} />
-                                        <span className="truncate max-w-[120px]">{associatedAcc.name}</span>
-                                      </Link>
-                                    )}
-
-                                    {t.dueDate && (
-                                      <span className={`flex items-center gap-0.5 ${isOverdue ? "text-red-400 font-bold" : ""}`}>
-                                        <FiCalendar size={10} />
-                                        {new Date(t.dueDate).toLocaleDateString(undefined, {month: "short", day: "numeric"})}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex justify-end gap-1.5 pt-1.5 border-t border-white/5">
-                                <button
-                                  onClick={() => handleOpenEditTask(t)}
-                                  className="px-2 py-0.5 rounded text-[9px] font-bold bg-neutral-850 hover:bg-neutral-750 text-neutral-300 transition-colors cursor-pointer border border-white/5"
-                                >
-                                  Edit
-                                </button>
-                              </div>
-                            </div>
-                          )
-                        })
-                      )}
-                    </div>
-                  </div>
+                <div className={`w-full lg:w-72 xl:w-80 2xl:w-96 shrink-0 lg:sticky lg:top-4 ${mobileTab === 'tasks' ? 'block' : 'hidden lg:block'}`}>
+                  <CallTaskSidebar
+                    tasks={tasks}
+                    setTasks={setTasks}
+                    accounts={accounts}
+                    ownerFilter={ownerFilter}
+                    currentUserId={dbUser?.id || currentUser?.id || ""}
+                    mobileTab={mobileTab}
+                    onRefresh={() => fetchLocalData(1, false)}
+                  />
                 </div>
 
               </div>
