@@ -305,6 +305,26 @@ export default function CommissionsPage() {
     return { pendingCommission: pending, atRiskInvoices: atRisk, clawbackTotals: clawTotals }
   }, [currentRepData, clawbackSettings])
 
+  // Year-to-date totals — always computed from full year data regardless of period filter
+  const ytdTotals = useMemo(() => {
+    if (!currentRepData?.invoices) return { earned: 0, pending: 0, total: 0, profit: 0, deals: 0, paid: 0 }
+    const allInvoices = currentRepData.invoices || []
+    let earned = 0, pending = 0, profit = 0
+    for (const inv of allInvoices) {
+      earned += inv.commission?.total || 0
+      pending += inv.commission?.future || 0
+      profit += inv.profit || 0
+    }
+    return {
+      earned,
+      pending,
+      total: earned + pending,
+      profit,
+      deals: allInvoices.length,
+      paid: currentRepData?.totalPaid || 0,
+    }
+  }, [currentRepData])
+
   // Auto-expand first week on change
   useEffect(() => {
     if (weeklyGroups.length > 0 && Object.keys(expandedWeeks).length === 0) {
@@ -440,6 +460,36 @@ export default function CommissionsPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* YTD Summary Bar */}
+              <div className="glass-panel rounded-xl border border-indigo-500/20 px-5 py-3 flex flex-wrap items-center gap-x-8 gap-y-2">
+                <div className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mr-2">YTD {selectedYear}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase text-neutral-500">Earned</span>
+                  <span className="text-sm font-bold text-emerald-400 tabular-nums">{fmt(ytdTotals.earned)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase text-neutral-500">Pending</span>
+                  <span className="text-sm font-bold text-violet-400 tabular-nums">{fmt(ytdTotals.pending)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase text-neutral-500">Total</span>
+                  <span className="text-sm font-black text-white tabular-nums">{fmt(ytdTotals.total)}</span>
+                </div>
+                <div className="w-px h-5 bg-white/10 hidden sm:block" />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase text-neutral-500">Paid Out</span>
+                  <span className="text-sm font-bold text-indigo-400 tabular-nums">{fmt(ytdTotals.paid)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase text-neutral-500">Profit</span>
+                  <span className="text-sm font-bold text-sky-400 tabular-nums">{fmt(ytdTotals.profit)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase text-neutral-500">Deals</span>
+                  <span className="text-sm font-bold text-neutral-300 tabular-nums">{ytdTotals.deals}</span>
+                </div>
               </div>
 
               {/* Expanded KPI Breakdown by Week */}
