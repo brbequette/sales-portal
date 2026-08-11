@@ -929,7 +929,6 @@ export default function SalesPage() {
                   }}
                   className="bg-black/40 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                 >
-                  <option value="all">🏢 All Sales Reps / Company Totals</option>
                   {allDbUsers.filter(u => u.name && !u.email?.includes("dummy.titandiamond.com") && !u.email?.includes("example.com")).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')).map((u: any) => (
                     <option key={u.id} value={u.id}>
                       {u.name} {u.role?.toLowerCase().includes('admin') ? '(Admin)' : ''}
@@ -940,8 +939,10 @@ export default function SalesPage() {
             )}
           </div>
 
-          {/* Sub-header Tabs Navigation */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 mb-6">
+          {/* Page Body */}
+          <div className="page-body space-y-6 pb-24">
+            {/* Sub-header Tabs Navigation */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
             
             {/* Sales Pipeline Tab */}
             <button
@@ -1585,8 +1586,8 @@ export default function SalesPage() {
                               </div>
                             )}
 
-                            {/* List Items - scrollable */}
-                            <ul className="divide-y divide-white/5 overflow-y-auto max-h-[600px] xl:max-h-[680px]">
+                            {/* List Items */}
+                            <ul className="divide-y divide-white/5">
                               {accountsPagination.paginatedItems.map(account => {
                                 const isSelected = selectedAccountIds.includes(account.id)
                                 const ltv = account.totalSales || 0
@@ -1933,19 +1934,6 @@ export default function SalesPage() {
                         })
                       )}
                     </div>
-
-                    {/* Tasks Pagination */}
-                    {filteredTasksList.length > 25 && (
-                      <div className="pt-2 border-t border-white/5">
-                        <Pagination
-                          currentPage={tasksPagination.currentPage}
-                          pageSize={tasksPagination.pageSize}
-                          totalItems={filteredTasksList.length}
-                          onPageChange={tasksPagination.setCurrentPage}
-                          onPageSizeChange={tasksPagination.setPageSize}
-                        />
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -1953,7 +1941,8 @@ export default function SalesPage() {
             </>
           )}
 
-        </div>
+          </div> {/* end page-body */}
+        </div> {/* end page-content */}
 
       {/* Invoice Details Modal */}
       {viewingInvoice && (
