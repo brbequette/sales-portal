@@ -57,7 +57,7 @@ export const CANONICAL_FIELD_CATALOG: Record<string, Record<string, string>> = {
 };
 
 import exemptCatalog from "./exempt-catalog.json";
-import { isSwagItem, isGiftItem, isNoVigItem } from '../../netlify/functions/lib/cost-calculations'
+import { isSwagItem, isGiftItem, isNoVigItem } from './cost-calculations';
 
 /**
  * Check if a line item is exempt from VIG (No VIG) based on cf_subject_to_sales_markup,

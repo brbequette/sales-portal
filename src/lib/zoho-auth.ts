@@ -12,4 +12,4 @@ export {
   pushZohoNote,
   ZOHO_DC,
   ZOHO_ORGANIZATION_ID,
-} from '../../netlify/functions/lib/zoho-auth'
+} from '../../netlify/functions/lib/zoho-auth';
