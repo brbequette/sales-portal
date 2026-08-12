@@ -2,7 +2,7 @@
   package = "@netlify/plugin-nextjs"
 
 [build]
-  command = "npx prisma db push && npm run build"
+  command = "npm run build"
   publish = ".next"
 
 
