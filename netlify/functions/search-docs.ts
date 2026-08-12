@@ -1,6 +1,33 @@
 import { Handler } from '@netlify/functions'
 import { prisma, Prisma } from './lib/prisma'
 
+const getStoredDocumentUrl = (items: unknown): string | null => {
+  if (!items || typeof items !== 'object' || Array.isArray(items)) return null
+
+  const record = items as Record<string, unknown>
+  const candidates = [
+    record.invoice_url,
+    record.estimate_url,
+    record.quote_url,
+    record.salesorder_url,
+    record.sales_order_url,
+    record.document_url,
+    record.permalink,
+    record.url,
+  ]
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string' || !candidate.trim()) continue
+
+    try {
+      const url = new URL(candidate)
+      if (url.protocol === 'https:' || url.protocol === 'http:') return url.toString()
+    } catch {}
+  }
+
+  return null
+}
+
 export const handler: Handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -115,7 +142,8 @@ export const handler: Handler = async (event) => {
           COALESCE(u.name, 'Unknown Rep')                                    AS rep_name,
           COALESCE(${Prisma.raw(dateExpr)}, i."createdAt")                   AS doc_date,
           COALESCE(i.amount, 0)                                              AS amount,
-          COALESCE(i.status, 'Draft')                                        AS status
+          COALESCE(i.status, 'Draft')                                        AS status,
+          i.items                                                            AS items
         FROM ${Prisma.raw(table)} i
         LEFT JOIN "Account" a ON a.id = i."accountId"
         LEFT JOIN "User"    u ON u.id = a."ownerId"
@@ -158,6 +186,8 @@ export const handler: Handler = async (event) => {
       date:         r.doc_date instanceof Date ? r.doc_date.toISOString() : String(r.doc_date ?? ''),
       amount:       Number(r.amount) || 0,
       status:       r.status,
+      items:        r.items,
+      documentUrl:  getStoredDocumentUrl(r.items),
     }))
 
     return {
