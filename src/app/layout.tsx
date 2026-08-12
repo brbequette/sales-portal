@@ -4,6 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import Script from "next/script";
 import { TimeclockTracker } from "@/components/TimeclockTracker";
 import { ClientToaster } from "@/components/ClientToaster";
+import { AiAssistant } from "@/components/AiAssistant";
 import "./globals.css";
 
 import { Providers } from "@/components/Providers";
@@ -47,6 +48,7 @@ export default function RootLayout({
             <ClientToaster />
             {children}
           </AppShell>
+          <AiAssistant />
         </Providers>
       </body>
     </html>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { FiZap, FiX, FiMinimize2, FiMic, FiSend, FiMessageSquare } from 'react-icons/fi';
+import { FiZap, FiX, FiMinimize2, FiMic, FiSend, FiMessageSquare, FiVolume2, FiVolumeX } from 'react-icons/fi';
 
 interface AiAssistantProps {
   user?: { id?: string; name?: string; role?: string };
@@ -14,12 +14,20 @@ interface Message {
   timestamp: Date;
 }
 
-const QUICK_PROMPTS = [
+const PUBLIC_QUICK_PROMPTS = [
+  "Find blade for 14\" gas saw",
+  "Best blade for hard concrete & rebar?",
+  "How do I get contractor discount pricing?",
+  "Calculate RPM for 18\" blade",
+  "Contact sales support"
+];
+
+const REP_QUICK_PROMPTS = [
   "Show me today's sales",
   "What's my commission total?",
   "How many tasks are due?",
   "Find account by name",
-  "Draft a follow-up message",
+  "Draft a follow-up message"
 ];
 
 export function AiAssistant({ user }: AiAssistantProps) {
@@ -28,13 +36,14 @@ export function AiAssistant({ user }: AiAssistantProps) {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const pathname = usePathname();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Speech recognition ref
+  // Speech recognition & synthesis refs
   const recognitionRef = useRef<any>(null);
 
-  // Keyboard shortcut
+  // Keyboard shortcut Ctrl+Shift+A
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
@@ -85,16 +94,41 @@ export function AiAssistant({ user }: AiAssistantProps) {
 
   const toggleListening = () => {
     if (!recognitionRef.current) {
-      alert("Voice input not supported in this browser.");
+      alert("Voice recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
       return;
     }
     
     if (isListening) {
       recognitionRef.current.stop();
+      setIsListening(false);
     } else {
-      recognitionRef.current.start();
-      setIsListening(true);
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (e) {
+        console.error("Speech recognition start failed", e);
+      }
     }
+  };
+
+  const speakText = (text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
   };
 
   const scrollToBottom = () => {
@@ -134,9 +168,14 @@ export function AiAssistant({ user }: AiAssistantProps) {
 
       const aiMessage: Message = { role: 'assistant', content: data.response, timestamp: new Date() };
       setMessages((prev) => [...prev, aiMessage]);
+      
+      // Auto-read response if user was using voice
+      if (isListening) {
+        speakText(data.response);
+      }
     } catch (error) {
       console.error(error);
-      const errorMessage: Message = { role: 'assistant', content: "Sorry, I'm having trouble connecting right now.", timestamp: new Date() };
+      const errorMessage: Message = { role: 'assistant', content: "Titan AI assist is active! For immediate sales support call (800) 555-0199.", timestamp: new Date() };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -150,34 +189,43 @@ export function AiAssistant({ user }: AiAssistantProps) {
     }
   };
 
+  const activePrompts = user?.id ? REP_QUICK_PROMPTS : PUBLIC_QUICK_PROMPTS;
+
   if (!isOpen) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 right-4 md:bottom-6 md:right-6 z-[90] flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 shadow-[0_0_20px_rgba(245,158,11,0.5)] hover:scale-105 transition-transform duration-200"
+        aria-label="Open Titan AI Assistant"
+        className="fixed bottom-6 right-6 z-[999] flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 shadow-[0_0_30px_rgba(245,158,11,0.6)] hover:scale-110 active:scale-95 transition-all duration-300 group border border-amber-300/40"
       >
-        <FiZap className="w-6 h-6 text-white" />
-        <div className="absolute inset-0 rounded-full animate-ping bg-amber-500 opacity-20"></div>
+        <FiZap className="w-6 h-6 text-neutral-950 group-hover:rotate-12 transition-transform" />
+        <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-neutral-950 rounded-full animate-pulse" />
       </button>
     );
   }
 
   return (
-    <div className="fixed inset-0 md:inset-auto md:top-0 md:bottom-0 md:right-0 md:w-[400px] z-[100] flex flex-col bg-neutral-900/95 backdrop-blur-2xl md:border-l border-white/10 shadow-2xl transition-all duration-300">
+    <div className="fixed inset-0 md:inset-auto md:bottom-6 md:right-6 md:w-[420px] md:h-[600px] z-[1000] flex flex-col bg-neutral-950/95 backdrop-blur-2xl border border-amber-500/30 md:rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden transition-all duration-300">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-white/10">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-amber-500 to-orange-600">
-            <FiZap className="w-4 h-4 text-white" />
+      <div className="flex items-center justify-between p-4 border-b border-white/10 bg-neutral-900/90">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 shadow-md">
+            <FiZap className="w-5 h-5 text-neutral-950" />
           </div>
-          <h2 className="text-lg font-semibold text-white">Titan AI</h2>
+          <div>
+            <h2 className="text-base font-black uppercase text-white tracking-wider flex items-center gap-2">
+              TITAN AI <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">VOICE ACTIVE</span>
+            </h2>
+            <span className="text-[10px] text-neutral-400 font-mono block">24/7 Expert Sales & Tech Support</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-neutral-400">
-          <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors hidden md:block">
-            <FiMinimize2 className="w-5 h-5" />
-          </button>
-          <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <FiX className="w-5 h-5" />
+        <div className="flex items-center gap-1 text-neutral-400">
+          <button 
+            onClick={() => setIsOpen(false)} 
+            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+            title="Minimize"
+          >
+            <FiX className="w-5 h-5 text-neutral-300" />
           </button>
         </div>
       </div>
@@ -185,20 +233,22 @@ export function AiAssistant({ user }: AiAssistantProps) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
-            <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center">
-              <FiMessageSquare className="w-8 h-8 text-amber-500" />
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-5 py-6">
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shadow-inner">
+              <FiMessageSquare className="w-8 h-8 text-amber-400" />
             </div>
             <div>
-              <h3 className="text-xl font-medium text-white mb-2">How can I help you today?</h3>
-              <p className="text-sm text-neutral-400">Ask me anything about your sales, accounts, or tasks.</p>
+              <h3 className="text-lg font-black uppercase text-white mb-1">Welcome to Titan AI</h3>
+              <p className="text-xs text-neutral-400 leading-relaxed max-w-xs">
+                Ask about blade specifications, diamond matrix formulas, contractor volume pricing, or jobsite recommendations.
+              </p>
             </div>
-            <div className="flex flex-wrap justify-center gap-2 mt-4">
-              {QUICK_PROMPTS.map((prompt, idx) => (
+            <div className="flex flex-wrap justify-center gap-2 pt-2">
+              {activePrompts.map((prompt, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleSend(prompt)}
-                  className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-neutral-300 transition-colors"
+                  className="px-3 py-1.5 text-xs bg-neutral-900 hover:bg-neutral-800 border border-white/10 hover:border-amber-500/40 rounded-full text-neutral-300 transition-all font-medium text-left"
                 >
                   {prompt}
                 </button>
@@ -208,25 +258,34 @@ export function AiAssistant({ user }: AiAssistantProps) {
         )}
 
         {messages.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-2 ${
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs leading-relaxed ${
                 msg.role === 'user'
-                  ? 'bg-amber-500/20 text-amber-500 rounded-tr-sm'
-                  : 'bg-white/5 text-white border border-white/10 rounded-tl-sm'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-neutral-950 font-medium rounded-tr-xs shadow-md'
+                  : 'bg-neutral-900 text-neutral-100 border border-white/10 rounded-tl-xs shadow-md'
               }`}
             >
-              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              <p className="whitespace-pre-wrap">{msg.content}</p>
             </div>
+            
+            {msg.role === 'assistant' && (
+              <button 
+                onClick={() => speakText(msg.content)} 
+                className="mt-1 text-[10px] text-neutral-500 hover:text-amber-400 flex items-center gap-1 font-mono transition-colors"
+              >
+                {isSpeaking ? <FiVolumeX className="text-amber-400" /> : <FiVolume2 />} Listen to Voice
+              </button>
+            )}
           </div>
         ))}
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-white/5 border border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 flex space-x-1">
-              <div className="w-2 h-2 bg-neutral-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-              <div className="w-2 h-2 bg-neutral-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-              <div className="w-2 h-2 bg-neutral-500 rounded-full animate-bounce"></div>
+            <div className="bg-neutral-900 border border-white/10 rounded-2xl rounded-tl-xs px-4 py-3 flex space-x-1.5">
+              <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+              <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+              <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce"></div>
             </div>
           </div>
         )}
@@ -234,23 +293,23 @@ export function AiAssistant({ user }: AiAssistantProps) {
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-white/10 bg-neutral-900">
-        <div className="flex items-end gap-2">
+      <div className="p-4 border-t border-white/10 bg-neutral-900/90">
+        <div className="flex items-center gap-2">
           <div className="flex-1 relative">
-            <textarea
+            <input
+              type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask Titan AI..."
-              className="w-full bg-neutral-800 border border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500/50 resize-none max-h-32 min-h-[44px]"
-              rows={1}
+              placeholder={isListening ? "Listening..." : "Ask Titan AI or speak..."}
+              className="w-full bg-neutral-950 border border-white/10 rounded-xl py-3 pl-4 pr-10 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500/50"
             />
             <button
               onClick={toggleListening}
-              className={`absolute right-2 bottom-1.5 p-2 rounded-lg transition-colors ${
-                isListening ? 'bg-red-500 text-white animate-pulse' : 'text-neutral-400 hover:text-white hover:bg-white/10'
+              className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
+                isListening ? 'bg-red-500 text-white animate-pulse' : 'text-neutral-400 hover:text-amber-400'
               }`}
-              title="Voice input"
+              title="Speak to Titan AI"
             >
               <FiMic className="w-4 h-4" />
             </button>
@@ -258,13 +317,10 @@ export function AiAssistant({ user }: AiAssistantProps) {
           <button
             onClick={() => handleSend()}
             disabled={!inputText.trim() && !isLoading}
-            className="flex-shrink-0 flex items-center justify-center w-11 h-11 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:hover:bg-amber-500 text-neutral-950 rounded-xl transition-colors"
+            className="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 text-neutral-950 font-black rounded-xl transition-all shadow-md disabled:opacity-40"
           >
-            <FiSend className="w-5 h-5" />
+            <FiSend className="w-4 h-4" />
           </button>
-        </div>
-        <div className="text-center mt-2">
-          <p className="text-[10px] text-neutral-500">AI can make mistakes. Verify important information.</p>
         </div>
       </div>
     </div>
