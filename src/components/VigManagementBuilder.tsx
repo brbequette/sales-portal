@@ -1067,6 +1067,24 @@ export default function VigManagementBuilder() {
                                          <span className="text-[8px] text-neutral-600 font-bold">Invoices:</span>
                                          <span className="font-mono font-bold text-xs text-neutral-300">{md.invoiceCount}</span>
                                        </div>
+                                       {!isNoData && md.vigRate > 1.0 && (() => {
+                                         const vigGain = (md.deadCost || 0) * (md.vigRate - 1.0)
+                                         return (
+                                           <div className="flex items-center justify-between border-t border-emerald-500/20 pt-1">
+                                             <span className="text-[8px] text-emerald-600 font-bold">Gain from {md.vigRate}x:</span>
+                                             <span className="font-mono font-bold text-xs text-emerald-400">${Math.round(vigGain).toLocaleString()}</span>
+                                           </div>
+                                         )
+                                       })()}
+                                       {!isNoData && md.vigRate > 1.0 && (() => {
+                                         const lostAt1x = md.deadProfit
+                                         return (
+                                           <div className="flex items-center justify-between">
+                                             <span className="text-[8px] text-rose-600 font-bold">Lost at 1.0x:</span>
+                                             <span className="font-mono font-bold text-xs text-rose-400">-${Math.round(Math.abs(lostAt1x || 0)).toLocaleString()}</span>
+                                           </div>
+                                         )
+                                       })()}
                                      </div>
                                    </div>
 
