@@ -3,6 +3,19 @@
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
+
+async function getFreshPortalUser(email: string) {
+  const cacheKey = `portal-user:${email.toLowerCase()}`
+  const cached = sessionGet<any>(cacheKey, TTL.TEN_MIN)
+  if (cached) return cached
+
+  const response = await fetch(`/api/get-user?email=${encodeURIComponent(email)}`)
+  if (!response.ok) return null
+  const user = await response.json()
+  if (user?.email) sessionSet(cacheKey, user)
+  return user
+}
 
 interface ZohoContextProps {
   isInitialized: boolean
@@ -75,8 +88,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
       setIsInitialized(true)
 
       // Sync fresh role from DB in background
-      fetch(`/api/get-user?email=${encodeURIComponent(email)}`)
-        .then(res => res.ok ? res.json() : null)
+      getFreshPortalUser(email)
         .then(realUser => {
           if (realUser?.email) {
             const updatedUser = { ...portalUser, ...realUser, isZohoUser: true }
@@ -104,8 +116,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
           setIsInitialized(true)
 
           // Sync fresh role from DB in background (non-blocking)
-          fetch(`/api/get-user?email=${encodeURIComponent(parsedUser.email)}`)
-            .then(res => res.ok ? res.json() : null)
+          getFreshPortalUser(parsedUser.email)
             .then(realUser => {
               if (realUser?.email) {
                 const updatedUser = { ...parsedUser, ...realUser, isZohoUser: true }
@@ -158,8 +169,7 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
               setZohoContext(portalUser)
 
               // Sync fresh role from DB
-              fetch(`/api/get-user?email=${encodeURIComponent(zohoUser.email)}`)
-                .then(res => res.ok ? res.json() : null)
+              getFreshPortalUser(zohoUser.email)
                 .then(realUser => {
                   if (realUser?.email) {
                     const updatedUser = { ...portalUser, ...realUser, isZohoUser: true }
@@ -205,4 +215,3 @@ export function ZohoProvider({ children }: { children: React.ReactNode }) {
     </ZohoContext.Provider>
   )
 }
-

@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { FiDollarSign, FiX, FiCreditCard, FiCheck, FiLock } from "react-icons/fi"
+import { loadAcceptJs } from "@/lib/load-external-script"
 
 declare global {
   interface Window {
@@ -84,12 +85,15 @@ export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumb
     if (!cardName.trim()) { setError("Enter cardholder name"); return }
 
     if (!authConfig) { setError("Payment gateway not configured"); return }
-    if (!window.Accept) { setError("Payment processor not loaded. Refresh the page."); return }
 
     setIsSubmitting(true)
-    setStatus("Tokenizing card...")
+    setStatus("Loading secure payment processor...")
 
     try {
+      await loadAcceptJs()
+      if (!window.Accept) throw new Error("Payment processor is unavailable. Check your connection and try again.")
+
+      setStatus("Tokenizing card...")
       // Step 1: Tokenize with Accept.js
       const opaqueData = await new Promise<{ dataDescriptor: string; dataValue: string }>((resolve, reject) => {
         const secureData = {
@@ -473,4 +477,3 @@ export function RecordPaymentModal({ invoiceId, customerId, balance, invoiceNumb
     document.body
   )
 }
-

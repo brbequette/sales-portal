@@ -1,7 +1,7 @@
 "use client"
 
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react"
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react"
 
 export type Notification = {
   id: string
@@ -33,10 +33,26 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [permission, setPermission] = useState<NotificationPermission>("default")
+  const lastFetchAt = useRef(0)
+
+  const fetchNotifications = useCallback(async (force = false) => {
+    if (!force && (document.hidden || Date.now() - lastFetchAt.current < 120000)) return
+    try {
+      const res = await fetch("/api/notifications")
+      if (res.ok) {
+        const data = await res.json()
+        setNotifications(data.notifications)
+        setUnreadCount(data.unreadCount)
+        lastFetchAt.current = Date.now()
+      }
+    } catch (e) {
+      console.error("Failed to fetch notifications", e)
+    }
+  }, [])
 
   useEffect(() => {
     if ("Notification" in window) {
-      setPermission(Notification.permission)
+      queueMicrotask(() => setPermission(Notification.permission))
     }
     
     // Register service worker if supported
@@ -46,24 +62,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         .catch((error) => console.error("Service Worker registration failed:", error))
     }
     
-    fetchNotifications()
-    // Poll for notifications every minute
-    const interval = setInterval(fetchNotifications, 60000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const fetchNotifications = async () => {
-    try {
-      const res = await fetch("/api/notifications")
-      if (res.ok) {
-        const data = await res.json()
-        setNotifications(data.notifications)
-        setUnreadCount(data.unreadCount)
-      }
-    } catch (e) {
-      console.error("Failed to fetch notifications", e)
+    queueMicrotask(() => void fetchNotifications(true))
+    const interval = window.setInterval(() => void fetchNotifications(), 120000)
+    const refreshWhenVisible = () => {
+      if (!document.hidden) void fetchNotifications()
     }
-  }
+    document.addEventListener("visibilitychange", refreshWhenVisible)
+    window.addEventListener("focus", refreshWhenVisible)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", refreshWhenVisible)
+      window.removeEventListener("focus", refreshWhenVisible)
+    }
+  }, [fetchNotifications])
 
   const markAsRead = async (id: string) => {
     try {
@@ -139,4 +150,3 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     </NotificationContext.Provider>
   )
 }
-

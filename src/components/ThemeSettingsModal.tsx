@@ -105,6 +105,7 @@ export function applyThemeToCss(colors: ThemeColors) {
   root.style.setProperty("--surface-2", colors.surface2)
   root.style.setProperty("--foreground", colors.foreground)
   root.style.setProperty("--muted", colors.muted)
+  root.style.setProperty("--border", colors.border)
   root.style.setProperty("--success", colors.success)
   root.style.setProperty("--warning", colors.warning)
   root.style.setProperty("--danger", colors.danger)
