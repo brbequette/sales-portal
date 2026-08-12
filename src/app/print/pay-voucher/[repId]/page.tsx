@@ -28,7 +28,7 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
         const year = weekStartStr.split("-")[0]
         const [usersRes, commRes, advRes, reimRes] = await Promise.all([
           fetch("/api/admin/users"),
-          fetch(`/api/get-commissions?year=${year}`),
+          fetch(`/api/get-commissions?year=${year}&includeHidden=true`),
           fetch(`/api/manage-advances?userId=${repId}`),
           fetch(`/api/manage-reimbursements?userId=${repId}`)
         ])

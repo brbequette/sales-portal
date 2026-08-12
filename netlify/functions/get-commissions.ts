@@ -921,11 +921,13 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // Only include actual system users
-    const validUserIds = new Set(finalUsers.map((u: any) => u.id))
-    for (const key in finalByRep) {
-      if (!validUserIds.has(key) && !requestingUser) {
-        delete finalByRep[key]
+    // Only include actual system users (skip this filter for admin/includeHidden requests)
+    if (!showHidden) {
+      const validUserIds = new Set(finalUsers.map((u: any) => u.id))
+      for (const key in finalByRep) {
+        if (!validUserIds.has(key) && !requestingUser) {
+          delete finalByRep[key]
+        }
       }
     }
 
