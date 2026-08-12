@@ -14,31 +14,30 @@ export const handler: Handler = async (event) => {
 
   try {
     if (event.httpMethod === "GET") {
-      let setting = await prisma.systemSetting.findFirst()
-      if (!setting) {
-        setting = await prisma.systemSetting.create({
-          data: {
-            dailyCapUsd: 500,
-            warningThreshold: 0.8,
-            notificationEmail: "alerts@titandiamond.com"
-          }
-        })
-      }
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, settings: setting }) }
+      // SystemSetting is a key-value store: { key: string, value: string }
+      const records = await prisma.systemSetting.findMany()
+      const settings: Record<string, string> = {}
+      records.forEach(r => { settings[r.key] = r.value })
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, settings }) }
     }
 
     if (event.httpMethod === "PUT" || event.httpMethod === "POST") {
       const body = JSON.parse(event.body || "{}")
-      let setting = await prisma.systemSetting.findFirst()
-      if (!setting) {
-        setting = await prisma.systemSetting.create({ data: body })
-      } else {
-        setting = await prisma.systemSetting.update({
-          where: { id: setting.id },
-          data: body
-        })
+      // Upsert each key-value pair
+      for (const [key, value] of Object.entries(body)) {
+        if (value !== undefined) {
+          await prisma.systemSetting.upsert({
+            where: { key },
+            update: { value: String(value) },
+            create: { key, value: String(value) }
+          })
+        }
       }
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, settings: setting }) }
+      // Return updated settings
+      const records = await prisma.systemSetting.findMany()
+      const settings: Record<string, string> = {}
+      records.forEach(r => { settings[r.key] = r.value })
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, settings }) }
     }
 
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method Not Allowed" }) }
