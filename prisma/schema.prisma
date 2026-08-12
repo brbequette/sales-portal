@@ -82,6 +82,8 @@ model User {
   leads              Lead[]
   claimedLeads       Lead[]             @relation("ClaimedLeads")
   clawbackTransactions ClawbackTransaction[]
+  compensationPlans    CompensationPlan[]
+  basePayEarnings      BasePayEarning[]
 
   @@index([role])
 }
@@ -738,18 +740,26 @@ model Advance {
   amount          Float
   reason          String?
   issueDate       DateTime @default(now())
-  
+
   // Payback Schedule configuration
   splitOverWeeks  Int?     // Deduct amount / splitOverWeeks each week
   deductionRate   Float?   // Or deduct a flat rate each week
-  
+
+  // Term Management
+  termWeeks       Int?       // Total agreed repayment weeks
+  termStartDate   DateTime?  // When repayment begins
+  termEndDate     DateTime?  // Projected payoff date
+  interestRate    Float?     // Optional interest %
+  agreedPayback   Float?     // Agreed weekly payback amount
+
   // Tracking
   amountPaidBack  Float    @default(0)
   isFullyPaid     Boolean  @default(false)
-  
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  extensionRequests AdvanceExtensionRequest[]
 
   @@index([userId])
 }
@@ -1041,4 +1051,93 @@ model ClawbackTransaction {
   @@index([invoiceId])
   @@index([monthKey])
   @@index([status])
+}
+
+// ── Compensation Management ─────────────────────────────────────────
+
+model CompensationPlan {
+  id                  String    @id @default(cuid())
+  repId               String
+  name                String    // e.g. "Bobby - Q3 2025 Plan"
+  status              String    @default("ACTIVE") // ACTIVE, ENDED, DRAFT
+
+  startDate           DateTime
+  endDate             DateTime?
+
+  // Base Pay
+  payType             String    @default("COMMISSION_ONLY")
+                                // SALARY, DRAW, HOURLY, COMMISSION_ONLY
+  baseAmount          Float?    // Dollar amount for base
+  baseInterval        String?   // HOURLY, DAILY, WEEKLY, BIWEEKLY, MONTHLY, ANNUALLY
+
+  // Commission Layer (variable per plan)
+  commissionEnabled   Boolean   @default(true)
+  commissionRate      Float?    // e.g. 0.50 = 50%, 0.25 = 25%
+  commissionBasis     String?   // NET_PROFIT, DEAD_PROFIT, SUBTOTAL
+  payoutStructure     String    @default("two_payment")
+                                // two_payment, single_payment, three_payment
+
+  // Draw Rules
+  drawRecoverable     Boolean   @default(true)
+  drawCapPerPeriod    Float?    // Max draw per pay period
+
+  // Performance Commitment
+  commitmentEnabled   Boolean   @default(false)
+  commitmentMetric    String?   // SUBTOTAL, DEAD_PROFIT, NET_PROFIT, INVOICES_COUNT
+  commitmentTarget    Float?    // Target value
+  commitmentVigRate   Float?    // VIG rate tied to this commitment
+  commitmentGoalType  String?   // DAILY, MONTHLY
+  commitmentPenalty   String?   // VIG_INCREASE, COMMISSION_REDUCTION, PLAN_REVIEW
+
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  rep                 User      @relation(fields: [repId], references: [id], onDelete: Cascade)
+  earnings            BasePayEarning[]
+
+  @@index([repId])
+  @@index([status])
+}
+
+model BasePayEarning {
+  id            String    @id @default(cuid())
+  repId         String
+  planId        String?
+
+  type          String    // SALARY, DRAW, HOURLY, BONUS, ADJUSTMENT
+  amount        Float
+  periodStart   DateTime  // Pay period start (Monday)
+  periodEnd     DateTime  // Pay period end (Sunday)
+  hoursWorked   Float?    // For hourly — pulled from TimeEntry
+  hourlyRate    Float?    // Snapshot of rate at time of calc
+
+  description   String?
+  status        String    @default("PENDING") // PENDING, APPROVED, PAID
+  paidDate      DateTime?
+  payoutId      String?   // Links to Payout when disbursed
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  rep           User      @relation(fields: [repId], references: [id], onDelete: Cascade)
+  plan          CompensationPlan? @relation(fields: [planId], references: [id])
+
+  @@index([repId])
+  @@index([planId])
+}
+
+model AdvanceExtensionRequest {
+  id              String    @id @default(cuid())
+  advanceId       String
+  requestedBy     String    // repId
+  additionalWeeks Int
+  reason          String
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  advance         Advance   @relation(fields: [advanceId], references: [id], onDelete: Cascade)
+
+  @@index([advanceId])
 }

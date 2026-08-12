@@ -28,6 +28,7 @@ const adminLinks = [
   ]},
   { group: "Compensation", items: [
     { name: "VIG Management", href: "/admin/vig", icon: FiSliders },
+    { name: "Comp Plans", href: "/admin/compensation", icon: FiTarget },
     { name: "Payouts", href: "/admin/payouts", icon: FiDollarSign },
     { name: "Payroll", href: "/admin/payroll", icon: FiCreditCard },
     { name: "Goals & Bonuses", href: "/admin/goals-bonuses", icon: FiAward },

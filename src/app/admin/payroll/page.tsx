@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react"
 import { useZoho } from "@/components/ZohoProvider"
-import { FiDollarSign, FiPlus, FiCheck, FiX, FiRefreshCw, FiPrinter } from "react-icons/fi"
+import { FiDollarSign, FiPlus, FiCheck, FiX, FiRefreshCw, FiPrinter, FiClock, FiCalendar } from "react-icons/fi"
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n || 0)
@@ -15,12 +15,19 @@ function fmtDate(s: string) {
 
 export default function PayrollAdminPage() {
   const { zohoContext: user, isInitialized } = useZoho()
-  const [activeTab, setActiveTab] = useState<"advances" | "reimbursements" | "vouchers">("advances")
+  const [activeTab, setActiveTab] = useState<"advances" | "reimbursements" | "vouchers" | "basepay">("basepay")
   
   const [loading, setLoading] = useState(true)
   const [users, setUsers] = useState<any[]>([])
   const [advances, setAdvances] = useState<any[]>([])
   const [reimbursements, setReimbursements] = useState<any[]>([])
+  const [basePayEarnings, setBasePayEarnings] = useState<any[]>([])
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - d.getDay() + 1) // Monday
+    return d.toISOString().split('T')[0]
+  })
+  const [calcLoading, setCalcLoading] = useState<string | null>(null)
 
   // Form State - Advances
   const [showAddAdvance, setShowAddAdvance] = useState(false)
@@ -37,17 +44,20 @@ export default function PayrollAdminPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [uRes, aRes, rRes] = await Promise.all([
+      const [uRes, aRes, rRes, bpRes] = await Promise.all([
         fetch("/api/admin/users"),
         fetch("/api/manage-advances"),
-        fetch("/api/manage-reimbursements")
+        fetch("/api/manage-reimbursements"),
+        fetch("/api/base-pay-earnings")
       ])
       const uData = await uRes.json()
       const aData = await aRes.json()
       const rData = await rRes.json()
+      const bpData = await bpRes.json()
       if (uData.success) setUsers(uData.users.filter((u: any) => u.role !== "Admin"))
       if (aData.success) setAdvances(aData.data)
       if (rData.success) setReimbursements(rData.data)
+      if (bpData.success) setBasePayEarnings(bpData.data)
     } catch (err) {
       console.error(err)
     } finally {
@@ -134,8 +144,8 @@ export default function PayrollAdminPage() {
             <FiDollarSign className="text-amber-500" size={17} />
           </div>
           <div>
-            <h1 className="page-title">Payroll & Advances</h1>
-            <p className="page-subtitle">Manage advances, reimbursements, and weekly vouchers</p>
+            <h1 className="page-title">Payroll & Compensation</h1>
+            <p className="page-subtitle">Base pay, advances, reimbursements, and weekly vouchers</p>
           </div>
         </div>
         <button onClick={fetchData} className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm font-bold flex items-center gap-2">
@@ -146,6 +156,12 @@ export default function PayrollAdminPage() {
       <div className="page-body">
 
         <div className="flex border-b border-white/10">
+          <button
+            onClick={() => setActiveTab("basepay")}
+            className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === "basepay" ? "border-emerald-500 text-emerald-400" : "border-transparent text-neutral-500 hover:text-neutral-300"}`}
+          >
+            Base Pay
+          </button>
           <button
             onClick={() => setActiveTab("advances")}
             className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === "advances" ? "border-amber-500 text-amber-400" : "border-transparent text-neutral-500 hover:text-neutral-300"}`}
@@ -167,6 +183,91 @@ export default function PayrollAdminPage() {
         </div>
 
         <div className="mt-4">
+
+           {/* ── BASE PAY TAB ── */}
+           {activeTab === "basepay" && (
+              <div className="glass-panel border border-white/10 rounded-xl p-6">
+                 <div className="flex items-center justify-between mb-6">
+                   <h2 className="text-lg font-bold text-white">Weekly Base Pay</h2>
+                   <div className="flex items-center gap-3">
+                     <div className="flex items-center gap-2">
+                       <FiCalendar className="text-neutral-400" size={14} />
+                       <input type="date" value={selectedWeek} onChange={e => setSelectedWeek(e.target.value)} className="bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-1.5 text-sm text-white" />
+                     </div>
+                   </div>
+                 </div>
+
+                 {/* Calculate buttons per user */}
+                 <div className="space-y-3">
+                   {users.map(u => {
+                     const weekEarning = basePayEarnings.find((e: any) => {
+                       const ps = new Date(e.periodStart)
+                       const ws = new Date(selectedWeek)
+                       return e.repId === u.id && ps >= ws && ps <= new Date(ws.getTime() + 6 * 86400000)
+                     })
+                     const isCalcing = calcLoading === u.id
+
+                     return (
+                       <div key={u.id} className="p-4 bg-white/[0.02] border border-white/5 rounded-xl flex items-center justify-between">
+                         <div>
+                           <p className="font-bold text-white">{u.name}</p>
+                           {weekEarning ? (
+                             <div className="flex items-center gap-3 mt-1">
+                               <span className={`text-xs px-2 py-0.5 rounded font-bold ${
+                                 weekEarning.status === 'PAID' ? 'bg-emerald-900 text-emerald-400' :
+                                 weekEarning.status === 'APPROVED' ? 'bg-blue-900 text-blue-400' :
+                                 'bg-amber-900 text-amber-400'
+                               }`}>{weekEarning.status}</span>
+                               <span className="text-sm text-neutral-300">{weekEarning.description}</span>
+                             </div>
+                           ) : (
+                             <p className="text-xs text-neutral-500 mt-1">No base pay calculated for this week</p>
+                           )}
+                         </div>
+                         <div className="flex items-center gap-3">
+                           {weekEarning ? (
+                             <>
+                               <span className="text-lg font-bold text-emerald-400">{fmt(weekEarning.amount)}</span>
+                               {weekEarning.status === 'PENDING' && (
+                                 <button onClick={async () => {
+                                   await fetch('/api/base-pay-earnings', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id: weekEarning.id, status: 'APPROVED' }) })
+                                   fetchData()
+                                 }} className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-xs font-bold text-white flex items-center gap-1">
+                                   <FiCheck /> Approve
+                                 </button>
+                               )}
+                               {weekEarning.status === 'APPROVED' && (
+                                 <button onClick={async () => {
+                                   await fetch('/api/base-pay-earnings', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id: weekEarning.id, status: 'PAID', paidDate: new Date().toISOString() }) })
+                                   fetchData()
+                                 }} className="px-3 py-1 bg-purple-600 hover:bg-purple-500 rounded text-xs font-bold text-white flex items-center gap-1">
+                                   <FiDollarSign /> Mark Paid
+                                 </button>
+                               )}
+                             </>
+                           ) : (
+                             <button disabled={isCalcing} onClick={async () => {
+                               setCalcLoading(u.id)
+                               try {
+                                 const res = await fetch('/api/calculate-base-pay', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ repId: u.id, weekStart: selectedWeek }) })
+                                 const d = await res.json()
+                                 if (d.success) {
+                                   setBasePayEarnings(prev => [d.data, ...prev])
+                                 }
+                               } catch (e) { console.error(e) }
+                               setCalcLoading(null)
+                             }} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-lg text-xs font-bold text-white flex items-center gap-1">
+                               {isCalcing ? <FiRefreshCw className="animate-spin" /> : <FiClock />} Calculate
+                             </button>
+                           )}
+                         </div>
+                       </div>
+                     )
+                   })}
+                 </div>
+              </div>
+           )}
+
            {activeTab === "advances" && (
               <div className="glass-panel border border-white/10 rounded-xl p-6">
                  <div className="flex justify-between items-center mb-6">
