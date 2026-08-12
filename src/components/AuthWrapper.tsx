@@ -15,12 +15,36 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true)
   const redirected = useRef(false)
 
-  // Detect public pages (login, intro-offer) synchronously from window.location
-  const isPublicPage = typeof window !== "undefined" && (
-    window.location.pathname.includes("/login") || 
-    window.location.pathname.includes("/intro-offer") ||
-    window.location.pathname.startsWith("/tv")
-  )
+  const PUBLIC_ROUTES = [
+    '/',
+    '/shop',
+    '/catalog',
+    '/about',
+    '/contact',
+    '/resources',
+    '/blade-finder',
+    '/applications',
+    '/signature-series',
+    '/knowledge-test',
+    '/rpm-calculator',
+    '/blade-comparator',
+    '/unit-converter',
+    '/tools',
+    '/training',
+    '/docs',
+    '/careers',
+    '/admin-login',
+    '/privacy',
+    '/terms',
+    '/login',
+    '/intro-offer',
+    '/rep-portal',
+  ]
+
+  const currentPath = pathname || (typeof window !== "undefined" ? window.location.pathname : "")
+  const isPublicPage = !currentPath || currentPath === "/" || PUBLIC_ROUTES.some(route => 
+    route !== '/' && (currentPath === route || currentPath.startsWith(route + '/'))
+  ) || currentPath.startsWith('/tv') || currentPath.startsWith('/print/')
 
   // Fast-path: if URL carries Zoho merge-field params (email or zohoId),
   // the user is already identified -- authorize immediately
@@ -34,7 +58,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Public pages (login, intro-offer) always render -- no auth gating needed
+    // Public pages always render -- no auth gating needed
     if (isPublicPage) {
       setIsAuthorized(true)
       setChecking(false)
