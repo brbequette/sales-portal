@@ -361,6 +361,28 @@ export default function VigManagementBuilder() {
     } catch (e) { console.error(e) }
   }
 
+  // ── Save with Working Days recalculation: keep daily rates constant, update monthly goals ──
+  const saveWorkingDaysRecalc = (repId: string, monthKey: string, newDays: number, md: MonthRepData) => {
+    const oldDays = md.workingDays || 1
+    const dailyProfit = oldDays > 0 ? md.profitGoal / oldDays : 0
+    const dailySub = oldDays > 0 ? md.subtotalGoal / oldDays : 0
+    saveMonthGoal(repId, monthKey, {
+      workingDays: newDays,
+      profitGoal: Math.round(dailyProfit * newDays),
+      subtotalGoal: Math.round(dailySub * newDays)
+    })
+  }
+
+  // ── Save Daily Rate: compute monthly goal = dailyRate × workingDays ──
+  const saveDailyRate = (repId: string, monthKey: string, newDailyRate: number, field: 'profit' | 'subtotal', workingDays: number) => {
+    const monthlyGoal = Math.round(newDailyRate * workingDays)
+    if (field === 'profit') {
+      saveMonthGoal(repId, monthKey, { profitGoal: monthlyGoal })
+    } else {
+      saveMonthGoal(repId, monthKey, { subtotalGoal: monthlyGoal })
+    }
+  }
+
   // ── Apply VIG escalation for next month ─────────────────────
   const applyEscalation = async (repId: string, nextMonthKey: string, newRate: number) => {
     const key = `${repId}_${nextMonthKey}`
@@ -466,7 +488,24 @@ export default function VigManagementBuilder() {
       ])
       const data = await res.json()
       const sData = await sRes.json()
-      if (data.success && sData.success) { setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000) }
+      if (data.success && sData.success) {
+        setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000)
+        // Also update current month goals from rep daily rates
+        const now = new Date()
+        const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+        for (const rep of repConfigs) {
+          const dp = parseFloat(String(rep.dailyProfitGoal)) || 0
+          const ds = parseFloat(String(rep.dailySubtotalGoal)) || 0
+          const currentMonthData = historicalMonths.find(h => h.monthKey === currentMonthKey)?.reps?.[rep.id]
+          const wd = currentMonthData?.workingDays || 22
+          if (dp > 0 || ds > 0) {
+            saveMonthGoal(rep.id, currentMonthKey, {
+              profitGoal: Math.round(dp * wd),
+              subtotalGoal: Math.round(ds * wd)
+            })
+          }
+        }
+      }
       else alert('Error saving: ' + (data.error || sData.error))
     } catch { alert('Save failed.') }
     finally { setSaving(false) }
@@ -892,23 +931,49 @@ export default function VigManagementBuilder() {
                                   </div>
                                 )}
 
-                                 {/* ── Row 2: Stats Grid (5 cards) ── */}
-                                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                 {/* ── Row 2: Metric Toggle ── */}
+                                 <div className="flex items-center gap-2 px-1">
+                                   <span className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider">Goal Metric:</span>
+                                   <button
+                                     onClick={() => saveMonthGoal(rep.id, h.monthKey, { metric: 'PROFIT' })}
+                                     className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all ${isProfit ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-black/30 text-neutral-500 border border-white/5 hover:text-neutral-300'}`}
+                                   >Dead Profit</button>
+                                   <button
+                                     onClick={() => saveMonthGoal(rep.id, h.monthKey, { metric: 'SUBTOTAL' })}
+                                     className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all ${!isProfit ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40' : 'bg-black/30 text-neutral-500 border border-white/5 hover:text-neutral-300'}`}
+                                   >Subtotal</button>
+                                 </div>
 
-                                   {/* Working Days (editable) */}
+                                 {/* ── Row 3: Stats Grid (6 cards) ── */}
+                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+
+                                   {/* Working Days (editable — recalculates goals) */}
                                    <div className="bg-black/40 rounded-lg px-3 py-2 border border-white/5">
                                      <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center gap-1">
                                        <FiCalendar size={8}/> Working Days
                                      </div>
                                      <EditCell value={md.workingDays} step={1} min={1} prefix="" suffix=" days"
                                        textClass={isStoredDays ? 'text-amber-300' : 'text-white'}
-                                       onSave={v => saveMonthGoal(rep.id, h.monthKey, { workingDays: v })}/>
+                                       onSave={v => saveWorkingDaysRecalc(rep.id, h.monthKey, v, md)}/>
                                      <div className="text-[9px] text-neutral-600 mt-0.5">
                                        {isStoredDays ? `Override (auto: ${md.computedWorkingDays}d)` : `Auto (excl. ${holidayCount} holiday${holidayCount !== 1 ? 's' : ''})`}
                                      </div>
                                    </div>
 
-                                   {/* Dead Profit Goal (editable) */}
+                                   {/* Daily Profit Rate (editable — recalculates profit goal) */}
+                                   <div className={`bg-black/40 rounded-lg px-3 py-2 border ${isProfit ? 'border-amber-500/30 ring-1 ring-amber-500/10' : 'border-white/5'}`}>
+                                     <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center gap-1">
+                                       {isProfit && <span className="text-amber-400">●</span>} Daily Profit
+                                     </div>
+                                     <EditCell value={md.workingDays > 0 ? Math.round(md.profitGoal / md.workingDays) : 0} step={50}
+                                       textClass="text-amber-300"
+                                       onSave={v => saveDailyRate(rep.id, h.monthKey, v, 'profit', md.workingDays)}/>
+                                     <div className="text-[9px] text-neutral-600 mt-0.5">
+                                       ×{md.workingDays}d = ${md.profitGoal.toLocaleString()}
+                                     </div>
+                                   </div>
+
+                                   {/* Monthly Profit Goal (editable) */}
                                    <div className={`bg-black/40 rounded-lg px-3 py-2 border ${isProfit ? 'border-amber-500/20' : 'border-white/5'}`}>
                                      <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center gap-1">
                                        {isProfit && <span className="text-amber-400">●</span>} Profit Goal

@@ -65,6 +65,14 @@ export const handler: Handler = async (event) => {
     const rawHolidays: { date: string; name?: string }[] = holidaySetting ? JSON.parse(holidaySetting.value) : []
     const companyHolidays = new Set<string>(rawHolidays.map(h => h.date))
 
+    // ── 3c. Load rep daily target settings (used to seed new months) ──
+    const [salesTargetSetting, subtotalTargetSetting] = await Promise.all([
+      prisma.systemSetting.findUnique({ where: { key: 'sales_targets' } }).catch(() => null),
+      prisma.systemSetting.findUnique({ where: { key: 'subtotal_targets' } }).catch(() => null)
+    ])
+    const dailyProfitTargets: Record<string, number> = salesTargetSetting ? JSON.parse(salesTargetSetting.value) : {}
+    const dailySubtotalTargets: Record<string, number> = subtotalTargetSetting ? JSON.parse(subtotalTargetSetting.value) : {}
+
     // ── 3b. Helper: count weekdays in a month minus company holidays ────────
     function calcWorkingDays(monthKey: string): number {
       const [yyyy, mm] = monthKey.split('-').map(Number)
@@ -211,15 +219,23 @@ export const handler: Handler = async (event) => {
         const computedWorkingDays = calcWorkingDays(mk)
         const workingDays = storedWorkingDays ?? computedWorkingDays
 
+        // Seed defaults from rep daily rates when no stored goal exists
+        const repDailyProfit = dailyProfitTargets[u.id] || 0
+        const repDailySub = dailySubtotalTargets[u.id] || 0
+        const defaultProfitGoal = repDailyProfit > 0 ? Math.round(repDailyProfit * workingDays) : 20000
+        const defaultSubtotalGoal = repDailySub > 0 ? Math.round(repDailySub * workingDays) : 40000
+
         const isProfit   = (goal?.metric ?? 'PROFIT') !== 'SUBTOTAL'
-        const goalValue  = isProfit ? (goal?.profitGoal ?? 20000) : (goal?.subtotalGoal ?? 40000)
+        const profitGoal = goal?.profitGoal ?? defaultProfitGoal
+        const subtotalGoal = goal?.subtotalGoal ?? defaultSubtotalGoal
+        const goalValue  = isProfit ? profitGoal : subtotalGoal
         const dailyGoal  = workingDays > 0 ? Math.round(goalValue / workingDays) : 0
 
         reps[u.id] = {
           vigRate, manualVigRate, lastSyncedVigRate, vigReason,
           metric:            goal?.metric       ?? 'PROFIT',
-          profitGoal:        goal?.profitGoal   ?? 20000,
-          subtotalGoal:      goal?.subtotalGoal ?? 40000,
+          profitGoal,
+          subtotalGoal,
           workingDays,
           computedWorkingDays,
           storedWorkingDays,
@@ -229,8 +245,8 @@ export const handler: Handler = async (event) => {
           deadProfit:        stats.deadProfit,
           invoiceCount:      stats.invoiceCount,
           metGoal:           (goal?.metric === 'SUBTOTAL')
-            ? stats.subtotal  >= (goal?.subtotalGoal ?? 40000)
-            : stats.deadProfit >= (goal?.profitGoal  ?? 20000),
+            ? stats.subtotal  >= subtotalGoal
+            : stats.deadProfit >= profitGoal,
           mismatches:        stats.mismatches
         }
       })
