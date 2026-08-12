@@ -22,10 +22,14 @@ export default function PayrollAdminPage() {
   const [advances, setAdvances] = useState<any[]>([])
   const [reimbursements, setReimbursements] = useState<any[]>([])
 
-  // Form State
+  // Form State - Advances
   const [showAddAdvance, setShowAddAdvance] = useState(false)
   const [advanceForm, setAdvanceForm] = useState({ userId: "", amount: "", reason: "", splitOverWeeks: "", deductionRate: "" })
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Form State - Reimbursements
+  const [showAddReimbursement, setShowAddReimbursement] = useState(false)
+  const [reimbForm, setReimbForm] = useState({ userId: "", amount: "", description: "", status: "APPROVED" })
 
   const [selectedVoucherRep, setSelectedVoucherRep] = useState("")
   const [selectedVoucherWeek, setSelectedVoucherWeek] = useState("")
@@ -88,6 +92,33 @@ export default function PayrollAdminPage() {
       }
     } catch (err) {
       console.error(err)
+    }
+  }
+
+  const handleCreateReimbursement = async () => {
+    if (!reimbForm.userId || !reimbForm.amount || !reimbForm.description) return
+    setIsSubmitting(true)
+    try {
+      const res = await fetch("/api/manage-reimbursements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: reimbForm.userId,
+          amount: parseFloat(reimbForm.amount),
+          description: reimbForm.description,
+          status: reimbForm.status,
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setReimbursements([data.data, ...reimbursements])
+        setShowAddReimbursement(false)
+        setReimbForm({ userId: "", amount: "", description: "", status: "APPROVED" })
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -198,7 +229,45 @@ export default function PayrollAdminPage() {
 
            {activeTab === "reimbursements" && (
               <div className="glass-panel border border-white/10 rounded-xl p-6">
-                 <h2 className="text-lg font-bold text-white mb-4">Review Reimbursements</h2>
+                 <div className="flex items-center justify-between mb-4">
+                   <h2 className="text-lg font-bold text-white">Reimbursements</h2>
+                   <button onClick={() => setShowAddReimbursement(!showAddReimbursement)} className="px-4 py-2 bg-amber-600 hover:bg-amber-500 rounded-lg text-sm font-bold text-white flex items-center gap-2 transition-colors">
+                     {showAddReimbursement ? <><FiX /> Cancel</> : <><FiPlus /> New Reimbursement</>}
+                   </button>
+                 </div>
+
+                 {showAddReimbursement && (
+                   <div className="bg-neutral-800 border border-neutral-700 rounded-lg p-4 mb-4 space-y-3">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                       <div>
+                         <label className="block text-xs text-neutral-400 mb-1 font-bold">Rep</label>
+                         <select value={reimbForm.userId} onChange={e => setReimbForm({...reimbForm, userId: e.target.value})} className="w-full bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-2 text-sm text-white">
+                           <option value="">Select rep...</option>
+                           {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                         </select>
+                       </div>
+                       <div>
+                         <label className="block text-xs text-neutral-400 mb-1 font-bold">Amount</label>
+                         <input type="number" step="0.01" placeholder="0.00" value={reimbForm.amount} onChange={e => setReimbForm({...reimbForm, amount: e.target.value})} className="w-full bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-2 text-sm text-white" />
+                       </div>
+                       <div className="md:col-span-2">
+                         <label className="block text-xs text-neutral-400 mb-1 font-bold">Description</label>
+                         <input type="text" placeholder="Gas, meals, supplies, etc." value={reimbForm.description} onChange={e => setReimbForm({...reimbForm, description: e.target.value})} className="w-full bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-2 text-sm text-white" />
+                       </div>
+                       <div>
+                         <label className="block text-xs text-neutral-400 mb-1 font-bold">Status</label>
+                         <select value={reimbForm.status} onChange={e => setReimbForm({...reimbForm, status: e.target.value})} className="w-full bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-2 text-sm text-white">
+                           <option value="APPROVED">Approved</option>
+                           <option value="PENDING">Pending</option>
+                         </select>
+                       </div>
+                     </div>
+                     <button onClick={handleCreateReimbursement} disabled={isSubmitting || !reimbForm.userId || !reimbForm.amount || !reimbForm.description} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-bold text-white flex items-center gap-2 transition-colors">
+                       {isSubmitting ? <FiRefreshCw className="animate-spin" /> : <FiCheck />} Save Reimbursement
+                     </button>
+                   </div>
+                 )}
+
                  <div className="divide-y divide-neutral-800">
                     {reimbursements.length === 0 ? <p className="text-neutral-500 py-4">No pending reimbursements.</p> : reimbursements.map(r => (
                       <div key={r.id} className="py-3 flex justify-between items-center">
