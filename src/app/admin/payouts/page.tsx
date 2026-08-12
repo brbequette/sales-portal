@@ -81,7 +81,7 @@ export default function PayoutsPage() {
   const [sortField, setSortField] = useState<keyof RepLedger>("balance")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedYear, setSelectedYear] = useState<string>("all")
+  const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()))
   const [availableYears, setAvailableYears] = useState<number[]>([])
   
   // Modal & View Mode State
