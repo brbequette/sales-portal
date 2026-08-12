@@ -42,6 +42,15 @@ const CATEGORIES = [
   "DIAMONDX™"
 ];
 
+function getCategoryFallbackImage(category: string): string {
+  const cat = (category || '').toLowerCase();
+  if (cat.includes('core')) return '/images/core_bit.png';
+  if (cat.includes('cup') || cat.includes('grind') || cat.includes('tuck') || cat.includes('polish')) return '/images/tuck_point.jpg';
+  if (cat.includes('turbo') || cat.includes('tile')) return '/images/turbo_blade.png';
+  if (cat.includes('rim')) return '/images/continuous_rim_blade.png';
+  return '/images/saw_blade.jpg';
+}
+
 function ShopContent() {
   const searchParams = useSearchParams();
   const initialCat = searchParams.get('category') || "All";
@@ -188,7 +197,10 @@ function ShopContent() {
                   alt={selectedProduct.name}
                   className="max-h-full max-w-full object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]"
                   onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
+                    const target = e.target as HTMLImageElement;
+                    if (!target.src.includes('/images/')) {
+                      target.src = getCategoryFallbackImage(selectedProduct.category);
+                    }
                   }}
                 />
               </div>
@@ -311,7 +323,10 @@ function ShopContent() {
                     alt={product.name} 
                     className="max-h-full max-w-full object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.7)] group-hover:scale-105 transition-transform duration-300"
                     onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
+                      const target = e.target as HTMLImageElement;
+                      if (!target.src.includes('/images/')) {
+                        target.src = getCategoryFallbackImage(product.category);
+                      }
                     }}
                   />
                   <div className="absolute top-3 left-3">
