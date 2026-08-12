@@ -79,9 +79,17 @@ function ShopContent() {
       setShowLoginModal(true);
     }
 
-    // Fetch products
+    // Fetch products & SKU Map
     const fetchProducts = async () => {
       try {
+        let skuMap: Record<string, string> = {};
+        try {
+          const mapRes = await fetch('/sku_map.json');
+          if (mapRes.ok) skuMap = await mapRes.json();
+        } catch (e) {
+          console.warn("Could not load sku_map.json", e);
+        }
+
         const res = await fetch('/api/get-products');
         if (res.ok) {
           const data = await res.json();
@@ -95,7 +103,7 @@ function ShopContent() {
               try {
                 if (item.description.startsWith('{')) {
                   const parsed = JSON.parse(item.description);
-                  if (parsed.image && parsed.image !== '/images/placeholder.png') {
+                  if (parsed.image && !parsed.image.includes('placeholder')) {
                     img = parsed.image;
                   }
                   textDesc = parsed.text || parsed.pertinentInfo || '';
@@ -107,7 +115,11 @@ function ShopContent() {
               }
             }
 
-            if (!img || img.includes('placeholder')) {
+            // Check SKU Map for exact filename match (.jpg, .png, etc.)
+            const cleanSku = (item.sku || '').trim().toUpperCase();
+            if (skuMap[cleanSku]) {
+              img = `/product-images/${skuMap[cleanSku]}`;
+            } else if (!img || img.includes('placeholder')) {
               img = `/product-images/${item.sku}.png`;
             }
 

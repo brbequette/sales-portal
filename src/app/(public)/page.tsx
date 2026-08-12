@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Metadata } from 'next';
 import { FiZap, FiTruck, FiShield, FiCheckCircle, FiLock, FiArrowRight, FiPhone, FiFileText, FiLayers } from 'react-icons/fi';
+import { SparkCanvas } from '@/components/SparkCanvas';
 
 export const metadata: Metadata = {
   title: 'Titan Diamond USA | Professional Diamond Blades & Concrete Cutting Tools',
@@ -57,6 +58,7 @@ export default function LandingPage() {
     <div className="bg-neutral-950 text-white min-h-screen">
       {/* Hero Section */}
       <section className="relative overflow-hidden border-b border-white/10 pt-12 pb-24 lg:pt-20 lg:pb-32 bg-neutral-950">
+        <SparkCanvas />
         <div className="absolute inset-0 z-0 opacity-40">
           <img 
             src="/images/hero/hero_blade.jpg" 
