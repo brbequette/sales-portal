@@ -12,6 +12,8 @@ const PUBLIC_ROUTES = [
   '/blade-finder',
   '/applications',
   '/signature-series',
+  '/knowledge-test',
+  '/rpm-calculator',
   '/privacy',
   '/terms',
   '/login',

@@ -43,6 +43,12 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             <Link href="/blade-finder" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors flex items-center gap-1">
               ⚡ Blade Finder
             </Link>
+            <Link href="/knowledge-test" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors flex items-center gap-1">
+              🏆 Certified Quiz
+            </Link>
+            <Link href="/rpm-calculator" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors flex items-center gap-1">
+              ⚙️ RPM Calculator
+            </Link>
             <Link href="/applications/concrete-cutting" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
               Concrete Saws
             </Link>
