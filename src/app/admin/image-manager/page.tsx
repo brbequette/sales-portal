@@ -826,7 +826,7 @@ export default function ImageManagerPage() {
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-neutral-900 border border-neutral-800 overflow-hidden flex items-center justify-center flex-shrink-0">
                         {hasImage ? (
-                          <img src={getImageUrl(p.imageFile, "processed")} alt={p.sku} className="w-full h-full object-cover" />
+                          <img src={p.imageFile.fileName.startsWith("NEW_") && p.imageFile.stagedUrl ? p.imageFile.stagedUrl : getImageUrl(p.imageFile, "processed")} alt={p.sku} className="w-full h-full object-cover" />
                         ) : (
                           <FiImage className="text-neutral-700" size={16} />
                         )}
@@ -1092,9 +1092,51 @@ export default function ImageManagerPage() {
 
                   {carouselIndex === 0 && (
                     selectedFile.fileName.startsWith("NEW_") ? (
+                      selectedFile.stagedUrl ? (
+                        <div className="text-center">
+                          <span className="text-xs text-neutral-500 font-semibold block mb-2">{selectedFile.stem} (Staged)</span>
+                          <img
+                            src={selectedFile.stagedUrl}
+                            alt="Staged Image"
+                            className="max-h-[380px] w-auto object-contain rounded-lg shadow-lg border border-white/5 mx-auto"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                          />
+                          <p className="text-neutral-500 text-[10px] mt-2 font-medium">Staged product image (from Zoho or local)</p>
+                          <input
+                            type="file"
+                            id="product-specific-upload"
+                            onChange={async (e) => {
+                              const uploaded = e.target.files?.[0]
+                              if (!uploaded) return
+                              setLoading(true)
+                              const formData = new FormData()
+                              const ext = uploaded.name.split('.').pop()
+                              const cleanStem = selectedFile.stem.replace(/^NEW_/, '')
+                              const targetName = `${cleanStem}.${ext}`
+                              formData.append("file", uploaded, targetName)
+                              try {
+                                const res = await fetch("/api/admin/images/upload", { method: "POST", body: formData })
+                                const data = await res.json()
+                                if (data.success) { alert("Image uploaded!"); await fetchFiles(); setCarouselIndex(1) }
+                                else alert("Upload failed: " + data.error)
+                              } catch (err: any) { alert("Error: " + err.message) }
+                              finally { setLoading(false) }
+                            }}
+                            accept="image/*"
+                            className="hidden"
+                          />
+                          <button
+                            onClick={() => document.getElementById("product-specific-upload")?.click()}
+                            className="mt-3 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 mx-auto border border-blue-500/20"
+                          >
+                            <FiUploadCloud size={12} />
+                            <span>Replace with Raw Photo</span>
+                          </button>
+                        </div>
+                      ) : (
                       <div className="text-center p-8 flex flex-col items-center">
                         <FiImage size={48} className="text-neutral-600 mx-auto mb-4 animate-pulse" />
-                        <p className="text-neutral-300 text-xs font-bold mb-4 font-mono">No photo uploaded for {selectedFile.stem} yet.</p>
+                        <p className="text-neutral-300 text-xs font-bold mb-4 font-mono">No photo uploaded for {selectedFile.stem.replace(/^NEW_/, '')} yet.</p>
                         <input
                           type="file"
                           id="product-specific-upload"
@@ -1104,7 +1146,8 @@ export default function ImageManagerPage() {
                             setLoading(true)
                             const formData = new FormData()
                             const ext = uploaded.name.split('.').pop()
-                            const targetName = `${selectedFile.stem}.${ext}`
+                            const cleanStem = selectedFile.stem.replace(/^NEW_/, '')
+                            const targetName = `${cleanStem}.${ext}`
                             formData.append("file", uploaded, targetName)
 
                             try {
@@ -1137,6 +1180,7 @@ export default function ImageManagerPage() {
                           <span>Upload Photo</span>
                         </button>
                       </div>
+                      )
                     ) : (
                       <div className="text-center">
                         <span className="text-xs text-neutral-500 font-semibold block mb-2">{selectedFile.fileName}</span>

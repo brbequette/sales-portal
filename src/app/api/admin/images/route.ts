@@ -285,10 +285,14 @@ export async function GET(req: NextRequest) {
 
       let isStaged = false
       let stagedUrl = null
+      let hasZohoImage = false
       try {
         const parsed = JSON.parse(p.description || "{}")
         if (parsed.image && parsed.image.includes("/product-images/")) {
           isStaged = true
+          stagedUrl = parsed.image
+        } else if (parsed.image && (parsed.image.includes("/api/zoho-image") || parsed.image.includes("zoho"))) {
+          hasZohoImage = true
           stagedUrl = parsed.image
         }
       } catch {}
@@ -311,9 +315,24 @@ export async function GET(req: NextRequest) {
         hasDetailB = checkDetailExists(stem, "detail_b")
         hasDetailC = checkDetailExists(stem, "detail_c")
         hasDetailD = checkDetailExists(stem, "detail_d")
-      } else if (isStaged && stagedUrl) {
-        const publicPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stem}.png`)
-        isProcessed = fs.existsSync(publicPath)
+      } else {
+        // No raw file match — try to find processed/public images by cleaned SKU
+        const skuStem = cleanSkuStem(p.sku)
+        const processedPath = path.join(PROCESSED_DIR, `${skuStem}.png`)
+        const publicPath = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${skuStem}.png`)
+        if (fs.existsSync(processedPath) || fs.existsSync(publicPath)) {
+          isProcessed = true
+          fileName = `${skuStem}.png`
+        } else if (isStaged && stagedUrl) {
+          const stagedStem = path.basename(stagedUrl, path.extname(stagedUrl))
+          const stagedPublic = path.join(PUBLIC_PRODUCT_IMAGES_DIR, `${stagedStem}.png`)
+          isProcessed = fs.existsSync(stagedPublic)
+          if (isProcessed) fileName = `${stagedStem}.png`
+        }
+        // If has Zoho image, mark as staged so it shows in Products with Images tab
+        if (hasZohoImage && !isStaged) {
+          isStaged = true
+        }
       }
 
       hydratedProductsList.push({
