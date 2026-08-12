@@ -1,9 +1,12 @@
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { ScrollProgress } from '@/components/ScrollProgress';
+import { FloatingCallBar } from '@/components/FloatingCallBar';
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-neutral-950 text-white selection:bg-amber-500/30 font-sans transition-colors duration-300">
+      <ScrollProgress />
       {/* Top Announcement Bar */}
       <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-white text-[11px] font-bold py-1.5 px-4 text-center tracking-wider uppercase flex items-center justify-center gap-4 border-b border-amber-500/20">
         <span>⚡ DIRECT CONTRACTOR PRICING & SAME-DAY NATIONWIDE SHIPPING</span>
@@ -48,7 +51,13 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               🏆 Certified Quiz
             </Link>
             <Link href="/rpm-calculator" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors flex items-center gap-1">
-              ⚙️ RPM Calculator
+              ⚙️ RPM Calc
+            </Link>
+            <Link href="/blade-comparator" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors flex items-center gap-1">
+              🔍 Comparator
+            </Link>
+            <Link href="/unit-converter" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors flex items-center gap-1">
+              📏 Unit Conv
             </Link>
             <Link href="/applications/concrete-cutting" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
               Concrete Saws
@@ -157,6 +166,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           </div>
         </div>
       </footer>
+      <FloatingCallBar />
     </div>
-  )
+  );
 }
