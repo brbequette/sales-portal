@@ -37,7 +37,10 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             <Link href="/shop" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
               Catalog
             </Link>
-            <Link href="/blade-finder" className="text-xs font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1">
+            <Link href="/signature-series" className="text-xs font-black uppercase tracking-wider text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full">
+              🔥 Signature Series
+            </Link>
+            <Link href="/blade-finder" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors flex items-center gap-1">
               ⚡ Blade Finder
             </Link>
             <Link href="/applications/concrete-cutting" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
