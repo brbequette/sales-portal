@@ -944,8 +944,17 @@ export default function VigManagementBuilder() {
                                    >Subtotal</button>
                                  </div>
 
-                                 {/* ── Row 3: Stats Grid (6 cards) ── */}
-                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                                 {/* ── Row 3: Stats Grid ── */}
+                                 {(() => {
+                                   const profitPct = md.profitGoal > 0 ? (md.deadProfit / md.profitGoal) * 100 : 0
+                                   const subtotalPct = md.subtotalGoal > 0 ? (md.subtotal / md.subtotalGoal) * 100 : 0
+                                   const profitMet = md.deadProfit >= md.profitGoal && md.profitGoal > 0
+                                   const subtotalMet = md.subtotal >= md.subtotalGoal && md.subtotalGoal > 0
+                                   const dailyProfit = md.workingDays > 0 ? Math.round(md.profitGoal / md.workingDays) : 0
+                                   const dailySub = md.workingDays > 0 ? Math.round(md.subtotalGoal / md.workingDays) : 0
+
+                                   return (
+                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
 
                                    {/* Working Days (editable — recalculates goals) */}
                                    <div className="bg-black/40 rounded-lg px-3 py-2 border border-white/5">
@@ -956,55 +965,108 @@ export default function VigManagementBuilder() {
                                        textClass={isStoredDays ? 'text-amber-300' : 'text-white'}
                                        onSave={v => saveWorkingDaysRecalc(rep.id, h.monthKey, v, md)}/>
                                      <div className="text-[9px] text-neutral-600 mt-0.5">
-                                       {isStoredDays ? `Override (auto: ${md.computedWorkingDays}d)` : `Auto (excl. ${holidayCount} holiday${holidayCount !== 1 ? 's' : ''})`}
+                                       {isStoredDays ? `Override (auto: ${md.computedWorkingDays}d)` : `Auto (excl. ${holidayCount} hol.)`}
                                      </div>
                                    </div>
 
-                                   {/* Daily Profit Rate (editable — recalculates profit goal) */}
-                                   <div className={`bg-black/40 rounded-lg px-3 py-2 border ${isProfit ? 'border-amber-500/30 ring-1 ring-amber-500/10' : 'border-white/5'}`}>
-                                     <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center gap-1">
-                                       {isProfit && <span className="text-amber-400">●</span>} Daily Profit
+                                   {/* ── Dead Profit Goal (full card with daily, total, actual, hit/miss) ── */}
+                                   <div className={`bg-black/40 rounded-lg px-3 py-2 border ${isProfit ? (profitMet && !isNoData ? 'border-emerald-500/40 bg-emerald-950/10' : 'border-amber-500/30 ring-1 ring-amber-500/10') : 'border-white/5'}`}>
+                                     <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center justify-between">
+                                       <span className="flex items-center gap-1">
+                                         {isProfit && <span className="text-amber-400">●</span>} Dead Profit Goal
+                                       </span>
+                                       {!isNoData && (
+                                         profitMet
+                                           ? <span className="text-emerald-400 text-[8px] font-black">✓ HIT</span>
+                                           : <span className="text-rose-400 text-[8px] font-black">✗ {Math.round(Math.min(profitPct, 999))}%</span>
+                                       )}
                                      </div>
-                                     <EditCell value={md.workingDays > 0 ? Math.round(md.profitGoal / md.workingDays) : 0} step={50}
-                                       textClass="text-amber-300"
-                                       onSave={v => saveDailyRate(rep.id, h.monthKey, v, 'profit', md.workingDays)}/>
-                                     <div className="text-[9px] text-neutral-600 mt-0.5">
-                                       ×{md.workingDays}d = ${md.profitGoal.toLocaleString()}
+                                     {/* Daily rate — editable */}
+                                     <div className="flex items-center gap-1.5 mb-0.5">
+                                       <span className="text-[8px] text-neutral-600 font-bold w-8">Daily:</span>
+                                       <EditCell value={dailyProfit} step={50} textClass="text-amber-300"
+                                         onSave={v => saveDailyRate(rep.id, h.monthKey, v, 'profit', md.workingDays)}/>
                                      </div>
+                                     {/* Total goal — editable */}
+                                     <div className="flex items-center gap-1.5 mb-0.5">
+                                       <span className="text-[8px] text-neutral-600 font-bold w-8">Goal:</span>
+                                       <EditCell value={md.profitGoal} step={500} textClass="text-amber-300"
+                                         onSave={v => saveMonthGoal(rep.id, h.monthKey, { profitGoal: v })}/>
+                                     </div>
+                                     {/* Actual */}
+                                     <div className="flex items-center gap-1.5">
+                                       <span className="text-[8px] text-neutral-600 font-bold w-8">Act:</span>
+                                       <span className={`font-mono font-bold text-xs ${isNoData ? 'text-neutral-600' : profitMet ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                         ${(md.deadProfit || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                       </span>
+                                     </div>
+                                     {/* Mini progress bar */}
+                                     {!isNoData && (
+                                       <div className="h-1 bg-white/10 rounded-full overflow-hidden mt-1.5">
+                                         <div className={`h-full rounded-full transition-all duration-500 ${profitMet ? 'bg-emerald-500' : profitPct > 66 ? 'bg-amber-500' : 'bg-rose-500'}`}
+                                           style={{ width: `${Math.min(profitPct, 100)}%` }}/>
+                                       </div>
+                                     )}
+                                     <div className="text-[8px] text-neutral-600 mt-0.5">{md.invoiceCount} inv</div>
                                    </div>
 
-                                   {/* Monthly Profit Goal (editable) */}
-                                   <div className={`bg-black/40 rounded-lg px-3 py-2 border ${isProfit ? 'border-amber-500/20' : 'border-white/5'}`}>
-                                     <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center gap-1">
-                                       {isProfit && <span className="text-amber-400">●</span>} Profit Goal
+                                   {/* ── Subtotal Goal (full card with daily, total, actual, hit/miss) ── */}
+                                   <div className={`bg-black/40 rounded-lg px-3 py-2 border ${!isProfit ? (subtotalMet && !isNoData ? 'border-emerald-500/40 bg-emerald-950/10' : 'border-sky-500/30 ring-1 ring-sky-500/10') : 'border-white/5'}`}>
+                                     <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center justify-between">
+                                       <span className="flex items-center gap-1">
+                                         {!isProfit && <span className="text-sky-400">●</span>} Subtotal Goal
+                                       </span>
+                                       {!isNoData && (
+                                         subtotalMet
+                                           ? <span className="text-emerald-400 text-[8px] font-black">✓ HIT</span>
+                                           : <span className="text-rose-400 text-[8px] font-black">✗ {Math.round(Math.min(subtotalPct, 999))}%</span>
+                                       )}
                                      </div>
-                                     <EditCell value={md.profitGoal} step={500} textClass="text-amber-300"
-                                       onSave={v => saveMonthGoal(rep.id, h.monthKey, { profitGoal: v })}/>
-                                     <div className="text-[9px] text-neutral-600 mt-0.5">
-                                       ${md.workingDays > 0 ? Math.round(md.profitGoal / md.workingDays).toLocaleString() : '—'}/day
+                                     {/* Daily rate — editable */}
+                                     <div className="flex items-center gap-1.5 mb-0.5">
+                                       <span className="text-[8px] text-neutral-600 font-bold w-8">Daily:</span>
+                                       <EditCell value={dailySub} step={100} textClass="text-sky-300"
+                                         onSave={v => saveDailyRate(rep.id, h.monthKey, v, 'subtotal', md.workingDays)}/>
                                      </div>
+                                     {/* Total goal — editable */}
+                                     <div className="flex items-center gap-1.5 mb-0.5">
+                                       <span className="text-[8px] text-neutral-600 font-bold w-8">Goal:</span>
+                                       <EditCell value={md.subtotalGoal} step={1000} textClass="text-sky-300"
+                                         onSave={v => saveMonthGoal(rep.id, h.monthKey, { subtotalGoal: v })}/>
+                                     </div>
+                                     {/* Actual */}
+                                     <div className="flex items-center gap-1.5">
+                                       <span className="text-[8px] text-neutral-600 font-bold w-8">Act:</span>
+                                       <span className={`font-mono font-bold text-xs ${isNoData ? 'text-neutral-600' : subtotalMet ? 'text-emerald-400' : 'text-sky-300'}`}>
+                                         ${(md.subtotal || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                       </span>
+                                     </div>
+                                     {/* Mini progress bar */}
+                                     {!isNoData && (
+                                       <div className="h-1 bg-white/10 rounded-full overflow-hidden mt-1.5">
+                                         <div className={`h-full rounded-full transition-all duration-500 ${subtotalMet ? 'bg-emerald-500' : subtotalPct > 66 ? 'bg-amber-500' : 'bg-rose-500'}`}
+                                           style={{ width: `${Math.min(subtotalPct, 100)}%` }}/>
+                                       </div>
+                                     )}
+                                     <div className="text-[8px] text-neutral-600 mt-0.5">${md.invoiceCount > 0 ? Math.round(md.subtotal / md.invoiceCount).toLocaleString() : 0} avg/inv</div>
                                    </div>
 
-                                   {/* Subtotal Goal (editable) */}
-                                   <div className={`bg-black/40 rounded-lg px-3 py-2 border ${!isProfit ? 'border-sky-500/20' : 'border-white/5'}`}>
-                                     <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1 flex items-center gap-1">
-                                       {!isProfit && <span className="text-sky-400">●</span>} Subtotal Goal
-                                     </div>
-                                     <EditCell value={md.subtotalGoal} step={1000} textClass="text-sky-300"
-                                       onSave={v => saveMonthGoal(rep.id, h.monthKey, { subtotalGoal: v })}/>
-                                     <div className="text-[9px] text-neutral-600 mt-0.5">
-                                       ${md.workingDays > 0 ? Math.round(md.subtotalGoal / md.workingDays).toLocaleString() : '—'}/day
-                                     </div>
-                                   </div>
-
-                                   {/* Dead Profit Actual */}
+                                   {/* Actuals Summary */}
                                    <div className="bg-black/40 rounded-lg px-3 py-2 border border-white/5">
-                                     <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1">Dead Profit Actual</div>
-                                     <div className={`font-mono font-bold text-xs ${isNoData ? 'text-neutral-600' : md.metGoal && isProfit ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                       ${(md.deadProfit || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                     </div>
-                                     <div className="text-[9px] text-neutral-600 mt-0.5">
-                                       {md.invoiceCount} inv · ${md.invoiceCount > 0 ? Math.round(md.subtotal / md.invoiceCount).toLocaleString() : 0} avg sub
+                                     <div className="text-[9px] uppercase font-bold text-neutral-500 tracking-wider mb-1">Actuals Summary</div>
+                                     <div className="space-y-1">
+                                       <div className="flex items-center justify-between">
+                                         <span className="text-[8px] text-neutral-600 font-bold">Profit:</span>
+                                         <span className={`font-mono font-bold text-xs ${isNoData ? 'text-neutral-600' : profitMet ? 'text-emerald-400' : 'text-amber-400'}`}>${(md.deadProfit || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                       </div>
+                                       <div className="flex items-center justify-between">
+                                         <span className="text-[8px] text-neutral-600 font-bold">Subtotal:</span>
+                                         <span className={`font-mono font-bold text-xs ${isNoData ? 'text-neutral-600' : subtotalMet ? 'text-emerald-400' : 'text-sky-300'}`}>${(md.subtotal || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                       </div>
+                                       <div className="flex items-center justify-between border-t border-white/5 pt-1">
+                                         <span className="text-[8px] text-neutral-600 font-bold">Invoices:</span>
+                                         <span className="font-mono font-bold text-xs text-neutral-300">{md.invoiceCount}</span>
+                                       </div>
                                      </div>
                                    </div>
 
@@ -1029,30 +1091,8 @@ export default function VigManagementBuilder() {
                                      )
                                    })()}
                                  </div>
-
-                                {/* ── Row 3: Subtotal actual (secondary stat) ── */}
-                                {!isNoData && (
-                                  <div className="flex items-center gap-4 px-1 text-[10px] text-neutral-400">
-                                    <span>Subtotal actual: <strong className="text-sky-300 font-mono">${(md.subtotal || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong></span>
-                                    {!isProfit && md.metGoal && <span className="text-emerald-400 font-bold">✓ Subtotal goal met</span>}
-                                    {!isProfit && !md.metGoal && <span className="text-amber-400 font-bold">↗ {Math.round(pct)}% of subtotal goal</span>}
-                                  </div>
-                                )}
-
-                                {/* ── Row 4: Progress bar ── */}
-                                {!isNoData && (
-                                  <div className="space-y-1">
-                                    <div className="flex items-center justify-between text-[9px] text-neutral-500">
-                                      <span className="font-bold uppercase tracking-wider">{isProfit ? 'Dead Profit' : 'Subtotal'} vs Goal</span>
-                                      <span className="font-mono">${actualValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} / ${goalValue.toLocaleString()}</span>
-                                    </div>
-                                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                      <div className={`h-full rounded-full transition-all duration-500 ${md.metGoal ? 'bg-emerald-500' : pct > 66 ? 'bg-amber-500' : pct > 33 ? 'bg-orange-500' : 'bg-rose-500'}`}
-                                        style={{ width: `${Math.max(pct, 2)}%` }}/>
-                                    </div>
-                                    {overPct > 0 && <div className="text-[9px] text-emerald-400 font-bold">+{Math.round(overPct)}% over goal 🎯</div>}
-                                  </div>
-                                )}
+                                   )
+                                 })()}
 
                                 {/* ── Row 5: Mismatch invoices ── */}
                                 {mismatchCount > 0 && (
