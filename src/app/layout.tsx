@@ -4,7 +4,6 @@ import { AppShell } from "@/components/AppShell";
 import Script from "next/script";
 import { TimeclockTracker } from "@/components/TimeclockTracker";
 import { ClientToaster } from "@/components/ClientToaster";
-import { AiAssistant } from "@/components/AiAssistant";
 import "./globals.css";
 
 import { Providers } from "@/components/Providers";
@@ -42,8 +41,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className="antialiased">
-        <Script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js" strategy="beforeInteractive" />
-        <Script src="https://js.authorize.net/v1/Accept.js" strategy="afterInteractive" />
+        <Script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js" strategy="afterInteractive" />
         <ThemeProvider>
           <Providers>
             <AppShell>
@@ -51,7 +49,6 @@ export default function RootLayout({
               <ClientToaster />
               {children}
             </AppShell>
-            <AiAssistant />
           </Providers>
         </ThemeProvider>
       </body>

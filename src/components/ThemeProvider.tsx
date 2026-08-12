@@ -16,38 +16,70 @@ const ThemeContext = createContext<ThemeContextType>({
   setTheme: () => {},
 });
 
+const customColorVariables: Record<string, string> = {
+  primary: '--primary',
+  primaryHover: '--primary-hover',
+  background: '--background',
+  surface: '--surface',
+  surface2: '--surface-2',
+  foreground: '--foreground',
+  muted: '--muted',
+  border: '--border',
+  success: '--success',
+  warning: '--warning',
+  danger: '--danger',
+  info: '--info',
+};
+
+function applySavedColors() {
+  try {
+    const saved = localStorage.getItem('titan_theme_settings');
+    if (!saved) return;
+    const colors = JSON.parse(saved) as Record<string, string>;
+    Object.entries(customColorVariables).forEach(([key, variable]) => {
+      if (colors[key]) document.documentElement.style.setProperty(variable, colors[key]);
+    });
+  } catch {}
+}
+
+function clearSavedColors() {
+  Object.values(customColorVariables).forEach(variable => {
+    document.documentElement.style.removeProperty(variable);
+  });
+}
+
+function applyThemeToDOM(theme: Theme) {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  const body = document.body;
+
+  root.setAttribute('data-theme', theme);
+  body.setAttribute('data-theme', theme);
+
+  if (theme === 'light') {
+    clearSavedColors();
+    root.classList.add('light', 'light-mode');
+    root.classList.remove('dark', 'dark-mode');
+    body.classList.add('light-mode');
+    body.classList.remove('dark-mode');
+  } else {
+    root.classList.add('dark', 'dark-mode');
+    root.classList.remove('light', 'light-mode');
+    body.classList.add('dark-mode');
+    body.classList.remove('light-mode');
+    applySavedColors();
+  }
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('dark');
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const savedTheme = localStorage.getItem('td_theme') as Theme;
     const initialTheme = (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'dark';
-    setThemeState(initialTheme);
     applyThemeToDOM(initialTheme);
+    queueMicrotask(() => setThemeState(initialTheme));
   }, []);
-
-  const applyThemeToDOM = (t: Theme) => {
-    if (typeof document === 'undefined') return;
-    const root = document.documentElement;
-    const body = document.body;
-    
-    root.setAttribute('data-theme', t);
-    body.setAttribute('data-theme', t);
-
-    if (t === 'light') {
-      root.classList.add('light', 'light-mode');
-      root.classList.remove('dark', 'dark-mode');
-      body.classList.add('light-mode');
-      body.classList.remove('dark-mode');
-    } else {
-      root.classList.add('dark', 'dark-mode');
-      root.classList.remove('light', 'light-mode');
-      body.classList.add('dark-mode');
-      body.classList.remove('light-mode');
-    }
-  };
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';

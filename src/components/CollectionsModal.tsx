@@ -6,6 +6,7 @@ import { FiPhoneCall, FiSearch, FiRefreshCw, FiDownload, FiAlertCircle, FiX, FiU
 import { useZoho } from "@/components/ZohoProvider"
 import { toast } from 'react-hot-toast';
 import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
+import { loadAcceptJs } from "@/lib/load-external-script"
 
 // â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 export type Invoice = {
@@ -288,9 +289,8 @@ function RunCardModal({ invoice, onClose, onSuccess }: { invoice: Invoice, onClo
         throw new Error("Authorize.Net public key credentials are not configured in Netlify environment.")
       }
 
-      if (typeof (window as any).Accept === "undefined") {
-        throw new Error("Accept.js is not loaded in layout head. Check connection.")
-      }
+      await loadAcceptJs()
+      if (typeof (window as any).Accept === "undefined") throw new Error("Payment processor is unavailable. Check your connection and try again.")
 
       setStatusText("Tokenizing credit card credentials...")
       const secureData = {
@@ -1059,4 +1059,3 @@ export function CollectionsModal({
 
   return null;
 }
-
