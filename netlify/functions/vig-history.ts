@@ -154,9 +154,8 @@ export const handler: Handler = async (event) => {
         : (goal?.manualVigRate ?? goal?.lastSyncedVigRate ?? 1.3)
 
       // What VIG is actually stored on the invoice?
-      const actualVig = parseFloat(
-        items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted ?? items.vigRate ?? 0
-      ) || 1.3
+      const rawVig = items.cf_salesperson_vig ?? items.cf_salesperson_vig_unformatted ?? items.vigRate ?? null
+      const actualVig = rawVig !== null && rawVig !== undefined && rawVig !== '' ? parseFloat(rawVig) : null
 
       const subtotal    = parseFloat(items.sub_total || items.subTotal) || parseFloat(inv.amount) || 0
       const deadCost    = parseFloat(items.deadCostTotal || items.dead_cost_total || 0) || 0
@@ -172,8 +171,9 @@ export const handler: Handler = async (event) => {
       statsMap[mk][userId].deadProfit += deadProfit
       statsMap[mk][userId].invoiceCount++
 
-      // Flag as mismatch if off by more than 0.01
-      if (includeMismatches && Math.abs(actualVig - expectedVig) > 0.01) {
+      // Flag as mismatch only if VIG IS stored and differs from expected
+      // (skip invoices where VIG was never written — they haven't been cost-processed yet)
+      if (includeMismatches && actualVig !== null && !isNaN(actualVig) && actualVig > 0 && Math.abs(actualVig - expectedVig) > 0.01) {
         const invNum = items.invoice_number || items.invoiceNumber || inv.zohoId || inv.id
         statsMap[mk][userId].mismatches.push({
           id:       inv.id,
