@@ -177,7 +177,7 @@ export default function SalesSheetPage() {
                   { label: "Net Profit", value: fmt(totals.profit), sub: `Margin: ${totals.sales > 0 ? fmtPct((totals.profit / totals.sales) * 100) : "—"}`, icon: FiTrendingUp, color: "emerald" },
                   { label: "Markup", value: `${totals.markup.toFixed(2)}x`, icon: FiTrendingUp, color: "violet" },
                   { label: "Commission", value: fmt(totals.commission), sub: `Up: ${fmt(totals.upfront)} · Fin: ${fmt(totals.final)}`, icon: FiDollarSign, color: "violet" },
-                  { label: "Pending Pay", value: fmt(totals.pendingPay), sub: `${totals.unpaidCount} invoices`, icon: FiClock, color: totals.unpaidCount > 0 ? "amber" : "neutral" },
+                  { label: "Pending Commission", value: fmt(totals.pendingPay), sub: `${totals.unpaidCount} invoices`, icon: FiClock, color: totals.unpaidCount > 0 ? "amber" : "neutral" },
                 ].map((card, i) => (
                   <div key={i} className="rounded-xl border p-3" style={{ background: "color-mix(in srgb, var(--surface, #18181b) 80%, transparent)", borderColor: "var(--border, #262626)" }}>
                     <div className="flex items-center gap-2 mb-1">
