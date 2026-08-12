@@ -10,6 +10,7 @@ import {
   FiActivity, FiDollarSign, FiPackage, FiCalendar, FiUser
 } from 'react-icons/fi'
 import { UpdateBanner } from '@/lib/useStaleCheck'
+import { getZohoBooksUrl } from '@/lib/zoho-urls'
 
 type UnifiedDoc = {
   id: string
@@ -22,6 +23,7 @@ type UnifiedDoc = {
   amount: number
   status: string
   items: any
+  documentUrl: string | null
 }
 
 type SortField = 'date' | 'amount' | 'number' | 'customer' | 'status'
@@ -225,6 +227,22 @@ function SalesDocsInner() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val)
   }
 
+  const getDocumentUrl = (doc: UnifiedDoc) => {
+    if (doc.documentUrl) return doc.documentUrl
+    if (doc.zohoId) return getZohoBooksUrl(doc.type, doc.zohoId)
+    return getDocumentPdfUrl(doc)
+  }
+
+  const getDocumentPdfUrl = (doc: UnifiedDoc, download = false) => {
+    const pdfType = doc.type === 'salesorder' ? 'SalesOrder' : doc.type === 'quote' ? 'Quote' : 'Invoice'
+    const params = new URLSearchParams({
+      id: doc.zohoId || doc.id,
+      type: pdfType,
+    })
+    if (download) params.set('download', 'true')
+    return `/api/get-invoice-pdf?${params.toString()}`
+  }
+
   const getStatusColor = (s: string) => {
     const sl = s.toLowerCase()
     if (sl.includes('paid') || sl.includes('accepted')) return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
@@ -421,7 +439,19 @@ function SalesDocsInner() {
                     onClick={() => setSelectedDoc(doc)}
                     className="group hover:bg-zinc-800/30 transition-colors cursor-pointer"
                   >
-                    <td className="p-4 font-mono text-sm text-zinc-300 group-hover:text-white transition-colors">{doc.docNumber}</td>
+                    <td className="p-4 font-mono text-sm text-zinc-300 group-hover:text-white transition-colors">
+                      <a
+                        href={getDocumentUrl(doc)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={event => event.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 hover:text-orange-400 hover:underline"
+                        title={`Open ${doc.docNumber}`}
+                      >
+                        {doc.docNumber}
+                        <FiExternalLink className="shrink-0" aria-hidden="true" />
+                      </a>
+                    </td>
                     <td className="p-4">
                       <div className="font-medium text-zinc-200">{doc.customerName}</div>
                     </td>
@@ -441,8 +471,18 @@ function SalesDocsInner() {
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <a
+                          href={getDocumentUrl(doc)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={event => event.stopPropagation()}
+                          className="p-2 text-zinc-400 hover:text-orange-400 hover:bg-zinc-700 rounded-lg transition-colors"
+                          title="Open document"
+                        >
+                          <FiExternalLink />
+                        </a>
                         <a 
-                          href={`/api/get-invoice-pdf?id=${doc.zohoId || doc.id}&type=${doc.type}&download=true`}
+                          href={getDocumentPdfUrl(doc, true)}
                           onClick={e => e.stopPropagation()}
                           className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-lg transition-colors"
                           title="Download PDF"
@@ -578,21 +618,19 @@ function SalesDocsInner() {
 
             <div className="p-6 border-t border-zinc-800/60 bg-zinc-900/50 flex flex-col gap-3">
               <a 
-                href={`/api/get-invoice-pdf?id=${selectedDoc.zohoId || selectedDoc.id}&type=${selectedDoc.type}&download=true`}
+                href={getDocumentPdfUrl(selectedDoc, true)}
                 className="w-full py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-medium transition-all shadow-lg border border-zinc-700 flex items-center justify-center gap-2"
               >
                 <FiDownload /> Download PDF
               </a>
-              <button 
-                onClick={() => {
-                  // Navigate to full details view based on doc type
-                  // Implementation specific to routing structure
-                  alert(`Open full details for ${selectedDoc.docNumber}`)
-                }}
+              <a
+                href={getDocumentUrl(selectedDoc)}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full py-3.5 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-medium transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] hover:shadow-[0_0_30px_rgba(249,115,22,0.5)] flex items-center justify-center gap-2"
               >
-                <FiExternalLink /> View Full Details
-              </button>
+                <FiExternalLink /> Open Document
+              </a>
             </div>
           </div>
         )}
