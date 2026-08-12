@@ -7,41 +7,7 @@ if (!process.env.NEXTAUTH_URL) {
   process.env.NEXTAUTH_URL = process.env.URL || process.env.DEPLOY_PRIME_URL || "https://titan-sales-portal.netlify.app"
 }
 
-const REQUIRED_SCOPES = [
-  "AaaServer.profile.READ",
-  "ZohoCRM.modules.accounts.READ",
-  "ZohoCRM.modules.accounts.WRITE",
-  "ZohoCRM.modules.contacts.READ",
-  "ZohoCRM.modules.contacts.WRITE",
-  "ZohoCRM.modules.tasks.READ",
-  "ZohoCRM.modules.tasks.WRITE",
-  "ZohoCRM.modules.ALL",
-  "ZohoCRM.users.READ",
-  "ZohoBooks.invoices.READ",
-  "ZohoBooks.invoices.CREATE",
-  "ZohoBooks.invoices.UPDATE",
-  "ZohoBooks.estimates.READ",
-  "ZohoBooks.estimates.CREATE",
-  "ZohoBooks.estimates.UPDATE",
-  "ZohoBooks.salesorders.READ",
-  "ZohoBooks.salesorders.CREATE",
-  "ZohoBooks.salesorders.UPDATE",
-  "ZohoBooks.contacts.READ",
-  "ZohoBooks.contacts.CREATE",
-  "ZohoBooks.items.READ",
-  "ZohoBooks.payments.CREATE",
-  "ZohoBooks.payments.READ",
-  "ZohoBooks.settings.READ",
-  "ZohoVoice.sms.CREATE",
-  "ZohoVoice.powerdialer.CREATE",
-  "ZohoVoice.powerdialer.READ",
-  "ZohoVoice.powerdialer.UPDATE",
-  "ZohoVoice.powerdialer.DELETE",
-  "ZohoVoice.call.READ",
-  "ZohoVoice.call.CREATE",
-  "ZohoVoice.contacts.READ",
-  "ZohoVoice.contacts.CREATE",
-].join(",")
+const LOGIN_SCOPE = "AaaServer.profile.READ"
 
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 
@@ -61,9 +27,7 @@ export const authOptions: NextAuthOptions = {
       authorization: {
         url: `https://accounts.zoho.${ZOHO_DC}/oauth/v2/auth`,
         params: {
-          scope: REQUIRED_SCOPES,
-          access_type: "offline",
-          prompt: "consent",
+          scope: LOGIN_SCOPE,
         }
       },
       token: `https://accounts.zoho.${ZOHO_DC}/oauth/v2/token`,
@@ -73,7 +37,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === "zoho") {
-        const email = user.email
+        const email = user.email?.trim().toLowerCase()
         if (!email) return false
         const zohoProfile = (profile || {}) as Record<string, unknown>
         let fullName = user.name ||
@@ -87,18 +51,11 @@ export const authOptions: NextAuthOptions = {
 
         const zohoUserId = profileString(zohoProfile, "ZUID", "zuid") || null
 
-        // Sync to database -- check by zohoId first (merges stub users from account sync), then by email
-        let dbUser = null
-
-        // 1. Try finding by Zoho User ID (catches stub users created during account sync with dummy emails)
-        if (zohoUserId) {
-          dbUser = await prisma.user.findUnique({ where: { zohoId: zohoUserId } })
-        }
-
-        // 2. Fallback: find by real email
-        if (!dbUser) {
-          dbUser = await prisma.user.findUnique({ where: { email } })
-        }
+        const [zohoUser, emailUser] = await Promise.all([
+          zohoUserId ? prisma.user.findUnique({ where: { zohoId: zohoUserId } }) : null,
+          prisma.user.findUnique({ where: { email } }),
+        ])
+        let dbUser = zohoUser || emailUser
 
         if (!dbUser) {
           // Brand new user -- create with real info
@@ -111,11 +68,10 @@ export const authOptions: NextAuthOptions = {
             },
           })
         } else {
-          // Existing user -- merge/update: fix dummy email, missing name, missing zohoId
           const updates: Prisma.UserUpdateInput = {}
-          if (dbUser.email.includes("@dummy.titandiamond.com") && email) updates.email = email
+          if (dbUser.email.includes("@dummy.titandiamond.com") && !emailUser) updates.email = email
           if ((!dbUser.name || dbUser.name === "Unknown Owner") && fullName) updates.name = fullName
-          if (!dbUser.zohoId && zohoUserId) updates.zohoId = zohoUserId
+          if (!dbUser.zohoId && zohoUserId && !zohoUser) updates.zohoId = zohoUserId
           if (Object.keys(updates).length > 0) {
             dbUser = await prisma.user.update({
               where: { id: dbUser.id },
@@ -129,6 +85,7 @@ export const authOptions: NextAuthOptions = {
         user.dbId = dbUser.id
         user.role = dbUser.role
         user.isZohoUser = true
+        user.email = email
       }
       return true
     },
@@ -150,6 +107,20 @@ export const authOptions: NextAuthOptions = {
         session.user.isZohoUser = token.isZohoUser
       }
       return session
+    },
+    async redirect({ url, baseUrl }) {
+      const destination = new URL(url, baseUrl)
+      const dashboardUrl = new URL("/dashboard", baseUrl).toString()
+
+      if (destination.origin !== new URL(baseUrl).origin) {
+        return dashboardUrl
+      }
+
+      if (destination.pathname === "/employee-login" || destination.pathname === "/admin-login") {
+        return dashboardUrl
+      }
+
+      return destination.toString()
     }
   },
   pages: {

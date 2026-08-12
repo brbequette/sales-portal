@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { FiShield, FiLock, FiMail, FiArrowRight, FiAlertCircle, FiUserCheck } from 'react-icons/fi';
 import { SparkCanvas } from '@/components/SparkCanvas';
 
@@ -13,6 +13,16 @@ export default function EmployeeLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { status } = useSession();
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.replace('/dashboard');
+      router.refresh();
+      return;
+    }
+
+  }, [router, status]);
 
   const handleStaffLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +41,7 @@ export default function EmployeeLoginPage() {
       } else {
         router.push('/dashboard');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred during authentication.');
     } finally {
       setLoading(false);
@@ -41,7 +51,12 @@ export default function EmployeeLoginPage() {
   const handleZohoSso = async () => {
     setLoading(true);
     setError('');
-    await signIn('zoho', { callbackUrl: '/dashboard' });
+    try {
+      await signIn('zoho', { callbackUrl: '/dashboard' });
+    } catch {
+      setError('Unable to connect to Zoho sign-in. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -114,7 +129,7 @@ export default function EmployeeLoginPage() {
         <button
           type="button"
           onClick={handleZohoSso}
-          disabled={loading}
+          disabled={loading || status === 'loading' || status === 'authenticated'}
           className="w-full bg-neutral-950 hover:bg-neutral-800 border border-white/10 text-white font-bold text-xs py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
         >
           <FiUserCheck className="text-amber-400" size={16} /> SIGN IN WITH ZOHO CRM SSO
