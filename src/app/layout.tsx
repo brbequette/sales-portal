@@ -26,6 +26,8 @@ export const viewport: Viewport = {
   themeColor: "#0d0e10",
 };
 
+import { ThemeProvider } from "@/components/ThemeProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -42,14 +44,16 @@ export default function RootLayout({
       <body className="antialiased">
         <Script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js" strategy="beforeInteractive" />
         <Script src="https://js.authorize.net/v1/Accept.js" strategy="afterInteractive" />
-        <Providers>
-          <AppShell>
-            <TimeclockTracker />
-            <ClientToaster />
-            {children}
-          </AppShell>
-          <AiAssistant />
-        </Providers>
+        <ThemeProvider>
+          <Providers>
+            <AppShell>
+              <TimeclockTracker />
+              <ClientToaster />
+              {children}
+            </AppShell>
+            <AiAssistant />
+          </Providers>
+        </ThemeProvider>
       </body>
     </html>
   );

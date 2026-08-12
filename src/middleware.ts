@@ -14,6 +14,8 @@ const PUBLIC_ROUTES = [
   '/signature-series',
   '/knowledge-test',
   '/rpm-calculator',
+  '/careers',
+  '/admin-login',
   '/privacy',
   '/terms',
   '/login',
