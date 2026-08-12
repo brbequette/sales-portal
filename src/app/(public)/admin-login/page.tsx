@@ -40,7 +40,23 @@ export default function AdminLoginPage() {
         )}
 
         {!accessDenied && (
-          <button onClick={() => { setLoading(true); signIn("zoho", { callbackUrl: "/admin" }) }} disabled={loading || status === "loading"} className="mt-7 flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 py-4 text-sm font-black uppercase tracking-wider text-neutral-950 transition hover:from-amber-400 disabled:opacity-60">
+          <button 
+            onClick={async () => { 
+              setLoading(true); 
+              try {
+                const res = await signIn("zoho", { callbackUrl: "/admin", redirect: false });
+                if (res?.url) {
+                  window.location.href = res.url;
+                } else {
+                  window.location.href = `/api/auth/signin/zoho?callbackUrl=${encodeURIComponent("/admin")}`;
+                }
+              } catch {
+                window.location.href = `/api/auth/signin/zoho?callbackUrl=${encodeURIComponent("/admin")}`;
+              }
+            }} 
+            disabled={loading || status === "loading"} 
+            className="mt-7 flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 py-4 text-sm font-black uppercase tracking-wider text-neutral-950 transition hover:from-amber-400 disabled:opacity-60"
+          >
             <FiShield />{loading || status === "loading" ? "Connecting to Zoho..." : "Continue with Zoho"}<FiArrowRight />
           </button>
         )}

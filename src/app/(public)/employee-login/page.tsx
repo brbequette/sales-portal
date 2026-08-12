@@ -52,10 +52,14 @@ export default function EmployeeLoginPage() {
     setLoading(true);
     setError('');
     try {
-      await signIn('zoho', { callbackUrl: '/dashboard' });
+      const res = await signIn('zoho', { callbackUrl: '/dashboard', redirect: false });
+      if (res?.url) {
+        window.location.href = res.url;
+      } else {
+        window.location.href = `/api/auth/signin/zoho?callbackUrl=${encodeURIComponent('/dashboard')}`;
+      }
     } catch {
-      setError('Unable to connect to Zoho sign-in. Please try again.');
-      setLoading(false);
+      window.location.href = `/api/auth/signin/zoho?callbackUrl=${encodeURIComponent('/dashboard')}`;
     }
   };
 
