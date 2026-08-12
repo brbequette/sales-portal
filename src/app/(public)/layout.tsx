@@ -56,12 +56,12 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             <h3 className="text-xs font-bold text-white mb-6 uppercase tracking-widest text-amber-400">Support & Company</h3>
             <ul className="space-y-3 text-xs">
               <li><Link href="/resources" className="text-neutral-400 hover:text-white transition-colors">Technical Guides & Publications</Link></li>
-              <li><Link href="/careers" className="text-neutral-400 hover:text-white transition-colors">Careers & Job Openings</Link></li>
+              <li><Link href="/careers" className="text-neutral-400 hover:text-white transition-colors">Careers & Sales Rep Openings</Link></li>
               <li><Link href="/about" className="text-neutral-400 hover:text-white transition-colors">About Titan Diamond USA</Link></li>
               <li><Link href="/contact" className="text-neutral-400 hover:text-white transition-colors">Request Custom Quote</Link></li>
-              <li><Link href="/login" className="text-neutral-400 hover:text-white transition-colors">Contractor Account Portal</Link></li>
-              <li><Link href="/employee-login" className="text-neutral-500 hover:text-emerald-400 transition-colors">Employee Portal</Link></li>
-              <li><Link href="/admin-login" className="text-neutral-500 hover:text-amber-400 transition-colors">🔒 Internal Admin Portal</Link></li>
+              <li><Link href="/login" className="text-neutral-300 font-bold hover:text-amber-400 transition-colors">👥 Contractor Account Portal</Link></li>
+              <li><Link href="/employee-login" className="text-neutral-400 hover:text-amber-400 transition-colors font-mono">👔 Employee & Sales Rep Login</Link></li>
+              <li><Link href="/admin-login" className="text-neutral-500 hover:text-amber-400 transition-colors text-[11px]">🔒 Internal Admin Portal</Link></li>
             </ul>
           </div>
 
@@ -82,12 +82,18 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                   ✉ sales@titandiamondusa.com
                 </a>
               </li>
-              <li className="pt-2">
+              <li className="pt-2 flex flex-col gap-2">
                 <Link 
                   href="/login"
-                  className="inline-block bg-neutral-900 border border-amber-500/30 text-amber-400 hover:bg-amber-500 hover:text-black text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all"
+                  className="inline-block bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 text-neutral-950 text-center text-[11px] font-black uppercase px-3 py-2 rounded-xl transition-all shadow-md"
                 >
-                  Log In for Pricing
+                  Contractor Account Portal
+                </Link>
+                <Link 
+                  href="/employee-login"
+                  className="inline-block bg-neutral-900 border border-white/10 text-neutral-300 hover:text-amber-400 text-center text-[11px] font-bold px-3 py-1.5 rounded-xl transition-all"
+                >
+                  Employee Login
                 </Link>
               </li>
             </ul>
@@ -97,9 +103,10 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-white/5 text-center text-[11px] text-neutral-500 flex flex-col md:flex-row justify-between items-center gap-4">
           <p>© 2026 Titan Diamond USA. All rights reserved. Professional Diamond Cutting Tools.</p>
           <div className="flex items-center gap-6 text-neutral-500">
+            <Link href="/login" className="hover:text-amber-400 font-semibold">Contractor Portal</Link>
+            <Link href="/employee-login" className="hover:text-amber-400 font-mono">Employee Login</Link>
             <Link href="/privacy" className="hover:text-neutral-300">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-neutral-300">Terms of Service</Link>
-            <Link href="/employee-login" className="hover:text-emerald-400 font-mono">Employee Login</Link>
             <Link href="/admin-login" className="hover:text-amber-400 font-mono">Admin Login</Link>
           </div>
         </div>

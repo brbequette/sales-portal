@@ -127,35 +127,70 @@ export default function LandingPage() {
       <section className="py-16 bg-neutral-950 border-b border-white/5 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 p-8 rounded-3xl border border-white/10 hover:border-amber-500/30 transition-all group">
-              <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-center text-amber-400 mb-6 group-hover:scale-110 transition-transform">
-                <FiZap size={24} />
+            
+            {/* Box 1 */}
+            <div className="relative overflow-hidden rounded-3xl border border-white/15 hover:border-amber-500/50 transition-all group p-8 min-h-[240px] flex flex-col justify-end shadow-2xl bg-neutral-900">
+              <div className="absolute inset-0 z-0">
+                <img 
+                  src="/images/value-props/box_laser_weld.jpg" 
+                  alt="Laser Welded Segments" 
+                  className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-500 filter brightness-[0.45] contrast-125"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/80 to-transparent" />
               </div>
-              <h3 className="text-lg font-black text-white uppercase tracking-wide mb-2">Laser Welded Segments</h3>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Maximum segment retention prevents segment loss even under heavy rebar impacts and extreme friction heat.
-              </p>
+              <div className="relative z-10">
+                <div className="w-12 h-12 bg-amber-500/20 border border-amber-400/40 rounded-2xl flex items-center justify-center text-amber-400 mb-4 group-hover:scale-110 transition-transform backdrop-blur-md">
+                  <FiZap size={24} />
+                </div>
+                <h3 className="text-xl font-black text-white uppercase tracking-wide mb-2 drop-shadow-md">Laser Welded Segments</h3>
+                <p className="text-xs text-neutral-300 leading-relaxed drop-shadow">
+                  Maximum segment retention prevents segment loss even under heavy rebar impacts and extreme friction heat.
+                </p>
+              </div>
             </div>
 
-            <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 p-8 rounded-3xl border border-white/10 hover:border-amber-500/30 transition-all group">
-              <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-center text-amber-400 mb-6 group-hover:scale-110 transition-transform">
-                <FiTruck size={24} />
+            {/* Box 2 */}
+            <div className="relative overflow-hidden rounded-3xl border border-white/15 hover:border-amber-500/50 transition-all group p-8 min-h-[240px] flex flex-col justify-end shadow-2xl bg-neutral-900">
+              <div className="absolute inset-0 z-0">
+                <img 
+                  src="/images/value-props/box_shipping.jpg" 
+                  alt="Contractor Direct Shipping" 
+                  className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-500 filter brightness-[0.45] contrast-125"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/80 to-transparent" />
               </div>
-              <h3 className="text-lg font-black text-white uppercase tracking-wide mb-2">Contractor Direct Shipping</h3>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Order directly from our factory warehouse straight to your jobsite or yard. No distributor middleman markups.
-              </p>
+              <div className="relative z-10">
+                <div className="w-12 h-12 bg-amber-500/20 border border-amber-400/40 rounded-2xl flex items-center justify-center text-amber-400 mb-4 group-hover:scale-110 transition-transform backdrop-blur-md">
+                  <FiTruck size={24} />
+                </div>
+                <h3 className="text-xl font-black text-white uppercase tracking-wide mb-2 drop-shadow-md">Contractor Direct Shipping</h3>
+                <p className="text-xs text-neutral-300 leading-relaxed drop-shadow">
+                  Order directly from our factory warehouse straight to your jobsite or yard. No distributor middleman markups.
+                </p>
+              </div>
             </div>
 
-            <div className="bg-gradient-to-b from-neutral-900 to-neutral-950 p-8 rounded-3xl border border-white/10 hover:border-amber-500/30 transition-all group">
-              <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-center text-amber-400 mb-6 group-hover:scale-110 transition-transform">
-                <FiShield size={24} />
+            {/* Box 3 */}
+            <div className="relative overflow-hidden rounded-3xl border border-white/15 hover:border-amber-500/50 transition-all group p-8 min-h-[240px] flex flex-col justify-end shadow-2xl bg-neutral-900">
+              <div className="absolute inset-0 z-0">
+                <img 
+                  src="/images/value-props/box_contractor.jpg" 
+                  alt="Contractor Tier Rates" 
+                  className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-500 filter brightness-[0.45] contrast-125"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/80 to-transparent" />
               </div>
-              <h3 className="text-lg font-black text-white uppercase tracking-wide mb-2">Contractor Tier Rates</h3>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                High-volume bulk pricing, custom blade spec matching, and dedicated sales rep support for commercial projects.
-              </p>
+              <div className="relative z-10">
+                <div className="w-12 h-12 bg-amber-500/20 border border-amber-400/40 rounded-2xl flex items-center justify-center text-amber-400 mb-4 group-hover:scale-110 transition-transform backdrop-blur-md">
+                  <FiShield size={24} />
+                </div>
+                <h3 className="text-xl font-black text-white uppercase tracking-wide mb-2 drop-shadow-md">Contractor Tier Rates</h3>
+                <p className="text-xs text-neutral-300 leading-relaxed drop-shadow">
+                  High-volume bulk pricing, custom blade spec matching, and dedicated sales rep support for commercial projects.
+                </p>
+              </div>
             </div>
+
           </div>
         </div>
       </section>
