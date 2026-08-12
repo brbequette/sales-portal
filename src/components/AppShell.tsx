@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect, useMemo } from "react"
+import { signOut } from "next-auth/react"
 import { useZoho } from "@/components/ZohoProvider"
 import { usePreferences } from "@/components/PreferencesProvider"
 import {
@@ -15,6 +16,7 @@ import { GlobalTopBar } from "@/components/GlobalTopBar"
 import { UserSettingsModal } from "@/components/UserSettingsModal"
 import { CommandPalette } from "@/components/CommandPalette"
 import { AiAssistant } from "@/components/AiAssistant"
+import { isAdminRole } from "@/lib/roles"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -189,6 +191,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     || pathname.startsWith("/docs")
     || pathname.startsWith("/careers") 
     || pathname === "/admin-login" 
+    || pathname === "/employee-login"
+    || pathname === "/customer-portal"
     || pathname === "/privacy" 
     || pathname === "/terms"
   if (pathname === "/login" || pathname === "/intro-offer" || pathname.startsWith("/tv") || isPublicPage) {
@@ -199,9 +203,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAdminPage = pathname.startsWith("/admin")
 
   const effectiveRole = preferences.impersonatedUser?.role ?? user?.role ?? ""
-  const normalizedRole = effectiveRole.toLowerCase()
-  const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator"
-    || normalizedRole.includes("collections") || normalizedRole.includes("manager")
+  const isAdmin = isAdminRole(effectiveRole)
 
   const showBackButton = !MAIN_PAGES.includes(pathname) && !isAdminPage
 
@@ -209,9 +211,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     href === "/dashboard" ? pathname === "/dashboard" : pathname === href || pathname.startsWith(href + "/")
 
   // ── Logout ────────────────────────────────────────────────────────────────
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try { localStorage.removeItem("sales_portal_user") } catch { }
-    window.location.href = "/login"
+    await signOut({ callbackUrl: "/employee-login" })
   }
 
   // ── Adaptive nav — load visits on mount ───────────────────────────────────
@@ -712,7 +714,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       <CommandPalette />
-      <AiAssistant user={user ? { id: user.id, name: user.name, role: user.role } : undefined} />
+      <AiAssistant user={user ? { id: user.id, name: user.name || undefined, role: user.role } : undefined} />
       <UserSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   )

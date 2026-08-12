@@ -114,7 +114,7 @@ export default function StatsPage() {
   useEffect(() => {
     if (!isInitialized) return
     if (!currentUser) {
-      router.push("/login")
+      router.push("/employee-login")
       return
     }
 
