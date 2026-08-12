@@ -386,10 +386,21 @@ export default function CompensationPlansPage() {
                       End Plan
                     </button>
                     <button 
-                      onClick={() => alert("Send to Rep feature coming in Phase 4!")}
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`/api/rep-portal/verify?action=generate&repId=${rep.id}`)
+                          const d = await res.json()
+                          if (d.success) {
+                            await navigator.clipboard.writeText(d.portalUrl)
+                            alert(`Portal link copied to clipboard!\n\n${d.portalUrl}`)
+                          } else {
+                            alert("Failed to generate link: " + d.error)
+                          }
+                        } catch (e) { alert("Error generating link") }
+                      }}
                       className="flex-1 py-1.5 border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      <FiSend size={12} /> Send to Rep
+                      <FiSend size={12} /> Portal Link
                     </button>
                   </div>
                 </div>
