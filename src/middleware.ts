@@ -6,6 +6,7 @@ import { getToken } from 'next-auth/jwt';
 const PUBLIC_ROUTES = [
   '/',
   '/shop',
+  '/catalog',
   '/about',
   '/contact',
   '/resources',
@@ -16,6 +17,9 @@ const PUBLIC_ROUTES = [
   '/rpm-calculator',
   '/blade-comparator',
   '/unit-converter',
+  '/tools',
+  '/training',
+  '/docs',
   '/careers',
   '/admin-login',
   '/privacy',
@@ -39,9 +43,10 @@ const SKIP_PATTERNS = [
 ]
 
 function isPublicRoute(pathname: string): boolean {
+  if (pathname === '/') return true;
   return PUBLIC_ROUTES.some(route => 
-    pathname === route || pathname.startsWith(route + '/')
-  )
+    route !== '/' && (pathname === route || pathname.startsWith(route + '/'))
+  );
 }
 
 function shouldSkip(pathname: string): boolean {

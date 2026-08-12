@@ -171,7 +171,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [navVisits, setNavVisits] = useState<Record<string, number>>({})
 
   // ── Auth / layout bypass ──────────────────────────────────────────────────
-  const isPublicPage = pathname === "/" || pathname.startsWith("/shop") || pathname === "/about" || pathname === "/contact" || pathname.startsWith("/resources") || pathname.startsWith("/blade-finder") || pathname.startsWith("/applications") || pathname.startsWith("/signature-series") || pathname.startsWith("/knowledge-test") || pathname.startsWith("/rpm-calculator") || pathname.startsWith("/blade-comparator") || pathname.startsWith("/unit-converter") || pathname.startsWith("/careers") || pathname === "/admin-login" || pathname === "/privacy" || pathname === "/terms"
+  const isPublicPage = pathname === "/" 
+    || pathname.startsWith("/shop") 
+    || pathname.startsWith("/catalog")
+    || pathname === "/about" 
+    || pathname === "/contact" 
+    || pathname.startsWith("/resources") 
+    || pathname.startsWith("/blade-finder") 
+    || pathname.startsWith("/applications") 
+    || pathname.startsWith("/signature-series") 
+    || pathname.startsWith("/knowledge-test") 
+    || pathname.startsWith("/rpm-calculator") 
+    || pathname.startsWith("/blade-comparator") 
+    || pathname.startsWith("/unit-converter") 
+    || pathname.startsWith("/tools")
+    || pathname.startsWith("/training")
+    || pathname.startsWith("/docs")
+    || pathname.startsWith("/careers") 
+    || pathname === "/admin-login" 
+    || pathname === "/privacy" 
+    || pathname === "/terms"
   if (pathname === "/login" || pathname === "/intro-offer" || pathname.startsWith("/tv") || isPublicPage) {
     return <>{children}</>
   }
