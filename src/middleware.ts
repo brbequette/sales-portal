@@ -9,6 +9,8 @@ const PUBLIC_ROUTES = [
   '/about',
   '/contact',
   '/resources',
+  '/blade-finder',
+  '/applications',
   '/privacy',
   '/terms',
   '/login',

@@ -33,21 +33,24 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           </Link>
 
           {/* Nav Links */}
-          <nav className="hidden lg:flex items-center gap-7">
+          <nav className="hidden lg:flex items-center gap-6">
             <Link href="/shop" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
               Catalog
             </Link>
-            <Link href="/shop?category=Professional Blades" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
-              Saw Blades
+            <Link href="/blade-finder" className="text-xs font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1">
+              ⚡ Blade Finder
             </Link>
-            <Link href="/shop?category=Core Bits" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
-              Core Bits
+            <Link href="/applications/concrete-cutting" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
+              Concrete Saws
+            </Link>
+            <Link href="/applications/core-drilling" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
+              Core Drilling
             </Link>
             <Link href="/resources" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
               Tech Info
             </Link>
             <Link href="/about" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
-              About Us
+              About
             </Link>
             <Link href="/contact" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
               Contact

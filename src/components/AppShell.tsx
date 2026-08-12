@@ -171,7 +171,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [navVisits, setNavVisits] = useState<Record<string, number>>({})
 
   // ── Auth / layout bypass ──────────────────────────────────────────────────
-  const isPublicPage = pathname === "/" || pathname.startsWith("/shop") || pathname === "/about" || pathname === "/contact" || pathname.startsWith("/resources") || pathname === "/privacy" || pathname === "/terms"
+  const isPublicPage = pathname === "/" || pathname.startsWith("/shop") || pathname === "/about" || pathname === "/contact" || pathname.startsWith("/resources") || pathname.startsWith("/blade-finder") || pathname.startsWith("/applications") || pathname === "/privacy" || pathname === "/terms"
   if (pathname === "/login" || pathname === "/intro-offer" || pathname.startsWith("/tv") || isPublicPage) {
     return <>{children}</>
   }
