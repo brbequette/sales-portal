@@ -60,6 +60,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               <li><Link href="/about" className="text-neutral-400 hover:text-white transition-colors">About Titan Diamond USA</Link></li>
               <li><Link href="/contact" className="text-neutral-400 hover:text-white transition-colors">Request Custom Quote</Link></li>
               <li><Link href="/login" className="text-neutral-400 hover:text-white transition-colors">Contractor Account Portal</Link></li>
+              <li><Link href="/employee-login" className="text-neutral-500 hover:text-emerald-400 transition-colors">Employee Portal</Link></li>
               <li><Link href="/admin-login" className="text-neutral-500 hover:text-amber-400 transition-colors">🔒 Internal Admin Portal</Link></li>
             </ul>
           </div>
@@ -98,6 +99,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           <div className="flex items-center gap-6 text-neutral-500">
             <Link href="/privacy" className="hover:text-neutral-300">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-neutral-300">Terms of Service</Link>
+            <Link href="/employee-login" className="hover:text-emerald-400 font-mono">Employee Login</Link>
             <Link href="/admin-login" className="hover:text-amber-400 font-mono">Admin Login</Link>
           </div>
         </div>

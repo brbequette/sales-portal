@@ -4,6 +4,7 @@
 import { useZoho } from "@/components/ZohoProvider"
 import { useRouter, usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { 
   FiShield, FiGrid, FiUsers, FiClock, FiDollarSign, 
@@ -13,6 +14,7 @@ import {
 } from "react-icons/fi"
 
 import { ThemeSettingsModal, loadSavedTheme, applyThemeToCss } from "@/components/ThemeSettingsModal"
+import { isAdminRole } from "@/lib/roles"
 
 const adminLinks = [
   { group: "Overview", items: [
@@ -60,24 +62,24 @@ const adminLinks = [
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { isInitialized, zohoContext: currentUser } = useZoho()
+  const { status } = useSession()
   const router = useRouter()
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false)
 
-  const normalizedRole = currentUser?.role?.toLowerCase() || ""
-  const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("collections") || normalizedRole.includes("manager")
+  const isAdmin = isAdminRole(currentUser?.role)
 
   useEffect(() => {
     applyThemeToCss(loadSavedTheme())
   }, [])
 
   useEffect(() => {
-    if (!isInitialized) return
+    if (!isInitialized || status === "loading") return
     if (!currentUser) {
-      router.push("/login")
+      router.push("/admin-login")
     }
-  }, [isInitialized, currentUser, router])
+  }, [isInitialized, currentUser, router, status])
 
   if (!isInitialized) {
     return (
@@ -277,4 +279,3 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     </div>
   )
 }
-

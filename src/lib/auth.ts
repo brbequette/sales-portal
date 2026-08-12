@@ -1,8 +1,7 @@
 import NextAuth, { NextAuthOptions } from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials"
 import ZohoProvider from "next-auth/providers/zoho"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "./prisma"
-import bcrypt from "bcryptjs"
 
 if (!process.env.NEXTAUTH_URL) {
   process.env.NEXTAUTH_URL = process.env.URL || process.env.DEPLOY_PRIME_URL || "https://titan-sales-portal.netlify.app"
@@ -46,6 +45,14 @@ const REQUIRED_SCOPES = [
 
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 
+function profileString(profile: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = profile[key]
+    if (typeof value === "string" && value.trim()) return value.trim()
+  }
+  return ""
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     ZohoProvider({
@@ -61,58 +68,24 @@ export const authOptions: NextAuthOptions = {
       },
       token: `https://accounts.zoho.${ZOHO_DC}/oauth/v2/token`,
       userinfo: `https://accounts.zoho.${ZOHO_DC}/oauth/user/info`,
-    }),
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
-        email: { label: "Email", type: "text", placeholder: "agent@titandiamond.com" },
-        password: { label: "Password", type: "password" }
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
-
-        let lookupEmail = credentials.email;
-        const user = await prisma.user.findUnique({
-          where: { email: lookupEmail }
-        })
-
-        if (!user || !user.password) {
-          return null
-        }
-        
-        const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
-        if (!isPasswordValid) return null
-
-        return {
-          id: user.zohoId || user.id, // Prefer zohoId for API compatibility if available
-          dbId: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        }
-      }
     })
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === "zoho") {
-        let email = user.email
+        const email = user.email
         if (!email) return false
-        const zohoProfile: any = profile
+        const zohoProfile = (profile || {}) as Record<string, unknown>
         let fullName = user.name ||
-          zohoProfile?.Display_Name ||
-          zohoProfile?.display_name ||
-          [zohoProfile?.First_Name, zohoProfile?.Last_Name].filter(Boolean).join(" ") ||
+          profileString(zohoProfile, "Display_Name", "display_name") ||
+          [profileString(zohoProfile, "First_Name"), profileString(zohoProfile, "Last_Name")].filter(Boolean).join(" ") ||
           email.split("@")[0]
 
         if (fullName === "BEN BEQUETTE") {
           fullName = "Benjamin Bequette";
         }
 
-        const rawZuid = zohoProfile?.ZUID || zohoProfile?.zuid || null
-        const zohoUserId = rawZuid ? String(rawZuid) : null
+        const zohoUserId = profileString(zohoProfile, "ZUID", "zuid") || null
 
         // Sync to database -- check by zohoId first (merges stub users from account sync), then by email
         let dbUser = null
@@ -137,10 +110,9 @@ export const authOptions: NextAuthOptions = {
               role: "Sales Representative",
             },
           })
-          console.log("Created new user via Zoho NextAuth:", email)
         } else {
           // Existing user -- merge/update: fix dummy email, missing name, missing zohoId
-          const updates: any = {}
+          const updates: Prisma.UserUpdateInput = {}
           if (dbUser.email.includes("@dummy.titandiamond.com") && email) updates.email = email
           if ((!dbUser.name || dbUser.name === "Unknown Owner") && fullName) updates.name = fullName
           if (!dbUser.zohoId && zohoUserId) updates.zohoId = zohoUserId
@@ -149,15 +121,14 @@ export const authOptions: NextAuthOptions = {
               where: { id: dbUser.id },
               data: updates,
             })
-            console.log("Merged/updated user on Zoho login:", email, updates)
           }
         }
         
         // Inject DB properties into NextAuth user object for the jwt callback
         user.id = dbUser.zohoId || dbUser.id
-        ;(user as any).dbId = dbUser.id
-        ;(user as any).role = dbUser.role
-        ;(user as any).isZohoUser = true
+        user.dbId = dbUser.id
+        user.role = dbUser.role
+        user.isZohoUser = true
       }
       return true
     },
@@ -165,27 +136,27 @@ export const authOptions: NextAuthOptions = {
       // User is defined on the first sign in
       if (user) {
         token.id = user.id
-        token.dbId = (user as any).dbId
-        token.role = (user as any).role
-        token.isZohoUser = account?.provider === "zoho" || (user as any).isZohoUser
+        token.dbId = user.dbId
+        token.role = user.role
+        token.isZohoUser = account?.provider === "zoho" || user.isZohoUser
       }
       return token
     },
     async session({ session, token }) {
       if (token && session.user) {
-        ;(session.user as any).id = token.id as string
-        ;(session.user as any).dbId = token.dbId as string
-        ;(session.user as any).role = token.role as string
-        ;(session.user as any).isZohoUser = token.isZohoUser as boolean
+        session.user.id = token.id || token.sub || ""
+        session.user.dbId = token.dbId
+        session.user.role = token.role
+        session.user.isZohoUser = token.isZohoUser
       }
       return session
     }
   },
   pages: {
-    signIn: '/login',
-    error: '/login',
+    signIn: '/employee-login',
+    error: '/employee-login',
   },
-  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "titan-sales-portal-secret-key-fallback-2026",
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
 }
 
 export default NextAuth(authOptions)

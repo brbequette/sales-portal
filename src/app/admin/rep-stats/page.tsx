@@ -100,7 +100,7 @@ export default function AdminRepStatsPage() {
   useEffect(() => {
     if (!isInitialized) return
     if (!currentUser) {
-      router.push("/login")
+      router.push("/admin-login")
       return
     }
     fetchStats()

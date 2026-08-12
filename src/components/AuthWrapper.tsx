@@ -1,149 +1,66 @@
 "use client"
 
-
-import { useZoho } from "./ZohoProvider"
-import { useEffect, useState, useRef } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { useEffect, useRef } from "react"
+import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
+import { useZoho } from "./ZohoProvider"
+
+const PUBLIC_ROUTES = [
+  "/",
+  "/shop",
+  "/catalog",
+  "/about",
+  "/contact",
+  "/resources",
+  "/blade-finder",
+  "/applications",
+  "/signature-series",
+  "/knowledge-test",
+  "/rpm-calculator",
+  "/blade-comparator",
+  "/unit-converter",
+  "/tools",
+  "/training",
+  "/docs",
+  "/careers",
+  "/admin-login",
+  "/employee-login",
+  "/customer-portal",
+  "/privacy",
+  "/terms",
+  "/login",
+  "/intro-offer",
+  "/rep-portal",
+]
+
+function isPublicRoute(pathname: string) {
+  return pathname === "/"
+    || PUBLIC_ROUTES.some((route) => route !== "/" && (pathname === route || pathname.startsWith(`${route}/`)))
+    || pathname.startsWith("/tv")
+    || pathname.startsWith("/print/")
+}
 
 export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const { isInitialized, zohoContext } = useZoho()
   const { status } = useSession()
-  const router = useRouter()
-  const pathname = usePathname()
-  const [isAuthorized, setIsAuthorized] = useState(false)
-  const [checking, setChecking] = useState(true)
+  const pathname = usePathname() || "/"
   const redirected = useRef(false)
-
-  const PUBLIC_ROUTES = [
-    '/',
-    '/shop',
-    '/catalog',
-    '/about',
-    '/contact',
-    '/resources',
-    '/blade-finder',
-    '/applications',
-    '/signature-series',
-    '/knowledge-test',
-    '/rpm-calculator',
-    '/blade-comparator',
-    '/unit-converter',
-    '/tools',
-    '/training',
-    '/docs',
-    '/careers',
-    '/admin-login',
-    '/privacy',
-    '/terms',
-    '/login',
-    '/intro-offer',
-    '/rep-portal',
-  ]
-
-  const currentPath = pathname || (typeof window !== "undefined" ? window.location.pathname : "")
-  const isPublicPage = !currentPath || currentPath === "/" || PUBLIC_ROUTES.some(route => 
-    route !== '/' && (currentPath === route || currentPath.startsWith(route + '/'))
-  ) || currentPath.startsWith('/tv') || currentPath.startsWith('/print/')
-
-  // Fast-path: if URL carries Zoho merge-field params (email or zohoId),
-  // the user is already identified -- authorize immediately
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const params = new URLSearchParams(window.location.search)
-    if (params.get("email") || params.get("zohoId") || params.get("id")) {
-      setIsAuthorized(true)
-      setChecking(false)
-    }
-  }, [])
+  const publicPage = isPublicRoute(pathname)
+  const authorized = status === "authenticated" || Boolean(zohoContext?.email && zohoContext.isZohoUser)
 
   useEffect(() => {
-    // Public pages always render -- no auth gating needed
-    if (isPublicPage) {
-      setIsAuthorized(true)
-      setChecking(false)
-      return
-    }
+    if (publicPage || status === "loading" || !isInitialized || authorized || redirected.current) return
+    redirected.current = true
+    window.location.assign("/employee-login")
+  }, [authorized, isInitialized, publicPage, status])
 
-    // Wait for NextAuth to finish checking
-    if (status === "loading") {
-      return
-    }
+  if (publicPage) return <>{children}</>
 
-    // If NextAuth has authenticated the user
-    if (status === "authenticated") {
-      setIsAuthorized(true)
-      setChecking(false)
-      return
-    }
-
-    // Check localStorage directly for fast unlock (before ZohoProvider finishes)
-    try {
-      const saved = typeof window !== "undefined" ? localStorage.getItem("sales_portal_user") : null
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed?.email) {
-          setIsAuthorized(true)
-          setChecking(false)
-          return
-        }
-      }
-    } catch {}
-
-    // If ZohoProvider has finished initializing
-    if (isInitialized) {
-      if (zohoContext?.email) {
-        // User is authenticated
-        setIsAuthorized(true)
-        setChecking(false)
-      } else {
-        // No session found -- redirect to login
-        if (!redirected.current) {
-          redirected.current = true
-          console.log("No session found. Redirecting to login.")
-          window.location.href = "/login"
-        }
-        setChecking(false)
-      }
-      return
-    }
-
-    // Fallback timeout: if ZohoProvider hasn't initialized after 5 seconds,
-    // check localStorage one more time then redirect
-    const timer = setTimeout(() => {
-      let hasUser = false
-      try {
-        const saved = typeof window !== "undefined" ? localStorage.getItem("sales_portal_user") : null
-        if (saved) {
-          const parsed = JSON.parse(saved)
-          if (parsed?.email) hasUser = true
-        }
-      } catch {}
-
-      const params = new URLSearchParams(window.location.search)
-      const hasUrlParams = !!(params.get("email") || params.get("zohoId") || params.get("id"))
-
-      if (!hasUser && !hasUrlParams && !redirected.current) {
-        redirected.current = true
-        console.log("Auth timeout. Redirecting to login.")
-        window.location.href = "/login"
-      }
-      setChecking(false)
-    }, 5000)
-
-    return () => clearTimeout(timer)
-
-  }, [isInitialized, zohoContext, isPublicPage, status])
-
-  // Public pages always render immediately
-  if (isPublicPage) return <>{children}</>
-
-  // Still checking -- show loading
-  if (checking || !isAuthorized) {
+  if (!isInitialized || status === "loading" || !authorized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-(--background) text-(--foreground)">
         <div className="animate-pulse flex flex-col items-center">
-          <div className="w-8 h-8 border-4 border-(--primary) border-t-transparent rounded-full animate-spin mb-4"></div>
+          <div className="w-8 h-8 border-4 border-(--primary) border-t-transparent rounded-full animate-spin mb-4" />
           <p>Verifying credentials...</p>
         </div>
       </div>
@@ -152,4 +69,3 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>
 }
-

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { isAdminRole } from '@/lib/roles';
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -22,6 +23,8 @@ const PUBLIC_ROUTES = [
   '/docs',
   '/careers',
   '/admin-login',
+  '/employee-login',
+  '/customer-portal',
   '/privacy',
   '/terms',
   '/login',
@@ -53,7 +56,7 @@ function shouldSkip(pathname: string): boolean {
   return SKIP_PATTERNS.some(p => pathname.startsWith(p))
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   
   // Skip static files, API routes, etc.
@@ -66,14 +69,17 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // For all other routes (authenticated app pages), check for session
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  // For all other routes (authenticated staff pages), require a Zoho session.
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET });
   
   if (!token) {
-    // Not authenticated — check if they have the legacy local auth
-    // (some users authenticate via ZohoProvider without NextAuth)
-    // Allow through and let client-side handle it
-    return NextResponse.next();
+    const loginUrl = new URL('/employee-login', req.url);
+    loginUrl.searchParams.set('callbackUrl', `${pathname}${req.nextUrl.search}`);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (pathname.startsWith('/admin') && !isAdminRole(token.role as string | undefined)) {
+    return NextResponse.redirect(new URL('/dashboard', req.url));
   }
 
   return NextResponse.next();
