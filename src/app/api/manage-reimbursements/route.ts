@@ -13,7 +13,7 @@ async function executeNetlifyFunction(req: NextRequest) {
   }
 
   try {
-    const result: any = await handler(event as any, {} as any)
+    const result: any = await handler(event as any)
     if (!result) return new NextResponse('', { status: 200 })
     return new NextResponse(result.body || '', {
       status: result.statusCode || 200,

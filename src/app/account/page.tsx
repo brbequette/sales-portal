@@ -615,7 +615,7 @@ function AccountHubContent() {
     if (!isInitialized) return
     const cleanId = id?.trim()
     if (!cleanId || cleanId.startsWith("{") || cleanId === "undefined" || cleanId === "null") {
-      router.push("/"); return
+      router.push("/dashboard"); return
     }
     fetchAccountData()
   }, [isInitialized, id])
@@ -636,7 +636,7 @@ function AccountHubContent() {
           <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4">
             <p className="text-red-400 font-semibold">Error loading account</p>
             <p className="text-red-400/80 text-sm mt-1">{error}</p>
-            <Link href="/" className="text-sm text-emerald-400 hover:text-emerald-300 mt-3 inline-block">Back to Dashboard</Link>
+            <Link href="/dashboard" className="text-sm text-emerald-400 hover:text-emerald-300 mt-3 inline-block">Back to Dashboard</Link>
           </div>
         )
         : <p>Account not found.</p>

@@ -197,7 +197,7 @@ export default function NewTaskPage() {
       })
       const data = await res.json()
       if (data.success) {
-        router.push('/')
+        router.push('/dashboard')
       } else {
         toast.error("Failed to create task: " + data.error)
       }
@@ -448,7 +448,7 @@ export default function NewTaskPage() {
             <div className="pt-6 flex justify-end gap-3 border-t border-white/10">
               <button 
                 type="button" 
-                onClick={() => router.push('/')}
+                onClick={() => router.push('/dashboard')}
                 className="px-6 py-3 rounded-xl bg-[#111214] border border-white/10 hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 font-bold transition-colors"
               >
                 Cancel

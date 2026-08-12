@@ -102,7 +102,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             You need administrator privileges to access this section.
           </p>
           <button
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/dashboard")}
             className="px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-sm font-bold text-white transition-all"
           >
             Back to Dashboard
@@ -194,7 +194,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <FiSliders size={16} />
             </button>
             <Link
-              href="/"
+              href="/dashboard"
               title="Back to Hub"
               aria-label="Back to Hub"
               className="p-2 rounded-xl text-neutral-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all border border-transparent hover:border-emerald-500/20"
@@ -256,7 +256,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <FiSliders size={14} /> Theme
             </button>
             <Link
-              href="/"
+              href="/dashboard"
               className="text-xs text-emerald-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-emerald-500/10 transition-colors min-h-[44px] items-center"
             >
               <FiChevronLeft size={14} /> Hub

@@ -444,7 +444,7 @@ export default function CommissionsPage() {
                   { key: "balance", label: "Unpaid Balance", value: fmt(filteredTotals.balance), color: filteredTotals.balance >= 0 ? "amber" : "red", icon: FiClock, sub: currentRepData.balance >= 0 ? "Pending payout" : "Draw balance advance" },
                   { key: "profit", label: "Total Net Profit", value: fmt(filteredTotals.profit), color: "sky", icon: FiTrendingUp, sub: `Across ${filteredTotals.deals} deals` },
                   { key: "pending", label: "Pending Commission", value: fmt(pendingCommission), color: "violet", icon: FiClock, sub: `On ${currentRepData?.invoices?.filter((i: any) => !i.isPaid).length || 0} unpaid invoices` },
-                  { key: "clawback", label: "Clawback Risk", value: fmt(clawbackTotals.repLoss), color: clawbackTotals.count > 0 ? "red" : "neutral", icon: FiAlertCircle, sub: clawbackTotals.count > 0 ? `${clawbackTotals.critical.length} critical · ${clawbackTotals.warning.length} warning · ${clawbackTotals.watch.length} watch` : "No invoices at risk" },
+                  { key: "clawback", label: "Clawback Risk", value: fmt(clawbackTotals.repLoss), color: clawbackTotals.count > 0 ? "red" : "neutral", icon: FiAlertCircle, sub: clawbackTotals.count > 0 ? `${(clawbackTotals as any).critical?.length || 0} critical · ${(clawbackTotals as any).warning?.length || 0} warning · ${(clawbackTotals as any).watch?.length || 0} watch` : "No invoices at risk" },
                 ].map(card => (
                   <div
                     key={card.key}
@@ -623,18 +623,18 @@ export default function CommissionsPage() {
                       <div className="grid grid-cols-3 gap-3 px-4 py-3 border-b border-white/[0.06]">
                         <div className="bg-red-950/30 border border-red-500/20 rounded-lg p-3 text-center">
                           <div className="text-[10px] font-bold uppercase text-red-400/70 mb-1">Critical (&lt;30 days)</div>
-                          <div className="text-lg font-black text-red-400">{clawbackTotals.critical.length}</div>
-                          <div className="text-[11px] text-red-400/60 font-medium">{fmt(clawbackTotals.critical.reduce((s: number, i: any) => s + i.chargeOffRepCost, 0))} risk</div>
+                          <div className="text-lg font-black text-red-400">{(clawbackTotals as any).critical?.length || 0}</div>
+                          <div className="text-[11px] text-red-400/60 font-medium">{fmt(((clawbackTotals as any).critical || []).reduce((s: number, i: any) => s + i.chargeOffRepCost, 0))} risk</div>
                         </div>
                         <div className="bg-amber-950/30 border border-amber-500/20 rounded-lg p-3 text-center">
                           <div className="text-[10px] font-bold uppercase text-amber-400/70 mb-1">Warning (30-60 days)</div>
-                          <div className="text-lg font-black text-amber-400">{clawbackTotals.warning.length}</div>
-                          <div className="text-[11px] text-amber-400/60 font-medium">{fmt(clawbackTotals.warning.reduce((s: number, i: any) => s + i.chargeOffRepCost, 0))} risk</div>
+                          <div className="text-lg font-black text-amber-400">{(clawbackTotals as any).warning?.length || 0}</div>
+                          <div className="text-[11px] text-amber-400/60 font-medium">{fmt(((clawbackTotals as any).warning || []).reduce((s: number, i: any) => s + i.chargeOffRepCost, 0))} risk</div>
                         </div>
                         <div className="bg-neutral-800/50 border border-neutral-600/20 rounded-lg p-3 text-center">
                           <div className="text-[10px] font-bold uppercase text-neutral-400/70 mb-1">Watch (60-90 days)</div>
-                          <div className="text-lg font-black text-neutral-300">{clawbackTotals.watch.length}</div>
-                          <div className="text-[11px] text-neutral-400/60 font-medium">{fmt(clawbackTotals.watch.reduce((s: number, i: any) => s + i.chargeOffRepCost, 0))} risk</div>
+                          <div className="text-lg font-black text-neutral-300">{(clawbackTotals as any).watch?.length || 0}</div>
+                          <div className="text-[11px] text-neutral-400/60 font-medium">{fmt(((clawbackTotals as any).watch || []).reduce((s: number, i: any) => s + i.chargeOffRepCost, 0))} risk</div>
                         </div>
                       </div>
                       {/* ── Invoice Table ── */}

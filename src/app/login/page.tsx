@@ -19,7 +19,7 @@ function LoginContent() {
   useEffect(() => {
     // If user is authenticated via NextAuth, redirect to dashboard
     if (status === "authenticated") {
-      router.push("/")
+      router.push("/dashboard")
     }
   }, [status, router])
 
@@ -58,7 +58,7 @@ function LoginContent() {
       setError("Invalid email or password")
       setLoading(false)
     } else {
-      router.push("/")
+      router.push("/dashboard")
     }
   }
 

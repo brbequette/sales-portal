@@ -14,6 +14,7 @@ import {
 import { GlobalTopBar } from "@/components/GlobalTopBar"
 import { UserSettingsModal } from "@/components/UserSettingsModal"
 import { CommandPalette } from "@/components/CommandPalette"
+import { AiAssistant } from "@/components/AiAssistant"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ type NavGroup = {
 // visits a page will overtake the next-lower default.
 
 const ALL_TRACKABLE: (NavItem & { defaultScore: number })[] = [
-  { href: "/",            icon: FiHome,          label: "Home",        color: "text-orange-400",  defaultScore: 100 },
+  { href: "/dashboard",  icon: FiHome,          label: "Home",        color: "text-orange-400",  defaultScore: 100 },
   { href: "/sales",       icon: FiTrendingUp,    label: "Sales",       color: "text-emerald-400", defaultScore: 90  },
   { href: "/tasks",       icon: FiCheckSquare,   label: "Tasks",       color: "text-violet-400",  defaultScore: 80  },
   { href: "/docs",        icon: FiFileText,      label: "Docs",        color: "text-sky-400",     defaultScore: 70  },
@@ -70,7 +71,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Core",
     items: [
-      { href: "/",            icon: FiHome,          label: "Dashboard",      color: "text-orange-400"  },
+      { href: "/dashboard",  icon: FiHome,          label: "Dashboard",      color: "text-orange-400"  },
       { href: "/sales",       icon: FiTrendingUp,    label: "Sales Pipeline", color: "text-emerald-400" },
       { href: "/tasks",       icon: FiCheckSquare,   label: "Task Hub",       color: "text-violet-400"  },
       { href: "/docs",        icon: FiFileText,      label: "Documents",      color: "text-sky-400"     },
@@ -111,7 +112,7 @@ const groupAccent: Record<string, string> = {
 
 // ─── Main pages list (no back button needed) ──────────────────────────────────
 const MAIN_PAGES = [
-  "/", "/login", "/sales", "/shipping", "/messages", "/collections",
+  "/dashboard", "/login", "/sales", "/shipping", "/messages", "/collections",
   "/commissions", "/stats", "/tools", "/training", "/catalog",
   "/timeclock", "/tasks", "/intro-offer", "/docs",
 ]
@@ -170,7 +171,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [navVisits, setNavVisits] = useState<Record<string, number>>({})
 
   // ── Auth / layout bypass ──────────────────────────────────────────────────
-  if (pathname === "/login" || pathname === "/intro-offer" || pathname.startsWith("/tv")) {
+  const isPublicPage = pathname === "/" || pathname.startsWith("/shop") || pathname === "/about" || pathname === "/contact"
+  if (pathname === "/login" || pathname === "/intro-offer" || pathname.startsWith("/tv") || isPublicPage) {
     return <>{children}</>
   }
 
@@ -185,7 +187,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const showBackButton = !MAIN_PAGES.includes(pathname) && !isAdminPage
 
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")
+    href === "/dashboard" ? pathname === "/dashboard" : pathname === href || pathname.startsWith(href + "/")
 
   // ── Logout ────────────────────────────────────────────────────────────────
   const handleLogout = () => {
@@ -691,6 +693,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       <CommandPalette />
+      <AiAssistant user={user ? { id: user.id, name: user.name, role: user.role } : undefined} />
       <UserSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   )
