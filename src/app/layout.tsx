@@ -37,10 +37,10 @@ export default function RootLayout({
     >
       <head>
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <Script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js" strategy="beforeInteractive" />
-        <Script src="https://js.authorize.net/v1/Accept.js" strategy="afterInteractive" />
       </head>
       <body className="antialiased">
+        <Script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js" strategy="beforeInteractive" />
+        <Script src="https://js.authorize.net/v1/Accept.js" strategy="afterInteractive" />
         <Providers>
           <AppShell>
             <TimeclockTracker />
