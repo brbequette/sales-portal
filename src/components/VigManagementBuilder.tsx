@@ -221,7 +221,7 @@ interface MonthRepData {
   vigReason: string; metric: string
   profitGoal: number; subtotalGoal: number
   workingDays: number; computedWorkingDays: number; storedWorkingDays: number | null; dailyGoal: number
-  subtotal: number; deadProfit: number; invoiceCount: number
+  subtotal: number; deadCost: number; deadProfit: number; invoiceCount: number
   metGoal: boolean; mismatches: MismatchInvoice[]
 }
 
@@ -1067,43 +1067,31 @@ export default function VigManagementBuilder() {
                                          <span className="text-[8px] text-neutral-600 font-bold">Invoices:</span>
                                          <span className="font-mono font-bold text-xs text-neutral-300">{md.invoiceCount}</span>
                                        </div>
-                                       {!isNoData && md.vigRate > 1.0 && (() => {
-                                         const vigGain = (md.deadCost || 0) * (md.vigRate - 1.0)
-                                         return (
-                                           <div className="flex items-center justify-between border-t border-emerald-500/20 pt-1">
-                                             <span className="text-[8px] text-emerald-600 font-bold">Gain from {md.vigRate}x:</span>
-                                             <span className="font-mono font-bold text-xs text-emerald-400">${Math.round(vigGain).toLocaleString()}</span>
-                                           </div>
-                                         )
-                                       })()}
-                                       {!isNoData && md.vigRate > 1.0 && (() => {
-                                         const lostAt1x = md.deadProfit
-                                         return (
-                                           <div className="flex items-center justify-between">
-                                             <span className="text-[8px] text-rose-600 font-bold">Lost at 1.0x:</span>
-                                             <span className="font-mono font-bold text-xs text-rose-400">-${Math.round(Math.abs(lostAt1x || 0)).toLocaleString()}</span>
-                                           </div>
-                                         )
-                                       })()}
                                      </div>
                                    </div>
 
-                                   {/* 1.3x vs 1.5x VIG Loss Comparison */}
+                                   {/* VIG Rate Loss — per-invoice: deadCost × (targetRate - currentRate) */}
                                    {(() => {
-                                     const target1_5 = md.subtotal * (1.5 / 1.3) - (md.subtotal - md.deadProfit)
-                                     const lossVal = Math.max(0, target1_5 - md.deadProfit)
-                                     const isLoss = lossVal > 10
+                                     const tgt = parseFloat(String(targetVigRate)) || 1.5
+                                     const dc = md.deadCost || 0
+                                     const lossVal = md.vigRate < tgt && dc > 0
+                                       ? Math.round(dc * (tgt - md.vigRate))
+                                       : 0
+                                     const isLoss = lossVal > 0
+                                     const avgLoss = isLoss && md.invoiceCount > 0 ? Math.round(lossVal / md.invoiceCount) : 0
                                      return (
                                        <div className={`rounded-lg px-3 py-2 border ${isLoss ? 'bg-rose-950/20 border-rose-500/40' : 'bg-emerald-950/20 border-emerald-500/40'}`}>
                                          <div className="text-[9px] uppercase font-bold tracking-wider mb-1 flex items-center justify-between">
-                                           <span className={isLoss ? 'text-rose-400' : 'text-emerald-400'}>1.3x vs 1.5x VIG</span>
+                                           <span className={isLoss ? 'text-rose-400' : 'text-emerald-400'}>{md.vigRate}x vs {tgt}x VIG</span>
                                            <span className="text-[8px] font-mono font-bold">{isLoss ? 'LOSS' : 'OK'}</span>
                                          </div>
                                          <div className={`font-mono font-bold text-xs ${isLoss ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                           {isLoss ? `-$${Math.round(lossVal).toLocaleString()}` : '✓ Target Met'}
+                                           {isLoss ? `-$${lossVal.toLocaleString()}` : '✓ At Target'}
                                          </div>
                                          <div className="text-[9px] text-neutral-400 mt-0.5 truncate">
-                                           {isLoss ? 'Potential loss to 1.5x target' : 'Full 1.5x margin captured'}
+                                           {isLoss
+                                             ? `${md.invoiceCount} inv × $${avgLoss.toLocaleString()} avg loss`
+                                             : `VIG at or above ${tgt}x target`}
                                          </div>
                                        </div>
                                      )
