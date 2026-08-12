@@ -206,7 +206,7 @@ function AccountLeftRail({
                     onReorder([item])
                     onTabSwitch("quicksale")
                   }}
-                  className="text-[9px] bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 text-blue-400 px-1.5 py-0.5 rounded font-bold transition-colors whitespace-nowrap"
+                  className="text-[9px] bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 text-blue-400 px-1.5 py-0.5 rounded-lg font-bold transition-colors whitespace-nowrap"
                 >
                   Reorder
                 </button>
@@ -322,7 +322,7 @@ function OverviewPanel({
           { label: "Overdue", value: overdueTotal > 0 ? `$${overdueTotal.toLocaleString(undefined,{maximumFractionDigits:0})}` : "None", color: overdueTotal > 0 ? "text-red-400" : "text-neutral-500" },
           { label: "Paid", value: paidInvoices.length, color: "text-emerald-400" },
         ].map(k => (
-          <div key={k.label} className="glass-panel border border-white/10 rounded-lg px-3 py-2">
+          <div key={k.label} className="glass-panel border border-white/10 rounded-xl px-3 py-2">
             <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-semibold">{k.label}</div>
             <div className={`text-sm font-extrabold ${k.color}`}>{k.value}</div>
           </div>
@@ -374,7 +374,7 @@ function OverviewPanel({
       <AccordionSection title="Contact & Addresses" icon={<FiMapPin size={12} />} defaultOpen>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3">
           {/* Primary Contact */}
-          <div className="glass-panel/60 border border-white/10 rounded-lg p-3">
+          <div className="glass-panel/60 border border-white/10 rounded-xl p-3">
             <div className="text-[9px] text-blue-400 uppercase tracking-widest font-bold mb-2">Primary Contact</div>
             {primaryContact ? (
               <>
@@ -397,7 +397,7 @@ function OverviewPanel({
             )}
           </div>
           {/* Billing */}
-          <div className="glass-panel/60 border border-white/10 rounded-lg p-3">
+          <div className="glass-panel/60 border border-white/10 rounded-xl p-3">
             <div className="text-[9px] text-amber-400 uppercase tracking-widest font-bold mb-2">Billing Address</div>
             {(account.billingStreet || account.booksContact?.billing_address?.address) ? (
               <div className="text-[11px] text-neutral-300 leading-relaxed">
@@ -408,7 +408,7 @@ function OverviewPanel({
             ) : <div className="text-[10px] text-neutral-600 italic">Not on file</div>}
           </div>
           {/* Shipping */}
-          <div className="glass-panel/60 border border-white/10 rounded-lg p-3">
+          <div className="glass-panel/60 border border-white/10 rounded-xl p-3">
             <div className="text-[9px] text-emerald-400 uppercase tracking-widest font-bold mb-2">Shipping Address</div>
             {(account.shippingStreet || account.booksContact?.shipping_address?.address) ? (
               <div className="text-[11px] text-neutral-300 leading-relaxed">
@@ -441,7 +441,7 @@ function OverviewPanel({
         </div>
         {account.booksContact?.notes && (
           <div className="px-3 pb-3">
-            <div className="bg-black/20/40 border border-white/10 rounded-lg p-2.5">
+            <div className="bg-black/20/40 border border-white/10 rounded-xl p-2.5">
               {label("Notes")}
               <p className="text-[11px] text-neutral-300 leading-relaxed italic whitespace-pre-line">{account.booksContact.notes}</p>
             </div>
@@ -702,7 +702,7 @@ function AccountHubContent() {
                 <h1 className="text-base font-bold truncate">{account.name}</h1>
                 <button
                   onClick={() => setIsEditingAccount(true)}
-                  className="text-[9px] bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 px-1.5 py-0.5 rounded transition-colors uppercase tracking-wider font-bold shrink-0"
+                  className="text-[9px] bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 px-1.5 py-0.5 rounded-lg transition-colors uppercase tracking-wider font-bold shrink-0"
                 >
                   Edit
                 </button>
@@ -939,7 +939,7 @@ function AccountHubContent() {
                       <div
                         key={idx}
                         onClick={() => { setViewingInvoice(inv); setDrillInvoices(null) }}
-                        className="bg-neutral-800/50 p-3 rounded border border-white/10 flex justify-between items-center cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors"
+                        className="bg-neutral-800/50 p-3 rounded-xl border border-white/10 flex justify-between items-center cursor-pointer hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 transition-colors"
                       >
                         <div>
                           <div className="text-sm font-bold text-white mb-0.5 flex items-center gap-1.5">
