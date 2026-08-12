@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { HeaderNav } from '@/components/HeaderNav';
 import { ScrollProgress } from '@/components/ScrollProgress';
 import { FloatingCallBar } from '@/components/FloatingCallBar';
 
@@ -16,72 +16,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         </a>
       </div>
 
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-neutral-950/90 backdrop-blur-xl border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <img 
-              src="/titan-logo.png" 
-              alt="Titan Diamond USA Spartan Logo" 
-              className="h-12 w-auto object-contain filter drop-shadow-[0_0_12px_rgba(245,158,11,0.3)] group-hover:scale-105 transition-all duration-300"
-            />
-            <div>
-              <span className="text-lg font-black tracking-tight bg-gradient-to-r from-white via-neutral-200 to-amber-400 bg-clip-text text-transparent block">
-                TITAN DIAMOND
-              </span>
-              <span className="text-[10px] text-amber-500 font-extrabold tracking-widest block -mt-1 uppercase">
-                PRO INDUSTRIAL USA
-              </span>
-            </div>
-          </Link>
-
-          {/* Nav Links */}
-          <nav className="hidden lg:flex items-center gap-5">
-            <Link href="/shop" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
-              Catalog
-            </Link>
-            <Link href="/signature-series" className="text-xs font-black uppercase tracking-wider text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full">
-              🔥 Signature Series
-            </Link>
-            <Link href="/blade-finder" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors flex items-center gap-1">
-              ⚡ Blade Finder
-            </Link>
-            <Link href="/knowledge-test" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors flex items-center gap-1">
-              🏆 Certified Quiz
-            </Link>
-            <Link href="/rpm-calculator" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors flex items-center gap-1">
-              ⚙️ RPM Calc
-            </Link>
-            <Link href="/blade-comparator" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors flex items-center gap-1">
-              🔍 Comparator
-            </Link>
-            <Link href="/unit-converter" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors flex items-center gap-1">
-              📏 Unit Conv
-            </Link>
-            <Link href="/applications/concrete-cutting" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
-              Concrete Saws
-            </Link>
-            <Link href="/careers" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
-              Careers
-            </Link>
-            <Link href="/contact" className="text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-amber-400 transition-colors">
-              Contact
-            </Link>
-          </nav>
-
-          {/* Login CTA & Theme Toggle */}
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <Link 
-              href="/login" 
-              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:shadow-[0_0_30px_rgba(245,158,11,0.45)] transition-all active:scale-95 border border-amber-400/30"
-            >
-              Contractor Login
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* Header Navigation */}
+      <HeaderNav />
       
       <main>{children}</main>
       
