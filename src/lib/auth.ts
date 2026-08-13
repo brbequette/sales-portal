@@ -58,14 +58,20 @@ export const authOptions: NextAuthOptions = {
         }).catch(() => null);
 
         if (!dbUser) {
-          const isStaff = email.includes("titan") || email.includes("rep") || email.includes("admin") || email.includes("ben");
+          const isStaff = email.includes("titan") || email.includes("rep") || email.includes("admin") || email.includes("ben") || email.includes("heisler") || email.includes("ross");
           const role = isStaff ? (email.includes("admin") ? "Administrator" : "Sales Representative") : "Customer";
-          const name = email.includes("ben") ? "Benjamin Bequette" : email.split("@")[0].toUpperCase();
+          
+          const rawName = email.split("@")[0];
+          const formattedName = rawName
+            .split(/[._-]/)
+            .filter(Boolean)
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+            .join(" ");
 
           dbUser = await prisma.user.create({
             data: {
               email,
-              name,
+              name: formattedName || email,
               role,
             }
           }).catch(() => null);

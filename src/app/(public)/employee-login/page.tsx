@@ -23,18 +23,22 @@ function EmployeeLoginForm() {
 
   const handleStaffLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim()) {
+      setError('Please enter your staff email address or Rep ID.');
+      return;
+    }
     setError('');
     setLoading(true);
 
     try {
       const res = await signIn('credentials', {
-        email: email || 'ben@titandiamondusa.com',
+        email: email.trim(),
         password: password || 'demo',
         redirect: false,
       });
 
       if (res?.error) {
-        setError('Invalid staff credentials. Try email: ben@titandiamondusa.com');
+        setError(`Unable to authenticate ${email}. Check credentials.`);
         setLoading(false);
       } else {
         window.location.href = '/dashboard';
@@ -50,39 +54,27 @@ function EmployeeLoginForm() {
     setError('');
 
     try {
-      // Execute Staff session login landing directly on Sales Dashboard
-      const res = await signIn('credentials', {
-        email: email || 'ben@titandiamondusa.com',
-        password: password || 'demo',
-        redirect: false,
-      });
-
-      if (res?.ok) {
-        window.location.href = '/dashboard';
-      } else {
-        // Fallback to NextAuth Zoho provider
-        await signIn('zoho', { callbackUrl: '/dashboard' });
-      }
+      // Trigger native NextAuth Zoho OAuth redirect
+      await signIn('zoho', { callbackUrl: '/dashboard' });
     } catch {
-      window.location.href = '/dashboard';
-    } finally {
+      setError('Failed to initiate Zoho SSO authentication.');
       setLoading(false);
     }
   };
 
-  const handleQuickDemoStaffLogin = async () => {
+  const handleQuickRepLogin = async (repEmail: string) => {
     setLoading(true);
     setError('');
     try {
       const res = await signIn('credentials', {
-        email: 'ben@titandiamondusa.com',
+        email: repEmail,
         password: 'demo',
         redirect: false,
       });
       if (res?.ok) {
         window.location.href = '/dashboard';
       } else {
-        setError('Unable to log in with staff credentials.');
+        setError(`Unable to log in as ${repEmail}.`);
         setLoading(false);
       }
     } catch {
@@ -104,7 +96,7 @@ function EmployeeLoginForm() {
           Staff & Rep Login
         </h1>
         <p className="text-xs text-neutral-400 mt-1.5 leading-relaxed">
-          Sign in with Single Sign-On or your Titan Staff credentials to access the Sales Dashboard.
+          Sign in with Zoho Single Sign-On or your Titan Staff credentials to access your account dashboard.
         </p>
       </div>
 
@@ -140,10 +132,10 @@ function EmployeeLoginForm() {
           <div className="relative">
             <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
             <input
-              type="text"
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="ben@titandiamondusa.com"
+              placeholder="e.g. ross.heisler@titandiamondusa.com"
               className="w-full bg-neutral-950 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500/60 transition-colors"
             />
           </div>
@@ -174,15 +166,25 @@ function EmployeeLoginForm() {
         </button>
       </form>
 
-      {/* Fast Demo Bypass */}
-      <div className="mt-6 pt-6 border-t border-white/10 text-center">
-        <button
-          onClick={handleQuickDemoStaffLogin}
-          disabled={loading}
-          className="w-full bg-neutral-950 hover:bg-neutral-900 text-amber-400 border border-amber-500/30 text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors"
-        >
-          <FiUserCheck size={14} /> Quick Demo Staff Login (Benjamin Bequette)
-        </button>
+      {/* Quick Rep Access */}
+      <div className="mt-6 pt-6 border-t border-white/10 space-y-2">
+        <span className="block text-[10px] font-bold uppercase tracking-widest text-neutral-500 text-center mb-2">TEST REPS DIRECT LOGIN</span>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => handleQuickRepLogin('ross.heisler@titandiamondusa.com')}
+            disabled={loading}
+            className="bg-neutral-950 hover:bg-neutral-900 text-amber-400 border border-amber-500/30 text-xs font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors truncate"
+          >
+            <FiUserCheck size={13} className="shrink-0" /> Ross Heisler
+          </button>
+          <button
+            onClick={() => handleQuickRepLogin('ben@titandiamondusa.com')}
+            disabled={loading}
+            className="bg-neutral-950 hover:bg-neutral-900 text-amber-400 border border-amber-500/30 text-xs font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors truncate"
+          >
+            <FiUserCheck size={13} className="shrink-0" /> Ben Bequette
+          </button>
+        </div>
       </div>
 
       <div className="mt-6 text-center text-xs text-neutral-500">
