@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { signIn, useSession } from 'next-auth/react';
 import { FiShield, FiLock, FiMail, FiArrowRight, FiAlertCircle, FiUserCheck, FiZap } from 'react-icons/fi';
 import { SparkCanvas } from '@/components/SparkCanvas';
@@ -12,15 +11,13 @@ export default function EmployeeLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const { status } = useSession();
 
   useEffect(() => {
     if (status === 'authenticated') {
-      router.replace('/dashboard');
-      router.refresh();
+      window.location.href = '/dashboard';
     }
-  }, [router, status]);
+  }, [status]);
 
   const handleStaffLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,13 +33,12 @@ export default function EmployeeLoginPage() {
 
       if (res?.error) {
         setError('Invalid staff credentials. Try email: ben@titandiamondusa.com');
+        setLoading(false);
       } else {
-        router.push('/dashboard');
-        router.refresh();
+        window.location.href = '/dashboard';
       }
     } catch {
       setError('An error occurred during authentication.');
-    } finally {
       setLoading(false);
     }
   };
@@ -52,25 +48,20 @@ export default function EmployeeLoginPage() {
     setError('');
 
     try {
-      // 1. Authenticate staff session
       const res = await signIn('credentials', {
         email: email || 'ben@titandiamondusa.com',
         password: password || 'demo',
         redirect: false,
       });
 
-      if (res?.ok && !res?.error) {
-        router.push('/dashboard');
-        router.refresh();
+      if (res?.ok) {
+        window.location.href = '/dashboard';
         return;
       }
 
-      // 2. Redirect to Zoho OAuth endpoint if credentials fail
       window.location.href = `/api/auth/signin/zoho?callbackUrl=${encodeURIComponent('/dashboard')}`;
     } catch {
-      router.push('/dashboard');
-    } finally {
-      setLoading(false);
+      window.location.href = '/dashboard';
     }
   };
 
@@ -84,14 +75,13 @@ export default function EmployeeLoginPage() {
         redirect: false,
       });
       if (res?.ok) {
-        router.push('/dashboard');
-        router.refresh();
+        window.location.href = '/dashboard';
       } else {
         setError('Unable to log in with staff credentials.');
+        setLoading(false);
       }
     } catch {
       setError('Authentication error occurred.');
-    } finally {
       setLoading(false);
     }
   };
