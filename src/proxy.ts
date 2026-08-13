@@ -30,7 +30,7 @@ const PUBLIC_ROUTES = [
   '/login',
   '/intro-offer',
   '/rep-portal',
-]
+];
 
 // Static file and API patterns to skip
 const SKIP_PATTERNS = [
@@ -43,7 +43,7 @@ const SKIP_PATTERNS = [
   '/tv',
   '/print/',
   '/vcard/',
-]
+];
 
 function isPublicRoute(pathname: string): boolean {
   if (pathname === '/') return true;
@@ -53,8 +53,10 @@ function isPublicRoute(pathname: string): boolean {
 }
 
 function shouldSkip(pathname: string): boolean {
-  return SKIP_PATTERNS.some(p => pathname.startsWith(p))
+  return SKIP_PATTERNS.some(p => pathname.startsWith(p));
 }
+
+const AUTH_SECRET = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "titan-sales-portal-secret-key-fallback-2026";
 
 export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
@@ -69,9 +71,14 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // For all other routes (authenticated staff pages), require a Zoho session.
-  const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "titan-diamond-secret-key-2026";
-  const token = await getToken({ req, secret });
+  // Retrieve token checking default, secure, and unsecure cookie names for Netlify SSL compatibility
+  let token = await getToken({ req, secret: AUTH_SECRET }).catch(() => null);
+  if (!token) {
+    token = await getToken({ req, secret: AUTH_SECRET, cookieName: '__Secure-next-auth.session-token' }).catch(() => null);
+  }
+  if (!token) {
+    token = await getToken({ req, secret: AUTH_SECRET, cookieName: 'next-auth.session-token' }).catch(() => null);
+  }
   
   if (!token) {
     const loginUrl = new URL('/employee-login', req.url);
@@ -88,13 +95,6 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (images, etc.)
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot)$).*)',
   ],
 };
