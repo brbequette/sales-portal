@@ -17,7 +17,7 @@ export default function EmployeeLoginPage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      router.replace('/dashboard');
+      router.replace('/sales');
       router.refresh();
     }
   }, [router, status]);
@@ -37,7 +37,7 @@ export default function EmployeeLoginPage() {
       if (res?.error) {
         setError('Invalid staff credentials. Try email: ben@titandiamondusa.com');
       } else {
-        router.push('/dashboard');
+        router.push('/sales');
         router.refresh();
       }
     } catch {
@@ -52,8 +52,8 @@ export default function EmployeeLoginPage() {
     setError('');
 
     try {
-      // 1. Try standard NextAuth Zoho OAuth provider
-      const result = await signIn('zoho', { callbackUrl: '/dashboard', redirect: false });
+      // 1. Try standard NextAuth Zoho OAuth provider redirecting to /sales
+      const result = await signIn('zoho', { callbackUrl: '/sales', redirect: false });
       if (result?.url && !result.url.includes("error")) {
         window.location.href = result.url;
         return;
@@ -67,14 +67,13 @@ export default function EmployeeLoginPage() {
       });
 
       if (staffRes?.ok && !staffRes.error) {
-        router.push('/dashboard');
+        router.push('/sales');
         router.refresh();
       } else {
-        // Direct redirect to NextAuth Zoho signin endpoint
-        window.location.href = `/api/auth/signin/zoho?callbackUrl=${encodeURIComponent('/dashboard')}`;
+        window.location.href = `/api/auth/signin/zoho?callbackUrl=${encodeURIComponent('/sales')}`;
       }
     } catch {
-      router.push('/dashboard');
+      router.push('/sales');
     } finally {
       setLoading(false);
     }
@@ -90,7 +89,7 @@ export default function EmployeeLoginPage() {
         redirect: false,
       });
       if (res?.ok) {
-        router.push('/dashboard');
+        router.push('/sales');
         router.refresh();
       } else {
         setError('Unable to log in with staff credentials.');
