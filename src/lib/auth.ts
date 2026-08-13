@@ -23,6 +23,55 @@ function profileString(profile: Record<string, unknown>, ...keys: string[]) {
   return ""
 }
 
+async function findUserFlexibly(emailOrInput: string, zohoUserId?: string | null) {
+  if (zohoUserId) {
+    const userByZohoId = await prisma.user.findFirst({
+      where: { zohoId: String(zohoUserId) }
+    }).catch(() => null);
+    if (userByZohoId) return userByZohoId;
+  }
+
+  const cleanInput = (emailOrInput || '').trim().toLowerCase();
+  if (!cleanInput) return null;
+
+  // 1. Exact email match
+  let user = await prisma.user.findUnique({
+    where: { email: cleanInput }
+  }).catch(() => null);
+  if (user) return user;
+
+  // 2. Insensitive email match
+  user = await prisma.user.findFirst({
+    where: { email: { equals: cleanInput, mode: 'insensitive' } }
+  }).catch(() => null);
+  if (user) return user;
+
+  // 3. Match by name or email prefix (e.g. ross, ross.haisler, ross.heisler)
+  const prefix = cleanInput.split('@')[0];
+  const nameParts = prefix.split(/[._\s-]+/).filter(Boolean);
+
+  const candidateUsers = await prisma.user.findMany({
+    where: {
+      OR: [
+        { email: { startsWith: prefix, mode: 'insensitive' } },
+        ...nameParts.map(part => ({ name: { contains: part, mode: 'insensitive' as const } })),
+        ...nameParts.map(part => ({ email: { contains: part, mode: 'insensitive' as const } })),
+      ]
+    }
+  }).catch(() => []);
+
+  if (candidateUsers.length > 0) {
+    const exactNameMatch = candidateUsers.find(u => {
+      const uName = ((u.name || '') + ' ' + (u.email || '')).toLowerCase();
+      return nameParts.every(p => uName.includes(p));
+    });
+    if (exactNameMatch) return exactNameMatch;
+    return candidateUsers[0];
+  }
+
+  return null;
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     ZohoProvider({
@@ -45,23 +94,15 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email) return null;
-        const email = credentials.email.trim().toLowerCase();
+        const input = credentials.email.trim().toLowerCase();
 
-        let dbUser = await prisma.user.findFirst({
-          where: {
-            OR: [
-              { email: { equals: email, mode: 'insensitive' } },
-              { name: { contains: email, mode: 'insensitive' } },
-              { zohoId: email }
-            ]
-          }
-        }).catch(() => null);
+        let dbUser = await findUserFlexibly(input);
 
         if (!dbUser) {
-          const isStaff = email.includes("titan") || email.includes("rep") || email.includes("admin") || email.includes("ben") || email.includes("heisler") || email.includes("ross");
-          const role = isStaff ? (email.includes("admin") ? "Administrator" : "Sales Representative") : "Customer";
+          const isStaff = input.includes("titan") || input.includes("rep") || input.includes("admin") || input.includes("ben") || input.includes("heisler") || input.includes("haisler") || input.includes("ross");
+          const role = isStaff ? (input.includes("admin") ? "Administrator" : "Sales Representative") : "Customer";
           
-          const rawName = email.split("@")[0];
+          const rawName = input.split("@")[0];
           const formattedName = rawName
             .split(/[._-]/)
             .filter(Boolean)
@@ -70,8 +111,8 @@ export const authOptions: NextAuthOptions = {
 
           dbUser = await prisma.user.create({
             data: {
-              email,
-              name: formattedName || email,
+              email: input,
+              name: formattedName || input,
               role,
             }
           }).catch(() => null);
@@ -89,9 +130,9 @@ export const authOptions: NextAuthOptions = {
         }
 
         return {
-          id: email,
-          name: email.split("@")[0],
-          email,
+          id: input,
+          name: input.split("@")[0],
+          email: input,
           role: "Sales Representative",
           isZohoUser: true,
         };
@@ -112,11 +153,7 @@ export const authOptions: NextAuthOptions = {
         const zohoUserId = profileString(zohoProfile, "ZUID", "zuid") || null
 
         try {
-          const [zohoUser, emailUser] = await Promise.all([
-            zohoUserId ? prisma.user.findUnique({ where: { zohoId: zohoUserId } }).catch(() => null) : null,
-            prisma.user.findUnique({ where: { email } }).catch(() => null),
-          ])
-          let dbUser = zohoUser || emailUser
+          let dbUser = await findUserFlexibly(email, zohoUserId);
 
           if (!dbUser) {
             dbUser = await prisma.user.create({
@@ -129,9 +166,9 @@ export const authOptions: NextAuthOptions = {
             }).catch(() => null)
           } else {
             const updates: Prisma.UserUpdateInput = {}
-            if (dbUser.email.includes("@dummy.titandiamond.com") && !emailUser) updates.email = email
+            if (dbUser.email.includes("@dummy.titandiamond.com")) updates.email = email
             if ((!dbUser.name || dbUser.name === "Unknown Owner") && fullName) updates.name = fullName
-            if (!dbUser.zohoId && zohoUserId && !zohoUser) updates.zohoId = zohoUserId
+            if (!dbUser.zohoId && zohoUserId) updates.zohoId = zohoUserId
             if (Object.keys(updates).length > 0) {
               dbUser = await prisma.user.update({
                 where: { id: dbUser.id },
@@ -144,13 +181,14 @@ export const authOptions: NextAuthOptions = {
             user.id = dbUser.zohoId || dbUser.id
             user.dbId = dbUser.id
             user.role = dbUser.role
+            user.name = dbUser.name
+            user.email = dbUser.email
           }
         } catch (e) {
           console.error("Zoho user sync error:", e)
         }
 
         user.isZohoUser = true
-        user.email = email
       }
       return true
     },
