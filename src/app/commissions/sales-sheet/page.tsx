@@ -85,17 +85,14 @@ export default function SalesSheetPage() {
   const totals = useMemo(() => {
     const t = {
       count: monthInvoices.length,
-      sales: 0, deadCost: 0, deadCostPlusVig: 0, profit: 0, deadProfit: 0,
+      sales: 0, deadCost: 0, profit: 0, deadProfit: 0,
       commission: 0, upfront: 0, final: 0, future: 0,
       shipping: 0, markup: 0,
       paidCount: 0, unpaidCount: 0, pendingPay: 0,
     }
     for (const inv of monthInvoices) {
-      const vigRate = inv.vigRate || 1.3
-      const dc = inv.deadCost || 0
       t.sales += inv.amount || 0
-      t.deadCost += dc
-      t.deadCostPlusVig += dc * vigRate
+      t.deadCost += inv.deadCost || 0
       t.profit += inv.profit || 0
       t.deadProfit += inv.deadProfit || 0
       t.commission += inv.commission?.total || 0
@@ -109,7 +106,7 @@ export default function SalesSheetPage() {
         t.pendingPay += inv.commission?.future || 0
       }
     }
-    t.markup = t.deadCostPlusVig > 0 ? t.sales / t.deadCostPlusVig : 0
+    t.markup = t.deadCost > 0 ? t.sales / t.deadCost : 0
     return t
   }, [monthInvoices])
 
@@ -179,7 +176,7 @@ export default function SalesSheetPage() {
                   { label: "Dead Cost", value: fmt(totals.deadCost), icon: FiActivity, color: "amber" },
                   { label: "Dead Profit", value: fmt(totals.deadProfit), icon: FiTrendingUp, color: "cyan" },
                   { label: "Net Profit", value: fmt(totals.profit), sub: `Margin: ${totals.sales > 0 ? fmtPct((totals.profit / totals.sales) * 100) : "—"}`, icon: FiTrendingUp, color: "emerald" },
-                  { label: "Markup (w/ VIG)", value: `${totals.markup.toFixed(2)}x`, icon: FiTrendingUp, color: "violet" },
+                  { label: "Markup", value: `${totals.markup.toFixed(2)}x`, icon: FiTrendingUp, color: "violet" },
                   { label: "Commission", value: fmt(totals.commission), sub: `Up: ${fmt(totals.upfront)} · Fin: ${fmt(totals.final)}`, icon: FiDollarSign, color: "violet" },
                   { label: "Pending Commission", value: fmt(totals.pendingPay), sub: `${totals.unpaidCount} invoices`, icon: FiClock, color: totals.unpaidCount > 0 ? "amber" : "neutral" },
                 ].map((card, i) => (
@@ -226,8 +223,7 @@ export default function SalesSheetPage() {
                         </tr>
                       ) : monthInvoices.map((inv: any, idx: number) => {
                         const invVigRate = inv.vigRate || 1.3
-                        const dcPlusVig = (inv.deadCost || 0) * invVigRate
-                        const markup = dcPlusVig > 0 ? ((inv.amount || 0) / dcPlusVig).toFixed(2) : "—"
+                        const markup = (inv.deadCost || 0) > 0 ? ((inv.amount || 0) / inv.deadCost).toFixed(2) : "—"
                         const phoneNumber = inv.contactPhone || null
                         const daysOld = inv.daysOld ? Math.round(inv.daysOld) : (inv.issueDate ? Math.round((Date.now() - new Date(inv.issueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0)
                         return (
