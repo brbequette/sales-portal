@@ -70,7 +70,8 @@ export async function proxy(req: NextRequest) {
   }
 
   // For all other routes (authenticated staff pages), require a Zoho session.
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET });
+  const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "titan-diamond-secret-key-2026";
+  const token = await getToken({ req, secret });
   
   if (!token) {
     const loginUrl = new URL('/employee-login', req.url);
@@ -79,7 +80,7 @@ export async function proxy(req: NextRequest) {
   }
 
   if (pathname.startsWith('/admin') && !isAdminRole(token.role as string | undefined)) {
-    return NextResponse.redirect(new URL('/sales', req.url));
+    return NextResponse.redirect(new URL('/dashboard', req.url));
   }
 
   return NextResponse.next();
