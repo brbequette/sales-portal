@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
-import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud } from "react-icons/fi"
+import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign } from "react-icons/fi"
 import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
 import { toast } from 'react-hot-toast';
@@ -115,6 +115,72 @@ export default function ShippingPage() {
   const [fetchingLineItems, setFetchingLineItems] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<string | null>(null)
+
+  // Rate Calculator State
+  const [calcExpanded, setCalcExpanded] = useState(false)
+  const [calcForm, setCalcForm] = useState({
+    zip: "",
+    city: "",
+    state: "",
+    country: "US",
+    weight: "",
+    length: "",
+    width: "",
+    height: "",
+    value: ""
+  })
+  const [findBestDeal, setFindBestDeal] = useState(false)
+  const [calcLoading, setCalcLoading] = useState(false)
+  const [calcRates, setCalcRates] = useState<any>(null)
+  const [calcSort, setCalcSort] = useState<"price" | "speed">("price")
+
+  const handleCheckRates = async () => {
+    if (!calcForm.zip || !calcForm.weight) {
+      toast.error("ZIP and Weight are required")
+      return
+    }
+    setCalcLoading(true)
+    setCalcRates(null)
+    try {
+      const res = await fetch("/api/shipping/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          zip: calcForm.zip,
+          city: calcForm.city,
+          state: calcForm.state,
+          country: calcForm.country,
+          weight: parseFloat(calcForm.weight) || 1,
+          length: parseFloat(calcForm.length) || undefined,
+          width: parseFloat(calcForm.width) || undefined,
+          height: parseFloat(calcForm.height) || undefined,
+          declaredValue: parseFloat(calcForm.value) || 100,
+          findBestDeal
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setCalcRates(data)
+      } else {
+        toast.error("Failed to get rates: " + (data.error || "Unknown error"))
+      }
+    } catch (e: any) {
+      toast.error("Error: " + e.message)
+    } finally {
+      setCalcLoading(false)
+    }
+  }
+
+  const sortedRates = useMemo(() => {
+    if (!calcRates?.rates) return []
+    const rates = [...calcRates.rates]
+    if (calcSort === "price") {
+      rates.sort((a: any, b: any) => (a.totalCharge || 0) - (b.totalCharge || 0))
+    } else {
+      rates.sort((a: any, b: any) => (a.minDeliveryTime || 0) - (b.minDeliveryTime || 0))
+    }
+    return rates
+  }, [calcRates, calcSort])
 
   const handleSyncSalesOrderDetail = async (zohoId: string) => {
     setFetchingLineItems(zohoId)
@@ -234,42 +300,33 @@ export default function ShippingPage() {
     stopPolling()
 
     try {
-      // Fire the background function — returns 202 immediately
-      const res = await fetch("/.netlify/functions/admin-books-sync-packages-background", {
+      // Use unified sync-now API for all shipping-relevant tables
+      const res = await fetch("/api/sync-now", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tables: ["packages", "purchaseOrders", "salesOrders", "invoices", "vendors", "payments", "products"],
+          force: true
+        })
       })
 
-      if (res.status === 202 || res.ok) {
-        setSyncResult("⏳ Sync started in background — checking progress…")
-
-        // Poll for completion
-        syncPollRef.current = setInterval(async () => {
-          try {
-            const poll = await fetch("/api/admin/books/sync-packages-status")
-            const s = await poll.json()
-
-            if (s.status === "done") {
-              setSyncResult(`✅ ${s.result}`)
-              setSyncing(false)
-              stopPolling()
-              fetchCounts()
-              fetchOrders()
-            } else if (s.status === "error") {
-              setSyncResult(`❌ ${s.result}`)
-              setSyncing(false)
-              stopPolling()
-            } else {
-              // still running — keep spinner, update message
-              setSyncResult(`⏳ Sync in progress… (started ${s.startedAt ? new Date(s.startedAt).toLocaleTimeString() : ""})`)
-            }
-          } catch { /* ignore transient poll errors */ }
-        }, 5000)
-
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          const counts = Object.entries(data.results || {})
+            .map(([table, info]: [string, any]) => `${table}: ${info.synced}`)
+            .join(", ")
+          setSyncResult(`✅ Sync complete — ${counts}`)
+          fetchCounts()
+          fetchOrders()
+        } else {
+          setSyncResult(`❌ Sync failed: ${data.error || "Unknown error"}`)
+        }
       } else {
         const text = await res.text()
-        setSyncResult(`❌ Failed to start sync (${res.status}): ${text.substring(0, 120)}`)
-        setSyncing(false)
+        setSyncResult(`❌ Failed to sync (${res.status}): ${text.substring(0, 120)}`)
       }
+      setSyncing(false)
     } catch (e: any) {
       setSyncResult(`❌ ${e.message}`)
       setSyncing(false)
@@ -425,6 +482,231 @@ export default function ShippingPage() {
           onCustomStartChange={setShipCustomStart}
           onCustomEndChange={setShipCustomEnd}
         />
+
+      {/* Rate Calculator */}
+      <div className="glass-panel border border-white/10 rounded-2xl overflow-hidden mb-4">
+        <div 
+          className="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors"
+          onClick={() => setCalcExpanded(!calcExpanded)}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+              <FiDollarSign className="text-orange-400" />
+            </div>
+            <h2 className="text-sm font-bold text-white">Shipping Rate Calculator</h2>
+          </div>
+          {calcExpanded ? <FiChevronUp className="text-neutral-500" /> : <FiChevronDown className="text-neutral-500" />}
+        </div>
+        
+        {calcExpanded && (
+          <div className="p-4 border-t border-white/10 space-y-4">
+            {/* Row 1: Destination */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">ZIP / Postal *</label>
+                <input 
+                  type="text" 
+                  value={calcForm.zip}
+                  onChange={e => setCalcForm({...calcForm, zip: e.target.value})}
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none"
+                  placeholder="e.g. 90210"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">City</label>
+                <input 
+                  type="text" 
+                  value={calcForm.city}
+                  onChange={e => setCalcForm({...calcForm, city: e.target.value})}
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none"
+                  placeholder="Optional"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">State</label>
+                <select 
+                  value={calcForm.state}
+                  onChange={e => setCalcForm({...calcForm, state: e.target.value})}
+                  className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none"
+                >
+                  <option value="">Select State</option>
+                  {["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"].map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">Country</label>
+                <select 
+                  value={calcForm.country}
+                  onChange={e => setCalcForm({...calcForm, country: e.target.value})}
+                  className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none"
+                >
+                  <option value="US">United States</option>
+                  <option value="CA">Canada</option>
+                  <option value="GB">United Kingdom</option>
+                  <option value="AU">Australia</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Row 2: Package */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">Weight (lbs) *</label>
+                <input 
+                  type="number" 
+                  value={calcForm.weight}
+                  onChange={e => setCalcForm({...calcForm, weight: e.target.value})}
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none"
+                  placeholder="0.0"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">Length (in)</label>
+                <input 
+                  type="number" 
+                  value={calcForm.length}
+                  onChange={e => setCalcForm({...calcForm, length: e.target.value})}
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none"
+                  placeholder="0.0"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">Width (in)</label>
+                <input 
+                  type="number" 
+                  value={calcForm.width}
+                  onChange={e => setCalcForm({...calcForm, width: e.target.value})}
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none"
+                  placeholder="0.0"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">Height (in)</label>
+                <input 
+                  type="number" 
+                  value={calcForm.height}
+                  onChange={e => setCalcForm({...calcForm, height: e.target.value})}
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none"
+                  placeholder="0.0"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">Value ($)</label>
+                <input 
+                  type="number" 
+                  value={calcForm.value}
+                  onChange={e => setCalcForm({...calcForm, value: e.target.value})}
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            {/* Row 3: Actions */}
+            <div className="flex flex-wrap items-center gap-4 pt-2">
+              <button 
+                onClick={handleCheckRates}
+                disabled={calcLoading}
+                className="td-btn bg-orange-600 hover:bg-orange-500 text-white border-none shadow-lg shadow-orange-900/20"
+              >
+                {calcLoading ? <FiRefreshCw className="animate-spin" /> : <FiSearch />}
+                Check Rates
+              </button>
+              
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div className={`w-10 h-5 rounded-full transition-colors relative ${findBestDeal ? 'bg-orange-500' : 'bg-neutral-700'}`}>
+                  <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${findBestDeal ? 'left-6' : 'left-1'}`} />
+                </div>
+                <span className="text-sm font-bold text-neutral-400 group-hover:text-white transition-colors">Find Best Deal</span>
+              </label>
+            </div>
+
+            {/* Results */}
+            {calcRates && (
+              <div className="pt-4 mt-4 border-t border-white/10">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-white">Available Rates</h3>
+                  <div className="flex gap-2 bg-neutral-900 p-1 rounded-lg border border-white/10">
+                    <button 
+                      onClick={() => setCalcSort('price')}
+                      className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${calcSort === 'price' ? 'bg-white/10 text-white' : 'text-neutral-500 hover:text-white'}`}
+                    >
+                      Price
+                    </button>
+                    <button 
+                      onClick={() => setCalcSort('speed')}
+                      className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${calcSort === 'speed' ? 'bg-white/10 text-white' : 'text-neutral-500 hover:text-white'}`}
+                    >
+                      Speed
+                    </button>
+                  </div>
+                </div>
+
+                {calcRates.savingsSummary && (
+                  <div className="mb-4 px-4 py-3 bg-emerald-950/30 border border-emerald-800/50 rounded-xl text-emerald-400 text-sm font-bold flex items-center gap-2">
+                    <FiCheck /> {calcRates.savingsSummary}
+                  </div>
+                )}
+
+                {/* Average vs Cheapest Summary */}
+                {calcRates.averagePrice > 0 && (
+                  <div className="mb-4 grid grid-cols-3 gap-3">
+                    <div className="bg-neutral-900/50 border border-white/10 rounded-lg p-3 text-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1">Average Rate</div>
+                      <div className="text-lg font-black text-white">${calcRates.averagePrice?.toFixed(2)}</div>
+                    </div>
+                    <div className="bg-emerald-950/30 border border-emerald-800/30 rounded-lg p-3 text-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 mb-1">Cheapest</div>
+                      <div className="text-lg font-black text-emerald-400">${calcRates.cheapestPrice?.toFixed(2)}</div>
+                    </div>
+                    <div className="bg-orange-950/30 border border-orange-800/30 rounded-lg p-3 text-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-orange-500 mb-1">You Save</div>
+                      <div className="text-lg font-black text-orange-400">${calcRates.savingsVsAverage?.toFixed(2)}</div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {sortedRates.map((r: any, idx: number) => (
+                    <div key={idx} className="bg-neutral-900/50 border border-white/10 rounded-xl p-4 relative flex flex-col hover:border-orange-500/50 transition-colors">
+                      <div className="flex flex-wrap gap-1 absolute -top-2.5 right-2">
+                        {r.isCheapest && <span className="bg-emerald-500 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-lg">Cheapest</span>}
+                        {r.costRank === 1 && !r.isCheapest && <span className="bg-emerald-500 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-lg">Cheapest</span>}
+                        {r.deliveryTimeRank === 1 && <span className="bg-blue-500 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-lg">Fastest</span>}
+                        {r.isBestValue && <span className="bg-amber-500 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-lg">Best Value</span>}
+                        {r.valueForMoneyRank === 1 && !r.isBestValue && <span className="bg-amber-500 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-lg">Best Value</span>}
+                      </div>
+                      
+                      <div className="flex items-center gap-3 mb-3">
+                        {r.logoUrl ? (
+                          <img src={r.logoUrl} alt={r.courierName} className="h-6 object-contain" />
+                        ) : (
+                          <span className="font-bold text-white">{r.umbrellaName || r.courierName}</span>
+                        )}
+                        <span className="text-xs text-neutral-400 font-medium">{r.courierName}</span>
+                      </div>
+                      
+                      <div className="mt-auto pt-2">
+                        <div className="text-2xl font-black text-white">
+                          ${(r.totalCharge || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </div>
+                        <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider mt-1">
+                          Est. Delivery: {r.minDeliveryTime || '?'} - {r.maxDeliveryTime || '?'} business days
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {sortedRates.length === 0 && (
+                    <div className="col-span-full text-center py-8 text-neutral-500 text-sm">
+                      No rates found for this destination and package dimensions.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Sync Result Banner */}
       {syncResult && (

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { getZohoAccessToken } from '@/lib/zoho-auth'
 import {
   getSyncConfig,
@@ -346,6 +347,381 @@ export async function POST(req: NextRequest) {
         } catch (err: any) {
           await updateTableSyncStatus('accounts', { lastError: err.message })
           results.accounts = { synced: 0, error: err.message }
+        }
+      }
+    }
+
+    // ── Packages ──────────────────────────────────────────────────────────
+    if (requestedTables.includes('packages')) {
+      const tConfig = config.packages
+      const tStatus = status.packages
+
+      if (!force && !tConfig.enabled) {
+        results.packages = { synced: 0, skipped: 'disabled' }
+      } else if (!force && !isTableStale(tStatus, tConfig)) {
+        results.packages = { synced: 0, skipped: 'fresh' }
+      } else {
+        try {
+          const sinceParam = tStatus.lastSyncAt
+            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
+            : ''
+          const zRes = await fetch(
+            `https://books.zoho.${ZOHO_DC}/api/v3/packages?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+          )
+
+          let syncedCount = 0
+          if (zRes.ok) {
+            const zData = await zRes.json()
+            const zPackages = zData.packages || []
+
+            for (const pkg of zPackages) {
+              if (!pkg.package_id) continue
+
+              const pkgData = {
+                packageNumber: pkg.package_number,
+                salesOrderId: pkg.salesorder_id,
+                salesOrderNumber: pkg.salesorder_number,
+                date: pkg.date ? new Date(pkg.date) : null,
+                status: pkg.status,
+                carrier: pkg.delivery_method || pkg.shipping_carrier,
+                trackingNumber: pkg.tracking_number,
+                shippingCharge: pkg.shipping_charge || 0,
+                items: pkg.line_items ? { lineItems: pkg.line_items } : Prisma.JsonNull,
+              }
+
+              await prisma.package.upsert({
+                where: { zohoId: pkg.package_id },
+                update: pkgData,
+                create: { zohoId: pkg.package_id, ...pkgData },
+              })
+              syncedCount++
+            }
+          }
+
+          await updateTableSyncStatus('packages' as any, {
+            lastSyncAt: new Date().toISOString(),
+            lastCount: syncedCount,
+            lastError: null,
+          })
+          results.packages = { synced: syncedCount }
+        } catch (err: any) {
+          await updateTableSyncStatus('packages' as any, { lastError: err.message })
+          results.packages = { synced: 0, error: err.message }
+        }
+      }
+    }
+
+    // ── Purchase Orders ───────────────────────────────────────────────────
+    if (requestedTables.includes('purchaseOrders')) {
+      const tConfig = config.purchaseOrders
+      const tStatus = status.purchaseOrders
+
+      if (!force && !tConfig.enabled) {
+        results.purchaseOrders = { synced: 0, skipped: 'disabled' }
+      } else if (!force && !isTableStale(tStatus, tConfig)) {
+        results.purchaseOrders = { synced: 0, skipped: 'fresh' }
+      } else {
+        try {
+          const sinceParam = tStatus.lastSyncAt
+            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
+            : ''
+          const zRes = await fetch(
+            `https://books.zoho.${ZOHO_DC}/api/v3/purchaseorders?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+          )
+
+          let syncedCount = 0
+          if (zRes.ok) {
+            const zData = await zRes.json()
+            const zPurchaseOrders = zData.purchaseorders || []
+
+            for (const po of zPurchaseOrders) {
+              if (!po.purchaseorder_id) continue
+
+              const poData = {
+                vendorName: po.vendor_name,
+                shipToName: po.delivery_customer_name || po.customer_name,
+                referenceNumber: po.reference_number || po.salesorder_number,
+                date: po.date ? new Date(po.date) : null,
+                total: po.total || 0,
+                status: po.status,
+                salesOrderId: po.salesorder_id,
+                salesOrderNumber: po.salesorder_number || po.reference_number,
+                isDropshipment: !!(po.delivery_customer_id || po.salesorder_id),
+                trackingNumber: po.tracking_number,
+                items: po.line_items ? { lineItems: po.line_items } : Prisma.JsonNull,
+              }
+
+              await prisma.purchaseOrder.upsert({
+                where: { zohoId: po.purchaseorder_id },
+                update: poData,
+                create: { zohoId: po.purchaseorder_id, ...poData },
+              })
+              syncedCount++
+            }
+          }
+
+          await updateTableSyncStatus('purchaseOrders' as any, {
+            lastSyncAt: new Date().toISOString(),
+            lastCount: syncedCount,
+            lastError: null,
+          })
+          results.purchaseOrders = { synced: syncedCount }
+        } catch (err: any) {
+          await updateTableSyncStatus('purchaseOrders' as any, { lastError: err.message })
+          results.purchaseOrders = { synced: 0, error: err.message }
+        }
+      }
+    }
+
+    // ── Quotes ──────────────────────────────────────────────────────────
+    if (requestedTables.includes('quotes')) {
+      const tConfig = config.quotes
+      const tStatus = status.quotes
+
+      if (!force && !tConfig.enabled) {
+        results.quotes = { synced: 0, skipped: 'disabled' }
+      } else if (!force && !isTableStale(tStatus, tConfig)) {
+        results.quotes = { synced: 0, skipped: 'fresh' }
+      } else {
+        try {
+          const sinceParam = tStatus.lastSyncAt
+            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
+            : ''
+          const zRes = await fetch(
+            `https://books.zoho.${ZOHO_DC}/api/v3/estimates?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+          )
+
+          let syncedCount = 0
+          if (zRes.ok) {
+            const zData = await zRes.json()
+            const zEstimates = zData.estimates || []
+
+            for (const est of zEstimates) {
+              if (!est.estimate_id) continue
+
+              const localAccount = est.customer_id
+                ? await prisma.account.findFirst({ where: { zohoId: est.customer_id } })
+                : null
+              if (!localAccount) continue
+
+              const quoteData = {
+                status: est.status,
+                amount: parseFloat(est.total || 0),
+                items: est as any,
+                validUntil: est.expiry_date ? new Date(est.expiry_date) : undefined,
+                rawData: est as any,
+              }
+
+              await prisma.quote.upsert({
+                where: { zohoId: est.estimate_id },
+                update: quoteData,
+                create: { 
+                  zohoId: est.estimate_id,
+                  accountId: localAccount.id,
+                  ...quoteData
+                },
+              })
+              syncedCount++
+            }
+          }
+
+          await updateTableSyncStatus('quotes' as any, {
+            lastSyncAt: new Date().toISOString(),
+            lastCount: syncedCount,
+            lastError: null,
+          })
+          results.quotes = { synced: syncedCount }
+        } catch (err: any) {
+          await updateTableSyncStatus('quotes' as any, { lastError: err.message })
+          results.quotes = { synced: 0, error: err.message }
+        }
+      }
+    }
+
+    // ── Payments ────────────────────────────────────────────────────────
+    if (requestedTables.includes('payments')) {
+      const tConfig = config.payments
+      const tStatus = status.payments
+
+      if (!force && !tConfig.enabled) {
+        results.payments = { synced: 0, skipped: 'disabled' }
+      } else if (!force && !isTableStale(tStatus, tConfig)) {
+        results.payments = { synced: 0, skipped: 'fresh' }
+      } else {
+        try {
+          const sinceParam = tStatus.lastSyncAt
+            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
+            : ''
+          const zRes = await fetch(
+            `https://books.zoho.${ZOHO_DC}/api/v3/customerpayments?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+          )
+
+          let syncedCount = 0
+          if (zRes.ok) {
+            const zData = await zRes.json()
+            const zPayments = zData.customerpayments || []
+
+            for (const pmt of zPayments) {
+              if (!pmt.payment_id) continue
+
+              const invoiceId = pmt.invoices?.[0]?.invoice_id || null
+              const invoiceNumber = pmt.invoices?.[0]?.invoice_number || null
+              
+              let invoiceDbId: string | undefined = undefined
+              if (invoiceId) {
+                const localInvoice = await prisma.invoice.findFirst({ where: { zohoId: invoiceId } })
+                if (localInvoice) invoiceDbId = localInvoice.id
+              }
+
+              const paymentData = {
+                invoiceId,
+                invoiceNumber,
+                invoiceDbId,
+                amount: parseFloat(pmt.amount || 0),
+                date: pmt.date ? new Date(pmt.date) : null,
+                mode: pmt.payment_mode,
+                status: 'received',
+                referenceNumber: pmt.reference_number,
+                bankCharges: parseFloat(pmt.bank_charges || 0),
+                description: pmt.description,
+              }
+
+              await prisma.payment.upsert({
+                where: { zohoId: pmt.payment_id },
+                update: paymentData,
+                create: { zohoId: pmt.payment_id, ...paymentData },
+              })
+              syncedCount++
+            }
+          }
+
+          await updateTableSyncStatus('payments' as any, {
+            lastSyncAt: new Date().toISOString(),
+            lastCount: syncedCount,
+            lastError: null,
+          })
+          results.payments = { synced: syncedCount }
+        } catch (err: any) {
+          await updateTableSyncStatus('payments' as any, { lastError: err.message })
+          results.payments = { synced: 0, error: err.message }
+        }
+      }
+    }
+
+    // ── Vendors ─────────────────────────────────────────────────────────
+    if (requestedTables.includes('vendors')) {
+      const tConfig = config.vendors
+      const tStatus = status.vendors
+
+      if (!force && !tConfig.enabled) {
+        results.vendors = { synced: 0, skipped: 'disabled' }
+      } else if (!force && !isTableStale(tStatus, tConfig)) {
+        results.vendors = { synced: 0, skipped: 'fresh' }
+      } else {
+        try {
+          const sinceParam = tStatus.lastSyncAt
+            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
+            : ''
+          const zRes = await fetch(
+            `https://books.zoho.${ZOHO_DC}/api/v3/contacts?organization_id=${process.env.ZOHO_ORG_ID}&contact_type=vendor&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+          )
+
+          let syncedCount = 0
+          if (zRes.ok) {
+            const zData = await zRes.json()
+            const zContacts = zData.contacts || []
+
+            for (const v of zContacts) {
+              if (!v.contact_id) continue
+
+              const vendorData = {
+                contactName: v.contact_name,
+                companyName: v.company_name,
+                email: v.email,
+                phone: v.phone,
+                status: v.status,
+              }
+
+              await prisma.vendor.upsert({
+                where: { zohoId: v.contact_id },
+                update: vendorData,
+                create: { zohoId: v.contact_id, ...vendorData },
+              })
+              syncedCount++
+            }
+          }
+
+          await updateTableSyncStatus('vendors' as any, {
+            lastSyncAt: new Date().toISOString(),
+            lastCount: syncedCount,
+            lastError: null,
+          })
+          results.vendors = { synced: syncedCount }
+        } catch (err: any) {
+          await updateTableSyncStatus('vendors' as any, { lastError: err.message })
+          results.vendors = { synced: 0, error: err.message }
+        }
+      }
+    }
+
+    // ── Products ────────────────────────────────────────────────────────
+    if (requestedTables.includes('products')) {
+      const tConfig = config.products
+      const tStatus = status.products
+
+      if (!force && !tConfig.enabled) {
+        results.products = { synced: 0, skipped: 'disabled' }
+      } else if (!force && !isTableStale(tStatus, tConfig)) {
+        results.products = { synced: 0, skipped: 'fresh' }
+      } else {
+        try {
+          const sinceParam = tStatus.lastSyncAt
+            ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
+            : ''
+          const zRes = await fetch(
+            `https://books.zoho.${ZOHO_DC}/api/v3/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+          )
+
+          let syncedCount = 0
+          if (zRes.ok) {
+            const zData = await zRes.json()
+            const zItems = zData.items || []
+
+            for (const item of zItems) {
+              if (!item.sku) continue
+
+              const productData = {
+                name: item.name || item.item_name,
+                description: item.description,
+                price: parseFloat(item.rate || item.price || 0),
+                category: item.group_name || 'General',
+                stock: parseInt(item.stock_on_hand || 0),
+              }
+
+              await prisma.product.upsert({
+                where: { sku: item.sku },
+                update: productData,
+                create: { sku: item.sku, ...productData },
+              })
+              syncedCount++
+            }
+          }
+
+          await updateTableSyncStatus('products' as any, {
+            lastSyncAt: new Date().toISOString(),
+            lastCount: syncedCount,
+            lastError: null,
+          })
+          results.products = { synced: syncedCount }
+        } catch (err: any) {
+          await updateTableSyncStatus('products' as any, { lastError: err.message })
+          results.products = { synced: 0, error: err.message }
         }
       }
     }

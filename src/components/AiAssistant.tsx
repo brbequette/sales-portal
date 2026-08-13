@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { FiZap, FiX, FiMinimize2, FiMic, FiSend, FiMessageSquare, FiVolume2, FiVolumeX } from 'react-icons/fi';
+import { FiZap, FiX, FiMic, FiSend, FiMessageSquare, FiVolume2, FiVolumeX, FiThumbsUp, FiThumbsDown, FiShield } from 'react-icons/fi';
 
 interface AiAssistantProps {
   user?: { id?: string; name?: string; role?: string };
@@ -12,23 +12,38 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  logId?: string; // AiChatLog id for feedback
+  feedback?: boolean | null; // null = no feedback, true = helpful, false = not helpful
 }
+
+const AGENT_QUICK_PROMPTS = [
+  "Show me today's sales",
+  "What's my commission total this month?",
+  "How many tasks are due?",
+  "Show my overdue collections",
+  "What's my VIG goal progress?",
+];
+
+const ADMIN_QUICK_PROMPTS = [
+  "Show company sales this month",
+  "List all reps and their stats",
+  "Which rep has the most sales?",
+  "Show all overdue invoices",
+  "What's the total company profit this year?",
+];
 
 const PUBLIC_QUICK_PROMPTS = [
   "Find blade for 14\" gas saw",
   "Best blade for hard concrete & rebar?",
   "How do I get contractor discount pricing?",
   "Calculate RPM for 18\" blade",
-  "Contact sales support"
+  "Contact sales support",
 ];
 
-const REP_QUICK_PROMPTS = [
-  "Show me today's sales",
-  "What's my commission total?",
-  "How many tasks are due?",
-  "Find account by name",
-  "Draft a follow-up message"
-];
+function isAdminRole(role?: string): boolean {
+  if (!role) return false;
+  return role.toLowerCase().includes('admin') || role === 'ADMIN';
+}
 
 export function AiAssistant({ user }: AiAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -37,11 +52,38 @@ export function AiAssistant({ user }: AiAssistantProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [dynamicPrompts, setDynamicPrompts] = useState<string[]>([]);
   const pathname = usePathname();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // Speech recognition & synthesis refs
   const recognitionRef = useRef<any>(null);
+  const admin = isAdminRole(user?.role);
+
+  // Determine which static prompts to show as fallback
+  const staticPrompts = user?.id
+    ? admin ? ADMIN_QUICK_PROMPTS : AGENT_QUICK_PROMPTS
+    : PUBLIC_QUICK_PROMPTS;
+
+  // Fetch dynamic prompts from popular questions
+  const fetchDynamicPrompts = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch(`/api/ai/popular-questions?role=${user.role || ''}&limit=5`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.questions.length > 0) {
+          setDynamicPrompts(data.questions);
+        }
+      }
+    } catch {
+      // Silently fail — static prompts are always available
+    }
+  }, [user?.id, user?.role]);
+
+  useEffect(() => {
+    if (isOpen && dynamicPrompts.length === 0) {
+      fetchDynamicPrompts();
+    }
+  }, [isOpen, dynamicPrompts.length, fetchDynamicPrompts]);
 
   // Keyboard shortcut Ctrl+Shift+A
   useEffect(() => {
@@ -64,30 +106,19 @@ export function AiAssistant({ user }: AiAssistantProps) {
         recognitionRef.current.interimResults = true;
 
         recognitionRef.current.onresult = (event: any) => {
-          let interimTranscript = '';
           let finalTranscript = '';
-
           for (let i = event.resultIndex; i < event.results.length; ++i) {
             if (event.results[i].isFinal) {
               finalTranscript += event.results[i][0].transcript;
-            } else {
-              interimTranscript += event.results[i][0].transcript;
             }
           }
-
           if (finalTranscript) {
             setInputText((prev) => prev + finalTranscript);
           }
         };
 
-        recognitionRef.current.onerror = (event: any) => {
-          console.error("Speech recognition error", event.error);
-          setIsListening(false);
-        };
-
-        recognitionRef.current.onend = () => {
-          setIsListening(false);
-        };
+        recognitionRef.current.onerror = () => setIsListening(false);
+        recognitionRef.current.onend = () => setIsListening(false);
       }
     }
   }, []);
@@ -97,7 +128,6 @@ export function AiAssistant({ user }: AiAssistantProps) {
       alert("Voice recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
       return;
     }
-    
     if (isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
@@ -113,20 +143,16 @@ export function AiAssistant({ user }: AiAssistantProps) {
 
   const speakText = (text: string) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    
     if (isSpeaking) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
       return;
     }
-
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
-    
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
-
     setIsSpeaking(true);
     window.speechSynthesis.speak(utterance);
   };
@@ -136,10 +162,32 @@ export function AiAssistant({ user }: AiAssistantProps) {
   };
 
   useEffect(() => {
-    if (isOpen) {
-      scrollToBottom();
-    }
+    if (isOpen) scrollToBottom();
   }, [messages, isOpen, isLoading]);
+
+  // Submit feedback
+  const handleFeedback = async (msgIndex: number, helpful: boolean) => {
+    const msg = messages[msgIndex];
+    if (!msg?.logId) return;
+
+    // Optimistic update
+    setMessages(prev => prev.map((m, i) =>
+      i === msgIndex ? { ...m, feedback: helpful } : m
+    ));
+
+    try {
+      await fetch('/api/ai/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logId: msg.logId, helpful }),
+      });
+    } catch {
+      // Revert on failure
+      setMessages(prev => prev.map((m, i) =>
+        i === msgIndex ? { ...m, feedback: null } : m
+      ));
+    }
+  };
 
   const handleSend = async (text: string = inputText) => {
     if (!text.trim()) return;
@@ -158,24 +206,41 @@ export function AiAssistant({ user }: AiAssistantProps) {
           context: {
             page: pathname,
             userId: user?.id,
+            userRole: user?.role,
+            userName: user?.name,
           },
-          conversationHistory: messages.map((m) => ({ role: m.role, content: m.content })),
+          conversationHistory: messages.slice(-20).map((m) => ({ role: m.role, content: m.content })),
         }),
       });
 
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
 
-      const aiMessage: Message = { role: 'assistant', content: data.response, timestamp: new Date() };
+      if (!data.success) {
+        throw new Error(data.error || 'Unknown error');
+      }
+
+      const aiMessage: Message = {
+        role: 'assistant',
+        content: data.response,
+        timestamp: new Date(),
+        logId: data.logId,
+        feedback: null,
+      };
       setMessages((prev) => [...prev, aiMessage]);
-      
-      // Auto-read response if user was using voice
+
+      // Auto-read if user was using voice
       if (isListening) {
         speakText(data.response);
       }
-    } catch (error) {
-      console.error(error);
-      const errorMessage: Message = { role: 'assistant', content: "Titan AI assist is active! For immediate sales support call (800) 555-0199.", timestamp: new Date() };
+    } catch (error: any) {
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: error.message?.includes('API key')
+          ? "⚠️ Titan AI is not configured yet. Please ask your admin to add the OpenAI API key."
+          : "I'm having trouble connecting right now. Please try again in a moment.",
+        timestamp: new Date(),
+      };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -189,8 +254,20 @@ export function AiAssistant({ user }: AiAssistantProps) {
     }
   };
 
-  const activePrompts = user?.id ? REP_QUICK_PROMPTS : PUBLIC_QUICK_PROMPTS;
+  // Merge dynamic and static prompts (dynamic first, fill gaps with static)
+  const activePrompts = (() => {
+    if (dynamicPrompts.length >= 5) return dynamicPrompts.slice(0, 5);
+    const combined = [...dynamicPrompts];
+    for (const sp of staticPrompts) {
+      if (combined.length >= 5) break;
+      if (!combined.some(dp => dp.toLowerCase() === sp.toLowerCase())) {
+        combined.push(sp);
+      }
+    }
+    return combined;
+  })();
 
+  // Floating button (closed state)
   if (!isOpen) {
     return (
       <button
@@ -214,16 +291,31 @@ export function AiAssistant({ user }: AiAssistantProps) {
           </div>
           <div>
             <h2 className="text-base font-black uppercase text-white tracking-wider flex items-center gap-2">
-              TITAN AI <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">VOICE ACTIVE</span>
+              TITAN AI
+              {admin ? (
+                <span className="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                  <FiShield size={9} /> ADMIN ACCESS
+                </span>
+              ) : user?.id ? (
+                <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
+                  VOICE ACTIVE
+                </span>
+              ) : (
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                  PUBLIC
+                </span>
+              )}
             </h2>
-            <span className="text-[10px] text-neutral-400 font-mono block">24/7 Expert Sales & Tech Support</span>
+            <span className="text-[10px] text-neutral-400 font-mono block">
+              {admin ? 'Full company data access' : user?.id ? 'Your sales data & company totals' : '24/7 Expert Sales & Tech Support'}
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-1 text-neutral-400">
-          <button 
-            onClick={() => setIsOpen(false)} 
+          <button
+            onClick={() => setIsOpen(false)}
             className="p-2 hover:bg-white/10 rounded-full transition-colors"
-            title="Minimize"
+            title="Close"
           >
             <FiX className="w-5 h-5 text-neutral-300" />
           </button>
@@ -238,9 +330,15 @@ export function AiAssistant({ user }: AiAssistantProps) {
               <FiMessageSquare className="w-8 h-8 text-amber-400" />
             </div>
             <div>
-              <h3 className="text-lg font-black uppercase text-white mb-1">Welcome to Titan AI</h3>
+              <h3 className="text-lg font-black uppercase text-white mb-1">
+                {admin ? 'Admin Data Assistant' : user?.id ? `Hey ${user.name?.split(' ')[0] || 'there'}!` : 'Welcome to Titan AI'}
+              </h3>
               <p className="text-xs text-neutral-400 leading-relaxed max-w-xs">
-                Ask about blade specifications, diamond matrix formulas, contractor volume pricing, or jobsite recommendations.
+                {admin
+                  ? 'Ask about any rep, account, invoice, commission, or company-wide data. You have full access.'
+                  : user?.id
+                    ? 'Ask about your sales, commissions, accounts, tasks, VIG goals, or company totals.'
+                    : 'Ask about blade specifications, diamond matrix formulas, contractor volume pricing, or jobsite recommendations.'}
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-2 pt-2">
@@ -268,14 +366,45 @@ export function AiAssistant({ user }: AiAssistantProps) {
             >
               <p className="whitespace-pre-wrap">{msg.content}</p>
             </div>
-            
+
+            {/* Assistant action row: listen + feedback */}
             {msg.role === 'assistant' && (
-              <button 
-                onClick={() => speakText(msg.content)} 
-                className="mt-1 text-[10px] text-neutral-500 hover:text-amber-400 flex items-center gap-1 font-mono transition-colors"
-              >
-                {isSpeaking ? <FiVolumeX className="text-amber-400" /> : <FiVolume2 />} Listen to Voice
-              </button>
+              <div className="mt-1.5 flex items-center gap-3">
+                <button
+                  onClick={() => speakText(msg.content)}
+                  className="text-[10px] text-neutral-500 hover:text-amber-400 flex items-center gap-1 font-mono transition-colors"
+                >
+                  {isSpeaking ? <FiVolumeX className="text-amber-400" size={11} /> : <FiVolume2 size={11} />}
+                  Listen
+                </button>
+
+                {msg.logId && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleFeedback(idx, true)}
+                      className={`p-1 rounded transition-colors ${
+                        msg.feedback === true
+                          ? 'text-emerald-400 bg-emerald-500/10'
+                          : 'text-neutral-600 hover:text-emerald-400 hover:bg-emerald-500/10'
+                      }`}
+                      title="Helpful"
+                    >
+                      <FiThumbsUp size={11} />
+                    </button>
+                    <button
+                      onClick={() => handleFeedback(idx, false)}
+                      className={`p-1 rounded transition-colors ${
+                        msg.feedback === false
+                          ? 'text-red-400 bg-red-500/10'
+                          : 'text-neutral-600 hover:text-red-400 hover:bg-red-500/10'
+                      }`}
+                      title="Not helpful"
+                    >
+                      <FiThumbsDown size={11} />
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         ))}
@@ -301,7 +430,7 @@ export function AiAssistant({ user }: AiAssistantProps) {
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isListening ? "Listening..." : "Ask Titan AI or speak..."}
+              placeholder={isListening ? "Listening..." : admin ? "Ask anything about any data..." : "Ask about your sales data..."}
               className="w-full bg-neutral-950 border border-white/10 rounded-xl py-3 pl-4 pr-10 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500/50"
             />
             <button

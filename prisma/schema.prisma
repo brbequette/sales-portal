@@ -1141,3 +1141,21 @@ model AdvanceExtensionRequest {
 
   @@index([advanceId])
 }
+
+// ── AI Question Catalog ─────────────────────────────────────────────
+// Logs every AI assistant question & answer for analytics and dynamic suggestions
+
+model AiChatLog {
+  id             String   @id @default(cuid())
+  userId         String?
+  userRole       String?
+  question       String
+  answer         String
+  toolsUsed      String?  // Comma-separated list of tools called
+  responseTimeMs Int?
+  helpful        Boolean? // User can rate thumbs-up/down
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}

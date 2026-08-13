@@ -1,8 +1,8 @@
 import { prisma } from './prisma'
 
 /** All syncable data tables */
-export type SyncTable = 'leads' | 'invoices' | 'salesOrders' | 'accounts'
-export const SYNC_TABLES: SyncTable[] = ['leads', 'invoices', 'salesOrders', 'accounts']
+export type SyncTable = 'leads' | 'invoices' | 'salesOrders' | 'accounts' | 'packages' | 'purchaseOrders' | 'quotes' | 'payments' | 'vendors' | 'products'
+export const SYNC_TABLES: SyncTable[] = ['leads', 'invoices', 'salesOrders', 'accounts', 'packages', 'purchaseOrders', 'quotes', 'payments', 'vendors', 'products']
 
 export interface TableSyncConfig {
   enabled: boolean
@@ -15,6 +15,12 @@ export interface SyncConfig {
   invoices: TableSyncConfig
   salesOrders: TableSyncConfig
   accounts: TableSyncConfig
+  packages: TableSyncConfig
+  purchaseOrders: TableSyncConfig
+  quotes: TableSyncConfig
+  payments: TableSyncConfig
+  vendors: TableSyncConfig
+  products: TableSyncConfig
 }
 
 export interface TableSyncStatus {
@@ -28,20 +34,38 @@ export interface SyncStatus {
   invoices: TableSyncStatus
   salesOrders: TableSyncStatus
   accounts: TableSyncStatus
+  packages: TableSyncStatus
+  purchaseOrders: TableSyncStatus
+  quotes: TableSyncStatus
+  payments: TableSyncStatus
+  vendors: TableSyncStatus
+  products: TableSyncStatus
 }
 
 export const DEFAULT_SYNC_CONFIG: SyncConfig = {
-  leads:       { enabled: false, intervalMinutes: 0 },  // manual only by default
-  invoices:    { enabled: false, intervalMinutes: 0 },
-  salesOrders: { enabled: false, intervalMinutes: 0 },
-  accounts:    { enabled: false, intervalMinutes: 0 },
+  leads:          { enabled: false, intervalMinutes: 0 },  // manual only by default
+  invoices:       { enabled: false, intervalMinutes: 0 },
+  salesOrders:    { enabled: false, intervalMinutes: 0 },
+  accounts:       { enabled: false, intervalMinutes: 0 },
+  packages:       { enabled: false, intervalMinutes: 0 },
+  purchaseOrders: { enabled: false, intervalMinutes: 0 },
+  quotes:         { enabled: false, intervalMinutes: 0 },
+  payments:       { enabled: false, intervalMinutes: 0 },
+  vendors:        { enabled: false, intervalMinutes: 0 },
+  products:       { enabled: false, intervalMinutes: 0 },
 }
 
 export const DEFAULT_SYNC_STATUS: SyncStatus = {
-  leads:       { lastSyncAt: null, lastCount: 0, lastError: null },
-  invoices:    { lastSyncAt: null, lastCount: 0, lastError: null },
-  salesOrders: { lastSyncAt: null, lastCount: 0, lastError: null },
-  accounts:    { lastSyncAt: null, lastCount: 0, lastError: null },
+  leads:          { lastSyncAt: null, lastCount: 0, lastError: null },
+  invoices:       { lastSyncAt: null, lastCount: 0, lastError: null },
+  salesOrders:    { lastSyncAt: null, lastCount: 0, lastError: null },
+  accounts:       { lastSyncAt: null, lastCount: 0, lastError: null },
+  packages:       { lastSyncAt: null, lastCount: 0, lastError: null },
+  purchaseOrders: { lastSyncAt: null, lastCount: 0, lastError: null },
+  quotes:         { lastSyncAt: null, lastCount: 0, lastError: null },
+  payments:       { lastSyncAt: null, lastCount: 0, lastError: null },
+  vendors:        { lastSyncAt: null, lastCount: 0, lastError: null },
+  products:       { lastSyncAt: null, lastCount: 0, lastError: null },
 }
 
 // ─────────────────────────────────────────────
