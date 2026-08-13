@@ -79,7 +79,7 @@ export async function proxy(req: NextRequest) {
   }
 
   if (pathname.startsWith('/admin') && !isAdminRole(token.role as string | undefined)) {
-    return NextResponse.redirect(new URL('/dashboard', req.url));
+    return NextResponse.redirect(new URL('/sales', req.url));
   }
 
   return NextResponse.next();
