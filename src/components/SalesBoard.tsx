@@ -517,11 +517,16 @@ export function SalesBoard() {
 
             const isPaid = doc.isPaid || false
             const isSameDayPaid = doc.isSameDayPaid || false
-            const fullComm = Number(doc.commission || 0)
+            // Use structured commission data if available, otherwise fall back to raw number
+            const commObj = typeof doc.commission === 'object' && doc.commission !== null ? doc.commission : null
+            const fullComm = commObj ? (commObj.total || 0) + (commObj.future || 0) : Number(doc.commission || 0)
 
             const isSinglePayment = matchedRep?.payoutStructure === 'single_payment'
             let commissionEarned = 0
-            if (isSinglePayment) {
+            if (commObj) {
+              // Prefer API-computed values: total = already earned, future = pending
+              commissionEarned = commObj.total || 0
+            } else if (isSinglePayment) {
               commissionEarned = (isPaid || isSameDayPaid) ? fullComm : 0
             } else {
               commissionEarned = fullComm * 0.5

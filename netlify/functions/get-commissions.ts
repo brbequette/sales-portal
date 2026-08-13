@@ -3,6 +3,7 @@ import { PrismaClient, Prisma } from "@prisma/client"
 import { prisma } from "./lib/prisma"
 import { isNoVigItem } from "./lib/cost-calculations"
 import { extractDeadCostTotal, extractCcFees, extractAdditionalCosts } from "../../src/lib/custom-field-extractor"
+import { getSystemSettings } from "../../src/lib/settings"
 
 
 // Statuses where the FINAL half is earned (invoice has been paid)
@@ -34,6 +35,7 @@ export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: cors, body: "" }
 
   try {
+    const settings = await getSystemSettings()
     const { repId, userId, userEmail, year, includeHidden, checkOnly } = event.queryStringParameters || {}
     const showHidden = includeHidden === 'true'
 
@@ -397,8 +399,8 @@ export const handler: Handler = async (event) => {
 
     // ── Build invoice-based commission records ──────────────────────────
     // Commission is split 50/50:
-    //   - Upfront (25% of profit): earned when invoice is created, appears in that week's ledger
-    //   - Final  (25% of profit): earned when invoice is paid, appears in the following week's pay
+    //   - Upfront (first half of commission): earned when invoice is created
+    //   - Final  (second half of commission): earned when invoice is paid
     //
     // Rep attribution: items.salesperson on the document — the rep who drove the sale.
     // Account owner is a CRM assignment only and does NOT drive commissions.
@@ -426,7 +428,7 @@ export const handler: Handler = async (event) => {
       } else if (lineItems.length > 0) {
         for (const li of lineItems) {
           const qty = parseFloat(li.quantity) || 1
-          const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.60)
+          const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * (settings.dead_cost_fallback_pct / 100))
           const itemCost = qty * cost
           if (isNoVigItem(li)) {
             deadCostNoVig += itemCost
@@ -440,7 +442,7 @@ export const handler: Handler = async (event) => {
       }
 
       if ((isNaN(deadCost) || deadCost === 0) && subTotal > 0) {
-        deadCost = subTotal * 0.60
+        deadCost = subTotal * (settings.dead_cost_fallback_pct / 100)
         deadCostSubjectToVig = deadCost
         deadCostNoVig = 0
       }
@@ -481,9 +483,9 @@ export const handler: Handler = async (event) => {
 
       const isPaid = FINAL_PAID_STATUSES.has(inv.status)
 
-      // 4. Two-Stage 50/50 Commission (after-VIG profit basis):
-      //    - Upfront (25% of initialProfit): earned on invoice creation
-      //    - Final  (25% of profit, adjusted): earned when invoice is paid
+      // 4. Two-Stage Commission (after-VIG profit basis):
+      //    - Upfront (first half of commission on initialProfit): earned on invoice creation
+      //    - Final  (remaining commission on profit): earned when invoice is paid
       const safeInitialProfit = isNaN(initialProfit) ? 0 : initialProfit
       const safeProfit = isNaN(profit) ? 0 : profit
       const safeDeadProfit = isNaN(deadProfit) ? 0 : deadProfit
@@ -497,14 +499,14 @@ export const handler: Handler = async (event) => {
 
       if (isSinglePayment) {
         // Single Payment structure: only paid when invoice is paid (isPaid = true)
-        const totalCommission = safeProfit * 0.50
+        const totalCommission = safeProfit * (settings.commission_rate_pct / 100)
         upfront = 0
         final = isPaid ? totalCommission : 0
         future = !isPaid ? totalCommission : 0
       } else {
         // Two-Stage 50/50 split structure
-        upfront = safeInitialProfit * 0.25
-        const finalTotalTarget = safeProfit * 0.50
+        upfront = safeInitialProfit * (settings.commission_rate_pct / 100) * 0.5
+        const finalTotalTarget = safeProfit * (settings.commission_rate_pct / 100)
         final = isPaid ? (finalTotalTarget - upfront) : 0
         future = !isPaid ? (finalTotalTarget - upfront) : 0
       }
@@ -588,7 +590,7 @@ export const handler: Handler = async (event) => {
       } else if (lineItems.length > 0) {
         for (const li of lineItems) {
           const qty = parseFloat(li.quantity) || 1
-          const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
+          const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * (settings.dead_cost_fallback_pct / 100))
           const itemCost = qty * cost
           if (isNoVigItem(li)) {
             deadCostNoVig += itemCost
@@ -602,7 +604,7 @@ export const handler: Handler = async (event) => {
       }
 
       if ((isNaN(deadCost) || deadCost === 0) && subTotal > 0) {
-        deadCost = subTotal * 0.50
+        deadCost = subTotal * (settings.dead_cost_fallback_pct / 100)
         deadCostSubjectToVig = deadCost
         deadCostNoVig = 0
       }
@@ -647,14 +649,14 @@ export const handler: Handler = async (event) => {
 
       if (isSinglePayment) {
         // Single Payment structure: only paid when order is paid/fulfilled
-        const totalCommission = safeProfit * 0.50
+        const totalCommission = safeProfit * (settings.commission_rate_pct / 100)
         upfront = 0
         final = isPaid ? totalCommission : 0
         future = !isPaid ? totalCommission : 0
       } else {
         // Two-Stage 50/50 split structure
-        upfront = safeInitialProfit * 0.25
-        const finalTotalTarget = safeProfit * 0.50
+        upfront = safeInitialProfit * (settings.commission_rate_pct / 100) * 0.5
+        const finalTotalTarget = safeProfit * (settings.commission_rate_pct / 100)
         final = isPaid ? (finalTotalTarget - upfront) : 0
         future = !isPaid ? (finalTotalTarget - upfront) : 0
       }

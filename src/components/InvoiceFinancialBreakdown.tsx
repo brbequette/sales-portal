@@ -96,9 +96,9 @@ export function InvoiceFinancialBreakdown({
   const resolvedMargin = subTotal > 0 ? (resolvedProfit / subTotal) * 100 : 0
   
   const resolvedCommissionPct = (commissionPct && commissionPct > 0) ? commissionPct : (getCustomField("COMMISSION FROM PROFIT") || 50)
-  const resolvedCommission = (salesCommission && salesCommission > 0)
+  const resolvedCommission = (salesCommission != null && salesCommission !== 0)
     ? salesCommission
-    : (resolvedProfit > 0 ? resolvedProfit * (resolvedCommissionPct / 100) : 0)
+    : (resolvedProfit >= 0 ? resolvedProfit * (resolvedCommissionPct / 100) : resolvedProfit * 0.50)
 
   const isSinglePayment = payoutStructure === 'single_payment'
 

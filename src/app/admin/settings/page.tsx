@@ -319,6 +319,136 @@ export default function AdminSettingsPage() {
                 <div className="space-y-8">
                   <VigManagementBuilder />
 
+                  {/* ── Commission & Cost Calculation Settings ──────────────── */}
+                  <div className="glass-panel border border-white/10 rounded-2xl p-6 space-y-6 shadow-xl">
+                    <div>
+                      <h3 className="text-lg font-black text-white flex items-center gap-2">
+                        <FiDollarSign className="text-emerald-400" /> Commission & Cost Calculation
+                      </h3>
+                      <p className="text-xs text-neutral-500 mt-1 font-medium">
+                        Control how profit and commission are derived across all invoices and sales orders.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {/* Commission Rate */}
+                      <div>
+                        <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
+                          Commission Rate (%)
+                        </label>
+                        <p className="text-xs text-neutral-500 mb-3 font-semibold">
+                          Percentage of net profit paid as commission to the sales rep. Default: 50%
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number" step="1" min="0" max="100"
+                            value={settings.commission_rate_pct ?? ''}
+                            onChange={e => handleUpdateSetting('commission_rate_pct', e.target.value)}
+                            className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                          />
+                          <span className="text-neutral-500 font-black">%</span>
+                        </div>
+                      </div>
+
+                      {/* Dead Cost Fallback */}
+                      <div>
+                        <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
+                          Dead Cost Fallback (%)
+                        </label>
+                        <p className="text-xs text-neutral-500 mb-3 font-semibold">
+                          When no item cost data is available, estimate dead cost as this % of the subtotal. Default: 60%
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number" step="1" min="0" max="100"
+                            value={settings.dead_cost_fallback_pct ?? ''}
+                            onChange={e => handleUpdateSetting('dead_cost_fallback_pct', e.target.value)}
+                            className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                          />
+                          <span className="text-neutral-500 font-black">%</span>
+                        </div>
+                      </div>
+
+                      {/* Loss Split */}
+                      <div>
+                        <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
+                          Loss Split (%)
+                        </label>
+                        <p className="text-xs text-neutral-500 mb-3 font-semibold">
+                          When an invoice has negative profit, the rep absorbs this % of the loss. Default: 50%
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number" step="1" min="0" max="100"
+                            value={settings.loss_split_pct ?? ''}
+                            onChange={e => handleUpdateSetting('loss_split_pct', e.target.value)}
+                            className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-rose-400 font-mono font-bold focus:outline-none focus:border-rose-500"
+                          />
+                          <span className="text-neutral-500 font-black">%</span>
+                        </div>
+                      </div>
+
+                      {/* Per-Item Cost Fallback */}
+                      <div>
+                        <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
+                          Per-Item Cost Fallback (%)
+                        </label>
+                        <p className="text-xs text-neutral-500 mb-3 font-semibold">
+                          When an individual line item has no purchase cost, estimate it as this % of its sell rate. Default: 60%
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number" step="1" min="0" max="100"
+                            value={settings.per_item_cost_fallback_pct ?? ''}
+                            onChange={e => handleUpdateSetting('per_item_cost_fallback_pct', e.target.value)}
+                            className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                          />
+                          <span className="text-neutral-500 font-black">%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CC Fee Rate */}
+                    <hr className="border-white/10" />
+                    <div>
+                      <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
+                        Credit Card Processing Fee (%)
+                      </label>
+                      <p className="text-xs text-neutral-500 mb-3 font-semibold">
+                        Applied to invoice subtotal when estimating CC fees. Default: 4.5%
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="number" step="0.1" min="0" max="20"
+                          value={settings.cc_fee_rate ?? ''}
+                          onChange={e => handleUpdateSetting('cc_fee_rate', e.target.value)}
+                          className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono font-bold focus:outline-none focus:border-blue-500"
+                        />
+                        <span className="text-neutral-500 font-black">%</span>
+                      </div>
+                    </div>
+
+                    {/* Tariff Surcharge Rate */}
+                    <hr className="border-white/10" />
+                    <div>
+                      <label className="block text-sm font-black uppercase tracking-wider text-neutral-300 mb-1">
+                        Tariff Surcharge Rate (%)
+                      </label>
+                      <p className="text-xs text-neutral-500 mb-3 font-semibold">
+                        Tariff surcharge applied to non-gift dead cost on unpaid invoices. Default: 12.5%
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="number" step="0.1" min="0" max="50"
+                          value={settings.tariff_surcharge_rate != null ? (settings.tariff_surcharge_rate * 100).toFixed(1) : ''}
+                          onChange={e => handleUpdateSetting('tariff_surcharge_rate', parseFloat(e.target.value) / 100)}
+                          className="w-32 bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white font-mono font-bold focus:outline-none focus:border-blue-500"
+                        />
+                        <span className="text-neutral-500 font-black">%</span>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* ── Clawback Rules ──────────────────────────────────────── */}
                   <ClawbackSettingsSection />
                 </div>

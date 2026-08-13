@@ -9,6 +9,9 @@ export interface AppSettings {
   default_daily_subtotal_goal: number
   default_working_days_per_month: number
   commission_rate_pct: number
+  dead_cost_fallback_pct: number
+  loss_split_pct: number
+  per_item_cost_fallback_pct: number
   shipping_multiplier: number
   cc_fee_rate: number
   default_shipping_weight: number
@@ -28,6 +31,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   default_daily_subtotal_goal: 3000,
   default_working_days_per_month: 21,
   commission_rate_pct: 50,
+  dead_cost_fallback_pct: 60,
+  loss_split_pct: 50,
+  per_item_cost_fallback_pct: 60,
   shipping_multiplier: 1.5,
   cc_fee_rate: 4.5, // 4.5%
   default_shipping_weight: 0.5,
@@ -51,6 +57,9 @@ export async function getSystemSettings(): Promise<AppSettings> {
     default_daily_subtotal_goal: map.default_daily_subtotal_goal ? parseFloat(map.default_daily_subtotal_goal) : DEFAULT_SETTINGS.default_daily_subtotal_goal,
     default_working_days_per_month: map.default_working_days_per_month ? parseInt(map.default_working_days_per_month) : DEFAULT_SETTINGS.default_working_days_per_month,
     commission_rate_pct: map.commission_rate_pct ? parseFloat(map.commission_rate_pct) : DEFAULT_SETTINGS.commission_rate_pct,
+    dead_cost_fallback_pct: map.dead_cost_fallback_pct ? parseFloat(map.dead_cost_fallback_pct) : DEFAULT_SETTINGS.dead_cost_fallback_pct,
+    loss_split_pct: map.loss_split_pct ? parseFloat(map.loss_split_pct) : DEFAULT_SETTINGS.loss_split_pct,
+    per_item_cost_fallback_pct: map.per_item_cost_fallback_pct ? parseFloat(map.per_item_cost_fallback_pct) : DEFAULT_SETTINGS.per_item_cost_fallback_pct,
     shipping_multiplier: map.shipping_multiplier ? parseFloat(map.shipping_multiplier) : DEFAULT_SETTINGS.shipping_multiplier,
     cc_fee_rate: map.cc_fee_rate ? parseFloat(map.cc_fee_rate) : DEFAULT_SETTINGS.cc_fee_rate,
     default_shipping_weight: map.default_shipping_weight ? parseFloat(map.default_shipping_weight) : DEFAULT_SETTINGS.default_shipping_weight,

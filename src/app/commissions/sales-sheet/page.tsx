@@ -103,7 +103,7 @@ export default function SalesSheetPage() {
       if (inv.isPaid) t.paidCount++
       else {
         t.unpaidCount++
-        t.pendingPay += inv.amount || 0
+        t.pendingPay += inv.commission?.future || 0
       }
     }
     t.markup = t.deadCost > 0 ? t.sales / t.deadCost : 0

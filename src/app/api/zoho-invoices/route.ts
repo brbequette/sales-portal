@@ -88,7 +88,7 @@ export async function GET(request: Request) {
         deadProfit: (() => {
           const sub = subTotalVal
           let dc = (items.deadCostTotal ?? 0)
-          if ((isNaN(dc) || dc === 0) && sub > 0) dc = sub * 0.50
+          if ((isNaN(dc) || dc === 0) && sub > 0) dc = sub * 0.60
           return sub - dc
         })(),
         cf_commision_amount_unformatted: extractCommissionAmount(items),
@@ -128,7 +128,7 @@ export async function GET(request: Request) {
         deadProfit: (() => {
           const sub = subTotalVal
           let dc = (items.deadCostTotal ?? 0)
-          if ((isNaN(dc) || dc === 0) && sub > 0) dc = sub * 0.50
+          if ((isNaN(dc) || dc === 0) && sub > 0) dc = sub * 0.60
           return sub - dc
         })(),
         cf_commision_amount_unformatted: extractCommissionAmount(items),

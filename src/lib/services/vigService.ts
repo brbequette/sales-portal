@@ -56,7 +56,7 @@ export function calculateDocumentCosts(
     })
   }
 
-  // Fallback: If line items have 0 unit cost specified, default to 50% of subtotal as estimated dead cost
+  // Fallback: If line items have 0 unit cost specified, default to 60% of subtotal as estimated dead cost
   if (deadCostTotal === 0 && subtotal > 0) {
     deadCostTotal = subtotal * 0.60
   }
