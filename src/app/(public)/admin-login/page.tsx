@@ -41,29 +41,9 @@ export default function AdminLoginPage() {
 
         {!accessDenied && (
           <button 
-            onClick={async () => { 
+            onClick={() => { 
               setLoading(true); 
-              try {
-                const res = await signIn("zoho", { callbackUrl: "/admin", redirect: false });
-                if (res?.url && !res.url.includes("error")) {
-                  window.location.href = res.url;
-                  return;
-                }
-                const fallbackRes = await signIn("credentials", {
-                  email: "admin@titandiamondusa.com",
-                  password: "demo",
-                  redirect: false,
-                });
-                if (fallbackRes?.error) {
-                  window.location.href = `/api/auth/signin/zoho?callbackUrl=${encodeURIComponent("/admin")}`;
-                } else {
-                  router.push("/admin");
-                }
-              } catch {
-                window.location.href = `/api/auth/signin/zoho?callbackUrl=${encodeURIComponent("/admin")}`;
-              } finally {
-                setLoading(false);
-              }
+              window.location.href = `/api/auth/signin/zoho?callbackUrl=${encodeURIComponent("/admin")}`;
             }} 
             disabled={loading || status === "loading"} 
             className="mt-7 flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 py-4 text-sm font-black uppercase tracking-wider text-neutral-950 transition hover:from-amber-400 disabled:opacity-60"
