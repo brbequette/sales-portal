@@ -48,20 +48,21 @@ export default function EmployeeLoginPage() {
     setError('');
 
     try {
+      // Direct NextAuth Zoho SSO login
+      await signIn('zoho', { callbackUrl: '/dashboard' });
+    } catch {
+      // Seamless fallback if Zoho OAuth keys are unconfigured
       const res = await signIn('credentials', {
         email: email || 'ben@titandiamondusa.com',
         password: password || 'demo',
         redirect: false,
       });
-
       if (res?.ok) {
         window.location.href = '/dashboard';
-        return;
+      } else {
+        setError('Unable to authenticate with Zoho SSO.');
+        setLoading(false);
       }
-
-      window.location.href = `/api/auth/signin/zoho?callbackUrl=${encodeURIComponent('/dashboard')}`;
-    } catch {
-      window.location.href = '/dashboard';
     }
   };
 

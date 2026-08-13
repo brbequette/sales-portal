@@ -4,9 +4,12 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import type { Prisma } from "@prisma/client"
 import { prisma } from "./prisma"
 
-// Dynamically handle NEXTAUTH_URL
-if (!process.env.NEXTAUTH_URL && typeof window === "undefined") {
-  process.env.NEXTAUTH_URL = process.env.URL || process.env.DEPLOY_PRIME_URL || undefined
+// Must define process.env.NEXTAUTH_URL before NextAuth initializes providers
+const isProd = process.env.NODE_ENV === "production" || process.env.NETLIFY === "true"
+const defaultUrl = isProd ? "https://titan-sales-portal.netlify.app" : "http://localhost:3000"
+
+if (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL === "undefined" || process.env.NEXTAUTH_URL.includes("undefined")) {
+  process.env.NEXTAUTH_URL = process.env.URL || process.env.DEPLOY_PRIME_URL || defaultUrl
 }
 
 const LOGIN_SCOPE = "AaaServer.profile.READ"
@@ -44,7 +47,6 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email) return null;
         const email = credentials.email.trim().toLowerCase();
 
-        // Search user by email or name
         let dbUser = await prisma.user.findFirst({
           where: {
             OR: [
@@ -55,7 +57,6 @@ export const authOptions: NextAuthOptions = {
           }
         }).catch(() => null);
 
-        // Demo / fallback auto-user creation if dbUser does not exist
         if (!dbUser) {
           const isStaff = email.includes("titan") || email.includes("rep") || email.includes("admin") || email.includes("ben");
           const role = isStaff ? (email.includes("admin") ? "Administrator" : "Sales Representative") : "Customer";
