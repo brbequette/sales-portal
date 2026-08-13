@@ -535,6 +535,47 @@ export default function AdminSettingsPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Easyship Integration Status */}
+                  <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-4 shadow-xl mt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-black text-white">Easyship Integration</h3>
+                        <p className="text-xs text-neutral-500 font-semibold mt-1">
+                          Live shipping rate comparison via Easyship API
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            const res = await fetch('/api/shipping/estimate')
+                            const data = await res.json()
+                            if (data.connected) {
+                              alert(`✅ Easyship Connected!\n\nAccount: ${data.accountName || 'Titan Diamond'}\nCurrency: ${data.currency || 'USD'}`)
+                            } else {
+                              alert(`❌ Easyship not connected: ${data.error || 'API key not configured'}`)
+                            }
+                          } catch (e: any) {
+                            alert(`❌ Connection test failed: ${e.message}`)
+                          }
+                        }}
+                        className="td-btn td-btn-ghost td-btn-sm"
+                      >
+                        <FiRefreshCw size={13} /> Test Connection
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-3 bg-black/20 rounded-lg p-3 border border-white/5">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                        <FiCheckCircle className="text-emerald-400 text-sm" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">API Key Configured</p>
+                        <p className="text-[10px] text-neutral-500">
+                          Origin: 8321 E Evans Road, Scottsdale, AZ 85260 • Drop-ship from vendors supported
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 

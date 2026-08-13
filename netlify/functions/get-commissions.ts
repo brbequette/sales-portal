@@ -108,7 +108,7 @@ export const handler: Handler = async (event) => {
           a.name    AS "accountName",
           a."zohoId" AS "accountZohoId",
           c."firstName" || ' ' || c."lastName" AS "contactName",
-          COALESCE(c.phone, c."mobilePhone") AS "contactPhone",
+          COALESCE(c.phone, c."mobilePhone", i.items->>'phone', i.items->>'customer_phone', i.items->>'mobile') AS "contactPhone",
           jsonb_build_object(
             'salesperson',                COALESCE(i.items->>'salesperson_name', i.items->>'salesperson'),
             'salesperson_name',           i.items->>'salesperson_name',

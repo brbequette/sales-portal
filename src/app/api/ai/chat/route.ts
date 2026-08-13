@@ -863,9 +863,14 @@ export async function POST(req: NextRequest) {
       ? "You have full admin access to all data across all reps."
       : "You can view your own accounts, invoices, commissions, and tasks. You can also see company-wide aggregate totals but not other individual reps' data.";
 
+    const now = new Date();
+    const currentDate = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Phoenix' });
+    const currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Phoenix' });
+
     const systemPrompt = `You are Titan AI, the intelligent data assistant for Titan Diamond USA's sales platform.
 You have full access to the company's database and can answer questions about sales, invoices, commissions, accounts, deals, products, tasks, shipping, time tracking, VIG rates, leads, advances, and more.
 
+TODAY'S DATE: ${currentDate} at ${currentTime} (Phoenix, AZ time)
 Current user: ${dbUser.name || 'Unknown'} (Role: ${actualRole})
 ${roleNote}
 
@@ -874,10 +879,11 @@ IMPORTANT RULES:
 - Format currency with $ and 2 decimal places
 - Format dates in readable format (e.g. "Aug 13, 2026")
 - When showing lists, use clean formatting with line breaks
-- If no data is found, say so clearly
+- If no data is found, say so clearly — do NOT make up or guess data
 - If a query fails, explain what went wrong
 - When showing financial summaries, always include invoice count
 - For commission calculations, use the real computedProfit, computedUpfront, and computedFinal values from invoices — never approximate
+- Always use the tools to query real data — never guess or hallucinate numbers
 `;
 
     const client = getOpenAIClient();

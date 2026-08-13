@@ -85,14 +85,17 @@ export default function SalesSheetPage() {
   const totals = useMemo(() => {
     const t = {
       count: monthInvoices.length,
-      sales: 0, deadCost: 0, profit: 0, deadProfit: 0,
+      sales: 0, deadCost: 0, deadCostPlusVig: 0, profit: 0, deadProfit: 0,
       commission: 0, upfront: 0, final: 0, future: 0,
       shipping: 0, markup: 0,
       paidCount: 0, unpaidCount: 0, pendingPay: 0,
     }
     for (const inv of monthInvoices) {
+      const vigRate = inv.vigRate || 1.3
+      const dc = inv.deadCost || 0
       t.sales += inv.amount || 0
-      t.deadCost += inv.deadCost || 0
+      t.deadCost += dc
+      t.deadCostPlusVig += dc * vigRate
       t.profit += inv.profit || 0
       t.deadProfit += inv.deadProfit || 0
       t.commission += inv.commission?.total || 0
@@ -106,7 +109,7 @@ export default function SalesSheetPage() {
         t.pendingPay += inv.commission?.future || 0
       }
     }
-    t.markup = t.deadCost > 0 ? t.sales / t.deadCost : 0
+    t.markup = t.deadCostPlusVig > 0 ? t.sales / t.deadCostPlusVig : 0
     return t
   }, [monthInvoices])
 
@@ -176,7 +179,7 @@ export default function SalesSheetPage() {
                   { label: "Dead Cost", value: fmt(totals.deadCost), icon: FiActivity, color: "amber" },
                   { label: "Dead Profit", value: fmt(totals.deadProfit), icon: FiTrendingUp, color: "cyan" },
                   { label: "Net Profit", value: fmt(totals.profit), sub: `Margin: ${totals.sales > 0 ? fmtPct((totals.profit / totals.sales) * 100) : "—"}`, icon: FiTrendingUp, color: "emerald" },
-                  { label: "Markup", value: `${totals.markup.toFixed(2)}x`, icon: FiTrendingUp, color: "violet" },
+                  { label: "Markup (w/ VIG)", value: `${totals.markup.toFixed(2)}x`, icon: FiTrendingUp, color: "violet" },
                   { label: "Commission", value: fmt(totals.commission), sub: `Up: ${fmt(totals.upfront)} · Fin: ${fmt(totals.final)}`, icon: FiDollarSign, color: "violet" },
                   { label: "Pending Commission", value: fmt(totals.pendingPay), sub: `${totals.unpaidCount} invoices`, icon: FiClock, color: totals.unpaidCount > 0 ? "amber" : "neutral" },
                 ].map((card, i) => (
@@ -194,7 +197,7 @@ export default function SalesSheetPage() {
               {/* Invoice Table */}
               <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border, #262626)", background: "var(--surface, #18181b)" }}>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm" style={{ minWidth: "1100px" }}>
+                  <table className="w-full text-sm" style={{ minWidth: "1200px" }}>
                     <thead>
                       <tr className="border-b" style={{ borderColor: "var(--border, #262626)" }}>
                         <th className="text-left px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">#</th>
@@ -206,6 +209,7 @@ export default function SalesSheetPage() {
                         <th className="text-right px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Cost</th>
                         <th className="text-right px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Profit</th>
                         <th className="text-right px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Markup</th>
+                        <th className="text-right px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">VIG</th>
                         <th className="text-right px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Comm.</th>
                         <th className="text-right px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Days Old</th>
                         <th className="text-center px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Status</th>
@@ -214,14 +218,17 @@ export default function SalesSheetPage() {
                     <tbody>
                       {monthInvoices.length === 0 ? (
                         <tr>
-                          <td colSpan={12} className="px-3 py-12 text-center text-neutral-500">
+                          <td colSpan={13} className="px-3 py-12 text-center text-neutral-500">
                             <FiCalendar size={28} className="mx-auto mb-2 text-neutral-600" />
                             <p className="text-sm font-medium">No invoices for {monthLabel}</p>
                             <p className="text-xs text-neutral-600 mt-1">Try selecting a different month</p>
                           </td>
                         </tr>
                       ) : monthInvoices.map((inv: any, idx: number) => {
-                        const markup = (inv.deadCost || 0) > 0 ? ((inv.amount || 0) / inv.deadCost).toFixed(2) : "—"
+                        const invVigRate = inv.vigRate || 1.3
+                        const dcPlusVig = (inv.deadCost || 0) * invVigRate
+                        const markup = dcPlusVig > 0 ? ((inv.amount || 0) / dcPlusVig).toFixed(2) : "—"
+                        const phoneNumber = inv.contactPhone || null
                         const daysOld = inv.daysOld ? Math.round(inv.daysOld) : (inv.issueDate ? Math.round((Date.now() - new Date(inv.issueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0)
                         return (
                         <tr
@@ -246,8 +253,8 @@ export default function SalesSheetPage() {
                             {inv.accountName || "—"}
                           </td>
                           <td className="px-3 py-2 text-xs text-neutral-400 whitespace-nowrap">
-                            {inv.contactPhone ? (
-                              <a href={`tel:${inv.contactPhone}`} onClick={e => e.stopPropagation()} className="text-indigo-400 hover:text-indigo-300 hover:underline">{inv.contactPhone}</a>
+                            {phoneNumber ? (
+                              <a href={`tel:${phoneNumber}`} onClick={e => e.stopPropagation()} className="text-indigo-400 hover:text-indigo-300 hover:underline">{phoneNumber}</a>
                             ) : <span className="text-neutral-600">—</span>}
                           </td>
                           <td className="px-3 py-2 text-xs text-neutral-400 whitespace-nowrap">
@@ -264,6 +271,9 @@ export default function SalesSheetPage() {
                           </td>
                           <td className="px-3 py-2 text-xs text-neutral-300 text-right tabular-nums font-mono">
                             {markup}x
+                          </td>
+                          <td className="px-3 py-2 text-xs text-right tabular-nums font-mono" style={{ color: invVigRate === 1.0 ? '#60a5fa' : invVigRate > 1.3 ? '#f87171' : '#a3a3a3' }}>
+                            {invVigRate.toFixed(1)}x
                           </td>
                           <td className="px-3 py-2 text-xs font-medium text-violet-400 text-right tabular-nums">
                             {fmt(inv.commission?.total || 0)}
@@ -294,6 +304,7 @@ export default function SalesSheetPage() {
                           <td className="px-3 py-3 text-sm font-bold text-neutral-300 text-right tabular-nums">{fmt(totals.deadCost)}</td>
                           <td className="px-3 py-3 text-sm font-bold text-right tabular-nums" style={{ color: "#34d399" }}>{fmt(totals.profit)}</td>
                           <td className="px-3 py-3 text-sm font-bold text-neutral-300 text-right tabular-nums font-mono">{totals.markup.toFixed(2)}x</td>
+                          <td className="px-3 py-3"></td>
                           <td className="px-3 py-3 text-sm font-bold text-violet-400 text-right tabular-nums">{fmt(totals.commission)}</td>
                           <td className="px-3 py-3"></td>
                           <td className="px-3 py-3 text-center">
