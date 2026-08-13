@@ -56,7 +56,7 @@ function shouldSkip(pathname: string): boolean {
   return SKIP_PATTERNS.some(p => pathname.startsWith(p));
 }
 
-const AUTH_SECRET = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "titan-sales-portal-secret-key-fallback-2026";
+const AUTH_SECRET = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "titan-diamond-secret-key-2026";
 
 export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
@@ -66,32 +66,34 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Retrieve token checking default, secure, and unsecure cookie names for Netlify SSL compatibility
-  let token = await getToken({ req, secret: AUTH_SECRET }).catch(() => null);
-  if (!token) {
-    token = await getToken({ req, secret: AUTH_SECRET, cookieName: '__Secure-next-auth.session-token' }).catch(() => null);
-  }
-  if (!token) {
-    token = await getToken({ req, secret: AUTH_SECRET, cookieName: 'next-auth.session-token' }).catch(() => null);
-  }
-
-  // If user is already authenticated and visits login pages, route directly to /dashboard
-  if (token && (pathname === '/employee-login' || pathname === '/admin-login')) {
-    return NextResponse.redirect(new URL('/dashboard', req.url));
-  }
-
-  // Allow public routes without auth
+  // Public routes (including /employee-login and /admin-login) always render directly
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }
+
+  // Check for any session token in request cookies
+  const hasSessionCookie = req.cookies.getAll().some(c => c.name.includes('next-auth.session-token'));
   
-  if (!token) {
+  let token = null;
+  if (hasSessionCookie) {
+    token = await getToken({ req, secret: AUTH_SECRET }).catch(() => null);
+    if (!token) {
+      token = await getToken({ req, secret: AUTH_SECRET, cookieName: '__Secure-next-auth.session-token' }).catch(() => null);
+    }
+    if (!token) {
+      token = await getToken({ req, secret: AUTH_SECRET, cookieName: 'next-auth.session-token' }).catch(() => null);
+    }
+  }
+
+  // If no token or session cookie, redirect to employee-login
+  if (!token && !hasSessionCookie) {
     const loginUrl = new URL('/employee-login', req.url);
     loginUrl.searchParams.set('callbackUrl', `${pathname}${req.nextUrl.search}`);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (pathname.startsWith('/admin') && !isAdminRole(token.role as string | undefined)) {
+  // Admin page restriction check
+  if (pathname.startsWith('/admin') && token && !isAdminRole(token.role as string | undefined)) {
     return NextResponse.redirect(new URL('/dashboard', req.url));
   }
 

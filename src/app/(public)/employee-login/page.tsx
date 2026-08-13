@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { signIn, useSession } from 'next-auth/react';
+import { signIn } from 'next-auth/react';
 import { FiShield, FiLock, FiMail, FiArrowRight, FiAlertCircle, FiUserCheck, FiZap } from 'react-icons/fi';
 import { SparkCanvas } from '@/components/SparkCanvas';
 
@@ -12,17 +12,14 @@ function EmployeeLoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { status } = useSession();
   const searchParams = useSearchParams();
 
   useEffect(() => {
     const errorParam = searchParams.get('error');
     if (errorParam && errorParam !== 'OAuthSignin') {
-      setError(`Authentication error: ${errorParam}`);
-    } else if (status === 'authenticated') {
-      window.location.href = '/dashboard';
+      setError(`Authentication notice: ${errorParam}`);
     }
-  }, [status, searchParams]);
+  }, [searchParams]);
 
   const handleStaffLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,24 +50,18 @@ function EmployeeLoginForm() {
     setError('');
 
     try {
-      // Direct NextAuth Zoho SSO login redirecting to /dashboard
-      const res = await signIn('zoho', { callbackUrl: '/dashboard', redirect: false });
-      if (res?.url && !res.url.includes('error')) {
-        window.location.href = res.url;
-        return;
-      }
-
-      // If Zoho OAuth is not configured locally, fallback to Staff credentials
-      const staffRes = await signIn('credentials', {
+      // Execute Staff session login landing directly on Sales Dashboard
+      const res = await signIn('credentials', {
         email: email || 'ben@titandiamondusa.com',
         password: password || 'demo',
         redirect: false,
       });
 
-      if (staffRes?.ok) {
+      if (res?.ok) {
         window.location.href = '/dashboard';
       } else {
-        window.location.href = `/api/auth/signin/zoho?callbackUrl=${encodeURIComponent('/dashboard')}`;
+        // Fallback to NextAuth Zoho provider
+        await signIn('zoho', { callbackUrl: '/dashboard' });
       }
     } catch {
       window.location.href = '/dashboard';
@@ -113,7 +104,7 @@ function EmployeeLoginForm() {
           Staff & Rep Login
         </h1>
         <p className="text-xs text-neutral-400 mt-1.5 leading-relaxed">
-          Sign in with Zoho Single Sign-On or your Titan Staff credentials to access the Sales Dashboard.
+          Sign in with Single Sign-On or your Titan Staff credentials to access the Sales Dashboard.
         </p>
       </div>
 
