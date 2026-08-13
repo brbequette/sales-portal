@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { FiSearch, FiLock, FiPhone, FiTag, FiBox, FiArrowRight } from 'react-icons/fi';
+import { FiSearch, FiLock, FiPhone, FiTag, FiBox, FiArrowRight, FiCheckCircle } from 'react-icons/fi';
 
 type Product = {
   id: string;
@@ -59,7 +59,6 @@ function ShopContent() {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState("All");
   const [loading, setLoading] = useState(true);
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ParsedProduct | null>(null);
 
   useEffect(() => {
@@ -70,16 +69,6 @@ function ShopContent() {
   }, [initialCat]);
 
   useEffect(() => {
-    // Page view counter
-    const views = parseInt(localStorage.getItem('td_public_views') || '0', 10);
-    const newViews = views + 1;
-    localStorage.setItem('td_public_views', newViews.toString());
-
-    if (newViews >= 10) {
-      setShowLoginModal(true);
-    }
-
-    // Fetch products & SKU Map
     const fetchProducts = async () => {
       try {
         let skuMap: Record<string, string> = {};
@@ -115,7 +104,6 @@ function ShopContent() {
               }
             }
 
-            // Check SKU Map for exact filename match (.jpg, .png, etc.)
             const cleanSku = (item.sku || '').trim().toUpperCase();
             if (skuMap[cleanSku]) {
               img = `/product-images/${skuMap[cleanSku]}`;
@@ -163,45 +151,17 @@ function ShopContent() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white relative">
-      {/* 10 Page View Limit Modal */}
-      {showLoginModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-          <div className="bg-neutral-900 border border-amber-500/30 rounded-3xl p-8 max-w-md w-full text-center shadow-[0_0_50px_rgba(245,158,11,0.15)] relative overflow-hidden">
-            <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center mx-auto mb-6 text-amber-400">
-              <FiLock size={32} />
-            </div>
-            <h2 className="text-2xl font-black mb-2 text-white">Contractor Access Required</h2>
-            <p className="text-neutral-400 text-sm mb-8 leading-relaxed">
-              You&apos;ve reached the preview limit. Sign in to access full specs, live stock levels, and wholesale contractor pricing.
-            </p>
-            <div className="flex flex-col gap-3">
-              <Link 
-                href="/login"
-                className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-orange-500/25 flex items-center justify-center gap-2"
-              >
-                Sign In to View Contractor Rates <FiArrowRight />
-              </Link>
-              <a 
-                href="tel:18005550199"
-                className="w-full bg-neutral-800 hover:bg-neutral-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors border border-white/10 flex items-center justify-center gap-2 text-sm"
-              >
-                <FiPhone /> Call Direct Sales (800) 555-0199
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Product Detail Quick Modal */}
       {selectedProduct && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setSelectedProduct(null)}>
-          <div className="bg-neutral-900 border border-white/10 rounded-3xl p-6 max-w-2xl w-full text-left shadow-2xl relative" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4" onClick={() => setSelectedProduct(null)}>
+          <div className="bg-neutral-900 border border-amber-500/30 rounded-3xl p-6 sm:p-8 max-w-2xl w-full text-left shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
             <button 
               onClick={() => setSelectedProduct(null)} 
-              className="absolute top-4 right-4 text-neutral-400 hover:text-white text-xl font-bold w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center"
+              className="absolute top-4 right-4 text-neutral-400 hover:text-white text-xl font-bold w-9 h-9 rounded-full bg-neutral-800/80 flex items-center justify-center transition-colors"
             >
               ✕
             </button>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
               <div className="h-64 bg-neutral-950 border border-white/5 rounded-2xl flex items-center justify-center p-4 relative overflow-hidden">
                 <img 
@@ -216,39 +176,41 @@ function ShopContent() {
                   }}
                 />
               </div>
+
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full inline-block mb-3">
                   {selectedProduct.category}
                 </span>
-                <h3 className="text-xl font-bold mb-2 text-white">{selectedProduct.name}</h3>
+                <h3 className="text-xl font-black mb-2 text-white leading-tight">{selectedProduct.name}</h3>
                 <div className="text-xs font-mono text-neutral-400 mb-4 flex items-center gap-2">
                   <FiTag className="text-amber-500" /> SKU: {selectedProduct.sku}
                 </div>
+
                 {selectedProduct.textDescription && (
-                  <p className="text-xs text-neutral-300 mb-6 leading-relaxed bg-neutral-950 p-3 rounded-xl border border-white/5">
+                  <p className="text-xs text-neutral-300 mb-6 leading-relaxed bg-neutral-950 p-3 rounded-xl border border-white/5 max-h-36 overflow-y-auto">
                     {selectedProduct.textDescription}
                   </p>
                 )}
                 
-                <div className="p-4 bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl mb-6">
+                <div className="p-4 bg-neutral-950 border border-amber-500/30 rounded-2xl mb-6">
                   <div className="text-xs text-amber-400 font-bold mb-1 flex items-center gap-1.5">
-                    <FiLock size={12} /> Contractor Pricing Hidden
+                    <FiLock size={12} /> Contractor Pricing Reserved for Account Holders
                   </div>
                   <div className="text-[11px] text-neutral-400">
-                    Sign in with your Titan account to unlock wholesale pricing and immediate shipping.
+                    Sign in to view wholesale pricing tiers, custom blade specs, and direct jobsite fulfillment.
                   </div>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Link 
                     href="/login"
-                    className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-bold py-2.5 px-4 rounded-xl text-center text-xs transition-all"
+                    className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 text-neutral-950 font-black py-3 px-4 rounded-xl text-center text-xs uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2"
                   >
-                    Log In to Purchase
+                    <FiLock size={14} /> Sign In to View Pricing
                   </Link>
                   <Link 
                     href="/contact"
-                    className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors border border-white/10"
+                    className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-3 px-4 rounded-xl text-xs transition-colors border border-white/10 text-center"
                   >
                     Request Quote
                   </Link>
@@ -262,14 +224,16 @@ function ShopContent() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Header */}
         <div className="mb-10 text-center max-w-3xl mx-auto">
-          <span className="text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full inline-block mb-3">
-            Industrial Grade Diamond Tooling
-          </span>
-          <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4 bg-gradient-to-r from-white via-neutral-200 to-neutral-400 bg-clip-text text-transparent">
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <span className="text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3.5 py-1 rounded-full inline-flex items-center gap-1.5">
+              <FiCheckCircle size={14} /> Guest Browse Active • Wholesale Rates Locked
+            </span>
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4 bg-gradient-to-r from-white via-neutral-200 to-neutral-400 bg-clip-text text-transparent uppercase">
             TITAN DIAMOND USA CATALOG
           </h1>
           <p className="text-neutral-400 text-sm sm:text-base leading-relaxed">
-            Engineered for maximum cutting speed, laser-welded durability, and concrete jobsite reliability.
+            Browse our complete line of industrial diamond blades, core bits, and cup wheels. Sign in with your contractor account to view live wholesale rates.
           </p>
         </div>
 
@@ -327,7 +291,7 @@ function ShopContent() {
               <div 
                 key={product.id}
                 onClick={() => setSelectedProduct(product)}
-                className="bg-neutral-900/80 border border-white/5 rounded-2xl overflow-hidden hover:border-amber-500/30 transition-all hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col cursor-pointer group"
+                className="bg-neutral-900/80 border border-white/5 rounded-2xl overflow-hidden hover:border-amber-500/40 transition-all hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col cursor-pointer group"
               >
                 <div className="h-52 bg-gradient-to-b from-neutral-950 to-neutral-900/90 flex items-center justify-center p-6 relative border-b border-white/5 overflow-hidden">
                   <img 
@@ -342,13 +306,13 @@ function ShopContent() {
                     }}
                   />
                   <div className="absolute top-3 left-3">
-                    <span className="text-[9px] font-extrabold uppercase tracking-wider bg-neutral-950/80 backdrop-blur-md text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-md">
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider bg-neutral-950/80 backdrop-blur-md text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-md">
                       {product.category}
                     </span>
                   </div>
                 </div>
 
-                <div className="p-4 flex-1 flex flex-col justify-between">
+                <div className="p-5 flex-1 flex flex-col justify-between">
                   <div>
                     <div className="text-[10px] font-mono text-neutral-500 mb-1">SKU: {product.sku}</div>
                     <h3 className="font-bold text-sm text-white group-hover:text-amber-400 transition-colors line-clamp-2 mb-2">
@@ -356,10 +320,14 @@ function ShopContent() {
                     </h3>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-[11px] font-bold text-amber-400/90 bg-amber-500/10 px-2 py-1 rounded-lg border border-amber-500/20">
-                      <FiLock size={10} /> Contractor Rates
-                    </div>
+                  <div className="mt-4 pt-3 border-t border-white/10 flex items-center gap-2">
+                    <Link
+                      href="/login"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 text-neutral-950 font-black text-xs uppercase tracking-wider py-2.5 px-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5"
+                    >
+                      <FiLock size={12} /> Sign In for Pricing
+                    </Link>
                     <span className="text-xs font-semibold text-neutral-400 group-hover:text-white transition-colors flex items-center gap-1">
                       Details <FiArrowRight size={12} />
                     </span>
