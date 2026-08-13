@@ -58,7 +58,7 @@ export function calculateDocumentCosts(
 
   // Fallback: If line items have 0 unit cost specified, default to 50% of subtotal as estimated dead cost
   if (deadCostTotal === 0 && subtotal > 0) {
-    deadCostTotal = subtotal * 0.50
+    deadCostTotal = subtotal * 0.60
   }
 
   const vigRate = customVigRate ?? getVigRateForSalesperson(salespersonName)

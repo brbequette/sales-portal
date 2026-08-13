@@ -426,7 +426,7 @@ export const handler: Handler = async (event) => {
       } else if (lineItems.length > 0) {
         for (const li of lineItems) {
           const qty = parseFloat(li.quantity) || 1
-          const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.50)
+          const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * 0.60)
           const itemCost = qty * cost
           if (isNoVigItem(li)) {
             deadCostNoVig += itemCost
@@ -440,7 +440,7 @@ export const handler: Handler = async (event) => {
       }
 
       if ((isNaN(deadCost) || deadCost === 0) && subTotal > 0) {
-        deadCost = subTotal * 0.50
+        deadCost = subTotal * 0.60
         deadCostSubjectToVig = deadCost
         deadCostNoVig = 0
       }

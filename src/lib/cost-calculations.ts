@@ -402,7 +402,7 @@ export async function calculateDocumentCosts(
   // Fallback: If document has subTotal > 0 but zero line items or missing cost data in Books,
   // estimate base product cost as 50% of subTotal so profit is not artificially inflated.
   if ((deadCostSubjectToVig + deadCostNoVig) === 0 && subTotal > 0) {
-    deadCostSubjectToVig = subTotal * 0.50
+    deadCostSubjectToVig = subTotal * 0.60
     deadCostTotal = deadCostSubjectToVig + additionalCosts
   }
 
