@@ -27,18 +27,14 @@ export function SparkCanvas() {
     window.addEventListener('resize', handleResize);
 
     const numParticles = 45;
-    const isLight = theme === 'light';
-
     const particles = Array.from({ length: numParticles }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
       size: Math.random() * 2.5 + 0.5,
       speedX: (Math.random() - 0.5) * 1.2,
       speedY: -(Math.random() * 1.5 + 0.5),
-      color: isLight 
-        ? (Math.random() > 0.3 ? `rgba(2, 132, 199, ${Math.random() * 0.6 + 0.3})` : `rgba(217, 119, 6, ${Math.random() * 0.7 + 0.3})`)
-        : (Math.random() > 0.3 ? `rgba(249, 115, 22, ${Math.random() * 0.7 + 0.3})` : `rgba(245, 158, 11, ${Math.random() * 0.8 + 0.2})`),
-      shadowColor: isLight ? '#0284c7' : '#f97316',
+      color: Math.random() > 0.3 ? `rgba(249, 115, 22, ${Math.random() * 0.7 + 0.3})` : `rgba(245, 158, 11, ${Math.random() * 0.8 + 0.2})`,
+      shadowColor: '#f97316',
       alpha: Math.random() * 0.8 + 0.2,
       decay: Math.random() * 0.015 + 0.005,
     }));

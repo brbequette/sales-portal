@@ -156,9 +156,8 @@ export function HeaderNav() {
           </Link>
         </nav>
 
-        {/* Right Actions: Theme Toggle & Login */}
+        {/* Right Actions: Login */}
         <div className="flex items-center gap-3">
-          <ThemeToggle />
           <Link 
             href="/login" 
             className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-neutral-950 font-black text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:shadow-[0_0_30px_rgba(245,158,11,0.45)] transition-all active:scale-95 border border-amber-400/40"
