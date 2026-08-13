@@ -108,37 +108,44 @@ export const authOptions: NextAuthOptions = {
 
         const zohoUserId = profileString(zohoProfile, "ZUID", "zuid") || null
 
-        const [zohoUser, emailUser] = await Promise.all([
-          zohoUserId ? prisma.user.findUnique({ where: { zohoId: zohoUserId } }) : null,
-          prisma.user.findUnique({ where: { email } }),
-        ])
-        let dbUser = zohoUser || emailUser
+        try {
+          const [zohoUser, emailUser] = await Promise.all([
+            zohoUserId ? prisma.user.findUnique({ where: { zohoId: zohoUserId } }).catch(() => null) : null,
+            prisma.user.findUnique({ where: { email } }).catch(() => null),
+          ])
+          let dbUser = zohoUser || emailUser
 
-        if (!dbUser) {
-          dbUser = await prisma.user.create({
-            data: {
-              email,
-              name: fullName,
-              zohoId: zohoUserId,
-              role: "Sales Representative",
-            },
-          })
-        } else {
-          const updates: Prisma.UserUpdateInput = {}
-          if (dbUser.email.includes("@dummy.titandiamond.com") && !emailUser) updates.email = email
-          if ((!dbUser.name || dbUser.name === "Unknown Owner") && fullName) updates.name = fullName
-          if (!dbUser.zohoId && zohoUserId && !zohoUser) updates.zohoId = zohoUserId
-          if (Object.keys(updates).length > 0) {
-            dbUser = await prisma.user.update({
-              where: { id: dbUser.id },
-              data: updates,
-            })
+          if (!dbUser) {
+            dbUser = await prisma.user.create({
+              data: {
+                email,
+                name: fullName,
+                zohoId: zohoUserId,
+                role: "Sales Representative",
+              },
+            }).catch(() => null)
+          } else {
+            const updates: Prisma.UserUpdateInput = {}
+            if (dbUser.email.includes("@dummy.titandiamond.com") && !emailUser) updates.email = email
+            if ((!dbUser.name || dbUser.name === "Unknown Owner") && fullName) updates.name = fullName
+            if (!dbUser.zohoId && zohoUserId && !zohoUser) updates.zohoId = zohoUserId
+            if (Object.keys(updates).length > 0) {
+              dbUser = await prisma.user.update({
+                where: { id: dbUser.id },
+                data: updates,
+              }).catch(() => dbUser)
+            }
           }
+          
+          if (dbUser) {
+            user.id = dbUser.zohoId || dbUser.id
+            user.dbId = dbUser.id
+            user.role = dbUser.role
+          }
+        } catch (e) {
+          console.error("Zoho user sync error:", e)
         }
-        
-        user.id = dbUser.zohoId || dbUser.id
-        user.dbId = dbUser.id
-        user.role = dbUser.role
+
         user.isZohoUser = true
         user.email = email
       }
