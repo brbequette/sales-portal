@@ -56,36 +56,50 @@ export default function SurfacePrepPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 flex flex-col justify-between">
                 <div>
-                  <img src="/product-images/RCG.png" alt="RCG Cup Wheel" className="h-44 object-contain mx-auto mb-4" />
+                  <img 
+                    src="/images/cup_wheel.png" 
+                    alt="RCG Cup Wheel" 
+                    className="h-44 object-contain mx-auto mb-4 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.7)]" 
+                  />
                   <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded">TURBO GRINDING</span>
                   <h4 className="font-bold text-white text-base mt-2 mb-1">Titan RCG Heavy Duty Cup Wheel 7"</h4>
                   <p className="text-xs text-neutral-400 mb-4">Aggressive continuous turbo rim for rapid concrete slab leveling and lip removal.</p>
                 </div>
                 <Link href="/shop?category=Concrete Polisher" className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs py-2.5 rounded-xl text-center block">
-                  View Grinding Tools →
+                  View in Catalog →
                 </Link>
               </div>
 
               <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 flex flex-col justify-between">
                 <div>
-                  <img src="/product-images/ASFM.png" alt="Polishing Pads" className="h-44 object-contain mx-auto mb-4" />
-                  <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded">FLOOR POLISHING</span>
-                  <h4 className="font-bold text-white text-base mt-2 mb-1">ASFM Hybrid Resin Polishing Set (50#-3000#)</h4>
-                  <p className="text-xs text-neutral-400 mb-4">7-piece floor polishing pad set for high-gloss mirror finish concrete and terrazzo.</p>
+                  <img 
+                    src="/images/polishing_pads.png" 
+                    alt="Polishing Pads" 
+                    className="h-44 object-contain mx-auto mb-4 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.7)]" 
+                  />
+                  <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded">POLISHING SYSTEM</span>
+                  <h4 className="font-bold text-white text-base mt-2 mb-1">Resin Diamond Polishing Pads 4"</h4>
+                  <p className="text-xs text-neutral-400 mb-4">High diamond density resin pads for wet/dry concrete and terrazzo floor polishing.</p>
                 </div>
                 <Link href="/shop?category=Concrete Polisher" className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs py-2.5 rounded-xl text-center block">
-                  View Polishing Pads →
+                  View in Catalog →
                 </Link>
               </div>
             </div>
           </div>
 
           <div className="space-y-6">
-            <div className="bg-neutral-900 border border-white/10 rounded-3xl p-6">
-              <h3 className="font-bold text-white text-base mb-2">Contractor Volume Tiers</h3>
-              <p className="text-xs text-neutral-400 mb-4">Order cup wheel boxes of 10 or 25 to unlock direct contractor volume pricing.</p>
-              <Link href="/login" className="w-full bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs py-3 rounded-xl block text-center">
-                Log In for Wholesale Pricing
+            <div className="bg-gradient-to-br from-neutral-900 to-neutral-950 border border-amber-500/30 rounded-3xl p-6 shadow-xl">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400 block mb-2">SURFACE PREPARATION GUIDE</span>
+              <h3 className="text-base font-bold text-white mb-3">Coating Removal Advice</h3>
+              <p className="text-xs text-neutral-400 mb-6 leading-relaxed">
+                Not sure which grit or PCD scrapers to use for your walk-behind grinder? Our team provides jobsite recommendations.
+              </p>
+              <Link 
+                href="/contact"
+                className="w-full bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs py-3 px-4 rounded-xl text-center block transition-colors"
+              >
+                Get Coating Removal Advice
               </Link>
             </div>
           </div>

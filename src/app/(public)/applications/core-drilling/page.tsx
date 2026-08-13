@@ -56,36 +56,50 @@ export default function CoreDrillingPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 flex flex-col justify-between">
                 <div>
-                  <img src="/product-images/CD30M.jpg" alt="CD30 Core Bit" className="h-44 object-contain mx-auto mb-4" />
+                  <img 
+                    src="/images/core_bit.png" 
+                    alt="CD30 Core Bit" 
+                    className="h-44 object-contain mx-auto mb-4 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.7)]" 
+                  />
                   <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded">MASTER PRO CORE</span>
                   <h4 className="font-bold text-white text-base mt-2 mb-1">CD30 Concrete Core Bit 4" x 14"</h4>
                   <p className="text-xs text-neutral-400 mb-4">Rooftop crown segments for fast starting in 5000+ PSI rebar-reinforced concrete.</p>
                 </div>
                 <Link href="/shop?category=Core Bits" className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs py-2.5 rounded-xl text-center block">
-                  View Core Bits in Catalog →
+                  View in Catalog →
                 </Link>
               </div>
 
               <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 flex flex-col justify-between">
                 <div>
-                  <img src="/product-images/DXA0125P.png" alt="Dry Core Bit" className="h-44 object-contain mx-auto mb-4" />
-                  <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded">DRY MASONRY DRILLING</span>
-                  <h4 className="font-bold text-white text-base mt-2 mb-1">Dry Vacuum Core Bit 3" x 10"</h4>
-                  <p className="text-xs text-neutral-400 mb-4">Laser-welded dry core bit for brick, block, and unreinforced slab with dust extraction.</p>
+                  <img 
+                    src="/images/core_bit.png" 
+                    alt="Heavy Duty Core Bit" 
+                    className="h-44 object-contain mx-auto mb-4 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.7)]" 
+                  />
+                  <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded">HIGH REBAR BIT</span>
+                  <h4 className="font-bold text-white text-base mt-2 mb-1">CD50 Heavy Rebar Core Bit 6" x 14"</h4>
+                  <p className="text-xs text-neutral-400 mb-4">High diamond concentration for continuous penetration through steel rebar mesh and grade 60 bars.</p>
                 </div>
                 <Link href="/shop?category=Core Bits" className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs py-2.5 rounded-xl text-center block">
-                  View Core Bits in Catalog →
+                  View in Catalog →
                 </Link>
               </div>
             </div>
           </div>
 
           <div className="space-y-6">
-            <div className="bg-neutral-900 border border-white/10 rounded-3xl p-6">
-              <h3 className="font-bold text-white text-base mb-2">Custom Core Bit Diameters</h3>
-              <p className="text-xs text-neutral-400 mb-4">We manufacture core bit sizes from 1" up to 24" diameter with custom segment bond options.</p>
-              <Link href="/contact" className="w-full bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs py-3 rounded-xl block text-center">
-                Request Custom Core Bit Quote
+            <div className="bg-gradient-to-br from-neutral-900 to-neutral-950 border border-amber-500/30 rounded-3xl p-6 shadow-xl">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400 block mb-2">DRILL RIG COMPATIBILITY</span>
+              <h3 className="text-base font-bold text-white mb-3">Custom Core Barrel Depths</h3>
+              <p className="text-xs text-neutral-400 mb-6 leading-relaxed">
+                Need extra-long core bit barrels (24", 36", 48") or custom segment retipping? Contact our factory engineers.
+              </p>
+              <Link 
+                href="/contact"
+                className="w-full bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs py-3 px-4 rounded-xl text-center block transition-colors"
+              >
+                Request Custom Core Specs
               </Link>
             </div>
           </div>

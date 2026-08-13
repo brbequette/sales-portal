@@ -64,7 +64,11 @@ export default function ConcreteCuttingPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 flex flex-col justify-between">
                   <div>
-                    <img src="/product-images/SMX10LV.png" alt="SMX10 Concrete Blade" className="h-44 object-contain mx-auto mb-4" />
+                    <img 
+                      src="/images/saw_blade.jpg" 
+                      alt="SMX10 Concrete Blade" 
+                      className="h-44 object-contain mx-auto mb-4 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.7)]" 
+                    />
                     <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded">SMX ULTRA-PRO</span>
                     <h4 className="font-bold text-white text-base mt-2 mb-1">SMX10 Concrete & Rebar Blade 14"</h4>
                     <p className="text-xs text-neutral-400 mb-4">Soft bond matrix engineered for hard 6000+ PSI aggregate and heavy rebar.</p>
@@ -76,7 +80,11 @@ export default function ConcreteCuttingPage() {
 
                 <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 flex flex-col justify-between">
                   <div>
-                    <img src="/product-images/ZSRX30UT.jpg" alt="ZENESIS Concrete Blade" className="h-44 object-contain mx-auto mb-4" />
+                    <img 
+                      src="/images/saw_blade.jpg" 
+                      alt="ZENESIS Concrete Blade" 
+                      className="h-44 object-contain mx-auto mb-4 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.7)]" 
+                    />
                     <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded">ZENESIS™ 3D GRID</span>
                     <h4 className="font-bold text-white text-base mt-2 mb-1">ZENESIS™ ZSRX30 Concrete Blade 16"</h4>
                     <p className="text-xs text-neutral-400 mb-4">3D grid aligned diamonds for 50% faster cut speeds with less saw drag.</p>
@@ -99,7 +107,7 @@ export default function ConcreteCuttingPage() {
               </p>
               <Link 
                 href="/blade-finder"
-                className="w-full bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs py-3 px-4 rounded-xl text-center block transition-colors"
+                className="w-full bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs py-3 px-4 rounded-xl text-center block transition-colors font-bold"
               >
                 Launch Interactive Spec Finder
               </Link>

@@ -56,24 +56,32 @@ export default function AsphaltCuttingPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 flex flex-col justify-between">
                 <div>
-                  <img src="/product-images/SMX50H.jpg" alt="SMX50 Hard Bond Asphalt Blade" className="h-44 object-contain mx-auto mb-4" />
+                  <img 
+                    src="/images/tuck_point.jpg" 
+                    alt="SMX50 Hard Bond Asphalt Blade" 
+                    className="h-44 object-contain mx-auto mb-4 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.7)]" 
+                  />
                   <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded">SMX HARD BOND</span>
                   <h4 className="font-bold text-white text-base mt-2 mb-1">SMX50 Hard-Bond Asphalt Blade 14"</h4>
                   <p className="text-xs text-neutral-400 mb-4">Hardened matrix bond formulation engineered for abrasive asphalt overlay and green concrete slab.</p>
                 </div>
-                <Link href="/shop?category=Professional Blades" className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs py-2.5 rounded-xl text-center block">
+                <Link href="/shop?category=Saw Blades" className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs py-2.5 rounded-xl text-center block">
                   View in Catalog →
                 </Link>
               </div>
 
               <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 flex flex-col justify-between">
                 <div>
-                  <img src="/product-images/ZSRX50UT.jpg" alt="ZENESIS Asphalt Blade" className="h-44 object-contain mx-auto mb-4" />
-                  <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded">ZENESIS™ 3D GRID</span>
-                  <h4 className="font-bold text-white text-base mt-2 mb-1">ZENESIS™ ZSRX50 Abrasive Blade 16"</h4>
-                  <p className="text-xs text-neutral-400 mb-4">Patterned 3D diamond array for clean, high-speed cutting without segment drag.</p>
+                  <img 
+                    src="/images/tuck_point.jpg" 
+                    alt="Undercut Protection Blade" 
+                    className="h-44 object-contain mx-auto mb-4 filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.7)]" 
+                  />
+                  <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded font-mono">UNDERCUT PRO</span>
+                  <h4 className="font-bold text-white text-base mt-2 mb-1">Titan Asphalt & Slurry Blade 18"</h4>
+                  <p className="text-xs text-neutral-400 mb-4">Deep drop segment protection for high horsepower road saws cutting green concrete joints.</p>
                 </div>
-                <Link href="/shop?category=ZENESIS™" className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs py-2.5 rounded-xl text-center block">
+                <Link href="/shop?category=Saw Blades" className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs py-2.5 rounded-xl text-center block">
                   View in Catalog →
                 </Link>
               </div>
@@ -81,11 +89,17 @@ export default function AsphaltCuttingPage() {
           </div>
 
           <div className="space-y-6">
-            <div className="bg-neutral-900 border border-white/10 rounded-3xl p-6">
-              <h3 className="font-bold text-white text-base mb-2">Need Custom Arbor or Pin Holes?</h3>
-              <p className="text-xs text-neutral-400 mb-4">We stock 1", 20mm, and drive pin hole configurations for Soff-Cut®, Husqvarna®, and Stihl® saws.</p>
-              <Link href="/contact" className="w-full bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs py-3 rounded-xl block text-center">
-                Contact Sales Team
+            <div className="bg-gradient-to-br from-neutral-900 to-neutral-950 border border-amber-500/30 rounded-3xl p-6 shadow-xl">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400 block mb-2">SPEC MATCHING ASSISTANT</span>
+              <h3 className="text-base font-bold text-white mb-3">Match Aggregate Hardness</h3>
+              <p className="text-xs text-neutral-400 mb-6 leading-relaxed">
+                Need custom matrix bonds for river gravel or soft limestone aggregate? Our technical engineers match exact blade specs.
+              </p>
+              <Link 
+                href="/blade-finder"
+                className="w-full bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs py-3 px-4 rounded-xl text-center block transition-colors"
+              >
+                Launch Blade Spec Finder
               </Link>
             </div>
           </div>
