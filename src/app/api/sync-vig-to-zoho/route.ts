@@ -105,12 +105,7 @@ export async function POST(req: NextRequest) {
     })
 
     const normalizeRepName = (n: string) => {
-      const val = (n || "").toLowerCase().replace(/\s+/g, " ").trim()
-      if (val === "ben bequette") return "benjamin bequette"
-      if (val === "monty morgan") return "montgomery morgan"
-      if (val === "ricky griffin") return "richard griffin"
-      if (val === "brian basilierre") return "brian basiliere"
-      return val
+      return (n || "").toLowerCase().replace(/\s+/g, " ").trim()
     }
 
     let successCount = 0

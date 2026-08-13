@@ -304,7 +304,7 @@ export default function AdminUsersPage() {
       let allFetched: AccountItem[] = []
       let hasMore = true
       while (hasMore) {
-        const res = await fetch(`/api/get-accounts?email=ben@titandiamond.net&role=Administrator&page=${page}`)
+        const res = await fetch(`/api/get-accounts?page=${page}`)
         const data = await res.json()
         if (data.success && data.accounts) {
           allFetched = [...allFetched, ...data.accounts.map((a: any) => ({

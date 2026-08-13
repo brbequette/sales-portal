@@ -109,10 +109,6 @@ export const authOptions: NextAuthOptions = {
           [profileString(zohoProfile, "First_Name"), profileString(zohoProfile, "Last_Name")].filter(Boolean).join(" ") ||
           email.split("@")[0]
 
-        if (fullName === "BEN BEQUETTE") {
-          fullName = "Benjamin Bequette";
-        }
-
         const zohoUserId = profileString(zohoProfile, "ZUID", "zuid") || null
 
         try {

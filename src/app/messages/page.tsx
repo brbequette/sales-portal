@@ -820,7 +820,7 @@ export default function MessagesPage() {
                   type="text"
                   value={vcardFields.name}
                   onChange={e => setVCardFields(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g. Benjamin Bequette"
+                  placeholder="e.g. Full Name"
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-orange-500"
                 />
               </div>
@@ -853,7 +853,7 @@ export default function MessagesPage() {
                   type="email"
                   value={vcardFields.email}
                   onChange={e => setVCardFields(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="e.g. ben@titandiamond.net"
+                  placeholder="e.g. rep@company.com"
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-orange-500"
                 />
               </div>

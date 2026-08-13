@@ -7,11 +7,19 @@ import { signIn } from 'next-auth/react';
 import { FiShield, FiLock, FiMail, FiArrowRight, FiAlertCircle, FiUserCheck, FiZap } from 'react-icons/fi';
 import { SparkCanvas } from '@/components/SparkCanvas';
 
+interface StaffUser {
+  id: string;
+  name: string;
+  email: string;
+  role?: string;
+}
+
 function EmployeeLoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -19,6 +27,17 @@ function EmployeeLoginForm() {
     if (errorParam && errorParam !== 'OAuthSignin') {
       setError(`Authentication notice: ${errorParam}`);
     }
+
+    // Dynamically fetch staff users from API database (no hardcoding)
+    fetch('/api/get-users')
+      .then(res => res.json())
+      .then(data => {
+        if (data.users && Array.isArray(data.users)) {
+          const reps = data.users.filter((u: any) => u.email && u.role !== 'Customer').slice(0, 6);
+          setStaffUsers(reps);
+        }
+      })
+      .catch(() => {});
   }, [searchParams]);
 
   const handleStaffLogin = async (e: React.FormEvent) => {
@@ -54,7 +73,6 @@ function EmployeeLoginForm() {
     setError('');
 
     try {
-      // Trigger native NextAuth Zoho OAuth redirect
       await signIn('zoho', { callbackUrl: '/dashboard' });
     } catch {
       setError('Failed to initiate Zoho SSO authentication.');
@@ -135,7 +153,7 @@ function EmployeeLoginForm() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="e.g. ross.heisler@titandiamondusa.com"
+              placeholder="Enter your staff email address"
               className="w-full bg-neutral-950 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500/60 transition-colors"
             />
           </div>
@@ -166,26 +184,24 @@ function EmployeeLoginForm() {
         </button>
       </form>
 
-      {/* Quick Rep Access */}
-      <div className="mt-6 pt-6 border-t border-white/10 space-y-2">
-        <span className="block text-[10px] font-bold uppercase tracking-widest text-neutral-500 text-center mb-2">TEST REPS DIRECT LOGIN</span>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => handleQuickRepLogin('ross.heisler@titandiamondusa.com')}
-            disabled={loading}
-            className="bg-neutral-950 hover:bg-neutral-900 text-amber-400 border border-amber-500/30 text-xs font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors truncate"
-          >
-            <FiUserCheck size={13} className="shrink-0" /> Ross Heisler
-          </button>
-          <button
-            onClick={() => handleQuickRepLogin('ben@titandiamondusa.com')}
-            disabled={loading}
-            className="bg-neutral-950 hover:bg-neutral-900 text-amber-400 border border-amber-500/30 text-xs font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors truncate"
-          >
-            <FiUserCheck size={13} className="shrink-0" /> Ben Bequette
-          </button>
+      {/* Dynamic Staff Quick Sign-In */}
+      {staffUsers.length > 0 && (
+        <div className="mt-6 pt-6 border-t border-white/10 space-y-2">
+          <span className="block text-[10px] font-bold uppercase tracking-widest text-neutral-500 text-center mb-2">ACTIVE STAFF QUICK SIGN-IN</span>
+          <div className="grid grid-cols-2 gap-2">
+            {staffUsers.map((user) => (
+              <button
+                key={user.id}
+                onClick={() => handleQuickRepLogin(user.email)}
+                disabled={loading}
+                className="bg-neutral-950 hover:bg-neutral-900 text-amber-400 border border-amber-500/30 text-xs font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors truncate"
+              >
+                <FiUserCheck size={13} className="shrink-0" /> {user.name || user.email.split('@')[0]}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="mt-6 text-center text-xs text-neutral-500">
         Contractor looking to buy products?{' '}
