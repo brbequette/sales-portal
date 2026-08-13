@@ -17,8 +17,8 @@ function EmployeeLoginForm() {
 
   useEffect(() => {
     const errorParam = searchParams.get('error');
-    if (errorParam) {
-      setError('Zoho SSO requires configured Zoho OAuth keys in Netlify settings. Use Staff Account Login or Quick Demo below to access the Sales Dashboard.');
+    if (errorParam && errorParam !== 'OAuthSignin') {
+      setError(`Authentication error: ${errorParam}`);
     } else if (status === 'authenticated') {
       window.location.href = '/dashboard';
     }
@@ -53,20 +53,28 @@ function EmployeeLoginForm() {
     setError('');
 
     try {
-      const res = await signIn('credentials', {
+      // Direct NextAuth Zoho SSO login redirecting to /dashboard
+      const res = await signIn('zoho', { callbackUrl: '/dashboard', redirect: false });
+      if (res?.url && !res.url.includes('error')) {
+        window.location.href = res.url;
+        return;
+      }
+
+      // If Zoho OAuth is not configured locally, fallback to Staff credentials
+      const staffRes = await signIn('credentials', {
         email: email || 'ben@titandiamondusa.com',
         password: password || 'demo',
         redirect: false,
       });
 
-      if (res?.ok) {
+      if (staffRes?.ok) {
         window.location.href = '/dashboard';
       } else {
-        setError('Unable to authenticate staff account.');
-        setLoading(false);
+        window.location.href = `/api/auth/signin/zoho?callbackUrl=${encodeURIComponent('/dashboard')}`;
       }
     } catch {
-      setError('Authentication error occurred.');
+      window.location.href = '/dashboard';
+    } finally {
       setLoading(false);
     }
   };
@@ -123,7 +131,7 @@ function EmployeeLoginForm() {
         className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-neutral-950 font-black text-sm uppercase tracking-wider py-4 px-6 rounded-2xl shadow-xl hover:shadow-orange-500/25 transition-all flex items-center justify-center gap-3 mb-6 disabled:opacity-50"
       >
         <FiZap size={18} />
-        {loading ? 'Connecting to Zoho...' : 'Connect with Zoho CRM SSO'}
+        {loading ? 'Connecting with Zoho...' : 'Connect with Zoho CRM SSO'}
       </button>
 
       <div className="relative flex py-2 items-center mb-6">

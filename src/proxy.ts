@@ -66,11 +66,6 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow public routes without auth
-  if (isPublicRoute(pathname)) {
-    return NextResponse.next();
-  }
-
   // Retrieve token checking default, secure, and unsecure cookie names for Netlify SSL compatibility
   let token = await getToken({ req, secret: AUTH_SECRET }).catch(() => null);
   if (!token) {
@@ -78,6 +73,16 @@ export async function proxy(req: NextRequest) {
   }
   if (!token) {
     token = await getToken({ req, secret: AUTH_SECRET, cookieName: 'next-auth.session-token' }).catch(() => null);
+  }
+
+  // If user is already authenticated and visits login pages, route directly to /dashboard
+  if (token && (pathname === '/employee-login' || pathname === '/admin-login')) {
+    return NextResponse.redirect(new URL('/dashboard', req.url));
+  }
+
+  // Allow public routes without auth
+  if (isPublicRoute(pathname)) {
+    return NextResponse.next();
   }
   
   if (!token) {
