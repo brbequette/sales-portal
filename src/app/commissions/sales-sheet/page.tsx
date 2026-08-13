@@ -124,9 +124,10 @@ export default function SalesSheetPage() {
       <div className="flex-shrink-0 border-b backdrop-blur-xl z-20" style={{ background: "rgba(15,16,19,0.92)", borderColor: "var(--border, #262626)" }}>
         <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Link href="/commissions" className="p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-white/5 transition-colors">
-              <FiChevronLeft size={18} />
+            <Link href="/commissions" className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition-colors print:hidden">
+              <FiChevronLeft size={20} />
             </Link>
+            <img src="/images/logo_dark.png" alt="Titan Diamond USA" className="h-8 w-auto object-contain" />
             <div>
               <h1 className="text-lg font-bold text-white">Monthly Sales Sheet</h1>
               <p className="text-xs text-neutral-500">{repName} — {monthLabel}</p>

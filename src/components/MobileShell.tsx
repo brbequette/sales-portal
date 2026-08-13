@@ -59,8 +59,10 @@ export const MobileShell = ({ children, user }: MobileShellProps) => {
     <div className="flex flex-col min-h-screen bg-neutral-950 text-white">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-neutral-950/95 backdrop-blur-xl border-b border-white/10 h-14 flex items-center justify-between px-4">
-        <div className="flex-1">
-          <span className="text-xs font-bold tracking-wider text-neutral-400">TITAN DIAMOND</span>
+        <div className="flex-1 flex items-center">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <img src="/images/logo_dark.png" alt="Titan Diamond USA" className="h-8 w-auto object-contain" />
+          </Link>
         </div>
         <div className="flex-1 text-center font-semibold truncate text-sm">
           {getPageTitle()}

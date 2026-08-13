@@ -273,14 +273,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           {/* Brand mark */}
           <div className="shrink-0 mb-3 flex justify-center w-full">
-            <div className="
-              w-9 h-9 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl
-              flex items-center justify-center cursor-pointer relative group
-              shadow-[0_0_18px_rgba(249,115,22,0.4)]
-              hover:shadow-[0_0_28px_rgba(249,115,22,0.6)]
-              transition-all duration-200
-            ">
-              <span className="font-black text-white text-sm select-none">T</span>
+            <Link href="/dashboard" className="w-10 h-10 flex items-center justify-center relative group">
+              <img 
+                src="/images/logo_dark.png" 
+                alt="Titan Diamond USA" 
+                className="h-9 w-auto object-contain filter drop-shadow-[0_0_12px_rgba(245,158,11,0.3)] group-hover:scale-110 transition-transform duration-200" 
+              />
               <span className="
                 pointer-events-none absolute left-[3.25rem] top-1/2 -translate-y-1/2
                 bg-[#111214]/95 backdrop-blur-xl border border-white/15
@@ -293,7 +291,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
                 Titan Diamond Hub
               </span>
-            </div>
+            </Link>
           </div>
 
           {/* Back button */}

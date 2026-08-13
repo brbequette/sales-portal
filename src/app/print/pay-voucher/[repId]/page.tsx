@@ -218,15 +218,18 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
   return (
     <div className="bg-white text-black min-h-screen font-sans p-10 max-w-4xl mx-auto print:p-6 print:m-0">
       {/* ── HEADER ── */}
-      <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold uppercase tracking-widest">Titan Diamond</h1>
-          <p className="text-sm font-semibold mt-1">Weekly Pay Voucher</p>
+      <div className="flex justify-between items-center border-b-2 border-black pb-4 mb-6">
+        <div className="flex items-center gap-4">
+          <img src="/images/logo_light.png" alt="Titan Diamond USA" className="h-12 w-auto object-contain" />
+          <div>
+            <h1 className="text-2xl font-black uppercase tracking-widest text-neutral-900">Titan Diamond</h1>
+            <p className="text-xs font-bold text-neutral-600 uppercase tracking-wider mt-0.5">Weekly Pay Voucher</p>
+          </div>
         </div>
         <div className="text-right">
-          <h2 className="text-xl font-bold">{data.repName}</h2>
-          <p className="text-sm">Week of: {fmtDate(weekStartStr)}</p>
-          <p className="text-sm">Generated: {fmtDate(new Date().toISOString())}</p>
+          <h2 className="text-xl font-bold text-neutral-900">{data.repName}</h2>
+          <p className="text-xs font-semibold text-neutral-600">Week of: {fmtDate(weekStartStr)}</p>
+          <p className="text-xs font-semibold text-neutral-500">Generated: {fmtDate(new Date().toISOString())}</p>
         </div>
       </div>
 

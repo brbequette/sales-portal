@@ -92,8 +92,8 @@ export default function EmployeeLoginPage() {
 
       <div className="w-full max-w-md bg-neutral-900/90 backdrop-blur-2xl border border-amber-500/40 rounded-3xl p-6 sm:p-8 shadow-[0_0_60px_rgba(245,158,11,0.15)] relative z-10">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg border border-amber-300/40">
-            <FiShield size={30} className="text-neutral-950" />
+          <div className="mx-auto mb-4 flex h-20 items-center justify-center">
+            <img src="/images/logo_dark.png" alt="Titan Diamond USA" className="h-16 w-auto object-contain filter drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]" />
           </div>
           <span className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400 block mb-1">
             EMPLOYEE & STAFF PORTAL
