@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useZoho } from '@/components/ZohoProvider';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -41,12 +42,14 @@ export const useDebug = () => useContext(DebugContext);
 const DEBUG_SESSION_KEY = 'titan_debug_mode';
 const MAX_ENTRIES = 200;
 
-interface DebugProviderProps {
-  children: React.ReactNode;
-  isAdmin: boolean;
+function isAdminRole(role?: string): boolean {
+  if (!role) return false;
+  return role.toLowerCase().includes('admin') || role === 'ADMIN';
 }
 
-export function DebugProvider({ children, isAdmin }: DebugProviderProps) {
+export function DebugProvider({ children }: { children: React.ReactNode }) {
+  const { zohoContext: user } = useZoho();
+  const isAdmin = isAdminRole(user?.role);
   const searchParams = useSearchParams();
   const [isDebug, setIsDebug] = useState(false);
   const [entries, setEntries] = useState<DebugEntry[]>([]);

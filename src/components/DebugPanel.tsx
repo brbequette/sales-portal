@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useDebug, type DebugEntry } from '@/components/DebugProvider';
-import { FiBug, FiX, FiCopy, FiTrash2, FiChevronDown, FiChevronRight, FiAlertTriangle, FiActivity, FiServer } from 'react-icons/fi';
+import { FiTerminal, FiX, FiCopy, FiTrash2, FiChevronDown, FiChevronRight, FiAlertTriangle, FiActivity, FiServer } from 'react-icons/fi';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -163,7 +163,7 @@ export function DebugPanel() {
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 left-6 z-[999] flex items-center gap-2 px-3 py-2 rounded-full bg-neutral-900/95 border border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-105 active:scale-95 transition-all text-xs font-bold text-amber-400 backdrop-blur-xl"
       >
-        <FiBug size={14} />
+        <FiTerminal size={14} />
         <span className="font-mono">DEBUG</span>
         {errorEntries.length > 0 && (
           <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
@@ -184,7 +184,7 @@ export function DebugPanel() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 bg-neutral-900/90 shrink-0">
         <div className="flex items-center gap-2">
-          <FiBug size={14} className="text-amber-400" />
+          <FiTerminal size={14} className="text-amber-400" />
           <span className="text-xs font-black uppercase text-white tracking-wider">Debug Mode</span>
           <span className="text-[10px] font-mono text-neutral-500">{entries.length} entries</span>
         </div>

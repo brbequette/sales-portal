@@ -2,6 +2,7 @@
 
 import { NextAuthProvider } from '@/components/NextAuthProvider'
 import { ZohoProvider } from '@/components/ZohoProvider'
+import { DebugProvider } from '@/components/DebugProvider'
 import { PreferencesProvider } from '@/components/PreferencesProvider'
 import { AuthWrapper } from '@/components/AuthWrapper'
 import { ProductModalProvider } from '@/components/ProductModalProvider'
@@ -14,6 +15,7 @@ const providers = [
   NextAuthProvider,
   QueryProvider,
   ZohoProvider,
+  DebugProvider,
   PreferencesProvider,
   AuthWrapper,
   ProductModalProvider,

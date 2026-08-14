@@ -16,6 +16,7 @@ import { GlobalTopBar } from "@/components/GlobalTopBar"
 import { UserSettingsModal } from "@/components/UserSettingsModal"
 import { CommandPalette } from "@/components/CommandPalette"
 import { AiAssistant } from "@/components/AiAssistant"
+import { DebugPanel } from "@/components/DebugPanel"
 import { isAdminRole } from "@/lib/roles"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -715,6 +716,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <CommandPalette />
       <AiAssistant user={user ? { id: user.id, name: user.name || undefined, role: user.role } : undefined} />
+      <DebugPanel />
       <UserSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   )

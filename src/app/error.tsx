@@ -1,7 +1,7 @@
 "use client"
 
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 export default function Error({
   error,
@@ -10,8 +10,13 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const [isDebug, setIsDebug] = useState(false)
+
   useEffect(() => {
     console.error("App Error:", error)
+    try {
+      setIsDebug(sessionStorage.getItem('titan_debug_mode') === '1')
+    } catch {}
   }, [error])
 
   return (
@@ -23,7 +28,22 @@ export default function Error({
           </svg>
         </div>
         <h2 className="text-lg font-bold text-white mb-2">Something went wrong</h2>
-        <p className="text-sm text-neutral-400 mb-6">{error.message || "An unexpected error occurred loading the portal."}</p>
+        <p className="text-sm text-neutral-400 mb-4">{error.message || "An unexpected error occurred loading the portal."}</p>
+
+        {isDebug && (
+          <div className="text-left mb-4 p-3 bg-neutral-900/80 border border-white/5 rounded-xl overflow-x-auto">
+            <div className="text-[10px] font-mono text-red-400 mb-1">{error.name}: {error.message}</div>
+            {error.digest && (
+              <div className="text-[10px] font-mono text-amber-400 mb-1">Digest: {error.digest}</div>
+            )}
+            {error.stack && (
+              <pre className="text-[9px] font-mono text-neutral-500 whitespace-pre-wrap break-all mt-2 max-h-[200px] overflow-y-auto">
+                {error.stack}
+              </pre>
+            )}
+          </div>
+        )}
+
         <button
           onClick={reset}
           className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl transition-colors"
