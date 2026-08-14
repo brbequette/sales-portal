@@ -137,7 +137,7 @@ export const handler = schedule("*/10 * * * *", async () => {
         const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000),
           method: "POST",
           headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, ...formData.getHeaders() },
-          body: formData
+          body: formData as any
         })
         const resultText = await smsRes.text()
         let resultJson: any = {}

@@ -156,7 +156,7 @@ export const handler: Handler = async (event, context) => {
             headers: {
               'Authorization': `Zoho-oauthtoken ${accessToken}`
             },
-            body: formData
+            body: formData as any
           })
 
           const resultText = await smsRes.text()
