@@ -93,7 +93,9 @@ function getHeaders() {
 }
 
 export async function getEasyshipRates(params: GetRatesParams): Promise<EasyshipRate[]> {
-  const origin_address = params.origin_address || getDefaultOrigin();
+  // Use DB origin (SystemSettings) → env var fallback, same as createShipmentAndBuyLabel
+  const dbOrigin = await getOriginFromDB();
+  const origin_address = params.origin_address || dbOrigin;
   
   const payload = {
     origin_address,

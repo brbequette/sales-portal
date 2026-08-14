@@ -615,12 +615,12 @@ export default function ShippingPage() {
           zip: destAddr.zip || destAddr.postal_code || '',
           city: destAddr.city || '',
           state: destAddr.state || '',
-          country: destAddr.country_alpha2 || 'US',
+          country: destAddr.country || destAddr.country_alpha2 || 'US',
           weight: parsedWeight,
           length: parsedLength,
           width: parsedWidth,
           height: parsedHeight,
-          declaredValue: order.amount || 100,
+          declaredValue: 0.10,
         })
       })
       const data = await res.json()

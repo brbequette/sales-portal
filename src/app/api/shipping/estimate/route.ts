@@ -135,10 +135,10 @@ export async function POST(req: Request) {
     return NextResponse.json(responseData);
 
   } catch (error: any) {
-    console.error("Shipping estimate error:", error);
+    console.error("Shipping estimate error:", error?.message || error);
     const msg = error?.message || "Failed to estimate shipping rates"
     return NextResponse.json(
-      { success: false, error: msg },
+      { success: false, error: msg, rates: [] },
       { status: 500 }
     );
   }
