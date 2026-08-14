@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createCustomerToken } from '@/lib/customer-auth';
 
@@ -9,17 +9,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Contact and code are required' }, { status: 400 });
     }
 
+    // Brute-force protection: max 5 failed attempts per contact in 15 min
+    const recentAttempts = await prisma.magicLinkToken.count({
+      where: {
+        contact,
+        expiresAt: { gt: new Date() },
+        usedAt: null,
+        attempts: { gte: 5 }
+      }
+    });
+    if (recentAttempts > 0) {
+      return NextResponse.json({ success: false, error: 'Too many attempts. Please request a new code.' }, { status: 429 });
+    }
+
     // Find valid token
     const token = await prisma.magicLinkToken.findFirst({
       where: {
         contact,
-        code,
         expiresAt: { gt: new Date() },
         usedAt: null
       }
     });
 
-    if (!token) {
+    if (!token || token.code !== code) {
+      // Increment attempt counter on the token
+      if (token) {
+        await prisma.magicLinkToken.update({
+          where: { id: token.id },
+          data: { attempts: { increment: 1 } }
+        });
+      }
       return NextResponse.json({ success: false, error: 'Invalid or expired code' }, { status: 401 });
     }
 

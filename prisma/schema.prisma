@@ -1253,6 +1253,7 @@ model MagicLinkToken {
   contactId String?  // linked contact if found
   expiresAt DateTime
   usedAt    DateTime?
+  attempts  Int      @default(0)
   createdAt DateTime @default(now())
 
   @@index([contact, code])
