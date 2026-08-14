@@ -33,7 +33,11 @@ const ZOHO_DC = process.env.ZOHO_DC || 'com'
  *   4. Upserts changes to DB
  *   5. Updates sync_status with new lastSyncAt + count
  */
+const TIMEOUT_MS = 55000;
+const BATCH_SIZE = 50;
+
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
@@ -69,7 +73,8 @@ export async function POST(req: NextRequest) {
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
-          let syncedCount = 0
+          let syncedCount = 0;
+          let timeoutReached = false;
           if (!zRes.ok) {
             const errText = await zRes.text().catch(() => '')
             console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
@@ -79,7 +84,9 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zLeads = zData.data || []
 
+            let batch: any[] = [];
             for (const zLead of zLeads) {
+              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
               if (!zLead.id) continue
               const ownerZohoId = zLead.Owner?.id
               let localUser: any = null
@@ -111,12 +118,12 @@ export async function POST(req: NextRequest) {
                 zohoModifiedTime: zLead.Modified_Time ? new Date(zLead.Modified_Time) : null,
               }
 
-              await prisma.lead.upsert({
+              batch.push(prisma.lead.upsert({
                 where: { zohoId: zLead.id },
                 update: leadData,
                 create: { zohoId: zLead.id, ownerId: localUser.id, ...leadData },
-              })
-              syncedCount++
+              }));
+              if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
           }
 
@@ -125,7 +132,8 @@ export async function POST(req: NextRequest) {
             lastCount: syncedCount,
             lastError: null,
           })
-          results.leads = { synced: syncedCount }
+          results.leads = { synced: syncedCount };
+          if (timeoutReached) { results.leads.error = 'timeout reached'; }
         } catch (err: any) {
           await updateTableSyncStatus('leads', { lastError: err.message })
           results.leads = { synced: 0, error: err.message }
@@ -153,7 +161,8 @@ export async function POST(req: NextRequest) {
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
-          let syncedCount = 0
+          let syncedCount = 0;
+          let timeoutReached = false;
           if (!zRes.ok) {
             const errText = await zRes.text().catch(() => '')
             console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
@@ -163,7 +172,9 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zInvoices = zData.invoices || []
 
+            let batch: any[] = [];
             for (const inv of zInvoices) {
+              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
               if (!inv.invoice_id) continue
 
               // Resolve local account: try customer_id first, then fall back to customer_name
@@ -179,7 +190,7 @@ export async function POST(req: NextRequest) {
               const accountId = localAccount?.id || existingInv?.accountId
               if (!accountId) continue  // skip only if no account can be resolved at all
 
-              await prisma.invoice.upsert({
+              batch.push(prisma.invoice.upsert({
                 where: { zohoId: inv.invoice_id },
                 update: {
                   status: inv.status,
@@ -198,8 +209,8 @@ export async function POST(req: NextRequest) {
                   issueDate: inv.date ? new Date(inv.date) : new Date(),
                   items: inv as any,
                 },
-              })
-              syncedCount++
+              }));
+              if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
           }
 
@@ -208,7 +219,8 @@ export async function POST(req: NextRequest) {
             lastCount: syncedCount,
             lastError: null,
           })
-          results.invoices = { synced: syncedCount }
+          results.invoices = { synced: syncedCount };
+          if (timeoutReached) { results.invoices.error = 'timeout reached'; }
         } catch (err: any) {
           await updateTableSyncStatus('invoices', { lastError: err.message })
           results.invoices = { synced: 0, error: err.message }
@@ -235,7 +247,8 @@ export async function POST(req: NextRequest) {
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
-          let syncedCount = 0
+          let syncedCount = 0;
+          let timeoutReached = false;
           if (!zRes.ok) {
             const errText = await zRes.text().catch(() => '')
             console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
@@ -245,7 +258,9 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zOrders = zData.salesorders || []
 
+            let batch: any[] = [];
             for (const so of zOrders) {
+              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
               if (!so.salesorder_id) continue
 
               // Resolve local account: try customer_id first, then fall back to customer_name
@@ -261,7 +276,7 @@ export async function POST(req: NextRequest) {
               const soAccountId = localAccount?.id || existingSO?.accountId
               if (!soAccountId) continue  // skip only if no account can be resolved at all
 
-              await prisma.salesOrder.upsert({
+              batch.push(prisma.salesOrder.upsert({
                 where: { zohoId: so.salesorder_id },
                 update: {
                   status: so.status,
@@ -278,8 +293,8 @@ export async function POST(req: NextRequest) {
                   items: so as any,
                   actualShippingCost: parseFloat(so.shipping_charge || so.shipping_charges || so.shippingCharge || 0) || undefined,
                 },
-              })
-              syncedCount++
+              }));
+              if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
           }
 
@@ -288,7 +303,8 @@ export async function POST(req: NextRequest) {
             lastCount: syncedCount,
             lastError: null,
           })
-          results.salesOrders = { synced: syncedCount }
+          results.salesOrders = { synced: syncedCount };
+          if (timeoutReached) { results.salesOrders.error = 'timeout reached'; }
         } catch (err: any) {
           await updateTableSyncStatus('salesOrders', { lastError: err.message })
           results.salesOrders = { synced: 0, error: err.message }
@@ -316,7 +332,8 @@ export async function POST(req: NextRequest) {
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
-          let syncedCount = 0
+          let syncedCount = 0;
+          let timeoutReached = false;
           if (!zRes.ok) {
             const errText = await zRes.text().catch(() => '')
             console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
@@ -334,7 +351,9 @@ export async function POST(req: NextRequest) {
             })
             const ownerMap = new Map(existingOwners.map(u => [u.zohoId, u]))
 
+            let batch: any[] = [];
             for (const record of zAccounts) {
+              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
               if (!record.Owner?.id) continue
               const owner = ownerMap.get(record.Owner.id) as any
               if (!owner?.id) continue
@@ -350,7 +369,7 @@ export async function POST(req: NextRequest) {
                 acctStatus = lastPurchaseDate < twelveMonthsAgo ? 'Update Status' : 'Personal'
               }
 
-              await prisma.account.upsert({
+              batch.push(prisma.account.upsert({
                 where: { zohoId: record.id },
                 update: {
                   name: record.Account_Name,
@@ -369,8 +388,8 @@ export async function POST(req: NextRequest) {
                   ownerId: owner.id,
                   timeZone: record.Time_Zone || null,
                 },
-              })
-              syncedCount++
+              }));
+              if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
           }
 
@@ -379,7 +398,8 @@ export async function POST(req: NextRequest) {
             lastCount: syncedCount,
             lastError: null,
           })
-          results.accounts = { synced: syncedCount }
+          results.accounts = { synced: syncedCount };
+          if (timeoutReached) { results.accounts.error = 'timeout reached'; }
         } catch (err: any) {
           await updateTableSyncStatus('accounts', { lastError: err.message })
           results.accounts = { synced: 0, error: err.message }
@@ -406,7 +426,8 @@ export async function POST(req: NextRequest) {
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
-          let syncedCount = 0
+          let syncedCount = 0;
+          let timeoutReached = false;
           if (!zRes.ok) {
             const errText = await zRes.text().catch(() => '')
             console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
@@ -416,7 +437,9 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zPackages = zData.packages || []
 
+            let batch: any[] = [];
             for (const pkg of zPackages) {
+              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
               if (!pkg.package_id) continue
 
               const pkgData = {
@@ -431,12 +454,12 @@ export async function POST(req: NextRequest) {
                 items: pkg.line_items ? { lineItems: pkg.line_items } : Prisma.JsonNull,
               }
 
-              await prisma.package.upsert({
+              batch.push(prisma.package.upsert({
                 where: { zohoId: pkg.package_id },
                 update: pkgData,
                 create: { zohoId: pkg.package_id, ...pkgData },
-              })
-              syncedCount++
+              }));
+              if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
           }
 
@@ -445,7 +468,8 @@ export async function POST(req: NextRequest) {
             lastCount: syncedCount,
             lastError: null,
           })
-          results.packages = { synced: syncedCount }
+          results.packages = { synced: syncedCount };
+          if (timeoutReached) { results.packages.error = 'timeout reached'; }
         } catch (err: any) {
           await updateTableSyncStatus('packages' as any, { lastError: err.message })
           results.packages = { synced: 0, error: err.message }
@@ -472,7 +496,8 @@ export async function POST(req: NextRequest) {
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
-          let syncedCount = 0
+          let syncedCount = 0;
+          let timeoutReached = false;
           if (!zRes.ok) {
             const errText = await zRes.text().catch(() => '')
             console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
@@ -482,7 +507,9 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zPurchaseOrders = zData.purchaseorders || []
 
+            let batch: any[] = [];
             for (const po of zPurchaseOrders) {
+              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
               if (!po.purchaseorder_id) continue
 
               const poData = {
@@ -499,12 +526,12 @@ export async function POST(req: NextRequest) {
                 items: po as any, // store full PO response for richer data access
               }
 
-              await prisma.purchaseOrder.upsert({
+              batch.push(prisma.purchaseOrder.upsert({
                 where: { zohoId: po.purchaseorder_id },
                 update: poData,
                 create: { zohoId: po.purchaseorder_id, ...poData },
-              })
-              syncedCount++
+              }));
+              if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
           }
 
@@ -513,7 +540,8 @@ export async function POST(req: NextRequest) {
             lastCount: syncedCount,
             lastError: null,
           })
-          results.purchaseOrders = { synced: syncedCount }
+          results.purchaseOrders = { synced: syncedCount };
+          if (timeoutReached) { results.purchaseOrders.error = 'timeout reached'; }
         } catch (err: any) {
           await updateTableSyncStatus('purchaseOrders' as any, { lastError: err.message })
           results.purchaseOrders = { synced: 0, error: err.message }
@@ -540,7 +568,8 @@ export async function POST(req: NextRequest) {
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
-          let syncedCount = 0
+          let syncedCount = 0;
+          let timeoutReached = false;
           if (!zRes.ok) {
             const errText = await zRes.text().catch(() => '')
             console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
@@ -550,7 +579,9 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zEstimates = zData.estimates || []
 
+            let batch: any[] = [];
             for (const est of zEstimates) {
+              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
               if (!est.estimate_id) continue
 
               // Resolve local account: try customer_id first, then fall back to customer_name
@@ -573,7 +604,7 @@ export async function POST(req: NextRequest) {
                 rawData: est as any,
               }
 
-              await prisma.quote.upsert({
+              batch.push(prisma.quote.upsert({
                 where: { zohoId: est.estimate_id },
                 update: quoteData,
                 create: { 
@@ -581,8 +612,8 @@ export async function POST(req: NextRequest) {
                   accountId: quoteAccountId,
                   ...quoteData
                 },
-              })
-              syncedCount++
+              }));
+              if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
           }
 
@@ -591,7 +622,8 @@ export async function POST(req: NextRequest) {
             lastCount: syncedCount,
             lastError: null,
           })
-          results.quotes = { synced: syncedCount }
+          results.quotes = { synced: syncedCount };
+          if (timeoutReached) { results.quotes.error = 'timeout reached'; }
         } catch (err: any) {
           await updateTableSyncStatus('quotes' as any, { lastError: err.message })
           results.quotes = { synced: 0, error: err.message }
@@ -618,7 +650,8 @@ export async function POST(req: NextRequest) {
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
-          let syncedCount = 0
+          let syncedCount = 0;
+          let timeoutReached = false;
           if (!zRes.ok) {
             const errText = await zRes.text().catch(() => '')
             console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
@@ -628,7 +661,9 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zPayments = zData.customerpayments || []
 
+            let batch: any[] = [];
             for (const pmt of zPayments) {
+              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
               if (!pmt.payment_id) continue
 
               const invoiceId = pmt.invoices?.[0]?.invoice_id || null
@@ -653,12 +688,12 @@ export async function POST(req: NextRequest) {
                 description: pmt.description,
               }
 
-              await prisma.payment.upsert({
+              batch.push(prisma.payment.upsert({
                 where: { zohoId: pmt.payment_id },
                 update: paymentData,
                 create: { zohoId: pmt.payment_id, ...paymentData },
-              })
-              syncedCount++
+              }));
+              if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
           }
 
@@ -667,7 +702,8 @@ export async function POST(req: NextRequest) {
             lastCount: syncedCount,
             lastError: null,
           })
-          results.payments = { synced: syncedCount }
+          results.payments = { synced: syncedCount };
+          if (timeoutReached) { results.payments.error = 'timeout reached'; }
         } catch (err: any) {
           await updateTableSyncStatus('payments' as any, { lastError: err.message })
           results.payments = { synced: 0, error: err.message }
@@ -694,7 +730,8 @@ export async function POST(req: NextRequest) {
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
-          let syncedCount = 0
+          let syncedCount = 0;
+          let timeoutReached = false;
           if (!zRes.ok) {
             const errText = await zRes.text().catch(() => '')
             console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
@@ -704,7 +741,9 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zContacts = zData.contacts || []
 
+            let batch: any[] = [];
             for (const v of zContacts) {
+              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
               if (!v.contact_id) continue
 
               const vendorData = {
@@ -715,12 +754,12 @@ export async function POST(req: NextRequest) {
                 status: v.status,
               }
 
-              await prisma.vendor.upsert({
+              batch.push(prisma.vendor.upsert({
                 where: { zohoId: v.contact_id },
                 update: vendorData,
                 create: { zohoId: v.contact_id, ...vendorData },
-              })
-              syncedCount++
+              }));
+              if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
           }
 
@@ -729,7 +768,8 @@ export async function POST(req: NextRequest) {
             lastCount: syncedCount,
             lastError: null,
           })
-          results.vendors = { synced: syncedCount }
+          results.vendors = { synced: syncedCount };
+          if (timeoutReached) { results.vendors.error = 'timeout reached'; }
         } catch (err: any) {
           await updateTableSyncStatus('vendors' as any, { lastError: err.message })
           results.vendors = { synced: 0, error: err.message }
@@ -756,7 +796,8 @@ export async function POST(req: NextRequest) {
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
-          let syncedCount = 0
+          let syncedCount = 0;
+          let timeoutReached = false;
           if (!zRes.ok) {
             const errText = await zRes.text().catch(() => '')
             console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
@@ -766,7 +807,9 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zItems = zData.items || []
 
+            let batch: any[] = [];
             for (const item of zItems) {
+              if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
               if (!item.sku) continue
 
               const productData = {
@@ -777,12 +820,12 @@ export async function POST(req: NextRequest) {
                 stock: parseInt(item.stock_on_hand || 0),
               }
 
-              await prisma.product.upsert({
+              batch.push(prisma.product.upsert({
                 where: { sku: item.sku },
                 update: productData,
                 create: { sku: item.sku, ...productData },
-              })
-              syncedCount++
+              }));
+              if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
             }
           }
 
@@ -791,7 +834,8 @@ export async function POST(req: NextRequest) {
             lastCount: syncedCount,
             lastError: null,
           })
-          results.products = { synced: syncedCount }
+          results.products = { synced: syncedCount };
+          if (timeoutReached) { results.products.error = 'timeout reached'; }
         } catch (err: any) {
           await updateTableSyncStatus('products' as any, { lastError: err.message })
           results.products = { synced: 0, error: err.message }

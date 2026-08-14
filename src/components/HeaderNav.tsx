@@ -13,7 +13,7 @@ export function HeaderNav() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-50 bg-neutral-950/95 backdrop-blur-xl border-b border-white/10 transition-colors duration-300">
+    <header className="sticky top-0 z-sticky bg-neutral-950/95 backdrop-blur-xl border-b border-white/10 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-4">
         
         {/* Logo (Image only - no text overlap) */}
@@ -55,7 +55,7 @@ export function HeaderNav() {
             </button>
 
             {toolsDropdownOpen && (
-              <div className="absolute top-full left-0 w-64 bg-neutral-900/95 backdrop-blur-2xl border border-amber-500/30 rounded-2xl p-2.5 shadow-2xl space-y-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute top-full left-0 w-64 bg-neutral-900/95 backdrop-blur-2xl border border-amber-500/30 rounded-2xl p-2.5 shadow-2xl space-y-1 z-popover animate-in fade-in slide-in-from-top-2 duration-150">
                 <Link 
                   href="/blade-finder" 
                   onClick={() => setToolsDropdownOpen(false)}
@@ -131,7 +131,7 @@ export function HeaderNav() {
             </button>
 
             {appsDropdownOpen && (
-              <div className="absolute top-full left-0 w-56 bg-neutral-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-2.5 shadow-2xl space-y-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute top-full left-0 w-56 bg-neutral-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-2.5 shadow-2xl space-y-1 z-popover animate-in fade-in slide-in-from-top-2 duration-150">
                 <Link href="/applications/concrete-cutting" onClick={() => setAppsDropdownOpen(false)} className="block p-2 rounded-xl hover:bg-neutral-800 text-xs font-bold text-neutral-200 hover:text-amber-400 transition-colors">
                   Concrete Flat Saws
                 </Link>

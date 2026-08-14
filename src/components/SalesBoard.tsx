@@ -702,6 +702,17 @@ export function SalesBoard() {
     )
   }
 
+  if (!loading && data && (data.reps.length === 0 || data.rawInvoices.length === 0)) {
+    const isNoReps = data.reps.length === 0;
+    return (
+      <div className="w-full h-full min-h-[600px] flex flex-col items-center justify-center glass-panel rounded-2xl border border-white/10 text-white shadow-2xl relative overflow-hidden p-8 space-y-4">
+        <FiAlertCircle size={48} className="text-[var(--muted)] mb-2" />
+        <h3 className="text-xl font-bold">No data available</h3>
+        <p className="text-[var(--muted)] text-sm">{isNoReps ? "No reps found" : "No invoices this period"}.</p>
+      </div>
+    )
+  }
+
   const teamQuotaPct = data.teamWeekly.target > 0 ? Math.min(100, Math.round((data.teamWeekly.profit / data.teamWeekly.target) * 100)) : 0
 
   return (

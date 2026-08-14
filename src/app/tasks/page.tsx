@@ -7,7 +7,7 @@ import Link from "next/link"
 import {
   FiPhone, FiPhoneCall, FiMail, FiMessageSquare, FiCheckSquare, FiSettings,
   FiCalendar, FiList, FiPlus, FiRefreshCw, FiChevronLeft, FiChevronRight,
-  FiClock, FiUser, FiLink, FiFileText, FiAlertCircle, FiCheck,
+  FiClock, FiUser, FiLink, FiFileText, FiAlertCircle, FiCheck, FiCheckCircle,
   FiEdit2, FiX, FiSave, FiFlag, FiFilter, FiShare2, FiChevronDown,
   FiChevronUp, FiSearch, FiArrowUp, FiArrowDown, FiMinus, FiRepeat,
   FiMoreVertical, FiSliders, FiEye
@@ -1215,7 +1215,18 @@ export default function TasksPage() {
           <MiniCalendar tasks={tasks} onSelectTask={setSelectedTask} />
         ) : (
           <div className="h-full overflow-y-auto">
-            {filteredTasks.length === 0 ? (
+            {tasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full py-16 text-center px-8">
+                <FiCheckCircle size={48} className="text-emerald-500 mb-4" />
+                <p className="text-lg font-black text-white">All caught up!</p>
+                <p className="text-sm text-neutral-500 mt-1">No tasks pending.</p>
+                <Link href="/tasks/new"
+                  className="mt-6 flex items-center gap-2 bg-violet-600 text-white font-bold px-6 py-3 rounded-xl transition-all hover:bg-violet-500"
+                >
+                  <FiPlus size={16} /> Create a Task
+                </Link>
+              </div>
+            ) : filteredTasks.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full py-16 text-center px-8">
                 <FiCheckSquare size={48} className="text-neutral-700 mb-4" />
                 <p className="text-lg font-black text-neutral-400">All clear!</p>

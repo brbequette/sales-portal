@@ -150,7 +150,7 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
         text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg
         shadow-[0_8px_24px_rgba(0,0,0,0.7)]
         opacity-0 group-hover:opacity-100 translate-x-0 group-hover:translate-x-1
-        transition-all duration-150 whitespace-nowrap z-[9999]
+        transition-all duration-150 whitespace-nowrap z-tooltip
         flex items-center gap-1.5
       ">
         <span className={`w-1.5 h-1.5 rounded-full ${item.color.replace("text-", "bg-")}`} />
@@ -439,7 +439,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             id="mobile-drawer"
             className="
               relative w-72 max-w-[85vw] bg-[#0d0e11]/98 backdrop-blur-2xl
-              border-r border-white/8 h-full flex flex-col z-50
+              border-r border-white/8 h-full flex flex-col z-modal
               shadow-[8px_0_40px_rgba(0,0,0,0.6)]
               animate-fade-in
             "

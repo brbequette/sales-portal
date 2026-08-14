@@ -627,6 +627,24 @@ export function OrderBuilder({
         )}
       </div>
 
+      {isLoadingCatalog ? (
+        <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-pulse">
+          <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+            <FiPackage size={24} className="text-neutral-500" />
+          </div>
+          <div className="text-center space-y-2">
+            <div className="h-4 w-32 bg-white/10 rounded mx-auto"></div>
+            <div className="h-3 w-48 bg-white/5 rounded mx-auto"></div>
+          </div>
+        </div>
+      ) : catalogProducts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 space-y-3 glass-panel rounded-2xl border border-white/5">
+          <FiPackage size={32} className="text-[var(--muted)]" />
+          <p className="text-[var(--muted)] text-sm font-bold">No products available</p>
+        </div>
+      ) : (
+        <>
+
       {/* ── Blade Lookup Accordion ── */}
       <div className="glass-panel border border-white/10 rounded-2xl overflow-hidden shadow-xl transition-all duration-300">
         <button
@@ -1355,6 +1373,8 @@ export function OrderBuilder({
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   )
