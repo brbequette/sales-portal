@@ -172,7 +172,8 @@ textarea:focus-visible,
   min-height: 100%;
   width: 100%;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .page-header {
