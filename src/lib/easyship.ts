@@ -401,6 +401,9 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
   let trackingNumber = shipment.trackings?.[0]?.tracking_number || shipment.tracking_number || '';
   let trackingPageUrl = shipment.tracking_page_url || '';
   let labelState = shipment.label_state || '';
+  let courierName = shipment.courier?.name || shipment.selected_courier?.name || shipment.courier_service?.name || '';
+  let totalCharge = shipment.rates?.selected?.total_charge || shipment.total_charge || 0;
+  let currency = shipment.currency || 'USD';
 
   if (easyshipId) {
     try {
@@ -423,6 +426,10 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
         trackingNumber = labelShipment.trackings?.[0]?.tracking_number || labelShipment.tracking_number || trackingNumber;
         trackingPageUrl = labelShipment.tracking_page_url || trackingPageUrl;
         labelState = labelShipment.label_state || 'generated';
+        // Extract courier info and charge from label response (most accurate source)
+        courierName = labelShipment.courier_service?.name || labelShipment.courier?.name || labelShipment.selected_courier?.name || courierName;
+        totalCharge = labelShipment.total_charge || labelShipment.shipment_charge_total || totalCharge;
+        currency = labelShipment.currency || currency;
       } else {
         const errText = await labelRes.text();
         console.error('Label creation error:', labelRes.status, errText.substring(0, 300));
@@ -439,11 +446,11 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
     easyshipShipmentId: easyshipId,
     trackingNumber,
     trackingPageUrl,
-    courierName: shipment.courier?.name || shipment.selected_courier?.name || params.courierServiceId || '',
+    courierName,
     labelUrl,
     labelState,
-    totalCharge: shipment.rates?.selected?.total_charge || shipment.total_charge || 0,
-    currency: shipment.currency || 'USD',
+    totalCharge,
+    currency,
   };
 }
 

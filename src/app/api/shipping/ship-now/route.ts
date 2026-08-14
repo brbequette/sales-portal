@@ -67,12 +67,15 @@ export async function POST(req: Request) {
           trackingNumber: result.trackingNumber,
           carrier: result.courierName,
           status: 'shipped',
+          shippingCharge: result.totalCharge || 0,
           items: {
             ...(await prisma.package.findUnique({ where: { id: packageId } }).then(p => (p?.items as any) || {})),
             easyshipShipmentId: result.easyshipShipmentId,
             labelUrl: result.labelUrl,
             trackingPageUrl: result.trackingPageUrl,
             shippedAt: new Date().toISOString(),
+            easyshipCost: result.totalCharge || 0,
+            easyshipCurrency: result.currency || 'USD',
           },
         },
       })
