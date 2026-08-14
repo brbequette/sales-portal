@@ -61,10 +61,12 @@ export async function GET(req: NextRequest) {
       orderBy: { date: "desc" },
     })
 
-    // Fetch all dropshipment POs
-    const dropshipPOs = await prisma.purchaseOrder.findMany({
-      where: { isDropshipment: true },
-      take: 1500,
+    // Fetch all purchase orders (not just dropshipments -- the flag isn't reliably set)
+    const allPurchaseOrders = await prisma.purchaseOrder.findMany({
+      where: {
+        status: { notIn: ['cancelled', 'void'] },
+      },
+      take: 2000,
       orderBy: { date: "desc" },
     })
 
@@ -84,21 +86,26 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Build maps of dropshipment POs by salesOrderId
+    // Build maps of POs by salesOrderId, salesOrderNumber, AND referenceNumber
     const dropshipsBySOId = new Map<string, any[]>()
-    for (const po of dropshipPOs) {
+    const dropshipsBySONumber = new Map<string, any[]>()
+    for (const po of allPurchaseOrders) {
       const soId = po.salesOrderId || ""
       if (soId) {
         if (!dropshipsBySOId.has(soId)) dropshipsBySOId.set(soId, [])
         dropshipsBySOId.get(soId)!.push(po)
       }
-    }
-    const dropshipsBySONumber = new Map<string, any[]>()
-    for (const po of dropshipPOs) {
+      // Match by salesOrderNumber
       const soNum = po.salesOrderNumber || ""
       if (soNum) {
         if (!dropshipsBySONumber.has(soNum)) dropshipsBySONumber.set(soNum, [])
         dropshipsBySONumber.get(soNum)!.push(po)
+      }
+      // Also try referenceNumber as a fallback SO number match
+      const refNum = po.referenceNumber || ""
+      if (refNum && refNum !== soNum) {
+        if (!dropshipsBySONumber.has(refNum)) dropshipsBySONumber.set(refNum, [])
+        dropshipsBySONumber.get(refNum)!.push(po)
       }
     }
 

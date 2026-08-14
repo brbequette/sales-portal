@@ -485,16 +485,16 @@ export async function POST(req: NextRequest) {
 
               const poData = {
                 vendorName: po.vendor_name,
-                shipToName: po.delivery_customer_name || po.customer_name,
+                shipToName: po.delivery_customer_name || po.customer_name || po.ship_via,
                 referenceNumber: po.reference_number || po.salesorder_number,
                 date: po.date ? new Date(po.date) : null,
                 total: po.total || 0,
                 status: po.status,
-                salesOrderId: po.salesorder_id,
-                salesOrderNumber: po.salesorder_number || po.reference_number,
-                isDropshipment: !!(po.delivery_customer_id || po.salesorder_id),
-                trackingNumber: po.tracking_number,
-                items: po.line_items ? { lineItems: po.line_items } : Prisma.JsonNull,
+                salesOrderId: po.salesorder_id || null,
+                salesOrderNumber: po.salesorder_number || po.reference_number || null,
+                isDropshipment: !!(po.delivery_customer_id || po.salesorder_id || po.delivery_customer_name),
+                trackingNumber: po.tracking_number || null,
+                items: po as any, // store full PO response for richer data access
               }
 
               await prisma.purchaseOrder.upsert({
