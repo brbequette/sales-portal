@@ -170,13 +170,27 @@ export async function GET(req: NextRequest) {
         else shipStatus = "packaged"
       }
 
-      // Extract shipping address from SO items or Account fallback
-      const shippingAddress = items.shipping_address || items.shippingAddress || (so.account?.shippingStreet ? {
-        address: so.account.shippingStreet,
-        city: so.account.shippingCity,
-        state: so.account.shippingState,
-        zip: so.account.shippingZip
-      } : null)
+      // Extract shipping address: Zoho Books format → items JSON → Account fallback
+      const zohoShipAddr = items.shipping_address
+      let shippingAddress: any = null
+      if (zohoShipAddr && typeof zohoShipAddr === 'object' && (zohoShipAddr.address || zohoShipAddr.city)) {
+        shippingAddress = {
+          address: [zohoShipAddr.address, zohoShipAddr.street2].filter(Boolean).join(', '),
+          city: zohoShipAddr.city || '',
+          state: zohoShipAddr.state || zohoShipAddr.state_code || '',
+          zip: zohoShipAddr.zip || zohoShipAddr.zipcode || '',
+          country: zohoShipAddr.country || zohoShipAddr.country_code || 'US',
+        }
+      } else if (items.shippingAddress && typeof items.shippingAddress === 'object') {
+        shippingAddress = items.shippingAddress
+      } else if (so.account?.shippingStreet) {
+        shippingAddress = {
+          address: so.account.shippingStreet,
+          city: so.account.shippingCity || '',
+          state: so.account.shippingState || '',
+          zip: so.account.shippingZip || '',
+        }
+      }
 
       // Line items
       const lineItems = items.line_items || items.lineItems || []

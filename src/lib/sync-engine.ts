@@ -350,6 +350,8 @@ export async function updateSalesOrderRecord(opts: {
     total:            zohoDoc.total,
     line_items:       zohoDoc.line_items,
     custom_fields:    zohoDoc.custom_fields,
+    shipping_address: zohoDoc.shipping_address || (currentItems as any).shipping_address || null,
+    billing_address:  zohoDoc.billing_address || (currentItems as any).billing_address || null,
     ...calcItems,
   }
 
