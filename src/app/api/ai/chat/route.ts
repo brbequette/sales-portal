@@ -976,18 +976,50 @@ IMPORTANT RULES:
       logId,
     });
   } catch (error: any) {
-    console.error('AI Chat Error:', error);
+    console.error('AI Chat Error:', error?.message || error);
     
-    if (error.message?.includes('OPENAI_API_KEY')) {
+    const errMsg = error?.message || '';
+
+    if (errMsg.includes('OPENAI_API_KEY') || errMsg.includes('API key')) {
       return NextResponse.json({
         success: false,
-        error: 'OpenAI API key is not configured. Please contact your admin.'
+        error: 'OpenAI API key is not configured. Please add OPENAI_API_KEY to your Netlify environment variables.'
+      }, { status: 500 });
+    }
+
+    // OpenAI errors (rate limit, quota, auth)
+    if (error?.status === 401 || errMsg.includes('Incorrect API key')) {
+      return NextResponse.json({
+        success: false,
+        error: 'OpenAI API key is invalid or expired. Please check your OPENAI_API_KEY.'
+      }, { status: 500 });
+    }
+
+    if (error?.status === 429) {
+      return NextResponse.json({
+        success: false,
+        error: 'OpenAI rate limit reached. Please try again in a moment.'
+      }, { status: 429 });
+    }
+
+    if (error?.status === 402 || errMsg.includes('quota') || errMsg.includes('billing')) {
+      return NextResponse.json({
+        success: false,
+        error: 'OpenAI billing quota exceeded. Please check your OpenAI account billing.'
+      }, { status: 500 });
+    }
+
+    // Prisma / DB errors
+    if (errMsg.includes('prisma') || errMsg.includes('PrismaClient') || errMsg.includes('connect')) {
+      return NextResponse.json({
+        success: false,
+        error: 'Database connection error. The system will retry automatically.'
       }, { status: 500 });
     }
 
     return NextResponse.json({ 
       success: false,
-      error: 'An error occurred while processing your request.'
+      error: `An error occurred: ${errMsg.substring(0, 120) || 'Unknown error'}`
     }, { status: 500 });
   }
 }

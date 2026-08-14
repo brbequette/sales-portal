@@ -213,11 +213,10 @@ export function AiAssistant({ user }: AiAssistantProps) {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ success: false, error: `HTTP ${res.status}` }));
 
-      if (!data.success) {
-        throw new Error(data.error || 'Unknown error');
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `Request failed (${res.status})`);
       }
 
       const aiMessage: Message = {
@@ -234,11 +233,20 @@ export function AiAssistant({ user }: AiAssistantProps) {
         speakText(data.response);
       }
     } catch (error: any) {
+      const msg = error?.message || '';
+      let errorText: string;
+      
+      if (msg.includes('API key') || msg.includes('OPENAI')) {
+        errorText = "⚠️ Titan AI is not configured yet. Please ask your admin to add the OpenAI API key.";
+      } else if (msg && msg !== 'Failed to fetch') {
+        errorText = `⚠️ ${msg}`;
+      } else {
+        errorText = "I'm having trouble connecting right now. Please try again in a moment.";
+      }
+
       const errorMessage: Message = {
         role: 'assistant',
-        content: error.message?.includes('API key')
-          ? "⚠️ Titan AI is not configured yet. Please ask your admin to add the OpenAI API key."
-          : "I'm having trouble connecting right now. Please try again in a moment.",
+        content: errorText,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
