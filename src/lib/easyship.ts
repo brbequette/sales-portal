@@ -88,6 +88,7 @@ function getHeaders() {
   if (!apiKey) throw new Error("EASYSHIP_API_KEY is not set");
   return {
     "Content-Type": "application/json",
+    "Accept": "application/json",
     "Authorization": `Bearer ${apiKey}`
   };
 }
