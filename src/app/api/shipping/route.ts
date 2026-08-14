@@ -263,7 +263,7 @@ export async function GET(req: NextRequest) {
             status: p.status,
             carrier: p.carrier,
             trackingNumber: p.trackingNumber,
-            shippingCharge: p.shippingCharge || 0,
+            shippingCharge: p.shippingCharge || pkgItems.easyshipCost || 0,
             items: p.items,
             salesOrderNumber: soNumber,
             easyshipShipmentId: pkgItems.easyshipShipmentId || null,
