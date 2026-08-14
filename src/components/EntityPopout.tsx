@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { FiChevronLeft, FiChevronRight, FiFileText, FiUser, FiBox, FiTruck, FiBookOpen } from "react-icons/fi"
 import { DocumentPopoutContent } from "./DocumentPopoutContent"
+import { ProductPopoutContent } from "./ProductPopoutContent"
 
 export type EntityType = 'invoice' | 'estimate' | 'salesorder' | 'account' | 'package' | 'purchaseorder' | 'vendor' | 'product' | 'quote'
 
@@ -153,7 +154,7 @@ export function EntityPopout({
           ) : entityType === 'vendor' ? (
             <div className="p-6 text-white">Vendor Content (Coming Soon)</div>
           ) : entityType === 'product' ? (
-            <div className="p-6 text-white">Product Content (Coming Soon)</div>
+            <ProductPopoutContent productId={entityId} onClose={handleClose} />
           ) : (
             <div className="p-6 text-white">Content for {entityType}</div>
           )}

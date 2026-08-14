@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useZoho } from "@/components/ZohoProvider"
 import { useProductModal } from "@/components/ProductModalProvider"
+import { EntityPopout } from "@/components/EntityPopout"
 import { 
   FiSearch, FiPackage, FiBox, FiInfo, FiDollarSign, FiTag, FiEdit2, FiX, FiCheck
 } from "react-icons/fi"
@@ -30,6 +31,8 @@ export default function ProductCatalogPage() {
   
   const [syncing, setSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState("")
+  
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
   
   const [editingProduct, setEditingProduct] = useState<any>(null)
   const [editSaving, setEditSaving] = useState(false)
@@ -258,7 +261,7 @@ export default function ProductCatalogPage() {
             return (
               <tr 
                 key={p.id} 
-                onClick={() => showProduct(p.sku, { name: p.name, sku: p.sku })}
+                onClick={() => setSelectedProductId(p.id)}
                 className="hover:bg-white/10 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300/30 transition-colors cursor-pointer"
               >
                 <td className="p-4 font-mono font-bold text-neutral-300">
@@ -500,6 +503,15 @@ export default function ProductCatalogPage() {
           renderTable(groupedProducts["All Products"])
         )}
       </div>
+
+      {/* Entity Popout */}
+      {selectedProductId && (
+        <EntityPopout
+          entityType="product"
+          entityId={selectedProductId}
+          onClose={() => setSelectedProductId(null)}
+        />
+      )}
 
       {/* Edit Modal */}
       {editingProduct && (
