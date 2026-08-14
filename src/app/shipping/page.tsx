@@ -516,7 +516,10 @@ export default function ShippingPage() {
         })
       })
       const data = await res.json()
-      if (data.rates) setShipNowRates(data.rates)
+      if (data.rates) {
+        const sorted = [...data.rates].sort((a: any, b: any) => (a.totalCharge || 999) - (b.totalCharge || 999))
+        setShipNowRates(sorted)
+      }
     } catch (e) {
       console.error('Failed to get rates:', e)
     } finally {
@@ -1568,6 +1571,40 @@ export default function ShippingPage() {
                     </div>
                   </div>
 
+                  {/* Preset Box Sizes */}
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1.5">Quick Box Presets</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: '14" Blade', l: '15', w: '15', h: '1', wt: '5' },
+                        { label: '16" Blade', l: '17', w: '17', h: '1', wt: '6' },
+                        { label: '18" Blade', l: '19', w: '19', h: '1', wt: '7' },
+                        { label: '20" Blade', l: '21', w: '21', h: '1', wt: '8' },
+                        { label: 'Multi 15"', l: '15', w: '15', h: '4', wt: '20' },
+                        { label: 'Multi 16"', l: '16', w: '16', h: '4', wt: '25' },
+                        { label: 'Multi 17"', l: '17', w: '17', h: '4', wt: '30' },
+                      ].map(preset => {
+                        const isActive = shipNowDims.length === preset.l && shipNowDims.width === preset.w && shipNowDims.height === preset.h
+                        return (
+                          <button
+                            key={preset.label}
+                            onClick={() => {
+                              setShipNowDims({ length: preset.l, width: preset.w, height: preset.h })
+                              setShipNowWeight(preset.wt)
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                              isActive
+                                ? 'bg-orange-600 text-white border border-orange-500'
+                                : 'bg-black/30 text-neutral-400 border border-white/10 hover:border-orange-500/30 hover:text-white'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
                   {/* Destination Preview */}
                   <div className="bg-black/20 rounded-xl p-3 flex items-start gap-3">
                     <FiMapPin className="text-orange-400 shrink-0 mt-0.5" />
@@ -1581,7 +1618,18 @@ export default function ShippingPage() {
 
                   {/* Rate Selection */}
                   <div>
-                    <h3 className="text-sm font-bold text-white mb-2">Select Carrier</h3>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-bold text-white">Select Carrier</h3>
+                      <button
+                        onClick={() => {
+                          setShipNowRates([])
+                          openShipNow(shipNowPkg, shipNowOrder)
+                        }}
+                        className="td-btn td-btn-sm bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border-white/10 text-[10px]"
+                      >
+                        <FiRefreshCw size={10} /> Refresh Rates
+                      </button>
+                    </div>
                     {shipNowLoading && (
                       <div className="flex items-center gap-2 text-neutral-400 text-sm py-4">
                         <FiRefreshCw className="animate-spin" /> Loading rates...
@@ -1591,7 +1639,7 @@ export default function ShippingPage() {
                       <div className="text-neutral-500 text-sm py-4">No rates available. Check the shipping address.</div>
                     )}
                     <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {shipNowRates.slice(0, 10).map((rate: any, idx: number) => (
+                      {shipNowRates.slice(0, 15).map((rate: any, idx: number) => (
                         <div key={idx} className="flex items-center justify-between bg-black/20 border border-white/5 rounded-xl p-3 hover:border-orange-500/30 transition-colors">
                           <div className="flex items-center gap-3">
                             {rate.logoUrl && <img src={rate.logoUrl} alt="" className="w-6 h-6 rounded" />}
