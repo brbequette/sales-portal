@@ -60,6 +60,7 @@ export default function CommissionsPage() {
   const [selectedYear, setSelectedYear] = useState<string>(() => new Date().getFullYear().toString())
   const [availableYears, setAvailableYears] = useState<number[]>([])
   const [showStatement, setShowStatement] = useState(false)
+  const [statementWeekStart, setStatementWeekStart] = useState<string | undefined>(undefined)
   const [activeInvoiceModal, setActiveInvoiceModal] = useState<any | null>(null)
   const [activeTab, setActiveTab] = useState<"invoices" | "payouts">("invoices")
   const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({})
@@ -863,7 +864,8 @@ export default function CommissionsPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                window.open(`/print/pay-voucher/${selectedRepId}?weekStart=${group.weekKey}`, '_blank')
+                                setStatementWeekStart(group.weekKey)
+                                setShowStatement(true)
                               }}
                               className="ml-2 p-1.5 rounded-lg text-neutral-500 hover:text-white hover:bg-white/10 transition-colors"
                               title="Print Pay Stub for this week"
@@ -1048,7 +1050,11 @@ export default function CommissionsPage() {
 
       {/* Pay Period Statement Modal */}
       {showStatement && currentRepData && (
-        <PayPeriodStatementModal rep={currentRepData} onClose={() => setShowStatement(false)} />
+        <PayPeriodStatementModal
+          rep={currentRepData}
+          initialWeekStart={statementWeekStart}
+          onClose={() => { setShowStatement(false); setStatementWeekStart(undefined); }}
+        />
       )}
 
       {/* Invoice Details Modal */}

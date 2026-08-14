@@ -44,6 +44,7 @@ interface RepSummary {
 interface PayPeriodStatementModalProps {
   rep: RepSummary
   onClose: () => void
+  initialWeekStart?: string
 }
 
 function fmt(n: number) {
@@ -55,7 +56,7 @@ function fmtDate(s: string | null) {
   return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
-export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModalProps) {
+export function PayPeriodStatementModal({ rep, onClose, initialWeekStart }: PayPeriodStatementModalProps) {
   const [selectedLineItem, setSelectedLineItem] = useState<any | null>(null)
 
   // Generate all weekly pay period options from rep's invoices & payouts
@@ -93,7 +94,7 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
     return monday.toISOString().split('T')[0]
   }
 
-  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(payPeriodOptions[0] || toMondayStr(new Date().toISOString().split('T')[0]))
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(initialWeekStart || payPeriodOptions[0] || toMondayStr(new Date().toISOString().split('T')[0]))
 
   // Calculate Pay Period Range
   const periodStart = useMemo(() => new Date(selectedWeekStart), [selectedWeekStart])
