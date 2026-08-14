@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
-import { getZohoAccessToken } from '@/lib/zoho-auth'
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from '@/lib/zoho-auth'
 import {
   getSyncConfig,
   getSyncStatus,
@@ -70,7 +70,12 @@ export async function POST(req: NextRequest) {
           )
 
           let syncedCount = 0
-          if (zRes.ok) {
+          if (!zRes.ok) {
+            const errText = await zRes.text().catch(() => '')
+            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
+            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
+          }
+          {
             const zData = await zRes.json()
             const zLeads = zData.data || []
 
@@ -144,12 +149,17 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://books.zoho.${ZOHO_DC}/api/v3/invoices?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0
-          if (zRes.ok) {
+          if (!zRes.ok) {
+            const errText = await zRes.text().catch(() => '')
+            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
+            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
+          }
+          {
             const zData = await zRes.json()
             const zInvoices = zData.invoices || []
 
@@ -214,12 +224,17 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://books.zoho.${ZOHO_DC}/api/v3/salesorders?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0
-          if (zRes.ok) {
+          if (!zRes.ok) {
+            const errText = await zRes.text().catch(() => '')
+            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
+            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
+          }
+          {
             const zData = await zRes.json()
             const zOrders = zData.salesorders || []
 
@@ -286,7 +301,12 @@ export async function POST(req: NextRequest) {
           )
 
           let syncedCount = 0
-          if (zRes.ok) {
+          if (!zRes.ok) {
+            const errText = await zRes.text().catch(() => '')
+            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
+            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
+          }
+          {
             const zData = await zRes.json()
             const zAccounts = zData.data || []
 
@@ -366,12 +386,17 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://books.zoho.${ZOHO_DC}/api/v3/packages?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/packages?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0
-          if (zRes.ok) {
+          if (!zRes.ok) {
+            const errText = await zRes.text().catch(() => '')
+            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
+            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
+          }
+          {
             const zData = await zRes.json()
             const zPackages = zData.packages || []
 
@@ -427,12 +452,17 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://books.zoho.${ZOHO_DC}/api/v3/purchaseorders?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/purchaseorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0
-          if (zRes.ok) {
+          if (!zRes.ok) {
+            const errText = await zRes.text().catch(() => '')
+            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
+            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
+          }
+          {
             const zData = await zRes.json()
             const zPurchaseOrders = zData.purchaseorders || []
 
@@ -490,12 +520,17 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://books.zoho.${ZOHO_DC}/api/v3/estimates?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/estimates?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0
-          if (zRes.ok) {
+          if (!zRes.ok) {
+            const errText = await zRes.text().catch(() => '')
+            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
+            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
+          }
+          {
             const zData = await zRes.json()
             const zEstimates = zData.estimates || []
 
@@ -556,12 +591,17 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://books.zoho.${ZOHO_DC}/api/v3/customerpayments?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/customerpayments?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0
-          if (zRes.ok) {
+          if (!zRes.ok) {
+            const errText = await zRes.text().catch(() => '')
+            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
+            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
+          }
+          {
             const zData = await zRes.json()
             const zPayments = zData.customerpayments || []
 
@@ -627,12 +667,17 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://books.zoho.${ZOHO_DC}/api/v3/contacts?organization_id=${process.env.ZOHO_ORG_ID}&contact_type=vendor&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/contacts?organization_id=${ZOHO_ORGANIZATION_ID}&contact_type=vendor&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0
-          if (zRes.ok) {
+          if (!zRes.ok) {
+            const errText = await zRes.text().catch(() => '')
+            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
+            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
+          }
+          {
             const zData = await zRes.json()
             const zContacts = zData.contacts || []
 
@@ -684,12 +729,17 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://books.zoho.${ZOHO_DC}/api/v3/items?organization_id=${process.env.ZOHO_ORG_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
             { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0
-          if (zRes.ok) {
+          if (!zRes.ok) {
+            const errText = await zRes.text().catch(() => '')
+            console.error('Zoho API error:', zRes.status, errText.substring(0, 200))
+            throw new Error(`Zoho API returned ${zRes.status}: ${errText.substring(0, 100)}`)
+          }
+          {
             const zData = await zRes.json()
             const zItems = zData.items || []
 
