@@ -1290,3 +1290,17 @@ model AutoshipSubscription {
   @@index([accountId])
   @@index([status, nextShipDate])
 }
+
+model AiCustomTool {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String
+  parameters   Json     // JSON Schema object representing the parameters definition
+  endpointUrl  String
+  method       String   @default("POST") // POST | GET | PUT
+  bodyTemplate String?  // e.g. '{"userId": "{{userId}}", "action": "clockIn"}'
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+

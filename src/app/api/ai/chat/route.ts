@@ -1252,6 +1252,77 @@ const TOOLS = [
 ] as const;
 
 
+// Helper to execute database-defined custom tools via local API loopback
+async function executeCustomTool(
+  customTool: any,
+  functionArgs: any,
+  userId: string,
+  userRole: string,
+  cookie: string
+) {
+  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  const endpoint = customTool.endpointUrl.startsWith('/') ? customTool.endpointUrl : `/${customTool.endpointUrl}`;
+  
+  // Strip double slashes if any
+  const url = `${baseUrl.replace(/\/$/, '')}${endpoint}`;
+
+  let requestBody: any = null;
+  const method = (customTool.method || 'POST').toUpperCase();
+
+  if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
+    if (customTool.bodyTemplate) {
+      let bodyStr = customTool.bodyTemplate;
+      
+      // Interpolate parameters
+      for (const [key, val] of Object.entries(functionArgs)) {
+        bodyStr = bodyStr.replace(new RegExp(`{{\\s*${key}\\s*}}`, 'g'), String(val));
+      }
+      
+      // Interpolate context variables
+      bodyStr = bodyStr.replace(/{{\s*userId\s*}}/g, userId);
+      bodyStr = bodyStr.replace(/{{\s*userRole\s*}}/g, userRole);
+      
+      try {
+        requestBody = JSON.parse(bodyStr);
+      } catch {
+        requestBody = { error: 'Failed to parse body template JSON after substitution', raw: bodyStr };
+      }
+    } else {
+      requestBody = functionArgs;
+    }
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+
+  if (cookie) {
+    headers['Cookie'] = cookie;
+  }
+
+  const fetchOptions: any = {
+    method,
+    headers,
+    signal: AbortSignal.timeout(15000)
+  };
+
+  if (requestBody) {
+    fetchOptions.body = JSON.stringify(requestBody);
+  }
+
+  try {
+    const res = await fetch(url, fetchOptions);
+    const data = await res.json().catch(() => null);
+    if (data) return data;
+    
+    const text = await res.text();
+    return { success: res.ok, status: res.status, rawResponse: text.substring(0, 1000) };
+  } catch (error: any) {
+    console.error(`Custom tool execution error [${customTool.name}]:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   let dbUser = null;
@@ -1313,6 +1384,24 @@ IMPORTANT RULES:
 
     const client = getOpenAIClient();
 
+    // Load active database-defined custom tools dynamically
+    const customTools = await prisma.aiCustomTool.findMany({
+      where: { isActive: true }
+    }).catch(() => []);
+
+    // Merge static and dynamic tools
+    const allTools = [
+      ...TOOLS,
+      ...customTools.map(ct => ({
+        type: 'function' as const,
+        function: {
+          name: ct.name,
+          description: ct.description,
+          parameters: ct.parameters as any
+        }
+      }))
+    ];
+
     // Include recent conversation history for context
     const historyMessages = conversationHistory.slice(-20).map((m: any) => ({
       role: m.role,
@@ -1332,7 +1421,7 @@ IMPORTANT RULES:
       const response = await client.chat.completions.create({
         model: 'gpt-4o',
         messages,
-        tools: TOOLS as any,
+        tools: allTools.length > 0 ? (allTools as any) : undefined,
         tool_choice: 'auto'
       });
 
@@ -1357,11 +1446,25 @@ IMPORTANT RULES:
           console.error(`Failed to parse arguments for ${functionName}`);
         }
 
-        const toolResult = await executeTool(functionName, functionArgs, {
-          userId: dbUser.id,
-          userRole: actualRole,
-          userName: dbUser.name || 'Unknown'
-        });
+        // Check if this is a custom database tool
+        const customTool = customTools.find(ct => ct.name === functionName);
+        let toolResult: any;
+
+        if (customTool) {
+          toolResult = await executeCustomTool(
+            customTool,
+            functionArgs,
+            dbUser.id,
+            actualRole,
+            req.headers.get('cookie') || ''
+          );
+        } else {
+          toolResult = await executeTool(functionName, functionArgs, {
+            userId: dbUser.id,
+            userRole: actualRole,
+            userName: dbUser.name || 'Unknown'
+          });
+        }
 
         messages.push({
           tool_call_id: toolCall.id,

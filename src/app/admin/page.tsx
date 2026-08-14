@@ -79,6 +79,7 @@ const sections = [
       { title: "Data Backfill",             desc: "Populate line items for all invoices, SOs, and quotes from Zoho Books.",      href: "/admin/backfill",          icon: FiDatabase,  color: "text-sky-400",       bg: "bg-sky-500/10" },
       { title: "System Settings",           desc: "Push Notifications, API settings, and AI prompts.",                          href: "/admin/settings",          icon: FiSettings,  color: "text-neutral-400",   bg: "bg-neutral-500/10" },
       { title: "Sync Conflicts",            desc: "Review and resolve Zoho Books webhook sync conflicts.",                      href: "/admin/sync-conflicts",    icon: FiAlertTriangle, color: "text-orange-400", bg: "bg-orange-500/10" },
+      { title: "AI Custom Tools",           desc: "Add and manage custom function endpoints that the AI assistant can perform.", href: "/admin/ai-tools",          icon: FiZap,       color: "text-amber-400",     bg: "bg-amber-500/10" },
     ]
   }
 ]
