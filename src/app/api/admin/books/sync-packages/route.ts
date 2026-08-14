@@ -35,8 +35,8 @@ async function fetchPages(
     const separator = url.includes("?") ? "&" : "?"
     const fullUrl = `${baseUrl}/${url}${separator}organization_id=${ORG_ID}&page=${page}&per_page=200`
     const res = await fetch(fullUrl, {
+      signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
-      signal: AbortSignal.timeout(12_000), // 12s per page request
     })
 
     if (!res.ok) {

@@ -22,7 +22,7 @@ export const handler: Handler = async (event, context) => {
       const token = await getZohoAccessToken()
       const ZOHO_DC = process.env.ZOHO_DC || "com"
 
-      const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ORG_ID}&page=${page}&per_page=200`, {
+      const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ORG_ID}&page=${page}&per_page=200`, { signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Zoho-oauthtoken ${token}` }
       })
       const data = await res.json()

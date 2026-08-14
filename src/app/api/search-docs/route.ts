@@ -42,14 +42,11 @@ export async function GET(request: NextRequest) {
     const q = searchParams.get('q')
     const sort = searchParams.get('sort') || 'date'
     const dir = searchParams.get('dir') || 'desc'
-    const page = searchParams.get('page') || '1'
-    const limit = searchParams.get('limit') || '50'
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '50', 10) || 50))
     const callerDbId = searchParams.get('callerDbId')
     const callerRole = searchParams.get('callerRole')
-
-    const pageNum  = Math.max(1, parseInt(page, 10) || 1)
-    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50))
-    const offset   = (pageNum - 1) * limitNum
+    const offset   = (page - 1) * pageSize
 
     const isAdmin = !!(callerRole?.toLowerCase().includes('admin') || callerRole?.toLowerCase().includes('manager'))
 
@@ -160,7 +157,7 @@ export async function GET(request: NextRequest) {
       Prisma.sql`
         SELECT * FROM (${unionForData}) AS docs
         ORDER BY ${Prisma.raw(sortCol)} ${Prisma.raw(sortDir)}
-        LIMIT ${limitNum} OFFSET ${offset}
+        LIMIT ${pageSize} OFFSET ${offset}
       `
     )
 
@@ -182,8 +179,8 @@ export async function GET(request: NextRequest) {
       success: true,
       docs,
       total,
-      page: pageNum,
-      totalPages: Math.ceil(total / limitNum),
+      page: page,
+      totalPages: Math.ceil(total / pageSize),
     })
   } catch (error: any) {
     console.error('search-docs error:', error)

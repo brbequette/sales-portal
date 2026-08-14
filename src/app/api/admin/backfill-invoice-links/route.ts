@@ -45,8 +45,7 @@ export async function POST(req: NextRequest) {
     for (const inv of invoices) {
       try {
         const res = await fetch(
-          `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${inv.zohoId}?organization_id=${ORG_ID}`,
-          { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+          `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${inv.zohoId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
         )
 
         if (!res.ok) {

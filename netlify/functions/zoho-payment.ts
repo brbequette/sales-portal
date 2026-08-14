@@ -75,7 +75,7 @@ export const handler: Handler = async (event) => {
     // since the local dbAccount.zohoId is the CRM ID, not the Books ID!
     let invoiceData: any = null
     try {
-      const invFetchRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
+      const invFetchRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Zoho-oauthtoken ${token}` }
       })
       if (invFetchRes.ok) {
@@ -105,7 +105,7 @@ export const handler: Handler = async (event) => {
       ]
     }
 
-    const res = await fetch(`${baseUrl}/customerpayments?organization_id=${ORG_ID}`, {
+    const res = await fetch(`${baseUrl}/customerpayments?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: { 
         'Authorization': `Zoho-oauthtoken ${token}`,
@@ -124,7 +124,7 @@ export const handler: Handler = async (event) => {
 
     try {
       // Re-fetch invoice to get updated balance/status and custom fields
-      const checkRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
+      const checkRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Zoho-oauthtoken ${token}` },
       })
 
@@ -181,7 +181,7 @@ export const handler: Handler = async (event) => {
           // ── Write custom fields to Zoho Books ──
           if (fieldsToUpdate.length > 0) {
             console.log(`Writing ${fieldsToUpdate.length} custom fields to invoice ${updatedInv.invoice_number}`)
-            await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
+            await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
               method: 'PUT',
               headers: {
                 'Authorization': `Zoho-oauthtoken ${token}`,

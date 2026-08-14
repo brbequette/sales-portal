@@ -15,7 +15,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     // Update in Zoho
     const token = await getZohoAccessToken()
-    const res = await fetch(`https://www.zohoapis.com/books/v3/contacts/${vendor.zohoId}?organization_id=${ORG_ID}`, {
+    const res = await fetch(`https://www.zohoapis.com/books/v3/contacts/${vendor.zohoId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       method: 'PUT',
       headers: {
         'Authorization': `Zoho-oauthtoken ${token}`,

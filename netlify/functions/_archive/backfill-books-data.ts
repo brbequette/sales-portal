@@ -195,8 +195,7 @@ export const handler: Handler = async (event) => {
     const statusParam = t.statusFilter ? `&status=${t.statusFilter}` : ''
     const token = await getZohoAccessToken()
     const res = await fetch(
-      `${BASE_URL}/${t.module}?organization_id=${ORG_ID}&page=${currentPage}&per_page=200${statusParam}`,
-      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+      `${BASE_URL}/${t.module}?organization_id=${ORG_ID}&page=${currentPage}&per_page=200${statusParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
     )
     if (!res.ok) {
       return { statusCode: 502, headers: cors, body: JSON.stringify({ error: `Zoho API error on ${t.module} page ${currentPage}: HTTP ${res.status}` }) }
@@ -441,8 +440,7 @@ export const handler: Handler = async (event) => {
       try {
         const modPath = doc.model === 'invoice' ? 'invoices' : doc.model === 'salesOrder' ? 'salesorders' : 'estimates'
         const detailRes = await fetch(
-          `${BASE_URL}/${modPath}/${doc.booksId}?organization_id=${ORG_ID}`,
-          { headers: { Authorization: `Zoho-oauthtoken ${token}`, Accept: 'application/json' } }
+          `${BASE_URL}/${modPath}/${doc.booksId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}`, Accept: 'application/json' } }
         )
         if (!detailRes.ok) {
           errors++
@@ -650,7 +648,7 @@ export const handler: Handler = async (event) => {
         await sleep(RATE_DELAY_MS)
 
         // 1. Fetch full detail from Zoho
-        const detailRes = await fetch(`${BASE_URL}/${zohoModule}/${booksId}?organization_id=${ORG_ID}`, { headers: authHeaders })
+        const detailRes = await fetch(`${BASE_URL}/${zohoModule}/${booksId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: authHeaders })
         if (!detailRes.ok) { errors++; continue }
         const detailData: any = await detailRes.json()
         if (detailData.code !== 0) { errors++; continue }
@@ -816,7 +814,7 @@ export const handler: Handler = async (event) => {
 
           if (Object.keys(payload).length > 0) {
             await sleep(RATE_DELAY_MS)
-            const putRes = await fetch(`${BASE_URL}/${zohoModule}/${booksId}?organization_id=${ORG_ID}`, {
+            const putRes = await fetch(`${BASE_URL}/${zohoModule}/${booksId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
               method: 'PUT',
               headers: { ...authHeaders, 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),

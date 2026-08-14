@@ -123,8 +123,7 @@ async function syncPaymentFromWebhook(payment: Record<string, unknown>) {
       const token = await getZohoAccessToken()
       if (!token) return
       const res = await fetch(
-        `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${invoiceId}?organization_id=${ZOHO_ORGANIZATION_ID}`,
-        { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+        `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${invoiceId}?organization_id=${ZOHO_ORGANIZATION_ID}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
       )
       if (res.ok) {
         const data = await res.json()

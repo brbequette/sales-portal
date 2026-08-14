@@ -74,8 +74,7 @@ export async function POST(req: NextRequest) {
     // -- Step 1: 1 list GET ---------------------------------------------------
     const sortParam = entity === "estimates" ? "" : "&sort_column=date&sort_order=D"
     const listRes = await fetch(
-      `${baseUrl}/${cfg.booksEndpoint}?organization_id=${ORG_ID}&page=${page}&per_page=${perPage}${sortParam}${statusFilter}`,
-      { headers: authHeaders }
+      `${baseUrl}/${cfg.booksEndpoint}?organization_id=${ORG_ID}&page=${page}&per_page=${perPage}${sortParam}${statusFilter}`, { signal: AbortSignal.timeout(15000), headers: authHeaders }
     )
     if (!listRes.ok) return NextResponse.json({ success: false, error: `Zoho list error ${listRes.status}` }, { status: 500 })
     const listData: any = await listRes.json()
@@ -100,7 +99,7 @@ export async function POST(req: NextRequest) {
       try {
         // Use Next.js API route (works on Vercel) — not /.netlify/functions/...
         const fnUrl = `${req.nextUrl.origin}${cfg.apiRoute}`
-        const res = await fetch(fnUrl, {
+        const res = await fetch(fnUrl, { signal: AbortSignal.timeout(15000),
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ [cfg.idBodyField]: zohoId, skipLoopGuard: force, applyTariff }),

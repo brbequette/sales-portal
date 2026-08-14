@@ -89,7 +89,7 @@ export const handler: Handler = async (event) => {
             }
           } else {
             const imgRes = await fetch(imageUrl)
-            if (imgRes.ok) {
+            if (imgRes.ok, { signal: AbortSignal.timeout(15000) }) {
               preFetchedImageBuffer = Buffer.from(await imgRes.arrayBuffer())
               preFetchedImageContentType = imgRes.headers.get("content-type") || "image/jpeg"
               preFetchedImageExt = preFetchedImageContentType.split("/")[1] || "jpg"
@@ -129,7 +129,7 @@ export const handler: Handler = async (event) => {
             const formData = new FormData()
             formData.append("sms_data", JSON.stringify(smsData))
             if (isMms && preFetchedImageBuffer) formData.append("mms_media", preFetchedImageBuffer, { filename: `attachment.${preFetchedImageExt}`, contentType: preFetchedImageContentType })
-            const smsRes = await fetch(zohoVoiceUrl, { method: "POST", headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, ...formData.getHeaders() }, body: formData })
+            const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000), method: "POST", headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, ...formData.getHeaders() }, body: formData })
             const resultText = await smsRes.text()
             let resultJson: any = {}
             try { resultJson = JSON.parse(resultText) } catch {}

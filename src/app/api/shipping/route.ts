@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
     const carrierFilter = url.searchParams.get("carrier") || ""
     const sortBy = url.searchParams.get("sortBy") || "orderDate"
     const sortDir = url.searchParams.get("sortDir") || "desc"
-    const page = parseInt(url.searchParams.get("page") || "1")
-    const limit = parseInt(url.searchParams.get("limit") || "100")
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1)
+    const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get('pageSize') || '50', 10) || 50))
 
     // Fetch SOs that are not void/draft (active orders)
     let salesOrders = await prisma.salesOrder.findMany({
@@ -335,14 +335,14 @@ export async function GET(req: NextRequest) {
 
     // Pagination
     const total = results.length
-    const paginated = results.slice((page - 1) * limit, page * limit)
+    const paginated = results.slice((page - 1) * pageSize, page * pageSize)
 
     return NextResponse.json({
       success: true,
       data: paginated,
       total,
       page,
-      limit,
+      pageSize,
       counts,
       isAdmin,
       availableSalespersons: Array.from(salespersonsSet).sort(),
@@ -369,7 +369,7 @@ export async function PUT(req: NextRequest) {
       const ZOHO_DC = process.env.ZOHO_DC || "com"
       const url = `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders/${salesOrderId}?organization_id=${ORG_ID}`
       
-      const res = await fetch(url, {
+      const res = await fetch(url, { signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Zoho-oauthtoken ${token}` }
       })
       if (!res.ok) {

@@ -16,7 +16,7 @@ export async function POST() {
     let totalUpdated = 0
 
     while (hasMore) {
-      const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ORG_ID}&status=paid&per_page=200&page=${page}`, {
+      const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ORG_ID}&status=paid&per_page=200&page=${page}`, { signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Zoho-oauthtoken ${token}` }
       })
       const data = await res.json()

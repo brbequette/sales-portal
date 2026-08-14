@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     
     // Create in Zoho
     const token = await getZohoAccessToken()
-    const res = await fetch(`https://www.zohoapis.com/books/v3/contacts?organization_id=${ORG_ID}`, {
+    const res = await fetch(`https://www.zohoapis.com/books/v3/contacts?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: {
         'Authorization': `Zoho-oauthtoken ${token}`,

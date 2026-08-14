@@ -32,7 +32,7 @@ export const handler: Handler = async (event, context) => {
 
     // Delete from Zoho CRM
     const token = await getZohoAccessToken()
-    const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks?ids=${task.zohoId}`, {
+    const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks?ids=${task.zohoId}`, { signal: AbortSignal.timeout(15000),
       method: "DELETE",
       headers: {
         'Authorization': `Zoho-oauthtoken ${token}`,

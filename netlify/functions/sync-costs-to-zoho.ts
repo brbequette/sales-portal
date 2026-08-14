@@ -150,7 +150,7 @@ async function syncDocType(
         markSynced(doc.zohoId)
 
         const url = zohoEndpoint(docType, doc.zohoId)
-        const putRes = await fetch(url, {
+        const putRes = await fetch(url, { signal: AbortSignal.timeout(15000),
           method: "PUT",
           // x-source tells zoho-books-webhook this is an app write-back (prevents feedback loop)
           headers: { ...authHeaders, "x-source": "app-cost-sync" },

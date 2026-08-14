@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         const booksInvoiceId = localInv.zohoId
         
         // Fetch invoice details from Zoho
-        const detailRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { headers: authHeaders })
+        const detailRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: authHeaders })
         if (!detailRes.ok) {
           console.error(`Failed to fetch details for invoice ${localInv.zohoId}: ${detailRes.status}`)
           continue
@@ -154,7 +154,7 @@ export async function POST(req: Request) {
 
         let zohoUpdateResult: any = null
         if (Object.keys(putPayload).length > 0) {
-          const putRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
+          const putRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
             method: "PUT",
             headers: { ...authHeaders, "Content-Type": "application/json" },
             body: JSON.stringify(putPayload),

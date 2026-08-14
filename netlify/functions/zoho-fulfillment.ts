@@ -21,7 +21,7 @@ export const handler: Handler = async (event, context) => {
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
     // Fetch the Sales Order to get customer ID and line item details
-    const soRes = await fetch(`${baseUrl}/salesorders/${salesOrderId}?organization_id=${ORG_ID}`, {
+    const soRes = await fetch(`${baseUrl}/salesorders/${salesOrderId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` }
     })
     const soData = await soRes.json()
@@ -54,7 +54,7 @@ export const handler: Handler = async (event, context) => {
         }))
       }
 
-      const pkgRes = await fetch(`${baseUrl}/packages?organization_id=${ORG_ID}`, {
+      const pkgRes = await fetch(`${baseUrl}/packages?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: "POST",
         headers: {
           Authorization: `Zoho-oauthtoken ${token}`,
@@ -132,7 +132,7 @@ export const handler: Handler = async (event, context) => {
         // Fetch live from Zoho live as fallback
         if (purchaseRate === 0 && soItem.item_id) {
           try {
-            const itemRes = await fetch(`${baseUrl}/items/${soItem.item_id}?organization_id=${ORG_ID}`, {
+            const itemRes = await fetch(`${baseUrl}/items/${soItem.item_id}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
               headers: { Authorization: `Zoho-oauthtoken ${token}` }
             })
             const itemData = await itemRes.json()
@@ -169,7 +169,7 @@ export const handler: Handler = async (event, context) => {
         line_items: poLineItems
       }
 
-      const poRes = await fetch(`${baseUrl}/purchaseorders?organization_id=${ORG_ID}`, {
+      const poRes = await fetch(`${baseUrl}/purchaseorders?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: "POST",
         headers: {
           Authorization: `Zoho-oauthtoken ${token}`,

@@ -31,8 +31,8 @@ export async function GET(req: NextRequest) {
     if (!session || (session as any).user?.role !== 'Administrator') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
-    const page    = parseInt(searchParams.get("page") ?? "1")
-    const perPage = 20
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '50', 10) || 50))
 
     const [invoices, salesOrders, quotes, totals] = await Promise.all([
       prisma.invoice.findMany({
@@ -44,8 +44,8 @@ export async function GET(req: NextRequest) {
           account: { select: { name: true } },
         },
         orderBy: { lastZohoModifiedTime: "desc" },
-        take: perPage,
-        skip: (page - 1) * perPage,
+        take: pageSize,
+        skip: (page - 1) * pageSize,
       }),
       prisma.salesOrder.findMany({
         where: { syncConflict: true },
@@ -56,8 +56,8 @@ export async function GET(req: NextRequest) {
           account: { select: { name: true } },
         },
         orderBy: { lastZohoModifiedTime: "desc" },
-        take: perPage,
-        skip: (page - 1) * perPage,
+        take: pageSize,
+        skip: (page - 1) * pageSize,
       }),
       prisma.quote.findMany({
         where: { syncConflict: true },
@@ -68,8 +68,8 @@ export async function GET(req: NextRequest) {
           account: { select: { name: true } },
         },
         orderBy: { lastZohoModifiedTime: "desc" },
-        take: perPage,
-        skip: (page - 1) * perPage,
+        take: pageSize,
+        skip: (page - 1) * pageSize,
       }),
       Promise.all([
         prisma.invoice.count({ where: { syncConflict: true } }),
@@ -163,8 +163,7 @@ export async function POST(req: NextRequest) {
         const endpoint = docTypeToEndpoint(docType)
         const zohoFieldId = docTypeToZohoId(docType, zohoId)
         const putRes  = await fetch(
-          `https://www.zohoapis.${ZOHO_DC}/books/v3/${endpoint}/${zohoFieldId}?organization_id=${ORG_ID}`,
-          {
+          `https://www.zohoapis.${ZOHO_DC}/books/v3/${endpoint}/${zohoFieldId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
             method: "PUT",
             headers: {
               Authorization: `Zoho-oauthtoken ${token}`,

@@ -116,7 +116,7 @@ export const handler = schedule("*/10 * * * *", async () => {
               }
             } else {
               const imgRes = await fetch(msg.imageUrl)
-              if (imgRes.ok) {
+              if (imgRes.ok, { signal: AbortSignal.timeout(15000) }) {
                 imageBuffer = Buffer.from(await imgRes.arrayBuffer())
                 imageContentType = imgRes.headers.get("content-type") || "image/jpeg"
                 imageExt = imageContentType.split("/")[1] || "jpg"
@@ -135,7 +135,7 @@ export const handler = schedule("*/10 * * * *", async () => {
           formData.append("mms_media", imageBuffer, { filename: `attachment.${imageExt}`, contentType: imageContentType })
         }
 
-        const smsRes = await fetch(zohoVoiceUrl, {
+        const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000),
           method: "POST",
           headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, ...formData.getHeaders() },
           body: formData

@@ -6,8 +6,7 @@ async function main() {
   const ZOHO_DC = 'com';
   
   const invoiceRes = await fetch(
-    `https://www.zohoapis.${ZOHO_DC}/crm/v3/CustomModule5001?per_page=1`,
-    { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+    `https://www.zohoapis.${ZOHO_DC}/crm/v3/CustomModule5001?per_page=1`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
   );
   
   if (!invoiceRes.ok) {

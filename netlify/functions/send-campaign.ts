@@ -182,7 +182,7 @@ export const handler: Handler = async (event, context) => {
             }
           } else {
             const imgRes = await fetch(imageUrl)
-            if (imgRes.ok) {
+            if (imgRes.ok, { signal: AbortSignal.timeout(15000) }) {
               preFetchedImageBuffer = Buffer.from(await imgRes.arrayBuffer())
               preFetchedImageContentType = imgRes.headers.get('content-type') || 'image/jpeg'
               preFetchedImageExt = preFetchedImageContentType.split('/')[1] || 'jpg'
@@ -263,7 +263,7 @@ export const handler: Handler = async (event, context) => {
             })
           }
 
-          const smsRes = await fetch(zohoVoiceUrl, {
+          const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000),
             method: 'POST',
             headers: {
               'Authorization': `Zoho-oauthtoken ${accessToken}`,

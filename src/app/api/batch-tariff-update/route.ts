@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       let hasMore = true
       while (hasMore) {
         const url = `${baseUrl}/invoices?organization_id=${ORG_ID}&status=${status}&date_start=2026-01-01&date_end=2026-12-31&per_page=200&page=${page}`
-        const res = await fetch(url, { headers: authHeaders })
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: authHeaders })
         if (!res.ok) { console.warn(`Failed to fetch ${status} page ${page}: ${res.status}`); break }
         const data: any = await res.json()
         allInvoices = allInvoices.concat(data.invoices || [])
@@ -79,8 +79,7 @@ export async function POST(req: NextRequest) {
     for (const invHeader of zeroAdjInvoices) {
       try {
         const detailRes = await fetch(
-          `${baseUrl}/invoices/${invHeader.invoice_id}?organization_id=${ORG_ID}`,
-          { headers: authHeaders }
+          `${baseUrl}/invoices/${invHeader.invoice_id}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: authHeaders }
         )
         if (!detailRes.ok) { errorCount++; continue }
         const detailData: any = await detailRes.json()
@@ -110,8 +109,7 @@ export async function POST(req: NextRequest) {
 
         if (!dryRun) {
           const putRes = await fetch(
-            `${baseUrl}/invoices/${invoice.invoice_id}?organization_id=${ORG_ID}`,
-            {
+            `${baseUrl}/invoices/${invoice.invoice_id}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
               method: "PUT",
               headers: { ...authHeaders, "Content-Type": "application/json" },
               body: JSON.stringify({

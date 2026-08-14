@@ -168,7 +168,7 @@ export const handler: Handler = async (event) => {
             id: update.id,
             Owner: update.Owner
           }
-          const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${update.id}`, {
+          const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${update.id}`, { signal: AbortSignal.timeout(15000),
             method: "PUT",
             headers: {
               "Authorization": `Zoho-oauthtoken ${token}`,

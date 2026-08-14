@@ -30,7 +30,7 @@ export const handler: Handler = async (event, context) => {
 
     // Step 1: Resolve SKU to Item ID if we don't have the ID
     if (!itemId) {
-      const searchRes = await fetch(`${baseUrl}/items?organization_id=${ORG_ID}&sku=${encodeURIComponent(sku as string)}`, {
+      const searchRes = await fetch(`${baseUrl}/items?organization_id=${ORG_ID}&sku=${encodeURIComponent(sku as string)}`, { signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Zoho-oauthtoken ${token}` }
       })
       
@@ -52,7 +52,7 @@ export const handler: Handler = async (event, context) => {
 
     // Step 2: Fetch the Image
     const imageUrl = `${baseUrl}/items/${itemId}/image?organization_id=${ORG_ID}`
-    const imgRes = await fetch(imageUrl, {
+    const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` }
     })
 

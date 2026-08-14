@@ -51,7 +51,7 @@ export const handler: Handler = async (event) => {
     // 1. Resolve Zoho Books sales order ID
     let booksSalesorderId = salesorderId
     if (!booksSalesorderId && salesorderNumber) {
-      const searchRes = await fetch(`${baseUrl}/salesorders?organization_id=${ORG_ID}&salesorder_number=${salesorderNumber}`, { headers: authHeaders })
+      const searchRes = await fetch(`${baseUrl}/salesorders?organization_id=${ORG_ID}&salesorder_number=${salesorderNumber}`, { signal: AbortSignal.timeout(15000), headers: authHeaders })
       if (!searchRes.ok) throw new Error(`Failed to search for sales order: ${searchRes.status}`)
       const searchData: any = await searchRes.json()
       if (!searchData.salesorders?.length) {
@@ -67,7 +67,7 @@ export const handler: Handler = async (event) => {
     }
 
     // 3. Fetch full sales order
-    const detailRes = await fetch(`${baseUrl}/salesorders/${booksSalesorderId}?organization_id=${ORG_ID}`, { headers: authHeaders })
+    const detailRes = await fetch(`${baseUrl}/salesorders/${booksSalesorderId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: authHeaders })
     if (!detailRes.ok) throw new Error(`Failed to fetch sales order details: ${detailRes.status}`)
     const detailData: any = await detailRes.json()
     if (detailData.code !== 0) throw new Error(`Zoho error: ${detailData.message}`)
@@ -78,8 +78,7 @@ export const handler: Handler = async (event) => {
     let packageSyncErrors = 0
     try {
       const pkgRes = await fetch(
-        `${baseUrl}/salesorders/${booksSalesorderId}/packages?organization_id=${ORG_ID}`,
-        { headers: authHeaders }
+        `${baseUrl}/salesorders/${booksSalesorderId}/packages?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: authHeaders }
       )
       if (pkgRes.ok) {
         const pkgData: any = await pkgRes.json()
@@ -140,7 +139,7 @@ export const handler: Handler = async (event) => {
     let zohoUpdateResult: any = null
     if (fieldsToUpdate.length > 0) {
       markProcessed(booksSalesorderId)
-      const putRes = await fetch(`${baseUrl}/salesorders/${booksSalesorderId}?organization_id=${ORG_ID}`, {
+      const putRes = await fetch(`${baseUrl}/salesorders/${booksSalesorderId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: "PUT",
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({ custom_fields: fieldsToUpdate }),

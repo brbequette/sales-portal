@@ -51,7 +51,7 @@ export const handler: Handler = async (event) => {
     const token = await getAccessToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
-    const res = await fetch(`${baseUrl}/invoices/${booksInvoiceId}/email?organization_id=${ORG_ID}`, {
+    const res = await fetch(`${baseUrl}/invoices/${booksInvoiceId}/email?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: { 
         'Authorization': `Zoho-oauthtoken ${token}`,

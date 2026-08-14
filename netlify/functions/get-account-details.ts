@@ -80,7 +80,7 @@ export const handler: Handler = async (event, context) => {
           const accessToken = await getZohoAccessToken()
           if (accessToken) {
             const ZOHO_DC = process.env.ZOHO_DC || 'com'
-            const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${id}`, {
+            const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts/${id}`, { signal: AbortSignal.timeout(15000),
               headers: {
                 'Authorization': `Zoho-oauthtoken ${accessToken}`
               }
@@ -196,7 +196,7 @@ export const handler: Handler = async (event, context) => {
         const accessToken = await getZohoAccessToken()
         if (accessToken) {
           const ZOHO_DC = process.env.ZOHO_DC || 'com'
-          const booksRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/contacts/${account.zohoId}?organization_id=${ORG_ID}`, {
+          const booksRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/contacts/${account.zohoId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
             headers: { 'Authorization': `Zoho-oauthtoken ${accessToken}` }
           })
           if (booksRes.ok) {

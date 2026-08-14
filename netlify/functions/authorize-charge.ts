@@ -66,7 +66,7 @@ export const handler: Handler = async (event) => {
   };
 
   try {
-    const res = await fetch(ANET_URL, {
+    const res = await fetch(ANET_URL, { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

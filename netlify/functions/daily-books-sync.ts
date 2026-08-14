@@ -104,7 +104,7 @@ export const handler = schedule("0 6 * * *", async () => {
       let page = 1, hasMore = true
       while (hasMore) {
         const url = `${baseUrl}/invoices?organization_id=${ORG_ID}&last_modified_time=${encodeURIComponent(sinceStr)}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
-        const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
         if (!res.ok) { console.error(`Invoices page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
         const invoices: any[] = data.invoices || []
@@ -145,7 +145,7 @@ export const handler = schedule("0 6 * * *", async () => {
       let page = 1, hasMore = true
       while (hasMore) {
         const url = `${baseUrl}/salesorders?organization_id=${ORG_ID}&last_modified_time=${encodeURIComponent(sinceStr)}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
-        const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
         if (!res.ok) { console.error(`SalesOrders page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
         const orders: any[] = data.salesorders || []
@@ -184,7 +184,7 @@ export const handler = schedule("0 6 * * *", async () => {
       let page = 1, hasMore = true
       while (hasMore) {
         const url = `${baseUrl}/estimates?organization_id=${ORG_ID}&status=invoiced&last_modified_time=${encodeURIComponent(sinceStr)}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
-        const res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
         if (!res.ok) { console.error(`Estimates page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
         const estimates: any[] = data.estimates || []
@@ -269,7 +269,7 @@ async function syncFullDocument(
 ): Promise<"conflict" | "synced" | "skipped"> {
   try {
     const modulePath = type === "Invoice" ? "invoices" : type === "SalesOrder" ? "salesorders" : "estimates"
-    const detailRes = await fetch(`${baseUrl}/${modulePath}/${booksId}?organization_id=${ORG_ID}`, {
+    const detailRes = await fetch(`${baseUrl}/${modulePath}/${booksId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` }
     })
     if (!detailRes.ok) {

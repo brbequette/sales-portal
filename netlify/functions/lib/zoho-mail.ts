@@ -4,7 +4,7 @@ const MAIL_BASE_URL = `https://mail.zoho.${ZOHO_DC}/api`
 
 export async function fetchMailAccounts() {
   const token = await getZohoAccessToken()
-  const res = await fetch(`${MAIL_BASE_URL}/accounts`, {
+  const res = await fetch(`${MAIL_BASE_URL}/accounts`, { signal: AbortSignal.timeout(15000),
     headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
   })
   if (!res.ok) throw new Error(`Zoho Mail accounts fetch failed: ${await res.text()}`)
@@ -13,7 +13,7 @@ export async function fetchMailAccounts() {
 
 export async function fetchFolders(accountId: string) {
   const token = await getZohoAccessToken()
-  const res = await fetch(`${MAIL_BASE_URL}/accounts/${accountId}/folders`, {
+  const res = await fetch(`${MAIL_BASE_URL}/accounts/${accountId}/folders`, { signal: AbortSignal.timeout(15000),
     headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
   })
   if (!res.ok) throw new Error(`Zoho Mail folders fetch failed: ${await res.text()}`)
@@ -22,7 +22,7 @@ export async function fetchFolders(accountId: string) {
 
 export async function fetchEmails(accountId: string, folderId: string, limit: number = 20, start: number = 0) {
   const token = await getZohoAccessToken()
-  const res = await fetch(`${MAIL_BASE_URL}/accounts/${accountId}/messages/view?folderId=${folderId}&limit=${limit}&start=${start}`, {
+  const res = await fetch(`${MAIL_BASE_URL}/accounts/${accountId}/messages/view?folderId=${folderId}&limit=${limit}&start=${start}`, { signal: AbortSignal.timeout(15000),
     headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
   })
   if (!res.ok) throw new Error(`Zoho Mail emails fetch failed: ${await res.text()}`)
@@ -31,7 +31,7 @@ export async function fetchEmails(accountId: string, folderId: string, limit: nu
 
 export async function fetchEmailContent(accountId: string, messageId: string) {
   const token = await getZohoAccessToken()
-  const res = await fetch(`${MAIL_BASE_URL}/accounts/${accountId}/messages/${messageId}/content`, {
+  const res = await fetch(`${MAIL_BASE_URL}/accounts/${accountId}/messages/${messageId}/content`, { signal: AbortSignal.timeout(15000),
     headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
   })
   if (!res.ok) throw new Error(`Zoho Mail content fetch failed: ${await res.text()}`)
@@ -51,7 +51,7 @@ export async function sendEmail(accountId: string, payload: { fromAddress: strin
     reqBody.ccAddress = payload.ccAddress
   }
 
-  const res = await fetch(`${MAIL_BASE_URL}/accounts/${accountId}/messages`, {
+  const res = await fetch(`${MAIL_BASE_URL}/accounts/${accountId}/messages`, { signal: AbortSignal.timeout(15000),
     method: 'POST',
     headers: {
       'Authorization': `Zoho-oauthtoken ${token}`,

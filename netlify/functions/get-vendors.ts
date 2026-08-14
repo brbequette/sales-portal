@@ -14,7 +14,7 @@ export const handler: Handler = async (event, context) => {
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
     // Fetch vendors from Zoho Books
-    const res = await fetch(`${baseUrl}/contacts?contact_type=vendor&organization_id=${ORG_ID}`, {
+    const res = await fetch(`${baseUrl}/contacts?contact_type=vendor&organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` }
     })
     

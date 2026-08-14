@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     if (preferredDate) payload.preferred_date = preferredDate;
     if (preferredTimeSlot) payload.preferred_time_slot = preferredTimeSlot;
 
-    const response = await fetch(`${API_URL}/pickups`, {
+    const response = await fetch(`${API_URL}/pickups`, { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,

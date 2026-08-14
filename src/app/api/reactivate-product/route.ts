@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     const ZOHO_DC = process.env.ZOHO_DC || "com"
 
     // 1. Get the item ID from Zoho based on SKU
-    const searchRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ORG_ID}&sku=${sku}`, {
+    const searchRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ORG_ID}&sku=${sku}`, { signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` }
     })
     const searchData = await searchRes.json()
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     const itemId = searchData.items[0].item_id
 
     // 2. Mark it as active
-    const activeRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/items/${itemId}/active?organization_id=${ORG_ID}`, {
+    const activeRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/items/${itemId}/active?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       method: "POST",
       headers: { Authorization: `Zoho-oauthtoken ${token}` }
     })

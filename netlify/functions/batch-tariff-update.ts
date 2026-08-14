@@ -55,7 +55,7 @@ export const handler: Handler = async (event) => {
 
       while (hasMore) {
         const url = `${baseUrl}/invoices?organization_id=${ORG_ID}&status=${status}&date_start=2026-01-01&date_end=2026-12-31&per_page=200&page=${page}`
-        const res = await fetch(url, { headers: authHeaders })
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: authHeaders })
 
         if (!res.ok) {
           console.warn(`Failed to fetch ${status} invoices page ${page}: ${res.status}`)
@@ -91,7 +91,7 @@ export const handler: Handler = async (event) => {
     for (const invHeader of zeroAdjInvoices) {
       try {
         // Fetch full invoice detail
-        const detailRes = await fetch(`${baseUrl}/invoices/${invHeader.invoice_id}?organization_id=${ORG_ID}`, { headers: authHeaders })
+        const detailRes = await fetch(`${baseUrl}/invoices/${invHeader.invoice_id}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: authHeaders })
         if (!detailRes.ok) {
           console.warn(`Failed to fetch detail for ${invHeader.invoice_number}: ${detailRes.status}`)
           errorCount++
@@ -141,7 +141,7 @@ export const handler: Handler = async (event) => {
 
         if (!dryRun) {
           // 5. Apply tariff as adjustment — Zoho requires customer_id on PUT
-          const putRes = await fetch(`${baseUrl}/invoices/${invoice.invoice_id}?organization_id=${ORG_ID}`, {
+          const putRes = await fetch(`${baseUrl}/invoices/${invoice.invoice_id}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
             method: "PUT",
             headers: { ...authHeaders, "Content-Type": "application/json" },
             body: JSON.stringify({

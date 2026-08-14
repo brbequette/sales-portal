@@ -55,7 +55,7 @@ export const handler: Handler = async (event) => {
         }
       }
 
-      const res = await fetch(`${baseUrl}/invoices/${booksId}/status/void?organization_id=${ORG_ID}`, {
+      const res = await fetch(`${baseUrl}/invoices/${booksId}/status/void?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: 'POST',
         headers: {
           'Authorization': `Zoho-oauthtoken ${token}`,
@@ -88,7 +88,7 @@ export const handler: Handler = async (event) => {
         }
       }
 
-      const res = await fetch(`${baseUrl}/salesorders/${booksId}/status/void?organization_id=${ORG_ID}`, {
+      const res = await fetch(`${baseUrl}/salesorders/${booksId}/status/void?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: 'POST',
         headers: {
           'Authorization': `Zoho-oauthtoken ${token}`,
@@ -121,7 +121,7 @@ export const handler: Handler = async (event) => {
         }
       }
 
-      const res = await fetch(`${baseUrl}/estimates/${booksId}/status/declined?organization_id=${ORG_ID}`, {
+      const res = await fetch(`${baseUrl}/estimates/${booksId}/status/declined?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: 'POST',
         headers: {
           'Authorization': `Zoho-oauthtoken ${token}`,

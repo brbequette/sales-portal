@@ -70,7 +70,7 @@ export const handler: Handler = async (event) => {
     let crmAccountId = account.zohoId
     
     const attemptOwnerUpdate = async (accountCrmId: string) => {
-      const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`, {
+      const crmRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`, { signal: AbortSignal.timeout(15000),
         method: "PUT",
         headers: authHeaders,
         body: JSON.stringify({
@@ -153,7 +153,7 @@ export const handler: Handler = async (event) => {
           for (let i = 0; i < contacts.length; i += 100) {
             const batch = contacts.slice(i, i + 100)
             try {
-              const contactRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts`, {
+              const contactRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts`, { signal: AbortSignal.timeout(15000),
                 method: "PUT",
                 headers: authHeaders,
                 body: JSON.stringify({

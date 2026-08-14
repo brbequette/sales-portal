@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     const debugLog: any[] = []
 
     while (hasMore) {
-      const res = await fetch(`https://voice.zoho.com/rest/json/v1/sms/logs?from=${fromIdx}&size=100`, {
+      const res = await fetch(`https://voice.zoho.com/rest/json/v1/sms/logs?from=${fromIdx}&size=100`, { signal: AbortSignal.timeout(15000),
         headers: {
           'Authorization': `Zoho-oauthtoken ${accessToken}`,
           'Accept': 'application/json'

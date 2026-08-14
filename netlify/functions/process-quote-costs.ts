@@ -50,7 +50,7 @@ export const handler: Handler = async (event) => {
     // 1. Resolve Zoho Books estimate ID
     let booksEstimateId = estimateId
     if (!booksEstimateId && estimateNumber) {
-      const searchRes = await fetch(`${baseUrl}/estimates?organization_id=${ORG_ID}&estimate_number=${estimateNumber}`, { headers: authHeaders })
+      const searchRes = await fetch(`${baseUrl}/estimates?organization_id=${ORG_ID}&estimate_number=${estimateNumber}`, { signal: AbortSignal.timeout(15000), headers: authHeaders })
       if (!searchRes.ok) throw new Error(`Failed to search for estimate: ${searchRes.status}`)
       const searchData: any = await searchRes.json()
       if (!searchData.estimates?.length) {
@@ -66,7 +66,7 @@ export const handler: Handler = async (event) => {
     }
 
     // 3. Fetch full estimate
-    const detailRes = await fetch(`${baseUrl}/estimates/${booksEstimateId}?organization_id=${ORG_ID}`, { headers: authHeaders })
+    const detailRes = await fetch(`${baseUrl}/estimates/${booksEstimateId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: authHeaders })
     if (!detailRes.ok) throw new Error(`Failed to fetch estimate details: ${detailRes.status}`)
     const detailData: any = await detailRes.json()
     if (detailData.code !== 0) throw new Error(`Zoho error: ${detailData.message}`)
@@ -96,7 +96,7 @@ export const handler: Handler = async (event) => {
     let zohoUpdateResult: any = null
     if (fieldsToUpdate.length > 0) {
       markProcessed(booksEstimateId)
-      const putRes = await fetch(`${baseUrl}/estimates/${booksEstimateId}?organization_id=${ORG_ID}`, {
+      const putRes = await fetch(`${baseUrl}/estimates/${booksEstimateId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: "PUT",
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({ custom_fields: fieldsToUpdate }),

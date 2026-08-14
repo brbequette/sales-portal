@@ -29,7 +29,7 @@ export async function POST() {
       }
       
       try {
-        const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${targetId}?organization_id=${ORG_ID}`, {
+        const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${targetId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
           headers: { Authorization: `Zoho-oauthtoken ${token}` }
         })
         

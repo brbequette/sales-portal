@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'EASYSHIP_API_KEY is not configured' }, { status: 500 });
     }
 
-    const response = await fetch(`${API_URL}/shipments/${easyshipShipmentId}`, {
+    const response = await fetch(`${API_URL}/shipments/${easyshipShipmentId}`, { signal: AbortSignal.timeout(15000),
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${apiKey}`,

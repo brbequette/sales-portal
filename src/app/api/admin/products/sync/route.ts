@@ -5,7 +5,7 @@ import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from '../../../../.
 async function fetchWithRetry(url: string, headers: HeadersInit, retries = 3, delay = 1000): Promise<any> {
   for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetch(url, { headers })
+      const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers })
       if (res.status === 429) {
         console.warn(`Zoho API rate limited (429). Retrying in ${delay}ms... (Attempt ${i + 1}/${retries})`)
         await new Promise(resolve => setTimeout(resolve, delay))

@@ -39,7 +39,7 @@ export async function POST(req: Request) {
           if (price !== undefined) zohoData.rate = price
           if (descriptionText !== undefined) zohoData.description = descriptionText
 
-          const zohoRes = await fetch(url, {
+          const zohoRes = await fetch(url, { signal: AbortSignal.timeout(15000),
             method: "PUT",
             headers: {
               Authorization: `Zoho-oauthtoken ${token}`,

@@ -266,8 +266,7 @@ export const handler: Handler = async (event) => {
           const { getZohoAccessToken, ZOHO_ORGANIZATION_ID } = await import('./lib/zoho-auth')
           const token = await getZohoAccessToken()
           const zohoRes = await fetch(
-            `https://www.zohoapis.com/books/v3/contacts/${customerIdFromZoho}?organization_id=${ZOHO_ORGANIZATION_ID}`,
-            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+            `https://www.zohoapis.com/books/v3/contacts/${customerIdFromZoho}?organization_id=${ZOHO_ORGANIZATION_ID}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
           if (zohoRes.ok) {
             const contactData = await zohoRes.json()

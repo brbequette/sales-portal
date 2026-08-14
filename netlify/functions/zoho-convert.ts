@@ -27,7 +27,7 @@ export const handler: Handler = async (event, context) => {
 
     // 1. Fetch original document to extract Estimate Date custom field
     if (sourceType === "Quote") {
-      const res = await fetch(`${baseUrl}/estimates/${sourceId}?organization_id=${ORG_ID}`, {
+      const res = await fetch(`${baseUrl}/estimates/${sourceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Zoho-oauthtoken ${token}` }
       })
       const data = await res.json()
@@ -39,7 +39,7 @@ export const handler: Handler = async (event, context) => {
       const dateCf = cfs.find((cf: any) => cf.label?.toLowerCase() === "estimate date")
       if (dateCf) estimateDateValue = dateCf.value
     } else if (sourceType === "SalesOrder") {
-      const res = await fetch(`${baseUrl}/salesorders/${sourceId}?organization_id=${ORG_ID}`, {
+      const res = await fetch(`${baseUrl}/salesorders/${sourceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Zoho-oauthtoken ${token}` }
       })
       const data = await res.json()
@@ -83,7 +83,7 @@ export const handler: Handler = async (event, context) => {
     }
 
     // 3. Create Target Document
-    const res = await fetch(createEndpoint, {
+    const res = await fetch(createEndpoint, { signal: AbortSignal.timeout(15000),
       method: "POST",
       headers: {
         Authorization: `Zoho-oauthtoken ${token}`,

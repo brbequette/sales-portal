@@ -57,7 +57,7 @@ export const handler: Handler = async (event) => {
     if (!endpoint) throw new Error("Invalid document type")
 
     // 1. Fetch the document details from Zoho Books to get the current payload
-    const zohoRes = await fetch(`${baseUrl}/${endpoint}/${booksDocId}?organization_id=${ORG_ID}`, {
+    const zohoRes = await fetch(`${baseUrl}/${endpoint}/${booksDocId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
     })
 
@@ -150,7 +150,7 @@ export const handler: Handler = async (event) => {
       adjustment_description: doc.adjustment_description || ""
     }
 
-    const updateRes = await fetch(`${baseUrl}/${endpoint}/${booksDocId}?organization_id=${ORG_ID}`, {
+    const updateRes = await fetch(`${baseUrl}/${endpoint}/${booksDocId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       method: 'PUT',
       headers: {
         'Authorization': `Zoho-oauthtoken ${token}`,

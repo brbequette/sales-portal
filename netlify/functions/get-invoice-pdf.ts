@@ -64,8 +64,7 @@ export const handler: Handler = async (event) => {
           try {
             const token = await getZohoAccessToken()
             const searchRes = await fetch(
-              `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ORG_ID}&invoice_number=${searchNum}`,
-              { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+              `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ORG_ID}&invoice_number=${searchNum}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
             )
             if (searchRes.ok) {
               const searchData: any = await searchRes.json()
@@ -90,8 +89,7 @@ export const handler: Handler = async (event) => {
               const modPath = type === 'SalesOrder' ? 'salesorders' : type === 'Quote' ? 'estimates' : 'invoices'
               const paramName = type === 'SalesOrder' ? 'salesorder_number' : type === 'Quote' ? 'estimate_number' : 'invoice_number'
               const searchRes = await fetch(
-                `https://www.zohoapis.${ZOHO_DC}/books/v3/${modPath}?organization_id=${ORG_ID}&${paramName}=${searchNum}`,
-                { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                `https://www.zohoapis.${ZOHO_DC}/books/v3/${modPath}?organization_id=${ORG_ID}&${paramName}=${searchNum}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
               )
               if (searchRes.ok) {
                 const searchData: any = await searchRes.json()
@@ -170,7 +168,7 @@ export const handler: Handler = async (event) => {
 
       let pdfRes: Response | null = null
       for (const url of attempts) {
-        const res = await fetch(url, {
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000),
           headers: { Authorization: `Zoho-oauthtoken ${token}`, Accept: 'application/pdf' }
         })
         const ct = res.headers.get('content-type') || ''

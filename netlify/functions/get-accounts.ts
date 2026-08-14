@@ -150,7 +150,7 @@ export const handler: Handler = async (event, context) => {
         if (isAdmin) {
           try {
             console.log("Fetching active users from Zoho CRM...")
-            const usersRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/users?type=ActiveUsers`, {
+            const usersRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/users?type=ActiveUsers`, { signal: AbortSignal.timeout(15000),
               headers: { Authorization: `Zoho-oauthtoken ${token}` },
             })
             if (usersRes.ok) {
@@ -208,7 +208,7 @@ export const handler: Handler = async (event, context) => {
             let results: any[] = [];
             try {
               for (let p = 1; p <= 3; p++) {
-                const res = await fetch(`${url}?sort_by=Modified_Time&sort_order=desc&per_page=200&page=${p}`, { headers });
+                const res = await fetch(`${url}?sort_by=Modified_Time&sort_order=desc&per_page=200&page=${p}`, { signal: AbortSignal.timeout(15000), headers });
                 if (!res.ok) break;
                 const data = await res.json();
                 if (data.data) results = [...results, ...data.data];
@@ -247,7 +247,7 @@ export const handler: Handler = async (event, context) => {
           }
 
           while (hasMore) {
-            const searchRes = await fetch(`${baseUrl}/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${page}&per_page=200`, {
+            const searchRes = await fetch(`${baseUrl}/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${page}&per_page=200`, { signal: AbortSignal.timeout(15000),
               headers: { Authorization: `Zoho-oauthtoken ${token}` },
             });
 
@@ -492,8 +492,7 @@ export const handler: Handler = async (event, context) => {
                     while (hasMore) {
                       try {
                         const invoiceRes = await fetch(
-                          `https://www.zohoapis.${ZOHO_DC}/crm/v3/Invoices/search?criteria=${encodeURIComponent(criteria)}&page=${invPage}&per_page=200`,
-                          { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                          `https://www.zohoapis.${ZOHO_DC}/crm/v3/Invoices/search?criteria=${encodeURIComponent(criteria)}&page=${invPage}&per_page=200`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
                         );
                         if (!invoiceRes.ok) { hasMore = false; break; }
                         const invoiceData = await invoiceRes.json();
@@ -593,8 +592,7 @@ export const handler: Handler = async (event, context) => {
 
                 while (hasMoreDeals) {
                   const dealsRes = await fetch(
-                    `https://www.zohoapis.${ZOHO_DC}/crm/v3/Deals/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${dealPage}&per_page=200`,
-                    { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                    `https://www.zohoapis.${ZOHO_DC}/crm/v3/Deals/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${dealPage}&per_page=200`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
                   );
                   if (!dealsRes.ok) break;
 
@@ -664,8 +662,7 @@ export const handler: Handler = async (event, context) => {
                   let hasMoreSO = true;
                   while (hasMoreSO && soPage <= 2) {
                     const soRes = await fetch(
-                      `${booksBase}/salesorders?organization_id=${ORG_ID}&page=${soPage}&per_page=200&sort_column=date&sort_order=D`,
-                      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                      `${booksBase}/salesorders?organization_id=${ORG_ID}&page=${soPage}&per_page=200&sort_column=date&sort_order=D`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
                     );
                     if (!soRes.ok) break;
                     const soData: any = await soRes.json();
@@ -719,8 +716,7 @@ export const handler: Handler = async (event, context) => {
                   let hasMoreEst = true;
                   while (hasMoreEst && estPage <= 2) {
                     const estRes = await fetch(
-                      `${booksBase}/estimates?organization_id=${ORG_ID}&page=${estPage}&per_page=200&sort_column=date&sort_order=D`,
-                      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                      `${booksBase}/estimates?organization_id=${ORG_ID}&page=${estPage}&per_page=200&sort_column=date&sort_order=D`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
                     );
                     if (!estRes.ok) break;
                     const estData: any = await estRes.json();
@@ -795,8 +791,7 @@ export const handler: Handler = async (event, context) => {
 
                 while (hasMoreContacts) {
                   const contactRes = await fetch(
-                    `https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${contactPage}&per_page=200`,
-                    { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+                    `https://www.zohoapis.${ZOHO_DC}/crm/v3/Contacts/search?criteria=(Owner.id:equals:${syncUser.zohoId})&page=${contactPage}&per_page=200`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
                   );
 
                   if (!contactRes.ok) {

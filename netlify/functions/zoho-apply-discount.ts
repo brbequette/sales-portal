@@ -52,7 +52,7 @@ export const handler: Handler = async (event) => {
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
     // 1. Fetch the invoice details from Zoho Books to get the subtotal
-    const zohoRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
+    const zohoRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
     })
 
@@ -103,7 +103,7 @@ export const handler: Handler = async (event) => {
       reason: remove ? `Removing early payment discount.` : `Applying ${discountPercentage}% early payment discount as agreed with customer.`
     }
 
-    const updateRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
+    const updateRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       method: 'PUT',
       headers: {
         'Authorization': `Zoho-oauthtoken ${token}`,

@@ -132,7 +132,7 @@ export async function POST(req: Request, context: { params: Promise<{ accountId:
     const formData = new FormData()
     formData.append('sms_data', JSON.stringify(smsData))
 
-    const smsRes = await fetch(zohoVoiceUrl, {
+    const smsRes = await fetch(zohoVoiceUrl, { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: {
         'Authorization': `Zoho-oauthtoken ${accessToken}`,

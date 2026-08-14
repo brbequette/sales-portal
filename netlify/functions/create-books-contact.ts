@@ -39,7 +39,7 @@ export const handler: Handler = async (event) => {
     const authHeaders = { Authorization: `Zoho-oauthtoken ${token}` }
 
     // --- Step 1: Check if contact already exists in Zoho Books ---
-    const searchRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&contact_name=${encodeURIComponent(account.name)}`, {
+    const searchRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&contact_name=${encodeURIComponent(account.name)}`, { signal: AbortSignal.timeout(15000),
       headers: authHeaders
     })
     const searchData: any = await searchRes.json()
@@ -110,7 +110,7 @@ export const handler: Handler = async (event) => {
     }
 
     // --- Step 3: Create the contact ---
-    const res = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}`, {
+    const res = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       method: "POST",
       headers: {
         ...authHeaders,

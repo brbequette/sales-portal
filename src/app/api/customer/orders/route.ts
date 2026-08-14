@@ -10,15 +10,15 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
-    const skip = (page - 1) * limit;
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '50', 10) || 50));
+    const skip = (page - 1) * pageSize;
 
     const invoices = await prisma.invoice.findMany({
       where: { accountId: customer.accountId },
       orderBy: { issueDate: 'desc' },
       skip,
-      take: limit,
+      take: pageSize,
       include: {
         lineItems: true
       }
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       where: { accountId: customer.accountId },
       orderBy: { orderDate: 'desc' },
       skip,
-      take: limit,
+      take: pageSize,
       include: {
         lineItems: true
       }
@@ -63,8 +63,8 @@ export async function GET(request: NextRequest) {
       return dateB - dateA;
     });
 
-    // Pagination for combined (this applies the limit AFTER combining and sorting)
-    const paginatedOrders = allOrders.slice(skip, skip + limit);
+    // Pagination for combined (this applies the pageSize AFTER combining and sorting)
+    const paginatedOrders = allOrders.slice(skip, skip + pageSize);
 
     return NextResponse.json({ success: true, data: paginatedOrders });
   } catch (error: any) {

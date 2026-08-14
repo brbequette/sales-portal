@@ -130,7 +130,7 @@ async function syncDocType(
         markSynced(doc.zohoId)
 
         const url = zohoEndpoint(docType, doc.zohoId)
-        const putRes = await fetch(url, {
+        const putRes = await fetch(url, { signal: AbortSignal.timeout(15000),
           method: "PUT",
           headers: authHeaders,
           body: JSON.stringify({ custom_fields: pendingZohoFields }),

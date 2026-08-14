@@ -110,21 +110,21 @@ async function fetchZohoDoc(
   authHeaders: Record<string, string>
 ): Promise<{ doc: any; docNumber: string }> {
   if (docType === "invoices") {
-    const res = await fetch(`${baseUrl}/invoices/${zohoId}?organization_id=${ORG_ID}`, { headers: authHeaders })
+    const res = await fetch(`${baseUrl}/invoices/${zohoId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: authHeaders })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data: any = await res.json()
     if (data.code !== 0) throw new Error(`Zoho: ${data.message}`)
     return { doc: data.invoice, docNumber: data.invoice.invoice_number }
   }
   if (docType === "quotes") {
-    const res = await fetch(`${baseUrl}/estimates/${zohoId}?organization_id=${ORG_ID}`, { headers: authHeaders })
+    const res = await fetch(`${baseUrl}/estimates/${zohoId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: authHeaders })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data: any = await res.json()
     if (data.code !== 0) throw new Error(`Zoho: ${data.message}`)
     return { doc: data.estimate, docNumber: data.estimate.estimate_number }
   }
   // salesorders
-  const res = await fetch(`${baseUrl}/salesorders/${zohoId}?organization_id=${ORG_ID}`, { headers: authHeaders })
+  const res = await fetch(`${baseUrl}/salesorders/${zohoId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: authHeaders })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const data: any = await res.json()
   if (data.code !== 0) throw new Error(`Zoho: ${data.message}`)

@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     
     // Fetch packages for this customer. Zoho Inventory API has /packages?customer_id=
     // Zoho Books handles it similarly for Sales Orders -> Packages, or we can fetch /packages directly.
-    const res = await fetch(`https://www.zohoapis.com/inventory/v1/packages?customer_id=${accountId}&organization_id=${ORG_ID}`, {
+    const res = await fetch(`https://www.zohoapis.com/inventory/v1/packages?customer_id=${accountId}&organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       headers: {
         Authorization: `Zoho-oauthtoken ${token}`
       }

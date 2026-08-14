@@ -68,7 +68,7 @@ export const handler: Handler = async (event) => {
             if (!booksInvoiceId) return
 
             try {
-              const zohoRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
+              const zohoRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
                 headers: { Authorization: `Zoho-oauthtoken ${token}` },
               })
               if (zohoRes.ok) {

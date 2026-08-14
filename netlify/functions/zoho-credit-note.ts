@@ -52,7 +52,7 @@ export const handler: Handler = async (event) => {
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
     // Fetch the invoice from Zoho to get customer_id
-    const invRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
+    const invRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
     })
     const invData: any = await invRes.json()
@@ -77,7 +77,7 @@ export const handler: Handler = async (event) => {
       creditNotePayload.notes = reason
     }
 
-    const createRes = await fetch(`${baseUrl}/creditnotes?organization_id=${ORG_ID}`, {
+    const createRes = await fetch(`${baseUrl}/creditnotes?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: {
         'Authorization': `Zoho-oauthtoken ${token}`,
@@ -97,7 +97,7 @@ export const handler: Handler = async (event) => {
     }, 0)
 
     // Apply the credit note to the invoice
-    const applyRes = await fetch(`${baseUrl}/creditnotes/${creditNoteId}/invoices?organization_id=${ORG_ID}`, {
+    const applyRes = await fetch(`${baseUrl}/creditnotes/${creditNoteId}/invoices?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: {
         'Authorization': `Zoho-oauthtoken ${token}`,

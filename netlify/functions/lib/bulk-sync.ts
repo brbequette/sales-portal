@@ -55,7 +55,7 @@ export async function bulkSyncPage(
     const sortParam = (entity === 'contacts' || entity === 'vendors') ? '' : '&sort_column=date&sort_order=D'
     const vendorFilter = entity === 'vendors' ? '&contact_type=vendor' : ''
     const url = `${BOOKS_BASE}/${endpoint}?organization_id=${ORG_ID}&page=${page}&per_page=200${sortParam}${vendorFilter}`
-    const res = await fetch(url, { headers })
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers })
     result.apiCalls = 1
 
     if (!res.ok) {

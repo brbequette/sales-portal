@@ -61,12 +61,12 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const page = parseInt(searchParams.get("page") || "1", 10)
-    const limit = parseInt(searchParams.get("limit") || "32", 10)
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '50', 10) || 50))
     const activeTab = searchParams.get("tab") || "all" // "all" | "unmatched" | "needs-images" | "conflicts" | "products"
     const search = (searchParams.get("search") || "").trim().toUpperCase()
 
-    const skip = (page - 1) * limit
+    const skip = (page - 1) * pageSize
 
     // 1. Gather all main files from storage and public directories
     const imageFiles: string[] = []
@@ -169,22 +169,22 @@ export async function GET(req: NextRequest) {
 
     if (activeTab === "needs-images") {
       totalItems = needsImagesList.length
-      paginatedNeedsImages = needsImagesList.slice(skip, skip + limit)
+      paginatedNeedsImages = needsImagesList.slice(skip, skip + pageSize)
     } else if (activeTab === "conflicts") {
       totalItems = allConflictGroups.length
-      paginatedConflicts = allConflictGroups.slice(skip, skip + limit)
+      paginatedConflicts = allConflictGroups.slice(skip, skip + pageSize)
     } else if (activeTab === "unmatched") {
       totalItems = unmatchedFiltered.length
-      paginatedFiles = unmatchedFiltered.slice(skip, skip + limit)
+      paginatedFiles = unmatchedFiltered.slice(skip, skip + pageSize)
     } else if (activeTab === "products") {
       totalItems = allProductsList.length
-      paginatedProducts = allProductsList.slice(skip, skip + limit)
+      paginatedProducts = allProductsList.slice(skip, skip + pageSize)
     } else {
       totalItems = allFilesFiltered.length
-      paginatedFiles = allFilesFiltered.slice(skip, skip + limit)
+      paginatedFiles = allFilesFiltered.slice(skip, skip + pageSize)
     }
 
-    const totalPages = Math.ceil(totalItems / limit)
+    const totalPages = Math.ceil(totalItems / pageSize)
 
     // 5. Hydrate ONLY the paginated page records with slow Disk I/O checks
     const hydratedFiles = []
@@ -379,7 +379,7 @@ export async function GET(req: NextRequest) {
       counts,
       pagination: {
         page,
-        limit,
+        pageSize,
         totalItems,
         totalPages
       },
@@ -548,7 +548,7 @@ export async function POST(req: NextRequest) {
           const blob = new Blob([fileBuffer], { type: "image/png" })
           formData.append("image", blob, `${stem}.png`)
 
-          const uploadRes = await fetch(url, {
+          const uploadRes = await fetch(url, { signal: AbortSignal.timeout(15000),
             method: "POST",
             headers: {
               Authorization: `Zoho-oauthtoken ${token}`

@@ -90,7 +90,7 @@ export async function POST(req: Request) {
 
         // Update the package in Zoho Books with delivery method and tracking
         const zohoUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/packages/${packageZohoId}?organization_id=${orgId}`
-        const zohoRes = await fetch(zohoUrl, {
+        const zohoRes = await fetch(zohoUrl, { signal: AbortSignal.timeout(15000),
           method: 'PUT',
           headers: {
             Authorization: `Zoho-oauthtoken ${token}`,
@@ -111,7 +111,7 @@ export async function POST(req: Request) {
         // Also try to create a shipment order in Zoho if possible
         try {
           const shipmentUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/shipmentorders?organization_id=${orgId}`
-          await fetch(shipmentUrl, {
+          await fetch(shipmentUrl, { signal: AbortSignal.timeout(15000),
             method: 'POST',
             headers: {
               Authorization: `Zoho-oauthtoken ${token}`,

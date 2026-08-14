@@ -58,7 +58,7 @@ export const handler: Handler = async (event, context) => {
     let booksContactId = null;
 
     // Search for existing contact by zcrm_account_id (most reliable link)
-    const searchRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&zcrm_account_id=${account.zohoId}`, {
+    const searchRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&zcrm_account_id=${account.zohoId}`, { signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` }
     })
     const searchData = await searchRes.json()
@@ -67,7 +67,7 @@ export const handler: Handler = async (event, context) => {
       booksContactId = searchData.contacts[0].contact_id
     } else {
       // Fallback: search by name
-      const searchByNameRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&contact_name=${encodeURIComponent(account.name)}`, {
+      const searchByNameRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}&contact_name=${encodeURIComponent(account.name)}`, { signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Zoho-oauthtoken ${token}` }
       })
       const searchByNameData = await searchByNameRes.json()
@@ -76,7 +76,7 @@ export const handler: Handler = async (event, context) => {
         booksContactId = searchByNameData.contacts[0].contact_id
       } else {
         // Create new contact in Zoho Books
-        const createRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}`, {
+        const createRes = await fetch(`${baseUrl}/contacts?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
           method: "POST",
           headers: {
             Authorization: `Zoho-oauthtoken ${token}`,
@@ -117,7 +117,7 @@ export const handler: Handler = async (event, context) => {
     let zohoDoc: any = null
 
     if (type === "Quote") {
-      const res = await fetch(`${baseUrl}/estimates?organization_id=${ORG_ID}`, {
+      const res = await fetch(`${baseUrl}/estimates?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: "POST",
         headers: {
           Authorization: `Zoho-oauthtoken ${token}`,
@@ -131,7 +131,7 @@ export const handler: Handler = async (event, context) => {
       booksDocNumber = data.estimate?.estimate_number
       zohoDoc = data.estimate
     } else if (type === "SalesOrder") {
-      const res = await fetch(`${baseUrl}/salesorders?organization_id=${ORG_ID}`, {
+      const res = await fetch(`${baseUrl}/salesorders?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: "POST",
         headers: {
           Authorization: `Zoho-oauthtoken ${token}`,
@@ -258,7 +258,7 @@ export const handler: Handler = async (event, context) => {
                 }]
               }
 
-              const crmTaskRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks`, {
+              const crmTaskRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks`, { signal: AbortSignal.timeout(15000),
                 method: "POST",
                 headers: {
                   'Authorization': `Zoho-oauthtoken ${token}`,

@@ -17,7 +17,7 @@ async function updateCustomFieldInZoho(module: string, docId: string, token: str
 
   if (!customfield_id) {
     // 1. Fetch document to get the correct customfield_id (Only once per module)
-    const getRes = await fetch(`${baseUrl}/${docId}?organization_id=${ORG_ID}`, {
+    const getRes = await fetch(`${baseUrl}/${docId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` }
     })
     if (!getRes.ok) return false
@@ -34,7 +34,7 @@ async function updateCustomFieldInZoho(module: string, docId: string, token: str
   }
 
   // 2. PUT update directly since we have the customfield_id
-  const putRes = await fetch(`${baseUrl}/${docId}?organization_id=${ORG_ID}`, {
+  const putRes = await fetch(`${baseUrl}/${docId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
     method: "PUT",
     headers: {
       Authorization: `Zoho-oauthtoken ${token}`,

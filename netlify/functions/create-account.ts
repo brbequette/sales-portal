@@ -61,7 +61,7 @@ export const handler: Handler = async (event) => {
       accountPayload.Tag = tags.split(',').map((t: string) => ({ name: t.trim() })).filter((t: any) => t.name)
     }
 
-    const crmRes = await fetch(`${baseUrl}/Accounts`, {
+    const crmRes = await fetch(`${baseUrl}/Accounts`, { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: {
         'Authorization': `Zoho-oauthtoken ${token}`,
@@ -91,7 +91,7 @@ export const handler: Handler = async (event) => {
         Account_Name: { id: newAccountId }
       }
       
-      const contactRes = await fetch(`${baseUrl}/Contacts`, {
+      const contactRes = await fetch(`${baseUrl}/Contacts`, { signal: AbortSignal.timeout(15000),
         method: 'POST',
         headers: {
           'Authorization': `Zoho-oauthtoken ${token}`,
@@ -107,7 +107,7 @@ export const handler: Handler = async (event) => {
 
     // Fetch the newly created account from Zoho CRM to find out who the CRM assigned it to
     let ownerId = null
-    const fetchRes = await fetch(`${baseUrl}/Accounts/${newAccountId}`, {
+    const fetchRes = await fetch(`${baseUrl}/Accounts/${newAccountId}`, { signal: AbortSignal.timeout(15000),
       headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
     })
     

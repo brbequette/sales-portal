@@ -30,7 +30,7 @@ async function fetchAllPages(
 
   while (hasMore) {
     const url = `${baseUrl}/${endpoint}?organization_id=${ORG_ID}&page=${page}&per_page=200${extraParams}`
-    const res = await fetch(url, {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000),
       headers:  { Authorization: `Zoho-oauthtoken ${token}` },
       signal:   AbortSignal.timeout(20_000), // 20s per page
     })

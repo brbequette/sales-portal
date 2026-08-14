@@ -65,7 +65,7 @@ export const handler: Handler = async (event) => {
       }
 
       if (action === 'confirm') {
-        const res = await fetch(`${baseUrl}/salesorders/${booksId}/status/confirmed?organization_id=${ORG_ID}`, {
+        const res = await fetch(`${baseUrl}/salesorders/${booksId}/status/confirmed?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
           method: 'POST',
           headers: {
             'Authorization': `Zoho-oauthtoken ${token}`,
@@ -81,7 +81,7 @@ export const handler: Handler = async (event) => {
           shipment_date: new Date().toISOString().split('T')[0],
           ...(trackingNumber ? { tracking_number: trackingNumber } : {})
         }
-        const res = await fetch(`${baseUrl}/salesorders/${booksId}?organization_id=${ORG_ID}`, {
+        const res = await fetch(`${baseUrl}/salesorders/${booksId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
           method: 'PUT',
           headers: {
             'Authorization': `Zoho-oauthtoken ${token}`,
@@ -117,7 +117,7 @@ export const handler: Handler = async (event) => {
         }
       }
 
-      const res = await fetch(`${baseUrl}/estimates/${booksId}/status/${action}?organization_id=${ORG_ID}`, {
+      const res = await fetch(`${baseUrl}/estimates/${booksId}/status/${action}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: 'POST',
         headers: {
           'Authorization': `Zoho-oauthtoken ${token}`,

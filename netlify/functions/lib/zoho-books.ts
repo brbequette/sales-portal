@@ -14,7 +14,7 @@ export async function syncRecentBooksInvoices() {
     let allBooksInvoices: any[] = [];
     
     while (hasMore && page <= 5) {
-      const res = await fetch(`${baseUrl}/invoices?organization_id=${ORG_ID}&per_page=100&page=${page}&sort_column=last_modified_time&sort_order=D`, {
+      const res = await fetch(`${baseUrl}/invoices?organization_id=${ORG_ID}&per_page=100&page=${page}&sort_column=last_modified_time&sort_order=D`, { signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Zoho-oauthtoken ${token}` }
       })
       const data = await res.json()

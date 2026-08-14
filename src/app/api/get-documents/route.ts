@@ -9,11 +9,8 @@ export async function GET(request: Request) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
-    const pageParam = searchParams.get('page')
-    const pageSizeParam = searchParams.get('pageSize')
-    
-    const page = Math.max(1, parseInt(pageParam || '1', 10))
-    const pageSize = Math.min(100, Math.max(1, parseInt(pageSizeParam || '50', 10)))
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '50', 10) || 50))
     
     const search = searchParams.get('search')?.toLowerCase() || ''
     const docType = searchParams.get('docType') || searchParams.get('type') || 'All'

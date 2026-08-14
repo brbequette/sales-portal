@@ -105,7 +105,7 @@ export const handler: Handler = async (event, context) => {
           url = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks/search?criteria=(Owner:equals:${user.zohoId})&fields=Subject,Status,Priority,Due_Date,Owner,What_Id,Description`
         }
 
-        const res = await fetch(url, {
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000),
           headers: { 'Authorization': `Zoho-oauthtoken ${token}` }
         })
 

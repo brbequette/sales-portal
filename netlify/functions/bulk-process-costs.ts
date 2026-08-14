@@ -120,8 +120,7 @@ export const handler: Handler = async (event) => {
     // ── 1 list GET for the whole page ──────────────────────────────────────
     const sortParam = entity === "estimates" ? "" : "&sort_column=date&sort_order=D"
     const listRes = await fetch(
-      `${baseUrl}/${cfg.booksPath}?organization_id=${ORG_ID}&page=${page}&per_page=${perPage}${sortParam}${statusFilter}`,
-      { headers: authHeaders }
+      `${baseUrl}/${cfg.booksPath}?organization_id=${ORG_ID}&page=${page}&per_page=${perPage}${sortParam}${statusFilter}`, { signal: AbortSignal.timeout(15000), headers: authHeaders }
     )
     if (!listRes.ok) throw new Error(`Zoho list error ${listRes.status}`)
     const listData: any = await listRes.json()
@@ -146,8 +145,7 @@ export const handler: Handler = async (event) => {
       try {
         // GET full detail with line_items + custom_fields
         const detailRes = await fetch(
-          `${baseUrl}/${cfg.booksPath}/${zohoId}?organization_id=${ORG_ID}`,
-          { headers: authHeaders }
+          `${baseUrl}/${cfg.booksPath}/${zohoId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: authHeaders }
         )
         if (!detailRes.ok) throw new Error(`GET detail HTTP ${detailRes.status}`)
         const detailData: any = await detailRes.json()
@@ -195,8 +193,7 @@ export const handler: Handler = async (event) => {
         // ── PUT custom fields (if changed) ──────────────────────────────
         if (fieldsToUpdate.length > 0) {
           const putRes = await fetch(
-            `${baseUrl}/${cfg.booksPath}/${zohoId}?organization_id=${ORG_ID}`,
-            {
+            `${baseUrl}/${cfg.booksPath}/${zohoId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
               method: "PUT",
               headers: { ...authHeaders, "Content-Type": "application/json" },
               body: JSON.stringify({ custom_fields: fieldsToUpdate }),
@@ -216,8 +213,7 @@ export const handler: Handler = async (event) => {
         // ── PUT tariff adjustment (separate Zoho call — needs customer_id) ──
         if (applyTariff && tariffAmount > 0) {
           const tariffRes = await fetch(
-            `${baseUrl}/${cfg.booksPath}/${zohoId}?organization_id=${ORG_ID}`,
-            {
+            `${baseUrl}/${cfg.booksPath}/${zohoId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
               method: "PUT",
               headers: { ...authHeaders, "Content-Type": "application/json" },
               body: JSON.stringify({

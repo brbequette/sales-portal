@@ -52,7 +52,7 @@ export const handler: Handler = async (event) => {
         const token = await getZohoAccessToken()
         // ZOHO_DC imported at top-level
         const url = `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders/${salesOrderId}?organization_id=${ORG_ID}`
-        const res = await fetch(url, {
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000),
           headers: { Authorization: `Zoho-oauthtoken ${token}` }
         })
         if (!res.ok) {
@@ -122,7 +122,7 @@ export const handler: Handler = async (event) => {
           const token = await getZohoAccessToken()
           // ZOHO_DC imported at top-level
 
-          await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/shipmentorders?organization_id=${ORG_ID}`, {
+          await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/shipmentorders?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
             method: "POST",
             headers: {
               Authorization: `Zoho-oauthtoken ${token}`,

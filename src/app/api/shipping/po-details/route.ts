@@ -17,8 +17,7 @@ export async function GET(req: Request) {
 
     // Fetch individual PO details from Zoho Books
     const res = await fetch(
-      `https://www.zohoapis.${ZOHO_DC}/books/v3/purchaseorders/${poZohoId}?organization_id=${ZOHO_ORGANIZATION_ID}`,
-      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+      `https://www.zohoapis.${ZOHO_DC}/books/v3/purchaseorders/${poZohoId}?organization_id=${ZOHO_ORGANIZATION_ID}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
     )
 
     if (!res.ok) {

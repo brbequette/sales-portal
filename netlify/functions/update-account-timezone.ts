@@ -65,7 +65,7 @@ export const handler: Handler = async (event) => {
         try {
           const token = await getZohoAccessToken()
           const baseUrl = `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`
-          await fetch(`${baseUrl}/${account.zohoId}`, {
+          await fetch(`${baseUrl}/${account.zohoId}`, { signal: AbortSignal.timeout(15000),
             method: "PUT",
             headers: {
               Authorization: `Zoho-oauthtoken ${token}`,

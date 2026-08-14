@@ -165,7 +165,7 @@ export async function POST(req: Request) {
     if (lead?.zohoId && !lead.zohoId.startsWith("lead_local_")) {
       try {
         const token = await getZohoAccessToken()
-        await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads/${lead.zohoId}/actions/convert`, {
+        await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads/${lead.zohoId}/actions/convert`, { signal: AbortSignal.timeout(15000),
           method: "POST",
           headers: {
             Authorization: `Zoho-oauthtoken ${token}`,

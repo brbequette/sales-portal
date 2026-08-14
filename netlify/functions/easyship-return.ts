@@ -74,7 +74,7 @@ export const handler: Handler = async (event) => {
     const token = await getZohoAccessToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
-    const zohoRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
+    const zohoRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
     })
 
@@ -165,7 +165,7 @@ export const handler: Handler = async (event) => {
     }
 
     const easyshipUrl = 'https://api.easyship.com/2023-01/shipments'
-    const createRes = await fetch(easyshipUrl, {
+    const createRes = await fetch(easyshipUrl, { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${EASYSHIP_API_KEY}`,
@@ -185,7 +185,7 @@ export const handler: Handler = async (event) => {
     }
 
     // 4. Confirm/Buy the Label
-    const labelRes = await fetch('https://api.easyship.com/2023-01/labels', {
+    const labelRes = await fetch('https://api.easyship.com/2023-01/labels', { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${EASYSHIP_API_KEY}`,
@@ -213,7 +213,7 @@ export const handler: Handler = async (event) => {
     while (attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1500))
       
-      const pollRes = await fetch(`https://api.easyship.com/2023-01/shipments/${shipmentId}`, {
+      const pollRes = await fetch(`https://api.easyship.com/2023-01/shipments/${shipmentId}`, { signal: AbortSignal.timeout(15000),
         headers: {
           'Authorization': `Bearer ${EASYSHIP_API_KEY}`,
           'Content-Type': 'application/json'

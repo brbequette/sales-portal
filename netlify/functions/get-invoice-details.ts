@@ -109,7 +109,7 @@ export const handler: Handler = async (event) => {
         try {
           const token = await getZohoAccessToken()
           const searchUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ORG_ID}&invoice_number=${searchNum}`
-          const searchRes = await fetch(searchUrl, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
+          const searchRes = await fetch(searchUrl, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
           if (searchRes.ok) {
             const searchData: any = await searchRes.json()
             if (searchData.invoices?.length > 0) {
@@ -132,7 +132,7 @@ export const handler: Handler = async (event) => {
     if (type === "SalesOrder") modulePath = "salesorders"
     if (type === "Quote") modulePath = "estimates"
 
-    const zohoRes = await fetch(`${baseUrl}/${modulePath}/${booksDocId}?organization_id=${ORG_ID}`, {
+    const zohoRes = await fetch(`${baseUrl}/${modulePath}/${booksDocId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` },
     })
 

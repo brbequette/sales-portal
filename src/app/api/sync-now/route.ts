@@ -84,8 +84,7 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads?per_page=200&sort_by=Modified_Time&sort_order=desc${sinceParam}`,
-            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+            `https://www.zohoapis.${ZOHO_DC}/crm/v3/Leads?per_page=200&sort_by=Modified_Time&sort_order=desc${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0;
@@ -175,8 +174,7 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
-            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0;
@@ -273,8 +271,7 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
-            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0;
@@ -370,8 +367,7 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts?per_page=200&sort_by=Modified_Time&sort_order=desc${sinceParam}`,
-            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+            `https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts?per_page=200&sort_by=Modified_Time&sort_order=desc${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0;
@@ -464,8 +460,7 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/packages?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
-            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/packages?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0;
@@ -534,8 +529,7 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/purchaseorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
-            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/purchaseorders?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0;
@@ -606,8 +600,7 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/estimates?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
-            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/estimates?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0;
@@ -697,8 +690,7 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/customerpayments?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
-            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/customerpayments?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0;
@@ -791,8 +783,7 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/contacts?organization_id=${ZOHO_ORGANIZATION_ID}&contact_type=vendor&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
-            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/contacts?organization_id=${ZOHO_ORGANIZATION_ID}&contact_type=vendor&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0;
@@ -857,8 +848,7 @@ export async function POST(req: NextRequest) {
             ? `&last_modified_time=${encodeURIComponent(tStatus.lastSyncAt)}`
             : ''
           const zRes = await fetch(
-            `https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`,
-            { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+            `https://www.zohoapis.${ZOHO_DC}/books/v3/items?organization_id=${ZOHO_ORGANIZATION_ID}&per_page=200&sort_column=last_modified_time&sort_order=D${sinceParam}`, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } }
           )
 
           let syncedCount = 0;

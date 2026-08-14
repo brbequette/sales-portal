@@ -11,8 +11,8 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url)
-    const page = parseInt(searchParams.get("page") || "1", 10)
-    const limit = parseInt(searchParams.get("limit") || "50", 10)
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '50', 10) || 50))
 
     const totalCount = await prisma.lead.count({
       where: { matchStatus: { in: ["QUESTIONABLE", "DISCREPANCY"] } }
@@ -24,15 +24,15 @@ export async function GET(req: Request) {
         owner: { select: { id: true, name: true, email: true } }
       },
       orderBy: { updatedAt: "desc" },
-      skip: (page - 1) * limit,
-      take: limit
+      skip: (page - 1) * pageSize,
+      take: pageSize
     })
 
     return NextResponse.json({
       success: true,
       totalCount,
       page,
-      limit,
+      pageSize,
       leads: questionableLeads
     })
   } catch (error: any) {

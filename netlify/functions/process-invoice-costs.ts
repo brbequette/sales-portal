@@ -61,7 +61,7 @@ export const handler: Handler = async (event) => {
     // 1. Resolve Zoho Books invoice ID
     let booksInvoiceId = invoiceId
     if (!booksInvoiceId && invoiceNumber) {
-      const searchRes = await fetch(`${baseUrl}/invoices?organization_id=${ORG_ID}&invoice_number=${invoiceNumber}`, { headers: authHeaders })
+      const searchRes = await fetch(`${baseUrl}/invoices?organization_id=${ORG_ID}&invoice_number=${invoiceNumber}`, { signal: AbortSignal.timeout(15000), headers: authHeaders })
       if (!searchRes.ok) throw new Error(`Failed to search for invoice: ${searchRes.status}`)
       const searchData: any = await searchRes.json()
       if (!searchData.invoices?.length) {
@@ -77,7 +77,7 @@ export const handler: Handler = async (event) => {
     }
 
     // 3. Fetch full invoice
-    const detailRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { headers: authHeaders })
+    const detailRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000), headers: authHeaders })
     if (!detailRes.ok) throw new Error(`Failed to fetch invoice details: ${detailRes.status}`)
     const detailData: any = await detailRes.json()
     if (detailData.code !== 0) throw new Error(`Zoho error: ${detailData.message}`)
@@ -160,7 +160,7 @@ export const handler: Handler = async (event) => {
 
     if (Object.keys(putPayload).length > 0) {
       markProcessed(booksInvoiceId)
-      const putRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, {
+      const putRes = await fetch(`${baseUrl}/invoices/${booksInvoiceId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: "PUT",
         headers: { ...authHeaders, "Content-Type": "application/json", "x-source": "app-cost-sync" },
         body: JSON.stringify(putPayload),

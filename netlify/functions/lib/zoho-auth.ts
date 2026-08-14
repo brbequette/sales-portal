@@ -58,7 +58,7 @@ export async function getZohoAccessToken(): Promise<string> {
     grant_type:    'refresh_token',
   })
 
-  const res = await fetch(`https://accounts.zoho.${ZOHO_DC}/oauth/v2/token`, {
+  const res = await fetch(`https://accounts.zoho.${ZOHO_DC}/oauth/v2/token`, { signal: AbortSignal.timeout(15000),
     method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body:    params.toString(),
@@ -115,7 +115,7 @@ export async function pushZohoNote(
       }],
     }
 
-    const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Notes`, {
+    const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Notes`, { signal: AbortSignal.timeout(15000),
       method:  'POST',
       headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
       body:    JSON.stringify(zohoPayload),

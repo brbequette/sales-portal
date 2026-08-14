@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       // The instructions say: "If contact looks like email (contains @), send code via internal fetch to /api/zoho-voice with action SEND_EMAIL... Actually, for simplicity: use fetch to the existing zoho-voice API. For email, just use a simple approach - construct and send a verification email."
       
       // I'll use the zoho-voice API since it's mentioned.
-      await fetch(`${baseUrl}/api/zoho-voice`, {
+      await fetch(`${baseUrl}/api/zoho-voice`, { signal: AbortSignal.timeout(15000),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       }).catch(err => console.error('Failed to send email:', err));
     } else {
       // Send SMS
-      await fetch(`${baseUrl}/api/zoho-voice`, {
+      await fetch(`${baseUrl}/api/zoho-voice`, { signal: AbortSignal.timeout(15000),
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

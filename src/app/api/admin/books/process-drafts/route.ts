@@ -16,7 +16,7 @@ export async function POST() {
     let hasMore = true
 
     while (hasMore) {
-      const listRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ORG_ID}&status=draft&page=${page}&per_page=200`, {
+      const listRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices?organization_id=${ORG_ID}&status=draft&page=${page}&per_page=200`, { signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Zoho-oauthtoken ${token}` }
       })
       
@@ -42,7 +42,7 @@ export async function POST() {
     let processed = 0
 
     for (const inv of allDraftInvoices) {
-      const updateRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${inv.invoice_id}/status/sent?organization_id=${ORG_ID}`, {
+      const updateRes = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/invoices/${inv.invoice_id}/status/sent?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: 'POST',
         headers: { Authorization: `Zoho-oauthtoken ${token}` }
       })

@@ -78,7 +78,7 @@ async function processAutoships(now: Date) {
           }))
         }
 
-        const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders?organization_id=${ZOHO_ORGANIZATION_ID}`, {
+        const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders?organization_id=${ZOHO_ORGANIZATION_ID}`, { signal: AbortSignal.timeout(15000),
           method: 'POST',
           headers: {
             'Authorization': `Zoho-oauthtoken ${token}`,
@@ -365,7 +365,7 @@ export const handler = schedule("*/5 * * * *", async () => {
         }
 
         // Send via existing SMS infrastructure
-        const smsRes = await fetch(`${process.env.URL || 'https://titandiamond.netlify.app'}/.netlify/functions/send-sms`, {
+        const smsRes = await fetch(`${process.env.URL || 'https://titandiamond.netlify.app'}/.netlify/functions/send-sms`, { signal: AbortSignal.timeout(15000),
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
