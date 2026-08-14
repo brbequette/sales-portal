@@ -172,6 +172,23 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
           drawRecoverable: activePlan.drawRecoverable,
         } : null
 
+        // YTD Stats
+        let ytdSales = 0
+        let ytdDeadProfit = 0
+        let ytdCommEarned = 0
+        let ytdPending = 0
+        const ytdDeals = repInvoices.length
+        const ytdPaid = commData.byRep?.[repId]?.totalPaid || 0
+
+        repInvoices.forEach((inv: any) => {
+          ytdSales += inv.amount || 0
+          ytdDeadProfit += inv.deadProfit || 0
+          ytdCommEarned += inv.commission?.total || 0
+          if (!inv.isPaid && inv.commission?.future) {
+            ytdPending += inv.commission.future
+          }
+        })
+
         setData({
           repName,
           planSummary,
@@ -185,6 +202,12 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
           totalReimbursements,
           totalDeductions,
           commitment,
+          ytdSales,
+          ytdDeadProfit,
+          ytdCommEarned,
+          ytdPending,
+          ytdPaid,
+          ytdDeals,
         })
 
       } catch (err) {
@@ -216,221 +239,321 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
   }
 
   return (
-    <div className="bg-white text-black min-h-screen font-sans p-10 max-w-4xl mx-auto print:p-6 print:m-0">
-      {/* ── HEADER ── */}
-      <div className="flex justify-between items-center border-b-2 border-black pb-4 mb-6">
-        <div className="flex items-center gap-4">
-          <img src="/images/logo_light.png" alt="Titan Diamond USA" className="h-12 w-auto object-contain" />
-          <div>
-            <h1 className="text-2xl font-black uppercase tracking-widest text-neutral-900">Titan Diamond</h1>
-            <p className="text-xs font-bold text-neutral-600 uppercase tracking-wider mt-0.5">Weekly Pay Voucher</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <h2 className="text-xl font-bold text-neutral-900">{data.repName}</h2>
-          <p className="text-xs font-semibold text-neutral-600">Week of: {fmtDate(weekStartStr)}</p>
-          <p className="text-xs font-semibold text-neutral-500">Generated: {fmtDate(new Date().toISOString())}</p>
-        </div>
-      </div>
-
-      {/* ── PLAN SUMMARY BAR ── */}
-      {data.planSummary && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 mb-6 flex items-center justify-between text-sm">
-          <span className="font-bold">Compensation Plan:</span>
-          <span>{payTypeLabel[data.planSummary.payType] || data.planSummary.payType}
-            {data.planSummary.commissionEnabled && ` + Commission (${((data.planSummary.commissionRate || 0.5) * 100).toFixed(0)}%)`}
-          </span>
-          {data.planSummary.baseAmount && (
-            <span className="text-gray-600">
-              Base: {fmt(data.planSummary.baseAmount)}/{(data.planSummary.baseInterval || "WEEKLY").toLowerCase()}
-              {data.planSummary.drawRecoverable && data.planSummary.payType === "DRAW" && " (recoverable)"}
-            </span>
-          )}
-        </div>
-      )}
-
-      <div className="space-y-6">
-        {/* ── BASE PAY ── */}
-        {data.basePay && data.basePay.amount > 0 && (
-          <section>
-            <h3 className="text-lg font-bold border-b border-gray-300 pb-2 mb-3">Base Pay</h3>
-            <table className="w-full text-sm">
-              <tbody>
-                <tr className="border-b border-gray-100">
-                  <td className="py-2">{data.basePay.description}</td>
-                  {data.basePay.hoursWorked && (
-                    <td className="py-2 text-gray-500">{data.basePay.hoursWorked} hrs</td>
-                  )}
-                  <td className="py-2 text-right font-bold text-green-700">+{fmt(data.basePay.amount)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-        )}
-
-        {/* ── COMMISSIONS ── */}
-        <section>
-          <h3 className="text-lg font-bold border-b border-gray-300 pb-2 mb-3">Commissions Earned</h3>
+    <>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: letter portrait;
+            margin: 0.75in 0.6in;
+            @bottom-center { content: 'Page ' counter(page) ' of ' counter(pages); }
+          }
+          thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
+          tr, section { page-break-inside: avoid; }
+          .print-hidden { display: none !important; }
+        }
+      `}} />
+      <div className="bg-gray-100 min-h-screen p-4 print:p-0 print:bg-white text-black font-sans">
+        <div className="max-w-4xl mx-auto print:max-w-none print:mx-0">
           
-          {data.upfrontEvents.length > 0 && (
-            <div className="mb-4">
-              <h4 className="font-semibold text-sm mb-2 text-gray-700">Upfront Commissions (New Deals)</h4>
-              <table className="w-full text-sm">
-                <tbody>
-                  {data.upfrontEvents.map((ev: any, i: number) => (
-                    <tr key={i} className="border-b border-gray-100">
-                      <td className="py-2">{ev.name}</td>
-                      <td className="py-2 text-right">{fmt(ev.amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {data.finalEvents.length > 0 && (
-            <div className="mb-4">
-              <h4 className="font-semibold text-sm mb-2 text-gray-700">Final Commissions (Paid Deals)</h4>
-              <table className="w-full text-sm">
-                <tbody>
-                  {data.finalEvents.map((ev: any, i: number) => (
-                    <tr key={i} className="border-b border-gray-100">
-                      <td className="py-2">{ev.name}</td>
-                      <td className="py-2 text-right">{fmt(ev.amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {data.upfrontEvents.length === 0 && data.finalEvents.length === 0 && (
-            <p className="text-sm text-gray-400 py-2">No commission events this week.</p>
-          )}
-          
-          <div className="flex justify-end font-bold text-base mt-2 pt-2 border-t border-gray-300">
-            <span>Commission Subtotal: {fmt(data.totalCommission)}</span>
+          <div className="mb-4 print-hidden flex justify-end">
+            <button onClick={() => window.print()} className="bg-black text-white px-6 py-2 font-bold rounded shadow hover:bg-gray-800 transition-colors">
+              Print
+            </button>
           </div>
-        </section>
 
-        {/* ── DRAW RECOVERY ── */}
-        {data.drawRecovery > 0 && (
-          <section>
-            <h3 className="text-lg font-bold border-b border-gray-300 pb-2 mb-3">Draw Recovery</h3>
-            <table className="w-full text-sm">
-              <tbody>
-                <tr className="border-b border-gray-100">
-                  <td className="py-2">Draw offset against commissions</td>
-                  <td className="py-2 text-right text-red-700 font-bold">-{fmt(data.drawRecovery)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-        )}
-
-        {/* ── REIMBURSEMENTS ── */}
-        {data.reimbursements.length > 0 && (
-          <section>
-            <h3 className="text-lg font-bold border-b border-gray-300 pb-2 mb-3">Reimbursements</h3>
-            <table className="w-full text-sm">
-              <tbody>
-                {data.reimbursements.map((r: any, i: number) => (
-                  <tr key={i} className="border-b border-gray-100">
-                    <td className="py-2">{r.description}</td>
-                    <td className="py-2 text-right text-green-700">+{fmt(r.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        )}
-
-        {/* ── ADVANCE DEDUCTIONS ── */}
-        {data.advances.length > 0 && (
-          <section>
-            <h3 className="text-lg font-bold border-b border-gray-300 pb-2 mb-3">Advance Deductions</h3>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500 border-b border-gray-200">
-                  <th className="py-1 font-semibold">Advance</th>
-                  <th className="py-1 font-semibold text-right">Remaining</th>
-                  {data.advances.some((a: any) => a.weeksLeft) && (
-                    <th className="py-1 font-semibold text-right">Weeks Left</th>
+          <table className="w-full bg-white print:bg-transparent border-collapse">
+            <thead>
+              <tr>
+                <td>
+                  {/* ── HEADER ── */}
+                  <div className="flex justify-between items-center border-b-2 border-black pb-4 mb-6 pt-4 px-8 print:px-0 print:pt-0">
+                    <div className="flex items-center gap-4">
+                      <img src="/images/logo_light.png" alt="Titan Diamond LLC" className="h-12 w-auto object-contain" />
+                      <div>
+                        <h1 className="text-2xl font-black uppercase tracking-widest text-black">Titan Diamond LLC</h1>
+                        <p className="text-xs font-bold text-gray-800 uppercase tracking-wider mt-0.5">Weekly Pay Voucher</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <h2 className="text-xl font-bold text-black">{data.repName}</h2>
+                      <p className="text-xs font-semibold text-gray-800">Week of: {fmtDate(weekStartStr)}</p>
+                      <p className="text-xs font-semibold text-gray-500">Generated: {fmtDate(new Date().toISOString())}</p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="px-8 pb-8 print:px-0 print:pb-0">
+                  
+                  {/* ── PLAN SUMMARY BAR ── */}
+                  {data.planSummary && (
+                    <div className="border border-black rounded px-4 py-2 mb-6 flex items-center justify-between text-sm font-semibold">
+                      <span>Compensation Plan:</span>
+                      <span>{payTypeLabel[data.planSummary.payType] || data.planSummary.payType}
+                        {data.planSummary.commissionEnabled && ` + Commission (${((data.planSummary.commissionRate || 0.5) * 100).toFixed(0)}%)`}
+                      </span>
+                      {data.planSummary.baseAmount && (
+                        <span className="text-black">
+                          Base: {fmt(data.planSummary.baseAmount)}/{(data.planSummary.baseInterval || "WEEKLY").toLowerCase()}
+                          {data.planSummary.drawRecoverable && data.planSummary.payType === "DRAW" && " (recoverable)"}
+                        </span>
+                      )}
+                    </div>
                   )}
-                  <th className="py-1 font-semibold text-right">Deduction</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.advances.map((a: any, i: number) => (
-                  <tr key={i} className="border-b border-gray-100">
-                    <td className="py-2">{a.reason}</td>
-                    <td className="py-2 text-right text-gray-500">{fmt(a.remaining)}</td>
-                    {data.advances.some((a: any) => a.weeksLeft) && (
-                      <td className="py-2 text-right text-gray-500">{a.weeksLeft || "—"}</td>
+
+                  <div className="space-y-6">
+                    {/* ── BASE PAY ── */}
+                    {data.basePay && data.basePay.amount > 0 && (
+                      <section className="border border-gray-300 rounded overflow-hidden">
+                        <h3 className="text-sm font-bold bg-gray-100 border-b border-gray-300 px-3 py-2 uppercase tracking-wide">Base Pay</h3>
+                        <table className="w-full text-sm">
+                          <tbody>
+                            <tr className="border-b border-gray-100 last:border-0">
+                              <td className="py-2 px-3">{data.basePay.description}</td>
+                              {data.basePay.hoursWorked && (
+                                <td className="py-2 px-3 text-gray-600">{data.basePay.hoursWorked} hrs</td>
+                              )}
+                              <td className="py-2 px-3 text-right font-bold text-black">+{fmt(data.basePay.amount)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </section>
                     )}
-                    <td className="py-2 text-right text-red-700 font-bold">-{fmt(a.deduction)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        )}
 
-        {/* ── PERFORMANCE COMMITMENT ── */}
-        {data.commitment && (
-          <section>
-            <h3 className="text-lg font-bold border-b border-gray-300 pb-2 mb-3">Performance Commitment</h3>
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-500 block">Metric</span>
-                  <span className="font-bold">{data.commitment.metric?.replace(/_/g, " ")}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 block">Monthly Target</span>
-                  <span className="font-bold">{data.commitment.metric === "INVOICES_COUNT" ? data.commitment.target : fmt(data.commitment.target)}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 block">MTD Actual</span>
-                  <span className={`font-bold ${data.commitment.met ? "text-green-700" : "text-red-700"}`}>
-                    {data.commitment.metric === "INVOICES_COUNT" ? data.commitment.actual : fmt(data.commitment.actual)}
-                    {data.commitment.met ? " ✓ ON TRACK" : " ✗ BEHIND"}
-                  </span>
-                </div>
-              </div>
-              {data.commitment.vigRate && (
-                <div className="mt-2 pt-2 border-t border-gray-200 text-sm">
-                  <span className="text-gray-500">VIG Rate: </span>
-                  <span className="font-bold">{data.commitment.vigRate}x {data.commitment.met ? "(maintained)" : "(at risk)"}</span>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-      </div>
+                    {/* ── COMMISSIONS ── */}
+                    <section className="border border-gray-300 rounded overflow-hidden">
+                      <h3 className="text-sm font-bold bg-gray-100 border-b border-gray-300 px-3 py-2 uppercase tracking-wide">Commissions</h3>
+                      
+                      {data.upfrontEvents.length > 0 && (
+                        <div className="p-3 border-b border-gray-200 last:border-0">
+                          <h4 className="font-semibold text-xs uppercase tracking-wider mb-2 text-gray-600">Upfront Commissions (New Deals)</h4>
+                          <table className="w-full text-sm">
+                            <tbody>
+                              {data.upfrontEvents.map((ev: any, i: number) => (
+                                <tr key={i} className="border-b border-gray-100 last:border-0">
+                                  <td className="py-1">{ev.name}</td>
+                                  <td className="py-1 text-right">{fmt(ev.amount)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
 
-      {/* ── TOTAL NET PAYOUT ── */}
-      <div className="mt-10 border-t-4 border-black pt-4">
-        {/* Breakdown summary */}
-        <div className="text-sm text-gray-600 space-y-1 mb-4">
-          {basePayAmount > 0 && <div className="flex justify-between"><span>Base Pay</span><span>+{fmt(basePayAmount)}</span></div>}
-          <div className="flex justify-between"><span>Commissions</span><span>+{fmt(data.totalCommission)}</span></div>
-          {data.drawRecovery > 0 && <div className="flex justify-between text-red-700"><span>Draw Recovery</span><span>-{fmt(data.drawRecovery)}</span></div>}
-          {data.totalReimbursements > 0 && <div className="flex justify-between"><span>Reimbursements</span><span>+{fmt(data.totalReimbursements)}</span></div>}
-          {data.totalDeductions > 0 && <div className="flex justify-between text-red-700"><span>Advance Deductions</span><span>-{fmt(data.totalDeductions)}</span></div>}
+                      {data.finalEvents.length > 0 && (
+                        <div className="p-3 border-b border-gray-200 last:border-0">
+                          <h4 className="font-semibold text-xs uppercase tracking-wider mb-2 text-gray-600">Final Commissions (Paid Deals)</h4>
+                          <table className="w-full text-sm">
+                            <tbody>
+                              {data.finalEvents.map((ev: any, i: number) => (
+                                <tr key={i} className="border-b border-gray-100 last:border-0">
+                                  <td className="py-1">{ev.name}</td>
+                                  <td className="py-1 text-right">{fmt(ev.amount)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {data.upfrontEvents.length === 0 && data.finalEvents.length === 0 && (
+                        <div className="p-3">
+                          <p className="text-sm text-gray-500 py-1">No commission events this week.</p>
+                        </div>
+                      )}
+                      
+                      <div className="bg-gray-50 px-3 py-2 flex justify-between font-bold text-sm border-t border-gray-300">
+                        <span>Commission Subtotal</span>
+                        <span>{fmt(data.totalCommission)}</span>
+                      </div>
+                    </section>
+
+                    {/* ── DRAW RECOVERY ── */}
+                    {data.drawRecovery > 0 && (
+                      <section className="border border-gray-300 rounded overflow-hidden">
+                        <h3 className="text-sm font-bold bg-gray-100 border-b border-gray-300 px-3 py-2 uppercase tracking-wide">Draw Recovery</h3>
+                        <table className="w-full text-sm">
+                          <tbody>
+                            <tr className="border-b border-gray-100 last:border-0">
+                              <td className="py-2 px-3">Draw offset against commissions</td>
+                              <td className="py-2 px-3 text-right text-black font-bold">-{fmt(data.drawRecovery)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </section>
+                    )}
+
+                    {/* ── REIMBURSEMENTS ── */}
+                    {data.reimbursements.length > 0 && (
+                      <section className="border border-gray-300 rounded overflow-hidden">
+                        <h3 className="text-sm font-bold bg-gray-100 border-b border-gray-300 px-3 py-2 uppercase tracking-wide">Reimbursements</h3>
+                        <table className="w-full text-sm">
+                          <tbody>
+                            {data.reimbursements.map((r: any, i: number) => (
+                              <tr key={i} className="border-b border-gray-100 last:border-0">
+                                <td className="py-2 px-3">{r.description}</td>
+                                <td className="py-2 px-3 text-right text-black font-bold">+{fmt(r.amount)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </section>
+                    )}
+
+                    {/* ── ADVANCE DEDUCTIONS ── */}
+                    {data.advances.length > 0 && (
+                      <section className="border border-gray-300 rounded overflow-hidden">
+                        <h3 className="text-sm font-bold bg-gray-100 border-b border-gray-300 px-3 py-2 uppercase tracking-wide">Advance Deductions</h3>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-gray-600 border-b border-gray-200 text-xs uppercase tracking-wider">
+                              <th className="py-2 px-3 font-semibold">Advance</th>
+                              <th className="py-2 px-3 font-semibold text-right">Remaining</th>
+                              {data.advances.some((a: any) => a.weeksLeft) && (
+                                <th className="py-2 px-3 font-semibold text-right">Weeks Left</th>
+                              )}
+                              <th className="py-2 px-3 font-semibold text-right">Deduction</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {data.advances.map((a: any, i: number) => (
+                              <tr key={i} className="border-b border-gray-100 last:border-0">
+                                <td className="py-2 px-3">{a.reason}</td>
+                                <td className="py-2 px-3 text-right">{fmt(a.remaining)}</td>
+                                {data.advances.some((a: any) => a.weeksLeft) && (
+                                  <td className="py-2 px-3 text-right">{a.weeksLeft || "—"}</td>
+                                )}
+                                <td className="py-2 px-3 text-right text-black font-bold">-{fmt(a.deduction)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </section>
+                    )}
+
+                    {/* ── PERFORMANCE COMMITMENT ── */}
+                    {data.commitment && (
+                      <section className="border border-gray-300 rounded overflow-hidden">
+                        <h3 className="text-sm font-bold bg-gray-100 border-b border-gray-300 px-3 py-2 uppercase tracking-wide">Performance Commitment</h3>
+                        <div className="p-3">
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500 block text-xs uppercase tracking-wider">Metric</span>
+                              <span className="font-bold">{data.commitment.metric?.replace(/_/g, " ")}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500 block text-xs uppercase tracking-wider">Monthly Target</span>
+                              <span className="font-bold">{data.commitment.metric === "INVOICES_COUNT" ? data.commitment.target : fmt(data.commitment.target)}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500 block text-xs uppercase tracking-wider">MTD Actual</span>
+                              <span className={`font-bold ${data.commitment.met ? "text-black" : "text-black"}`}>
+                                {data.commitment.metric === "INVOICES_COUNT" ? data.commitment.actual : fmt(data.commitment.actual)}
+                                {data.commitment.met ? " ✓ ON TRACK" : " ✗ BEHIND"}
+                              </span>
+                            </div>
+                          </div>
+                          {data.commitment.vigRate && (
+                            <div className="mt-3 pt-3 border-t border-gray-200 text-sm">
+                              <span className="text-gray-500 text-xs uppercase tracking-wider">VIG Rate: </span>
+                              <span className="font-bold">{data.commitment.vigRate}x {data.commitment.met ? "(maintained)" : "(at risk)"}</span>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    )}
+
+                    {/* ── YTD SUMMARY ── */}
+                    <section className="border border-black rounded overflow-hidden">
+                      <h3 className="text-sm font-bold bg-gray-200 border-b border-black px-3 py-2 uppercase tracking-wide text-center">Year-To-Date Summary</h3>
+                      <div className="grid grid-cols-3 divide-x divide-y divide-gray-300 border-b border-black text-sm">
+                        <div className="p-3 text-center">
+                          <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Deals</div>
+                          <div className="font-bold">{data.ytdDeals}</div>
+                        </div>
+                        <div className="p-3 text-center">
+                          <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Sales Rev</div>
+                          <div className="font-bold">{fmt(data.ytdSales)}</div>
+                        </div>
+                        <div className="p-3 text-center">
+                          <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Dead Profit</div>
+                          <div className="font-bold">{fmt(data.ytdDeadProfit)}</div>
+                        </div>
+                        <div className="p-3 text-center border-t border-gray-300">
+                          <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Comm Earned</div>
+                          <div className="font-bold">{fmt(data.ytdCommEarned)}</div>
+                        </div>
+                        <div className="p-3 text-center border-t border-gray-300">
+                          <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Comm Paid</div>
+                          <div className="font-bold">{fmt(data.ytdPaid)}</div>
+                        </div>
+                        <div className="p-3 text-center border-t border-gray-300">
+                          <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Comm Pending</div>
+                          <div className="font-bold">{fmt(data.ytdPending)}</div>
+                        </div>
+                      </div>
+                    </section>
+
+                  </div>
+
+                  {/* ── TOTAL NET PAYOUT ── */}
+                  <div className="mt-8 border-t-2 border-black pt-4">
+                    <div className="flex flex-col items-end">
+                      <table className="text-sm text-gray-700 w-64 mb-4">
+                        <tbody>
+                          {basePayAmount > 0 && (
+                            <tr>
+                              <td className="py-1">Base Pay</td>
+                              <td className="py-1 text-right font-semibold">+{fmt(basePayAmount)}</td>
+                            </tr>
+                          )}
+                          <tr>
+                            <td className="py-1">Commissions</td>
+                            <td className="py-1 text-right font-semibold">+{fmt(data.totalCommission)}</td>
+                          </tr>
+                          {data.drawRecovery > 0 && (
+                            <tr>
+                              <td className="py-1">Draw Recovery</td>
+                              <td className="py-1 text-right font-semibold text-black">-{fmt(data.drawRecovery)}</td>
+                            </tr>
+                          )}
+                          {data.totalReimbursements > 0 && (
+                            <tr>
+                              <td className="py-1">Reimbursements</td>
+                              <td className="py-1 text-right font-semibold">+{fmt(data.totalReimbursements)}</td>
+                            </tr>
+                          )}
+                          {data.totalDeductions > 0 && (
+                            <tr>
+                              <td className="py-1">Advance Deductions</td>
+                              <td className="py-1 text-right font-semibold text-black">-{fmt(data.totalDeductions)}</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+
+                      <div className="border-t-4 border-black pt-2 w-full flex justify-between items-end">
+                        <div className="text-xs text-gray-600">
+                          <p>Please review your weekly statement.</p>
+                          <p>Report any discrepancies immediately.</p>
+                        </div>
+                        <div className="text-right">
+                          <h2 className="text-xs font-bold uppercase tracking-widest text-black mb-1">Total Net Payout</h2>
+                          <div className="text-3xl font-black text-black">{fmt(finalPay)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-
-        <div className="flex justify-between items-end border-t-2 border-gray-300 pt-4">
-          <div className="text-sm text-gray-500">
-            <p>Please review your weekly statement.</p>
-            <p>Report any discrepancies immediately.</p>
-          </div>
-          <div className="text-right">
-            <h2 className="text-sm font-bold uppercase text-gray-600 mb-1">Total Net Payout</h2>
-            <div className="text-4xl font-bold">{fmt(finalPay)}</div>
-          </div>
-        </div>
       </div>
-    </div>
+    </>
   )
 }
