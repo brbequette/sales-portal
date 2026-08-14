@@ -53,7 +53,7 @@ function LoginContent() {
       const res = await fetch("/api/auth/magic-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailOrPhone: customerEmailOrPhone })
+        body: JSON.stringify({ contact: customerEmailOrPhone })
       })
       
       const data = await res.json()
@@ -80,7 +80,7 @@ function LoginContent() {
       const res = await fetch("/api/auth/magic-link/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailOrPhone: customerEmailOrPhone, code })
+        body: JSON.stringify({ contact: customerEmailOrPhone, code })
       })
 
       const data = await res.json()
@@ -127,7 +127,7 @@ function LoginContent() {
       const res = await fetch("/api/auth/magic-link/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailOrPhone: customerEmailOrPhone, code })
+        body: JSON.stringify({ contact: customerEmailOrPhone, code })
       })
 
       const data = await res.json()

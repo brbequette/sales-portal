@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import crypto from 'crypto'
-
-const prisma = new PrismaClient()
 
 // POST -- Webhook handler for shipping & carrier tracking status updates
 export async function POST(req: NextRequest) {
@@ -16,8 +14,10 @@ export async function POST(req: NextRequest) {
     }
 
     const hash = crypto.createHmac('sha256', secret).update(rawBody).digest('hex')
-    if (hash !== signature) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
+    const hashBuffer = Buffer.from(hash, 'hex')
+    const sigBuffer = Buffer.from(signature, 'hex')
+    if (hashBuffer.length !== sigBuffer.length || !crypto.timingSafeEqual(hashBuffer, sigBuffer)) {
+      return new Response('Invalid signature', { status: 401 })
     }
 
     const body = JSON.parse(rawBody)

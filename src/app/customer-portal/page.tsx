@@ -26,11 +26,11 @@ export default function CustomerDashboard() {
 
         if (accountRes.ok) {
           const data = await accountRes.json()
-          setAccount(data.account)
+          setAccount(data.data)
         }
         if (ordersRes.ok) {
           const data = await ordersRes.json()
-          setOrders(data.orders || [])
+          setOrders(data.data || [])
         }
       } catch (err) {
         console.error("Error fetching dashboard data", err)
@@ -75,8 +75,8 @@ export default function CustomerDashboard() {
             <span className="bg-white/10 px-2 py-1 rounded text-white font-medium">
               Tier: {account?.tier || "Standard"}
             </span>
-            {account?.rep && (
-              <span>Your Rep: <strong className="text-white">{account.rep.name}</strong> ({account.rep.phone})</span>
+            {account?.owner && (
+              <span>Your Rep: <strong className="text-white">{account.owner.name}</strong> ({account.owner.phone})</span>
             )}
           </div>
         </div>

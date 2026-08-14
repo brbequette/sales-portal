@@ -22,7 +22,7 @@ export default function OrdersPage() {
         })
         if (res.ok) {
           const data = await res.json()
-          setOrders(data.orders || [])
+          setOrders(data.data || [])
         }
       } catch (err) {
         console.error(err)
@@ -58,7 +58,7 @@ export default function OrdersPage() {
   }
 
   const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const matchesSearch = (order.invoiceNumber || order.salesorderNumber)?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           order.id?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "All" || order.status === statusFilter
     return matchesSearch && matchesStatus
@@ -117,7 +117,7 @@ export default function OrdersPage() {
                 <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
                     <div className="text-xs text-neutral-500 font-bold mb-1">ORDER NUMBER</div>
-                    <div className="font-bold text-white">{order.orderNumber || "N/A"}</div>
+                    <div className="font-bold text-white">{order.invoiceNumber || order.salesorderNumber || "N/A"}</div>
                   </div>
                   <div>
                     <div className="text-xs text-neutral-500 font-bold mb-1">DATE</div>
@@ -162,13 +162,13 @@ export default function OrdersPage() {
                   <div className="mb-4">
                     <h4 className="text-sm font-bold text-white mb-3">Order Items</h4>
                     <div className="space-y-2">
-                      {order.items?.map((item: any, i: number) => (
+                      {order.lineItems?.map((item: any, i: number) => (
                         <div key={i} className="flex justify-between text-sm">
                           <div className="flex gap-3 text-neutral-300">
                             <span className="font-medium">{item.quantity}x</span>
-                            <span>{item.name}</span>
+                            <span>{item.productName}</span>
                           </div>
-                          <span className="text-neutral-400">${((item.price || 0) * (item.quantity || 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          <span className="text-neutral-400">${((item.unitPrice || 0) * (item.quantity || 1)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                       )) || <div className="text-sm text-neutral-500">No line items detailed.</div>}
                     </div>

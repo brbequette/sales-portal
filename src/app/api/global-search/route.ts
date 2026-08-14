@@ -32,7 +32,15 @@ async function executeNetlifyFunction(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) { return executeNetlifyFunction(req); }
+export async function GET(req: NextRequest) {
+  const session = await require("next-auth").getServerSession(require("@/lib/auth").authOptions);
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  
+  const q = req.nextUrl.searchParams.get('q')?.trim();
+  if (!q || q.length < 2) return NextResponse.json({ results: [] });
+  
+  return executeNetlifyFunction(req);
+}
 export async function POST(req: NextRequest) { return executeNetlifyFunction(req); }
 export async function PUT(req: NextRequest) { return executeNetlifyFunction(req); }
 export async function DELETE(req: NextRequest) { return executeNetlifyFunction(req); }

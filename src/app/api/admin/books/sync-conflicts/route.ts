@@ -15,10 +15,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
 // ---------------------------------------------------------------------------
@@ -26,6 +27,9 @@ const ORG_ID = ZOHO_ORGANIZATION_ID
 // ---------------------------------------------------------------------------
 export async function GET(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session || (session as any).user?.role !== 'Administrator') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { searchParams } = new URL(req.url)
     const page    = parseInt(searchParams.get("page") ?? "1")
     const perPage = 20
@@ -126,6 +130,9 @@ export async function GET(req: NextRequest) {
 // ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session || (session as any).user?.role !== 'Administrator') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const body       = await req.json()
     const { action, docType, docId, resolution } = body
 
@@ -199,11 +206,11 @@ export async function POST(req: NextRequest) {
 
 async function clearConflict(docType: string, docId: string) {
   if (docType === "invoice") {
-    await prisma.invoice.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: undefined } })
+    await prisma.invoice.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull } })
   } else if (docType === "salesorder") {
-    await prisma.salesOrder.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: undefined } })
+    await prisma.salesOrder.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull } })
   } else {
-    await prisma.quote.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: undefined } })
+    await prisma.quote.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull } })
   }
 }
 

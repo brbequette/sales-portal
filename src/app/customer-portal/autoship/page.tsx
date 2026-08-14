@@ -3,25 +3,11 @@
 import { useEffect, useState } from "react"
 import { FiRefreshCw, FiCheckCircle, FiClock, FiSettings, FiPause, FiX, FiTag } from "react-icons/fi"
 
-const mockAvailableBundles = [
-  {
-    id: "bundle_1",
-    name: "Contractor Starter Pack",
-    items: ["10x 14\" Supreme Concrete Blade", "5x 14\" Asphalt Blade"],
-    price: 1299.00,
-    savingsPercent: 15,
-  },
-  {
-    id: "bundle_2",
-    name: "Core Drilling Pro Bundle",
-    items: ["2x 2\" Core Bit", "2x 4\" Core Bit", "1x 6\" Core Bit"],
-    price: 850.00,
-    savingsPercent: 20,
-  }
-]
+
 
 export default function AutoshipPage() {
   const [subscriptions, setSubscriptions] = useState<any[]>([])
+  const [bundles, setBundles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -35,7 +21,8 @@ export default function AutoshipPage() {
         })
         if (res.ok) {
           const data = await res.json()
-          setSubscriptions(data.subscriptions || [])
+          setSubscriptions(data.data.subscriptions || [])
+          setBundles(data.data.bundles || [])
         }
       } catch (err) {
         console.error(err)
@@ -46,12 +33,70 @@ export default function AutoshipPage() {
     fetchAutoship()
   }, [])
 
-  const handleSubscribe = (bundleId: string, frequency: string) => {
-    alert(`Subscribed to bundle ${bundleId} on a ${frequency} basis!`)
+  const handleSubscribe = async (bundleId: string, frequency: string) => {
+    const token = localStorage.getItem("td_customer_token")
+    if (!token) return
+    try {
+      const res = await fetch("/api/customer/autoship", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ bundleId, frequency })
+      })
+      if (res.ok) {
+        alert(`Subscribed to bundle ${bundleId} on a ${frequency} basis!`)
+      } else {
+        alert("Failed to subscribe.")
+      }
+    } catch (err) {
+      alert("Error subscribing.")
+    }
   }
 
-  const handlePause = (subId: string) => {
-    alert(`Subscription ${subId} paused.`)
+  const handlePause = async (subId: string) => {
+    const token = localStorage.getItem("td_customer_token")
+    if (!token) return
+    try {
+      const res = await fetch("/api/customer/autoship", {
+        method: "PATCH",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ subId, action: 'pause' })
+      })
+      if (res.ok) {
+        alert(`Subscription ${subId} paused.`)
+      } else {
+        alert("Failed to pause subscription.")
+      }
+    } catch (err) {
+      alert("Error pausing subscription.")
+    }
+  }
+
+  const handleCancel = async (subId: string) => {
+    const token = localStorage.getItem("td_customer_token")
+    if (!token) return
+    try {
+      const res = await fetch("/api/customer/autoship", {
+        method: "PATCH",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ subId, action: 'cancel' })
+      })
+      if (res.ok) {
+        alert(`Subscription ${subId} canceled.`)
+      } else {
+        alert("Failed to cancel subscription.")
+      }
+    } catch (err) {
+      alert("Error canceling subscription.")
+    }
   }
 
   return (
@@ -112,7 +157,7 @@ export default function AutoshipPage() {
                     <button onClick={() => handlePause(sub.id)} className="p-2 bg-white/5 hover:bg-white/10 text-neutral-300 rounded-lg transition-colors" title="Pause Subscription">
                       <FiPause />
                     </button>
-                    <button className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors" title="Cancel Subscription">
+                    <button onClick={() => handleCancel(sub.id)} className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors" title="Cancel Subscription">
                       <FiX />
                     </button>
                   </div>
@@ -135,7 +180,7 @@ export default function AutoshipPage() {
         </h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {mockAvailableBundles.map(bundle => (
+          {bundles.map(bundle => (
             <div key={bundle.id} className="bg-neutral-900 border border-neutral-800 hover:border-amber-500/50 rounded-2xl p-6 transition-all group shadow-lg">
               <div className="flex justify-between items-start mb-2">
                 <h3 className="text-xl font-black text-white">{bundle.name}</h3>
@@ -152,7 +197,7 @@ export default function AutoshipPage() {
               <div className="mb-6">
                 <div className="text-xs text-neutral-500 font-bold mb-2">BUNDLE INCLUDES:</div>
                 <ul className="text-sm text-neutral-300 space-y-1.5">
-                  {bundle.items.map((item, i) => (
+                  {bundle.items.map((item: string, i: number) => (
                     <li key={i} className="flex items-center gap-2">
                       <FiCheckCircle className="text-amber-500 shrink-0" size={14} /> {item}
                     </li>

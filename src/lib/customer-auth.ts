@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { SignJWT, jwtVerify } from 'jose';
+import crypto from 'crypto';
 
 const SECRET_KEY = new TextEncoder().encode(
   process.env.NEXTAUTH_SECRET || 'fallback_secret_key_for_dev_only'
@@ -43,5 +44,5 @@ export async function verifyCustomerToken(request: NextRequest): Promise<Custome
 }
 
 export function generateMagicCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 999999).toString();
 }

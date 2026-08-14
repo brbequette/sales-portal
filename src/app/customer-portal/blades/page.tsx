@@ -18,7 +18,7 @@ export default function MyBladesPage() {
         })
         if (res.ok) {
           const data = await res.json()
-          setBlades(data.blades || [])
+          setBlades(data.data || [])
         }
       } catch (err) {
         console.error(err)
@@ -53,7 +53,7 @@ export default function MyBladesPage() {
                   <FiBox size={24} />
                 </div>
                 <div className="text-right">
-                  <div className="text-xl font-black text-emerald-400">${(blade.currentPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                  <div className="text-xl font-black text-emerald-400">${(blade.unitPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                   <div className="text-xs text-neutral-500 font-bold">YOUR PRICE / EA</div>
                 </div>
               </div>
