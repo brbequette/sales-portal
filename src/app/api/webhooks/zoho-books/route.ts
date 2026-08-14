@@ -36,7 +36,7 @@ const WEBHOOK_TOKEN = process.env.ZOHO_WEBHOOK_TOKEN ?? ""
 // ---------------------------------------------------------------------------
 
 function verifyToken(req: NextRequest): boolean {
-  if (!WEBHOOK_TOKEN) return true // no token configured → allow all (dev mode)
+  if (!WEBHOOK_TOKEN) return false // fail closed if token is not configured
   const incoming = req.headers.get("x-zoho-webhook-token") ?? ""
   return incoming === WEBHOOK_TOKEN
 }

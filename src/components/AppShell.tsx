@@ -613,7 +613,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onClick={() => setShowMoreMenu(false)}
               aria-hidden="true"
             />
-            <div className="
+            <div 
+              role="dialog"
+              aria-modal="true"
+              className="
               absolute bottom-full right-0 left-0 z-30
               bg-[#0d0e11]/98 backdrop-blur-2xl
               border-t border-white/10

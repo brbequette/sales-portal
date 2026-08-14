@@ -192,6 +192,7 @@ function QtyInput({
     <div className="flex items-center gap-1">
       <button
         type="button"
+        aria-label="Decrease quantity"
         onClick={() => onChange(Math.max(0, value - 1))}
         className={`w-6 h-6 rounded-md font-bold flex items-center justify-center transition-all cursor-pointer select-none active:scale-95 ${btnClass}`}
       >-</button>
@@ -218,6 +219,7 @@ function QtyInput({
       )}
       <button
         type="button"
+        aria-label="Increase quantity"
         onClick={() => onChange(value + 1)}
         className={`w-6 h-6 rounded-md font-bold flex items-center justify-center transition-all cursor-pointer select-none active:scale-95 ${btnClass}`}
       >+</button>
@@ -629,6 +631,8 @@ export function OrderBuilder({
       <div className="glass-panel border border-white/10 rounded-2xl overflow-hidden shadow-xl transition-all duration-300">
         <button
           type="button"
+          aria-expanded={showBladeLookup}
+          aria-controls="blade-lookup-content"
           onClick={() => setShowBladeLookup(v => !v)}
           className="w-full flex items-center justify-between px-4 py-3 bg-white/[0.02] hover:bg-white/[0.05] transition-all cursor-pointer"
         >
@@ -643,7 +647,7 @@ export function OrderBuilder({
         </button>
 
         {showBladeLookup && (
-          <div className="px-4 pb-4 pt-3 bg-black/40 space-y-4 border-t border-white/10 animate-in fade-in duration-200">
+          <div id="blade-lookup-content" className="px-4 pb-4 pt-3 bg-black/40 space-y-4 border-t border-white/10 animate-in fade-in duration-200">
             {/* Filter selection grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>

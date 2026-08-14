@@ -184,7 +184,7 @@ export const handler: Handler = async (event, context) => {
             console.error("Failed to sync users from Zoho CRM:", usersErr)
           }
 
-          const dbUsers = await prisma.user.findMany()
+          const dbUsers = await prisma.user.findMany({ take: 500 })
           usersToSync = dbUsers.filter(u => u.zohoId && !u.zohoId.startsWith('mock-zoho') && !u.zohoId.startsWith('auto'))
         }
 
@@ -270,7 +270,7 @@ export const handler: Handler = async (event, context) => {
             console.log(`Found ${zohoAccounts.length} live accounts from Zoho for user ${syncUser.email}`);
               
               // Deduplicate incoming Zoho accounts by name
-              const localAccountsBefore = await prisma.account.findMany({
+              const localAccountsBefore = await prisma.account.findMany({ take: 500, 
                 where: { ownerId: syncUser.id },
                 select: { id: true, zohoId: true, name: true, zohoModifiedTime: true }
               });
@@ -375,7 +375,7 @@ export const handler: Handler = async (event, context) => {
               }
 
               // Cache the newly synced account IDs in a local Map
-              const localAccountsAfter = await prisma.account.findMany({
+              const localAccountsAfter = await prisma.account.findMany({ take: 500, 
                 where: { ownerId: syncUser.id },
                 select: { id: true, zohoId: true, name: true }
               });
@@ -442,7 +442,7 @@ export const handler: Handler = async (event, context) => {
                   const deletedZohoIds = missingAccountZohoIds.filter(zid => !foundInZoho.has(zid));
                   if (deletedZohoIds.length > 0) {
                     console.log(`Cascade-deleting ${deletedZohoIds.length} accounts removed from Zoho CRM...`);
-                    const accountsToDelete = await prisma.account.findMany({
+                    const accountsToDelete = await prisma.account.findMany({ take: 500, 
                       where: { zohoId: { in: deletedZohoIds } },
                       select: { id: true }
                     });
@@ -653,7 +653,7 @@ export const handler: Handler = async (event, context) => {
                   const booksBase = `https://www.zohoapis.${ZOHO_DC}/books/v3`;
 
                   // Build a name-to-accountId map for matching
-                  const allAccounts = await prisma.account.findMany({ select: { id: true, name: true } });
+                  const allAccounts = await prisma.account.findMany({ take: 500,  select: { id: true, name: true } });
                   const nameMap = new Map<string, string>();
                   allAccounts.forEach(a => nameMap.set(a.name.toLowerCase().trim(), a.id));
 
@@ -782,7 +782,7 @@ export const handler: Handler = async (event, context) => {
                   hasMoreContacts = false;
                 }
 
-                const localContactsBefore = await prisma.contact.findMany({
+                const localContactsBefore = await prisma.contact.findMany({ take: 500, 
                   where: { accountId: { in: Array.from(accountMap.values()) } },
                   select: { id: true, email: true, phone: true, accountId: true }
                 });
@@ -869,7 +869,7 @@ export const handler: Handler = async (event, context) => {
                 try {
                   const syncedContactZohoIds = new Set<string>();
                   // We need to collect all contact zohoIds we just synced
-                  const localContactsAfterSync = await prisma.contact.findMany({
+                  const localContactsAfterSync = await prisma.contact.findMany({ take: 500, 
                     where: { accountId: { in: Array.from(new Set(accountMap.values())) } },
                     select: { id: true, zohoId: true }
                   });
@@ -924,8 +924,8 @@ export const handler: Handler = async (event, context) => {
           const twelveMonthsAgo = new Date();
           twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
-          const accountIds = (await prisma.account.findMany({ where: { ownerId: { in: usersToSync.map(u => u.id) } }, select: { id: true } })).map(a => a.id);
-          const accountsWithInvoices = await prisma.account.findMany({
+          const accountIds = (await prisma.account.findMany({ take: 500,  where: { ownerId: { in: usersToSync.map(u => u.id) } }, select: { id: true } })).map(a => a.id);
+          const accountsWithInvoices = await prisma.account.findMany({ take: 500, 
             where: {
               id: { in: accountIds },
               quality: { notIn: ['DO_NOT_CALL', 'ON_HOLD'] }
@@ -992,7 +992,7 @@ export const handler: Handler = async (event, context) => {
       const ownerIds = [user.id, user.zohoId, user.email].filter(Boolean) as string[]
       scopeSql = Prisma.sql`AND a."ownerId" = ANY(ARRAY[${Prisma.join(ownerIds)}]::text[])`
     } else if (ownerIdFilter && ownerIdFilter !== 'all' && ownerIdFilter !== 'All' && !ownerIdFilter.toLowerCase().includes('myself')) {
-      const matchingUsers = await prisma.user.findMany({
+      const matchingUsers = await prisma.user.findMany({ take: 500, 
         where: {
           OR: [
             { id: ownerIdFilter },
@@ -1137,7 +1137,7 @@ export const handler: Handler = async (event, context) => {
     // Query list of reps for admin dropdown population
     let reps: any[] = [];
     if (isAdmin) {
-      reps = await prisma.user.findMany({
+      reps = await prisma.user.findMany({ take: 500, 
         select: {
           id: true,
           name: true,

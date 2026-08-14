@@ -165,7 +165,7 @@ function KPICard({
   trend?: string; trendUp?: boolean; color: string; children?: React.ReactNode; onClick?: () => void
 }) {
   return (
-    <div 
+    <div role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }} 
       onClick={onClick}
       className={`glass-panel rounded-2xl p-5 border border-white/[0.06] hover:border-white/[0.2] transition-all duration-300 group relative overflow-hidden ${
         onClick ? "cursor-pointer hover:scale-[1.01] active:scale-[0.99]" : ""
@@ -933,7 +933,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
             <FiFileText /> Invoices Totals Summary (Click any tile to inspect documents)
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div
+            <div role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }}
               onClick={() => setRepStatsTileModalInfo({ title: "Invoiced Sales Subtotals Breakdown", type: "invoices", docs: repStatsAllInvoices })}
               className="bg-neutral-900/60 border border-sky-500/20 hover:border-sky-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-sky-500/10 transition-all group"
             >
@@ -947,7 +947,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
               <p className="text-[10px] text-neutral-500 font-medium">{repStatsTotals.invoiceCount} Invoices Billed</p>
             </div>
 
-            <div
+            <div role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }}
               onClick={() => setRepStatsTileModalInfo({ title: "Dead Profit (VIG) Breakdown", type: "invoices", docs: repStatsAllInvoices })}
               className="bg-neutral-900/60 border border-emerald-500/20 hover:border-emerald-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-emerald-500/10 transition-all group"
             >
@@ -961,7 +961,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
               <p className="text-[10px] text-neutral-500 font-medium">Gross profit before baseline</p>
             </div>
 
-            <div
+            <div role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }}
               onClick={() => setRepStatsTileModalInfo({ title: "Net Profit (After VIG) Breakdown", type: "invoices", docs: repStatsAllInvoices })}
               className="bg-neutral-900/60 border border-emerald-500/20 hover:border-emerald-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-emerald-500/10 transition-all group"
             >
@@ -975,7 +975,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
               <p className="text-[10px] text-neutral-500 font-medium">Net profit after baseline VIG rate</p>
             </div>
 
-            <div
+            <div role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }}
               onClick={() => setRepStatsTileModalInfo({ title: "Invoice Commissions Breakdown", type: "invoices", docs: repStatsAllInvoices })}
               className="bg-neutral-900/60 border border-amber-500/20 hover:border-amber-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-amber-500/10 transition-all group"
             >
@@ -1035,7 +1035,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
             <FiShoppingCart /> Uninvoiced Sales Orders Summary (Click any tile to inspect orders)
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div
+            <div role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }}
               onClick={() => setRepStatsTileModalInfo({ title: "Sales Orders Subtotals Breakdown", type: "salesOrders", docs: repStatsAllSalesOrders })}
               className="bg-neutral-900/60 border border-purple-500/20 hover:border-purple-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all group"
             >
@@ -1049,7 +1049,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
               <p className="text-[10px] text-neutral-500 font-medium">{repStatsTotals.salesOrderCount} Orders Created</p>
             </div>
 
-            <div
+            <div role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }}
               onClick={() => setRepStatsTileModalInfo({ title: "Sales Order Dead Profit Breakdown", type: "salesOrders", docs: repStatsAllSalesOrders })}
               className="bg-neutral-900/60 border border-purple-500/20 hover:border-purple-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all group"
             >
@@ -1063,7 +1063,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
               <p className="text-[10px] text-neutral-500 font-medium">Gross profit on orders</p>
             </div>
 
-            <div
+            <div role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }}
               onClick={() => setRepStatsTileModalInfo({ title: "Est. Order Commissions Breakdown", type: "salesOrders", docs: repStatsAllSalesOrders })}
               className="bg-neutral-900/60 border border-purple-500/20 hover:border-purple-500/60 p-5 rounded-2xl space-y-1 cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 transition-all group"
             >
@@ -1624,7 +1624,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
           </div>
 
           {/* Money Lost (1.5x VIG Penalty) Box */}
-          <div 
+          <div role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }} 
             onClick={() => setSelectedMetricInfo(buildMetricInfo("vigPenalty", data, timeEntry, repName, repEmail, rawInvoicesList, isAdmin))}
             className={`p-4 rounded-xl border cursor-pointer transition-all hover:scale-[1.01] ${
               data.monthlyVigPenaltyLoss > 0 || data.currentVigRate >= 1.45
@@ -1980,7 +1980,7 @@ function RepDashboardCustomizer({ isOpen, onClose, widgets, onUpdateWidgets }: R
 
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div 
+      <div role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }} 
         className="w-full max-w-md bg-neutral-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-scale-up"
         onClick={(e) => e.stopPropagation()}
       >

@@ -118,15 +118,15 @@ export const handler: Handler = async (event, context) => {
           const ownerIds = Array.from(new Set(zohoTasks.map((t: any) => t.Owner?.id || user.zohoId).filter(Boolean))) as string[]
 
           const [dbAccounts, dbDeals, dbUsers] = await Promise.all([
-            prisma.account.findMany({
+            prisma.account.findMany({ take: 500, 
               where: { zohoId: { in: whatIds } },
               select: { id: true, zohoId: true }
             }),
-            prisma.deal.findMany({
+            prisma.deal.findMany({ take: 500, 
               where: { zohoId: { in: whatIds } },
               select: { id: true, zohoId: true }
             }),
-            prisma.user.findMany({
+            prisma.user.findMany({ take: 500, 
               where: { zohoId: { in: ownerIds } }
             })
           ])
@@ -200,7 +200,7 @@ export const handler: Handler = async (event, context) => {
           // Delete tasks that no longer exist in Zoho
           const syncedTaskZohoIds = new Set(zohoTasks.map((t: any) => t.id));
           const ownerWhere = isSalesOnly ? { ownerId: user.id } : {};
-          const localTasks = await prisma.task.findMany({
+          const localTasks = await prisma.task.findMany({ take: 500, 
             where: ownerWhere,
             select: { id: true, zohoId: true }
           });
@@ -228,7 +228,7 @@ export const handler: Handler = async (event, context) => {
     }
 
     // Return tasks from DB
-    const tasks = await prisma.task.findMany({
+    const tasks = await prisma.task.findMany({ take: 500, 
       where: whereClause,
       include: {
         account: true,
@@ -239,7 +239,7 @@ export const handler: Handler = async (event, context) => {
 
     // ── Fetch owner names for all tasks ────────────────────────────────────
     const ownerIds = [...new Set(tasks.map(t => t.ownerId).filter(Boolean))]
-    const owners = await prisma.user.findMany({
+    const owners = await prisma.user.findMany({ take: 500, 
       where: { id: { in: ownerIds } },
       select: { id: true, name: true }
     })

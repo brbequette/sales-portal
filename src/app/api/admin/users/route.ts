@@ -5,6 +5,7 @@ export async function GET() {
   try {
     const [users, settings] = await Promise.all([
       prisma.user.findMany({
+        take: 500,
         orderBy: { name: 'asc' },
         select: {
           id: true,
@@ -33,7 +34,7 @@ export async function GET() {
           _count: { select: { accounts: true } }
         }
       }),
-      prisma.systemSetting.findMany()
+      prisma.systemSetting.findMany({ take: 500 })
     ])
 
     const settingsMap = new Map(settings.map(s => [s.key, s.value]))

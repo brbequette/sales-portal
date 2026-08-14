@@ -1,12 +1,26 @@
 import { NextRequest, NextResponse } from "next/server"
 import { PrismaClient } from "@prisma/client"
+import crypto from 'crypto'
 
 const prisma = new PrismaClient()
 
 // POST -- Webhook handler for shipping & carrier tracking status updates
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
+    const rawBody = await req.text()
+    const signature = req.headers.get('x-easyship-signature')
+    const secret = process.env.EASYSHIP_WEBHOOK_SECRET
+    
+    if (!secret || !signature) {
+      return NextResponse.json({ error: "Missing signature or secret" }, { status: 401 })
+    }
+
+    const hash = crypto.createHmac('sha256', secret).update(rawBody).digest('hex')
+    if (hash !== signature) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
+    }
+
+    const body = JSON.parse(rawBody)
     const { trackingNumber, packageId, status, carrier, location, timestamp } = body
 
     if (!trackingNumber && !packageId) {

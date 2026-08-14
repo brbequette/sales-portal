@@ -3,6 +3,12 @@ import { prisma } from '@/lib/prisma'
 
 export async function POST(req: Request) {
   try {
+    const { searchParams } = new URL(req.url)
+    const token = searchParams.get('token')
+    if (!token || token !== process.env.ZOHO_WEBHOOK_SECRET) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const text = await req.text()
     let body: any = {}
     
