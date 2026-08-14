@@ -170,8 +170,9 @@ export async function GET(req: NextRequest) {
         else shipStatus = "packaged"
       }
 
-      // Extract shipping address: Zoho Books format → items JSON → Account fallback
+      // Extract shipping address: Zoho Books format → items JSON → billing address → Account fallback
       const zohoShipAddr = items.shipping_address
+      const zohoBillAddr = items.billing_address
       let shippingAddress: any = null
       if (zohoShipAddr && typeof zohoShipAddr === 'object' && (zohoShipAddr.address || zohoShipAddr.city)) {
         shippingAddress = {
@@ -183,12 +184,28 @@ export async function GET(req: NextRequest) {
         }
       } else if (items.shippingAddress && typeof items.shippingAddress === 'object') {
         shippingAddress = items.shippingAddress
+      } else if (zohoBillAddr && typeof zohoBillAddr === 'object' && (zohoBillAddr.address || zohoBillAddr.city)) {
+        // Fallback to billing address if no shipping address
+        shippingAddress = {
+          address: [zohoBillAddr.address, zohoBillAddr.street2].filter(Boolean).join(', '),
+          city: zohoBillAddr.city || '',
+          state: zohoBillAddr.state || zohoBillAddr.state_code || '',
+          zip: zohoBillAddr.zip || zohoBillAddr.zipcode || '',
+          country: zohoBillAddr.country || zohoBillAddr.country_code || 'US',
+        }
       } else if (so.account?.shippingStreet) {
         shippingAddress = {
           address: so.account.shippingStreet,
           city: so.account.shippingCity || '',
           state: so.account.shippingState || '',
           zip: so.account.shippingZip || '',
+        }
+      } else if (so.account?.billingStreet) {
+        shippingAddress = {
+          address: so.account.billingStreet,
+          city: so.account.billingCity || '',
+          state: so.account.billingState || '',
+          zip: so.account.billingZip || '',
         }
       }
 
@@ -421,7 +438,10 @@ export async function PUT(req: NextRequest) {
         sub_total: parseFloat(doc.sub_total || 0),
         balance: doc.balance ?? 0,
         shippingCharge: parseFloat(doc.shipping_charge || 0),
+        customer_id: doc.customer_id || currentItems.customer_id,
         customer_name: doc.customer_name || currentItems.customer_name,
+        shipping_address: doc.shipping_address || currentItems.shipping_address,
+        billing_address: doc.billing_address || currentItems.billing_address,
         salesperson: doc.salesperson_name ? doc.salesperson_name.toUpperCase().trim() : currentItems.salesperson,
         line_items: doc.line_items || currentItems.line_items || [],
         custom_fields: doc.custom_fields || currentItems.custom_fields || [],
@@ -437,6 +457,22 @@ export async function PUT(req: NextRequest) {
             items: updatedItems
           }
         })
+
+        if (dbDoc.accountId && doc.shipping_address && (doc.shipping_address.address || doc.shipping_address.city)) {
+          await prisma.account.update({
+            where: { id: dbDoc.accountId },
+            data: {
+              shippingStreet: doc.shipping_address.address || doc.shipping_address.street2 || undefined,
+              shippingCity: doc.shipping_address.city || undefined,
+              shippingState: doc.shipping_address.state || undefined,
+              shippingZip: doc.shipping_address.zip || undefined,
+              billingStreet: doc.billing_address?.address || undefined,
+              billingCity: doc.billing_address?.city || undefined,
+              billingState: doc.billing_address?.state || undefined,
+              billingZip: doc.billing_address?.zip || undefined,
+            }
+          }).catch((e: any) => console.warn('Account address update error:', e.message))
+        }
       }
       
       return NextResponse.json({ success: true })

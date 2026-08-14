@@ -627,13 +627,23 @@ export default function ShippingPage() {
 
     try {
       const destAddr = order.shippingAddress || {}
+      const zip = destAddr.zip || destAddr.postal_code || ''
+      const city = destAddr.city || ''
+      const state = destAddr.state || ''
+      
+      if (!zip || !city || !state) {
+        toast.error(`Missing shipping address fields — ${[!city && 'city', !state && 'state', !zip && 'zip'].filter(Boolean).join(', ')}. Sync from Zoho to update.`)
+        setShipNowLoading(false)
+        return
+      }
+      
       const res = await fetch('/api/shipping/estimate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          zip: destAddr.zip || destAddr.postal_code || '',
-          city: destAddr.city || '',
-          state: destAddr.state || '',
+          zip,
+          city,
+          state,
           country: destAddr.country || destAddr.country_alpha2 || 'US',
           weight: parsedWeight,
           length: parsedLength,

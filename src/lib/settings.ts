@@ -19,6 +19,7 @@ export interface AppSettings {
   ai_reply_prompt: string
   tv_pin: string
   pause_mass_zoho_updates: boolean
+  debug_mode: boolean
   clawback_settings?: string  // JSON blob with clawback config
 }
 
@@ -40,7 +41,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   sms_daily_account_limit: 1,
   ai_reply_prompt: "You are a professional sales assistant for a diamond wholesaler. Provide a concise, friendly response to the customer's text message.",
   tv_pin: '8321',
-  pause_mass_zoho_updates: false
+  pause_mass_zoho_updates: false,
+  debug_mode: false
 }
 
 export async function getSystemSettings(): Promise<AppSettings> {
@@ -67,6 +69,7 @@ export async function getSystemSettings(): Promise<AppSettings> {
     ai_reply_prompt: map.ai_reply_prompt || DEFAULT_SETTINGS.ai_reply_prompt,
     tv_pin: map.tv_pin || DEFAULT_SETTINGS.tv_pin,
     pause_mass_zoho_updates: map.pause_mass_zoho_updates === 'true' || map.pause_mass_zoho_updates === '1',
+    debug_mode: map.debug_mode === 'true' || map.debug_mode === '1',
     clawback_settings: map.clawback_settings || undefined,
   }
 }
