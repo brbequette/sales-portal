@@ -9,39 +9,83 @@ export async function GET(request: Request) {
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1', 10)
-    const pageSize = parseInt(searchParams.get('pageSize') || '50', 10)
+    const pageParam = searchParams.get('page')
+    const pageSizeParam = searchParams.get('pageSize')
+    
+    const page = Math.max(1, parseInt(pageParam || '1', 10))
+    const pageSize = Math.min(100, Math.max(1, parseInt(pageSizeParam || '50', 10)))
+    
     const search = searchParams.get('search')?.toLowerCase() || ''
-    const type = searchParams.get('type') || 'All'
+    const docType = searchParams.get('docType') || searchParams.get('type') || 'All'
+    
     const statusParams = searchParams.get('status')
     const statusFilters = statusParams ? statusParams.split(',').map(s => s.toLowerCase()) : []
+    
     const sortBy = searchParams.get('sortBy') || 'date-desc'
     const ownerId = searchParams.get('ownerId')
+    const repName = searchParams.get('repName')
     const loadAll = searchParams.get('loadAll') === 'true'
+    
     const startDateParam = searchParams.get('startDate')
-    const startDate = startDateParam ? new Date(startDateParam) : null
+    const endDateParam = searchParams.get('endDate')
+
+    let startDate: Date | null = null;
+    let endDate: Date | null = null;
+
+    if (startDateParam) {
+      const date = new Date(startDateParam);
+      if (isNaN(date.getTime())) return NextResponse.json({ success: false, error: 'Invalid startDate' }, { status: 400 })
+      startDate = date
+    }
+
+    if (endDateParam) {
+      const date = new Date(endDateParam);
+      if (isNaN(date.getTime())) return NextResponse.json({ success: false, error: 'Invalid endDate' }, { status: 400 })
+      endDate = date
+    }
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-    // Build base account filter (filter by current Account Owner, NOT historical salesman)
+    // Build base account filter
     const accountWhere: any = {}
     if (ownerId && ownerId !== 'All' && ownerId !== 'all') {
       accountWhere.ownerId = ownerId
     }
+    if (repName && repName !== 'All' && repName !== 'all') {
+      accountWhere.ownerId = repName
+    }
+
+    const searchWhere = search ? {
+      OR: [
+        { id: { contains: search, mode: 'insensitive' } },
+        { zohoId: { contains: search, mode: 'insensitive' } },
+        { account: { name: { contains: search, mode: 'insensitive' } } }
+      ]
+    } : {}
+
+    const invoiceDateFilter: any = {}
+    if (startDate) invoiceDateFilter.gte = startDate
+    if (endDate) invoiceDateFilter.lte = endDate
+
+    const orderQuoteDateFilter: any = {}
+    if (startDate) orderQuoteDateFilter.gte = startDate
+    if (endDate) orderQuoteDateFilter.lte = endDate
 
     // Build Invoice WHERE clause
     const invoiceWhere: any = {
-      ...(Object.keys(accountWhere).length > 0 ? { account: accountWhere } : {})
+      ...(Object.keys(accountWhere).length > 0 ? { account: accountWhere } : {}),
+      ...(Object.keys(searchWhere).length > 0 ? searchWhere : {})
+    }
+
+    if (Object.keys(invoiceDateFilter).length > 0) {
+      invoiceWhere.issueDate = invoiceDateFilter
     }
 
     if (statusFilters.includes('overdue')) {
       invoiceWhere.balance = { gt: 0 }
       invoiceWhere.status = { notIn: ['paid', 'Paid', 'PAID', 'void', 'Void', 'Closed', 'closed', 'Draft', 'draft', 'written_off', 'Written Off', 'WRITTEN_OFF'] }
       invoiceWhere.isWrittenOff = false
-    } else if (startDate) {
-      invoiceWhere.issueDate = { gte: startDate }
-    } else if (!loadAll) {
-      // Default initial view: Only open invoices OR paid invoices less than 30 days old
+    } else if (!loadAll && !startDate && statusFilters.length === 0) {
       invoiceWhere.OR = [
         { status: { notIn: ['paid', 'Paid', 'PAID', 'void', 'Void'] } },
         {
@@ -56,28 +100,73 @@ export async function GET(request: Request) {
           ]
         }
       ]
+    } else if (statusFilters.length > 0) {
+      if (statusFilters.includes('unpaid')) {
+        invoiceWhere.status = { notIn: ['paid', 'void', 'voided', 'draft', 'closed', 'Paid', 'Void', 'Voided', 'Draft', 'Closed', 'PAID', 'VOID', 'VOIDED', 'DRAFT', 'CLOSED'] }
+      } else {
+        const statuses = statusFilters.flatMap(s => [s.toLowerCase(), s.toUpperCase(), s.charAt(0).toUpperCase() + s.slice(1)])
+        invoiceWhere.status = { in: statuses }
+      }
     }
 
     // Build Quote & SalesOrder WHERE clauses
-    const quoteWhere: any = Object.keys(accountWhere).length > 0 ? { account: accountWhere } : {}
-    const salesOrderWhere: any = Object.keys(accountWhere).length > 0 ? { account: accountWhere } : {}
-
-    if (startDate) {
-      quoteWhere.createdAt = { gte: startDate }
-      salesOrderWhere.orderDate = { gte: startDate }
+    const quoteWhere: any = {
+      ...(Object.keys(accountWhere).length > 0 ? { account: accountWhere } : {}),
+      ...(Object.keys(searchWhere).length > 0 ? searchWhere : {})
+    }
+    const salesOrderWhere: any = {
+      ...(Object.keys(accountWhere).length > 0 ? { account: accountWhere } : {}),
+      ...(Object.keys(searchWhere).length > 0 ? searchWhere : {})
     }
 
-    // Fetch data from local database in parallel
-    const [quotes, salesOrders, invoices] = await Promise.all([
-      type === 'All' || type === 'Quote' 
-        ? prisma.quote.findMany({ where: quoteWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } } }) 
-        : Promise.resolve([]),
-      type === 'All' || type === 'SalesOrder' 
-        ? prisma.salesOrder.findMany({ where: salesOrderWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } } }) 
-        : Promise.resolve([]),
-      type === 'All' || type === 'Invoice' 
-        ? prisma.invoice.findMany({ where: invoiceWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } } }) 
-        : Promise.resolve([])
+    if (Object.keys(orderQuoteDateFilter).length > 0) {
+      quoteWhere.createdAt = orderQuoteDateFilter
+      salesOrderWhere.orderDate = orderQuoteDateFilter
+    }
+
+    if (statusFilters.length > 0) {
+      if (statusFilters.includes('unpaid')) {
+        quoteWhere.status = { notIn: ['paid', 'void', 'voided', 'draft', 'closed', 'Paid', 'Void', 'Voided', 'Draft', 'Closed'] }
+        salesOrderWhere.status = { notIn: ['paid', 'void', 'voided', 'draft', 'closed', 'Paid', 'Void', 'Voided', 'Draft', 'Closed'] }
+      } else {
+        const statuses = statusFilters.flatMap(s => [s.toLowerCase(), s.toUpperCase(), s.charAt(0).toUpperCase() + s.slice(1)])
+        quoteWhere.status = { in: statuses }
+        salesOrderWhere.status = { in: statuses }
+      }
+    }
+
+    const skip = (page - 1) * pageSize
+
+    let invoiceOrder: any = { issueDate: 'desc' }
+    let quoteOrder: any = { createdAt: 'desc' }
+    let soOrder: any = { orderDate: 'desc' }
+
+    if (sortBy === 'date-asc') {
+      invoiceOrder = { issueDate: 'asc' }
+      quoteOrder = { createdAt: 'asc' }
+      soOrder = { orderDate: 'asc' }
+    } else if (sortBy === 'amount-desc') {
+      invoiceOrder = { amount: 'desc' }
+      quoteOrder = { amount: 'desc' }
+      soOrder = { amount: 'desc' }
+    } else if (sortBy === 'amount-asc') {
+      invoiceOrder = { amount: 'asc' }
+      quoteOrder = { amount: 'asc' }
+      soOrder = { amount: 'asc' }
+    }
+
+    const dtLower = docType.toLowerCase()
+    const fetchQuotes = dtLower === 'all' || dtLower === 'quote'
+    const fetchSalesOrders = dtLower === 'all' || dtLower === 'salesorder'
+    const fetchInvoices = dtLower === 'all' || dtLower === 'invoice'
+
+    const [quotes, salesOrders, invoices, quotesCount, salesOrdersCount, invoicesCount] = await Promise.all([
+      fetchQuotes ? prisma.quote.findMany({ where: quoteWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } }, orderBy: quoteOrder, skip, take: pageSize }) : Promise.resolve([]),
+      fetchSalesOrders ? prisma.salesOrder.findMany({ where: salesOrderWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } }, orderBy: soOrder, skip, take: pageSize }) : Promise.resolve([]),
+      fetchInvoices ? prisma.invoice.findMany({ where: invoiceWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } }, orderBy: invoiceOrder, skip, take: pageSize }) : Promise.resolve([]),
+      fetchQuotes ? prisma.quote.count({ where: quoteWhere }) : Promise.resolve(0),
+      fetchSalesOrders ? prisma.salesOrder.count({ where: salesOrderWhere }) : Promise.resolve(0),
+      fetchInvoices ? prisma.invoice.count({ where: invoiceWhere }) : Promise.resolve(0)
     ])
 
     const buildDoc = (raw: any, t: "Quote" | "SalesOrder" | "Invoice") => {
@@ -128,7 +217,6 @@ export async function GET(request: Request) {
           subTotal = parseFloat(raw.amount || 0)
         }
 
-        // Calculate raw non-VIG profit (Dead Profit)
         let deadCostTotal = parseFloat(items.deadCostTotal ?? items.dead_cost_total ?? items.cf_dead_cost_total ?? extractField(items, 'cf_dead_cost_total') ?? 0)
         if ((isNaN(deadCostTotal) || deadCostTotal === 0) && subTotal > 0) {
           deadCostTotal = subTotal * 0.50
@@ -144,7 +232,6 @@ export async function GET(request: Request) {
         const parsedComm = rawComm !== null ? parseFloat(rawComm) : extractField(items, 'cf_commision_amount')
         commission = parsedComm || (profit * 0.5) || 0
       } else if (Array.isArray(items)) {
-        // Fallback for arrays
         profit = items.reduce((sum: number, it: any) => {
           const sub = parseFloat(it.sub_total ?? it.subTotal ?? it.amount ?? 0)
           const dc = parseFloat(it.deadCostTotal ?? it.dead_cost_total ?? it.cf_dead_cost_total ?? 0)
@@ -194,49 +281,31 @@ export async function GET(request: Request) {
     salesOrders.forEach((s: any) => allDocs.push(buildDoc(s, "SalesOrder")))
     invoices.forEach((i: any) => allDocs.push(buildDoc(i, "Invoice")))
 
-    // Filter by status dropdown
-    if (statusFilters.length > 0) {
-      allDocs = allDocs.filter(d => {
-        const sLower = (d.status || '').toLowerCase()
-        return statusFilters.some(f => {
-          if (f === 'unpaid') {
-            return sLower !== 'paid' && sLower !== 'void' && sLower !== 'voided' && sLower !== 'draft' && sLower !== 'closed'
-          }
-          return sLower === f
-        })
-      })
+    // If 'All' is requested, we need to merge and sort again to return a coherent page
+    if (dtLower === 'all' && allDocs.length > 0) {
+      if (sortBy === "date-desc") {
+        allDocs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      } else if (sortBy === "date-asc") {
+        allDocs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      } else if (sortBy === "amount-desc") {
+        allDocs.sort((a, b) => b.amount - a.amount)
+      } else if (sortBy === "amount-asc") {
+        allDocs.sort((a, b) => a.amount - b.amount)
+      }
+      // Slice to pageSize since we might have collected up to 3 * pageSize
+      allDocs = allDocs.slice(0, pageSize)
     }
 
-    // Filter by search query
-    if (search) {
-      allDocs = allDocs.filter(d => 
-        d.accountName.toLowerCase().includes(search) ||
-        d.id.toLowerCase().includes(search) ||
-        (d.zohoId || "").toLowerCase().includes(search) ||
-        (d.invoiceNumber || "").toLowerCase().includes(search)
-      )
-    }
-
-    // Sort documents
-    if (sortBy === "date-desc") {
-      allDocs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    } else if (sortBy === "date-asc") {
-      allDocs.sort((a, b) => new Date(a.date).getTime() - new Date(a.date).getTime())
-    } else if (sortBy === "amount-desc") {
-      allDocs.sort((a, b) => b.amount - a.amount)
-    } else if (sortBy === "amount-asc") {
-      allDocs.sort((a, b) => a.amount - b.amount)
-    }
-
-    // Paginate
-    const totalCount = allDocs.length
-    const startIndex = (page - 1) * pageSize
-    const paginatedDocs = allDocs.slice(startIndex, startIndex + pageSize)
+    const total = quotesCount + salesOrdersCount + invoicesCount
+    const totalPages = Math.ceil(total / pageSize)
 
     return NextResponse.json({
       success: true,
-      documents: paginatedDocs,
-      pagination: { totalCount }
+      documents: allDocs,
+      total,
+      page,
+      pageSize,
+      totalPages
     })
 
   } catch (err: any) {
@@ -244,3 +313,4 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 })
   }
 }
+

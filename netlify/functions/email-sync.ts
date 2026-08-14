@@ -75,65 +75,70 @@ export const handler: Handler = async (event) => {
     let processedCount = 0
 
     for (const mail of emails) {
-      // Check if exists
-      const existing = await prisma.email.findUnique({ where: { zohoMailId: mail.messageId } })
-      if (existing) continue
+      try {
+        // Check if exists
+        const existing = await prisma.email.findUnique({ where: { zohoMailId: mail.messageId } })
+        if (existing) continue
 
-      const contentRes = await fetchEmailContent(ZOHO_ACCOUNT_ID, mail.messageId)
-      const content = contentRes.data?.content || ""
+        const contentRes = await fetchEmailContent(ZOHO_ACCOUNT_ID, mail.messageId)
+        const content = contentRes.data?.content || ""
 
-      const fromAddress = mail.sender || mail.fromAddress
-      const toAddress = mail.toAddress || ""
-      const subject = mail.subject || ""
+        const fromAddress = mail.sender || mail.fromAddress
+        const toAddress = mail.toAddress || ""
+        const subject = mail.subject || ""
 
-      // Match sender to contact or account
-      const contact = await prisma.contact.findFirst({ where: { email: fromAddress } })
-      let accountId = contact?.accountId
-      if (!accountId) {
-        // Try user matching for internal tracking?
-      }
-
-      const needsResponse = await classifyEmail(subject, content)
-      let suggestedReply = ""
-      let taskCreated = false
-
-      if (needsResponse) {
-        suggestedReply = await generateSuggestedReply(subject, content)
-        if (accountId) {
-          await prisma.task.create({
-            data: {
-              zohoId: `email_reply_${mail.messageId}`,
-              subject: `Reply to: ${subject}`,
-              description: `Suggested Reply: ${suggestedReply}`,
-              status: "Not Started",
-              accountId: accountId,
-              ownerId: contact?.accountId ? (await prisma.account.findUnique({ where: { id: contact.accountId }, select: { ownerId: true } }))?.ownerId || "system" : "system",
-              type: "Email"
-            }
-          })
-          taskCreated = true
+        // Match sender to contact or account
+        const contact = await prisma.contact.findFirst({ where: { email: fromAddress } })
+        let accountId = contact?.accountId
+        if (!accountId) {
+          // Try user matching for internal tracking?
         }
-      }
 
-      await prisma.email.create({
-        data: {
-          zohoMailId: mail.messageId,
-          zohoAccountId: ZOHO_ACCOUNT_ID,
-          subject,
-          body: content,
-          fromAddress,
-          toAddress,
-          direction: "INBOUND",
-          status: "RECEIVED",
-          needsResponse,
-          suggestedReply,
-          taskCreated,
-          receivedAt: new Date(parseInt(mail.receivedTime, 10)),
-          accountId,
-          contactId: contact?.id
+        const needsResponse = await classifyEmail(subject, content)
+        let suggestedReply = ""
+        let taskCreated = false
+
+        if (needsResponse) {
+          suggestedReply = await generateSuggestedReply(subject, content)
+          if (accountId) {
+            await prisma.task.create({
+              data: {
+                zohoId: `email_reply_${mail.messageId}`,
+                subject: `Reply to: ${subject}`,
+                description: `Suggested Reply: ${suggestedReply}`,
+                status: "Not Started",
+                accountId: accountId,
+                ownerId: contact?.accountId ? (await prisma.account.findUnique({ where: { id: contact.accountId }, select: { ownerId: true } }))?.ownerId || "system" : "system",
+                type: "Email"
+              }
+            })
+            taskCreated = true
+          }
         }
-      })
-      processedCount++
+
+        await prisma.email.create({
+          data: {
+            zohoMailId: mail.messageId,
+            zohoAccountId: ZOHO_ACCOUNT_ID,
+            subject,
+            body: content,
+            fromAddress,
+            toAddress,
+            direction: "INBOUND",
+            status: "RECEIVED",
+            needsResponse,
+            suggestedReply,
+            taskCreated,
+            receivedAt: new Date(parseInt(mail.receivedTime, 10)),
+            accountId,
+            contactId: contact?.id
+          }
+        })
+        processedCount++
+      } catch (emailError) {
+        console.error(`Failed to process email ${mail.messageId}:`, emailError)
+        continue // Skip this email, process the rest
+      }
     }
 
     return {

@@ -38,11 +38,26 @@ const BATCH_SIZE = 50;
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
+  let lockAcquired = false;
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const lock = await prisma.systemSetting.findUnique({ where: { key: 'sync_in_progress' } })
+    if (lock?.value === 'true') {
+      const lockTime = lock.updatedAt ? new Date(lock.updatedAt).getTime() : 0
+      if (Date.now() - lockTime < 10 * 60 * 1000) { // 10 min max lock
+        return NextResponse.json({ error: 'Sync already in progress' }, { status: 429 })
+      }
+    }
+    await prisma.systemSetting.upsert({
+      where: { key: 'sync_in_progress' },
+      update: { value: 'true' },
+      create: { key: 'sync_in_progress', value: 'true' }
+    })
+    lockAcquired = true;
 
     const body = await req.json().catch(() => ({}))
     const requestedTables: SyncTable[] = body.tables || SYNC_TABLES
@@ -84,6 +99,11 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zLeads = zData.data || []
 
+            const allUsers = await prisma.user.findMany({ select: { id: true, email: true, zohoId: true } })
+            const userByZohoId = new Map(allUsers.filter(u => u.zohoId).map(u => [u.zohoId, u]))
+            const userByEmail = new Map(allUsers.filter(u => u.email).map(u => [u.email.toLowerCase(), u]))
+            const sessionUser = allUsers.find(u => u.id === session.user.id)
+
             let batch: any[] = [];
             for (const zLead of zLeads) {
               if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
@@ -91,12 +111,10 @@ export async function POST(req: NextRequest) {
               const ownerZohoId = zLead.Owner?.id
               let localUser: any = null
               if (ownerZohoId) {
-                localUser = await prisma.user.findFirst({
-                  where: { OR: [{ zohoId: ownerZohoId }, { email: zLead.Owner?.email || '' }] },
-                })
+                localUser = userByZohoId.get(ownerZohoId) || userByEmail.get((zLead.Owner?.email || '').toLowerCase())
               }
               if (!localUser && session.user.id) {
-                localUser = await prisma.user.findUnique({ where: { id: session.user.id } })
+                localUser = sessionUser
               }
               if (!localUser) continue
 
@@ -172,31 +190,43 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zInvoices = zData.invoices || []
 
+            const allAccounts = await prisma.account.findMany({ select: { id: true, zohoId: true, name: true } })
+            const accountByZohoId = new Map(allAccounts.filter(a => a.zohoId).map(a => [a.zohoId, a]))
+            const accountByName = new Map(allAccounts.map(a => [a.name?.toLowerCase(), a]))
+
+            const existingInvoices = await prisma.invoice.findMany({ select: { id: true, zohoId: true, accountId: true } })
+            const invoiceByZohoId = new Map(existingInvoices.filter(i => i.zohoId).map(i => [i.zohoId, i]))
+
             let batch: any[] = [];
             for (const inv of zInvoices) {
               if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
               if (!inv.invoice_id) continue
 
-              // Resolve local account: try customer_id first, then fall back to customer_name
-              let localAccount = inv.customer_id
-                ? await prisma.account.findFirst({ where: { zohoId: inv.customer_id } })
-                : null
-              if (!localAccount && inv.customer_name) {
-                localAccount = await prisma.account.findFirst({ where: { name: inv.customer_name } })
-              }
+              let localAccount = (inv.customer_id ? accountByZohoId.get(inv.customer_id) : null)
+                || (inv.customer_name ? accountByName.get(inv.customer_name.toLowerCase()) : null);
 
-              // Check if record already exists (for update without requiring account)
-              const existingInv = await prisma.invoice.findUnique({ where: { zohoId: inv.invoice_id } })
+              const existingInv = invoiceByZohoId.get(inv.invoice_id)
               const accountId = localAccount?.id || existingInv?.accountId
               if (!accountId) continue  // skip only if no account can be resolved at all
+
+              const balStr = String(inv.balance ?? '0');
+              const bal = parseFloat(balStr);
+              const safeBal = isNaN(bal) ? 0 : bal;
+
+              const totalStr = String(inv.total ?? '0');
+              const total = parseFloat(totalStr);
+              const safeTotal = isNaN(total) ? 0 : total;
+
+              const issueDateStr = String(inv.date || '');
+              const issueDate = Date.parse(issueDateStr) ? new Date(issueDateStr) : new Date();
 
               batch.push(prisma.invoice.upsert({
                 where: { zohoId: inv.invoice_id },
                 update: {
                   status: inv.status,
-                  balance: parseFloat(inv.balance || 0),
-                  amount: parseFloat(inv.total || 0),
-                  issueDate: inv.date ? new Date(inv.date) : undefined,
+                  balance: safeBal,
+                  amount: safeTotal,
+                  issueDate: Date.parse(issueDateStr) ? new Date(issueDateStr) : undefined,
                   accountId: accountId,
                   items: inv as any,
                 },
@@ -204,9 +234,9 @@ export async function POST(req: NextRequest) {
                   zohoId: inv.invoice_id,
                   accountId: accountId,
                   status: inv.status,
-                  balance: parseFloat(inv.balance || 0),
-                  amount: parseFloat(inv.total || 0),
-                  issueDate: inv.date ? new Date(inv.date) : new Date(),
+                  balance: safeBal,
+                  amount: safeTotal,
+                  issueDate: issueDate,
                   items: inv as any,
                 },
               }));
@@ -258,40 +288,52 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zOrders = zData.salesorders || []
 
+            const allAccounts = await prisma.account.findMany({ select: { id: true, zohoId: true, name: true } })
+            const accountByZohoId = new Map(allAccounts.filter(a => a.zohoId).map(a => [a.zohoId, a]))
+            const accountByName = new Map(allAccounts.map(a => [a.name?.toLowerCase(), a]))
+
+            const existingSOs = await prisma.salesOrder.findMany({ select: { id: true, zohoId: true, accountId: true } })
+            const soByZohoId = new Map(existingSOs.filter(i => i.zohoId).map(i => [i.zohoId, i]))
+
             let batch: any[] = [];
             for (const so of zOrders) {
               if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
               if (!so.salesorder_id) continue
 
-              // Resolve local account: try customer_id first, then fall back to customer_name
-              let localAccount = so.customer_id
-                ? await prisma.account.findFirst({ where: { zohoId: so.customer_id } })
-                : null
-              if (!localAccount && so.customer_name) {
-                localAccount = await prisma.account.findFirst({ where: { name: so.customer_name } })
-              }
+              let localAccount = (so.customer_id ? accountByZohoId.get(so.customer_id) : null)
+                || (so.customer_name ? accountByName.get(so.customer_name.toLowerCase()) : null);
 
-              // Check if record already exists (for update without requiring account)
-              const existingSO = await prisma.salesOrder.findUnique({ where: { zohoId: so.salesorder_id } })
+              const existingSO = soByZohoId.get(so.salesorder_id)
               const soAccountId = localAccount?.id || existingSO?.accountId
               if (!soAccountId) continue  // skip only if no account can be resolved at all
+
+              const totalStr = String(so.total ?? '0');
+              const total = parseFloat(totalStr);
+              const safeTotal = isNaN(total) ? 0 : total;
+
+              const shippingStr = String(so.shipping_charge || so.shipping_charges || so.shippingCharge || '0');
+              const shipping = parseFloat(shippingStr);
+              const safeShipping = isNaN(shipping) ? undefined : shipping;
+
+              const dateStr = String(so.date || '');
+              const orderDate = Date.parse(dateStr) ? new Date(dateStr) : new Date();
 
               batch.push(prisma.salesOrder.upsert({
                 where: { zohoId: so.salesorder_id },
                 update: {
                   status: so.status,
-                  amount: parseFloat(so.total || 0),
+                  amount: safeTotal,
                   items: so as any,
-                  actualShippingCost: parseFloat(so.shipping_charge || so.shipping_charges || so.shippingCharge || 0) || undefined,
+                  actualShippingCost: safeShipping,
                 },
                 create: {
                   zohoId: so.salesorder_id,
                   accountId: soAccountId,
                   status: so.status,
-                  amount: parseFloat(so.total || 0),
-                  orderDate: so.date ? new Date(so.date) : new Date(),
+                  amount: safeTotal,
+                  orderDate: orderDate,
                   items: so as any,
-                  actualShippingCost: parseFloat(so.shipping_charge || so.shipping_charges || so.shippingCharge || 0) || undefined,
+                  actualShippingCost: safeShipping,
                 },
               }));
               if (batch.length >= BATCH_SIZE) { await prisma.$transaction(batch); syncedCount += batch.length; batch = []; }
@@ -579,28 +621,37 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zEstimates = zData.estimates || []
 
+            const allAccounts = await prisma.account.findMany({ select: { id: true, zohoId: true, name: true } })
+            const accountByZohoId = new Map(allAccounts.filter(a => a.zohoId).map(a => [a.zohoId, a]))
+            const accountByName = new Map(allAccounts.map(a => [a.name?.toLowerCase(), a]))
+
+            const existingQuotes = await prisma.quote.findMany({ select: { id: true, zohoId: true, accountId: true } })
+            const quoteByZohoId = new Map(existingQuotes.filter(i => i.zohoId).map(i => [i.zohoId, i]))
+
             let batch: any[] = [];
             for (const est of zEstimates) {
               if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
               if (!est.estimate_id) continue
 
-              // Resolve local account: try customer_id first, then fall back to customer_name
-              let localAccount = est.customer_id
-                ? await prisma.account.findFirst({ where: { zohoId: est.customer_id } })
-                : null
-              if (!localAccount && est.customer_name) {
-                localAccount = await prisma.account.findFirst({ where: { name: est.customer_name } })
-              }
+              let localAccount = (est.customer_id ? accountByZohoId.get(est.customer_id) : null)
+                || (est.customer_name ? accountByName.get(est.customer_name.toLowerCase()) : null);
 
-              const existingQuote = await prisma.quote.findUnique({ where: { zohoId: est.estimate_id } })
+              const existingQuote = quoteByZohoId.get(est.estimate_id)
               const quoteAccountId = localAccount?.id || existingQuote?.accountId
               if (!quoteAccountId) continue
 
+              const totalStr = String(est.total ?? '0');
+              const total = parseFloat(totalStr);
+              const safeTotal = isNaN(total) ? 0 : total;
+
+              const dateStr = String(est.expiry_date || '');
+              const expiryDate = Date.parse(dateStr) ? new Date(dateStr) : undefined;
+
               const quoteData = {
                 status: est.status,
-                amount: parseFloat(est.total || 0),
+                amount: safeTotal,
                 items: est as any,
-                validUntil: est.expiry_date ? new Date(est.expiry_date) : undefined,
+                validUntil: expiryDate,
                 rawData: est as any,
               }
 
@@ -661,6 +712,9 @@ export async function POST(req: NextRequest) {
             const zData = await zRes.json()
             const zPayments = zData.customerpayments || []
 
+            const allInvoices = await prisma.invoice.findMany({ select: { id: true, zohoId: true } })
+            const invoiceByZohoId = new Map(allInvoices.filter(i => i.zohoId).map(i => [i.zohoId, i]))
+
             let batch: any[] = [];
             for (const pmt of zPayments) {
               if (Date.now() - startTime > TIMEOUT_MS) { timeoutReached = true; break; }
@@ -671,20 +725,31 @@ export async function POST(req: NextRequest) {
               
               let invoiceDbId: string | undefined = undefined
               if (invoiceId) {
-                const localInvoice = await prisma.invoice.findFirst({ where: { zohoId: invoiceId } })
+                const localInvoice = invoiceByZohoId.get(invoiceId)
                 if (localInvoice) invoiceDbId = localInvoice.id
               }
+
+              const amtStr = String(pmt.amount ?? '0');
+              const amt = parseFloat(amtStr);
+              const safeAmt = isNaN(amt) ? 0 : amt;
+
+              const bankChargesStr = String(pmt.bank_charges ?? '0');
+              const bankCharges = parseFloat(bankChargesStr);
+              const safeBankCharges = isNaN(bankCharges) ? 0 : bankCharges;
+
+              const dateStr = String(pmt.date || '');
+              const pmtDate = Date.parse(dateStr) ? new Date(dateStr) : null;
 
               const paymentData = {
                 invoiceId,
                 invoiceNumber,
                 invoiceDbId,
-                amount: parseFloat(pmt.amount || 0),
-                date: pmt.date ? new Date(pmt.date) : null,
+                amount: safeAmt,
+                date: pmtDate,
                 mode: pmt.payment_mode,
                 status: 'received',
                 referenceNumber: pmt.reference_number,
-                bankCharges: parseFloat(pmt.bank_charges || 0),
+                bankCharges: safeBankCharges,
                 description: pmt.description,
               }
 
@@ -847,5 +912,9 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('sync-now error:', err)
     return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+  } finally {
+    if (lockAcquired) {
+      await prisma.systemSetting.update({ where: { key: 'sync_in_progress' }, data: { value: 'false' } }).catch(() => {})
+    }
   }
 }

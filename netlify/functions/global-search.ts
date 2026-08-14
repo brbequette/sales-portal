@@ -98,27 +98,30 @@ export const handler: Handler = async (event) => {
       accountZohoId: d.account?.zohoId,
     }))
 
-    // 4. Search Products (Zoho Books)
+    // 4. Search Products (Prisma)
     let products: any[] = []
     try {
-      const token = await getZohoAccessToken()
-      const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
-      // Search items in Books
-      const res = await fetch(`${baseUrl}/items?organization_id=${ORG_ID}&search_text=${encodeURIComponent(query)}&per_page=10`, {
-        headers: { Authorization: `Zoho-oauthtoken ${token}` }
+      const dbProducts = await prisma.product.findMany({
+        where: {
+          OR: [
+            { name: { contains: query, mode: 'insensitive' } },
+            { sku: { contains: query, mode: 'insensitive' } },
+          ]
+        },
+        take: 10,
+        select: { id: true, name: true, sku: true, price: true }
       })
-      const data = await res.json()
-      if (data.items) {
-        products = data.items.map((item: any) => ({
-          id: item.item_id,
-          sku: item.sku || "N/A",
-          name: item.name || item.item_name,
-          category: item.category_name || "Uncategorized",
-          price: item.rate,
-          stock: item.stock_on_hand || 0,
-          description: item.description || ""
-        }))
-      }
+      products = dbProducts.map((p: any) => ({
+        type: 'product',
+        id: p.id,
+        name: p.name,
+        sku: p.sku || "N/A",
+        rate: p.price,
+        price: p.price,
+        category: "Uncategorized",
+        stock: 0,
+        description: ""
+      }))
     } catch (e) {
       console.warn("Product search failed:", e)
     }
