@@ -1,5 +1,4 @@
 import { schedule } from "@netlify/functions"
-import fetch from "node-fetch"
 import FormData from "form-data"
 import { getZohoAccessToken } from "./lib/zoho-auth"
 import { prisma } from "./lib/prisma"

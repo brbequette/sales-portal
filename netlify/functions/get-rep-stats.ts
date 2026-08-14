@@ -1,4 +1,3 @@
-import 'dotenv/config'
 import { Handler } from "@netlify/functions"
 import { getSystemSettings } from "./lib/settings"
 import { prisma, Prisma } from "./lib/prisma"

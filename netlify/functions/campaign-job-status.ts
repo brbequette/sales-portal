@@ -1,7 +1,6 @@
 import { Handler } from "@netlify/functions"
 import { corsHeaders, handleOptions } from "./lib/cors"
 import { getZohoAccessToken } from "./lib/zoho-auth"
-import fetch from "node-fetch"
 import FormData from "form-data"
 
 import { prisma } from "./lib/prisma"

@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 // Using default auth for prototype
 import { getZohoAccessToken } from '@/lib/zoho-auth'
-import fetch from 'node-fetch'
 import FormData from 'form-data'
 
 export async function GET(req: Request, context: { params: Promise<{ accountId: string }> }) {
