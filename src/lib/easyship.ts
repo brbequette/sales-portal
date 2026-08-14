@@ -440,7 +440,7 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
   let currency = shipment.currency || 'USD';
 
   if (easyshipId) {
-    // Easyship 2024-09 API: POST /2024-09/shipments/{shipment_id}/label
+    // Easyship 2024-09 API: POST /shipments/{shipment_id}/label
     const labelBody: any = {};
     if (params.courierServiceId) {
       labelBody.courier_service_id = params.courierServiceId;
@@ -456,14 +456,29 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
     const labelText = await labelRes.text();
     console.log(`[easyship] Label response (${labelRes.status}):`, labelText.substring(0, 1500));
 
-    if (!labelRes.ok) {
+    let labelShipment: any = {};
+
+    if (labelRes.ok) {
+      const labelData = JSON.parse(labelText);
+      labelShipment = labelData.shipment || labelData.shipments?.[0] || {};
+    } else if (labelRes.status === 422 && labelText.includes('labels already requested')) {
+      // Label was already purchased on a previous attempt — fetch the shipment to get existing label info
+      console.log(`[easyship] Label already requested for ${easyshipId}, fetching existing shipment details...`);
+      const getRes = await fetch(`${EASYSHIP_API_URL}/shipments/${easyshipId}`, {
+        method: 'GET',
+        headers: getHeaders(),
+      });
+      if (getRes.ok) {
+        const getData = await getRes.json();
+        labelShipment = getData.shipment || getData;
+        console.log(`[easyship] Retrieved existing shipment. label_state: ${labelShipment.label_state}, tracking: ${labelShipment.trackings?.[0]?.tracking_number || 'none'}`);
+      } else {
+        const getErr = await getRes.text();
+        throw new Error(`Label already requested for ${easyshipId} but failed to retrieve details (${getRes.status}): ${getErr.substring(0, 300)}`);
+      }
+    } else {
       throw new Error(`Easyship label purchase failed (${labelRes.status}): ${labelText.substring(0, 500)}`);
     }
-
-    const labelData = JSON.parse(labelText);
-    
-    // 2024-09 API returns { shipment: { ... } }
-    const labelShipment = labelData.shipment || labelData.shipments?.[0] || {};
     
     console.log('[easyship] Label shipment keys:', Object.keys(labelShipment).join(', '));
 
@@ -491,7 +506,7 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
 
     // If we still have no tracking number, log for debugging
     if (!trackingNumber) {
-      console.warn('[easyship] WARNING: No tracking number in label response. Full data:', JSON.stringify(labelData).substring(0, 2000));
+      console.warn('[easyship] WARNING: No tracking number in label response. Full data:', JSON.stringify(labelShipment).substring(0, 2000));
     }
   }
 
