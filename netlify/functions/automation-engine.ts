@@ -1,7 +1,6 @@
 import { schedule } from "@netlify/functions"
 import { prisma } from "./lib/prisma"
-
-/**
+import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"/**
  * Automation Engine — Runs every 5 minutes via Netlify cron
  * 
  * 1. Process SalesStage drip campaigns (flowConfig steps)
@@ -39,11 +38,96 @@ type FlowConfig = {
   maxLoops?: number
 }
 
+async function processAutoships(now: Date) {
+  console.log("=== Processing Autoship Subscriptions ===")
+  try {
+    const dueSubscriptions = await prisma.autoshipSubscription.findMany({
+      where: {
+        status: 'active',
+        nextShipDate: { lte: now }
+      },
+      include: {
+        account: {
+          include: { contacts: true }
+        }
+      }
+    })
+
+    if (dueSubscriptions.length === 0) return
+
+    let succeeded = 0
+    let failed = 0
+
+    for (const sub of dueSubscriptions) {
+      try {
+        console.log(`[autoship] Processing subscription ${sub.id} for account ${sub.accountId}`)
+        
+        const token = await getZohoAccessToken()
+        const primaryContact = sub.account.contacts?.find(c => c.isPrimary) || sub.account.contacts?.[0]
+        const items = (sub.items || []) as any[]
+
+        // Create Sales Order in Zoho Books
+        const zohoPayload = {
+          customer_id: sub.account.zohoId,
+          reference_number: `AUTOSHIP-${sub.id}-${Date.now()}`,
+          line_items: items.map(item => ({
+            name: item.name,
+            sku: item.sku,
+            rate: item.unitPrice,
+            quantity: item.qty
+          }))
+        }
+
+        const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders?organization_id=${ZOHO_ORGANIZATION_ID}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Zoho-oauthtoken ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(zohoPayload)
+        })
+
+        const data = await res.json()
+        if (data.code !== 0) {
+          throw new Error(`Zoho API Error: ${data.message}`)
+        }
+
+        // Calculate next ship date
+        let daysToAdd = 30
+        if (sub.frequency === 'quarterly') daysToAdd = 90
+        if (sub.frequency === 'biannual') daysToAdd = 180
+
+        const nextShipDate = new Date(now.getTime() + daysToAdd * 24 * 60 * 60 * 1000)
+
+        await prisma.autoshipSubscription.update({
+          where: { id: sub.id },
+          data: { nextShipDate }
+        })
+
+        if (primaryContact?.email) {
+          console.log(`[autoship] Sent notification to ${primaryContact.email}`)
+        }
+
+        succeeded++
+      } catch (err: any) {
+        console.error(`[autoship] Failed processing subscription ${sub.id}:`, err.message)
+        failed++
+      }
+    }
+
+    console.log(`[autoship] Processed ${dueSubscriptions.length} subscriptions, ${succeeded} succeeded, ${failed} failed`)
+  } catch (error) {
+    console.error(`[autoship] Global error during autoship processing:`, error)
+  }
+}
+
 export const handler = schedule("*/5 * * * *", async () => {
   console.log("=== Automation Engine Started ===")
   const now = new Date()
 
   try {
+    await processAutoships(now)
+
     // ═══════════════════════════════════════════════════
     // 1. Process SalesStage Drip Campaigns
     // ═══════════════════════════════════════════════════
