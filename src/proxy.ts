@@ -32,9 +32,8 @@ const PUBLIC_ROUTES = [
   '/rep-portal',
 ];
 
-// Static file and API patterns to skip
+// Static file patterns to always skip
 const SKIP_PATTERNS = [
-  '/api/',
   '/_next/',
   '/favicon',
   '/icon-',
@@ -43,6 +42,20 @@ const SKIP_PATTERNS = [
   '/tv',
   '/print/',
   '/vcard/',
+];
+
+// API routes that don't require authentication
+const PUBLIC_API_PATTERNS = [
+  '/api/auth/',      // NextAuth routes
+  '/api/webhooks/',  // Webhook endpoints (use their own token auth)
+  '/api/public/',    // Explicitly public endpoints
+];
+
+// API routes that require admin role
+const ADMIN_API_PATTERNS = [
+  '/api/admin/',
+  '/api/run-sql',
+  '/api/run-db-push',
 ];
 
 function isPublicRoute(pathname: string): boolean {
@@ -56,13 +69,52 @@ function shouldSkip(pathname: string): boolean {
   return SKIP_PATTERNS.some(p => pathname.startsWith(p));
 }
 
-const AUTH_SECRET = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "titan-diamond-secret-key-2026";
+function isPublicApi(pathname: string): boolean {
+  return PUBLIC_API_PATTERNS.some(p => pathname.startsWith(p));
+}
+
+function isAdminApi(pathname: string): boolean {
+  return ADMIN_API_PATTERNS.some(p => pathname === p || pathname.startsWith(p));
+}
+
+const AUTH_SECRET = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+if (!AUTH_SECRET) {
+  console.error('[proxy] NEXTAUTH_SECRET is not set — sessions will not be verifiable');
+}
 
 export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   
-  // Skip static files, API routes, etc.
+  // Skip static files
   if (shouldSkip(pathname)) {
+    return NextResponse.next();
+  }
+
+  // API route handling
+  if (pathname.startsWith('/api/')) {
+    // Public APIs pass through
+    if (isPublicApi(pathname)) {
+      return NextResponse.next();
+    }
+
+    // All other API routes require a session
+    const hasSessionCookie = req.cookies.getAll().some(c => c.name.includes('next-auth.session-token'));
+    let token = null;
+    if (hasSessionCookie && AUTH_SECRET) {
+      token = await getToken({ req, secret: AUTH_SECRET }).catch(() => null);
+      if (!token) token = await getToken({ req, secret: AUTH_SECRET, cookieName: '__Secure-next-auth.session-token' }).catch(() => null);
+      if (!token) token = await getToken({ req, secret: AUTH_SECRET, cookieName: 'next-auth.session-token' }).catch(() => null);
+    }
+
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Admin API routes require admin role
+    if (isAdminApi(pathname) && !isAdminRole(token.role as string | undefined)) {
+      return NextResponse.json({ error: 'Forbidden: Admin required' }, { status: 403 });
+    }
+
     return NextResponse.next();
   }
 

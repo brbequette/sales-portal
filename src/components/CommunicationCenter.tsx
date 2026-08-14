@@ -34,6 +34,7 @@ import {
 } from "@/components/FactFindingPanel"
 import { OrderBuilder, type OrderLine } from "@/components/OrderBuilder"
 import { PhoneLink } from "@/components/PhoneLink"
+import { EmailInbox } from "@/components/EmailInbox"
 
 // â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
@@ -1023,31 +1024,8 @@ export function CommunicationCenter({
           EMAIL TAB
       â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â-â- */}
       {activeTab === "EMAIL" && (
-        <div className="flex-1 flex flex-col gap-3">
-          <div className="flex justify-between items-end">
-            <label className="text-xs font-semibold text-neutral-400">Compose Email</label>
-            <button
-              onClick={() => setEmailText(`Hi ${primaryContact?.firstName},\n\nHope you are doing well. Just wanted to follow up on the quote we prepared for you. Let me know if you would like me to process it.\n\nBest,\nTitan Diamond`)}
-              className="text-xs text-purple-400 hover:text-purple-300"
-            >
-              Load Template
-            </button>
-          </div>
-          <textarea
-            value={emailText}
-            onChange={e => setEmailText(e.target.value)}
-            className="w-full flex-1 glass-panel border border-neutral-700 rounded-lg p-3 text-sm focus:outline-none focus:border-purple-500 text-white resize-none min-h-[180px]"
-            placeholder="Write your email here..."
-          />
-          <div className="flex justify-end">
-            <button
-              onClick={sendEmailLog}
-              disabled={isSaving || !emailText}
-              className="px-6 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-sm rounded-lg transition-colors"
-            >
-              {isSaving ? "Logging..." : "Send Email"}
-            </button>
-          </div>
+        <div className="flex-1 flex flex-col min-h-0">
+          <EmailInbox accountId={accountId} account={account} contacts={contacts} />
         </div>
       )}
 

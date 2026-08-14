@@ -104,47 +104,22 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email) return null;
+        if (!credentials?.email || !credentials?.password) return null;
         const input = credentials.email.trim().toLowerCase();
 
-        let dbUser = await findUserFlexibly(input);
+        const dbUser = await findUserFlexibly(input);
+        if (!dbUser || !dbUser.password) return null;
 
-        if (!dbUser) {
-          const isStaff = input.includes("titan") || input.includes("rep") || input.includes("admin") || input.includes("ben") || input.includes("heisler") || input.includes("haisler") || input.includes("ross");
-          const role = isStaff ? (input.includes("admin") ? "Administrator" : "Sales Representative") : "Customer";
-          
-          const rawName = input.split("@")[0];
-          const formattedName = rawName
-            .split(/[._-]/)
-            .filter(Boolean)
-            .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-            .join(" ");
-
-          dbUser = await prisma.user.create({
-            data: {
-              email: input,
-              name: formattedName || input,
-              role,
-            }
-          }).catch(() => null);
-        }
-
-        if (dbUser) {
-          return {
-            id: dbUser.zohoId || dbUser.id,
-            dbId: dbUser.id,
-            name: dbUser.name,
-            email: dbUser.email,
-            role: dbUser.role,
-            isZohoUser: true,
-          };
-        }
+        const bcrypt = require("bcryptjs");
+        const isValid = await bcrypt.compare(credentials.password, dbUser.password);
+        if (!isValid) return null;
 
         return {
-          id: input,
-          name: input.split("@")[0],
-          email: input,
-          role: "Sales Representative",
+          id: dbUser.zohoId || dbUser.id,
+          dbId: dbUser.id,
+          name: dbUser.name,
+          email: dbUser.email,
+          role: dbUser.role,
           isZohoUser: true,
         };
       }
@@ -233,7 +208,7 @@ export const authOptions: NextAuthOptions = {
     signIn: '/employee-login',
     error: '/employee-login',
   },
-  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "titan-diamond-secret-key-2026",
+  secret: process.env.NEXTAUTH_SECRET || (() => { throw new Error("NEXTAUTH_SECRET is not set"); })(),
 }
 
 export default NextAuth(authOptions)

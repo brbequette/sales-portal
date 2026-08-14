@@ -1159,3 +1159,87 @@ model AiChatLog {
   @@index([userId])
   @@index([createdAt])
 }
+
+model DealAutomationState {
+  id              String   @id @default(cuid())
+  dealId          String   @unique
+  salesStageId    String
+  currentStep     Int      @default(0)    // Current step index in flowConfig.steps[]
+  loopCount       Int      @default(0)    // How many times the flow has looped
+  maxLoops        Int      @default(3)    // Max loops before stopping
+  lastExecutedAt  DateTime?               // When the last step was executed
+  nextExecuteAt   DateTime?               // When the next step should execute
+  status          String   @default("ACTIVE") // ACTIVE | PAUSED | COMPLETED | CANCELLED
+  metadata        Json?                   // Any step-specific state data
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([nextExecuteAt])
+  @@index([salesStageId])
+}
+
+model Email {
+  id              String   @id @default(cuid())
+  accountId       String?
+  contactId       String?
+  userId          String?
+  zohoMailId      String   @unique
+  zohoAccountId   String
+  subject         String
+  body            String?
+  bodyHtml        String?
+  fromAddress     String
+  toAddress       String
+  ccAddresses     String?
+  direction       String   // INBOUND | OUTBOUND
+  status          String   // RECEIVED | READ | REPLIED | ARCHIVED
+  threadId        String?
+  needsResponse   Boolean  @default(false)
+  suggestedReply  String?
+  taskCreated     Boolean  @default(false)
+  sentAt          DateTime?
+  receivedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId])
+  @@index([userId])
+  @@index([needsResponse])
+  @@index([status])
+  @@index([threadId])
+}
+
+model EmailTemplate {
+  id              String   @id @default(cuid())
+  name            String
+  subject         String
+  body            String   // with merge tags
+  category        String?
+  useCount        Int      @default(0)
+  lastUsedAt      DateTime?
+  createdBy       String?
+  isSystemDefault Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+}
+
+model AcceptedResponse {
+  id              String   @id @default(cuid())
+  emailId         String?
+  originalSubject String?
+  responseBody    String
+  mergeTags       Json?
+  category        String?
+  useCount        Int      @default(0)
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([category])
+  @@index([useCount])
+}
