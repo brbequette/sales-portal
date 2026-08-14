@@ -2,9 +2,16 @@
 // No hardcoded fallbacks allowed
 // Uses lazy evaluation to avoid crashing at module load time during build
 
+// At build time (Netlify prerender), env vars may not be available.
+// Return empty strings so prerender succeeds; real values are used at runtime.
+const isBuildPhase = process.env.NODE_ENV === 'production' && !process.env.COMPANY_NAME
+
 function env(name: string): string {
   const val = process.env[name]
-  if (!val) throw new Error(`Missing required environment variable: ${name}`)
+  if (!val) {
+    if (isBuildPhase) return ''
+    throw new Error(`Missing required environment variable: ${name}`)
+  }
   return val
 }
 
