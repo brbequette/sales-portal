@@ -1,0 +1,1 @@
+SELECT id, " "packageNumber, status, trackingNumber, carrier, updatedAt FROM Package WHERE status = 'shipped' AND updatedAt  ORDER BY updatedAt DESC; 

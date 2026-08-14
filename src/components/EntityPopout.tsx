@@ -1,8 +1,8 @@
 "use client"
 
-import React, { useEffect } from "react"
+import React, { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
-import { FiChevronLeft, FiChevronRight, FiX, FiFileText, FiUser, FiBox, FiTruck, FiBookOpen } from "react-icons/fi"
+import { FiChevronLeft, FiChevronRight, FiFileText, FiUser, FiBox, FiTruck, FiBookOpen } from "react-icons/fi"
 import { DocumentPopoutContent } from "./DocumentPopoutContent"
 
 export type EntityType = 'invoice' | 'estimate' | 'salesorder' | 'account' | 'package' | 'purchaseorder' | 'vendor' | 'product' | 'quote'
@@ -26,10 +26,23 @@ export function EntityPopout({
   onNavigate,
   permissions
 }: EntityPopoutProps) {
+  const [isVisible, setIsVisible] = useState(false)
+
+  // Animate in on mount
+  useEffect(() => {
+    requestAnimationFrame(() => setIsVisible(true))
+  }, [])
+
+  // Close with animation
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(onClose, 250)
+  }
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
+      if (e.key === "Escape") handleClose()
       if (entities && entities.length > 1 && onNavigate && currentIndex !== undefined) {
         if (e.key === "ArrowLeft" && currentIndex > 0) onNavigate(currentIndex - 1)
         if (e.key === "ArrowRight" && currentIndex < entities.length - 1) onNavigate(currentIndex + 1)
@@ -37,7 +50,13 @@ export function EntityPopout({
     }
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [entities, currentIndex, onClose, onNavigate])
+  }, [entities, currentIndex, onNavigate])
+
+  // Lock body scroll
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
 
   const hasList = entities && entities.length > 1 && onNavigate !== undefined && currentIndex !== undefined
 
@@ -46,27 +65,35 @@ export function EntityPopout({
   let title = "Document Details"
   if (entityType === 'account') { Icon = FiUser; title = "Account Details" }
   else if (entityType === 'package') { Icon = FiBox; title = "Package Details" }
-  else if (entityType === 'purchaseorder') { Icon = FiTruck; title = "Purchase Order Details" }
+  else if (entityType === 'purchaseorder') { Icon = FiTruck; title = "Purchase Order" }
   else if (entityType === 'vendor') { Icon = FiUser; title = "Vendor Details" }
   else if (entityType === 'product') { Icon = FiBox; title = "Product Details" }
-  else if (entityType === 'invoice') { Icon = FiFileText; title = "Invoice Details" }
-  else if (entityType === 'estimate' || entityType === 'quote') { Icon = FiFileText; title = "Estimate Details" }
-  else if (entityType === 'salesorder') { Icon = FiFileText; title = "Sales Order Details" }
+  else if (entityType === 'invoice') { Icon = FiFileText; title = "Invoice" }
+  else if (entityType === 'estimate' || entityType === 'quote') { Icon = FiFileText; title = "Estimate" }
+  else if (entityType === 'salesorder') { Icon = FiFileText; title = "Sales Order" }
 
   return createPortal(
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-3 sm:p-6 animate-fade-in overflow-hidden">
-      <div className="fixed inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative glass-panel border border-white/10 w-full max-w-6xl max-h-[90vh] h-full my-auto rounded-2xl overflow-hidden flex flex-col shadow-2xl z-[500] animate-scale-in">
-        
-        {/* Header Shell */}
-        <div className="glass-panel px-3 sm:px-6 py-3 sm:py-4 border-b border-white/10 flex flex-wrap justify-between items-center gap-2 shrink-0">
+    <div className="fixed inset-0 z-[500] overflow-hidden">
+      {/* Backdrop */}
+      <div 
+        className={`fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`} 
+        onClick={handleClose} 
+      />
+      
+      {/* Slideout Panel — full height, slides from right */}
+      <div 
+        className={`fixed inset-y-0 right-0 w-full max-w-5xl bg-[#0a0b0d] border-l border-white/10 shadow-2xl flex flex-col transform transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isVisible ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        {/* Header */}
+        <div className="bg-[#111316] px-4 sm:px-6 py-3 border-b border-white/10 flex justify-between items-center gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <h2 className="text-sm font-bold flex items-center gap-2 text-white">
-              <Icon className="shrink-0 text-orange-500" /> <span className="truncate">{title}</span>
-            </h2>
+            <div className="flex items-center gap-2">
+              <Icon className="shrink-0 text-orange-500" size={16} />
+              <h2 className="text-sm font-bold text-white truncate">{title}</h2>
+            </div>
             
             {hasList && (
-              <div className="flex items-center gap-1 bg-black/20 border border-white/10 rounded-lg p-0.5 shrink-0 ml-2">
+              <div className="flex items-center gap-1 bg-black/30 border border-white/10 rounded-lg p-0.5 shrink-0">
                 <button
                   onClick={() => onNavigate!(currentIndex! - 1)}
                   disabled={currentIndex === 0}
@@ -74,8 +101,8 @@ export function EntityPopout({
                 >
                   <FiChevronLeft size={14} />
                 </button>
-                <span className="text-[10px] font-bold text-neutral-400 px-1 tabular-nums">
-                  {currentIndex! + 1} of {entities!.length}
+                <span className="text-[10px] font-bold text-neutral-400 px-1.5 tabular-nums">
+                  {currentIndex! + 1} / {entities!.length}
                 </span>
                 <button
                   onClick={() => onNavigate!(currentIndex! + 1)}
@@ -88,19 +115,18 @@ export function EntityPopout({
             )}
           </div>
           
-          <div className="flex items-center gap-2 justify-end shrink-0" id="entity-popout-actions">
-            {/* The content component can portal actions here if needed, or we just keep generic close here */}
+          <div className="flex items-center gap-2 shrink-0">
             {['invoice', 'estimate', 'quote', 'salesorder'].includes(entityType) && (
-               <button 
-                 onClick={() => { /* dispatch open pdf viewer event or handle here */ }}
-                 className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs transition-colors border border-neutral-700 flex items-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap"
-               >
-                 <FiBookOpen size={12} /> <span className="hidden sm:inline">Flipbook</span>
-               </button>
+              <button 
+                onClick={() => { /* flipbook */ }}
+                className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors border border-neutral-700 flex items-center gap-1.5 cursor-pointer"
+              >
+                <FiBookOpen size={12} /> Flipbook
+              </button>
             )}
             <button 
-              onClick={onClose} 
-              className="text-neutral-400 hover:text-white p-1 bg-neutral-800 hover:bg-neutral-755 transition-colors rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center font-bold text-base sm:text-lg cursor-pointer shrink-0"
+              onClick={handleClose} 
+              className="text-neutral-400 hover:text-white bg-neutral-800 hover:bg-neutral-700 transition-colors rounded-lg w-8 h-8 flex items-center justify-center font-bold text-lg cursor-pointer shrink-0 border border-neutral-700"
             >
               &times;
             </button>
@@ -108,22 +134,28 @@ export function EntityPopout({
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-hidden flex flex-col relative bg-[#0a0b0d]">
+        <div className="flex-1 overflow-hidden flex flex-col">
           {['invoice', 'estimate', 'quote', 'salesorder'].includes(entityType) ? (
             <DocumentPopoutContent 
               entityId={entityId} 
               entityType={entityType as any} 
-              onClose={onClose} 
+              onClose={handleClose} 
               entities={entities} 
               currentIndex={currentIndex} 
               onNavigate={onNavigate} 
             />
           ) : entityType === 'account' ? (
-            <div className="p-6 text-white">Account Content (Placeholder)</div>
+            <div className="p-6 text-white">Account Content (Coming Soon)</div>
           ) : entityType === 'package' ? (
-            <div className="p-6 text-white">Package Content (Placeholder)</div>
+            <div className="p-6 text-white">Package Content (Coming Soon)</div>
+          ) : entityType === 'purchaseorder' ? (
+            <div className="p-6 text-white">Purchase Order Content (Coming Soon)</div>
+          ) : entityType === 'vendor' ? (
+            <div className="p-6 text-white">Vendor Content (Coming Soon)</div>
+          ) : entityType === 'product' ? (
+            <div className="p-6 text-white">Product Content (Coming Soon)</div>
           ) : (
-             <div className="p-6 text-white">Content for {entityType}</div>
+            <div className="p-6 text-white">Content for {entityType}</div>
           )}
         </div>
       </div>
@@ -131,3 +163,5 @@ export function EntityPopout({
     document.body
   )
 }
+
+
