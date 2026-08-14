@@ -98,7 +98,9 @@ export const handler: Handler = async (event, context) => {
     const userEmailLower = (user?.email || email || '').toLowerCase()
     const userRoleLower  = (passedRole || user?.role || '').toLowerCase()
     // Admin detection: role-based OR matching admin email patterns
+    // 'agent' = Titan employees with full access (not sales-only reps)
     const isAdmin = userRoleLower.includes('admin') || userRoleLower.includes('administrator') || userRoleLower.includes('manager')
+      || userRoleLower.includes('agent') || userRoleLower.includes('owner') || userRoleLower.includes('super')
       || (adminEmailPatterns.length > 0 && adminEmailPatterns.some(p => userEmailLower.includes(p)))
     const isSalesOnly = !isAdmin
 
@@ -1005,7 +1007,7 @@ export const handler: Handler = async (event, context) => {
 
     const statusSql: Prisma.Sql = statusFilter
       ? Prisma.sql`AND a.status = ${statusFilter}`
-      : Prisma.sql`AND a.status NOT IN ('Inactive','Do Not Contact','DNR')`
+      : Prisma.sql`AND COALESCE(a.status, '') NOT IN ('Inactive','Do Not Contact','DNR')`
 
     const searchSql: Prisma.Sql = search
       ? Prisma.sql`AND a.name ILIKE ${'%' + search + '%'}`

@@ -931,6 +931,7 @@ export default function SalesPage() {
                   }}
                   className="bg-black/40 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                 >
+                  <option value="all">All Reps</option>
                   {allDbUsers.filter(u => u.name && !u.email?.includes("dummy.titandiamond.com") && !u.email?.includes("example.com")).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')).map((u: any) => (
                     <option key={u.id} value={u.id}>
                       {u.name} {u.role?.toLowerCase().includes('admin') ? '(Admin)' : ''}
