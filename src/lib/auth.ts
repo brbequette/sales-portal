@@ -208,7 +208,7 @@ export const authOptions: NextAuthOptions = {
     signIn: '/employee-login',
     error: '/employee-login',
   },
-  secret: process.env.NEXTAUTH_SECRET || (() => { throw new Error("NEXTAUTH_SECRET is not set"); })(),
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "MISSING-SET-NEXTAUTH_SECRET-IN-ENV",
 }
 
 export default NextAuth(authOptions)
