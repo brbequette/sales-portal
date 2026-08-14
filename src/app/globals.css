@@ -187,7 +187,8 @@ textarea:focus-visible,
 /* Shared application shell and page rhythm */
 .page-content {
   display: flex;
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
   width: 100%;
   flex-direction: column;
   overflow-x: hidden;
