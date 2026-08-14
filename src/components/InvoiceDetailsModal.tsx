@@ -5,7 +5,7 @@ import { useInvoiceDetailsData, type InvoiceDetailsModalProps } from "./useInvoi
 
 import { createPortal } from "react-dom"
 import Link from "next/link"
-import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight, FiCheckSquare, FiExternalLink } from "react-icons/fi"
+import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight, FiCheckSquare, FiExternalLink, FiMapPin, FiSliders } from "react-icons/fi"
 import { getZohoBooksUrl } from "@/lib/zoho-urls"
 import { CreatePackageModal } from "./CreatePackageModal"
 import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
@@ -481,7 +481,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
           <div className="flex-1 bg-black/20 overflow-y-auto p-4 sm:p-5 flex flex-col gap-5">
             <div>
               <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><FiDatabase className="text-sky-400 shrink-0" /> Data View</h3>
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div>
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">{currentType === 'Quote' ? 'Quote' : currentType === 'SalesOrder' ? 'SO' : 'Invoice'} #</label>
                   <div className="text-sm text-white font-mono truncate">{displayData.items?.invoiceNumber || displayData.items?.invoice_number || displayData.items?.salesOrderNumber || displayData.items?.salesorder_number || displayData.items?.estimateNumber || displayData.items?.estimate_number || displayData.invoiceNumber || displayData.invoice_number || displayData.salesorder_number || displayData.estimate_number || displayData.zohoId || "--"}</div>
@@ -504,6 +504,12 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                     <div className="text-sm text-white">{new Date(displayData.due_date).toLocaleDateString(undefined, { timeZone: 'UTC' })}</div>
                   </div>
                 )}
+                {(displayData.reference_number || displayData.items?.reference_number) && (
+                  <div>
+                    <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Reference #</label>
+                    <div className="text-sm text-white font-mono">{displayData.reference_number || displayData.items?.reference_number}</div>
+                  </div>
+                )}
                 {displayData.salesperson_name && (
                   <div className="flex flex-col">
                     <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Salesperson</label>
@@ -512,9 +518,6 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                     ) : (
                       <div className="text-sm text-white font-semibold truncate">{displayData.salesperson_name}</div>
                     )}
-                    <div className="text-[9px] text-sky-400 font-mono mt-1">
-                      Session: user={effectiveName || "none"} role={effectiveRole || "none"} email={effectiveEmail || "none"} (isAdmin={String(isAdmin)} canEdit={String(canEdit)})
-                    </div>
                   </div>
                 )}
                 {(displayData.customer_name || displayData.customer_id) && (
@@ -532,6 +535,12 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                     )}
                   </div>
                 )}
+                {(displayData.payment_terms_label || displayData.items?.payment_terms_label) && (
+                  <div>
+                    <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Payment Terms</label>
+                    <div className="text-sm text-white">{displayData.payment_terms_label || displayData.items?.payment_terms_label}</div>
+                  </div>
+                )}
                 {displayData.vigRate && (
                   <div>
                     <label className="text-[10px] text-emerald-500 uppercase font-bold tracking-wider flex items-center gap-1">VIG Rate</label>
@@ -547,6 +556,147 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                   </div>
                 )}
               </div>
+
+              {/* --- Financial Summary Breakdown --- */}
+              {(displayData.sub_total || displayData.items?.sub_total) && (
+                <div className="mt-4 pt-3 border-t border-white/10">
+                  <h4 className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider mb-2 flex items-center gap-1.5"><FiDollarSign size={11} /> Financial Summary</h4>
+                  <div className="bg-black/30 rounded-xl border border-white/5 divide-y divide-white/5 text-xs">
+                    <div className="flex justify-between px-3 py-2">
+                      <span className="text-neutral-400">Subtotal</span>
+                      <span className="text-white font-bold font-mono">${parseFloat(displayData.sub_total || displayData.items?.sub_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    {parseFloat(displayData.discount || displayData.items?.discount || 0) > 0 && (
+                      <div className="flex justify-between px-3 py-2">
+                        <span className="text-neutral-400">Discount {displayData.discount_type === 'entity_level' ? `(${displayData.discount}%)` : ''}</span>
+                        <span className="text-red-400 font-bold font-mono">-${parseFloat(displayData.discount_amount || displayData.items?.discount_amount || displayData.discount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    {parseFloat(displayData.tax_total || displayData.items?.tax_total || 0) > 0 && (
+                      <div className="flex justify-between px-3 py-2">
+                        <span className="text-neutral-400">Tax</span>
+                        <span className="text-white font-mono">${parseFloat(displayData.tax_total || displayData.items?.tax_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    {parseFloat(displayData.shipping_charge || displayData.items?.shippingCharge || 0) > 0 && (
+                      <div className="flex justify-between px-3 py-2">
+                        <span className="text-neutral-400">Shipping</span>
+                        <span className="text-white font-mono">${parseFloat(displayData.shipping_charge || displayData.items?.shippingCharge || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    {parseFloat(displayData.adjustment || displayData.items?.adjustment || 0) !== 0 && (
+                      <div className="flex justify-between px-3 py-2">
+                        <span className="text-neutral-400">Adjustment</span>
+                        <span className="text-white font-mono">${parseFloat(displayData.adjustment || displayData.items?.adjustment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between px-3 py-2.5 bg-white/[0.02]">
+                      <span className="text-white font-bold">Total</span>
+                      <span className="text-emerald-400 font-black font-mono">${parseFloat(displayData.total || displayData.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* --- Addresses --- */}
+              {((displayData.shipping_address && (displayData.shipping_address.address || displayData.shipping_address.city)) || (displayData.billing_address && (displayData.billing_address.address || displayData.billing_address.city))) && (
+                <div className="mt-4 pt-3 border-t border-white/10">
+                  <h4 className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider mb-2 flex items-center gap-1.5"><FiMapPin size={11} /> Addresses</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {displayData.billing_address && (displayData.billing_address.address || displayData.billing_address.city) && (
+                      <div className="bg-black/30 rounded-xl border border-white/5 p-3">
+                        <div className="text-[9px] text-neutral-500 uppercase font-bold mb-1">Billing</div>
+                        <div className="text-xs text-neutral-300 leading-relaxed">
+                          {[displayData.billing_address.attention, displayData.billing_address.address, displayData.billing_address.street2].filter(Boolean).map((line: string, i: number) => <div key={i}>{line}</div>)}
+                          <div>{[displayData.billing_address.city, displayData.billing_address.state, displayData.billing_address.zip].filter(Boolean).join(', ')}</div>
+                          {displayData.billing_address.country && displayData.billing_address.country !== 'US' && displayData.billing_address.country !== 'U.S.A' && <div>{displayData.billing_address.country}</div>}
+                        </div>
+                      </div>
+                    )}
+                    {displayData.shipping_address && (displayData.shipping_address.address || displayData.shipping_address.city) && (
+                      <div className="bg-black/30 rounded-xl border border-white/5 p-3">
+                        <div className="text-[9px] text-neutral-500 uppercase font-bold mb-1">Shipping</div>
+                        <div className="text-xs text-neutral-300 leading-relaxed">
+                          {[displayData.shipping_address.attention, displayData.shipping_address.address, displayData.shipping_address.street2].filter(Boolean).map((line: string, i: number) => <div key={i}>{line}</div>)}
+                          <div>{[displayData.shipping_address.city, displayData.shipping_address.state, displayData.shipping_address.zip].filter(Boolean).join(', ')}</div>
+                          {displayData.shipping_address.country && displayData.shipping_address.country !== 'US' && displayData.shipping_address.country !== 'U.S.A' && <div>{displayData.shipping_address.country}</div>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* --- Line Items Table --- */}
+              {displayData.line_items && displayData.line_items.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-white/10">
+                  <h4 className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider mb-2 flex items-center gap-1.5"><FiFileText size={11} /> Line Items ({displayData.line_items.length})</h4>
+                  <div className="bg-black/30 rounded-xl border border-white/5 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-white/10 text-[9px] text-neutral-500 uppercase tracking-wider">
+                            <th className="text-left px-3 py-2 font-bold">Item</th>
+                            <th className="text-left px-3 py-2 font-bold hidden sm:table-cell">SKU</th>
+                            <th className="text-right px-3 py-2 font-bold">Qty</th>
+                            <th className="text-right px-3 py-2 font-bold">Rate</th>
+                            <th className="text-right px-3 py-2 font-bold">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {displayData.line_items.map((item: any, i: number) => (
+                            <tr key={item.line_item_id || i} className="hover:bg-white/[0.02] transition-colors">
+                              <td className="px-3 py-2">
+                                <div className="text-white font-semibold truncate max-w-[200px]">{item.name || item.description || 'Item'}</div>
+                                {item.description && item.description !== item.name && (
+                                  <div className="text-[10px] text-neutral-500 truncate max-w-[200px]">{item.description}</div>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-neutral-400 font-mono hidden sm:table-cell">{item.sku || item.item_code || '--'}</td>
+                              <td className="px-3 py-2 text-right text-white">{parseFloat(item.quantity || 1)}</td>
+                              <td className="px-3 py-2 text-right text-neutral-300 font-mono">${parseFloat(item.rate || item.price || 0).toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right text-white font-bold font-mono">${parseFloat(item.item_total || (item.quantity * item.rate) || 0).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* --- Notes & Terms --- */}
+              {(displayData.notes || displayData.terms) && (
+                <div className="mt-4 pt-3 border-t border-white/10 space-y-3">
+                  {displayData.notes && (
+                    <div>
+                      <h4 className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider mb-1">Notes</h4>
+                      <p className="text-xs text-neutral-300 leading-relaxed bg-black/20 rounded-lg p-2.5 border border-white/5 whitespace-pre-wrap">{displayData.notes}</p>
+                    </div>
+                  )}
+                  {displayData.terms && (
+                    <div>
+                      <h4 className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider mb-1">Terms & Conditions</h4>
+                      <p className="text-xs text-neutral-400 leading-relaxed bg-black/20 rounded-lg p-2.5 border border-white/5 whitespace-pre-wrap">{displayData.terms}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* --- Custom Fields --- */}
+              {(displayData.custom_fields || displayData.items?.custom_fields) && (displayData.custom_fields || displayData.items?.custom_fields).filter((f: any) => f.value && f.value !== '').length > 0 && (
+                <div className="mt-4 pt-3 border-t border-white/10">
+                  <h4 className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider mb-2 flex items-center gap-1.5"><FiSliders size={11} /> Custom Fields</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {(displayData.custom_fields || displayData.items?.custom_fields).filter((f: any) => f.value && f.value !== '').map((field: any, i: number) => (
+                      <div key={i} className="bg-black/30 rounded-lg border border-white/5 p-2.5">
+                        <div className="text-[9px] text-neutral-500 uppercase font-bold truncate">{field.label || field.customfield_id}</div>
+                        <div className="text-xs text-white font-semibold truncate mt-0.5">{field.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* --- Document Chain Links (Sales Order, Packages, Shipments) --- */}
               <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
