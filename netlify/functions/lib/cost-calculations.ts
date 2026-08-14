@@ -47,6 +47,7 @@ export interface CostCalculationResult {
   commissionPct: number
   salesCommission: number
   isPaid: boolean
+  usedFallbackCost: boolean  // true when dead cost was estimated (no real cost data on line items)
   actualShippingCost: number
   shippingCostBreakdown: string
   lineItemDetails: LineItemDetail[]
@@ -401,9 +402,11 @@ export async function calculateDocumentCosts(
 
   // Fallback: If document has subTotal > 0 but zero line items or missing cost data in Books,
   // estimate base product cost as 50% of subTotal so profit is not artificially inflated.
+  let usedFallbackCost = false
   if ((deadCostSubjectToVig + deadCostNoVig) === 0 && subTotal > 0) {
-    deadCostSubjectToVig = subTotal * 0.50
+    deadCostSubjectToVig = subTotal * (settings.dead_cost_fallback_pct / 100)
     deadCostTotal = deadCostSubjectToVig + additionalCosts
+    usedFallbackCost = true
   }
 
   // ─── 2. VIG rate ────────────────────────────────────────────────────────────
@@ -434,7 +437,7 @@ export async function calculateDocumentCosts(
   const commissionPct   = resolveCommissionPct(doc, settings, manualCommPct)
   // If profit is negative, the loss is split 50/50 between the company and the rep.
   // Otherwise, the rep gets their resolved commission percentage of the profit.
-  const salesCommission = profit < 0 ? profit * 0.50 : profit * (commissionPct / 100)
+  const salesCommission = profit < 0 ? profit * (settings.loss_split_pct / 100) : profit * (commissionPct / 100)
 
   // ─── 7. Paid ────────────────────────────────────────────────────────────────
   const isPaid = doc.status === "paid" || parseFloat(doc.balance || 0) <= 0
@@ -482,7 +485,7 @@ export async function calculateDocumentCosts(
     subTotal, totalDeductions,
     profit, marginPercent, deadProfitActual,
     commissionPct, salesCommission,
-    isPaid, actualShippingCost, shippingCostBreakdown,
+    isPaid, usedFallbackCost, actualShippingCost, shippingCostBreakdown,
     lineItemDetails, lineItemBreakdownStrings,
   }
 }

@@ -444,6 +444,7 @@ export const handler: Handler = async (event) => {
       let deadProfit: number
       let salesCommission: number
       let commissionPct: number
+      let usedFallbackCost = false
 
       if (hasStoredCosts) {
         // ── USE STORED VALUES (source of truth from cost-calculations.ts) ──
@@ -453,6 +454,7 @@ export const handler: Handler = async (event) => {
         deadProfit = parseFloat(items.deadProfitActual || 0) || (subTotal - deadCost)
         salesCommission = parseFloat(items.salesCommission || 0) || 0
         commissionPct = parseFloat(items.commissionPct || items.commission_pct || 50)
+        usedFallbackCost = items.usedFallbackCost === true || items.usedFallbackCost === 'true'
       } else {
         // ── AUTO-PROCESS: run calculateDocumentCosts and persist results ──
         try {
@@ -471,6 +473,7 @@ export const handler: Handler = async (event) => {
           deadProfit = calc.deadProfitActual
           salesCommission = calc.salesCommission
           commissionPct = calc.commissionPct
+          usedFallbackCost = calc.usedFallbackCost
 
           // Persist to DB so next load uses stored values
           const existingItems = items || {}
@@ -492,6 +495,7 @@ export const handler: Handler = async (event) => {
             salesCommission: calc.salesCommission,
             isPaid: calc.isPaid,
             lineItemBreakdownStrings: calc.lineItemBreakdownStrings,
+            usedFallbackCost: calc.usedFallbackCost,
             costsCalculatedAt: new Date().toISOString(),
           }
           // Fire-and-forget DB update — don't block the response
@@ -508,6 +512,7 @@ export const handler: Handler = async (event) => {
           deadProfit = subTotal - deadCost
           commissionPct = settings.commission_rate_pct
           salesCommission = profit > 0 ? profit * (commissionPct / 100) : 0
+          usedFallbackCost = true
         }
       }
 
@@ -584,6 +589,7 @@ export const handler: Handler = async (event) => {
         contactName: inv.contactName || null,
         contactPhone: inv.contactPhone || null,
         commission: { total, upfront, final: final, future, atRiskAmount },
+        usedFallbackCost,
         type: "invoice" as const
       }
     }))
@@ -621,6 +627,7 @@ export const handler: Handler = async (event) => {
       let profit: number
       let deadProfit: number
       let salesCommission: number
+      let usedFallbackCost = false
 
       if (hasStoredCosts) {
         deadCost = parseFloat(items.deadCostTotal || items.dead_cost_total || items.deadCost || items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted || 0) || 0
@@ -628,6 +635,7 @@ export const handler: Handler = async (event) => {
         profit = parseFloat(items.profit) || 0
         deadProfit = parseFloat(items.deadProfitActual || 0) || (subTotal - deadCost)
         salesCommission = parseFloat(items.salesCommission || 0) || 0
+        usedFallbackCost = items.usedFallbackCost === true || items.usedFallbackCost === 'true'
       } else {
         // ── AUTO-PROCESS: run calculateDocumentCosts and persist results ──
         try {
@@ -645,6 +653,7 @@ export const handler: Handler = async (event) => {
           profit = calc.profit
           deadProfit = calc.deadProfitActual
           salesCommission = calc.salesCommission
+          usedFallbackCost = calc.usedFallbackCost
 
           // Persist to DB
           const updatedItems = {
@@ -662,6 +671,7 @@ export const handler: Handler = async (event) => {
             additionalCosts: calc.additionalCosts,
             commissionPct: calc.commissionPct,
             salesCommission: calc.salesCommission,
+            usedFallbackCost: calc.usedFallbackCost,
             costsCalculatedAt: new Date().toISOString(),
           }
           prisma.salesOrder.update({
@@ -675,6 +685,7 @@ export const handler: Handler = async (event) => {
           profit = subTotal - deadCostPlusVig
           deadProfit = subTotal - deadCost
           salesCommission = profit > 0 ? profit * (settings.commission_rate_pct / 100) : 0
+          usedFallbackCost = true
         }
       }
 
@@ -730,6 +741,7 @@ export const handler: Handler = async (event) => {
         contactName: null as string | null,
         contactPhone: null as string | null,
         commission: { total, upfront, final, future, atRiskAmount: 0 },
+        usedFallbackCost,
         type: "invoice" as const
       }
     }))).filter(so => !INVOICED_SO_STATUSES.has(so.status || ''))
@@ -811,6 +823,7 @@ export const handler: Handler = async (event) => {
         contactName: inv.contactName || null,
         contactPhone: inv.contactPhone || null,
         commission: inv.commission || { total: 0, upfront: 0, final: 0, future: 0, atRiskAmount: 0 },
+        usedFallbackCost: !!(inv as any).usedFallbackCost,
         repName: inv.repName || byRep[key].repName || null,
         salesperson: inv.repName || byRep[key].repName || null
       })
