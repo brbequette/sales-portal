@@ -334,7 +334,6 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
         declared_customs_value: item.declaredValue
       }))
     }],
-    courier_service_id: params.courierServiceId,
   };
 
   const shipRes = await fetch(`${EASYSHIP_API_URL}/shipments`, {
@@ -364,7 +363,10 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
-          shipments: [{ easyship_shipment_id: easyshipId }]
+          shipments: [{
+            easyship_shipment_id: easyshipId,
+            courier_service_id: params.courierServiceId,
+          }]
         })
       });
 
