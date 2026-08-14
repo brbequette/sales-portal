@@ -89,7 +89,10 @@ export async function POST(req: NextRequest) {
       response_format: "url"
     });
 
-    const imageUrl = imageResponse.data[0].url;
+    const imageUrl = imageResponse.data?.[0]?.url;
+    if (!imageUrl) {
+      return NextResponse.json({ success: false, error: 'DALL-E did not return an image' }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
