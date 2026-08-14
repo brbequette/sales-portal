@@ -138,7 +138,7 @@ export default function AdminDashboardPage() {
   }
 
   const handleSyncAll = async () => {
-    for (const entity of ['contacts', 'invoices', 'salesorders', 'estimates']) {
+    for (const entity of ['contacts', 'invoices', 'salesorders', 'estimates', 'packages', 'purchaseorders', 'payments', 'vendors']) {
       setSyncing(entity)
       setSyncError(null)
       try {
@@ -195,10 +195,14 @@ export default function AdminDashboardPage() {
   }
 
   const entityLabels: Record<string, { label: string, color: string, bg: string }> = {
-    contacts:    { label: 'Accounts',     color: 'text-emerald-400', bg: 'bg-emerald-600' },
-    invoices:    { label: 'Invoices',     color: 'text-blue-400',    bg: 'bg-blue-600' },
-    salesorders: { label: 'Sales Orders', color: 'text-sky-400',     bg: 'bg-sky-600' },
-    estimates:   { label: 'Quotes',       color: 'text-amber-400',   bg: 'bg-amber-600' },
+    contacts:       { label: 'Accounts',        color: 'text-emerald-400', bg: 'bg-emerald-600' },
+    invoices:       { label: 'Invoices',        color: 'text-blue-400',    bg: 'bg-blue-600' },
+    salesorders:    { label: 'Sales Orders',    color: 'text-sky-400',     bg: 'bg-sky-600' },
+    estimates:      { label: 'Quotes',          color: 'text-amber-400',   bg: 'bg-amber-600' },
+    packages:       { label: 'Packages',        color: 'text-teal-400',    bg: 'bg-teal-600' },
+    purchaseorders: { label: 'Purchase Orders', color: 'text-violet-400',  bg: 'bg-violet-600' },
+    payments:       { label: 'Payments',        color: 'text-green-400',   bg: 'bg-green-600' },
+    vendors:        { label: 'Vendors',         color: 'text-pink-400',    bg: 'bg-pink-600' },
   }
 
   return (
@@ -281,7 +285,7 @@ export default function AdminDashboardPage() {
               <div className="flex-1">
                 <h3 className="text-sm font-bold text-white mb-1">Bulk Sync — Zoho Books</h3>
                 <p className="text-[11px] text-neutral-400 leading-relaxed mb-4">
-                  Pull accounts, invoices, quotes, and sales orders from Zoho Books. Sync individually or all at once.
+                  Pull accounts, invoices, quotes, sales orders, packages, purchase orders, payments, and vendors from Zoho Books. Sync individually or all at once.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(entityLabels).map(([key, { label, bg }]) => (

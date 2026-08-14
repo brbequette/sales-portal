@@ -166,11 +166,18 @@ export async function POST(req: NextRequest) {
             for (const inv of zInvoices) {
               if (!inv.invoice_id) continue
 
-              // Resolve local account via Zoho customer_id
-              const localAccount = inv.customer_id
+              // Resolve local account: try customer_id first, then fall back to customer_name
+              let localAccount = inv.customer_id
                 ? await prisma.account.findFirst({ where: { zohoId: inv.customer_id } })
                 : null
-              if (!localAccount) continue  // skip if account not yet synced locally
+              if (!localAccount && inv.customer_name) {
+                localAccount = await prisma.account.findFirst({ where: { name: inv.customer_name } })
+              }
+
+              // Check if record already exists (for update without requiring account)
+              const existingInv = await prisma.invoice.findUnique({ where: { zohoId: inv.invoice_id } })
+              const accountId = localAccount?.id || existingInv?.accountId
+              if (!accountId) continue  // skip only if no account can be resolved at all
 
               await prisma.invoice.upsert({
                 where: { zohoId: inv.invoice_id },
@@ -179,12 +186,12 @@ export async function POST(req: NextRequest) {
                   balance: parseFloat(inv.balance || 0),
                   amount: parseFloat(inv.total || 0),
                   issueDate: inv.date ? new Date(inv.date) : undefined,
-                  accountId: localAccount.id,
+                  accountId: accountId,
                   items: inv as any,
                 },
                 create: {
                   zohoId: inv.invoice_id,
-                  accountId: localAccount.id,
+                  accountId: accountId,
                   status: inv.status,
                   balance: parseFloat(inv.balance || 0),
                   amount: parseFloat(inv.total || 0),
@@ -241,11 +248,18 @@ export async function POST(req: NextRequest) {
             for (const so of zOrders) {
               if (!so.salesorder_id) continue
 
-              // Resolve local account via Zoho customer_id
-              const localAccount = so.customer_id
+              // Resolve local account: try customer_id first, then fall back to customer_name
+              let localAccount = so.customer_id
                 ? await prisma.account.findFirst({ where: { zohoId: so.customer_id } })
                 : null
-              if (!localAccount) continue  // skip if account not yet synced locally
+              if (!localAccount && so.customer_name) {
+                localAccount = await prisma.account.findFirst({ where: { name: so.customer_name } })
+              }
+
+              // Check if record already exists (for update without requiring account)
+              const existingSO = await prisma.salesOrder.findUnique({ where: { zohoId: so.salesorder_id } })
+              const soAccountId = localAccount?.id || existingSO?.accountId
+              if (!soAccountId) continue  // skip only if no account can be resolved at all
 
               await prisma.salesOrder.upsert({
                 where: { zohoId: so.salesorder_id },
@@ -256,7 +270,7 @@ export async function POST(req: NextRequest) {
                 },
                 create: {
                   zohoId: so.salesorder_id,
-                  accountId: localAccount.id,
+                  accountId: soAccountId,
                   status: so.status,
                   amount: parseFloat(so.total || 0),
                   orderDate: so.date ? new Date(so.date) : new Date(),
@@ -537,10 +551,17 @@ export async function POST(req: NextRequest) {
             for (const est of zEstimates) {
               if (!est.estimate_id) continue
 
-              const localAccount = est.customer_id
+              // Resolve local account: try customer_id first, then fall back to customer_name
+              let localAccount = est.customer_id
                 ? await prisma.account.findFirst({ where: { zohoId: est.customer_id } })
                 : null
-              if (!localAccount) continue
+              if (!localAccount && est.customer_name) {
+                localAccount = await prisma.account.findFirst({ where: { name: est.customer_name } })
+              }
+
+              const existingQuote = await prisma.quote.findUnique({ where: { zohoId: est.estimate_id } })
+              const quoteAccountId = localAccount?.id || existingQuote?.accountId
+              if (!quoteAccountId) continue
 
               const quoteData = {
                 status: est.status,
@@ -555,7 +576,7 @@ export async function POST(req: NextRequest) {
                 update: quoteData,
                 create: { 
                   zohoId: est.estimate_id,
-                  accountId: localAccount.id,
+                  accountId: quoteAccountId,
                   ...quoteData
                 },
               })
