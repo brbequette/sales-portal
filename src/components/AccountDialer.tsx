@@ -14,6 +14,7 @@ import Link from "next/link"
 import { OrderBuilder, type OrderLine } from "@/components/OrderBuilder"
 import { PhoneLink } from "@/components/PhoneLink"
 import { toast } from 'react-hot-toast';
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface AccountDialerProps {
   accountId: string
@@ -361,9 +362,9 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
   if (!account) return null
 
   return (
-    <div className="flex flex-col h-full bg-[#06080f]">
+    <div className="flex flex-col h-full bg-background">
       {/* --- COMPACT TOP BAR --- */}
-      <header className="bg-[#0a0d14] border-b border-cyan-500/10 px-4 py-1.5 shrink-0 flex items-center justify-between">
+      <header className="bg-surface border-b border-cyan-500/10 px-4 py-1.5 shrink-0 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center">
             <FiPhoneCall className="text-cyan-400 animate-pulse" size={12} />
@@ -425,7 +426,7 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
           ) : (
             <>
               {/* STICKY ACCOUNT HUD */}
-              <div className="sticky top-0 z-40 bg-[#06080f]/95 backdrop-blur-md border-b border-cyan-500/10 pb-3">
+              <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-cyan-500/10 pb-3">
                 <div className="px-5 pt-3 flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <h2 className="text-xl font-black text-white leading-tight truncate">{contactName}</h2>
@@ -717,11 +718,11 @@ export function AccountDialer({ accountId, account, contacts }: AccountDialerPro
         </div>
 
         {/* === RIGHT PANEL: ACCOUNT INTEL === */}
-        <div className="w-[340px] bg-[#080b12] border-l border-white/10/50 overflow-y-auto scrollbar-thin p-4 space-y-4 shrink-0">
+        <div className="w-[340px] bg-background border-l border-white/10/50 overflow-y-auto scrollbar-thin p-4 space-y-4 shrink-0">
           {isLoadingIntel && (
-            <div className="flex items-center justify-center py-10 text-neutral-500">
-              <FiLoader className="animate-spin mr-2" size={18} />
-              <span className="text-xs font-bold">Loading account intel...</span>
+            <div className="space-y-4 py-2">
+              <Skeleton rows={6} />
+              <Skeleton rows={4} />
             </div>
           )}
 

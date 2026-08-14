@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 
 /**
@@ -22,6 +22,8 @@ import { OrderBuilder } from "@/components/OrderBuilder"
 import { PhoneLink } from "@/components/PhoneLink"
 import { EmailInbox } from "@/components/EmailInbox"
 import { useCommunicationData } from "./useCommunicationData"
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 
 // â”â”â” Sub-tab config â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 
@@ -391,8 +393,8 @@ type Message = {
               </div>
 
               {isLoadingIntel ? (
-                <div className="flex items-center justify-center py-10 text-neutral-500 gap-2">
-                  <FiLoader className="animate-spin" /> Loading intel...
+                <div className="space-y-4 py-4">
+                  <Skeleton rows={4} />
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto scrollbar-thin space-y-2">
@@ -413,7 +415,11 @@ type Message = {
                           </div>
                         ))}
                       </div>
-                    ) : <div className="text-neutral-500 text-sm text-center py-10">No purchase history found</div>
+                    ) : (
+                      <div className="py-6">
+                        <EmptyState icon={<FiShoppingCart size={24} />} title="No purchase history found" description="" />
+                      </div>
+                    )
                   )}
 
                   {/* Notes */}
@@ -427,7 +433,11 @@ type Message = {
                           </div>
                         ))}
                       </div>
-                    ) : <div className="text-neutral-500 text-sm text-center py-10">No notes found</div>
+                    ) : (
+                      <div className="py-6">
+                        <EmptyState icon={<FiFileText size={24} />} title="No notes found" description="" />
+                      </div>
+                    )
                   )}
 
                   {/* Invoices */}
@@ -450,7 +460,11 @@ type Message = {
                           </div>
                         ))}
                       </div>
-                    ) : <div className="text-neutral-500 text-sm text-center py-10">No invoices found</div>
+                    ) : (
+                      <div className="py-6">
+                        <EmptyState icon={<FiDollarSign size={24} />} title="No invoices found" description="" />
+                      </div>
+                    )
                   )}
                 </div>
               )}
@@ -565,7 +579,9 @@ type Message = {
 
           <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-4 scrollbar-thin max-h-[280px]">
             {chatMessages.length === 0 && (
-              <div className="text-center text-neutral-600 text-xs py-8">No messages yet -- start the conversation below</div>
+              <div className="py-8">
+                <EmptyState icon={<FiMessageSquare size={32} />} title="No messages yet" description="Start the conversation below" />
+              </div>
             )}
             {chatMessages.map(msg => {
               const isRep = msg.sender === "rep"

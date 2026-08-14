@@ -195,9 +195,9 @@ export function TaskModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md glass-panel border border-white/10 rounded-2xl flex flex-col shadow-2xl text-white z-[9999] p-6 max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-md glass-panel border border-white/10 rounded-2xl flex flex-col shadow-2xl text-white z-[400] p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center pb-4 border-b border-white/10 mb-4">
           <h3 className="font-bold text-lg text-white">Create New Task</h3>
           <button onClick={onClose} className="text-neutral-400 hover:text-white glass-panel p-1 rounded-full">

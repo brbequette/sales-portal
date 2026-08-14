@@ -7,7 +7,8 @@ import {
   FiArrowUp, FiFileText, FiX, FiDollarSign
 } from "react-icons/fi"
 import { useVigManagementData, type RepConfig, type MismatchInvoice, type MonthRepData, type HistoricalMonth } from "./useVigManagementData"
-
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 // ────────────────────────────────────────────────────────────────
 // Month Documents Breakdown Modal (showing Invoices, SOs, Quotes & 1.3x vs 1.5x Loss)
 // ────────────────────────────────────────────────────────────────
@@ -47,7 +48,7 @@ function MonthDocumentsModal({
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[400] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
         <div className="bg-neutral-900 border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-xs text-neutral-300 font-bold">Loading {monthName} documents & VIG loss analysis...</p>
@@ -69,7 +70,7 @@ function MonthDocumentsModal({
   })
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[400] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-neutral-950 border border-white/15 rounded-2xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="p-5 border-b border-white/10 bg-neutral-900/80 flex items-center justify-between">
@@ -296,9 +297,11 @@ export default function VigManagementBuilder() {
 
   // ── Loading / Error states ───────────────────────────────────
   if (loading) return (
-    <div className="flex flex-col items-center justify-center p-16 text-neutral-400 font-bold gap-3">
-      <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-      Loading VIG &amp; Target Management...
+    <div className="p-8 space-y-8 animate-in fade-in">
+      <Skeleton variant="card" height="150px" />
+      <div className="space-y-4">
+        <Skeleton rows={5} />
+      </div>
     </div>
   )
   if (errorMsg) return (
@@ -441,6 +444,13 @@ export default function VigManagementBuilder() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-neutral-200">
+              {activeConfigs.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-12">
+                    <EmptyState icon={<FiTool size={32} />} title="No configurations found" description="No active VIG configurations are available." />
+                  </td>
+                </tr>
+              )}
               {activeConfigs.map(rep => {
                 const dp = parseFloat(String(rep.dailyProfitGoal)) || 0
                 const ds = parseFloat(String(rep.dailySubtotalGoal)) || 0
@@ -536,9 +546,12 @@ export default function VigManagementBuilder() {
         </div>
 
         {historicalLoading ? (
-          <div className="flex items-center justify-center p-12 text-neutral-500 text-xs font-bold gap-2">
-            <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"/>
-            Loading {monthsToLoad} months...
+          <div className="p-6">
+            <Skeleton rows={5} />
+          </div>
+        ) : historicalMonths.length === 0 ? (
+          <div className="py-12">
+            <EmptyState icon={<FiCalendar size={32} />} title="No historical data" description="No historical VIG data found for the selected range." />
           </div>
         ) : (
           <div className="divide-y divide-white/5">

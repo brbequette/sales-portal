@@ -18,6 +18,7 @@ import { OrderBuilder } from "@/components/OrderBuilder"
 import { PhoneLink } from "@/components/PhoneLink"
 import { toast } from 'react-hot-toast';
 import { useSalesCampaignData } from "./useSalesCampaignData";
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface SalesCallCampaignModalProps {
   accounts: any[]
@@ -93,9 +94,9 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
 
 
   return (
-    <div className="fixed inset-0 z-[200] bg-[#06080f] flex flex-col">
+    <div className="fixed inset-0 z-[200] bg-background flex flex-col">
       {/* --- COMPACT TOP BAR --- */}
-      <header className="bg-[#0a0d14] border-b border-cyan-500/10 px-5 py-1.5 shrink-0 flex items-center justify-between">
+      <header className="bg-surface border-b border-cyan-500/10 px-5 py-1.5 shrink-0 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center">
             <FiPhoneCall className="text-cyan-400 animate-pulse" size={12} />
@@ -135,7 +136,7 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-thin">
 
           {/* STICKY ACCOUNT HUD - stays visible at all times */}
-          <div className="sticky top-0 z-40 bg-[#06080f]/95 backdrop-blur-md border-b border-cyan-500/10 pb-3">
+          <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-cyan-500/10 pb-3">
             {/* Row 1: Contact Name + Actions */}
             <div className="px-5 pt-3 flex items-start justify-between">
               <div className="flex-1 min-w-0">
@@ -529,12 +530,12 @@ export function SalesCallCampaignModal({ accounts, onClose, onRefresh }: SalesCa
         </div>
 
         {/* === RIGHT PANEL: ACCOUNT INTEL === */}
-        <div className="w-full md:w-[340px] bg-[#080b12] border-t md:border-t-0 md:border-l border-white/10/50 overflow-y-auto scrollbar-thin p-4 space-y-4 shrink-0">
+        <div className="w-full md:w-[340px] bg-background border-t md:border-t-0 md:border-l border-white/10/50 overflow-y-auto scrollbar-thin p-4 space-y-4 shrink-0">
 
           {isLoadingIntel && (
-            <div className="flex items-center justify-center py-10 text-neutral-500">
-              <FiLoader className="animate-spin mr-2" size={18} />
-              <span className="text-xs font-bold">Loading account intel...</span>
+            <div className="space-y-4 py-2">
+              <Skeleton rows={6} />
+              <Skeleton rows={4} />
             </div>
           )}
 

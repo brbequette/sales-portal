@@ -284,7 +284,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg
                 shadow-[0_8px_24px_rgba(0,0,0,0.7)]
                 opacity-0 group-hover:opacity-100 group-hover:translate-x-1
-                transition-all duration-150 whitespace-nowrap z-[9999]
+                transition-all duration-150 whitespace-nowrap z-[700]
                 flex items-center gap-2
               ">
                 <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
@@ -312,7 +312,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg
                 shadow-[0_8px_24px_rgba(0,0,0,0.7)]
                 opacity-0 group-hover:opacity-100 group-hover:translate-x-1
-                transition-all duration-150 whitespace-nowrap z-[9999]
+                transition-all duration-150 whitespace-nowrap z-[700]
               ">Go Back</span>
             </button>
           )}
@@ -365,7 +365,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   bg-[#111214]/95 backdrop-blur-xl border border-white/15
                   rounded-xl p-3 shadow-2xl
                   opacity-0 group-hover:opacity-100 transition-all
-                  whitespace-nowrap z-[9999] min-w-[10rem]
+                  whitespace-nowrap z-[700] min-w-[10rem]
                 ">
                   <div className="text-sm font-bold text-white truncate">{user.name}</div>
                   <div className="text-[11px] text-neutral-400 truncate mt-0.5 capitalize">{user.role}</div>
@@ -390,7 +390,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg
                 shadow-[0_8px_24px_rgba(0,0,0,0.7)]
                 opacity-0 group-hover:opacity-100 group-hover:translate-x-1
-                transition-all duration-150 whitespace-nowrap z-[9999]
+                transition-all duration-150 whitespace-nowrap z-[700]
               ">Sign Out</span>
             </button>
           </div>

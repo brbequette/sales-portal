@@ -290,7 +290,7 @@ Thank you for your time — we appreciate your business and look forward to keep
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[400] flex items-center justify-center p-4">
       <div className="glass-panel border border-white/10 rounded-3xl w-full max-w-[1400px] h-[92vh] shadow-2xl flex flex-col overflow-hidden text-white">
 
         {/* ── HEADER ──────────────────────────────────────────────────────── */}

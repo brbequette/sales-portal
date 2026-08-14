@@ -47,7 +47,7 @@ export function ExecDashboardModal({ isOpen, onClose, allDbUsers }: ExecDashboar
       style={{ background: "rgba(5,5,7,0.96)", backdropFilter: "blur(6px)" }}
     >
       {/* Modal Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-[#0d0e10] border-b border-white/10 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 bg-surface border-b border-white/10 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center justify-center">
             <FiTrendingUp className="text-orange-400" size={16} />

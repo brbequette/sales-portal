@@ -18,6 +18,8 @@ import {
   FiDollarSign, FiFileText, FiTrendingUp, FiFilter,
   FiPackage, FiChevronDown, FiAlertCircle, FiPercent, FiCheck,
 } from "react-icons/fi"
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
 import {
   useOrderBuilderData,
   parseDesc,
@@ -226,19 +228,18 @@ export function OrderBuilder({
       </div>
 
       {isLoadingCatalog ? (
-        <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-pulse">
-          <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
-            <FiPackage size={24} className="text-neutral-500" />
-          </div>
-          <div className="text-center space-y-2">
-            <div className="h-4 w-32 bg-white/10 rounded mx-auto"></div>
-            <div className="h-3 w-48 bg-white/5 rounded mx-auto"></div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-6">
+          <Skeleton variant="card" height="180px" />
+          <Skeleton variant="card" height="180px" />
+          <Skeleton variant="card" height="180px" />
         </div>
       ) : catalogProducts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 space-y-3 glass-panel rounded-2xl border border-white/5">
-          <FiPackage size={32} className="text-[var(--muted)]" />
-          <p className="text-[var(--muted)] text-sm font-bold">No products available</p>
+        <div className="py-12">
+          <EmptyState 
+            icon={<FiPackage size={32} />} 
+            title="No products available" 
+            description="The product catalog is currently empty." 
+          />
         </div>
       ) : (
         <>
@@ -271,7 +272,7 @@ export function OrderBuilder({
                 <select
                   value={filterEquipment}
                   onChange={e => handleEquipmentChange(e.target.value)}
-                  className="w-full bg-[#121318] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500/80 transition-all cursor-pointer"
+                  className="w-full bg-surface border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500/80 transition-all cursor-pointer"
                 >
                   {EQUIPMENT_LIST.map(o => <option key={o}>{o}</option>)}
                 </select>
@@ -289,7 +290,7 @@ export function OrderBuilder({
                       setter(e.target.value)
                       if (label === "Size") setFilterEquipment("None")
                     }}
-                    className="w-full bg-[#121318] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500/80 transition-all cursor-pointer"
+                    className="w-full bg-surface border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500/80 transition-all cursor-pointer"
                   >
                     {opts.map(o => <option key={o}>{o}</option>)}
                   </select>
@@ -345,7 +346,7 @@ export function OrderBuilder({
 
       {/* ── Product Search ── */}
       <div ref={productSearchRef} className="relative">
-        <div className="flex items-center gap-2.5 bg-[#121318] border border-white/10 rounded-xl px-3.5 py-2.5 focus-within:border-violet-500/80 focus-within:shadow-[0_0_15px_rgba(139,92,246,0.05)] transition-all">
+        <div className="flex items-center gap-2.5 bg-surface border border-white/10 rounded-xl px-3.5 py-2.5 focus-within:border-violet-500/80 focus-within:shadow-[0_0_15px_rgba(139,92,246,0.05)] transition-all">
           <FiSearch size={14} className="text-neutral-400 shrink-0" />
           <input
             type="text"
@@ -363,7 +364,7 @@ export function OrderBuilder({
         </div>
 
         {showProductDropdown && searchResults.length > 0 && (
-          <div className="absolute z-50 top-full mt-1.5 left-0 right-0 bg-[#0f1013]/95 border border-white/10 rounded-xl shadow-2xl max-h-60 overflow-y-auto divide-y divide-white/5 scrollbar-thin">
+          <div className="absolute z-50 top-full mt-1.5 left-0 right-0 bg-surface/95 border border-white/10 rounded-xl shadow-2xl max-h-60 overflow-y-auto divide-y divide-white/5 scrollbar-thin">
             {searchResults.map(p => {
               const desc = parseDesc(p.description)
               return (
@@ -453,7 +454,7 @@ export function OrderBuilder({
                   key={bp.sku}
                   type="button"
                   onClick={() => openAddItemModal(bp)}
-                  className="px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer bg-[#121318] border-white/10 text-neutral-300 hover:border-violet-500/50 hover:text-violet-300 hover:-translate-y-0.5 active:translate-y-0"
+                  className="px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer bg-surface border-white/10 text-neutral-300 hover:border-violet-500/50 hover:text-violet-300 hover:-translate-y-0.5 active:translate-y-0"
                 >
                   ⚡ {bp.name}
                 </button>
@@ -486,7 +487,7 @@ export function OrderBuilder({
 
       {/* ── Pending Add Item Modal/Card ── */}
       {pendingItem && (
-        <div className="bg-[#12101b] border border-violet-500/30 rounded-2xl p-4 space-y-4 shadow-xl animate-in slide-in-from-top-4 fade-in duration-300 relative overflow-hidden">
+        <div className="bg-surface border border-violet-500/30 rounded-2xl p-4 space-y-4 shadow-xl animate-in slide-in-from-top-4 fade-in duration-300 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent pointer-events-none" />
           <div className="flex items-start justify-between relative z-10">
             <div>
@@ -503,13 +504,13 @@ export function OrderBuilder({
             <div className="bg-black/40 border border-white/5 rounded-xl p-3 text-center space-y-1.5">
               <p className="text-[9px] font-black uppercase tracking-wider text-amber-500">Paid Qty</p>
               <div className="flex justify-center">
-                <QtyInput value={addPaidQty} onChange={setAddPaidQty} colorClass="text-amber-400 border-amber-500/30 bg-[#121318]" />
+                <QtyInput value={addPaidQty} onChange={setAddPaidQty} colorClass="text-amber-400 border-amber-500/30 bg-surface" />
               </div>
             </div>
             <div className="bg-black/40 border border-white/5 rounded-xl p-3 text-center space-y-1.5">
               <p className="text-[9px] font-black uppercase tracking-wider text-emerald-500">Free Qty</p>
               <div className="flex justify-center">
-                <QtyInput value={addFreeQty} onChange={setAddFreeQty} colorClass="text-emerald-400 border-emerald-500/30 bg-[#121318]" />
+                <QtyInput value={addFreeQty} onChange={setAddFreeQty} colorClass="text-emerald-400 border-emerald-500/30 bg-surface" />
               </div>
             </div>
             <div className="bg-black/40 border border-white/5 rounded-xl p-3 text-center space-y-2 flex flex-col justify-center items-center">
@@ -520,7 +521,7 @@ export function OrderBuilder({
                   type="number"
                   value={addPrice}
                   onChange={e => setAddPrice(parseFloat(e.target.value) || 0)}
-                  className="w-20 pl-6 pr-2 py-1 bg-[#121318] border border-white/10 rounded-lg text-xs font-mono font-black text-white text-center focus:border-violet-500 outline-none"
+                  className="w-20 pl-6 pr-2 py-1 bg-surface border border-white/10 rounded-lg text-xs font-mono font-black text-white text-center focus:border-violet-500 outline-none"
                   step="0.01"
                 />
               </div>
@@ -563,7 +564,7 @@ export function OrderBuilder({
                 {paidLines.map(line => (
                   <div
                     key={line.id}
-                    className="grid grid-cols-[1fr_74px_90px_28px] gap-2 items-center bg-[#121318]/40 border border-white/5 hover:border-white/10 hover:bg-[#121318]/60 transition-colors rounded-xl px-3 py-2.5"
+                    className="grid grid-cols-[1fr_74px_90px_28px] gap-2 items-center bg-surface/40 border border-white/5 hover:border-white/10 hover:bg-surface/60 transition-colors rounded-xl px-3 py-2.5"
                   >
                     <div className="min-w-0">
                       <span className="text-xs font-bold text-white truncate block leading-tight" title={line.name}>{line.name}</span>
@@ -575,7 +576,7 @@ export function OrderBuilder({
                         value={line.quantity}
                         onChange={n => updateLine(line.id, { quantity: n })}
                         colorClass="text-white"
-                        bgClass="bg-[#121318]"
+                        bgClass="bg-surface"
                       />
                     </div>
 
@@ -586,7 +587,7 @@ export function OrderBuilder({
                           type="number"
                           value={line.unitPrice}
                           onChange={e => updateLine(line.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full pl-5 pr-2 py-0.5 bg-[#121318] border border-white/10 rounded-md text-[11px] font-mono font-bold text-white text-right focus:border-violet-500 outline-none"
+                          className="w-full pl-5 pr-2 py-0.5 bg-surface border border-white/10 rounded-md text-[11px] font-mono font-bold text-white text-right focus:border-violet-500 outline-none"
                           step="0.01"
                         />
                       </div>
@@ -726,7 +727,7 @@ export function OrderBuilder({
               </div>
 
               {/* Collapsible details for math context */}
-              <div className="bg-[#121318]/50 border border-white/5 rounded-xl p-3 text-[10px] space-y-1 text-neutral-400 leading-relaxed font-mono">
+              <div className="bg-surface/50 border border-white/5 rounded-xl p-3 text-[10px] space-y-1 text-neutral-400 leading-relaxed font-mono">
                 <div className="flex justify-between">
                   <span>Gross Sales Subtotal:</span>
                   <span className="text-white font-bold">${financials.subTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
@@ -761,11 +762,11 @@ export function OrderBuilder({
           onClick={() => setShowMockOrder(false)}
         >
           <div
-            className="glass-panel border border-neutral-700 bg-[#0c0d12]/95 rounded-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200"
+            className="glass-panel border border-neutral-700 bg-surface/95 rounded-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}
           >
             {/* Modal header */}
-            <div className="sticky top-0 bg-[#0f1016]/90 backdrop-blur border-b border-white/10 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+            <div className="sticky top-0 bg-surface/90 backdrop-blur border-b border-white/10 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
               <div>
                 <h3 className="text-white font-black text-base flex items-center gap-2">
                   <FiFileText className="text-violet-500" />
@@ -915,7 +916,7 @@ export function OrderBuilder({
                   <p className="text-[9px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5 mb-1.5">
                     <FiTrendingUp size={11} className="text-amber-500" /> Internal Commissions & Profits
                   </p>
-                  <div className="bg-[#121318]/70 border border-white/5 rounded-2xl p-4 space-y-2 font-mono text-xs">
+                  <div className="bg-surface/70 border border-white/5 rounded-2xl p-4 space-y-2 font-mono text-xs">
                     {[
                       ["Direct Dead Cost (All Items)", `-$${financials.deadCostTotal.toFixed(2)}`, "text-rose-400"],
                       ["Direct Dead Profit", `$${financials.deadProfit.toFixed(2)}`, financials.deadProfit >= 0 ? "text-emerald-400" : "text-rose-400"],
@@ -945,7 +946,7 @@ export function OrderBuilder({
             </div>
 
             {/* Footer */}
-            <div className="sticky bottom-0 bg-[#0f1016]/90 backdrop-blur border-t border-white/10 px-6 py-4 flex gap-3 rounded-b-2xl z-10">
+            <div className="sticky bottom-0 bg-surface/90 backdrop-blur border-t border-white/10 px-6 py-4 flex gap-3 rounded-b-2xl z-10">
               <button
                 type="button"
                 onClick={() => setShowMockOrder(false)}

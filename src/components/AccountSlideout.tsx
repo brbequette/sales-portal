@@ -79,10 +79,10 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose}></div>
-      <div className="fixed top-0 right-0 h-full w-full max-w-4xl bg-[#0a0a0a] z-50 shadow-2xl border-l border-white/10 flex flex-col transform transition-transform duration-300">
+      <div className="fixed top-0 right-0 h-full w-full max-w-4xl bg-background z-50 shadow-2xl border-l border-white/10 flex flex-col transform transition-transform duration-300">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#0f1013] shrink-0">
+        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-surface shrink-0">
           <div>
             <h2 className="text-xl font-bold text-white">{account?.name || "Loading Account..."}</h2>
             <div className="flex items-center gap-3 mt-0.5">
@@ -103,7 +103,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
         </div>
 
         {/* Tabs */}
-        <div className="flex px-4 border-b border-white/10 shrink-0 bg-[#0f1013] overflow-x-auto hide-scrollbar">
+        <div className="flex px-4 border-b border-white/10 shrink-0 bg-surface overflow-x-auto hide-scrollbar">
           {tabs.map(tab => (
             <button 
               key={tab.id}
@@ -210,7 +210,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
               )}
 
               {activeTab === 'communications' && (
-                <div className="h-full flex flex-col p-4 bg-[#0a0a0a]">
+                <div className="h-full flex flex-col p-4 bg-background">
                   <CommunicationsHub
                     accountId={account?.zohoId || accountId}
                     account={account}
@@ -219,7 +219,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
               )}
 
               {activeTab === 'documents' && (
-                <div className="h-full p-4 bg-[#0a0a0a]">
+                <div className="h-full p-4 bg-background">
                   <DocumentFlipbook
                     invoices={account?.invoices || []}
                     quotes={account?.quotes || []}
@@ -263,7 +263,7 @@ export function AccountSlideout({ accountId, onClose }: { accountId: string, onC
                     <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                       <FiFileText /> Create Quote / Order
                     </h3>
-                    <div className="bg-[#0f1013] border border-white/10 rounded-xl overflow-hidden min-h-[400px]">
+                    <div className="bg-surface border border-white/10 rounded-xl overflow-hidden min-h-[400px]">
                       <OrderBuilder 
                         accountId={account?.zohoId || accountId} 
                         accountName={account?.name}

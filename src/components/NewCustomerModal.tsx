@@ -73,10 +73,10 @@ export function NewCustomerModal({ isOpen, onClose, currentUserId }: NewCustomer
   }
 
   return (
-    <div className="fixed inset-0 z-[10000] flex justify-end">
+    <div className="fixed inset-0 z-[400] flex justify-end">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       
-      <div className="relative w-full max-w-2xl glass-panel h-full flex flex-col shadow-2xl z-[10001] animate-slide-in-right">
+      <div className="relative w-full max-w-2xl glass-panel h-full flex flex-col shadow-2xl z-[500] animate-slide-in-right">
         {/* Header */}
         <div className="glass-panel px-6 py-4 border-b border-white/10 flex justify-between items-center shrink-0">
           <div>

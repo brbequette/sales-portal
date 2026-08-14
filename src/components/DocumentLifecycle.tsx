@@ -47,7 +47,7 @@ export function DocumentLifecycle({ zohoId, type, onNavigateDoc }: DocumentLifec
       onClick={onClick}
       className={`flex flex-col items-center gap-1 shrink-0 ${onClick ? 'cursor-pointer hover:scale-105 transition-transform' : 'opacity-40'}`}
     >
-      <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 z-10 bg-[#0f1013] ${isCompleted ? 'border-emerald-500 text-emerald-400' : 'border-neutral-700 text-neutral-600'}`}>
+      <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 z-10 bg-surface ${isCompleted ? 'border-emerald-500 text-emerald-400' : 'border-neutral-700 text-neutral-600'}`}>
         <Icon size={16} />
       </div>
       <div className="text-center">

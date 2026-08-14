@@ -85,7 +85,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   if (!isInitialized) {
     return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-[#0f1013] text-white">
+      <div className="flex items-center justify-center min-h-[100dvh] bg-surface text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-neutral-400 font-medium text-sm">Loading Admin...</p>
@@ -96,7 +96,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   if (!isAdmin) {
     return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-[#0f1013] text-white font-sans">
+      <div className="flex items-center justify-center min-h-[100dvh] bg-surface text-white font-sans">
         <div className="text-center max-w-sm mx-auto px-4">
           <div className="w-16 h-16 rounded-2xl bg-red-950/40 border border-red-500/30 flex items-center justify-center mx-auto mb-4">
             <FiShield size={28} className="text-red-400" />

@@ -61,7 +61,7 @@ export function GlobalTopBar() {
 
         {/* Desktop Dropdown Results */}
         {!isMobile && showResults && results && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-[#151618] border border-white/10 rounded-xl shadow-[0_22px_70px_rgba(0,0,0,0.45)] overflow-hidden max-h-[80vh] overflow-y-auto z-50">
+          <div className="absolute top-full left-0 right-0 mt-2 bg-surface border border-white/10 rounded-xl shadow-[0_22px_70px_rgba(0,0,0,0.45)] overflow-hidden max-h-[80vh] overflow-y-auto z-50">
             {Object.keys(results).every(k => results[k].length === 0) ? (
               <div className="p-4 text-center text-sm text-neutral-500">No results found for &quot;{query}&quot;</div>
             ) : (
@@ -160,9 +160,9 @@ export function GlobalTopBar() {
 
       {/* Mobile Full-Screen Search Results Portal */}
       {isMobile && showResults && results && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9999] flex flex-col" style={{ background: 'rgba(10,10,12,0.98)' }}>
+        <div className="fixed inset-0 z-[400] flex flex-col" style={{ background: 'rgba(10,10,12,0.98)' }}>
           {/* Header bar */}
-          <div className="flex items-center gap-3 px-4 py-3 bg-[#111214] border-b border-white/10" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
+          <div className="flex items-center gap-3 px-4 py-3 bg-surface border-b border-white/10" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
             <button
               onClick={() => { setShowResults(false); setQuery('') }}
               className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/[0.07] text-neutral-300 shrink-0"
@@ -763,7 +763,7 @@ export function GlobalTopBar() {
     })()}
     </div>{/* end sticky wrapper */}
     {showClockInPrompt && currentUser?.id && (
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] animate-[slideUp_0.3s_ease-out]">
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[600] animate-[slideUp_0.3s_ease-out]">
         <div className="flex items-center gap-3 bg-gradient-to-r from-blue-900/95 to-indigo-900/95 backdrop-blur-xl border border-blue-500/30 rounded-2xl px-5 py-3 shadow-[0_8px_32px_rgba(59,130,246,0.3)] text-white">
           <div className="w-9 h-9 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
             <FiClock size={18} className="text-blue-400" />

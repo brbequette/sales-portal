@@ -31,7 +31,7 @@ import {
   formatRepDate,
   getStatusBadgeClass,
   buildMetricInfo
-} from './useDashboardData'
+} from './useDashboardController'
 
 // --- Custom Tooltip ---
 function ChartTooltip({ active, payload, label }: any) {
@@ -1389,7 +1389,7 @@ function RepDashboardCustomizer({ isOpen, onClose, widgets, onUpdateWidgets }: R
   }
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
       <div role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }} 
         className="w-full max-w-md bg-neutral-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-scale-up"
         onClick={(e) => e.stopPropagation()}

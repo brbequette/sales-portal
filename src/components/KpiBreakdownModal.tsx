@@ -195,10 +195,10 @@ export function KpiBreakdownModal({
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-        <div className="relative w-full max-w-5xl max-h-[90vh] bg-[#0f1117] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-neutral-100">
+        <div className="relative w-full max-w-5xl max-h-[90vh] bg-surface border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-neutral-100">
           
           {/* Modal Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#161922]">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-surface-2">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
                 <FiDollarSign size={22} />
@@ -221,19 +221,19 @@ export function KpiBreakdownModal({
           {/* Summary Strip & Search Bar */}
           <div className="p-4 bg-black/40 border-b border-white/10 space-y-3">
             <div className="grid grid-cols-4 gap-3 text-center">
-              <div className="p-2.5 rounded-xl bg-[#161922] border border-white/5">
+              <div className="p-2.5 rounded-xl bg-surface-2 border border-white/5">
                 <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Documents</span>
                 <span className="text-base font-black text-white">{filteredAndSortedDocs.length}</span>
               </div>
-              <div className="p-2.5 rounded-xl bg-[#161922] border border-white/5">
+              <div className="p-2.5 rounded-xl bg-surface-2 border border-white/5">
                 <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Revenue</span>
                 <span className="text-base font-black text-emerald-400">${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
-              <div className="p-2.5 rounded-xl bg-[#161922] border border-white/5">
+              <div className="p-2.5 rounded-xl bg-surface-2 border border-white/5">
                 <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Total Dead Cost</span>
                 <span className="text-base font-black text-amber-400">${totalDeadCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
-              <div className="p-2.5 rounded-xl bg-[#161922] border border-white/5">
+              <div className="p-2.5 rounded-xl bg-surface-2 border border-white/5">
                 <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Net Profit</span>
                 <span className="text-base font-black text-purple-400">${totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
@@ -247,7 +247,7 @@ export function KpiBreakdownModal({
                 placeholder="Search documents by #, customer name, or status..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full bg-[#161922] border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500"
+                className="w-full bg-surface-2 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500"
               />
             </div>
           </div>
@@ -261,7 +261,7 @@ export function KpiBreakdownModal({
             ) : (
               <div className="overflow-x-auto rounded-xl border border-white/10">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-[#161922] text-neutral-400 font-bold uppercase tracking-wider text-[10px] border-b border-white/10">
+                  <thead className="bg-surface-2 text-neutral-400 font-bold uppercase tracking-wider text-[10px] border-b border-white/10">
                     <tr>
                       {renderSortHeader('Doc #', 'docNum')}
                       {renderSortHeader('Customer / Account', 'customer')}
@@ -387,7 +387,7 @@ export function KpiBreakdownModal({
                                     <button
                                       key={idx}
                                       onClick={() => setSelectedLineItem(li)}
-                                      className="px-2.5 py-1 bg-[#161922] hover:bg-neutral-800 text-neutral-200 text-[11px] font-medium rounded-lg border border-white/10 transition-colors flex items-center gap-1.5"
+                                      className="px-2.5 py-1 bg-surface-2 hover:bg-neutral-800 text-neutral-200 text-[11px] font-medium rounded-lg border border-white/10 transition-colors flex items-center gap-1.5"
                                     >
                                       <span className="font-bold text-emerald-400">{li.quantity || 1}x</span>
                                       <span>{li.name || li.sku}</span>
@@ -409,7 +409,7 @@ export function KpiBreakdownModal({
           </div>
 
           {/* Modal Footer */}
-          <div className="flex justify-end px-6 py-3 border-t border-white/10 bg-[#161922]">
+          <div className="flex justify-end px-6 py-3 border-t border-white/10 bg-surface-2">
             <button
               onClick={onClose}
               className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold rounded-lg transition-colors border border-white/10"

@@ -40,7 +40,7 @@ export function MetricDerivationModal({ info, onClose }: MetricDerivationModalPr
 
   return (
     <div 
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
       onClick={onClose}
     >
       <div 
@@ -161,7 +161,7 @@ export function MetricDerivationModal({ info, onClose }: MetricDerivationModalPr
                         </span>
                       </div>
                       
-                      <div className="border border-white/5 rounded-xl overflow-hidden bg-[#0a0a0f] max-h-56 overflow-y-auto pr-1">
+                      <div className="border border-white/5 rounded-xl overflow-hidden bg-background max-h-56 overflow-y-auto pr-1">
                         <table className="w-full text-left text-xs border-collapse">
                           <thead>
                             <tr className="bg-white/[0.03] border-b border-white/5 text-[9px] font-bold uppercase tracking-wider text-neutral-500">

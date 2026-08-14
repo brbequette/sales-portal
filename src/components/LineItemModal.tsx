@@ -28,10 +28,10 @@ export function LineItemModal({ item, onClose }: LineItemModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-lg bg-[#0f1117] border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-neutral-100">
+      <div className="relative w-full max-w-lg bg-surface border border-white/10 rounded-2xl shadow-2xl overflow-hidden text-neutral-100">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#161922]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-surface-2">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <FiPackage size={20} />
@@ -71,7 +71,7 @@ export function LineItemModal({ item, onClose }: LineItemModalProps) {
           </div>
 
           {/* VIG & Exemption Status */}
-          <div className="p-4 rounded-xl bg-[#161922] border border-white/10 space-y-3">
+          <div className="p-4 rounded-xl bg-surface-2 border border-white/10 space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-xs font-bold text-neutral-300 flex items-center gap-1.5">
                 <FiTag className="text-purple-400" /> VIG Multiplier Status:
@@ -117,7 +117,7 @@ export function LineItemModal({ item, onClose }: LineItemModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end px-6 py-3 border-t border-white/10 bg-[#161922]">
+        <div className="flex justify-end px-6 py-3 border-t border-white/10 bg-surface-2">
           <button
             onClick={onClose}
             className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold rounded-lg transition-colors border border-white/10"

@@ -110,7 +110,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className="relative glass-panel border border-white/10 w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="glass-panel px-5 py-4 border-b border-white/10 flex justify-between items-center shrink-0">

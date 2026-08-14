@@ -3,8 +3,8 @@ self.addEventListener('push', function(event) {
     const data = event.data.json()
     const options = {
       body: data.body,
-      icon: data.icon || '/globe.svg',
-      badge: '/globe.svg',
+      icon: data.icon || '/icon-192.png',
+      badge: '/icon-192.png',
       vibrate: [100, 50, 100],
       data: {
         dateOfArrival: Date.now(),
@@ -12,7 +12,7 @@ self.addEventListener('push', function(event) {
         url: data.url
       },
       actions: [
-        {action: 'explore', title: 'View Details', icon: '/globe.svg'}
+        {action: 'explore', title: 'View Details', icon: '/icon-192.png'}
       ]
     }
     event.waitUntil(
