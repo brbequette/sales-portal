@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { toast } from "react-hot-toast"
 import { 
   FiAward, FiTarget, FiPlus, FiEdit3, FiTrash2, FiCheckCircle, 
   FiClock, FiUser, FiUsers, FiDollarSign, FiZap, FiRefreshCw,
-  FiTrendingUp, FiFilter, FiCheck, FiX, FiInfo
+  FiTrendingUp, FiFilter, FiCheck, FiX, FiInfo, FiImage,
+  FiDownload, FiLayers
 } from "react-icons/fi"
 
 interface GoalBonus {
@@ -38,6 +39,16 @@ export default function GoalsBonusesPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingGoal, setEditingGoal] = useState<GoalBonus | null>(null)
   const [saving, setSaving] = useState(false)
+
+  // Flyer Modal State
+  const [showFlyerModal, setShowFlyerModal] = useState(false)
+  const [flyerGoal, setFlyerGoal] = useState<GoalBonus | null>(null)
+  const [flyerLoading, setFlyerLoading] = useState(false)
+  const [flyerImageUrl, setFlyerImageUrl] = useState<string | null>(null)
+  const [flyerTagline, setFlyerTagline] = useState("")
+  const [flyerBodyCopy, setFlyerBodyCopy] = useState("")
+  const [flyerMode, setFlyerMode] = useState<"overlay" | "ai_only">("overlay")
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   // Form State
   const [formData, setFormData] = useState({
@@ -182,6 +193,215 @@ export default function GoalsBonusesPage() {
       }
     } catch {}
   }
+
+  // ── Flyer Generation ──
+  const openFlyerModal = (goal: GoalBonus) => {
+    setFlyerGoal(goal)
+    setFlyerImageUrl(null)
+    setFlyerTagline("")
+    setFlyerBodyCopy("")
+    setShowFlyerModal(true)
+    generateFlyer(goal, flyerMode)
+  }
+
+  const generateFlyer = async (goal: GoalBonus, mode: "overlay" | "ai_only") => {
+    setFlyerLoading(true)
+    setFlyerImageUrl(null)
+    try {
+      const res = await fetch("/api/ai/generate-flyer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: goal.title,
+          description: goal.description || "",
+          targetValue: goal.targetValue,
+          bonusAmount: goal.bonusAmount,
+          cadence: goal.cadence,
+          scope: goal.scope,
+          repName: goal.repName || "The Team",
+          metric: goal.metric,
+          mode
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setFlyerImageUrl(data.imageUrl)
+        setFlyerTagline(data.tagline)
+        setFlyerBodyCopy(data.bodyCopy)
+      } else {
+        toast.error("Flyer generation failed: " + (data.error || "Unknown error"))
+      }
+    } catch (err: any) {
+      toast.error("Network error generating flyer: " + err.message)
+    } finally {
+      setFlyerLoading(false)
+    }
+  }
+
+  const handleFlyerModeToggle = (newMode: "overlay" | "ai_only") => {
+    setFlyerMode(newMode)
+    if (flyerGoal) generateFlyer(flyerGoal, newMode)
+  }
+
+  const downloadFlyer = useCallback(async () => {
+    if (!flyerImageUrl || !flyerGoal) return
+
+    if (flyerMode === "ai_only") {
+      // Direct download of AI image
+      try {
+        const response = await fetch(flyerImageUrl)
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `${flyerGoal.title.replace(/[^a-zA-Z0-9]/g, "_")}_flyer.png`
+        a.click()
+        URL.revokeObjectURL(url)
+      } catch {
+        toast.error("Failed to download image")
+      }
+      return
+    }
+
+    // Overlay mode: render canvas with text over the AI background
+    const canvas = document.createElement("canvas")
+    const ctx = canvas.getContext("2d")!
+    canvas.width = 1024
+    canvas.height = 1792
+
+    // Draw background image
+    const img = new Image()
+    img.crossOrigin = "anonymous"
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, 1024, 1792)
+
+      // Dark gradient overlay for text legibility
+      const grad = ctx.createLinearGradient(0, 0, 0, 1792)
+      grad.addColorStop(0, "rgba(0,0,0,0.3)")
+      grad.addColorStop(0.35, "rgba(0,0,0,0.1)")
+      grad.addColorStop(0.6, "rgba(0,0,0,0.2)")
+      grad.addColorStop(1, "rgba(0,0,0,0.85)")
+      ctx.fillStyle = grad
+      ctx.fillRect(0, 0, 1024, 1792)
+
+      // Top badge
+      ctx.textAlign = "center"
+      ctx.fillStyle = "#f59e0b"
+      ctx.font = "bold 28px 'Segoe UI', Arial, sans-serif"
+      ctx.letterSpacing = "8px"
+      ctx.fillText(`⚡ ${flyerGoal.cadence} ${flyerGoal.scope === "TEAM" ? "TEAM" : ""} CONTEST ⚡`, 512, 120)
+      ctx.letterSpacing = "0px"
+
+      // Tagline
+      ctx.fillStyle = "#ffffff"
+      ctx.font = "900 72px 'Segoe UI', Impact, Arial, sans-serif"
+      const taglineWords = flyerTagline.split(" ")
+      let taglineLines: string[] = []
+      let currentLine = ""
+      for (const word of taglineWords) {
+        const test = currentLine ? currentLine + " " + word : word
+        if (ctx.measureText(test).width > 900) {
+          taglineLines.push(currentLine)
+          currentLine = word
+        } else {
+          currentLine = test
+        }
+      }
+      if (currentLine) taglineLines.push(currentLine)
+      const taglineY = 280
+      taglineLines.forEach((line, i) => {
+        ctx.fillText(line.toUpperCase(), 512, taglineY + i * 85)
+      })
+
+      // Body copy
+      ctx.fillStyle = "rgba(255,255,255,0.85)"
+      ctx.font = "400 32px 'Segoe UI', Arial, sans-serif"
+      const bodyWords = flyerBodyCopy.split(" ")
+      let bodyLines: string[] = []
+      currentLine = ""
+      for (const word of bodyWords) {
+        const test = currentLine ? currentLine + " " + word : word
+        if (ctx.measureText(test).width > 850) {
+          bodyLines.push(currentLine)
+          currentLine = word
+        } else {
+          currentLine = test
+        }
+      }
+      if (currentLine) bodyLines.push(currentLine)
+      const bodyY = taglineY + taglineLines.length * 85 + 60
+      bodyLines.forEach((line, i) => {
+        ctx.fillText(line, 512, bodyY + i * 44)
+      })
+
+      // Bottom section — Target & Bonus
+      const bottomY = 1400
+
+      // Target box
+      ctx.fillStyle = "rgba(245, 158, 11, 0.15)"
+      ctx.beginPath()
+      ctx.roundRect(80, bottomY, 400, 160, 20)
+      ctx.fill()
+      ctx.strokeStyle = "rgba(245, 158, 11, 0.5)"
+      ctx.lineWidth = 2
+      ctx.stroke()
+
+      ctx.fillStyle = "#f59e0b"
+      ctx.font = "bold 22px 'Segoe UI', Arial, sans-serif"
+      ctx.letterSpacing = "4px"
+      ctx.fillText("NUMBER TO BEAT", 280, bottomY + 45)
+      ctx.letterSpacing = "0px"
+      ctx.fillStyle = "#ffffff"
+      ctx.font = "900 56px 'Segoe UI', Arial, sans-serif"
+      const targetText = flyerGoal.metric === "INVOICES_COUNT"
+        ? `${flyerGoal.targetValue} INVOICES`
+        : `$${flyerGoal.targetValue.toLocaleString()}`
+      ctx.fillText(targetText, 280, bottomY + 115)
+
+      // Bonus box
+      ctx.fillStyle = "rgba(16, 185, 129, 0.15)"
+      ctx.beginPath()
+      ctx.roundRect(544, bottomY, 400, 160, 20)
+      ctx.fill()
+      ctx.strokeStyle = "rgba(16, 185, 129, 0.5)"
+      ctx.lineWidth = 2
+      ctx.stroke()
+
+      ctx.fillStyle = "#10b981"
+      ctx.font = "bold 22px 'Segoe UI', Arial, sans-serif"
+      ctx.letterSpacing = "4px"
+      ctx.fillText("BONUS REWARD", 744, bottomY + 45)
+      ctx.letterSpacing = "0px"
+      ctx.fillStyle = "#10b981"
+      ctx.font = "900 56px 'Segoe UI', Arial, sans-serif"
+      ctx.fillText(`$${flyerGoal.bonusAmount.toLocaleString()}`, 744, bottomY + 115)
+
+      // Rep / Team line
+      ctx.fillStyle = "rgba(255,255,255,0.6)"
+      ctx.font = "500 28px 'Segoe UI', Arial, sans-serif"
+      const assignee = flyerGoal.scope === "TEAM" ? "ALL TEAM MEMBERS" : (flyerGoal.repName || "ASSIGNED REP").toUpperCase()
+      ctx.fillText(`🏆 ${assignee}`, 512, bottomY + 240)
+
+      // Titan Diamond branding
+      ctx.fillStyle = "rgba(255,255,255,0.35)"
+      ctx.font = "bold 22px 'Segoe UI', Arial, sans-serif"
+      ctx.letterSpacing = "6px"
+      ctx.fillText("TITAN DIAMOND", 512, 1740)
+      ctx.letterSpacing = "0px"
+
+      // Download
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `${flyerGoal.title.replace(/[^a-zA-Z0-9]/g, "_")}_flyer.png`
+        a.click()
+        URL.revokeObjectURL(url)
+      }, "image/png")
+    }
+    img.src = flyerImageUrl
+  }, [flyerImageUrl, flyerGoal, flyerMode, flyerTagline, flyerBodyCopy])
 
   const filteredGoals = goals.filter(g => {
     if (filterCadence !== "ALL" && g.cadence !== filterCadence) return false
@@ -367,6 +587,13 @@ export default function GoalsBonusesPage() {
                     </div>
 
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openFlyerModal(goal)}
+                        className="p-1.5 rounded-lg text-amber-400 hover:text-amber-300 hover:bg-amber-500/20 transition"
+                        title="Generate AI Flyer"
+                      >
+                        <FiImage size={14} />
+                      </button>
                       <button
                         onClick={() => handleToggleActive(goal)}
                         className={`p-1.5 rounded-lg text-xs transition ${
@@ -625,6 +852,133 @@ export default function GoalsBonusesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: AI Flyer Generator */}
+      {showFlyerModal && flyerGoal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-lg flex items-center justify-center p-4">
+          <div className="glass-panel w-full max-w-2xl max-h-[90vh] rounded-2xl border border-white/15 bg-neutral-900 shadow-2xl flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-center">
+                  <FiImage className="text-amber-400" size={17} />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white">AI Contest Flyer</h2>
+                  <p className="text-[11px] text-neutral-400">{flyerGoal.title}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowFlyerModal(false)} className="text-neutral-400 hover:text-white transition">
+                <FiX size={18} />
+              </button>
+            </div>
+
+            {/* Mode Toggle */}
+            <div className="flex items-center gap-2 px-5 pt-4 shrink-0">
+              <span className="text-[11px] text-neutral-400 font-bold">Style:</span>
+              <button
+                onClick={() => handleFlyerModeToggle("overlay")}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 ${
+                  flyerMode === "overlay"
+                    ? "bg-amber-500 text-black shadow-md"
+                    : "bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                <FiLayers size={12} /> AI Image + Text Overlay
+              </button>
+              <button
+                onClick={() => handleFlyerModeToggle("ai_only")}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 ${
+                  flyerMode === "ai_only"
+                    ? "bg-amber-500 text-black shadow-md"
+                    : "bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                <FiZap size={12} /> Full AI Design
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {flyerLoading ? (
+                <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                  <div className="relative w-20 h-20">
+                    <div className="absolute inset-0 rounded-full border-4 border-amber-500/20"></div>
+                    <div className="absolute inset-0 rounded-full border-4 border-t-amber-500 animate-spin"></div>
+                    <div className="absolute inset-3 rounded-full border-4 border-t-emerald-400 border-emerald-400/10 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-white">Generating your contest flyer...</p>
+                    <p className="text-xs text-neutral-500 mt-1">AI is crafting a badass promotional design</p>
+                  </div>
+                  {/* Shimmer placeholders */}
+                  <div className="w-full max-w-md space-y-3 mt-6">
+                    <div className="h-64 rounded-xl bg-gradient-to-r from-neutral-800 via-neutral-700 to-neutral-800 animate-pulse"></div>
+                    <div className="h-4 w-3/4 mx-auto rounded-full bg-neutral-800 animate-pulse"></div>
+                    <div className="h-3 w-1/2 mx-auto rounded-full bg-neutral-800 animate-pulse"></div>
+                  </div>
+                </div>
+              ) : flyerImageUrl ? (
+                <div className="space-y-4">
+                  {/* Flyer Image */}
+                  <div className="relative rounded-xl overflow-hidden border border-white/10 shadow-2xl">
+                    <img
+                      src={flyerImageUrl}
+                      alt="AI Generated Contest Flyer"
+                      className="w-full h-auto"
+                      crossOrigin="anonymous"
+                    />
+                    {/* Overlay preview indicator */}
+                    {flyerMode === "overlay" && (
+                      <div className="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm text-[10px] font-bold text-amber-400 border border-amber-500/30">
+                        ✦ Text overlaid on download
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Generated Copy */}
+                  <div className="glass-panel p-4 rounded-xl border border-white/10 space-y-2">
+                    <p className="text-xs font-bold text-amber-400 uppercase tracking-wider">AI Tagline</p>
+                    <p className="text-lg font-black text-white tracking-tight">{flyerTagline}</p>
+                    <p className="text-xs text-neutral-300 leading-relaxed">{flyerBodyCopy}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <FiImage size={48} className="text-neutral-600 mb-3" />
+                  <p className="text-sm text-neutral-400">Click Generate to create a flyer</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-between gap-2 p-5 border-t border-white/10 shrink-0">
+              <button
+                onClick={() => setShowFlyerModal(false)}
+                className="px-4 py-2 rounded-xl bg-neutral-800 text-neutral-300 hover:text-white text-xs font-bold transition"
+              >
+                Close
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => flyerGoal && generateFlyer(flyerGoal, flyerMode)}
+                  disabled={flyerLoading}
+                  className="px-4 py-2 rounded-xl bg-white/5 text-neutral-300 hover:text-white hover:bg-white/10 text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <FiRefreshCw className={flyerLoading ? "animate-spin" : ""} size={14} /> Regenerate
+                </button>
+                <button
+                  onClick={downloadFlyer}
+                  disabled={!flyerImageUrl || flyerLoading}
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center gap-2 shadow-lg shadow-amber-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FiDownload size={14} /> Download Flyer
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
