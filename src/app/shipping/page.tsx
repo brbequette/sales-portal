@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { createPortal } from "react-dom"
 import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign, FiX, FiEdit2, FiPlus, FiTrash2, FiPrinter, FiShield, FiXCircle, FiFileText, FiLink } from "react-icons/fi"
 import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
@@ -1865,7 +1866,7 @@ export default function ShippingPage() {
         />
       )}
       {/* ── Ship Now Slide-Out ────────────────────────────────────────── */}
-      {shipNowOpen && (
+      {shipNowOpen && createPortal(
         <div className="fixed inset-0 z-[500] overflow-hidden" onKeyDown={e => e.key === 'Escape' && !shipNowBuying && setShipNowOpen(false)}>
           {/* Backdrop */}
           <div
@@ -2156,7 +2157,7 @@ export default function ShippingPage() {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
       </div>
     </div>
   )
