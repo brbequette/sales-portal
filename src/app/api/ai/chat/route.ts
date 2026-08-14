@@ -50,13 +50,17 @@ function buildOwnerFilter(userRole: string, userId: string, repIdArg?: string) {
 
 function getDateRange(period: string) {
   const now = new Date();
+  
+  if (period === 'last_month') {
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    return { gte: start, lte: end };
+  }
+  
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
   
-  if (period === 'last_month') {
-    start.setMonth(start.getMonth() - 1);
-    end.setMonth(start.getMonth(), 0);
-  } else if (period === 'this_year') {
+  if (period === 'this_year') {
     start.setMonth(0, 1);
   } else if (period === 'all') {
     return {};
@@ -916,6 +920,49 @@ async function executeTool(name: string, args: any, context: { userId: string, u
         };
       }
 
+      case 'query_top_products': {
+        const { dateFrom, dateTo, limit = 10 } = args;
+
+        const dateFilter: any = {};
+        if (dateFrom) dateFilter.gte = new Date(dateFrom);
+        if (dateTo) dateFilter.lte = new Date(dateTo);
+
+        const where: any = {};
+        if (Object.keys(dateFilter).length > 0) {
+          where.invoice = {
+            issueDate: dateFilter,
+            status: { notIn: ['void', 'Void'] }
+          };
+        } else {
+          where.invoice = {
+            status: { notIn: ['void', 'Void'] }
+          };
+        }
+
+        // Group by productName and sku and sum quantities
+        const topProducts = await prisma.lineItem.groupBy({
+          by: ['productName', 'sku'],
+          where,
+          _sum: {
+            quantity: true,
+            total: true
+          },
+          orderBy: {
+            _sum: {
+              quantity: 'desc'
+            }
+          },
+          take: limit
+        });
+
+        return topProducts.map(p => ({
+          productName: p.productName,
+          sku: p.sku || 'N/A',
+          totalQuantity: p._sum.quantity || 0,
+          totalRevenue: p._sum.total || 0
+        }));
+      }
+
       case 'draft_message': {
         return { success: true, message: args.messageDraft };
       }
@@ -1232,6 +1279,21 @@ const TOOLS = [
           limit: { type: 'number', description: 'Maximum number of history events to retrieve' }
         },
         required: ['accountName']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'query_top_products',
+      description: 'Get top selling products or SKUs by quantity or sales amount for a specific time period',
+      parameters: {
+        type: 'object',
+        properties: {
+          dateFrom: { type: 'string', description: 'ISO date string or YYYY-MM-DD' },
+          dateTo: { type: 'string', description: 'ISO date string or YYYY-MM-DD' },
+          limit: { type: 'number', description: 'Maximum number of products to return (default 10)' }
+        }
       }
     }
   },
