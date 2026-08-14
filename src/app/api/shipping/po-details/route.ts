@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getZohoToken } from '@/lib/zoho'
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from '@/lib/zoho-auth'
 import { prisma } from '@/lib/prisma'
 
 const ZOHO_DC = process.env.ZOHO_DC || 'com'
-const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID || ''
 
 export async function GET(req: Request) {
   try {
@@ -14,7 +13,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Missing poZohoId' }, { status: 400 })
     }
 
-    const token = await getZohoToken()
+    const token = await getZohoAccessToken()
 
     // Fetch individual PO details from Zoho Books
     const res = await fetch(
