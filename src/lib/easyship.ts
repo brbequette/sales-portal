@@ -266,3 +266,104 @@ export async function findBestDeal(params: GetRatesParams): Promise<FindBestDeal
     cheapestDimensions: allResults[0]?.dimensionsUsed
   };
 }
+
+// ── Ship Now: Create Shipment + Buy Label ─────────────────────────────────
+
+export interface CreateShipmentParams {
+  originAddress?: Address;
+  destinationAddress: Address;
+  destinationContactName: string;
+  destinationContactPhone?: string;
+  courierServiceId: string;
+  weight: number;
+  dimensions: ParcelDimensions;
+  items: Array<{
+    description: string;
+    quantity: number;
+    declaredValue: number;
+    weight: number;
+  }>;
+  platformOrderNumber?: string;  // Zoho SO number
+}
+
+export interface ShipmentResult {
+  easyshipShipmentId: string;
+  trackingNumber: string;
+  trackingPageUrl: string;
+  courierName: string;
+  labelUrl: string;
+  labelState: string;
+  totalCharge: number;
+  currency: string;
+}
+
+export async function createShipmentAndBuyLabel(params: CreateShipmentParams): Promise<ShipmentResult> {
+  const origin = params.originAddress || DEFAULT_ORIGIN;
+
+  const payload = {
+    origin_address: {
+      line_1: origin.line_1 || '',
+      city: origin.city || '',
+      state: origin.state || '',
+      postal_code: origin.postal_code || '',
+      country_alpha2: origin.country_alpha2 || 'US',
+      contact_name: origin.contact_name || 'Titan Diamond',
+      contact_phone: origin.contact_phone || '4805551234',
+    },
+    destination_address: {
+      line_1: params.destinationAddress.line_1 || '',
+      city: params.destinationAddress.city || '',
+      state: params.destinationAddress.state || '',
+      postal_code: params.destinationAddress.postal_code || '',
+      country_alpha2: params.destinationAddress.country_alpha2 || 'US',
+      contact_name: params.destinationContactName,
+      contact_phone: params.destinationContactPhone || '',
+    },
+    parcels: [{
+      total_actual_weight: params.weight,
+      box: { slug: 'custom' },
+      items: params.items.map(item => ({
+        description: item.description,
+        category: 'jewelry',
+        quantity: item.quantity,
+        dimensions: params.dimensions,
+        actual_weight: item.weight,
+        declared_currency: 'USD',
+        declared_customs_value: item.declaredValue
+      }))
+    }],
+    courier_selection: {
+      selected_courier_id: params.courierServiceId
+    },
+    buy_label: true,
+    buy_label_synchronous: true,
+    platform_order_number: params.platformOrderNumber || '',
+    metadata: {},
+  };
+
+  const response = await fetch(`${EASYSHIP_API_URL}/shipments`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Easyship create shipment error (${response.status}): ${text.substring(0, 300)}`);
+  }
+
+  const data = await response.json();
+  const shipment = data.shipment || data;
+
+  return {
+    easyshipShipmentId: shipment.easyship_shipment_id || '',
+    trackingNumber: shipment.trackings?.[0]?.tracking_number || shipment.tracking_number || '',
+    trackingPageUrl: shipment.tracking_page_url || '',
+    courierName: shipment.courier?.name || shipment.selected_courier?.name || '',
+    labelUrl: shipment.label?.url || shipment.label_url || shipment.shipping_documents?.find((d: any) => d.category === 'label')?.url || '',
+    labelState: shipment.label_state || 'generated',
+    totalCharge: shipment.rates?.selected?.total_charge || shipment.total_charge || 0,
+    currency: shipment.currency || 'USD',
+  };
+}
+

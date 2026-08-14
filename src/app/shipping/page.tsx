@@ -478,6 +478,105 @@ export default function ShippingPage() {
 
   const compilationList = getPackagedButNeedShippedItemsCompilation()
 
+  // ── Ship Now Modal State ─────────────────────────────────────────────────
+  const [shipNowOpen, setShipNowOpen] = useState(false)
+  const [shipNowPkg, setShipNowPkg] = useState<any>(null)
+  const [shipNowOrder, setShipNowOrder] = useState<any>(null)
+  const [shipNowRates, setShipNowRates] = useState<any[]>([])
+  const [shipNowLoading, setShipNowLoading] = useState(false)
+  const [shipNowBuying, setShipNowBuying] = useState(false)
+  const [shipNowResult, setShipNowResult] = useState<any>(null)
+  const [shipNowWeight, setShipNowWeight] = useState('5')
+  const [shipNowDims, setShipNowDims] = useState({ length: '15', width: '15', height: '4' })
+
+  const openShipNow = async (pkg: any, order: any) => {
+    setShipNowPkg(pkg)
+    setShipNowOrder(order)
+    setShipNowRates([])
+    setShipNowResult(null)
+    setShipNowOpen(true)
+    setShipNowLoading(true)
+
+    // Get rates for this shipment
+    try {
+      const destAddr = order.shippingAddress || {}
+      const res = await fetch('/api/shipping/estimate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          zip: destAddr.zip || destAddr.postal_code || '',
+          city: destAddr.city || '',
+          state: destAddr.state || '',
+          country: destAddr.country_alpha2 || 'US',
+          weight: 5,
+          length: 15,
+          width: 15,
+          height: 4,
+          declaredValue: order.amount || 100,
+        })
+      })
+      const data = await res.json()
+      if (data.rates) setShipNowRates(data.rates)
+    } catch (e) {
+      console.error('Failed to get rates:', e)
+    } finally {
+      setShipNowLoading(false)
+    }
+  }
+
+  const handleBuyLabel = async (rate: any) => {
+    if (!shipNowPkg || !shipNowOrder) return
+    setShipNowBuying(true)
+    try {
+      const destAddr = shipNowOrder.shippingAddress || {}
+      const res = await fetch('/api/shipping/ship-now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          packageId: shipNowPkg.id,
+          packageZohoId: shipNowPkg.zohoId,
+          salesOrderZohoId: shipNowOrder.zohoId,
+          courierServiceId: rate.courierName,  // Easyship uses courier name as ID in some contexts
+          originAddress: null,  // Use default Titan Diamond origin
+          destinationAddress: {
+            address: destAddr.address || destAddr.street || '',
+            city: destAddr.city || '',
+            state: destAddr.state || '',
+            zip: destAddr.zip || destAddr.postal_code || '',
+            country: destAddr.country_alpha2 || 'US',
+          },
+          destinationContactName: shipNowOrder.customerName || 'Customer',
+          weight: parseFloat(shipNowWeight) || 5,
+          dimensions: {
+            length: parseFloat(shipNowDims.length) || 15,
+            width: parseFloat(shipNowDims.width) || 15,
+            height: parseFloat(shipNowDims.height) || 4,
+          },
+          items: shipNowPkg.items?.line_items?.map((li: any) => ({
+            description: li.name || li.item_name || 'Diamond blade',
+            quantity: parseInt(li.quantity) || 1,
+            declaredValue: parseFloat(li.rate) || 50,
+            weight: 5,
+          })) || [{ description: 'Diamond concrete blade', quantity: 1, declaredValue: shipNowOrder.amount || 100, weight: parseFloat(shipNowWeight) || 5 }],
+          soNumber: shipNowOrder.soNumber,
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setShipNowResult(data)
+        toast.success('Label purchased! Tracking: ' + data.trackingNumber)
+        // Refresh orders list
+        setTimeout(() => { fetchOrders(); fetchCounts(); }, 1000)
+      } else {
+        toast.error('Failed: ' + (data.error || 'Unknown error'))
+      }
+    } catch (e: any) {
+      toast.error('Error: ' + e.message)
+    } finally {
+      setShipNowBuying(false)
+    }
+  }
+
   return (
     <div className="page-content">
       {/* ─── Header ─────────────────────────────────── */}
@@ -1225,6 +1324,12 @@ export default function ShippingPage() {
 
                               {/* Package Actions */}
                               <div className="flex gap-2 flex-wrap">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); openShipNow(pkg, order); }}
+                                  className="td-btn td-btn-sm bg-orange-600 hover:bg-orange-500 text-white border-none"
+                                >
+                                  <FiTruck size={12} /> Ship Now
+                                </button>
                                 {!pkg.trackingNumber && (
                                   <button
                                     onClick={() => setTrackingModal({ packageId: pkg.id, carrier: pkg.carrier || "", tracking: "" })}
@@ -1383,6 +1488,144 @@ export default function ShippingPage() {
           onClose={() => setDropshipModal(null)}
           onSuccess={(_poId: string) => { setDropshipModal(null); fetchOrders() }}
         />
+      )}
+      {/* ── Ship Now Modal ──────────────────────────────────────────────── */}
+      {shipNowOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => !shipNowBuying && setShipNowOpen(false)}>
+          <div className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-white/10">
+              <div>
+                <h2 className="text-lg font-black text-white">Ship Now</h2>
+                <p className="text-xs text-neutral-400">
+                  {shipNowOrder?.soNumber} — {shipNowOrder?.customerName}
+                </p>
+              </div>
+              <button onClick={() => !shipNowBuying && setShipNowOpen(false)} className="text-neutral-500 hover:text-white">
+                <FiX size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Shipment Result */}
+              {shipNowResult && (
+                <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                    <FiCheck /> Label Purchased Successfully!
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold">Carrier</div>
+                      <div className="text-white font-medium">{shipNowResult.courierName}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold">Tracking #</div>
+                      <div className="text-white font-medium font-mono">{shipNowResult.trackingNumber}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold">Cost</div>
+                      <div className="text-white font-medium">${shipNowResult.totalCharge?.toFixed(2)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold">Status</div>
+                      <div className="text-emerald-400 font-medium">Shipped ✓ (Zoho Updated)</div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    {shipNowResult.labelUrl && (
+                      <a href={shipNowResult.labelUrl} target="_blank" rel="noopener noreferrer" className="td-btn td-btn-sm bg-blue-600 hover:bg-blue-500 text-white border-none">
+                        <FiDownloadCloud size={14} /> Download Label
+                      </a>
+                    )}
+                    {shipNowResult.trackingPageUrl && (
+                      <a href={shipNowResult.trackingPageUrl} target="_blank" rel="noopener noreferrer" className="td-btn td-btn-sm bg-neutral-700 hover:bg-neutral-600 text-white border-none">
+                        <FiExternalLink size={14} /> Track Package
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Package & Weight */}
+              {!shipNowResult && (
+                <>
+                  <div className="grid grid-cols-4 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">Weight (lbs)</label>
+                      <input type="number" value={shipNowWeight} onChange={e => setShipNowWeight(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">L (in)</label>
+                      <input type="number" value={shipNowDims.length} onChange={e => setShipNowDims(d => ({...d, length: e.target.value}))} className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">W (in)</label>
+                      <input type="number" value={shipNowDims.width} onChange={e => setShipNowDims(d => ({...d, width: e.target.value}))} className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">H (in)</label>
+                      <input type="number" value={shipNowDims.height} onChange={e => setShipNowDims(d => ({...d, height: e.target.value}))} className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none" />
+                    </div>
+                  </div>
+
+                  {/* Destination Preview */}
+                  <div className="bg-black/20 rounded-xl p-3 flex items-start gap-3">
+                    <FiMapPin className="text-orange-400 shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <div className="text-white font-medium">{shipNowOrder?.customerName}</div>
+                      <div className="text-neutral-400 text-xs">
+                        {shipNowOrder?.shippingAddress?.address || shipNowOrder?.shippingAddress?.street || 'Address on file'}, {shipNowOrder?.shippingAddress?.city}, {shipNowOrder?.shippingAddress?.state} {shipNowOrder?.shippingAddress?.zip || shipNowOrder?.shippingAddress?.postal_code}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rate Selection */}
+                  <div>
+                    <h3 className="text-sm font-bold text-white mb-2">Select Carrier</h3>
+                    {shipNowLoading && (
+                      <div className="flex items-center gap-2 text-neutral-400 text-sm py-4">
+                        <FiRefreshCw className="animate-spin" /> Loading rates...
+                      </div>
+                    )}
+                    {!shipNowLoading && shipNowRates.length === 0 && (
+                      <div className="text-neutral-500 text-sm py-4">No rates available. Check the shipping address.</div>
+                    )}
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {shipNowRates.slice(0, 10).map((rate: any, idx: number) => (
+                        <div key={idx} className="flex items-center justify-between bg-black/20 border border-white/5 rounded-xl p-3 hover:border-orange-500/30 transition-colors">
+                          <div className="flex items-center gap-3">
+                            {rate.logoUrl && <img src={rate.logoUrl} alt="" className="w-6 h-6 rounded" />}
+                            <div>
+                              <div className="text-sm font-medium text-white">{rate.courierName}</div>
+                              <div className="text-[10px] text-neutral-500">
+                                {rate.minDeliveryTime && rate.maxDeliveryTime
+                                  ? `${rate.minDeliveryTime}-${rate.maxDeliveryTime} days`
+                                  : 'Transit time varies'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className="text-sm font-black text-white">${rate.totalCharge?.toFixed(2)}</div>
+                            </div>
+                            <button
+                              onClick={() => handleBuyLabel(rate)}
+                              disabled={shipNowBuying}
+                              className="td-btn td-btn-sm bg-orange-600 hover:bg-orange-500 text-white border-none disabled:opacity-50"
+                            >
+                              {shipNowBuying ? <FiRefreshCw className="animate-spin" size={12} /> : <FiTruck size={12} />}
+                              Buy Label
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
       </div>
     </div>
