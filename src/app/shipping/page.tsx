@@ -484,11 +484,24 @@ export default function ShippingPage() {
     }
   }
 
-  // Client-side period filter on orderDate
+  // Compilation item filter
+  const [compilationSkuFilter, setCompilationSkuFilter] = useState<string | null>(null)
+
+  // Client-side period filter on orderDate + compilation SKU filter
   const filteredOrders = useMemo(() => {
-    if (shipPeriod === 'all') return orders
-    return orders.filter(o => isInPeriod((o as any).orderDate || (o as any).order_date || (o as any).date, shipPeriod, shipCustomStart, shipCustomEnd))
-  }, [orders, shipPeriod, shipCustomStart, shipCustomEnd])
+    let result = orders
+    if (shipPeriod !== 'all') {
+      result = result.filter(o => isInPeriod((o as any).orderDate || (o as any).order_date || (o as any).date, shipPeriod, shipCustomStart, shipCustomEnd))
+    }
+    if (compilationSkuFilter) {
+      result = result.filter(o =>
+        o.shipStatus === 'packaged' &&
+        Array.isArray(o.lineItems) &&
+        o.lineItems.some(item => (item.sku || item.name || 'Unknown SKU') === compilationSkuFilter)
+      )
+    }
+    return result
+  }, [orders, shipPeriod, shipCustomStart, shipCustomEnd, compilationSkuFilter])
 
   // Compilation of items that are packaged but need shipped
   const getPackagedButNeedShippedItemsCompilation = () => {
@@ -1227,14 +1240,38 @@ export default function ShippingPage() {
             </div>
           </div>
 
+          {compilationSkuFilter && (
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <span className="text-[10px] text-indigo-300 font-bold">Filtering by:</span>
+              <span className="px-2 py-0.5 rounded-md bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-[10px] font-black font-mono">{compilationSkuFilter}</span>
+              <button
+                onClick={() => setCompilationSkuFilter(null)}
+                className="text-[10px] text-neutral-500 hover:text-white underline transition-colors"
+              >
+                Clear Filter
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-[220px] overflow-y-auto pr-1">
             {compilationList.map((item, idx) => (
-              <div key={idx} className="bg-neutral-900/40 border border-white/5 rounded-xl p-3 flex items-center justify-between hover:border-indigo-500/30 transition-all duration-300">
+              <div
+                key={idx}
+                onClick={() => setCompilationSkuFilter(prev => prev === item.sku ? null : item.sku)}
+                className={`bg-neutral-900/40 border rounded-xl p-3 flex items-center justify-between cursor-pointer transition-all duration-300 ${
+                  compilationSkuFilter === item.sku
+                    ? 'border-indigo-500/60 bg-indigo-950/30 ring-1 ring-indigo-500/30'
+                    : 'border-white/5 hover:border-indigo-500/30'
+                }`}
+              >
                 <div className="min-w-0 pr-2">
                   <p className="text-xs font-black text-white font-mono truncate" title={item.sku}>{item.sku}</p>
                   <p className="text-[10px] text-neutral-500 truncate" title={item.name}>{item.name}</p>
                 </div>
-                <span className="flex-shrink-0 min-w-[28px] h-7 rounded-lg bg-indigo-600/15 text-indigo-400 font-black text-xs flex items-center justify-center border border-indigo-500/20 px-2">
+                <span className={`flex-shrink-0 min-w-[28px] h-7 rounded-lg font-black text-xs flex items-center justify-center border px-2 ${
+                  compilationSkuFilter === item.sku
+                    ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/40'
+                    : 'bg-indigo-600/15 text-indigo-400 border-indigo-500/20'
+                }`}>
                   {item.quantity}
                 </span>
               </div>
