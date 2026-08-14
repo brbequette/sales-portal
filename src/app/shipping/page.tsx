@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
-import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign, FiX, FiEdit2, FiPlus, FiTrash2 } from "react-icons/fi"
+import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign, FiX, FiEdit2, FiPlus, FiTrash2, FiPrinter, FiShield, FiXCircle, FiFileText } from "react-icons/fi"
 import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
 import { toast } from 'react-hot-toast';
@@ -1425,38 +1425,156 @@ export default function ShippingPage() {
                                 )}
                               </div>
 
-                              {/* Package Actions */}
+                              {/* Package Actions — state-based */}
                               <div className="flex gap-2 flex-wrap">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); openShipNow(pkg, order); }}
-                                  className="td-btn td-btn-sm bg-orange-600 hover:bg-orange-500 text-white border-none"
-                                >
-                                  <FiTruck size={12} /> Ship Now
-                                </button>
-                                {!pkg.trackingNumber && (
-                                  <button
-                                    onClick={() => setTrackingModal({ packageId: pkg.id, carrier: pkg.carrier || "", tracking: "" })}
-                                    className="px-3 py-1.5 rounded-lg bg-purple-600/20 text-purple-400 border border-purple-800/50 text-[10px] font-bold uppercase hover:bg-purple-600/30 transition-all"
-                                  >
-                                    Add Tracking
-                                  </button>
-                                )}
-                                {pkg.status !== "shipped" && pkg.status !== "delivered" && pkg.trackingNumber && (
-                                  <button
-                                    onClick={() => handleStatusChange(pkg.id, "markShipped")}
-                                    className="px-3 py-1.5 rounded-lg bg-purple-600/20 text-purple-400 border border-purple-800/50 text-[10px] font-bold uppercase hover:bg-purple-600/30 transition-all"
-                                  >
-                                    Mark Shipped
-                                  </button>
-                                )}
-                                {pkg.status !== "delivered" && (
-                                  <button
-                                    onClick={() => handleStatusChange(pkg.id, "markDelivered")}
-                                    className="px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-800/50 text-[10px] font-bold uppercase hover:bg-emerald-600/30 transition-all"
-                                  >
-                                    Mark Delivered
-                                  </button>
-                                )}
+                                {(() => {
+                                  const pkgItems = (pkg.items as any) || {}
+                                  const hasEasyship = !!pkgItems.easyshipShipmentId
+                                  const hasLabel = !!pkgItems.labelUrl && !pkgItems.labelVoided
+                                  const hasTracking = !!pkg.trackingNumber
+                                  const isDelivered = pkg.status === 'delivered'
+                                  const isShipped = pkg.status === 'shipped'
+
+                                  return (
+                                    <>
+                                      {/* Ship Now — show when no label yet */}
+                                      {!hasLabel && !isDelivered && (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); openShipNow(pkg, order); }}
+                                          className="td-btn td-btn-sm bg-orange-600 hover:bg-orange-500 text-white border-none"
+                                        >
+                                          <FiTruck size={12} /> Ship Now
+                                        </button>
+                                      )}
+
+                                      {/* View Label — when label exists */}
+                                      {hasLabel && (
+                                        <a
+                                          href={pkgItems.labelUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={e => e.stopPropagation()}
+                                          className="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-800/50 text-[10px] font-bold uppercase hover:bg-blue-600/30 transition-all flex items-center gap-1"
+                                        >
+                                          <FiFileText size={11} /> View Label
+                                        </a>
+                                      )}
+
+                                      {/* Packing Slip — if available */}
+                                      {pkgItems.packingSlipUrl && (
+                                        <a
+                                          href={pkgItems.packingSlipUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={e => e.stopPropagation()}
+                                          className="px-3 py-1.5 rounded-lg bg-neutral-700/40 text-neutral-300 border border-neutral-700/50 text-[10px] font-bold uppercase hover:bg-neutral-700/60 transition-all flex items-center gap-1"
+                                        >
+                                          <FiPrinter size={11} /> Packing Slip
+                                        </a>
+                                      )}
+
+                                      {/* Add Tracking — no tracking yet, no easyship */}
+                                      {!hasTracking && !hasEasyship && !isDelivered && (
+                                        <button
+                                          onClick={() => setTrackingModal({ packageId: pkg.id, carrier: pkg.carrier || "", tracking: "" })}
+                                          className="px-3 py-1.5 rounded-lg bg-purple-600/20 text-purple-400 border border-purple-800/50 text-[10px] font-bold uppercase hover:bg-purple-600/30 transition-all"
+                                        >
+                                          Add Tracking
+                                        </button>
+                                      )}
+
+                                      {/* Refresh Status — when easyship shipment exists */}
+                                      {hasEasyship && !isDelivered && (
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation()
+                                            try {
+                                              const res = await fetch('/api/shipping/refresh-status', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ easyshipShipmentId: pkgItems.easyshipShipmentId, packageId: pkg.id })
+                                              })
+                                              const data = await res.json()
+                                              if (data.success) {
+                                                toast.success(`Status: ${data.shipmentState || 'updated'} | Label: ${data.labelState || 'n/a'}`)
+                                                fetchOrders(); fetchCounts()
+                                              } else {
+                                                toast.error('Refresh failed: ' + (data.error || 'Unknown'))
+                                              }
+                                            } catch (err: any) { toast.error(err.message) }
+                                          }}
+                                          className="px-3 py-1.5 rounded-lg bg-cyan-600/20 text-cyan-400 border border-cyan-800/50 text-[10px] font-bold uppercase hover:bg-cyan-600/30 transition-all flex items-center gap-1"
+                                        >
+                                          <FiRefreshCw size={11} /> Refresh
+                                        </button>
+                                      )}
+
+                                      {/* Mark Delivered — when shipped but not delivered */}
+                                      {!isDelivered && (isShipped || hasTracking) && (
+                                        <button
+                                          onClick={() => handleStatusChange(pkg.id, "markDelivered")}
+                                          className="px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-800/50 text-[10px] font-bold uppercase hover:bg-emerald-600/30 transition-all"
+                                        >
+                                          Mark Delivered
+                                        </button>
+                                      )}
+
+                                      {/* Void Label — when label purchased but not delivered */}
+                                      {hasLabel && !isDelivered && (
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation()
+                                            if (!confirm('Void this label? The shipment will remain but the label will be cancelled.')) return
+                                            try {
+                                              const res = await fetch('/api/shipping/void-label', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ easyshipShipmentId: pkgItems.easyshipShipmentId, packageId: pkg.id })
+                                              })
+                                              const data = await res.json()
+                                              if (data.success) {
+                                                toast.success('Label voided successfully')
+                                                fetchOrders(); fetchCounts()
+                                              } else {
+                                                toast.error('Void failed: ' + (data.error || 'Unknown'))
+                                              }
+                                            } catch (err: any) { toast.error(err.message) }
+                                          }}
+                                          className="px-3 py-1.5 rounded-lg bg-red-600/10 text-red-400 border border-red-800/40 text-[10px] font-bold uppercase hover:bg-red-600/20 transition-all flex items-center gap-1"
+                                        >
+                                          <FiXCircle size={11} /> Void Label
+                                        </button>
+                                      )}
+
+                                      {/* Cancel Shipment — easyship exists, no label, not shipped */}
+                                      {hasEasyship && !hasLabel && !isShipped && !isDelivered && (
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation()
+                                            if (!confirm('Cancel this Easyship shipment? This will remove it from Easyship.')) return
+                                            try {
+                                              const res = await fetch('/api/shipping/cancel-shipment', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ easyshipShipmentId: pkgItems.easyshipShipmentId, packageId: pkg.id })
+                                              })
+                                              const data = await res.json()
+                                              if (data.success) {
+                                                toast.success('Shipment cancelled')
+                                                fetchOrders(); fetchCounts()
+                                              } else {
+                                                toast.error('Cancel failed: ' + (data.error || 'Unknown'))
+                                              }
+                                            } catch (err: any) { toast.error(err.message) }
+                                          }}
+                                          className="px-3 py-1.5 rounded-lg bg-red-600/10 text-red-400 border border-red-800/40 text-[10px] font-bold uppercase hover:bg-red-600/20 transition-all flex items-center gap-1"
+                                        >
+                                          <FiTrash2 size={11} /> Cancel
+                                        </button>
+                                      )}
+                                    </>
+                                  )
+                                })()}
                               </div>
                             </div>
                           ))}
