@@ -1,9 +1,10 @@
+import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from "next/server"
-import { PrismaClient, Prisma } from "@prisma/client"
+import { Prisma } from '@prisma/client'
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
-const prisma = new PrismaClient()
+
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 
 export const maxDuration = 60

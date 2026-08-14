@@ -1,8 +1,7 @@
+import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
-import crypto from "crypto"
 
-const prisma = new PrismaClient()
+import crypto from "crypto"
 
 // Simple token generation: HMAC of repId with a secret
 const SECRET = process.env.PORTAL_TOKEN_SECRET || process.env.NEXTAUTH_SECRET || "titan-diamond-portal-secret-2025"

@@ -1,9 +1,8 @@
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from "next/server"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 const ORG_ID = ZOHO_ORGANIZATION_ID
-import { PrismaClient } from "@prisma/client"
 
-const prisma = new PrismaClient()
 const ZOHO_DC = process.env.ZOHO_DC || "com"
 
 export async function POST() {

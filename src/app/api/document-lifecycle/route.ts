@@ -1,7 +1,5 @@
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server'
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
 
 /**
  * GET /api/document-lifecycle?zohoId=xxx&type=Invoice|SalesOrder|Quote

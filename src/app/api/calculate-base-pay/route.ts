@@ -1,7 +1,5 @@
+import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
 
 /**
  * Calculate base pay for a rep for a given weekly period.

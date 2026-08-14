@@ -2,9 +2,9 @@ import { NextRequest } from 'next/server';
 import { SignJWT, jwtVerify } from 'jose';
 import crypto from 'crypto';
 
-const SECRET_KEY = new TextEncoder().encode(
-  process.env.NEXTAUTH_SECRET || 'fallback_secret_key_for_dev_only'
-);
+const secret = process.env.NEXTAUTH_SECRET;
+if (!secret) throw new Error('NEXTAUTH_SECRET environment variable is required');
+const SECRET_KEY = new TextEncoder().encode(secret);
 
 export interface CustomerJwtPayload {
   accountId: string | null;

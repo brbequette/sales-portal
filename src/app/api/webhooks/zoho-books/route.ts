@@ -24,11 +24,11 @@
  * Set ZOHO_WEBHOOK_TOKEN in env vars to verify.
  */
 
+import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
+
 import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 
-const prisma = new PrismaClient()
 const WEBHOOK_TOKEN = process.env.ZOHO_WEBHOOK_TOKEN ?? ""
 
 // ---------------------------------------------------------------------------

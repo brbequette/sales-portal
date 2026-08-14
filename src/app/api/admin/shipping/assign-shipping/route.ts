@@ -1,8 +1,7 @@
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
-import { calculateDocumentCosts, buildFieldsToUpdate } from "../../../../../../netlify/functions/lib/cost-calculations"
 
-const prisma = new PrismaClient()
+import { calculateDocumentCosts, buildFieldsToUpdate } from "../../../../../../netlify/functions/lib/cost-calculations"
 
 export async function POST(req: Request) {
   try {
