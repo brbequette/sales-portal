@@ -440,39 +440,63 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
   let currency = shipment.currency || 'USD';
 
   if (easyshipId) {
-    try {
-      const labelRes = await fetch(`${EASYSHIP_API_URL}/labels`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          shipments: [{
-            easyship_shipment_id: easyshipId,
-            courier_service_id: params.courierServiceId,
-          }]
-        })
-      });
+    const labelPayload = {
+      shipments: [{
+        easyship_shipment_id: easyshipId,
+        courier_service_id: params.courierServiceId,
+      }]
+    };
+    console.log('[easyship] Buying label:', JSON.stringify(labelPayload));
 
-      if (labelRes.ok) {
-        const labelData = await labelRes.json();
-        const labelShipment = labelData.shipments?.[0] || labelData.shipment || {};
-        labelUrl = labelShipment.shipping_documents?.find((d: any) => d.category === 'label')?.url
-          || labelShipment.label?.url || labelShipment.label_url || '';
-        trackingNumber = labelShipment.trackings?.[0]?.tracking_number || labelShipment.tracking_number || trackingNumber;
-        trackingPageUrl = labelShipment.tracking_page_url || trackingPageUrl;
-        labelState = labelShipment.label_state || 'generated';
-        // Extract courier info and charge from label response (most accurate source)
-        courierName = labelShipment.courier_service?.name || labelShipment.courier?.name || labelShipment.selected_courier?.name || courierName;
-        totalCharge = labelShipment.total_charge || labelShipment.shipment_charge_total || totalCharge;
-        currency = labelShipment.currency || currency;
-      } else {
-        const errText = await labelRes.text();
-        console.error('Label creation error:', labelRes.status, errText.substring(0, 300));
-        // Shipment was still created, just no label yet
-        labelState = 'pending';
-      }
-    } catch (labelErr) {
-      console.error('Label purchase error (shipment still created):', labelErr);
-      labelState = 'error';
+    const labelRes = await fetch(`${EASYSHIP_API_URL}/labels`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(labelPayload)
+    });
+
+    const labelText = await labelRes.text();
+    console.log(`[easyship] Label response (${labelRes.status}):`, labelText.substring(0, 1000));
+
+    if (!labelRes.ok) {
+      throw new Error(`Easyship label purchase failed (${labelRes.status}): ${labelText.substring(0, 500)}`);
+    }
+
+    const labelData = JSON.parse(labelText);
+    
+    // Easyship returns data under different keys depending on API version
+    const labelShipment = labelData.shipments?.[0] 
+      || labelData.labels?.[0] 
+      || labelData.shipment 
+      || labelData.label 
+      || {};
+    
+    console.log('[easyship] Parsed label shipment keys:', Object.keys(labelShipment).join(', '));
+
+    labelUrl = labelShipment.shipping_documents?.find((d: any) => d.category === 'label')?.url
+      || labelShipment.label?.url || labelShipment.label_url 
+      || labelShipment.shipping_documents?.[0]?.url || '';
+    trackingNumber = labelShipment.trackings?.[0]?.tracking_number 
+      || labelShipment.tracking_number 
+      || labelShipment.tracking?.tracking_number
+      || trackingNumber;
+    trackingPageUrl = labelShipment.tracking_page_url 
+      || labelShipment.trackings?.[0]?.tracking_page_url
+      || trackingPageUrl;
+    labelState = labelShipment.label_state || 'generated';
+    courierName = labelShipment.courier_service?.name 
+      || labelShipment.courier?.name 
+      || labelShipment.selected_courier?.name 
+      || labelShipment.courier_name
+      || courierName;
+    totalCharge = labelShipment.total_charge 
+      || labelShipment.shipment_charge_total 
+      || labelShipment.rates?.selected?.total_charge
+      || totalCharge;
+    currency = labelShipment.currency || currency;
+
+    // If we still have no tracking number, log the full response for debugging
+    if (!trackingNumber) {
+      console.warn('[easyship] WARNING: No tracking number found in label response. Full data:', JSON.stringify(labelData).substring(0, 2000));
     }
   }
 

@@ -143,8 +143,13 @@ export async function POST(req: Request) {
       }
     }
 
+    const warning = (!result.trackingNumber || !result.courierName)
+      ? 'Label may still be processing — tracking and carrier info not yet available. Check Easyship dashboard.'
+      : undefined
+
     return NextResponse.json({
       success: true,
+      warning,
       ...result,
     })
   } catch (error: any) {

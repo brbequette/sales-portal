@@ -721,7 +721,11 @@ export default function ShippingPage() {
       const data = await res.json()
       if (data.success) {
         setShipNowResult(data)
-        toast.success('Label purchased! Tracking: ' + data.trackingNumber)
+        if (data.warning) {
+          toast.error(data.warning, { duration: 8000 })
+        } else {
+          toast.success('Label purchased! Tracking: ' + data.trackingNumber)
+        }
         // Refresh orders list
         setTimeout(() => { fetchOrders(); fetchCounts(); }, 1000)
       } else {
