@@ -25,7 +25,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Missing required fields (courierServiceId, weight)' }, { status: 400 })
     }
 
-    // 1. Create shipment + buy label via Easyship
+    // Check if package already has an Easyship shipment ID (to avoid duplicates)
+    let existingEasyshipId: string | undefined
+    if (packageId) {
+      const existingPkg = await prisma.package.findUnique({ where: { id: packageId } })
+      const pkgItems = (existingPkg?.items as any) || {}
+      existingEasyshipId = pkgItems.easyshipShipmentId || undefined
+    }
+
+    // 1. Create shipment + buy label via Easyship (reuses existing if available)
     const result = await createShipmentAndBuyLabel({
       originAddress: originAddress ? {
         line_1: originAddress.line_1 || originAddress.address,
@@ -48,6 +56,7 @@ export async function POST(req: Request) {
       dimensions: dimensions || { length: 15, width: 15, height: 4 },
       items: items || [{ description: 'Diamond concrete blade', quantity: 1, declaredValue: 100, weight: parseFloat(weight) || 5 }],
       platformOrderNumber: soNumber,
+      existingEasyshipId,
     })
 
     // 2. Update local DB package with tracking info

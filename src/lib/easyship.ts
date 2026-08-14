@@ -292,6 +292,7 @@ export interface CreateShipmentParams {
     weight: number;
   }>;
   platformOrderNumber?: string;  // Zoho SO number
+  existingEasyshipId?: string;    // If set, skip shipment creation and just buy the label
 }
 
 export interface ShipmentResult {
@@ -335,58 +336,65 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
   const dbOrigin = await getOriginFromDB();
   const origin = params.originAddress || dbOrigin;
 
-  // Step 1: Create shipment (2024-09 API schema)
-  const shipmentPayload = {
-    origin_address: {
-      line_1: origin.line_1 || '',
-      city: origin.city || '',
-      state: origin.state || '',
-      postal_code: origin.postal_code || '',
-      country_alpha2: origin.country_alpha2 || 'US',
-      contact_name: origin.contact_name || 'Titan Diamond',
-      contact_phone: origin.contact_phone || '4805551234',
-      contact_email: origin.contact_email || 'shipping@titandiamond.com',
-      company_name: origin.company_name || 'Titan Diamond USA',
-    },
-    destination_address: {
-      line_1: params.destinationAddress.line_1 || '',
-      city: params.destinationAddress.city || '',
-      state: params.destinationAddress.state || '',
-      postal_code: params.destinationAddress.postal_code || '',
-      country_alpha2: params.destinationAddress.country_alpha2 || 'US',
-      contact_name: params.destinationContactName || 'Customer',
-      contact_phone: params.destinationContactPhone || '0000000000',
-      contact_email: params.destinationContactEmail || 'orders@titandiamond.com',
-    },
-    parcels: [{
-      total_actual_weight: params.weight,
-      box: { slug: 'custom' },
-      items: params.items.map(item => ({
-        description: item.description,
-        category: 'home_appliances',
-        quantity: item.quantity,
-        dimensions: params.dimensions,
-        actual_weight: item.weight,
-        declared_currency: 'USD',
-        declared_customs_value: item.declaredValue
-      }))
-    }],
-  };
+  let easyshipId = params.existingEasyshipId || '';
+  let shipment: any = {};
 
-  const shipRes = await fetch(`${EASYSHIP_API_URL}/shipments`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(shipmentPayload)
-  });
+  // Step 1: Create shipment ONLY if we don't already have one
+  if (!easyshipId) {
+    const shipmentPayload = {
+      origin_address: {
+        line_1: origin.line_1 || '',
+        city: origin.city || '',
+        state: origin.state || '',
+        postal_code: origin.postal_code || '',
+        country_alpha2: origin.country_alpha2 || 'US',
+        contact_name: origin.contact_name || 'Titan Diamond',
+        contact_phone: origin.contact_phone || '4805551234',
+        contact_email: origin.contact_email || 'shipping@titandiamond.com',
+        company_name: origin.company_name || 'Titan Diamond USA',
+      },
+      destination_address: {
+        line_1: params.destinationAddress.line_1 || '',
+        city: params.destinationAddress.city || '',
+        state: params.destinationAddress.state || '',
+        postal_code: params.destinationAddress.postal_code || '',
+        country_alpha2: params.destinationAddress.country_alpha2 || 'US',
+        contact_name: params.destinationContactName || 'Customer',
+        contact_phone: params.destinationContactPhone || '0000000000',
+        contact_email: params.destinationContactEmail || 'orders@titandiamond.com',
+      },
+      parcels: [{
+        total_actual_weight: params.weight,
+        box: { slug: 'custom' },
+        items: params.items.map(item => ({
+          description: item.description,
+          category: 'home_appliances',
+          quantity: item.quantity,
+          dimensions: params.dimensions,
+          actual_weight: item.weight,
+          declared_currency: 'USD',
+          declared_customs_value: item.declaredValue
+        }))
+      }],
+    };
 
-  if (!shipRes.ok) {
-    const text = await shipRes.text();
-    throw new Error(`Easyship create shipment error (${shipRes.status}): ${text.substring(0, 500)}`);
+    const shipRes = await fetch(`${EASYSHIP_API_URL}/shipments`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(shipmentPayload)
+    });
+
+    if (!shipRes.ok) {
+      const text = await shipRes.text();
+      throw new Error(`Easyship create shipment error (${shipRes.status}): ${text.substring(0, 500)}`);
+    }
+
+    const shipData = await shipRes.json();
+    shipment = shipData.shipment || shipData;
+    easyshipId = shipment.easyship_shipment_id || '';
+  } else {
+    console.log(`Reusing existing Easyship shipment: ${easyshipId}`);
   }
-
-  const shipData = await shipRes.json();
-  const shipment = shipData.shipment || shipData;
-  const easyshipId = shipment.easyship_shipment_id || '';
 
   // Step 2: Buy label via /labels endpoint
   let labelUrl = '';
