@@ -89,8 +89,7 @@ export async function getEasyshipRates(params: GetRatesParams): Promise<Easyship
   const payload = {
     origin_address,
     destination_address: params.destination_address,
-    parcels: params.parcels,
-    show_courier_logo_url: true
+    parcels: params.parcels
   };
 
   const response = await fetch(`${EASYSHIP_API_URL}/rates`, {
