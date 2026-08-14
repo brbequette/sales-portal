@@ -194,7 +194,7 @@ export default function SalesSheetPage() {
               {/* Invoice Table */}
               <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border, #262626)", background: "var(--surface, #18181b)" }}>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm" style={{ minWidth: "1200px" }}>
+                  <table className="w-full text-sm" style={{ minWidth: "1400px" }}>
                     <thead>
                       <tr className="border-b" style={{ borderColor: "var(--border, #262626)" }}>
                         <th className="text-left px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">#</th>
@@ -210,22 +210,30 @@ export default function SalesSheetPage() {
                         <th className="text-right px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Comm.</th>
                         <th className="text-right px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Days Old</th>
                         <th className="text-center px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Status</th>
+                        <th className="text-right px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 border-l border-white/5" style={{ background: 'rgba(16,185,129,0.04)' }}>∑ Vol</th>
+                        <th className="text-right px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600" style={{ background: 'rgba(16,185,129,0.04)' }}>∑ Profit</th>
+                        <th className="text-right px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600" style={{ background: 'rgba(16,185,129,0.04)' }}>∑ Comm</th>
                       </tr>
                     </thead>
                     <tbody>
                       {monthInvoices.length === 0 ? (
                         <tr>
-                          <td colSpan={13} className="px-3 py-12 text-center text-neutral-500">
+                          <td colSpan={16} className="px-3 py-12 text-center text-neutral-500">
                             <FiCalendar size={28} className="mx-auto mb-2 text-neutral-600" />
                             <p className="text-sm font-medium">No invoices for {monthLabel}</p>
                             <p className="text-xs text-neutral-600 mt-1">Try selecting a different month</p>
                           </td>
                         </tr>
-                      ) : monthInvoices.map((inv: any, idx: number) => {
+                      ) : (() => {
+                        let runVol = 0, runProfit = 0, runComm = 0
+                        return monthInvoices.map((inv: any, idx: number) => {
                         const invVigRate = inv.vigRate || 1.3
                         const markup = (inv.deadCost || 0) > 0 ? ((inv.amount || 0) / inv.deadCost).toFixed(2) : "—"
                         const phoneNumber = inv.contactPhone || null
                         const daysOld = inv.daysOld ? Math.round(inv.daysOld) : (inv.issueDate ? Math.round((Date.now() - new Date(inv.issueDate).getTime()) / (1000 * 60 * 60 * 24)) : 0)
+                        runVol += inv.amount || 0
+                        runProfit += inv.profit || 0
+                        runComm += inv.commission?.total || 0
                         return (
                         <tr
                           key={inv.id}
@@ -286,12 +294,22 @@ export default function SalesSheetPage() {
                               {inv.isPaid ? "Paid" : "Unpaid"}
                             </span>
                           </td>
+                          <td className="px-3 py-2 text-xs font-medium text-emerald-500/70 text-right tabular-nums border-l border-white/5" style={{ background: 'rgba(16,185,129,0.03)' }}>
+                            {fmt(runVol)}
+                          </td>
+                          <td className="px-3 py-2 text-xs font-medium text-right tabular-nums" style={{ color: runProfit >= 0 ? 'rgba(52,211,153,0.6)' : 'rgba(248,113,113,0.6)', background: 'rgba(16,185,129,0.03)' }}>
+                            {fmt(runProfit)}
+                          </td>
+                          <td className="px-3 py-2 text-xs font-medium text-violet-400/60 text-right tabular-nums" style={{ background: 'rgba(16,185,129,0.03)' }}>
+                            {fmt(runComm)}
+                          </td>
                         </tr>
                         )
-                      })}
+                      })
+                      })()}
                     </tbody>
                     {monthInvoices.length > 0 && (
-                      <tfoot>
+                      <tfoot className="sticky bottom-0" style={{ background: 'var(--surface, #18181b)' }}>
                         <tr className="border-t-2" style={{ borderColor: "var(--border, #333)" }}>
                           <td colSpan={5} className="px-3 py-3 text-xs font-bold uppercase tracking-wider text-neutral-400">
                             Grand Totals ({totals.count} invoices)
@@ -306,6 +324,9 @@ export default function SalesSheetPage() {
                           <td className="px-3 py-3 text-center">
                             <span className="text-[10px] text-neutral-500">{totals.paidCount}P / {totals.unpaidCount}U</span>
                           </td>
+                          <td className="px-3 py-3 text-sm font-bold text-emerald-400 text-right tabular-nums border-l border-white/5">{fmt(totals.sales)}</td>
+                          <td className="px-3 py-3 text-sm font-bold text-right tabular-nums" style={{ color: "#34d399" }}>{fmt(totals.profit)}</td>
+                          <td className="px-3 py-3 text-sm font-bold text-violet-400 text-right tabular-nums">{fmt(totals.commission)}</td>
                         </tr>
                       </tfoot>
                     )}
