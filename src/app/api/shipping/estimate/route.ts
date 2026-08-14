@@ -133,10 +133,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json(responseData);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Shipping estimate error:", error);
+    const msg = error?.message || "Failed to estimate shipping rates"
     return NextResponse.json(
-      { success: false, error: "Failed to estimate shipping rates" },
+      { success: false, error: msg },
       { status: 500 }
     );
   }
