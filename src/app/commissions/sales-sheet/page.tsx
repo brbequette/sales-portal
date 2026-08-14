@@ -74,6 +74,9 @@ export default function SalesSheetPage() {
     const invoices = rep.invoices || []
     return invoices
       .filter((inv: any) => {
+        // Exclude sales orders (SO-prefix) — only show actual invoices
+        const invNum = inv.invoiceNumber || ''
+        if (typeof invNum === 'string' && invNum.startsWith('SO-')) return false
         const dateStr = inv.issueDate || inv.createdAt
         if (!dateStr) return false
         const d = new Date(dateStr)

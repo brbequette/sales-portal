@@ -8,7 +8,7 @@ import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
 import { 
   FiDollarSign, FiPercent, FiTrendingUp, FiAward, FiUser, 
   FiCheckCircle, FiClock, FiFileText, FiRefreshCw, FiAlertCircle,
-  FiChevronDown, FiChevronRight, FiCalendar, FiFilter, FiExternalLink, FiGrid
+  FiChevronDown, FiChevronRight, FiCalendar, FiFilter, FiExternalLink, FiGrid, FiPrinter
 } from "react-icons/fi"
 import { classifyAtRiskInvoices, DEFAULT_CLAWBACK_SETTINGS, type AtRiskInvoice, type ClawbackSettings } from '@/lib/clawback-calculator'
 import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
@@ -860,6 +860,16 @@ export default function CommissionsPage() {
                                 <div className="text-sm font-semibold text-blue-400">{fmt(group.secondPaymentDue)}</div>
                               </div>
                             )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                window.open(`/print/pay-voucher/${selectedRepId}?weekStart=${group.weekKey}`, '_blank')
+                              }}
+                              className="ml-2 p-1.5 rounded-lg text-neutral-500 hover:text-white hover:bg-white/10 transition-colors"
+                              title="Print Pay Stub for this week"
+                            >
+                              <FiPrinter size={14} />
+                            </button>
                           </div>
                         </div>
 
