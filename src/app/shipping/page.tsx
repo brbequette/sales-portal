@@ -571,15 +571,9 @@ export default function ShippingPage() {
     }
   }
 
-  const openShipNow = async (pkg: any, order: any) => {
-    setShipNowPkg(pkg)
-    setShipNowOrder(order)
-    setShipNowRates([])
-    setShipNowResult(null)
-    setShipNowOpen(true)
+  const fetchShipNowRates = async (order: any, weight: string, dims: { length: string; width: string; height: string }) => {
     setShipNowLoading(true)
-
-    // Get rates for this shipment
+    setShipNowRates([])
     try {
       const destAddr = order.shippingAddress || {}
       const res = await fetch('/api/shipping/estimate', {
@@ -590,10 +584,10 @@ export default function ShippingPage() {
           city: destAddr.city || '',
           state: destAddr.state || '',
           country: destAddr.country_alpha2 || 'US',
-          weight: 5,
-          length: 15,
-          width: 15,
-          height: 4,
+          weight: parseFloat(weight) || 5,
+          length: parseFloat(dims.length) || 15,
+          width: parseFloat(dims.width) || 15,
+          height: parseFloat(dims.height) || 4,
           declaredValue: order.amount || 100,
         })
       })
@@ -607,6 +601,16 @@ export default function ShippingPage() {
     } finally {
       setShipNowLoading(false)
     }
+  }
+
+  const openShipNow = async (pkg: any, order: any) => {
+    setShipNowPkg(pkg)
+    setShipNowOrder(order)
+    setShipNowResult(null)
+    setShipNowOpen(true)
+
+    // Fetch rates with the current weight/dims state values
+    await fetchShipNowRates(order, shipNowWeight, shipNowDims)
   }
 
   const handleBuyLabel = async (rate: any) => {
@@ -1989,7 +1993,7 @@ export default function ShippingPage() {
                       <button
                         onClick={() => {
                           setShipNowRates([])
-                          openShipNow(shipNowPkg, shipNowOrder)
+                          fetchShipNowRates(shipNowOrder, shipNowWeight, shipNowDims)
                         }}
                         className="td-btn td-btn-sm bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border-white/10 text-[10px]"
                       >
