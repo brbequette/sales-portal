@@ -27,17 +27,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Missing required fields (courierServiceId, weight)' }, { status: 400 })
     }
 
-    // Use the Easyship ID from the request body first, then fall back to DB lookup
-    let existingEasyshipId: string | undefined = bodyEasyshipId || undefined
-    if (!existingEasyshipId && packageId) {
-      const existingPkg = await prisma.package.findUnique({ where: { id: packageId } })
-      const pkgItems = (existingPkg?.items as any) || {}
-      existingEasyshipId = pkgItems.easyshipShipmentId || undefined
-    }
-    
-    if (existingEasyshipId) {
-      console.log(`[ship-now] Reusing existing Easyship shipment: ${existingEasyshipId} — will NOT create a new one`)
-    }
+    // Don't pass stored Easyship IDs — they may have stale labels from prior attempts.
+    // Let createShipmentAndBuyLabel search for a reusable shipment or create a new one.
+    const existingEasyshipId: string | undefined = undefined
 
     // 1. Create shipment + buy label via Easyship (reuses existing if available)
     const result = await createShipmentAndBuyLabel({
