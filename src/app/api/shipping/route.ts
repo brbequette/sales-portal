@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
-const prisma = new PrismaClient()
 
 // GET -- Fetch all sales orders with their packages for the shipping center
 export async function GET(req: NextRequest) {
@@ -13,7 +12,7 @@ export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions)
     const role = (session?.user as any)?.role || "Sales Representative"
     const userName = session?.user?.name || ""
-    const isAdmin = role === "Admin"
+    const isAdmin = role.toLowerCase().includes("admin") || role.toLowerCase().includes("manager")
 
     const url = new URL(req.url)
     const status = url.searchParams.get("status") || "all"
