@@ -110,6 +110,7 @@ export async function getEasyshipRates(params: GetRatesParams): Promise<Easyship
   }
 
   return data.rates.map((rate: any) => ({
+    courierServiceId: rate.courier_id || rate.courier_service?.id || '',
     courierName: rate.courier_service?.name || '',
     umbrellaName: rate.courier_service?.umbrella_name || '',
     logoUrl: rate.courier_service?.logo || '',
@@ -300,7 +301,8 @@ export interface ShipmentResult {
 export async function createShipmentAndBuyLabel(params: CreateShipmentParams): Promise<ShipmentResult> {
   const origin = params.originAddress || DEFAULT_ORIGIN;
 
-  const payload = {
+  // Step 1: Create shipment (2024-09 API schema)
+  const shipmentPayload = {
     origin_address: {
       line_1: origin.line_1 || '',
       city: origin.city || '',
@@ -324,7 +326,7 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
       box: { slug: 'custom' },
       items: params.items.map(item => ({
         description: item.description,
-        category: 'jewelry',
+        category: 'home_appliances',
         quantity: item.quantity,
         dimensions: params.dimensions,
         actual_weight: item.weight,
@@ -332,36 +334,67 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
         declared_customs_value: item.declaredValue
       }))
     }],
-    courier_selection: {
-      selected_courier_id: params.courierServiceId
-    },
-    buy_label: true,
-    buy_label_synchronous: true,
-    platform_order_number: params.platformOrderNumber || '',
-    metadata: {},
+    courier_service_id: params.courierServiceId,
   };
 
-  const response = await fetch(`${EASYSHIP_API_URL}/shipments`, {
+  const shipRes = await fetch(`${EASYSHIP_API_URL}/shipments`, {
     method: 'POST',
     headers: getHeaders(),
-    body: JSON.stringify(payload)
+    body: JSON.stringify(shipmentPayload)
   });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Easyship create shipment error (${response.status}): ${text.substring(0, 300)}`);
+  if (!shipRes.ok) {
+    const text = await shipRes.text();
+    throw new Error(`Easyship create shipment error (${shipRes.status}): ${text.substring(0, 500)}`);
   }
 
-  const data = await response.json();
-  const shipment = data.shipment || data;
+  const shipData = await shipRes.json();
+  const shipment = shipData.shipment || shipData;
+  const easyshipId = shipment.easyship_shipment_id || '';
+
+  // Step 2: Buy label via /labels endpoint
+  let labelUrl = '';
+  let trackingNumber = shipment.trackings?.[0]?.tracking_number || shipment.tracking_number || '';
+  let trackingPageUrl = shipment.tracking_page_url || '';
+  let labelState = shipment.label_state || '';
+
+  if (easyshipId) {
+    try {
+      const labelRes = await fetch(`${EASYSHIP_API_URL}/labels`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          shipments: [{ easyship_shipment_id: easyshipId }]
+        })
+      });
+
+      if (labelRes.ok) {
+        const labelData = await labelRes.json();
+        const labelShipment = labelData.shipments?.[0] || labelData.shipment || {};
+        labelUrl = labelShipment.shipping_documents?.find((d: any) => d.category === 'label')?.url
+          || labelShipment.label?.url || labelShipment.label_url || '';
+        trackingNumber = labelShipment.trackings?.[0]?.tracking_number || labelShipment.tracking_number || trackingNumber;
+        trackingPageUrl = labelShipment.tracking_page_url || trackingPageUrl;
+        labelState = labelShipment.label_state || 'generated';
+      } else {
+        const errText = await labelRes.text();
+        console.error('Label creation error:', labelRes.status, errText.substring(0, 300));
+        // Shipment was still created, just no label yet
+        labelState = 'pending';
+      }
+    } catch (labelErr) {
+      console.error('Label purchase error (shipment still created):', labelErr);
+      labelState = 'error';
+    }
+  }
 
   return {
-    easyshipShipmentId: shipment.easyship_shipment_id || '',
-    trackingNumber: shipment.trackings?.[0]?.tracking_number || shipment.tracking_number || '',
-    trackingPageUrl: shipment.tracking_page_url || '',
-    courierName: shipment.courier?.name || shipment.selected_courier?.name || '',
-    labelUrl: shipment.label?.url || shipment.label_url || shipment.shipping_documents?.find((d: any) => d.category === 'label')?.url || '',
-    labelState: shipment.label_state || 'generated',
+    easyshipShipmentId: easyshipId,
+    trackingNumber,
+    trackingPageUrl,
+    courierName: shipment.courier?.name || shipment.selected_courier?.name || params.courierServiceId || '',
+    labelUrl,
+    labelState,
     totalCharge: shipment.rates?.selected?.total_charge || shipment.total_charge || 0,
     currency: shipment.currency || 'USD',
   };
