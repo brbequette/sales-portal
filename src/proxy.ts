@@ -20,7 +20,6 @@ const PUBLIC_ROUTES = [
   '/unit-converter',
   '/tools',
   '/training',
-  '/docs',
   '/careers',
   '/admin-login',
   '/employee-login',
@@ -46,9 +45,10 @@ const SKIP_PATTERNS = [
 
 // API routes that don't require authentication
 const PUBLIC_API_PATTERNS = [
-  '/api/auth/',      // NextAuth routes
+  '/api/auth/',      // NextAuth routes + magic link
   '/api/webhooks/',  // Webhook endpoints (use their own token auth)
   '/api/public/',    // Explicitly public endpoints
+  '/api/customer/',  // Customer portal endpoints (use their own JWT auth)
 ];
 
 // API routes that require admin role

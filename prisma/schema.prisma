@@ -132,6 +132,7 @@ model Account {
   smsMessages      SmsMessage[]
   callLogs         CallLog[]
   scheduledMessages ScheduledMessage[]
+  autoshipSubscriptions AutoshipSubscription[]
   zohoModifiedTime DateTime?
   rawData          Json?
 
@@ -1242,4 +1243,48 @@ model AcceptedResponse {
 
   @@index([category])
   @@index([useCount])
+}
+
+model MagicLinkToken {
+  id        String   @id @default(cuid())
+  contact   String   // email or phone number
+  code      String   // 6-digit numeric code
+  accountId String?  // linked account if found
+  contactId String?  // linked contact if found
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([contact, code])
+  @@index([expiresAt])
+}
+
+model AutoshipBundle {
+  id          String   @id @default(cuid())
+  name        String   // "Medusa Pro Pack"
+  description String?
+  items       Json     // [{sku, name, qty, unitPrice}]
+  frequency   String   // "monthly" | "quarterly" | "biannual"
+  discountPct Float    @default(0)  // additional discount for autoship
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  subscriptions AutoshipSubscription[]
+}
+
+model AutoshipSubscription {
+  id          String   @id @default(cuid())
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id])
+  bundleId    String
+  bundle      AutoshipBundle @relation(fields: [bundleId], references: [id])
+  items       Json     // snapshot of items at locked prices
+  frequency   String   // "monthly" | "quarterly" | "biannual"
+  nextShipDate DateTime
+  status      String   @default("active") // active | paused | cancelled
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([accountId])
+  @@index([status, nextShipDate])
 }
