@@ -1864,37 +1864,51 @@ export default function ShippingPage() {
           onSuccess={(_poId: string) => { setDropshipModal(null); fetchOrders() }}
         />
       )}
-      {/* ── Ship Now Modal ──────────────────────────────────────────────── */}
+      {/* ── Ship Now Slide-Out ────────────────────────────────────────── */}
       {shipNowOpen && (
-        <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => !shipNowBuying && setShipNowOpen(false)}>
-          <div className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-            {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-white/10">
-              <div>
-                <h2 className="text-lg font-black text-white">Ship Now</h2>
-                <p className="text-xs text-neutral-400">
-                  {shipNowOrder?.soNumber} — {shipNowOrder?.customerName}
-                </p>
+        <div className="fixed inset-0 z-[500] overflow-hidden" onKeyDown={e => e.key === 'Escape' && !shipNowBuying && setShipNowOpen(false)}>
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300"
+            onClick={() => !shipNowBuying && setShipNowOpen(false)}
+          />
+          {/* Panel */}
+          <div className="absolute inset-y-0 right-0 w-full max-w-xl bg-[#0a0b0d] border-l border-white/10 shadow-2xl flex flex-col transform transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
+            {/* Header — pinned */}
+            <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-white/10 bg-[#0a0b0d]">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
+                    <FiTruck className="text-orange-400" size={15} />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-base font-black text-white truncate">Ship Now</h2>
+                    <p className="text-xs text-neutral-400 truncate">
+                      {shipNowOrder?.soNumber} — {shipNowOrder?.customerName}
+                    </p>
+                  </div>
+                </div>
                 {/* EasyShip Link Status */}
                 {(() => {
                   const esId = shipNowPkg?.easyshipShipmentId || (shipNowPkg?.items as any)?.easyshipShipmentId
                   return esId ? (
-                    <p className="text-[10px] text-emerald-400 font-bold mt-1 flex items-center gap-1">
+                    <p className="text-[10px] text-emerald-400 font-bold mt-1.5 flex items-center gap-1 pl-10">
                       <FiLink size={10} /> Will use existing EasyShip shipment: {esId}
                     </p>
                   ) : (
-                    <p className="text-[10px] text-amber-400/70 font-bold mt-1 flex items-center gap-1">
+                    <p className="text-[10px] text-amber-400/70 font-bold mt-1.5 flex items-center gap-1 pl-10">
                       <FiLink size={10} /> Will search EasyShip by SO# before creating new shipment
                     </p>
                   )
                 })()}
               </div>
-              <button onClick={() => !shipNowBuying && setShipNowOpen(false)} className="text-neutral-500 hover:text-white">
-                <FiX size={20} />
+              <button onClick={() => !shipNowBuying && setShipNowOpen(false)} className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/5 transition-colors">
+                <FiX size={18} />
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
               {/* Shipment Result */}
               {shipNowResult && (
                 <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-4 space-y-3">
@@ -2106,7 +2120,7 @@ export default function ShippingPage() {
                     {!shipNowLoading && shipNowRates.length === 0 && (
                       <div className="text-neutral-500 text-sm py-4">No rates available. Check the shipping address.</div>
                     )}
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                    <div className="space-y-2">
                       {shipNowRates.slice(0, 15).map((rate: any, idx: number) => (
                         <div key={idx} className="flex items-center justify-between bg-black/20 border border-white/5 rounded-xl p-3 hover:border-orange-500/30 transition-colors">
                           <div className="flex items-center gap-3">
