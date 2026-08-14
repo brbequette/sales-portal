@@ -5,7 +5,7 @@ import { useState } from "react"
 import {
   FiUsers, FiClock, FiDollarSign, FiBarChart2,
   FiTarget, FiAward, FiCalendar, FiMessageSquare,
-  FiFileText, FiActivity, FiSettings, FiDatabase,
+  FiFileText, FiActivity, FiSettings, FiDatabase, FiRepeat,
   FiRefreshCw, FiCheckCircle, FiAlertTriangle, FiZap, FiTruck,
   FiArrowRight, FiSliders, FiCreditCard, FiMapPin, FiCloud,
   FiPackage, FiList, FiImage
@@ -40,6 +40,8 @@ const sections = [
       { title: "Holidays",                  desc: "Configure working holidays for time calculations.",                            href: "/admin/holidays",             icon: FiCalendar,      color: "text-red-400",     bg: "bg-red-500/10" },
       { title: "Geofences",                 desc: "Manage territory geofence boundaries.",                                        href: "/admin/geofences",            icon: FiMapPin,        color: "text-rose-400",    bg: "bg-rose-500/10" },
       { title: "Intro Offer Page",          desc: "Access the promotional intro offer order page.",                               href: "/admin/intro-offer",          icon: FiZap,           color: "text-amber-400",   bg: "bg-amber-500/10" },
+      { title: "Autoship Bundles",           desc: "Create and manage recurring autoship product bundles for customers.",           href: "/admin/autoship",             icon: FiRepeat,        color: "text-teal-400",    bg: "bg-teal-500/10" },
+      { title: "Vendors",                    desc: "Manage vendor accounts and sync vendor data.",                                 href: "/admin/vendors",              icon: FiTruck,         color: "text-blue-400",    bg: "bg-blue-500/10" },
     ]
   },
   {

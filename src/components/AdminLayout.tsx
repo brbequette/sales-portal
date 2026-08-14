@@ -10,7 +10,7 @@ import {
   FiShield, FiGrid, FiUsers, FiClock, FiDollarSign, 
   FiTarget, FiAward, FiCalendar, FiMessageSquare, 
   FiFileText, FiActivity, FiSettings, FiChevronLeft, FiMapPin, FiTruck, FiZap, FiDatabase,
-  FiMenu, FiX, FiBarChart2, FiPackage, FiAlertTriangle, FiTool, FiCloud, FiSliders, FiCreditCard, FiTrendingUp
+  FiMenu, FiX, FiBarChart2, FiPackage, FiAlertTriangle, FiTool, FiCloud, FiSliders, FiCreditCard, FiTrendingUp, FiRepeat
 } from "react-icons/fi"
 
 import { ThemeSettingsModal, loadSavedTheme, applyThemeToCss } from "@/components/ThemeSettingsModal"
@@ -43,6 +43,7 @@ const adminLinks = [
     { name: "Update Accounts", href: "/admin/update-accounts", icon: FiTarget },
     { name: "Lead Discrepancies", href: "/admin/lead-discrepancies", icon: FiAlertTriangle },
     { name: "Vendors", href: "/admin/vendors", icon: FiTruck },
+    { name: "Autoship Bundles", href: "/admin/autoship", icon: FiRepeat },
   ]},
   { group: "Communications", items: [
     { name: "Campaigns", href: "/admin/campaigns", icon: FiMessageSquare },
