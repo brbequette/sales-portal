@@ -1,3 +1,5 @@
+import { prisma } from '@/lib/prisma';
+
 const _rawUrl = (process.env.EASYSHIP_API_URL || 'https://public-api.easyship.com').replace(/\/+$/, '');
 export const EASYSHIP_API_URL = _rawUrl.match(/\/\d{4}-\d{2}$/) ? _rawUrl : `${_rawUrl}/2024-09`;
 
@@ -303,8 +305,35 @@ export interface ShipmentResult {
   currency: string;
 }
 
+async function getOriginFromDB(): Promise<Address> {
+  try {
+    const rows = await prisma.systemSetting.findMany({
+      where: { key: { startsWith: 'ship_from_' } }
+    });
+    const s: Record<string, string> = {};
+    rows.forEach(r => { s[r.key] = r.value });
+    if (s.ship_from_address) {
+      return {
+        line_1: s.ship_from_address || DEFAULT_ORIGIN.line_1,
+        city: s.ship_from_city || DEFAULT_ORIGIN.city,
+        state: s.ship_from_state || DEFAULT_ORIGIN.state,
+        postal_code: s.ship_from_zip || DEFAULT_ORIGIN.postal_code,
+        country_alpha2: 'US',
+        contact_name: s.ship_from_contact_name || DEFAULT_ORIGIN.contact_name,
+        contact_phone: s.ship_from_phone || DEFAULT_ORIGIN.contact_phone,
+        contact_email: s.ship_from_email || DEFAULT_ORIGIN.contact_email,
+        company_name: s.ship_from_company || DEFAULT_ORIGIN.company_name,
+      };
+    }
+  } catch (e) {
+    console.error('Failed to load origin from DB, using defaults:', e);
+  }
+  return DEFAULT_ORIGIN;
+}
+
 export async function createShipmentAndBuyLabel(params: CreateShipmentParams): Promise<ShipmentResult> {
-  const origin = params.originAddress || DEFAULT_ORIGIN;
+  const dbOrigin = await getOriginFromDB();
+  const origin = params.originAddress || dbOrigin;
 
   // Step 1: Create shipment (2024-09 API schema)
   const shipmentPayload = {

@@ -536,6 +536,90 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
 
+                  {/* Origin / Sender Address */}
+                  <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-4 shadow-xl mt-6">
+                    <h3 className="text-lg font-black text-white">Ship-From Address</h3>
+                    <p className="text-xs text-neutral-500 font-semibold -mt-2">
+                      Default origin address used for all outgoing shipments and Easyship label purchases.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-neutral-500 mb-1">Company Name</label>
+                        <input
+                          value={settings.ship_from_company || ''}
+                          onChange={e => handleUpdateSetting('ship_from_company', e.target.value)}
+                          placeholder="Titan Diamond USA"
+                          className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-neutral-500 mb-1">Contact Name</label>
+                        <input
+                          value={settings.ship_from_contact_name || ''}
+                          onChange={e => handleUpdateSetting('ship_from_contact_name', e.target.value)}
+                          placeholder="Titan Diamond"
+                          className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-neutral-500 mb-1">Street Address</label>
+                        <input
+                          value={settings.ship_from_address || ''}
+                          onChange={e => handleUpdateSetting('ship_from_address', e.target.value)}
+                          placeholder="8321 E Evans Road"
+                          className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-neutral-500 mb-1">City</label>
+                        <input
+                          value={settings.ship_from_city || ''}
+                          onChange={e => handleUpdateSetting('ship_from_city', e.target.value)}
+                          placeholder="Scottsdale"
+                          className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-black uppercase tracking-wider text-neutral-500 mb-1">State</label>
+                          <input
+                            value={settings.ship_from_state || ''}
+                            onChange={e => handleUpdateSetting('ship_from_state', e.target.value)}
+                            placeholder="AZ"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black uppercase tracking-wider text-neutral-500 mb-1">Zip Code</label>
+                          <input
+                            value={settings.ship_from_zip || ''}
+                            onChange={e => handleUpdateSetting('ship_from_zip', e.target.value)}
+                            placeholder="85260"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-neutral-500 mb-1">Phone</label>
+                        <input
+                          value={settings.ship_from_phone || ''}
+                          onChange={e => handleUpdateSetting('ship_from_phone', e.target.value)}
+                          placeholder="4805551234"
+                          className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-neutral-500 mb-1">Email</label>
+                        <input
+                          value={settings.ship_from_email || ''}
+                          onChange={e => handleUpdateSetting('ship_from_email', e.target.value)}
+                          placeholder="shipping@titandiamond.com"
+                          className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Easyship Integration Status */}
                   <div className="glass-panel border border-white/10 rounded-xl p-6 space-y-4 shadow-xl mt-6">
                     <div className="flex items-center justify-between">
@@ -571,7 +655,7 @@ export default function AdminSettingsPage() {
                       <div>
                         <p className="text-sm font-bold text-white">API Key Configured</p>
                         <p className="text-[10px] text-neutral-500">
-                          Origin: 8321 E Evans Road, Scottsdale, AZ 85260 • Drop-ship from vendors supported
+                          Origin address configurable above • Drop-ship from vendors supported
                         </p>
                       </div>
                     </div>
