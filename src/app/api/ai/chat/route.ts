@@ -852,9 +852,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Rate limit exceeded. Please try again later.' }, { status: 429 });
     }
 
-    dbUser = await prisma.user.findUnique({ where: { id: userId } });
+    dbUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: userId },
+          { zohoId: userId }
+        ]
+      }
+    });
     if (!dbUser) {
-      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: `User not found for ID: ${userId}` }, { status: 404 });
     }
 
     const actualRole = dbUser.role || userRole;
@@ -933,7 +940,7 @@ IMPORTANT RULES:
         }
 
         const toolResult = await executeTool(functionName, functionArgs, {
-          userId,
+          userId: dbUser.id,
           userRole: actualRole,
           userName: dbUser.name || 'Unknown'
         });
@@ -957,7 +964,7 @@ IMPORTANT RULES:
     try {
       const logEntry = await prisma.aiChatLog.create({
         data: {
-          userId,
+          userId: dbUser.id,
           userRole: actualRole,
           question: message,
           answer: finalResponse,
