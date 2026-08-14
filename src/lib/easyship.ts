@@ -16,17 +16,19 @@ export interface Address {
   company_name?: string;
 }
 
-export const DEFAULT_ORIGIN: Address = {
-  line_1: COMPANY_CONFIG.address.line1,
-  city: COMPANY_CONFIG.address.city,
-  state: COMPANY_CONFIG.address.state,
-  postal_code: COMPANY_CONFIG.address.zip,
-  country_alpha2: COMPANY_CONFIG.address.country,
-  contact_name: COMPANY_CONFIG.name,
-  contact_phone: COMPANY_CONFIG.phone,
-  contact_email: COMPANY_CONFIG.shippingEmail,
-  company_name: COMPANY_CONFIG.name
-};
+export function getDefaultOrigin(): Address {
+  return {
+    line_1: COMPANY_CONFIG.address.line1,
+    city: COMPANY_CONFIG.address.city,
+    state: COMPANY_CONFIG.address.state,
+    postal_code: COMPANY_CONFIG.address.zip,
+    country_alpha2: COMPANY_CONFIG.address.country,
+    contact_name: COMPANY_CONFIG.name,
+    contact_phone: COMPANY_CONFIG.phone,
+    contact_email: COMPANY_CONFIG.shippingEmail,
+    company_name: COMPANY_CONFIG.name
+  };
+}
 
 export interface ParcelDimensions {
   length: number;
@@ -91,7 +93,7 @@ function getHeaders() {
 }
 
 export async function getEasyshipRates(params: GetRatesParams): Promise<EasyshipRate[]> {
-  const origin_address = params.origin_address || DEFAULT_ORIGIN;
+  const origin_address = params.origin_address || getDefaultOrigin();
   
   const payload = {
     origin_address,
@@ -315,22 +317,23 @@ async function getOriginFromDB(): Promise<Address> {
     const s: Record<string, string> = {};
     rows.forEach(r => { s[r.key] = r.value });
     if (s.ship_from_address) {
+      const defaults = getDefaultOrigin();
       return {
-        line_1: s.ship_from_address || DEFAULT_ORIGIN.line_1,
-        city: s.ship_from_city || DEFAULT_ORIGIN.city,
-        state: s.ship_from_state || DEFAULT_ORIGIN.state,
-        postal_code: s.ship_from_zip || DEFAULT_ORIGIN.postal_code,
+        line_1: s.ship_from_address || defaults.line_1,
+        city: s.ship_from_city || defaults.city,
+        state: s.ship_from_state || defaults.state,
+        postal_code: s.ship_from_zip || defaults.postal_code,
         country_alpha2: 'US',
-        contact_name: s.ship_from_contact_name || DEFAULT_ORIGIN.contact_name,
-        contact_phone: s.ship_from_phone || DEFAULT_ORIGIN.contact_phone,
-        contact_email: s.ship_from_email || DEFAULT_ORIGIN.contact_email,
-        company_name: s.ship_from_company || DEFAULT_ORIGIN.company_name,
+        contact_name: s.ship_from_contact_name || defaults.contact_name,
+        contact_phone: s.ship_from_phone || defaults.contact_phone,
+        contact_email: s.ship_from_email || defaults.contact_email,
+        company_name: s.ship_from_company || defaults.company_name,
       };
     }
   } catch (e) {
     console.error('Failed to load origin from DB, using defaults:', e);
   }
-  return DEFAULT_ORIGIN;
+  return getDefaultOrigin();
 }
 
 export async function createShipmentAndBuyLabel(params: CreateShipmentParams): Promise<ShipmentResult> {
