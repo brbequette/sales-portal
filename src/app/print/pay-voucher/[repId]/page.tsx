@@ -57,23 +57,29 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
 
         const upfrontEvents: any[] = []
         const finalEvents: any[] = []
+        const pendingEvents: any[] = []
 
         repInvoices.forEach((inv: any) => {
           if (inv.issueDate) {
             const idate = new Date(inv.issueDate)
             if (idate >= weekStart && idate <= weekEnd) {
-              upfrontEvents.push({ name: inv.name || inv.accountName, amount: inv.commission?.upfront || 0 })
+              upfrontEvents.push({ name: inv.name || inv.accountName, invoiceNumber: inv.invoiceNumber, amount: inv.commission?.upfront || 0 })
+              // If this week's invoice is still unpaid, the 2nd half is pending
+              if (!inv.isPaid && (inv.commission?.future || 0) > 0) {
+                pendingEvents.push({ name: inv.name || inv.accountName, invoiceNumber: inv.invoiceNumber, amount: inv.commission?.future || 0 })
+              }
             }
           }
           if (inv.isPaid && inv.paymentDate && inv.commission?.final !== 0) {
             const pdate = new Date(inv.paymentDate)
             if (pdate >= weekStart && pdate <= weekEnd) {
-              finalEvents.push({ name: inv.name || inv.accountName, amount: inv.commission?.final || 0 })
+              finalEvents.push({ name: inv.name || inv.accountName, invoiceNumber: inv.invoiceNumber, amount: inv.commission?.final || 0 })
             }
           }
         })
 
         const totalCommission = [...upfrontEvents, ...finalEvents].reduce((sum, ev) => sum + ev.amount, 0)
+        const weekPendingTotal = pendingEvents.reduce((sum, ev) => sum + ev.amount, 0)
 
         // Find active advances and calculate deductions
         const advances = []
@@ -178,7 +184,6 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
         let ytdCommEarned = 0
         let ytdPending = 0
         const ytdDeals = repInvoices.length
-        const ytdPaid = commData.byRep?.[repId]?.totalPaid || 0
 
         repInvoices.forEach((inv: any) => {
           ytdSales += inv.amount || 0
@@ -197,6 +202,8 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
           totalCommission,
           upfrontEvents,
           finalEvents,
+          pendingEvents,
+          weekPendingTotal,
           advances,
           reimbursements,
           totalReimbursements,
@@ -206,7 +213,6 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
           ytdDeadProfit,
           ytdCommEarned,
           ytdPending,
-          ytdPaid,
           ytdDeals,
         })
 
@@ -371,6 +377,38 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
                       </div>
                     </section>
 
+                    {/* ── PENDING COMMISSIONS (FUTURE 2ND PAYMENTS) ── */}
+                    {data.pendingEvents.length > 0 && (
+                      <section className="border border-gray-300 rounded overflow-hidden">
+                        <h3 className="text-sm font-bold bg-gray-100 border-b border-gray-300 px-3 py-2 uppercase tracking-wide">Pending Commissions — 2nd Payment Due on Collection</h3>
+                        <div className="p-3">
+                          <p className="text-xs text-gray-500 mb-2">These commissions will be released when the customer pays the invoice.</p>
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-left text-gray-600 border-b border-gray-200 text-xs uppercase tracking-wider">
+                                <th className="py-1 px-1 font-semibold">Invoice</th>
+                                <th className="py-1 px-1 font-semibold">Account</th>
+                                <th className="py-1 px-1 font-semibold text-right">2nd Half Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {data.pendingEvents.map((ev: any, i: number) => (
+                                <tr key={i} className="border-b border-gray-100 last:border-0">
+                                  <td className="py-1 px-1 font-mono text-xs">#{ev.invoiceNumber || '--'}</td>
+                                  <td className="py-1 px-1">{ev.name}</td>
+                                  <td className="py-1 px-1 text-right">{fmt(ev.amount)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="bg-gray-50 px-3 py-2 flex justify-between font-bold text-sm border-t border-gray-300">
+                          <span>Total Pending (awaiting payment)</span>
+                          <span>{fmt(data.weekPendingTotal)}</span>
+                        </div>
+                      </section>
+                    )}
+
                     {/* ── DRAW RECOVERY ── */}
                     {data.drawRecovery > 0 && (
                       <section className="border border-gray-300 rounded overflow-hidden">
@@ -468,31 +506,31 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
 
                     {/* ── YTD SUMMARY ── */}
                     <section className="border border-black rounded overflow-hidden">
-                      <h3 className="text-sm font-bold bg-gray-200 border-b border-black px-3 py-2 uppercase tracking-wide text-center">Year-To-Date Summary</h3>
-                      <div className="grid grid-cols-3 divide-x divide-y divide-gray-300 border-b border-black text-sm">
+                      <h3 className="text-sm font-bold bg-gray-200 border-b border-black px-3 py-2 uppercase tracking-wide text-center">Year-To-Date Earnings Summary</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y divide-gray-300 text-sm">
                         <div className="p-3 text-center">
                           <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Deals</div>
                           <div className="font-bold">{data.ytdDeals}</div>
                         </div>
                         <div className="p-3 text-center">
-                          <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Sales Rev</div>
+                          <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Sales Revenue</div>
                           <div className="font-bold">{fmt(data.ytdSales)}</div>
                         </div>
                         <div className="p-3 text-center">
                           <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Dead Profit</div>
                           <div className="font-bold">{fmt(data.ytdDeadProfit)}</div>
                         </div>
-                        <div className="p-3 text-center border-t border-gray-300">
+                        <div className="p-3 text-center">
                           <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Comm Earned</div>
                           <div className="font-bold">{fmt(data.ytdCommEarned)}</div>
                         </div>
-                        <div className="p-3 text-center border-t border-gray-300">
-                          <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Comm Paid</div>
-                          <div className="font-bold">{fmt(data.ytdPaid)}</div>
-                        </div>
-                        <div className="p-3 text-center border-t border-gray-300">
-                          <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Comm Pending</div>
+                        <div className="p-3 text-center col-span-2 sm:col-span-2 border-t border-gray-300">
+                          <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Comm Pending (Future Payments)</div>
                           <div className="font-bold">{fmt(data.ytdPending)}</div>
+                        </div>
+                        <div className="p-3 text-center col-span-2 sm:col-span-2 border-t border-gray-300">
+                          <div className="text-xs text-gray-600 uppercase tracking-wider mb-1">YTD Total (Earned + Pending)</div>
+                          <div className="font-bold text-lg">{fmt(data.ytdCommEarned + data.ytdPending)}</div>
                         </div>
                       </div>
                     </section>
@@ -502,7 +540,7 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
                   {/* ── TOTAL NET PAYOUT ── */}
                   <div className="mt-8 border-t-2 border-black pt-4">
                     <div className="flex flex-col items-end">
-                      <table className="text-sm text-gray-700 w-64 mb-4">
+                      <table className="text-sm text-gray-700 w-72 mb-4">
                         <tbody>
                           {basePayAmount > 0 && (
                             <tr>
@@ -511,7 +549,7 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
                             </tr>
                           )}
                           <tr>
-                            <td className="py-1">Commissions</td>
+                            <td className="py-1">Commissions Earned</td>
                             <td className="py-1 text-right font-semibold">+{fmt(data.totalCommission)}</td>
                           </tr>
                           {data.drawRecovery > 0 && (
@@ -532,17 +570,26 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
                               <td className="py-1 text-right font-semibold text-black">-{fmt(data.totalDeductions)}</td>
                             </tr>
                           )}
+                          {data.weekPendingTotal > 0 && (
+                            <tr className="border-t border-gray-200">
+                              <td className="py-1 text-gray-500 italic">Pending 2nd Payments</td>
+                              <td className="py-1 text-right font-semibold text-gray-500 italic">{fmt(data.weekPendingTotal)}</td>
+                            </tr>
+                          )}
                         </tbody>
                       </table>
 
                       <div className="border-t-4 border-black pt-2 w-full flex justify-between items-end">
                         <div className="text-xs text-gray-600">
-                          <p>Please review your weekly statement.</p>
+                          <p>Please review your weekly earnings statement.</p>
                           <p>Report any discrepancies immediately.</p>
                         </div>
                         <div className="text-right">
-                          <h2 className="text-xs font-bold uppercase tracking-widest text-black mb-1">Total Net Payout</h2>
+                          <h2 className="text-xs font-bold uppercase tracking-widest text-black mb-1">Total Weekly Earnings</h2>
                           <div className="text-3xl font-black text-black">{fmt(finalPay)}</div>
+                          {data.weekPendingTotal > 0 && (
+                            <div className="text-xs text-gray-500 mt-1">+ {fmt(data.weekPendingTotal)} pending on collection</div>
+                          )}
                         </div>
                       </div>
                     </div>
