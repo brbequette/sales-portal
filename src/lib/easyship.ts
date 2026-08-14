@@ -447,7 +447,7 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
     }
     console.log(`[easyship] Buying label for shipment ${easyshipId}:`, JSON.stringify(labelBody));
 
-    const labelRes = await fetch(`${EASYSHIP_API_URL}/2024-09/shipments/${easyshipId}/label`, {
+    const labelRes = await fetch(`${EASYSHIP_API_URL}/shipments/${easyshipId}/label`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(labelBody)
