@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
-import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign, FiX, FiEdit2, FiPlus, FiTrash2, FiPrinter, FiShield, FiXCircle, FiFileText } from "react-icons/fi"
+import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign, FiX, FiEdit2, FiPlus, FiTrash2, FiPrinter, FiShield, FiXCircle, FiFileText, FiLink } from "react-icons/fi"
 import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
 import { toast } from 'react-hot-toast';
@@ -40,6 +40,7 @@ interface PackageInfo {
   trackingNumber: string
   shippingCharge: number
   items: any
+  easyshipShipmentId?: string | null
 }
 
 interface DropshipInfo {
@@ -1405,6 +1406,19 @@ export default function ShippingPage() {
                                   }`}>
                                     {pkg.status || "created"}
                                   </span>
+                                  {/* EasyShip Link Indicator */}
+                                  {(() => {
+                                    const esId = pkg.easyshipShipmentId || (pkg.items as any)?.easyshipShipmentId
+                                    return esId ? (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase text-emerald-400 bg-emerald-950/50 flex items-center gap-1" title={`EasyShip: ${esId}`}>
+                                        <FiLink size={9} /> Linked
+                                      </span>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase text-amber-400/60 bg-amber-950/30 flex items-center gap-1">
+                                        <FiLink size={9} /> No Link
+                                      </span>
+                                    )
+                                  })()}
                                 </div>
 
                                 {/* Items in Shipment */}
@@ -1833,6 +1847,19 @@ export default function ShippingPage() {
                 <p className="text-xs text-neutral-400">
                   {shipNowOrder?.soNumber} — {shipNowOrder?.customerName}
                 </p>
+                {/* EasyShip Link Status */}
+                {(() => {
+                  const esId = shipNowPkg?.easyshipShipmentId || (shipNowPkg?.items as any)?.easyshipShipmentId
+                  return esId ? (
+                    <p className="text-[10px] text-emerald-400 font-bold mt-1 flex items-center gap-1">
+                      <FiLink size={10} /> Will use existing EasyShip shipment: {esId}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-amber-400/70 font-bold mt-1 flex items-center gap-1">
+                      <FiLink size={10} /> Will search EasyShip by SO# before creating new shipment
+                    </p>
+                  )
+                })()}
               </div>
               <button onClick={() => !shipNowBuying && setShipNowOpen(false)} className="text-neutral-500 hover:text-white">
                 <FiX size={20} />

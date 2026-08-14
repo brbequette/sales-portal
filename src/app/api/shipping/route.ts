@@ -253,18 +253,22 @@ export async function GET(req: NextRequest) {
         lineItems: mappedLineItems,
         salesperson,
         shippingCost: so.actualShippingCost || 0,
-        packages: soPkgs.map((p: any) => ({
-          id: p.id,
-          zohoId: p.zohoId,
-          packageNumber: p.packageNumber,
-          date: p.date,
-          status: p.status,
-          carrier: p.carrier,
-          trackingNumber: p.trackingNumber,
-          shippingCharge: p.shippingCharge || 0,
-          items: p.items,
-          salesOrderNumber: soNumber,
-        })),
+        packages: soPkgs.map((p: any) => {
+          const pkgItems = (p.items as any) || {}
+          return {
+            id: p.id,
+            zohoId: p.zohoId,
+            packageNumber: p.packageNumber,
+            date: p.date,
+            status: p.status,
+            carrier: p.carrier,
+            trackingNumber: p.trackingNumber,
+            shippingCharge: p.shippingCharge || 0,
+            items: p.items,
+            salesOrderNumber: soNumber,
+            easyshipShipmentId: pkgItems.easyshipShipmentId || null,
+          }
+        }),
         dropshipments: soDrops.map((po: any) => {
           const poItems = (po.items as any) || {}
           const lineItems = poItems.line_items || poItems.lineItems || []
