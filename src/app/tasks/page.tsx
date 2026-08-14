@@ -113,23 +113,23 @@ function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
-// â"€â"€â"€ STATUS LABEL â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ─── STATUS LABEL ──────────────────────────────────────────────────────────────
 function StatusChip({ status }: { status: string }) {
   return (
-    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${STATUS_COLORS[status] || STATUS_COLORS["Not Started"]}`}>
+    <span className={`text-[10px] font-medium px-2 py-0.5 rounded border shrink-0 ${STATUS_COLORS[status] || STATUS_COLORS["Not Started"]}`}>
       {status === "Waiting on someone else" ? "Waiting" : status}
     </span>
   )
 }
 
-// â"€â"€â"€ PRIORITY ICON â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ─── PRIORITY ICON ─────────────────────────────────────────────────────────────
 function PriorityIcon({ priority }: { priority: string }) {
-  if (priority === "High")   return <FiArrowUp size={13} className="text-red-400 shrink-0" />
-  if (priority === "Low")    return <FiArrowDown size={13} className="text-blue-400 shrink-0" />
-  return <FiMinus size={13} className="text-neutral-600 shrink-0" />
+  if (priority === "High")   return <FiArrowUp size={12} className="text-red-400 shrink-0" />
+  if (priority === "Low")    return <FiArrowDown size={12} className="text-blue-400 shrink-0" />
+  return <FiMinus size={12} className="text-neutral-600 shrink-0" />
 }
 
-// â"€â"€â"€ TASK CARD (mobile-first) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ─── TASK CARD (mobile-first) ──────────────────────────────────────────────────
 function TaskCard({ task, onTap, onComplete, onStatusChange }: {
   task: Task
   onTap: () => void
@@ -153,156 +153,112 @@ function TaskCard({ task, onTap, onComplete, onStatusChange }: {
 
   return (
     <div
-      className={`relative rounded-2xl border transition-all active:scale-[0.98] ${
-        completed ? "opacity-55 border-white/10 bg-white/2" :
-        overdue   ? "border-red-500/40 bg-red-950/20" :
-                    `${cfg.border} bg-[#111316]`
+      className={`group relative rounded-xl border transition-all hover:border-white/20 active:scale-[0.99] ${
+        completed ? "opacity-55 border-white/5 bg-white/2" :
+        overdue   ? "border-red-500/20 bg-[#151111] hover:border-red-500/30" :
+                    `border-white/10 bg-[#131517]`
       }`}
     >
       {/* Category accent bar */}
-      <div className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full ${cfg.dot}`} />
+      <div className={`absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full ${cfg.dot} opacity-70`} />
 
-      <button
-        onClick={onTap}
-        className="w-full text-left px-4 py-3.5 pl-5"
-        style={{ WebkitTapHighlightColor: "transparent" }}
-      >
-        {/* Top row: type badge + priority + overdue + due date/time */}
-        <div className="flex items-center gap-2 mb-2">
-          <span className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full border ${cfg.border} ${cfg.bg} ${cfg.text} shrink-0`}>
+      <div className="flex flex-col p-3.5 pl-4">
+        {/* Top row: Type + Priority + Title */}
+        <div className="flex items-start gap-2 mb-1.5 cursor-pointer" onClick={onTap} style={{ WebkitTapHighlightColor: "transparent" }}>
+          <div className={`mt-0.5 ${cfg.text}`}>
             {TYPE_ICON[task.type] || TYPE_ICON.Task}
-            {task.type}
-          </span>
-          <PriorityIcon priority={task.priority} />
-          {overdue && !completed && (
-            <span className="flex items-center gap-1 text-[10px] font-black text-red-400 bg-red-500/10 border border-red-500/30 px-2 py-0.5 rounded-full shrink-0">
-              <FiAlertCircle size={9} /> OVERDUE
-            </span>
-          )}
-          {task.dueDate && (
-            <span className={`ml-auto text-[11px] font-semibold shrink-0 ${overdue && !completed ? "text-red-400" : "text-neutral-500"}`}>
-              <FiClock size={9} className="inline mr-0.5 -mt-0.5" />
-              {fmtDate(task.dueDate)}{fmtTime(task.dueDate) ? ` . ${fmtTime(task.dueDate)}` : ""}
-            </span>
-          )}
-        </div>
-
-        {/* Title */}
-        <p className={`text-[15px] font-bold leading-snug mb-1 ${completed ? "line-through text-neutral-500" : "text-white"}`}>
-          {task.title}
-        </p>
-
-        {/* Description preview -- plain notes only, no outcome timestamps */}
-        {task.description && (() => {
-          const plain = task.description.split("\n").filter((l: string) => !/^\[.+\]/.test(l.trim())).join(" ").trim()
-          return plain ? (
-            <p className="text-xs text-neutral-500 leading-relaxed line-clamp-2 mb-1.5 mt-0.5">
-              {plain}
-            </p>
-          ) : null
-        })()}
-
-        {/* Account chip */}
-        {task.accountName && (
-          <p className="text-xs text-sky-400 flex items-center gap-1 mt-1.5">
-            <FiUser size={10} className="shrink-0" />
-            {task.accountName}
-          </p>
-        )}
-
-        {/* Deal chip -- separate from account */}
-        {task.dealName && (
-          <p className="text-xs text-violet-400 flex items-center gap-1 mt-1">
-            <FiShare2 size={10} className="shrink-0" />
-            {task.dealName}
-          </p>
-        )}
-
-        {/* Linked document badges */}
-        {(task.invoiceId || task.salesOrderId || task.quoteId || task.estimateId) && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {task.invoiceId && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-400 flex items-center gap-1 shrink-0">
-                <FiFileText size={9} /> Invoice
-              </span>
-            )}
-            {task.salesOrderId && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center gap-1 shrink-0">
-                <FiFileText size={9} /> Sales Order
-              </span>
-            )}
-            {task.quoteId && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/25 text-blue-400 flex items-center gap-1 shrink-0">
-                <FiFileText size={9} /> Quote
-              </span>
-            )}
-            {task.estimateId && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/25 text-purple-400 flex items-center gap-1 shrink-0">
-                <FiFileText size={9} /> Estimate
-              </span>
-            )}
           </div>
-        )}
-
-        {/* Bottom row: status + owner + reminder + chevron */}
-        <div className="flex items-center gap-2 mt-2.5">
-          <StatusChip status={task.status} />
-          {task.ownerName && (
-            <span className="text-[10px] text-neutral-600 truncate max-w-[100px]">{task.ownerName}</span>
-          )}
-          <div className="ml-auto flex items-center gap-2 shrink-0">
-            {task.reminderAt && !task.reminderFired && (
-              <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
-                <FiClock size={8} /> {fmtDate(task.reminderAt)}
-              </span>
-            )}
-            <FiChevronRight size={13} className="text-neutral-700" />
-          </div>
-        </div>
-      </button>
-
-
-      {/* Quick action strip */}
-      <div className="flex border-t border-white/10">
-        {/* Complete */}
-        <button
-          onClick={e => { e.stopPropagation(); onComplete() }}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-bold transition-all ${
-            completed ? "text-neutral-600" : "text-emerald-400 hover:bg-emerald-500/10 active:bg-emerald-500/15"
-          }`}
-        >
-          <FiCheck size={14} />
-          {completed ? "Completed" : "Complete"}
-        </button>
-
-        {/* Status */}
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={e => { e.stopPropagation(); setShowMenu(!showMenu) }}
-            className="flex items-center justify-center gap-1.5 px-5 py-3 text-xs font-bold text-neutral-400 hover:text-white hover:bg-white/5 border-l border-white/10 transition-all"
-          >
-            <FiMoreVertical size={14} />
-          </button>
-          {showMenu && (
-            <div className="absolute bottom-full right-0 mb-1 w-52 bg-[#1c1e22] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-30">
-              <div className="px-3 pt-3 pb-1">
-                <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Set Status</p>
-              </div>
-              {["Not Started","In Progress","Waiting on someone else","Deferred","Completed"].map(s => (
-                <button key={s} onClick={() => { onStatusChange(s); setShowMenu(false) }}
-                  className={`w-full text-left text-sm px-4 py-3 transition-colors flex items-center gap-3 ${task.status === s ? "text-white font-bold bg-white/5" : "text-neutral-400 hover:bg-white/5 hover:text-white"}`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[s]?.includes("emerald") ? "bg-emerald-400" : STATUS_COLORS[s]?.includes("sky") ? "bg-sky-400" : STATUS_COLORS[s]?.includes("yellow") ? "bg-yellow-400" : "bg-neutral-500"}`} />
-                  {s === "Waiting on someone else" ? "Waiting..." : s}
-                </button>
-              ))}
+          <div className="flex-1 min-w-0">
+            <h3 className={`text-[15px] font-semibold leading-tight truncate ${completed ? "line-through text-neutral-500" : "text-neutral-200 group-hover:text-white transition-colors"}`}>
+              {task.title}
+            </h3>
+            
+            {/* Meta row: account, deal, due date */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px]">
+              {task.dueDate && (
+                <span className={`flex items-center gap-1 font-medium ${overdue && !completed ? "text-red-400" : "text-neutral-500"}`}>
+                  <FiClock size={10} />
+                  {fmtDate(task.dueDate)}{fmtTime(task.dueDate) ? ` • ${fmtTime(task.dueDate)}` : ""}
+                  {overdue && !completed && <span className="font-bold ml-0.5">OVERDUE</span>}
+                </span>
+              )}
+              {task.accountName && (
+                <span className="text-neutral-400 flex items-center gap-1 truncate max-w-[120px]">
+                  <FiUser size={10} className="opacity-70" />
+                  {task.accountName}
+                </span>
+              )}
+              {task.dealName && (
+                <span className="text-neutral-400 flex items-center gap-1 truncate max-w-[120px]">
+                  <FiShare2 size={10} className="opacity-70" />
+                  {task.dealName}
+                </span>
+              )}
+              {task.priority !== "Normal" && (
+                <span className="flex items-center gap-0.5" title={`${task.priority} Priority`}>
+                  <PriorityIcon priority={task.priority} />
+                </span>
+              )}
             </div>
-          )}
+          </div>
+
+          <div className="shrink-0 flex flex-col items-end gap-2 ml-2">
+            <StatusChip status={task.status} />
+          </div>
+        </div>
+
+        {/* Action strip integrated into card bottom via flex-row */}
+        <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-2.5">
+          {/* Quick complete */}
+          <button
+            onClick={e => { e.stopPropagation(); onComplete() }}
+            className={`text-xs font-medium flex items-center gap-1.5 px-2 py-1 -ml-2 rounded-lg transition-all ${
+              completed ? "text-neutral-500" : "text-neutral-400 hover:text-emerald-400 hover:bg-emerald-400/10"
+            }`}
+          >
+            <FiCheck size={12} />
+            {completed ? "Completed" : "Complete"}
+          </button>
+          
+          {/* Document links simple icons */}
+          <div className="flex items-center gap-2">
+             {(task.invoiceId || task.salesOrderId || task.quoteId || task.estimateId) && (
+               <div className="flex items-center gap-1.5 text-neutral-500" title="Linked documents">
+                 <FiFileText size={12} />
+               </div>
+             )}
+             
+             {/* Status menu button */}
+             <div className="relative" ref={menuRef}>
+               <button
+                 onClick={e => { e.stopPropagation(); setShowMenu(!showMenu) }}
+                 className="p-1 text-neutral-500 hover:text-white rounded-md transition-colors"
+               >
+                 <FiMoreVertical size={14} />
+               </button>
+               {showMenu && (
+                 <div className="absolute bottom-full right-0 mb-1 w-48 bg-[#1c1e22] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-30">
+                    <div className="px-3 pt-2 pb-1 border-b border-white/5">
+                      <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Set Status</p>
+                    </div>
+                    {["Not Started","In Progress","Waiting on someone else","Deferred","Completed"].map(s => (
+                      <button key={s} onClick={() => { onStatusChange(s); setShowMenu(false) }}
+                        className={`w-full text-left text-xs px-3 py-2.5 transition-colors flex items-center gap-2 ${task.status === s ? "text-white bg-white/5" : "text-neutral-400 hover:bg-white/5 hover:text-white"}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[s]?.includes("emerald") ? "bg-emerald-400" : STATUS_COLORS[s]?.includes("sky") ? "bg-sky-400" : STATUS_COLORS[s]?.includes("yellow") ? "bg-yellow-400" : "bg-neutral-500"}`} />
+                        {s === "Waiting on someone else" ? "Waiting..." : s}
+                      </button>
+                    ))}
+                 </div>
+               )}
+             </div>
+          </div>
         </div>
       </div>
     </div>
   )
 }
+
 
 // â"€â"€â"€ TASK DETAIL SHEET (full-screen on mobile) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function TaskDetail({ task, onClose, onUpdate, onComplete }: {
@@ -1077,186 +1033,166 @@ export default function TasksPage() {
 
 
   return (
-    <div className="page-content">
+    <div className="page-content flex flex-col h-[100dvh] bg-[#0a0b0d]">
 
       {/* ─── Header ─── */}
-      <div className="page-header flex-col items-start gap-3 pb-3">
-        <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); loadTasks(true) }} accentColor="violet" label="Tasks updated" />
-        <div className="flex items-center gap-3 mb-3 w-full">
-          <div className="flex-1">
-            <h1 className="page-title">Task Hub</h1>
-            {/* Stats pills */}
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-sky-400 font-bold">
+      <div className="shrink-0 px-4 pt-safe-top pb-3 border-b border-white/10 bg-[#0a0b0d] z-20">
+        <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); loadTasks(true) }} accentColor="orange" label="Tasks updated" />
+        
+        {/* Row 1: Title + Actions */}
+        <div className="flex items-center justify-between w-full mt-2">
+          <div>
+            <h1 className="text-xl font-bold text-white flex items-center gap-2">
+              Task Hub
+              <span className="text-xs font-normal text-neutral-400 border border-white/10 bg-white/5 px-2 py-0.5 rounded-full">
                 {taskPeriod !== 'all' ? `${filteredTasks.length} tasks` : `${stats.open} open`}
               </span>
-              {stats.overdue > 0  && <span className="text-xs text-red-400 font-bold">. {stats.overdue} overdue</span>}
-              {stats.dueToday > 0 && <span className="text-xs text-amber-400 font-bold">. {stats.dueToday} due today</span>}
-            </div>
+            </h1>
           </div>
 
-          {/* Actions */}
-          <button onClick={() => setShowSearch(s => !s)}
-            className={`p-2.5 rounded-xl border transition-all ${showSearch ? "bg-violet-600 border-violet-500 text-white" : "bg-white/5 border-white/10 text-neutral-400"}`}
-          >
-            <FiSearch size={16} />
-          </button>
-          <button onClick={() => setShowFilter(true)}
-            className={`relative p-2.5 rounded-xl border transition-all ${activeFilterCount > 0 ? "bg-violet-600 border-violet-500 text-white" : "bg-white/5 border-white/10 text-neutral-400"}`}
-          >
-            <FiSliders size={16} />
-            {activeFilterCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">{activeFilterCount}</span>
-            )}
-          </button>
-          <button onClick={() => loadTasks(true)} disabled={refreshing}
-            className="p-2.5 rounded-xl border border-white/10 bg-white/5 text-neutral-400 hover:text-white transition-all disabled:opacity-40"
-          >
-            <FiRefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-          </button>
-          <Link href="/tasks/new"
-            className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold px-3 py-2.5 rounded-xl transition-all"
-          >
-            <FiPlus size={16} />
-            <span className="hidden sm:inline">New</span>
-          </Link>
+          {/* Top Actions */}
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setShowSearch(s => !s)}
+              className={`p-2 rounded-lg border transition-all ${showSearch ? "bg-orange-500 border-orange-500/50 text-white" : "bg-transparent border-transparent hover:bg-white/5 text-neutral-400"}`}
+            >
+              <FiSearch size={16} />
+            </button>
+            <button onClick={() => setShowFilter(true)}
+              className={`relative p-2 rounded-lg border transition-all ${activeFilterCount > 0 ? "bg-orange-500/20 border-orange-500/30 text-orange-400" : "bg-transparent border-transparent hover:bg-white/5 text-neutral-400"}`}
+            >
+              <FiFilter size={16} />
+              {activeFilterCount > 0 && (
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-orange-500 rounded-full" />
+              )}
+            </button>
+            <button onClick={() => loadTasks(true)} disabled={refreshing}
+              className="p-2 rounded-lg border border-transparent hover:bg-white/5 text-neutral-400 transition-all disabled:opacity-40 hidden sm:block"
+            >
+              <FiRefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+            </button>
+            <Link href="/tasks/new"
+              className="flex items-center gap-1 bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold px-3 py-1.5 rounded-lg transition-all ml-1"
+            >
+              <FiPlus size={16} />
+              <span className="hidden sm:inline">New Task</span>
+            </Link>
+          </div>
         </div>
 
-        {/* Period Selector for due dates */}
-        <div className="mb-2">
-          <PeriodSelector
-            value={taskPeriod}
-            onChange={setTaskPeriod}
-            options={["today", "this_week", "this_month", "this_quarter", "all"]}
-            accentColor="violet"
-            customStart={taskCustomStart}
-            customEnd={taskCustomEnd}
-            onCustomStartChange={setTaskCustomStart}
-            onCustomEndChange={setTaskCustomEnd}
-            compact
-          />
+        {/* Row 2: Toolbar with View Toggle, Categories, and filters */}
+        <div className="flex flex-wrap items-center gap-3 w-full mt-3">
+           <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10 shrink-0">
+             <button onClick={() => setMainView("list")}
+               className={`flex items-center justify-center w-8 h-7 rounded-md transition-colors ${mainView==="list" ? "bg-[#1c1e22] text-white shadow-sm" : "text-neutral-500 hover:text-white"}`}
+             ><FiList size={14}/></button>
+             <button onClick={() => setMainView("calendar")}
+               className={`flex items-center justify-center w-8 h-7 rounded-md transition-colors ${mainView==="calendar" ? "bg-[#1c1e22] text-white shadow-sm" : "text-neutral-500 hover:text-white"}`}
+             ><FiCalendar size={14}/></button>
+           </div>
+           
+           {/* Categories integrated into toolbar */}
+           {mainView === "list" && (
+             <div className="flex items-center gap-1 overflow-x-auto hide-scroll shrink-0 border-l border-white/10 pl-3">
+                {(Object.keys(CAT) as Category[]).map(c => {
+                  const cnt = c === "all" ? filteredTasks.length :
+                    filteredTasks.filter(t => classifyTask(t) === c).length
+                  return (
+                    <button key={c} onClick={() => setCategory(c)}
+                      className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                        category === c ? `${CAT[c].text} bg-white/5` : "text-neutral-500 hover:text-neutral-300"
+                      }`}
+                    >
+                      {CAT[c].label}
+                      <span className="opacity-50">({cnt})</span>
+                    </button>
+                  )
+                })}
+             </div>
+           )}
+
+           <div className="ml-auto flex items-center gap-3 shrink-0">
+             <PeriodSelector
+               value={taskPeriod}
+               onChange={setTaskPeriod}
+               options={["today", "this_week", "this_month", "all"]}
+               accentColor="orange"
+               customStart={taskCustomStart}
+               customEnd={taskCustomEnd}
+               onCustomStartChange={setTaskCustomStart}
+               onCustomEndChange={setTaskCustomEnd}
+               compact
+             />
+             
+             <button
+               onClick={() => setShowCompleted(v => !v)}
+               className={`flex items-center gap-1.5 text-xs font-semibold transition-all ${
+                 showCompleted ? "text-emerald-400" : "text-neutral-500 hover:text-neutral-300"
+               }`}
+             >
+               <FiCheck size={14} />
+               <span className="hidden sm:inline">Completed</span>
+             </button>
+           </div>
         </div>
 
         {/* Search bar */}
         {showSearch && (
-          <div className="mb-3">
+          <div className="w-full mt-3">
             <input
               autoFocus
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search tasks, accounts..."
-              className="td-input focus:border-violet-500/50"
+              className="w-full bg-[#131517] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
             />
           </div>
         )}
-
-        {/* View toggle */}
-        <div className="flex gap-2 mb-2">
-          <button onClick={() => setMainView("list")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border transition-all ${mainView==="list" ? "bg-violet-600 text-white border-violet-500" : "bg-white/3 text-neutral-500 border-white/8"}`}
-          >
-            <FiList size={14} /> List
-          </button>
-          <button onClick={() => setMainView("calendar")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border transition-all ${mainView==="calendar" ? "bg-violet-600 text-white border-violet-500" : "bg-white/3 text-neutral-500 border-white/8"}`}
-          >
-            <FiCalendar size={14} /> Calendar
-          </button>
-          {/* Show Completed toggle */}
-          <button
-            onClick={() => setShowCompleted(v => !v)}
-            className={`ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold border transition-all ${
-              showCompleted
-                ? "bg-emerald-600/20 text-emerald-400 border-emerald-500/40"
-                : "bg-white/3 text-neutral-500 border-white/8 hover:text-neutral-300"
-            }`}
-          >
-            <FiCheck size={13} />
-            <span className="hidden sm:inline">{showCompleted ? "Hide" : "Show"} Completed</span>
-            <span className="sm:hidden">Done</span>
-          </button>
-        </div>
-        {/* Task count */}
-        <div className="flex items-center mb-1">
-          <span className="text-xs text-neutral-600">{filteredTasks.length} task{filteredTasks.length !== 1 ? "s" : ""}</span>
-          {showCompleted && (
-            <span className="ml-2 text-xs text-emerald-500/70">
-              . {filteredTasks.filter(t => t.status === "Completed").length} completed
-            </span>
-          )}
-        </div>
       </div>
 
-      {/* â"€â"€ Category Tabs â"€â"€ */}
-      {mainView === "list" && (
-        <div className="shrink-0 flex overflow-x-auto px-4 py-2 gap-2 border-b border-white/10 hide-scroll">
-          {(Object.keys(CAT) as Category[]).map(c => {
-            const cnt = c === "all" ? filteredTasks.length :
-              filteredTasks.filter(t => classifyTask(t) === c).length
-            return (
-              <button key={c} onClick={() => setCategory(c)}
-                className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
-                  category === c ? `${CAT[c].bg} ${CAT[c].text} ${CAT[c].border}` : "bg-white/3 text-neutral-500 border-white/8"
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full ${CAT[c].dot}`} />
-                {CAT[c].label}
-                <span className="text-xs opacity-60 ml-0.5">({cnt})</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      {/* â"€â"€ Content â"€â"€ */}
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+      {/* ─── Content ─── */}
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-[#0a0b0d]">
         {mainView === "calendar" ? (
           <MiniCalendar tasks={tasks} onSelectTask={setSelectedTask} />
         ) : (
-          <div className="h-full overflow-y-auto">
+          <div className="h-full overflow-y-auto px-4 py-4 hide-scroll">
             {tasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full py-16 text-center px-8">
-                <FiCheckCircle size={48} className="text-emerald-500 mb-4" />
-                <p className="text-lg font-black text-white">All caught up!</p>
-                <p className="text-sm text-neutral-500 mt-1">No tasks pending.</p>
+              <div className="flex flex-col items-center justify-center h-full text-center max-w-sm mx-auto pb-10">
+                <FiCheckCircle size={40} className="text-neutral-700 mb-3" />
+                <p className="text-base font-bold text-neutral-300">All caught up!</p>
+                <p className="text-sm text-neutral-500 mt-1 mb-5">You have no tasks pending.</p>
                 <Link href="/tasks/new"
-                  className="mt-6 flex items-center gap-2 bg-violet-600 text-white font-bold px-6 py-3 rounded-xl transition-all hover:bg-violet-500"
+                  className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white font-medium px-4 py-2 rounded-lg transition-all text-sm border border-white/10"
                 >
-                  <FiPlus size={16} /> Create a Task
+                  <FiPlus size={14} /> Create a Task
                 </Link>
               </div>
             ) : filteredTasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full py-16 text-center px-8">
-                <FiCheckSquare size={48} className="text-neutral-700 mb-4" />
-                <p className="text-lg font-black text-neutral-400">All clear!</p>
-                <p className="text-sm text-neutral-600 mt-1">No tasks match your filters</p>
-                <Link href="/tasks/new"
-                  className="mt-6 flex items-center gap-2 bg-violet-600 text-white font-bold px-6 py-3 rounded-xl transition-all hover:bg-violet-500"
-                >
-                  <FiPlus size={16} /> Create a Task
-                </Link>
+              <div className="flex flex-col items-center justify-center h-full text-center max-w-sm mx-auto pb-10">
+                <FiFilter size={40} className="text-neutral-700 mb-3" />
+                <p className="text-base font-bold text-neutral-300">No matches</p>
+                <p className="text-sm text-neutral-500 mt-1">Try adjusting your filters or search.</p>
               </div>
             ) : category === "all" ? (
               /* Grouped view */
-              <div className="divide-y divide-white/5">
+              <div className="space-y-6">
                 {(["communication","sales","process"] as const).map(cat => {
                   const catTasks = groups[cat]
                   if (catTasks.length === 0) return null
                   const cfg = CAT[cat]
                   const catLabels: Record<string, string> = {
-                    communication: "Communication -- Calls, Emails & Texts",
-                    sales: "Sales -- Account & Deal Tasks",
+                    communication: "Communication",
+                    sales: "Sales & Deals",
                     process: "Office & Process"
                   }
                   return (
-                    <div key={cat}>
-                      <div className={`px-4 py-3 flex items-center gap-2 sticky top-0 z-10 ${cfg.bg} backdrop-blur-sm`}>
-                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cfg.dot}`} />
-                        <span className={`text-xs font-black uppercase tracking-wider ${cfg.text}`}>{catLabels[cat]}</span>
-                        <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full border ${cfg.border} ${cfg.text} opacity-70`}>{catTasks.length}</span>
+                    <div key={cat} className="mb-6 last:mb-0">
+                      <div className="flex items-center gap-2 mb-3 px-1">
+                        <span className={`w-1 h-3.5 rounded-full shrink-0 ${cfg.dot}`} />
+                        <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">{catLabels[cat]}</span>
+                        <span className="ml-1 text-[10px] text-neutral-500 font-medium">({catTasks.length})</span>
                       </div>
-                      <div className="px-3 py-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 items-start">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
                         {catTasks.map(task => (
                           <TaskCard
                             key={task.id}
@@ -1273,7 +1209,7 @@ export default function TasksPage() {
               </div>
             ) : (
               /* Single category */
-              <div className="px-3 py-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
                 {filteredTasks.map(task => (
                   <TaskCard
                     key={task.id}
