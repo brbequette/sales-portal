@@ -679,6 +679,7 @@ export default function ShippingPage() {
           salesOrderZohoId: shipNowOrder.zohoId,
           easyshipShipmentId: shipNowPkg.items?.easyshipShipmentId || shipNowPkg.easyshipShipmentId || null,
           courierServiceId: rate.courierServiceId || rate.courierName,
+          selectedRateCost: rate.totalCharge || 0,
           originAddress: null,
           destinationAddress: {
             address: destAddr.address || destAddr.street || '',
@@ -717,6 +718,7 @@ export default function ShippingPage() {
           })(),
           soNumber: shipNowOrder.soNumber,
           packageNumber: shipNowPkg.packageNumber || '',
+          destinationContactPhone: shipNowOrder?.shippingAddress?.phone || '',
         })
       })
       const data = await res.json()

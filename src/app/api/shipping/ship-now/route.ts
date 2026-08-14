@@ -21,6 +21,7 @@ export async function POST(req: Request) {
       items,            // [{ description, quantity, declaredValue, weight }]
       soNumber,         // SO number for reference
       packageNumber,    // Package number (e.g. PKG-25323) — EasyShip indexes by this
+      selectedRateCost, // Cost from the rate the user selected (fallback)
     } = body
 
     if (!courierServiceId || !weight) {
@@ -30,6 +31,8 @@ export async function POST(req: Request) {
     // Don't pass stored Easyship IDs — they may have stale labels from prior attempts.
     // Let createShipmentAndBuyLabel search for a reusable shipment or create a new one.
     const existingEasyshipId: string | undefined = undefined
+
+    console.log(`[ship-now] Starting for pkg ${packageId}, weight: ${weight}, dims: ${JSON.stringify(dimensions)}, courier: ${courierServiceId}`)
 
     // 1. Create shipment + buy label via Easyship (reuses existing if available)
     const result = await createShipmentAndBuyLabel({
@@ -58,26 +61,38 @@ export async function POST(req: Request) {
       existingEasyshipId,
     })
 
+    // Use selected rate cost as fallback if Easyship label response didn't include charge
+    const finalCost = result.totalCharge || selectedRateCost || 0
+    console.log(`[ship-now] Label result — tracking: ${result.trackingNumber}, cost from API: ${result.totalCharge}, selected rate cost: ${selectedRateCost}, final: ${finalCost}`)
+
     // 2. Update local DB package with tracking info
     if (packageId) {
-      await prisma.package.update({
-        where: { id: packageId },
-        data: {
-          trackingNumber: result.trackingNumber,
-          carrier: result.courierName,
-          status: 'shipped',
-          shippingCharge: result.totalCharge || 0,
-          items: {
-            ...(await prisma.package.findUnique({ where: { id: packageId } }).then(p => (p?.items as any) || {})),
-            easyshipShipmentId: result.easyshipShipmentId,
-            labelUrl: result.labelUrl,
-            trackingPageUrl: result.trackingPageUrl,
-            shippedAt: new Date().toISOString(),
-            easyshipCost: result.totalCharge || 0,
-            easyshipCurrency: result.currency || 'USD',
+      try {
+        console.log(`[ship-now] Updating DB package: ${packageId}`)
+        await prisma.package.update({
+          where: { id: packageId },
+          data: {
+            trackingNumber: result.trackingNumber,
+            carrier: result.courierName,
+            status: 'shipped',
+            shippingCharge: finalCost,
+            items: {
+              ...(await prisma.package.findUnique({ where: { id: packageId } }).then(p => (p?.items as any) || {})),
+              easyshipShipmentId: result.easyshipShipmentId,
+              labelUrl: result.labelUrl,
+              trackingPageUrl: result.trackingPageUrl,
+              shippedAt: new Date().toISOString(),
+              easyshipCost: finalCost,
+              easyshipCurrency: result.currency || 'USD',
+            },
           },
-        },
-      })
+        })
+        console.log(`[ship-now] DB package updated successfully: ${packageId}`)
+      } catch (dbErr: any) {
+        console.error(`[ship-now] FAILED to update DB package ${packageId}:`, dbErr.message || dbErr)
+      }
+    } else {
+      console.warn('[ship-now] No packageId provided — skipping DB update')
     }
 
     // 3. Push tracking info to Zoho Books package
@@ -143,6 +158,7 @@ export async function POST(req: Request) {
       success: true,
       warning,
       ...result,
+      totalCharge: finalCost,  // Override with selected rate cost if API returned 0
     })
   } catch (error: any) {
     console.error('Ship Now error:', error)
