@@ -38,7 +38,11 @@ export async function GET(req: NextRequest) {
             shippingStreet: true,
             shippingCity: true,
             shippingState: true,
-            shippingZip: true
+            shippingZip: true,
+            billingStreet: true,
+            billingCity: true,
+            billingState: true,
+            billingZip: true
           } 
         } 
       },

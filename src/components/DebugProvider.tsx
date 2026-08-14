@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { Suspense, createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useZoho } from '@/components/ZohoProvider';
 
@@ -47,7 +47,7 @@ function isAdminRole(role?: string): boolean {
   return role.toLowerCase().includes('admin') || role === 'ADMIN';
 }
 
-export function DebugProvider({ children }: { children: React.ReactNode }) {
+function DebugProviderInner({ children }: { children: React.ReactNode }) {
   const { zohoContext: user } = useZoho();
   const isAdmin = isAdminRole(user?.role);
   const searchParams = useSearchParams();
@@ -197,5 +197,13 @@ export function DebugProvider({ children }: { children: React.ReactNode }) {
     <DebugContext.Provider value={{ isDebug, entries, debugLog, clearLog }}>
       {children}
     </DebugContext.Provider>
+  );
+}
+
+export function DebugProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={children}>
+      <DebugProviderInner>{children}</DebugProviderInner>
+    </Suspense>
   );
 }
