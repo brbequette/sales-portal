@@ -470,17 +470,19 @@ function SalesDocsInner() {
                     className="group hover:bg-zinc-800/30 transition-colors cursor-pointer"
                   >
                     <td className="p-4 font-mono text-sm text-zinc-300 group-hover:text-white transition-colors">
-                      <a
-                        href={getDocumentUrl(doc)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={event => event.stopPropagation()}
-                        className="inline-flex items-center gap-1.5 hover:text-orange-400 hover:underline"
-                        title={`Open ${doc.docNumber}`}
-                      >
-                        {doc.docNumber}
-                        <FiExternalLink className="shrink-0" aria-hidden="true" />
-                      </a>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="hover:text-orange-400 cursor-pointer">{doc.docNumber}</span>
+                        <a
+                          href={getDocumentUrl(doc)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={event => event.stopPropagation()}
+                          className="text-zinc-600 hover:text-orange-400 transition-colors"
+                          title="Open in Zoho Books"
+                        >
+                          <FiExternalLink size={12} className="shrink-0" aria-hidden="true" />
+                        </a>
+                      </span>
                     </td>
                     <td className="p-4">
                       <div className="font-medium text-zinc-200">{doc.customerName}</div>
