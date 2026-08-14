@@ -685,13 +685,29 @@ export default function ShippingPage() {
             width: parsedWidth,
             height: parsedHeight,
           },
-          items: shipNowPkg.items?.line_items?.map((li: any) => ({
-            description: li.name || li.item_name,
-            quantity: parseInt(li.quantity) || 1,
-            declaredValue: parseFloat(li.rate) || 50,
-            weight: parsedWeight,
-          })) || [{ description: shipNowOrder.lineItemNames?.[0] || 'Order item', quantity: 1, declaredValue: shipNowOrder.amount || 100, weight: parsedWeight }],
+          items: (() => {
+            // Build items matching EasyShip format
+            const pkgItemsList = shipNowPkg.items?.line_items || shipNowPkg.items?.items || []
+            if (Array.isArray(pkgItemsList) && pkgItemsList.length > 0) {
+              return pkgItemsList.map((li: any) => ({
+                description: li.name || li.item_name || li.description || 'Item',
+                sku: li.sku || li.sku_code || '',
+                quantity: parseInt(li.quantity) || 1,
+                declaredValue: 0.10,  // Match EasyShip customs value
+                weight: parsedWeight / (pkgItemsList.length || 1),
+              }))
+            }
+            // Fallback: use order line items
+            return shipNowOrder.lineItems?.map((li: any) => ({
+              description: li.name || 'Order item',
+              sku: li.sku || '',
+              quantity: li.quantity || 1,
+              declaredValue: 0.10,
+              weight: parsedWeight / (shipNowOrder.lineItems?.length || 1),
+            })) || [{ description: 'Order item', quantity: 1, declaredValue: 0.10, weight: parsedWeight }]
+          })(),
           soNumber: shipNowOrder.soNumber,
+          packageNumber: shipNowPkg.packageNumber || '',
         })
       })
       const data = await res.json()

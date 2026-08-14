@@ -398,6 +398,7 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
         box: { slug: 'custom' },
         items: params.items.map(item => ({
           description: item.description,
+          sku: (item as any).sku || '',
           category: 'home_appliances',
           quantity: item.quantity,
           dimensions: params.dimensions,

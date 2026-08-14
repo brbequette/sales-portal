@@ -20,6 +20,7 @@ export async function POST(req: Request) {
       dimensions,       // { length, width, height }
       items,            // [{ description, quantity, declaredValue, weight }]
       soNumber,         // SO number for reference
+      packageNumber,    // Package number (e.g. PKG-25323) — EasyShip indexes by this
     } = body
 
     if (!courierServiceId || !weight) {
@@ -60,7 +61,8 @@ export async function POST(req: Request) {
       weight: parseFloat(weight),
       dimensions: dimensions,
       items: items || [{ description: 'Order item', quantity: 1, declaredValue: 100, weight: parseFloat(weight) }],
-      platformOrderNumber: soNumber,
+      // EasyShip indexes by package number (PKG-25323), not SO number
+      platformOrderNumber: packageNumber || soNumber,
       existingEasyshipId,
     })
 
