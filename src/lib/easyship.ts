@@ -340,6 +340,32 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
   let easyshipId = params.existingEasyshipId || '';
   let shipment: any = {};
 
+  // Step 0: If no existing ID known, search EasyShip for a shipment matching this order number
+  // This catches cases where EasyShip synced the order via its own platform integration
+  if (!easyshipId && params.platformOrderNumber) {
+    try {
+      const searchRes = await fetch(
+        `${EASYSHIP_API_URL}/shipments?platform_order_number=${encodeURIComponent(params.platformOrderNumber)}&per_page=5`,
+        { method: 'GET', headers: getHeaders() }
+      );
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        const shipments = searchData.shipments || [];
+        // Find a shipment that hasn't been shipped yet (label not purchased)
+        const existing = shipments.find((s: any) => 
+          s.label_state !== 'generated' && s.label_state !== 'downloaded'
+        ) || shipments[0];
+        if (existing?.easyship_shipment_id) {
+          easyshipId = existing.easyship_shipment_id;
+          shipment = existing;
+          console.log(`[easyship] Found existing shipment for order ${params.platformOrderNumber}: ${easyshipId}`);
+        }
+      }
+    } catch (e) {
+      console.error('[easyship] Shipment lookup failed (will create new):', e);
+    }
+  }
+
   // Step 1: Create shipment ONLY if we don't already have one
   if (!easyshipId) {
     const shipmentPayload = {

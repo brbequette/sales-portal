@@ -667,8 +667,9 @@ export default function ShippingPage() {
           packageId: shipNowPkg.id,
           packageZohoId: shipNowPkg.zohoId,
           salesOrderZohoId: shipNowOrder.zohoId,
-          courierServiceId: rate.courierServiceId || rate.courierName,  // Use actual Easyship courier ID
-          originAddress: null,  // Use default Titan Diamond origin
+          easyshipShipmentId: shipNowPkg.items?.easyshipShipmentId || shipNowPkg.easyshipShipmentId || null,
+          courierServiceId: rate.courierServiceId || rate.courierName,
+          originAddress: null,
           destinationAddress: {
             address: destAddr.address || destAddr.street || '',
             city: destAddr.city || '',

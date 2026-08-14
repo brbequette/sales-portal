@@ -10,6 +10,7 @@ export async function POST(req: Request) {
       packageId,        // local DB package ID
       packageZohoId,    // Zoho package ID
       salesOrderZohoId, // Zoho SO ID for updating
+      easyshipShipmentId: bodyEasyshipId,  // existing Easyship shipment ID from frontend
       courierServiceId, // selected courier from rates
       originAddress,    // { line_1, city, state, postal_code, country_alpha2 }
       destinationAddress,
@@ -25,12 +26,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Missing required fields (courierServiceId, weight)' }, { status: 400 })
     }
 
-    // Check if package already has an Easyship shipment ID (to avoid duplicates)
-    let existingEasyshipId: string | undefined
-    if (packageId) {
+    // Use the Easyship ID from the request body first, then fall back to DB lookup
+    let existingEasyshipId: string | undefined = bodyEasyshipId || undefined
+    if (!existingEasyshipId && packageId) {
       const existingPkg = await prisma.package.findUnique({ where: { id: packageId } })
       const pkgItems = (existingPkg?.items as any) || {}
       existingEasyshipId = pkgItems.easyshipShipmentId || undefined
+    }
+    
+    if (existingEasyshipId) {
+      console.log(`[ship-now] Reusing existing Easyship shipment: ${existingEasyshipId} — will NOT create a new one`)
     }
 
     // 1. Create shipment + buy label via Easyship (reuses existing if available)
