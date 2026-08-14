@@ -300,9 +300,22 @@ export async function GET(req: NextRequest) {
       results = results.filter(r =>
         r.soNumber.toLowerCase().includes(s) ||
         r.customerName.toLowerCase().includes(s) ||
-        r.salesperson.toLowerCase().includes(s)
+        r.salesperson.toLowerCase().includes(s) ||
+        r.lineItems?.some((li: any) =>
+          (li.name || '').toLowerCase().includes(s) ||
+          (li.sku || '').toLowerCase().includes(s)
+        ) ||
+        r.lineItemNames?.some((n: string) => n.toLowerCase().includes(s)) ||
+        r.packages?.some((p: any) =>
+          (p.trackingNumber || '').toLowerCase().includes(s) ||
+          (p.carrier || '').toLowerCase().includes(s)
+        ) ||
+        r.dropshipments?.some((d: any) =>
+          (d.vendorName || '').toLowerCase().includes(s)
+        )
       )
     }
+
 
     // Apply Salesperson filter (for Admin view)
     if (isAdmin && salespersonFilter) {

@@ -624,16 +624,24 @@ export default function ShippingPage() {
         })
       })
       const data = await res.json()
-      if (data.rates) {
+      if (!res.ok || data.error) {
+        toast.error(`Rate error: ${data.error || `HTTP ${res.status}`}`)
+        return
+      }
+      if (data.rates && data.rates.length > 0) {
         const sorted = [...data.rates].sort((a: any, b: any) => (a.totalCharge || 999) - (b.totalCharge || 999))
         setShipNowRates(sorted)
+      } else {
+        toast.error('No rates returned — check shipping address fields')
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to get rates:', e)
+      toast.error(`Rate fetch failed: ${e.message || 'Network error'}`)
     } finally {
       setShipNowLoading(false)
     }
   }
+
 
   const openShipNow = async (pkg: any, order: any) => {
     setShipNowPkg(pkg)
@@ -1132,7 +1140,7 @@ export default function ShippingPage() {
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
           <input
             type="text"
-            placeholder="Search by SO #, customer, or salesperson..."
+            placeholder="Search by SO #, customer, product, SKU, tracking #..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full glass-panel/70 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-orange-500/50 transition-colors"
@@ -1242,7 +1250,7 @@ export default function ShippingPage() {
         </div>
       ) : (
         <div className={`space-y-2 transition-opacity duration-200 ${refreshing ? 'opacity-60' : 'opacity-100'}`}>
-          {filteredOrders.map(order => {
+          {filteredOrders.map((order, idx) => {
             const isExpanded = expandedOrder === order.id
             const statusColor: Record<string, string> = {
               needs_packaging: "text-amber-400 bg-amber-950/40 border-amber-800/50",
@@ -1262,7 +1270,7 @@ export default function ShippingPage() {
             const statusLabel = statusLabels[order.shipStatus] || order.shipStatus
 
             return (
-              <div key={order.id} className="glass-panel/60 border border-white/10/80 rounded-2xl overflow-hidden hover:border-neutral-700 transition-all">
+              <div key={order.id} className={`glass-panel/60 border border-white/10/80 rounded-2xl overflow-hidden hover:border-neutral-700 transition-all ${idx % 2 === 1 ? 'bg-white/[0.03]' : ''}`}>
                 {/* Main Row */}
                 <div
                   className="flex items-center gap-3 px-4 py-3 cursor-pointer"

@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useEffect, useState, use } from "react"
 import { useSearchParams } from "next/navigation"
 
 function fmt(n: number) {
@@ -11,10 +11,10 @@ function fmtDate(s: string | null) {
   return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
-export default function PayVoucherPrint({ params }: { params: { repId: string } }) {
+export default function PayVoucherPrint({ params }: { params: Promise<{ repId: string }> }) {
+  const { repId } = use(params)
   const searchParams = useSearchParams()
   const weekStartStr = searchParams.get("weekStart") // Format: YYYY-MM-DD
-  const { repId } = params
 
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<any>(null)
