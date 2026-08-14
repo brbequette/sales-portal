@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
     console.log(`Voiding Easyship label for shipment: ${easyshipShipmentId}`);
 
-    const EASYSHIP_URL = (process.env.EASYSHIP_API_URL || 'https://public-api.easyship.com').replace(/\/+$/, '');
+    const EASYSHIP_URL = (process.env.EASYSHIP_API_URL || 'https://enterprise-api.easyship.com').replace(/\/+$/, '');
     const API_URL = EASYSHIP_URL.match(/\/\d{4}-\d{2}$/) ? EASYSHIP_URL : EASYSHIP_URL + '/2024-09';
     const apiKey = process.env.EASYSHIP_API_KEY;
 

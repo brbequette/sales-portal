@@ -5,6 +5,8 @@ import { getSystemSettings } from "./lib/settings"
 
 import { prisma } from "./lib/prisma"
 const EASYSHIP_API_KEY = process.env.EASYSHIP_API_KEY;
+const _esRawUrl = (process.env.EASYSHIP_API_URL || 'https://enterprise-api.easyship.com').replace(/\/+$/, '');
+const EASYSHIP_BASE = _esRawUrl.match(/\/\d{4}-\d{2}$/) ? _esRawUrl : `${_esRawUrl}/2024-09`;
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 function getCountryCode(country: string | null | undefined): string {
@@ -164,7 +166,7 @@ export const handler: Handler = async (event) => {
       ]
     }
 
-    const easyshipUrl = 'https://api.easyship.com/2023-01/shipments'
+    const easyshipUrl = `${EASYSHIP_BASE}/shipments`
     const createRes = await fetch(easyshipUrl, { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: {
@@ -185,7 +187,7 @@ export const handler: Handler = async (event) => {
     }
 
     // 4. Confirm/Buy the Label
-    const labelRes = await fetch('https://api.easyship.com/2023-01/labels', { signal: AbortSignal.timeout(15000),
+    const labelRes = await fetch(`${EASYSHIP_BASE}/labels`, { signal: AbortSignal.timeout(15000),
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${EASYSHIP_API_KEY}`,
@@ -213,7 +215,7 @@ export const handler: Handler = async (event) => {
     while (attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1500))
       
-      const pollRes = await fetch(`https://api.easyship.com/2023-01/shipments/${shipmentId}`, { signal: AbortSignal.timeout(15000),
+      const pollRes = await fetch(`${EASYSHIP_BASE}/shipments/${shipmentId}`, { signal: AbortSignal.timeout(15000),
         headers: {
           'Authorization': `Bearer ${EASYSHIP_API_KEY}`,
           'Content-Type': 'application/json'

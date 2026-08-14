@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { COMPANY_CONFIG } from '@/lib/company-config';
 
-const _rawUrl = (process.env.EASYSHIP_API_URL || 'https://public-api.easyship.com').replace(/\/+$/, '');
+const _rawUrl = (process.env.EASYSHIP_API_URL || 'https://enterprise-api.easyship.com').replace(/\/+$/, '');
 export const EASYSHIP_API_URL = _rawUrl.match(/\/\d{4}-\d{2}$/) ? _rawUrl : `${_rawUrl}/2024-09`;
 
 export interface Address {
