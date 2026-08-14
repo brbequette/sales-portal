@@ -5,6 +5,7 @@ import { FiSend, FiArrowLeft, FiMessageSquare, FiUser, FiSearch, FiZap, FiExtern
 import { AccountSlideout } from "@/components/AccountSlideout"
 import { toast } from 'react-hot-toast';
 import { localGet, localSet, TTL } from "@/lib/dataCache"
+import { COMPANY_CONFIG } from "@/lib/company-config"
 import { UpdateBanner } from '@/lib/useStaleCheck'
 
 export default function MessagesPage() {
@@ -261,7 +262,7 @@ export default function MessagesPage() {
     title: "Sales Representative",
     phone: "",
     email: "",
-    company: "Titan Diamond USA",
+    company: COMPANY_CONFIG.name,
     website: "https://tdusales.com",
     photoUrl: ""
   })

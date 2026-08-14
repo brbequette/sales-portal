@@ -4,6 +4,7 @@ import { usePreferences } from "./PreferencesProvider"
 import { useZoho } from "./ZohoProvider"
 import { useNotifications } from "./NotificationProvider"
 import { toast } from "react-hot-toast"
+import { COMPANY_CONFIG } from "@/lib/company-config"
 
 interface UserSettingsModalProps {
   isOpen: boolean
@@ -28,7 +29,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
   const [vcardTitle, setVcardTitle] = useState("")
   const [vcardPhone, setVcardPhone] = useState("")
   const [vcardEmail, setVcardEmail] = useState("")
-  const [vcardCompany, setVcardCompany] = useState("Titan Diamond USA")
+  const [vcardCompany, setVcardCompany] = useState(COMPANY_CONFIG.name)
   const [vcardWebsite, setVcardWebsite] = useState("https://tdusales.com")
   const [vcardPhotoUrl, setVcardPhotoUrl] = useState("")
   const [autoAttachVCard, setAutoAttachVCard] = useState(false)
@@ -53,7 +54,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
             setVcardEmail(u.email || "")
             setVcardPhone(u.phone || "")
             setVcardTitle(u.title || "Sales Representative")
-            setVcardCompany(u.vcardCompany || "Titan Diamond USA")
+            setVcardCompany(u.vcardCompany || COMPANY_CONFIG.name)
             setVcardWebsite(u.vcardWebsite || "https://tdusales.com")
             setVcardPhotoUrl(u.vcardPhotoUrl || "")
             setAutoAttachVCard(u.autoAttachVCard ?? false)

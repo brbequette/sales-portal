@@ -3,7 +3,8 @@ import { corsHeaders, handleOptions } from "./lib/cors"
 import { prisma } from "./lib/prisma"
 import { sendEmail } from "./lib/zoho-mail"
 
-const ZOHO_ACCOUNT_ID = "6682814000000008002"
+const ZOHO_ACCOUNT_ID = process.env.ZOHO_MAIL_ACCOUNT_ID!;
+if (!ZOHO_ACCOUNT_ID) throw new Error('Missing ZOHO_MAIL_ACCOUNT_ID env var');
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
@@ -19,7 +20,7 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "Missing toAddress, subject, or content" }) }
     }
 
-    const defaultFrom = fromAddress || "ben@titandiamondusa.com"
+    const defaultFrom = fromAddress || process.env.COMPANY_FROM_EMAIL;
 
     // Replace merge tags (basic implementation)
     let processedContent = content
@@ -28,7 +29,7 @@ export const handler: Handler = async (event) => {
       if (account) {
         processedContent = processedContent.replace(/{{accountName}}/g, account.name)
         processedContent = processedContent.replace(/{{repName}}/g, account.owner?.name || "")
-        processedContent = processedContent.replace(/{{companyName}}/g, "Titan Diamond")
+        processedContent = processedContent.replace(/{{companyName}}/g, process.env.COMPANY_NAME || "")
       }
     }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { COMPANY_CONFIG } from "@/lib/company-config";
 import { getEasyshipRates, getEasyshipBoxes, findBestDeal } from "@/lib/easyship";
 
 const MOCK_RATES = [
@@ -81,18 +82,18 @@ export async function POST(req: Request) {
         }
       } : {}),
       parcels: [{
-        total_actual_weight: weight || 1.5,
+        total_actual_weight: weight,
         box: { slug: "custom" },
         items: [{
-          description: "Diamond concrete blades",
+          description: "Order Items",
           category: "home_appliances",
           quantity: 1,
           dimensions: {
-            length: length || 10,
-            width: width || 8,
-            height: height || 4
+            length: length,
+            width: width,
+            height: height
           },
-          actual_weight: weight || 1.5,
+          actual_weight: weight,
           declared_currency: "USD",
           declared_customs_value: declaredValue || 100
         }]
@@ -152,7 +153,7 @@ export async function GET() {
 
     // Test connection by calling account endpoint
     let connected = false;
-    let accountName = "Titan Diamond";
+    let accountName = COMPANY_CONFIG.name;
     try {
       const { testEasyshipConnection } = await import("@/lib/easyship");
       connected = await testEasyshipConnection();

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { COMPANY_CONFIG } from '@/lib/company-config';
 
 const _rawUrl = (process.env.EASYSHIP_API_URL || 'https://public-api.easyship.com').replace(/\/+$/, '');
 export const EASYSHIP_API_URL = _rawUrl.match(/\/\d{4}-\d{2}$/) ? _rawUrl : `${_rawUrl}/2024-09`;
@@ -16,15 +17,15 @@ export interface Address {
 }
 
 export const DEFAULT_ORIGIN: Address = {
-  line_1: "8321 E Evans Road",
-  city: "Scottsdale",
-  state: "AZ",
-  postal_code: "85260",
-  country_alpha2: "US",
-  contact_name: "Titan Diamond",
-  contact_phone: "4805551234",
-  contact_email: "shipping@titandiamond.com",
-  company_name: "Titan Diamond USA"
+  line_1: COMPANY_CONFIG.address.line1,
+  city: COMPANY_CONFIG.address.city,
+  state: COMPANY_CONFIG.address.state,
+  postal_code: COMPANY_CONFIG.address.zip,
+  country_alpha2: COMPANY_CONFIG.address.country,
+  contact_name: COMPANY_CONFIG.name,
+  contact_phone: COMPANY_CONFIG.phone,
+  contact_email: COMPANY_CONFIG.shippingEmail,
+  company_name: COMPANY_CONFIG.name
 };
 
 export interface ParcelDimensions {
@@ -348,10 +349,10 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
         state: origin.state || '',
         postal_code: origin.postal_code || '',
         country_alpha2: origin.country_alpha2 || 'US',
-        contact_name: origin.contact_name || 'Titan Diamond',
-        contact_phone: origin.contact_phone || '4805551234',
-        contact_email: origin.contact_email || 'shipping@titandiamond.com',
-        company_name: origin.company_name || 'Titan Diamond USA',
+        contact_name: origin.contact_name || COMPANY_CONFIG.name,
+        contact_phone: origin.contact_phone || COMPANY_CONFIG.phone,
+        contact_email: origin.contact_email || COMPANY_CONFIG.shippingEmail,
+        company_name: origin.company_name || COMPANY_CONFIG.name,
       },
       destination_address: {
         line_1: params.destinationAddress.line_1 || '',
@@ -361,7 +362,7 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
         country_alpha2: params.destinationAddress.country_alpha2 || 'US',
         contact_name: params.destinationContactName || 'Customer',
         contact_phone: params.destinationContactPhone || '0000000000',
-        contact_email: params.destinationContactEmail || 'orders@titandiamond.com',
+        contact_email: params.destinationContactEmail || COMPANY_CONFIG.email,
       },
       parcels: [{
         total_actual_weight: params.weight,

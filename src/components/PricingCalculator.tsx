@@ -40,12 +40,16 @@ export default function PricingCalculator({ onClose, onAddLineItem }: PricingCal
 
   useEffect(() => {
     // Fetch settings
-    fetch('/api/admin/settings')
+    fetch('/api/admin/business-defaults')
       .then(r => r.json())
       .then(data => {
-        if (data.success && data.settings) {
-          setSettings(data.settings)
-          setCcFeeRate(data.settings.cc_fee_rate)
+        if (data.success && data.defaults) {
+          setSettings({
+            default_vig_rate: data.defaults.defaultVigRate,
+            cc_fee_rate: data.defaults.ccFeeRate,
+            shipping_multiplier: data.defaults.shippingMultiplier,
+          })
+          setCcFeeRate(data.defaults.ccFeeRate)
         }
       })
       .catch(err => console.error("Error fetching settings", err))

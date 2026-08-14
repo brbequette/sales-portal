@@ -52,9 +52,9 @@ export async function POST(req: Request) {
       destinationContactName: destinationContactName || 'Customer',
       destinationContactPhone,
       courierServiceId,
-      weight: parseFloat(weight) || 5,
-      dimensions: dimensions || { length: 15, width: 15, height: 4 },
-      items: items || [{ description: 'Diamond concrete blade', quantity: 1, declaredValue: 100, weight: parseFloat(weight) || 5 }],
+      weight: parseFloat(weight),
+      dimensions: dimensions,
+      items: items || [{ description: 'Order item', quantity: 1, declaredValue: 100, weight: parseFloat(weight) }],
       platformOrderNumber: soNumber,
       existingEasyshipId,
     })

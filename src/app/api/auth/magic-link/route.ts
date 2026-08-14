@@ -3,8 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { generateMagicCode } from '@/lib/customer-auth';
 import { getZohoAccessToken, ZOHO_DC } from '@/lib/zoho-auth';
 
-const ZOHO_MAIL_ACCOUNT_ID = "6682814000000008002";
-const FROM_EMAIL = "ben@titandiamondusa.com";
+const ZOHO_MAIL_ACCOUNT_ID = process.env.ZOHO_MAIL_ACCOUNT_ID;
+const FROM_EMAIL = process.env.COMPANY_FROM_EMAIL;
 
 async function sendOtpEmail(toAddress: string, code: string): Promise<void> {
   const token = await getZohoAccessToken();
@@ -29,7 +29,7 @@ async function sendOtpEmail(toAddress: string, code: string): Promise<void> {
           </div>
           <p style="color: #666; font-size: 14px;">This code expires in 15 minutes. If you didn't request this, please ignore this email.</p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-          <p style="color: #999; font-size: 12px;">Titan Diamond USA</p>
+          <p style="color: #999; font-size: 12px;">${process.env.COMPANY_NAME}</p>
         </div>`,
       }),
     }
@@ -55,7 +55,7 @@ async function sendOtpSms(phoneNumber: string, code: string): Promise<void> {
   const formData = new FormData();
   formData.append('sms_data', JSON.stringify({
     customerNumber: normalized,
-    message: `Your Titan Diamond login code is: ${code}. Expires in 15 min.`,
+    message: `Your ${process.env.COMPANY_NAME} login code is: ${code}. Expires in 15 min.`,
     senderId: fromNumber,
     mms: false,
   }));

@@ -28,7 +28,8 @@ export const handler: Handler = async (event, context) => {
       author = await prisma.user.findUnique({ where: { email: userEmail } })
     }
     if (!author) {
-      author = await prisma.user.findFirst({ where: { email: { contains: "@titandiamond" } } })
+      const domain = process.env.COMPANY_DOMAIN || 'titandiamondusa.com';
+      author = await prisma.user.findFirst({ where: { email: { contains: `@${domain.split('.')[0]}` } } })
     }
     if (!author) {
       return {
@@ -138,7 +139,7 @@ export const handler: Handler = async (event, context) => {
               } catch(e) { console.warn('Failed to parse zoho_phone_numbers setting:', e) }
             }
           }
-          if (!fromNumber) fromNumber = '+14804702577' // Fallback for backwards compatibility
+          if (!fromNumber) fromNumber = process.env.ZOHO_VOICE_FROM_NUMBER || '';
 
           const zohoVoiceUrl = `https://voice.zoho.${process.env.ZOHO_DC || 'com'}/rest/json/v2/sms/send`
           const smsData = {

@@ -14,6 +14,7 @@
 import { prisma } from "./prisma"
 import { getSystemSettings, AppSettings } from "./settings"
 import { extractCcFees, extractAdditionalCosts, extractInsurance, extractActualShippingCost, extractShippingCostBreakdown } from "./custom-field-extractor"
+import { BusinessDefaults, getBusinessDefaults } from "./business-defaults"
 
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -84,7 +85,7 @@ const GIFT_KEYWORDS = [
   "bottle", "keychain"
 ]
 
-export function isGiftItem(item: any): boolean {
+export function isGiftItem(item: any, defaults?: { giftKeywords?: string[] }): boolean {
   const rate = parseFloat(item.rate || item.price || item.unit_price || 0)
   if (rate === 0) return true
 
@@ -105,14 +106,15 @@ export function isGiftItem(item: any): boolean {
   const name = (item.name || "").toLowerCase()
   const sku  = (item.sku  || item.code || "").toLowerCase()
   const desc = (item.description || "").toLowerCase()
-  if (GIFT_KEYWORDS.some(k => name.includes(k) || sku.includes(k) || desc.includes(k))) {
+  const keywords = defaults?.giftKeywords || GIFT_KEYWORDS
+  if (keywords.some((k: string) => name.includes(k) || sku.includes(k) || desc.includes(k))) {
     return true
   }
 
   return false
 }
 
-export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>): boolean {
+export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>, defaults?: { giftKeywords?: string[] }): boolean {
   const rate = parseFloat(item.rate || item.price || item.unit_price || 0)
   const itemName = item.name || ""
   const itemSku = item.sku || item.code || ""
@@ -124,7 +126,7 @@ export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>)
     return false // Free blades still subject to VIG
   }
 
-  if (isGiftItem(item)) {
+  if (isGiftItem(item, defaults)) {
     // If it's explicitly marked gift (and has price > 0, or is swag):
     if (isSwagItem(itemName) || isSwagItem(itemSku)) {
       return true
@@ -181,7 +183,8 @@ export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>)
   const nameLower = (item.name || "").toLowerCase()
   const skuLower  = (item.sku  || item.code || "").toLowerCase()
   const descLower = (item.description || "").toLowerCase()
-  if (GIFT_KEYWORDS.some(k => nameLower.includes(k) || skuLower.includes(k) || descLower.includes(k))) {
+  const keywords = defaults?.giftKeywords || GIFT_KEYWORDS
+  if (keywords.some((k: string) => nameLower.includes(k) || skuLower.includes(k) || descLower.includes(k))) {
     return true
   }
 
@@ -193,9 +196,12 @@ export function isNoVigItem(item: any, noVigOverrides?: Record<string, boolean>)
 export async function resolveVigRate(
   doc: any,
   settings: AppSettings,
-  manualVig?: number | null
+  manualVig?: number | null,
+  defaults?: BusinessDefaults
 ): Promise<number> {
   if (manualVig !== undefined && manualVig !== null && manualVig > 0) return manualVig
+  
+  const bDefaults = defaults || await getBusinessDefaults()
 
   const salespersonName: string = (doc.salesperson_name || doc.salesperson || "").trim()
   const isMontgomery = salespersonName.toLowerCase().includes("montgomery") || salespersonName.toLowerCase().includes("morgan")
@@ -264,7 +270,7 @@ export async function resolveVigRate(
     }
   }
 
-  return settings.default_vig_rate || 1.3
+  return settings.default_vig_rate || bDefaults.defaultVigRate || 1.3
 }
 
 // ─── Commission % Resolution ────────────────────────────────────────────────
@@ -298,9 +304,12 @@ export async function calculateDocumentCosts(
     manualVigRate?: number | null
     manualCommPct?: number | null
     noVigOverrides?: Record<string, boolean>
+    defaults?: BusinessDefaults
   } = {}
 ): Promise<CostCalculationResult> {
-  const { manualVigRate, manualCommPct, noVigOverrides } = options
+  const { manualVigRate, manualCommPct, noVigOverrides, defaults } = options
+  
+  const bDefaults = defaults || await getBusinessDefaults()
   
   const settings = await getSystemSettings()
 
@@ -334,8 +343,8 @@ export async function calculateDocumentCosts(
 
     const catalogProd = skuMap.get(itemSku) || nameMap.get(itemName)
 
-    let gift = isGiftItem(item)
-    let noVig = isNoVigItem(item, noVigOverrides)
+    let gift = isGiftItem(item, bDefaults)
+    let noVig = isNoVigItem(item, noVigOverrides, bDefaults)
 
     if (catalogProd) {
       if (catalogProd.giftItem) gift = true
@@ -410,7 +419,7 @@ export async function calculateDocumentCosts(
   }
 
   // ─── 2. VIG rate ────────────────────────────────────────────────────────────
-  const vigRate = await resolveVigRate(doc, settings, manualVigRate)
+  const vigRate = await resolveVigRate(doc, settings, manualVigRate, bDefaults)
 
   // ─── 3. Dead Cost Plus VIG ──────────────────────────────────────────────────
   const deadCostPlusVig = (deadCostSubjectToVig * vigRate) + deadCostNoVig

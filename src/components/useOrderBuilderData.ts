@@ -121,8 +121,8 @@ export function useOrderBuilderData({
   catalogProducts: externalCatalogProducts,
   accountPurchases: externalAccountPurchases,
   factFinding,
-  vigRate = 1.3,
-  commissionPct = 50,
+  vigRate: explicitVigRate,
+  commissionPct: explicitCommissionPct,
   accountName = "",
   accountDetail,
   accountId,
@@ -132,6 +132,22 @@ export function useOrderBuilderData({
 }: UseOrderBuilderDataProps) {
   const { zohoContext: user } = useZoho()
   const { preferences } = usePreferences()
+  const [defaults, setDefaults] = useState({ vigRate: explicitVigRate || 1.3, commissionPct: explicitCommissionPct || 50 })
+  
+  useEffect(() => {
+    fetch('/api/admin/business-defaults')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.defaults) {
+          setDefaults({
+            vigRate: explicitVigRate || data.defaults.defaultVigRate,
+            commissionPct: explicitCommissionPct || data.defaults.defaultCommissionPct
+          })
+        }
+      })
+  }, [explicitVigRate, explicitCommissionPct])
+
+  const { vigRate, commissionPct } = defaults
   const [transactionType, setTransactionType] = useState<"SalesOrder" | "Quote">("SalesOrder")
   const isControlled = externalSetOrderLines !== undefined
   const [internalOrderLines, setInternalOrderLines] = useState<OrderLine[]>(externalOrderLines || [])

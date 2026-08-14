@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { COMPANY_CONFIG } from "@/lib/company-config"
 
 export async function GET(req: Request, context: { params: Promise<{ repId: string }> }) {
   try {
@@ -32,7 +33,7 @@ export async function GET(req: Request, context: { params: Promise<{ repId: stri
     const email = queryEmail || user?.email || ""
     const phone = queryPhone || user?.phone || "(800) 555-0199"
     const title = queryTitle || user?.title || "Sales Representative"
-    const company = queryCompany || (user as any)?.vcardCompany || "Titan Diamond USA"
+    const company = queryCompany || (user as any)?.vcardCompany || COMPANY_CONFIG.name
     const website = queryWebsite || (user as any)?.vcardWebsite || "https://tdusales.com"
     const photoUrl = queryPhotoUrl || (user as any)?.vcardPhotoUrl || ""
 

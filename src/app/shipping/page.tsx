@@ -64,7 +64,6 @@ const STATUS_TABS: { key: ShipStatus; label: string; icon: any; color: string; b
   { key: "delivered", label: "Delivered", icon: FiCheck, color: "text-emerald-400", bg: "bg-emerald-950/50" },
 ]
 
-const CARRIERS = ["FedEx", "UPS", "USPS", "DHL", "Amazon", "OnTrac", "LTL Freight", "Customer Pickup", "Other"]
 
 function getTrackingUrl(carrier: string, tracking: string): string | null {
   if (!tracking) return null
@@ -109,6 +108,7 @@ export default function ShippingPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [availableSalespersons, setAvailableSalespersons] = useState<string[]>([])
   const [availableCarriers, setAvailableCarriers] = useState<string[]>([])
+  const [businessDefaults, setBusinessDefaults] = useState<any>(null)
 
   // Tracking modal state
   const [trackingModal, setTrackingModal] = useState<{ packageId: string; carrier: string; tracking: string } | null>(null)
@@ -521,6 +521,26 @@ export default function ShippingPage() {
   const [shipNowResult, setShipNowResult] = useState<any>(null)
   const [shipNowWeight, setShipNowWeight] = useState('5')
   const [shipNowDims, setShipNowDims] = useState({ length: '15', width: '15', height: '4' })
+
+  useEffect(() => {
+    fetch('/api/admin/business-defaults')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.defaults) {
+          setBusinessDefaults(data.defaults)
+          setShipNowWeight(data.defaults.defaultShippingWeight.toString())
+          setShipNowDims({
+            length: data.defaults.defaultShippingLength.toString(),
+            width: data.defaults.defaultShippingWidth.toString(),
+            height: data.defaults.defaultShippingHeight.toString(),
+          })
+          if (availableCarriers.length === 0 && data.defaults.carriers) {
+            setAvailableCarriers(data.defaults.carriers)
+          }
+        }
+      })
+      .catch(console.error)
+  }, [])
   const [addingPreset, setAddingPreset] = useState(false)
   const [newPreset, setNewPreset] = useState({ label: '', l: '', w: '', h: '', wt: '' })
   const [customBoxPresets, setCustomBoxPresets] = useState<Array<{ label: string; l: string; w: string; h: string; wt: string }>>(() => {
@@ -574,6 +594,17 @@ export default function ShippingPage() {
   const fetchShipNowRates = async (order: any, weight: string, dims: { length: string; width: string; height: string }) => {
     setShipNowLoading(true)
     setShipNowRates([])
+    const parsedWeight = parseFloat(weight);
+    const parsedLength = parseFloat(dims.length);
+    const parsedWidth = parseFloat(dims.width);
+    const parsedHeight = parseFloat(dims.height);
+    
+    if (isNaN(parsedWeight) || isNaN(parsedLength) || isNaN(parsedWidth) || isNaN(parsedHeight)) {
+      toast.error('Weight and dimensions are required');
+      setShipNowLoading(false);
+      return;
+    }
+
     try {
       const destAddr = order.shippingAddress || {}
       const res = await fetch('/api/shipping/estimate', {
@@ -584,10 +615,10 @@ export default function ShippingPage() {
           city: destAddr.city || '',
           state: destAddr.state || '',
           country: destAddr.country_alpha2 || 'US',
-          weight: parseFloat(weight) || 5,
-          length: parseFloat(dims.length) || 15,
-          width: parseFloat(dims.width) || 15,
-          height: parseFloat(dims.height) || 4,
+          weight: parsedWeight,
+          length: parsedLength,
+          width: parsedWidth,
+          height: parsedHeight,
           declaredValue: order.amount || 100,
         })
       })
@@ -616,6 +647,17 @@ export default function ShippingPage() {
   const handleBuyLabel = async (rate: any) => {
     if (!shipNowPkg || !shipNowOrder) return
     setShipNowBuying(true)
+    const parsedWeight = parseFloat(shipNowWeight);
+    const parsedLength = parseFloat(shipNowDims.length);
+    const parsedWidth = parseFloat(shipNowDims.width);
+    const parsedHeight = parseFloat(shipNowDims.height);
+    
+    if (isNaN(parsedWeight) || isNaN(parsedLength) || isNaN(parsedWidth) || isNaN(parsedHeight)) {
+      toast.error('Weight and dimensions are required');
+      setShipNowBuying(false);
+      return;
+    }
+
     try {
       const destAddr = shipNowOrder.shippingAddress || {}
       const res = await fetch('/api/shipping/ship-now', {
@@ -635,18 +677,18 @@ export default function ShippingPage() {
             country: destAddr.country_alpha2 || 'US',
           },
           destinationContactName: shipNowOrder.customerName || 'Customer',
-          weight: parseFloat(shipNowWeight) || 5,
+          weight: parsedWeight,
           dimensions: {
-            length: parseFloat(shipNowDims.length) || 15,
-            width: parseFloat(shipNowDims.width) || 15,
-            height: parseFloat(shipNowDims.height) || 4,
+            length: parsedLength,
+            width: parsedWidth,
+            height: parsedHeight,
           },
           items: shipNowPkg.items?.line_items?.map((li: any) => ({
-            description: li.name || li.item_name || 'Diamond blade',
+            description: li.name || li.item_name,
             quantity: parseInt(li.quantity) || 1,
             declaredValue: parseFloat(li.rate) || 50,
-            weight: 5,
-          })) || [{ description: 'Diamond concrete blade', quantity: 1, declaredValue: shipNowOrder.amount || 100, weight: parseFloat(shipNowWeight) || 5 }],
+            weight: parsedWeight,
+          })) || [{ description: shipNowOrder.lineItemNames?.[0] || 'Order item', quantity: 1, declaredValue: shipNowOrder.amount || 100, weight: parsedWeight }],
           soNumber: shipNowOrder.soNumber,
         })
       })
@@ -1726,7 +1768,7 @@ export default function ShippingPage() {
                   className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50"
                 >
                   <option value="">Select carrier...</option>
-                  {CARRIERS.map(c => (
+                  {availableCarriers.map(c => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>

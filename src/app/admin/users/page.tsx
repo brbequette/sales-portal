@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { FiCheckSquare, FiSquare, FiUser, FiShield, FiChevronDown, FiChevronUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSave, FiUserPlus, FiEdit3, FiSearch, FiArrowUp, FiArrowDown, FiRefreshCw, FiUsers, FiZap, FiEye, FiEyeOff } from "react-icons/fi"
 import { PERMISSION_GROUPS, ALL_PERMISSIONS, DEFAULT_REP_PERMISSIONS, resolvePermissions, type UserPermissions } from "@/lib/permissions"
+import { COMPANY_CONFIG } from "@/lib/company-config"
 import { toast } from 'react-hot-toast';
 
 type SortField = "name" | "email" | "role" | "accountCount"
@@ -136,7 +137,7 @@ export default function AdminUsersPage() {
             phone: user.phone || "",
             title: user.title || "Sales Representative",
             vcardPhotoUrl: (user as any).vcardPhotoUrl || "",
-            vcardCompany: (user as any).vcardCompany || "Titan Diamond USA",
+            vcardCompany: (user as any).vcardCompany || COMPANY_CONFIG.name,
             vcardWebsite: (user as any).vcardWebsite || "https://tdusales.com",
             autoAttachVCard: user.autoAttachVCard ?? false,
             zohoId: user.zohoId || "",
