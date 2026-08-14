@@ -3,8 +3,11 @@ import { corsHeaders, handleOptions } from "./lib/cors"
 import { prisma } from "./lib/prisma"
 import { sendEmail } from "./lib/zoho-mail"
 
-const ZOHO_ACCOUNT_ID = process.env.ZOHO_MAIL_ACCOUNT_ID!;
-if (!ZOHO_ACCOUNT_ID) throw new Error('Missing ZOHO_MAIL_ACCOUNT_ID env var');
+function getZohoAccountId() {
+  const id = process.env.ZOHO_MAIL_ACCOUNT_ID;
+  if (!id) throw new Error('Missing ZOHO_MAIL_ACCOUNT_ID env var');
+  return id;
+}
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return handleOptions()
@@ -40,7 +43,7 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    const res = await sendEmail(ZOHO_ACCOUNT_ID, {
+    const res = await sendEmail(getZohoAccountId(), {
       fromAddress: defaultFrom,
       toAddress,
       subject,
@@ -54,7 +57,7 @@ export const handler: Handler = async (event) => {
     const emailRecord = await prisma.email.create({
       data: {
         zohoMailId: res.data?.messageId || `sent_${Date.now()}`,
-        zohoAccountId: ZOHO_ACCOUNT_ID,
+        zohoAccountId: getZohoAccountId(),
         subject,
         body: processedContent,
         fromAddress: defaultFrom,
