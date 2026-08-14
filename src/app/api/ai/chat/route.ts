@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { prisma } from '@/lib/prisma';
+import { getZohoAccessToken, pushZohoNote } from '@/lib/zoho-auth';
 
 // Rate Limiter: 30 requests per minute per user
 const rateLimit = new Map<string, { count: number; resetTime: number }>();
@@ -578,6 +579,343 @@ async function executeTool(name: string, args: any, context: { userId: string, u
         return userStats;
       }
 
+      case 'toggle_timeclock': {
+        const { action } = args;
+        if (action !== 'clockIn' && action !== 'clockOut') {
+          return { success: false, error: 'Action must be clockIn or clockOut' };
+        }
+
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/Phoenix',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        const parts = formatter.formatToParts(now);
+        const ye = parts.find(p => p.type === 'year')?.value;
+        const mo = parts.find(p => p.type === 'month')?.value;
+        const da = parts.find(p => p.type === 'day')?.value;
+        const phoenixDate = `${ye}-${mo}-${da}`;
+
+        const existing = await prisma.timeEntry.findUnique({
+          where: {
+            userId_date: { userId, date: phoenixDate }
+          }
+        });
+
+        const geoData: any = {
+          clockSource: 'ai'
+        };
+
+        if (action === 'clockIn') {
+          geoData.locationStatus = 'VERIFIED';
+          geoData.clockInLocation = 'AI Assistant';
+        } else {
+          geoData.clockOutLocation = 'AI Assistant';
+        }
+
+        if (!existing) {
+          if (action === 'clockOut') {
+            return { success: false, error: 'No active entry to clock out' };
+          }
+          const entry = await prisma.timeEntry.create({
+            data: {
+              userId,
+              date: phoenixDate,
+              clockIn: now,
+              lastActivity: now,
+              clockOut: null,
+              manualClockIn: now,
+              manualClockOut: null,
+              ipAddress: 'AI-Internal',
+              ...geoData
+            }
+          });
+          return { success: true, action: 'clockIn', time: now.toISOString(), entry };
+        }
+
+        const updateData: any = {
+          ipAddress: 'AI-Internal',
+          ...geoData
+        };
+
+        if (action === 'clockIn') {
+          updateData.manualClockIn = now;
+          updateData.manualClockOut = null;
+          updateData.clockOut = null;
+          updateData.lastActivity = now;
+        } else {
+          updateData.manualClockOut = now;
+          updateData.clockOut = now;
+        }
+
+        const entry = await prisma.timeEntry.update({
+          where: { id: existing.id },
+          data: updateData
+        });
+
+        return { success: true, action, time: now.toISOString(), entry };
+      }
+
+      case 'create_task': {
+        const { subject, description = '', priority = 'Normal', dueDate, accountName } = args;
+        if (!subject) return { success: false, error: 'Subject is required' };
+
+        // Resolve user to get zohoId
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user || !user.zohoId) {
+          return { success: false, error: 'User does not have a valid Zoho ID linked' };
+        }
+
+        const capSubject = subject.charAt(0).toUpperCase() + subject.slice(1);
+        const capDesc = description ? description.charAt(0).toUpperCase() + description.slice(1) : "";
+
+        // Resolve Account if provided
+        let resolvedAccountId: string | null = null;
+        let resolvedAccountZohoId: string | null = null;
+        if (accountName) {
+          const acc = await prisma.account.findFirst({
+            where: { name: { contains: accountName, mode: 'insensitive' } }
+          });
+          if (acc) {
+            resolvedAccountId = acc.id;
+            resolvedAccountZohoId = acc.zohoId;
+          }
+        }
+
+        const token = await getZohoAccessToken();
+        const ZOHO_DC = process.env.ZOHO_DC || 'com';
+
+        const taskData: any = {
+          Subject: capSubject,
+          Status: 'Not Started',
+          Priority: priority,
+          Owner: { id: user.zohoId }
+        };
+
+        if (dueDate) {
+          taskData.Due_Date = new Date(dueDate).toISOString().split('T')[0];
+        }
+        if (capDesc) {
+          taskData.Description = capDesc;
+        }
+        if (resolvedAccountZohoId) {
+          taskData.What_Id = { id: resolvedAccountZohoId };
+          taskData.$se_module = 'Accounts';
+        }
+
+        const res = await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Tasks`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Zoho-oauthtoken ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ data: [taskData] })
+        });
+
+        const zohoData = await res.json();
+        const recordDetails = zohoData.data?.[0];
+
+        if (!res.ok || recordDetails?.code !== 'SUCCESS') {
+          return { success: false, error: 'Failed to create task in Zoho', zohoError: zohoData };
+        }
+
+        const newZohoId = recordDetails.details.id;
+
+        // Save locally
+        const localTask = await prisma.task.create({
+          data: {
+            zohoId: newZohoId,
+            subject: capSubject,
+            description: capDesc || null,
+            priority,
+            status: 'Not Started',
+            dueDate: dueDate ? new Date(dueDate) : null,
+            ownerId: user.id,
+            accountId: resolvedAccountId,
+            type: 'Task'
+          }
+        });
+
+        return { success: true, task: localTask };
+      }
+
+      case 'log_sales_call': {
+        const { accountName, outcome, notes = '', durationMinutes = 5 } = args;
+        if (!accountName || !outcome) return { success: false, error: 'AccountName and outcome are required' };
+
+        const acc = await prisma.account.findFirst({
+          where: { name: { contains: accountName, mode: 'insensitive' } }
+        });
+        if (!acc) return { success: false, error: `Account matching "${accountName}" not found` };
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) return { success: false, error: 'User not found' };
+
+        const outcomeLabels: Record<string, string> = {
+          left_voicemail:  "Voicemail Left",
+          no_answer:       "No Answer",
+          check_in:        "Check-in Call",
+          pitch:           "Product Pitch",
+          order_placed:    "Order Placed",
+          follow_up:       "Follow Up",
+          callback_requested: "Callback Requested",
+          not_interested:  "Not Interested",
+          other:           "Other",
+        };
+
+        const noteTitle = `📞 Sales Call — ${outcomeLabels[outcome] || outcome}`;
+        const noteContent = `Outcome: ${outcomeLabels[outcome] || outcome}\nDuration: ${durationMinutes} mins\nNotes: ${notes}\nLogged by: ${user.name || user.email}`;
+
+        // Push to Zoho as a note
+        try {
+          await pushZohoNote(acc.zohoId, noteTitle, noteContent);
+        } catch (e: any) {
+          console.error('Failed to push note to Zoho:', e);
+        }
+
+        // Save locally
+        const firstContact = await prisma.contact.findFirst({
+          where: { accountId: acc.id }
+        });
+
+        const callLog = await prisma.callLog.create({
+          data: {
+            accountId: acc.id,
+            authorId: user.id,
+            status: outcomeLabels[outcome] || outcome,
+            notes: notes || null,
+            direction: 'OUTBOUND',
+            fromNumber: user.phone || 'AI-Portal',
+            toNumber: firstContact?.phone || 'Unknown',
+            duration: durationMinutes * 60
+          }
+        });
+
+        // Update last called time on account
+        await prisma.account.update({
+          where: { id: acc.id },
+          data: { lastCalledAt: new Date() }
+        }).catch(() => null);
+
+        return { success: true, callLog, accountName: acc.name };
+      }
+
+      case 'update_account_status_and_quality': {
+        const { accountName, status, quality } = args;
+        if (!accountName) return { success: false, error: 'AccountName is required' };
+
+        const acc = await prisma.account.findFirst({
+          where: { name: { contains: accountName, mode: 'insensitive' } }
+        });
+        if (!acc) return { success: false, error: `Account matching "${accountName}" not found` };
+
+        const updateData: any = {};
+        if (status) updateData.status = status;
+        if (quality) updateData.quality = quality;
+
+        if (Object.keys(updateData).length === 0) {
+          return { success: false, error: 'Either status or quality must be provided to update' };
+        }
+
+        const updatedAcc = await prisma.account.update({
+          where: { id: acc.id },
+          data: updateData
+        });
+
+        // Resolve user to see if they have zohoId
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const token = await getZohoAccessToken();
+        const ZOHO_DC = process.env.ZOHO_DC || 'com';
+
+        // Attempt to sync immediately with Zoho CRM
+        try {
+          const payloadData: any = {
+            id: acc.zohoId
+          };
+          if (status) payloadData.Account_Status = status;
+          if (quality) payloadData.Quality = quality;
+
+          await fetch(`https://www.zohoapis.${ZOHO_DC}/crm/v3/Accounts`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Zoho-oauthtoken ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ data: [payloadData] })
+          });
+        } catch (e) {
+          console.error('Failed to sync account update to Zoho:', e);
+        }
+
+        return { success: true, accountName: updatedAcc.name, status: updatedAcc.status, quality: updatedAcc.quality };
+      }
+
+      case 'query_communication_history': {
+        const { accountName, limit = 10 } = args;
+        if (!accountName) return { success: false, error: 'AccountName is required' };
+
+        const acc = await prisma.account.findFirst({
+          where: { name: { contains: accountName, mode: 'insensitive' } }
+        });
+        if (!acc) return { success: false, error: `Account matching "${accountName}" not found` };
+
+        const callLogs = await prisma.callLog.findMany({
+          where: { accountId: acc.id },
+          take: limit,
+          orderBy: { createdAt: 'desc' }
+        });
+
+        const smsMessages = await prisma.smsMessage.findMany({
+          where: { accountId: acc.id },
+          take: limit,
+          orderBy: { createdAt: 'desc' }
+        });
+
+        const notes = await prisma.note.findMany({
+          where: { accountId: acc.id },
+          take: limit,
+          orderBy: { createdAt: 'desc' }
+        });
+
+        // Merge and format history events chronologically
+        const history: any[] = [];
+
+        callLogs.forEach(c => {
+          history.push({
+            type: 'Call Log',
+            date: c.createdAt,
+            detail: `Call status: ${c.status}. Direction: ${c.direction}. Notes: ${c.notes || 'No call notes'}`
+          });
+        });
+
+        smsMessages.forEach(s => {
+          history.push({
+            type: 'SMS Message',
+            date: s.createdAt,
+            detail: `SMS direction: ${s.direction}. Body: ${s.body}`
+          });
+        });
+
+        notes.forEach(n => {
+          history.push({
+            type: 'Account Note',
+            date: n.createdAt,
+            detail: `Note: ${n.content}`
+          });
+        });
+
+        // Sort chronologically descending
+        history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        return {
+          success: true,
+          accountName: acc.name,
+          history: history.slice(0, limit)
+        };
+      }
+
       case 'draft_message': {
         return { success: true, message: args.messageDraft };
       }
@@ -814,6 +1152,86 @@ const TOOLS = [
       parameters: {
         type: 'object',
         properties: {}
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'toggle_timeclock',
+      description: 'Clock the current user in or out of their shift',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['clockIn', 'clockOut'], description: 'Whether to clock in or clock out' }
+        },
+        required: ['action']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_task',
+      description: 'Create a new task, callback reminder, or check-in request',
+      parameters: {
+        type: 'object',
+        properties: {
+          subject: { type: 'string', description: 'The subject/title of the task' },
+          description: { type: 'string', description: 'Detailed description or notes for the task' },
+          priority: { type: 'string', enum: ['High', 'Normal', 'Low'], description: 'Task priority level' },
+          dueDate: { type: 'string', description: 'Due date in YYYY-MM-DD format' },
+          accountName: { type: 'string', description: 'Name of the account to link this task to (optional)' }
+        },
+        required: ['subject']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'log_sales_call',
+      description: 'Log details of a customer sales call, including outcome and notes',
+      parameters: {
+        type: 'object',
+        properties: {
+          accountName: { type: 'string', description: 'Name of the account called' },
+          outcome: { type: 'string', enum: ['left_voicemail', 'no_answer', 'pitch', 'check_in', 'order_placed', 'follow_up', 'callback_requested', 'not_interested', 'other'], description: 'The outcome status of the call' },
+          notes: { type: 'string', description: 'Call note details' },
+          durationMinutes: { type: 'number', description: 'Call duration in minutes' }
+        },
+        required: ['accountName', 'outcome']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_account_status_and_quality',
+      description: 'Update the relationship status or quality rating tier of a customer account',
+      parameters: {
+        type: 'object',
+        properties: {
+          accountName: { type: 'string', description: 'Name of the account' },
+          status: { type: 'string', enum: ['Personal', 'Open', 'Update Status', 'Inactive', 'VIP', 'New Lead', 'Hot Lead', 'Do Not Contact', 'DNR'], description: 'The new relationship status' },
+          quality: { type: 'string', enum: ['HOT', 'WARM', 'COLD', 'ON_HOLD', 'DO_NOT_CALL', 'NEVER_STATUSED'], description: 'The new quality rating tier' }
+        },
+        required: ['accountName']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'query_communication_history',
+      description: 'Fetch SMS messages, call logs, and notes for an account to see past touchpoints',
+      parameters: {
+        type: 'object',
+        properties: {
+          accountName: { type: 'string', description: 'Name of the account' },
+          limit: { type: 'number', description: 'Maximum number of history events to retrieve' }
+        },
+        required: ['accountName']
       }
     }
   },
