@@ -1777,7 +1777,7 @@ export default function ShippingPage() {
       )}
       {/* ── Ship Now Modal ──────────────────────────────────────────────── */}
       {shipNowOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => !shipNowBuying && setShipNowOpen(false)}>
+        <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => !shipNowBuying && setShipNowOpen(false)}>
           <div className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-white/10">
