@@ -111,6 +111,50 @@ export async function bulkSyncPage(
       : []
     const existingInvoicesMap = new Map(existingInvoices.map(i => [i.zohoId, i]))
 
+    // Pre-fetch invoice lookup maps for payments — eliminates N+1 per-payment DB queries that caused 504 timeouts
+    let paymentInvoiceLookup: Map<string, { id: string; items: any }> | null = null
+    if (entity === 'payments') {
+      // Collect all invoice numbers referenced by payments on this page
+      const invNums: string[] = []
+      for (const item of items) {
+        if (typeof item.invoice_numbers === 'string' && item.invoice_numbers.trim()) {
+          invNums.push(item.invoice_numbers.trim())
+        } else if (Array.isArray(item.invoice_numbers) && item.invoice_numbers.length > 0) {
+          const first = item.invoice_numbers[0]
+          const num = typeof first === 'object' ? (first.invoice_number || '') : String(first).trim()
+          if (num) invNums.push(num)
+        }
+      }
+      const uniqueInvNums = Array.from(new Set(invNums))
+
+      if (uniqueInvNums.length > 0) {
+        // Single batch query replaces 200+ individual findFirst calls
+        const matchedInvoices = await prisma.invoice.findMany({
+          where: {
+            OR: [
+              { zohoId: { in: uniqueInvNums } },
+              ...uniqueInvNums.map(num => ({
+                items: { path: ['invoiceNumber'], equals: num }
+              })),
+              ...uniqueInvNums.map(num => ({
+                items: { path: ['booksInvoiceId'], equals: num }
+              })),
+            ] as any
+          },
+          select: { id: true, zohoId: true, items: true }
+        })
+
+        // Build lookup maps keyed by every identifier an invoice might match on
+        paymentInvoiceLookup = new Map()
+        for (const inv of matchedInvoices) {
+          if (inv.zohoId) paymentInvoiceLookup.set(inv.zohoId, inv)
+          const invItems = (inv.items as any) || {}
+          if (invItems.invoiceNumber) paymentInvoiceLookup.set(invItems.invoiceNumber, inv)
+          if (invItems.booksInvoiceId) paymentInvoiceLookup.set(invItems.booksInvoiceId, inv)
+        }
+      }
+    }
+
     const salesOrderIds = items.map((i: any) => i.salesorder_id).filter(Boolean)
     const existingSalesOrders = (entity === 'salesorders' && salesOrderIds.length > 0)
       ? await prisma.salesOrder.findMany({
@@ -303,18 +347,8 @@ export async function bulkSyncPage(
           invNum = typeof first === 'object' ? (first.invoice_number || null) : String(first).trim()
         }
 
-        let targetInvoice: any = null
-        if (invNum) {
-          targetInvoice = await prisma.invoice.findFirst({
-            where: {
-              OR: [
-                { zohoId: invNum },
-                { items: { path: ['invoiceNumber'], equals: invNum } },
-                { items: { path: ['booksInvoiceId'], equals: invNum } }
-              ]
-            }
-          })
-        }
+        // Use pre-fetched lookup map instead of per-payment DB query (fixes 504 timeout)
+        const targetInvoice = (invNum && paymentInvoiceLookup) ? (paymentInvoiceLookup.get(invNum) || null) : null
 
         const paymentData = {
           invoiceId: targetInvoice ? targetInvoice.id : (item.invoice_id || null),
