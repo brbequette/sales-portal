@@ -77,7 +77,7 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json(extractedData);
+    return NextResponse.json({ success: true, ...extractedData });
   } catch (error) {
     console.error('Error in refresh-status:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

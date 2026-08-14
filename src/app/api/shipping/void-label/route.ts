@@ -38,23 +38,13 @@ export async function POST(req: Request) {
 
     if (packageId) {
       console.log(`Updating local DB for package: ${packageId} after voiding label`);
-      
-      const pkg = await prisma.package.findUnique({ where: { id: packageId } });
-      let updatedItemsJson = pkg?.itemsJson || null;
 
-      if (pkg?.itemsJson) {
-        try {
-          const itemsData = typeof pkg.itemsJson === 'string' ? JSON.parse(pkg.itemsJson) : pkg.itemsJson;
-          if (itemsData && typeof itemsData === 'object') {
-            const newItemsData = { ...itemsData };
-            delete newItemsData.labelUrl;
-            newItemsData.labelVoided = true;
-            updatedItemsJson = newItemsData;
-          }
-        } catch (e) {
-          console.error('Error parsing itemsJson:', e);
-        }
-      }
+      const pkg = await prisma.package.findUnique({ where: { id: packageId } });
+      const existingItems = (pkg?.items as any) || {};
+
+      // Remove label URL and mark as voided
+      const { labelUrl: _label, ...rest } = existingItems;
+      const updatedItems = { ...rest, labelVoided: true };
 
       await prisma.package.update({
         where: { id: packageId },
@@ -62,7 +52,7 @@ export async function POST(req: Request) {
           status: 'not_shipped',
           trackingNumber: null,
           shippingCharge: 0,
-          itemsJson: updatedItemsJson !== null ? updatedItemsJson : undefined,
+          items: updatedItems,
         }
       });
     }

@@ -35,22 +35,12 @@ export async function POST(req: Request) {
 
     if (packageId) {
       console.log(`Updating local DB for package: ${packageId}`);
-      
-      const pkg = await prisma.package.findUnique({ where: { id: packageId } });
-      let updatedItemsJson = pkg?.itemsJson || null;
 
-      if (pkg?.itemsJson) {
-        try {
-          const itemsData = typeof pkg.itemsJson === 'string' ? JSON.parse(pkg.itemsJson) : pkg.itemsJson;
-          if (itemsData && typeof itemsData === 'object') {
-            const newItemsData = { ...itemsData };
-            delete newItemsData.easyshipShipmentId;
-            updatedItemsJson = newItemsData;
-          }
-        } catch (e) {
-          console.error('Error parsing itemsJson:', e);
-        }
-      }
+      const pkg = await prisma.package.findUnique({ where: { id: packageId } });
+      const existingItems = (pkg?.items as any) || {};
+
+      // Remove easyship-related fields from items JSON
+      const { easyshipShipmentId: _esId, labelUrl: _label, trackingPageUrl: _tp, shippedAt: _sa, ...cleanedItems } = existingItems;
 
       await prisma.package.update({
         where: { id: packageId },
@@ -58,7 +48,8 @@ export async function POST(req: Request) {
           status: 'not_shipped',
           carrier: null,
           trackingNumber: null,
-          itemsJson: updatedItemsJson !== null ? updatedItemsJson : undefined,
+          shippingCharge: 0,
+          items: cleanedItems,
         }
       });
     }
