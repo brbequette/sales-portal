@@ -132,15 +132,15 @@ textarea:focus-visible,
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #09090b;
+  background: var(--background);
 }
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: var(--surface-3);
   border-radius: 9999px;
-  border: 2px solid #09090b;
+  border: 2px solid var(--background);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #f59e0b;
+  background: var(--primary);
 }
 
 /* Animations */
@@ -173,15 +173,15 @@ textarea:focus-visible,
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
 }
 
 .glass-panel-glow {
   background: color-mix(in srgb, var(--surface) 90%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  box-shadow: 0 0 40px rgba(245, 158, 11, 0.15);
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  box-shadow: 0 0 40px color-mix(in srgb, var(--warning) 15%, transparent);
 }
 
 /* Shared application shell and page rhythm */
@@ -658,122 +658,88 @@ textarea:focus-visible,
 }
 
 /* ─────────────────────────────────────────────────────────────
-   LIGHT MODE OVERRIDES ([data-theme="light"] / html.light)
+   LIGHT MODE UTILITY OVERRIDES (For hardcoded Tailwind classes)
    ───────────────────────────────────────────────────────────── */
 
-html[data-theme="light"],
-html.light,
-body.light-mode,
-.light-mode {
-  background-color: #f8fafc !important;
-  color: #0f172a !important;
-}
-
-/* Background Color Overrides in Light Mode */
+/* Background Color Overrides */
 html[data-theme="light"] .bg-neutral-950,
 html.light .bg-neutral-950,
 .light-mode .bg-neutral-950 {
-  background-color: #ffffff !important;
+  background-color: var(--surface);
 }
 
 html[data-theme="light"] .bg-neutral-900,
 html.light .bg-neutral-900,
 .light-mode .bg-neutral-900 {
-  background-color: #f1f5f9 !important;
+  background-color: var(--surface-2);
 }
 
 html[data-theme="light"] .bg-neutral-900\/90,
 html.light .bg-neutral-900\/90,
 .light-mode .bg-neutral-900\/90 {
-  background-color: rgba(241, 245, 249, 0.95) !important;
+  background-color: color-mix(in srgb, var(--surface-2) 90%, transparent);
 }
 
 html[data-theme="light"] .bg-neutral-950\/90,
 html.light .bg-neutral-950\/90,
 .light-mode .bg-neutral-950\/90 {
-  background-color: rgba(255, 255, 255, 0.95) !important;
+  background-color: color-mix(in srgb, var(--surface) 90%, transparent);
 }
 
 html[data-theme="light"] .bg-neutral-950\/60,
 html.light .bg-neutral-950\/60,
 .light-mode .bg-neutral-950\/60 {
-  background-color: rgba(248, 250, 252, 0.9) !important;
+  background-color: color-mix(in srgb, var(--surface) 60%, transparent);
 }
 
-/* Text Color Overrides in Light Mode */
+/* Text Color Overrides */
 html[data-theme="light"] .text-white,
 html.light .text-white,
 .light-mode .text-white {
-  color: #0f172a !important;
+  color: var(--foreground);
 }
 
 html[data-theme="light"] .text-neutral-300,
 html.light .text-neutral-300,
 .light-mode .text-neutral-300 {
-  color: #334155 !important;
+  color: var(--foreground);
 }
 
 html[data-theme="light"] .text-neutral-400,
 html.light .text-neutral-400,
 .light-mode .text-neutral-400 {
-  color: #475569 !important;
+  color: var(--muted);
 }
 
 html[data-theme="light"] .text-neutral-500,
 html.light .text-neutral-500,
 .light-mode .text-neutral-500 {
-  color: #64748b !important;
+  color: var(--muted-2);
 }
 
-/* Border Overrides in Light Mode */
+/* Border Overrides */
 html[data-theme="light"] .border-white\/10,
 html.light .border-white\/10,
 .light-mode .border-white\/10 {
-  border-color: rgba(15, 23, 42, 0.12) !important;
+  border-color: var(--border);
 }
 
 html[data-theme="light"] .border-white\/5,
 html.light .border-white\/5,
 .light-mode .border-white\/5 {
-  border-color: rgba(15, 23, 42, 0.08) !important;
+  border-color: var(--border);
 }
 
-/* Header & Footer in Light Mode */
+/* Header & Footer */
 html[data-theme="light"] header,
 html.light header {
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  border-color: rgba(15, 23, 42, 0.1) !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  background-color: color-mix(in srgb, var(--surface) 95%, transparent);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
 html[data-theme="light"] footer,
 html.light footer {
-  background-color: #ffffff !important;
-  border-color: rgba(15, 23, 42, 0.1) !important;
-}
-
-/* Inputs & Form Controls in Light Mode */
-html[data-theme="light"] input,
-html[data-theme="light"] select,
-html[data-theme="light"] textarea,
-html.light input,
-html.light select,
-html.light textarea {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-  border-color: rgba(15, 23, 42, 0.2) !important;
-}
-
-/* Glass panel overrides in Light Mode */
-html[data-theme="light"] .glass-panel,
-html.light .glass-panel {
-  background: rgba(255, 255, 255, 0.9) !important;
-  border-color: rgba(15, 23, 42, 0.1) !important;
-}
-
-html[data-theme="light"] .glass-panel-glow,
-html.light .glass-panel-glow {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-color: rgba(217, 119, 6, 0.4) !important;
-  box-shadow: 0 0 30px rgba(217, 119, 6, 0.12) !important;
+  background-color: var(--surface);
+  border-color: var(--border);
 }
