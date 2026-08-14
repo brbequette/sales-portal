@@ -9,6 +9,8 @@ export interface Address {
   country_alpha2?: string;
   contact_name?: string;
   contact_phone?: string;
+  contact_email?: string;
+  company_name?: string;
 }
 
 export const DEFAULT_ORIGIN: Address = {
@@ -18,7 +20,9 @@ export const DEFAULT_ORIGIN: Address = {
   postal_code: "85260",
   country_alpha2: "US",
   contact_name: "Titan Diamond",
-  contact_phone: "4805551234"
+  contact_phone: "4805551234",
+  contact_email: "shipping@titandiamond.com",
+  company_name: "Titan Diamond USA"
 };
 
 export interface ParcelDimensions {
@@ -275,6 +279,7 @@ export interface CreateShipmentParams {
   destinationAddress: Address;
   destinationContactName: string;
   destinationContactPhone?: string;
+  destinationContactEmail?: string;
   courierServiceId: string;
   weight: number;
   dimensions: ParcelDimensions;
@@ -311,6 +316,8 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
       country_alpha2: origin.country_alpha2 || 'US',
       contact_name: origin.contact_name || 'Titan Diamond',
       contact_phone: origin.contact_phone || '4805551234',
+      contact_email: origin.contact_email || 'shipping@titandiamond.com',
+      company_name: origin.company_name || 'Titan Diamond USA',
     },
     destination_address: {
       line_1: params.destinationAddress.line_1 || '',
@@ -318,8 +325,9 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
       state: params.destinationAddress.state || '',
       postal_code: params.destinationAddress.postal_code || '',
       country_alpha2: params.destinationAddress.country_alpha2 || 'US',
-      contact_name: params.destinationContactName,
-      contact_phone: params.destinationContactPhone || '',
+      contact_name: params.destinationContactName || 'Customer',
+      contact_phone: params.destinationContactPhone || '0000000000',
+      contact_email: params.destinationContactEmail || 'orders@titandiamond.com',
     },
     parcels: [{
       total_actual_weight: params.weight,
