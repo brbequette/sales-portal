@@ -211,59 +211,60 @@ export default function SyncConflictsPage() {
               }
 
               return (
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg border ${badgeColors[doc.docType]}`}>
-                        {typeLabel[doc.docType]}
-                      </span>
-                      <span className="text-xs text-neutral-500">
-                        {new Date(doc.lastZohoModifiedTime || doc.date).toLocaleDateString()}
-                      </span>
+                <div key={doc.id} className="glass-panel border border-white/5 rounded-2xl p-5 flex flex-col">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg border ${badgeColors[doc.docType]}`}>
+                          {typeLabel[doc.docType]}
+                        </span>
+                        <span className="text-xs text-neutral-500">
+                          {new Date(doc.lastZohoModifiedTime || doc.date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-bold text-white">{doc.docNumber || "Unknown"}</h3>
+                      {doc.customer && (
+                        <p className="text-sm text-neutral-400">{doc.customer}</p>
+                      )}
                     </div>
-                    <h3 className="text-lg font-bold text-white">{doc.docNumber || "Unknown"}</h3>
-                    {doc.customer && (
-                      <p className="text-sm text-neutral-400">{doc.customer}</p>
+                  </div>
+
+                  <div className="space-y-3 flex-1 mb-6">
+                    {doc.conflictFields && typeof doc.conflictFields === 'object' ? (
+                      Object.entries(doc.conflictFields).map(([k, v]) => renderDiff(k, v))
+                    ) : (
+                      <div className="text-sm text-neutral-400 bg-black/20 p-3 rounded-xl border border-white/5">
+                        <pre className="whitespace-pre-wrap">{JSON.stringify(doc.conflictFields, null, 2)}</pre>
+                      </div>
                     )}
                   </div>
-                </div>
 
-                <div className="space-y-3 flex-1 mb-6">
-                  {doc.conflictFields && typeof doc.conflictFields === 'object' ? (
-                    Object.entries(doc.conflictFields).map(([k, v]) => renderDiff(k, v))
-                  ) : (
-                    <div className="text-sm text-neutral-400 bg-black/20 p-3 rounded-xl border border-white/5">
-                      <pre className="whitespace-pre-wrap">{JSON.stringify(doc.conflictFields, null, 2)}</pre>
-                    </div>
-                  )}
+                  <div className="grid grid-cols-3 gap-2 mt-auto">
+                    <button
+                      onClick={() => resolveConflict(doc, "app")}
+                      className="py-2.5 px-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-xl text-xs font-bold transition-colors text-center"
+                    >
+                      Keep Portal
+                    </button>
+                    <button
+                      onClick={() => resolveConflict(doc, "zoho")}
+                      className="py-2.5 px-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold transition-colors text-center"
+                    >
+                      Use Zoho
+                    </button>
+                    <button
+                      onClick={() => resolveConflict(doc, "dismiss")}
+                      className="py-2.5 px-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 rounded-xl text-xs font-bold transition-colors text-center"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
-
-                <div className="grid grid-cols-3 gap-2 mt-auto">
-                  <button
-                    onClick={() => resolveConflict(doc, "app")}
-                    className="py-2.5 px-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-xl text-xs font-bold transition-colors text-center"
-                  >
-                    Keep Portal
-                  </button>
-                  <button
-                    onClick={() => resolveConflict(doc, "zoho")}
-                    className="py-2.5 px-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold transition-colors text-center"
-                  >
-                    Use Zoho
-                  </button>
-                  <button
-                    onClick={() => resolveConflict(doc, "dismiss")}
-                    className="py-2.5 px-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 rounded-xl text-xs font-bold transition-colors text-center"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+              )
+            })}
         </div>
       )}
+      </div>
     </div>
   )
 }

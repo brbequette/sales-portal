@@ -7,10 +7,13 @@ import { usePreferences } from '@/components/PreferencesProvider'
 import { 
   FiSearch, FiFilter, FiFileText, FiDownload, FiX, 
   FiChevronDown, FiChevronUp, FiRefreshCw, FiExternalLink, 
-  FiActivity, FiDollarSign, FiPackage, FiCalendar, FiUser
+  FiActivity, FiDollarSign, FiPackage, FiCalendar, FiUser,
+  FiTruck, FiCreditCard
 } from 'react-icons/fi'
 import { UpdateBanner } from '@/lib/useStaleCheck'
 import { getZohoBooksUrl } from '@/lib/zoho-urls'
+import { InvoiceFinancialBreakdown } from '@/components/InvoiceFinancialBreakdown'
+import { extractCcFees, extractAdditionalCosts } from '@/lib/custom-field-extractor'
 
 type UnifiedDoc = {
   id: string
@@ -76,6 +79,32 @@ function SalesDocsInner() {
 
   // Side panel state
   const [selectedDoc, setSelectedDoc] = useState<UnifiedDoc | null>(null)
+  const [detailData, setDetailData] = useState<any>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+
+  // Fetch full invoice details when a doc is selected
+  const fetchDocDetail = useCallback(async (doc: UnifiedDoc) => {
+    if (!doc.zohoId) return
+    setDetailLoading(true)
+    setDetailData(null)
+    try {
+      const docType = doc.type === 'invoice' ? 'invoice' : doc.type === 'salesorder' ? 'salesorder' : 'estimate'
+      const res = await fetch(`/api/get-invoice-details?zohoId=${doc.zohoId}&type=${docType}`)
+      const data = await res.json()
+      if (data.success !== false) {
+        setDetailData(data)
+      }
+    } catch (e) {
+      console.error('Failed to fetch doc details', e)
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedDoc) fetchDocDetail(selectedDoc)
+    else setDetailData(null)
+  }, [selectedDoc, fetchDocDetail])
 
   const isAdmin = (user?.role ?? '').toLowerCase().includes('admin') || (user?.role ?? '').toLowerCase().includes('manager')
 
@@ -562,7 +591,7 @@ function SalesDocsInner() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
               
               <div className="flex items-center justify-between">
                 <div>
@@ -574,38 +603,163 @@ function SalesDocsInner() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="glass-panel p-4 rounded-xl border border-zinc-800/50">
-                  <div className="flex items-center gap-2 text-zinc-500 mb-2">
-                    <FiUser />
-                    <span className="text-xs uppercase font-bold tracking-wider">Customer</span>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="glass-panel p-3 rounded-xl border border-zinc-800/50">
+                  <div className="flex items-center gap-2 text-zinc-500 mb-1">
+                    <FiUser size={12} />
+                    <span className="text-[10px] uppercase font-bold tracking-wider">Customer</span>
                   </div>
-                  <p className="font-medium text-zinc-200">{selectedDoc.customerName}</p>
+                  <p className="font-medium text-zinc-200 text-sm">{selectedDoc.customerName}</p>
                 </div>
-                <div className="glass-panel p-4 rounded-xl border border-zinc-800/50">
-                  <div className="flex items-center gap-2 text-zinc-500 mb-2">
-                    <FiCalendar />
-                    <span className="text-xs uppercase font-bold tracking-wider">Date</span>
+                <div className="glass-panel p-3 rounded-xl border border-zinc-800/50">
+                  <div className="flex items-center gap-2 text-zinc-500 mb-1">
+                    <FiCalendar size={12} />
+                    <span className="text-[10px] uppercase font-bold tracking-wider">Date</span>
                   </div>
-                  <p className="font-medium text-zinc-200">
-                    {new Date(selectedDoc.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                  <p className="font-medium text-zinc-200 text-sm">
+                    {new Date(selectedDoc.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                   </p>
                 </div>
+                {detailData?.balance !== undefined && detailData?.balance > 0 && (
+                  <div className="glass-panel p-3 rounded-xl border border-zinc-800/50">
+                    <div className="flex items-center gap-2 text-zinc-500 mb-1">
+                      <FiCreditCard size={12} />
+                      <span className="text-[10px] uppercase font-bold tracking-wider">Balance Due</span>
+                    </div>
+                    <p className="font-medium text-red-400 text-sm font-mono">{formatCurrency(detailData.balance)}</p>
+                  </div>
+                )}
+                {detailData?.salesperson_name && (
+                  <div className="glass-panel p-3 rounded-xl border border-zinc-800/50">
+                    <div className="flex items-center gap-2 text-zinc-500 mb-1">
+                      <FiUser size={12} />
+                      <span className="text-[10px] uppercase font-bold tracking-wider">Rep</span>
+                    </div>
+                    <p className="font-medium text-zinc-200 text-sm">{detailData.salesperson_name}</p>
+                  </div>
+                )}
               </div>
 
+              {/* ── Financial Breakdown ────────────────────────────── */}
+              {detailLoading && (
+                <div className="flex items-center gap-2 text-zinc-500 text-sm py-4">
+                  <FiRefreshCw className="animate-spin" size={14} />
+                  Loading financial details...
+                </div>
+              )}
+
+              {!detailLoading && detailData && (() => {
+                const src = detailData.costResult || detailData
+                const subTotal = parseFloat(detailData.sub_total || detailData.total || selectedDoc.amount) || 0
+                const deadCostSubjectToVig = parseFloat(src.deadCostSubjectToVig || src.deadCostTotal || '0') || undefined
+                const deadCostNoVig = parseFloat(src.deadCostNoVig || '0') || 0
+                const deadCostTotal = parseFloat(src.deadCostTotal || '0') || undefined
+                const vigRate = parseFloat(src.vigRate || detailData.vigRate || '0') || undefined
+                const deadCostPlusVig = parseFloat(src.deadCostPlusVig || '0') || undefined
+                const ccFees = extractCcFees(detailData.custom_fields || detailData.customFields || [])
+                const additionalCosts = extractAdditionalCosts(detailData.custom_fields || detailData.customFields || [])
+                const profit = parseFloat(src.profit ?? src.deadProfitActual ?? '0') || undefined
+                const marginPct = profit && subTotal ? (profit / subTotal) * 100 : undefined
+                const commPct = parseFloat(src.commissionPercent || '50') || 50
+                const commission = parseFloat(src.commission ?? src.salesCommission ?? '0') || undefined
+                const isPaid = detailData.status === 'paid'
+
+                // Build line item details for the breakdown
+                const lineItems = (detailData.line_items || detailData.items?.line_items || []).map((li: any) => ({
+                  name: li.name || li.description || li.item_name || 'Item',
+                  quantity: li.quantity || 1,
+                  rate: parseFloat(li.rate || li.price || '0'),
+                  cost: parseFloat(li.purchase_rate || li.cost || '0') || undefined,
+                  deadCost: (parseFloat(li.purchase_rate || li.cost || '0') || 0) * (li.quantity || 1) || undefined,
+                  noVig: li.noVig || li.no_vig || false,
+                  gift: li.gift || false,
+                }))
+
+                return (
+                  <InvoiceFinancialBreakdown
+                    subTotal={subTotal}
+                    deadCostSubjectToVig={deadCostSubjectToVig}
+                    deadCostNoVig={deadCostNoVig}
+                    deadCostTotal={deadCostTotal}
+                    vigRate={vigRate}
+                    deadCostPlusVig={deadCostPlusVig}
+                    ccFees={ccFees}
+                    additionalCosts={additionalCosts}
+                    profit={profit}
+                    marginPercent={marginPct}
+                    commissionPct={commPct}
+                    salesCommission={commission}
+                    salespersonName={detailData.salesperson_name || selectedDoc.repName}
+                    isPaid={isPaid}
+                    lineItemDetails={lineItems.length > 0 ? lineItems : undefined}
+                    customFields={detailData.custom_fields}
+                  />
+                )
+              })()}
+
+              {/* ── Payments ────────────────────────────────────────── */}
+              {detailData?.payments?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <FiCreditCard size={14} /> Payments
+                  </h3>
+                  <div className="border border-zinc-800/60 rounded-xl overflow-hidden bg-zinc-900/20">
+                    {detailData.payments.map((pmt: any, idx: number) => (
+                      <div key={idx} className="p-3 border-b border-zinc-800/60 last:border-0 flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium text-zinc-200">{formatCurrency(pmt.amount)}</div>
+                          <div className="text-[11px] text-zinc-500">
+                            {pmt.payment_mode || 'Payment'} • {pmt.date ? new Date(pmt.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                          </div>
+                        </div>
+                        {pmt.reference_number && (
+                          <span className="text-[10px] text-zinc-600 font-mono">Ref: {pmt.reference_number}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Packages & Tracking ─────────────────────────────── */}
+              {detailData?.packages?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <FiTruck size={14} /> Packages & Tracking
+                  </h3>
+                  <div className="border border-zinc-800/60 rounded-xl overflow-hidden bg-zinc-900/20">
+                    {detailData.packages.map((pkg: any, idx: number) => (
+                      <div key={idx} className="p-3 border-b border-zinc-800/60 last:border-0">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-zinc-200">{pkg.package_number || `Package ${idx + 1}`}</span>
+                          <span className="text-[10px] text-zinc-500 uppercase">{pkg.status || 'Packaged'}</span>
+                        </div>
+                        {pkg.tracking_number && (
+                          <div className="text-[11px] text-zinc-400 mt-1">
+                            {pkg.carrier && <span className="text-zinc-500">{pkg.carrier} • </span>}
+                            <span className="font-mono text-orange-400">{pkg.tracking_number}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Line Items ──────────────────────────────────────── */}
               {selectedDoc.items?.line_items?.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <FiPackage /> Line Items
+                  <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <FiPackage size={14} /> Line Items
                   </h3>
                   <div className="border border-zinc-800/60 rounded-xl overflow-hidden bg-zinc-900/20">
                     {selectedDoc.items.line_items.map((item: any, idx: number) => (
-                      <div key={idx} className="p-4 border-b border-zinc-800/60 last:border-0 hover:bg-zinc-800/30 transition-colors">
+                      <div key={idx} className="p-3 border-b border-zinc-800/60 last:border-0 hover:bg-zinc-800/30 transition-colors">
                         <div className="flex justify-between items-start mb-1">
-                          <span className="font-medium text-zinc-200 line-clamp-2 pr-4">{item.name || item.description || 'Item'}</span>
-                          <span className="font-mono text-zinc-300">{formatCurrency(item.rate || item.price || 0)}</span>
+                          <span className="font-medium text-zinc-200 line-clamp-2 pr-4 text-sm">{item.name || item.description || 'Item'}</span>
+                          <span className="font-mono text-zinc-300 text-sm">{formatCurrency(item.rate || item.price || 0)}</span>
                         </div>
-                        <div className="flex justify-between items-center text-sm">
+                        <div className="flex justify-between items-center text-xs">
                           <span className="text-zinc-500">Qty: {item.quantity}</span>
                           <span className="font-mono text-zinc-400">{formatCurrency((item.rate || item.price || 0) * (item.quantity || 1))}</span>
                         </div>
