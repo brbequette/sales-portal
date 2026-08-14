@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Metadata } from 'next';
 import { FiZap, FiTruck, FiShield, FiCheckCircle, FiLock, FiArrowRight, FiPhone, FiFileText, FiLayers } from 'react-icons/fi';
 import { SparkCanvas } from '@/components/SparkCanvas';
@@ -60,10 +61,13 @@ export default function LandingPage() {
       <section className="relative overflow-hidden border-b border-white/10 pt-12 pb-24 lg:pt-20 lg:pb-32 bg-neutral-950">
         <SparkCanvas />
         <div className="absolute inset-0 z-0 opacity-40">
-          <img 
+          <Image 
             src="/images/hero/hero_blade.jpg" 
             alt="Titan Diamond Blade Sparks" 
-            className="w-full h-full object-cover object-center filter contrast-125 saturate-150"
+            fill
+            sizes="100vw"
+            priority
+            className="object-cover object-center filter contrast-125 saturate-150"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-neutral-950/30" />
           <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/80 to-transparent" />
@@ -131,10 +135,12 @@ export default function LandingPage() {
             {/* Box 1 */}
             <div className="relative overflow-hidden rounded-3xl border border-white/15 hover:border-amber-500/50 transition-all group p-8 min-h-[240px] flex flex-col justify-end shadow-2xl bg-neutral-900">
               <div className="absolute inset-0 z-0">
-                <img 
+                <Image 
                   src="/images/value-props/box_laser_weld.jpg" 
                   alt="Laser Welded Segments" 
-                  className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-500 filter brightness-[0.45] contrast-125"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover object-center transform group-hover:scale-105 transition-transform duration-500 filter brightness-[0.45] contrast-125"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/80 to-transparent" />
               </div>
@@ -152,10 +158,12 @@ export default function LandingPage() {
             {/* Box 2 */}
             <div className="relative overflow-hidden rounded-3xl border border-white/15 hover:border-amber-500/50 transition-all group p-8 min-h-[240px] flex flex-col justify-end shadow-2xl bg-neutral-900">
               <div className="absolute inset-0 z-0">
-                <img 
+                <Image 
                   src="/images/value-props/box_shipping.jpg" 
                   alt="Contractor Direct Shipping" 
-                  className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-500 filter brightness-[0.45] contrast-125"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover object-center transform group-hover:scale-105 transition-transform duration-500 filter brightness-[0.45] contrast-125"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/80 to-transparent" />
               </div>
@@ -173,10 +181,12 @@ export default function LandingPage() {
             {/* Box 3 */}
             <div className="relative overflow-hidden rounded-3xl border border-white/15 hover:border-amber-500/50 transition-all group p-8 min-h-[240px] flex flex-col justify-end shadow-2xl bg-neutral-900">
               <div className="absolute inset-0 z-0">
-                <img 
+                <Image 
                   src="/images/value-props/box_contractor.jpg" 
                   alt="Contractor Tier Rates" 
-                  className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-500 filter brightness-[0.45] contrast-125"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover object-center transform group-hover:scale-105 transition-transform duration-500 filter brightness-[0.45] contrast-125"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/80 to-transparent" />
               </div>
@@ -226,9 +236,11 @@ export default function LandingPage() {
                   <span className="absolute top-4 left-4 text-[9px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-full">
                     {cat.badge}
                   </span>
-                  <img 
+                  <Image 
                     src={cat.image} 
                     alt={cat.title} 
+                    width={400}
+                    height={400}
                     className="max-h-full max-w-full object-contain filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.8)] group-hover:scale-110 transition-transform duration-500"
                   />
                 </div>
@@ -352,7 +364,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-950 border border-amber-500/30 rounded-3xl p-10 sm:p-14 shadow-[0_0_60px_rgba(245,158,11,0.12)] relative overflow-hidden">
             <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
-              <img src="/images/logos/logo-dark.png" alt="Watermark" className="w-80 h-auto" />
+              <Image src="/images/logos/logo-dark.png" alt="Watermark" width={320} height={180} className="w-80 h-auto" />
             </div>
 
             <span className="text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full inline-block mb-4">

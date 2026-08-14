@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { HeaderNav } from '@/components/HeaderNav';
 import { ScrollProgress } from '@/components/ScrollProgress';
 import { FloatingCallBar } from '@/components/FloatingCallBar';
@@ -26,7 +27,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8">
           <div>
             <Link href="/" className="flex items-center gap-3 mb-6">
-              <img src="/titan-logo.png" alt="Titan Diamond USA" className="h-10 w-auto" />
+              <Image src="/titan-logo.png" alt="Titan Diamond USA" width={64} height={40} className="h-10 w-auto" />
               <div>
                 <span className="text-base font-black tracking-tight text-white block">TITAN DIAMOND</span>
                 <span className="text-[9px] text-amber-500 font-bold tracking-widest block -mt-1">USA DIVISION</span>

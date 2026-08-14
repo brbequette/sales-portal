@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { signIn, useSession } from "next-auth/react"
 import Link from "next/link"
+import Image from "next/image"
 import { FiLock, FiMail, FiArrowRight, FiCheckCircle, FiAlertCircle } from "react-icons/fi"
 import { SparkCanvas } from "@/components/SparkCanvas"
 
@@ -177,7 +178,7 @@ function LoginContent() {
         {/* Header */}
         <div className="text-center mb-6">
           <Link href="/" className="inline-block mb-3">
-            <img src="/titan-logo.png" alt="Titan Diamond USA" className="h-12 w-auto mx-auto" />
+            <Image src="/titan-logo.png" alt="Titan Diamond USA" width={96} height={48} className="h-12 w-auto mx-auto" />
           </Link>
           <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-400 block mb-1">
             {activeTab === "customer" ? "CUSTOMER PORTAL" : "EMPLOYEE PORTAL"}

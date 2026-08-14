@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { FiChevronDown, FiMenu, FiX, FiZap, FiAward, FiSliders, FiLayers, FiRefreshCw, FiGrid, FiBriefcase, FiPhone, FiLock } from 'react-icons/fi';
@@ -18,9 +19,11 @@ export function HeaderNav() {
         
         {/* Logo (Image only - no text overlap) */}
         <Link href="/" className="flex items-center group shrink-0">
-          <img 
+          <Image 
             src="/titan-logo.png" 
             alt="Titan Diamond USA Spartan Logo" 
+            width={64}
+            height={40}
             className="h-10 sm:h-12 w-auto object-contain filter drop-shadow-[0_0_12px_rgba(245,158,11,0.3)] group-hover:scale-105 transition-all duration-300"
           />
         </Link>
