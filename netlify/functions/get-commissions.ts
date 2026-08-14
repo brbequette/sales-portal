@@ -1,7 +1,7 @@
 import { Handler } from "@netlify/functions"
 import { PrismaClient, Prisma } from "@prisma/client"
 import { prisma } from "./lib/prisma"
-import { isNoVigItem } from "./lib/cost-calculations"
+import { isNoVigItem, calculateDocumentCosts } from "./lib/cost-calculations"
 import { extractDeadCostTotal, extractCcFees, extractAdditionalCosts } from "../../src/lib/custom-field-extractor"
 import { getSystemSettings } from "../../src/lib/settings"
 
@@ -410,7 +410,7 @@ export const handler: Handler = async (event) => {
     //
     // Rep attribution: items.salesperson on the document — the rep who drove the sale.
     // Account owner is a CRM assignment only and does NOT drive commissions.
-    const invoiceRecords = invoices.map(inv => {
+    const invoiceRecords = await Promise.all(invoices.map(async (inv) => {
       const items = inv.items as any || {}
       const cfs = items.custom_fields || []
       const salespersonName = (items.salesperson_name || items.salesperson) as string | null
@@ -454,56 +454,61 @@ export const handler: Handler = async (event) => {
         salesCommission = parseFloat(items.salesCommission || 0) || 0
         commissionPct = parseFloat(items.commissionPct || items.commission_pct || 50)
       } else {
-        // ── FALLBACK: recalculate for unprocessed invoices ──
-        const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
-        
-        let dcRaw = parseFloat(
-          items.deadCostTotal || items.dead_cost_total || items.deadCost ||
-          items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted ||
-          items.total_dead_cost || 0
-        )
-        
-        let deadCostSubjectToVig = 0
-        let deadCostNoVig = 0
-
-        if (items.deadCostSubjectToVig !== undefined && items.deadCostNoVig !== undefined) {
-          deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig || 0)
-          deadCostNoVig = parseFloat(items.deadCostNoVig || 0)
-          dcRaw = deadCostSubjectToVig + deadCostNoVig
-        } else if (lineItems.length > 0) {
-          for (const li of lineItems) {
-            const qty = parseFloat(li.quantity) || 1
-            const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * (settings.dead_cost_fallback_pct / 100))
-            const itemCost = qty * cost
-            if (isNoVigItem(li)) {
-              deadCostNoVig += itemCost
-            } else {
-              deadCostSubjectToVig += itemCost
-            }
+        // ── AUTO-PROCESS: run calculateDocumentCosts and persist results ──
+        try {
+          const docForCalc = {
+            ...items,
+            line_items: items.line_items || items.items || [],
+            custom_fields: items.custom_fields || items.custom_field_hash || [],
+            sub_total: subTotal,
+            total: inv.amount || subTotal,
+            status: inv.status,
           }
-          dcRaw = deadCostSubjectToVig + deadCostNoVig
-        } else {
-          deadCostSubjectToVig = dcRaw
+          const calc = await calculateDocumentCosts(docForCalc)
+          deadCost = calc.deadCostTotal
+          deadCostPlusVig = calc.deadCostPlusVig
+          profit = calc.profit
+          deadProfit = calc.deadProfitActual
+          salesCommission = calc.salesCommission
+          commissionPct = calc.commissionPct
+
+          // Persist to DB so next load uses stored values
+          const existingItems = items || {}
+          const updatedItems = {
+            ...existingItems,
+            deadCostTotal: calc.deadCostTotal,
+            deadCostSubjectToVig: calc.deadCostSubjectToVig,
+            deadCostNoVig: calc.deadCostNoVig,
+            deadCostPlusVig: calc.deadCostPlusVig,
+            deadProfitActual: calc.deadProfitActual,
+            profit: calc.profit,
+            marginPercent: calc.marginPercent,
+            subTotal: calc.subTotal,
+            vigRate: calc.vigRate,
+            ccFees: calc.ccFees,
+            additionalCosts: calc.additionalCosts,
+            insurance: calc.insurance,
+            commissionPct: calc.commissionPct,
+            salesCommission: calc.salesCommission,
+            isPaid: calc.isPaid,
+            lineItemBreakdownStrings: calc.lineItemBreakdownStrings,
+            costsCalculatedAt: new Date().toISOString(),
+          }
+          // Fire-and-forget DB update — don't block the response
+          prisma.invoice.update({
+            where: { id: inv.id },
+            data: { items: updatedItems as any, costsCalculatedAt: new Date() },
+          }).catch(e => console.error(`Auto-process invoice ${inv.id} save failed:`, e))
+        } catch (calcErr) {
+          console.error(`Auto-process invoice ${inv.id} failed:`, calcErr)
+          // Ultimate fallback if calculateDocumentCosts errors
+          deadCost = subTotal * (settings.dead_cost_fallback_pct / 100)
+          deadCostPlusVig = deadCost * vigRate
+          profit = subTotal - deadCostPlusVig
+          deadProfit = subTotal - deadCost
+          commissionPct = settings.commission_rate_pct
+          salesCommission = profit > 0 ? profit * (commissionPct / 100) : 0
         }
-
-        if ((isNaN(dcRaw) || dcRaw === 0) && subTotal > 0) {
-          dcRaw = subTotal * (settings.dead_cost_fallback_pct / 100)
-          deadCostSubjectToVig = dcRaw
-          deadCostNoVig = 0
-        }
-        if (isNaN(dcRaw)) dcRaw = 0
-
-        deadCost = dcRaw
-        deadCostPlusVig = (deadCostSubjectToVig * vigRate) + deadCostNoVig
-
-        const additionalCosts = extractAdditionalCosts(items)
-        const giftsCost = parseFloat(items.gifts || items.gifts_cost || items.giftCost || cfs.find((c: any) => (c.label || '').toUpperCase().includes('GIFT'))?.value || 0) || 0
-        const ccFees = extractCcFees(items)
-
-        profit = subTotal - deadCostPlusVig - additionalCosts - giftsCost - ccFees
-        deadProfit = subTotal - deadCost - additionalCosts - giftsCost - ccFees
-        commissionPct = settings.commission_rate_pct
-        salesCommission = profit < 0 ? profit * (settings.loss_split_pct / 100) : profit * (commissionPct / 100)
       }
 
       if (isNaN(profit)) profit = 0
@@ -581,13 +586,13 @@ export const handler: Handler = async (event) => {
         commission: { total, upfront, final: final, future, atRiskAmount },
         type: "invoice" as const
       }
-    })
+    }))
 
     // Statuses Zoho sets on a SO once it has been converted to an Invoice.
     // These SOs must be excluded — the Invoice is the source of truth.
     const INVOICED_SO_STATUSES = new Set(['Invoiced','invoiced','Converted','converted','Closed','closed'])
 
-    const salesOrderRecords = rawSalesOrders.map(so => {
+    const salesOrderRecords = (await Promise.all(rawSalesOrders.map(async (so) => {
       const items = (so.items as any) || {}
       const cfs = items.custom_fields || []
       const salespersonName = items.salesperson as string | null
@@ -624,54 +629,53 @@ export const handler: Handler = async (event) => {
         deadProfit = parseFloat(items.deadProfitActual || 0) || (subTotal - deadCost)
         salesCommission = parseFloat(items.salesCommission || 0) || 0
       } else {
-        const lineItems = Array.isArray(items.line_items) ? items.line_items : (Array.isArray(items.items) ? items.items : [])
-        
-        let dcRaw = parseFloat(
-          items.deadCostTotal || items.dead_cost_total || items.deadCost ||
-          items.cf_dead_cost_total || items.cf_dead_cost_total_unformatted ||
-          items.total_dead_cost || 0
-        )
-        
-        let deadCostSubjectToVig = 0
-        let deadCostNoVig = 0
-
-        if (items.deadCostSubjectToVig !== undefined && items.deadCostNoVig !== undefined) {
-          deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig || 0)
-          deadCostNoVig = parseFloat(items.deadCostNoVig || 0)
-          dcRaw = deadCostSubjectToVig + deadCostNoVig
-        } else if (lineItems.length > 0) {
-          for (const li of lineItems) {
-            const qty = parseFloat(li.quantity) || 1
-            const cost = parseFloat(li.cost || li.purchase_rate || li.bck || 0) || (parseFloat(li.rate || 0) * (settings.dead_cost_fallback_pct / 100))
-            const itemCost = qty * cost
-            if (isNoVigItem(li)) {
-              deadCostNoVig += itemCost
-            } else {
-              deadCostSubjectToVig += itemCost
-            }
+        // ── AUTO-PROCESS: run calculateDocumentCosts and persist results ──
+        try {
+          const docForCalc = {
+            ...items,
+            line_items: items.line_items || items.items || [],
+            custom_fields: items.custom_fields || items.custom_field_hash || [],
+            sub_total: subTotal,
+            total: so.amount || subTotal,
+            status: so.status,
           }
-          dcRaw = deadCostSubjectToVig + deadCostNoVig
-        } else {
-          deadCostSubjectToVig = dcRaw
+          const calc = await calculateDocumentCosts(docForCalc)
+          deadCost = calc.deadCostTotal
+          deadCostPlusVig = calc.deadCostPlusVig
+          profit = calc.profit
+          deadProfit = calc.deadProfitActual
+          salesCommission = calc.salesCommission
+
+          // Persist to DB
+          const updatedItems = {
+            ...items,
+            deadCostTotal: calc.deadCostTotal,
+            deadCostSubjectToVig: calc.deadCostSubjectToVig,
+            deadCostNoVig: calc.deadCostNoVig,
+            deadCostPlusVig: calc.deadCostPlusVig,
+            deadProfitActual: calc.deadProfitActual,
+            profit: calc.profit,
+            marginPercent: calc.marginPercent,
+            subTotal: calc.subTotal,
+            vigRate: calc.vigRate,
+            ccFees: calc.ccFees,
+            additionalCosts: calc.additionalCosts,
+            commissionPct: calc.commissionPct,
+            salesCommission: calc.salesCommission,
+            costsCalculatedAt: new Date().toISOString(),
+          }
+          prisma.salesOrder.update({
+            where: { id: so.id },
+            data: { items: updatedItems as any, costsCalculatedAt: new Date() },
+          }).catch(e => console.error(`Auto-process SO ${so.id} save failed:`, e))
+        } catch (calcErr) {
+          console.error(`Auto-process SO ${so.id} failed:`, calcErr)
+          deadCost = subTotal * (settings.dead_cost_fallback_pct / 100)
+          deadCostPlusVig = deadCost * vigRate
+          profit = subTotal - deadCostPlusVig
+          deadProfit = subTotal - deadCost
+          salesCommission = profit > 0 ? profit * (settings.commission_rate_pct / 100) : 0
         }
-
-        if ((isNaN(dcRaw) || dcRaw === 0) && subTotal > 0) {
-          dcRaw = subTotal * (settings.dead_cost_fallback_pct / 100)
-          deadCostSubjectToVig = dcRaw
-          deadCostNoVig = 0
-        }
-        if (isNaN(dcRaw)) dcRaw = 0
-
-        deadCost = dcRaw
-        deadCostPlusVig = (deadCostSubjectToVig * vigRate) + deadCostNoVig
-
-        const additionalCosts = parseFloat(items.additionalCosts || items.additional_costs || cfs.find((c: any) => (c.label || '').toUpperCase().includes('ADDITIONAL COSTS'))?.value || 0) || 0
-        const giftsCost = parseFloat(items.gifts || items.gifts_cost || items.giftCost || cfs.find((c: any) => (c.label || '').toUpperCase().includes('GIFT'))?.value || 0) || 0
-        const ccFees = parseFloat(items.ccFees || items.cc_fees || cfs.find((c: any) => (c.label || '').toUpperCase().includes('CREDIT CARD'))?.value || 0) || 0
-
-        profit = subTotal - deadCostPlusVig - additionalCosts - giftsCost - ccFees
-        deadProfit = subTotal - deadCost - additionalCosts - giftsCost - ccFees
-        salesCommission = profit < 0 ? profit * (settings.loss_split_pct / 100) : profit * (settings.commission_rate_pct / 100)
       }
 
       if (isNaN(profit)) profit = 0
@@ -728,7 +732,7 @@ export const handler: Handler = async (event) => {
         commission: { total, upfront, final, future, atRiskAmount: 0 },
         type: "invoice" as const
       }
-    }).filter(so => !INVOICED_SO_STATUSES.has(so.status || ''))
+    }))).filter(so => !INVOICED_SO_STATUSES.has(so.status || ''))
 
     const allCommissionRecords = [...invoiceRecords, ...salesOrderRecords]
 
