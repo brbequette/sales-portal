@@ -84,8 +84,8 @@ export async function POST(req: Request) {
         total_actual_weight: weight || 1.5,
         box: { slug: "custom" },
         items: [{
-          description: "Diamond products",
-          category: "jewelry",
+          description: "Diamond concrete blades",
+          category: "home_appliances",
           quantity: 1,
           dimensions: {
             length: length || 10,

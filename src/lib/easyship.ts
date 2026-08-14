@@ -1,4 +1,4 @@
-export const EASYSHIP_API_URL = 'https://public-api.easyship.com/2024-09';
+export const EASYSHIP_API_URL = process.env.EASYSHIP_API_URL || 'https://public-api.easyship.com/2024-09';
 
 export interface Address {
   line_1?: string;
