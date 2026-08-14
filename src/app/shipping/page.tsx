@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
-import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign } from "react-icons/fi"
+import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign, FiX } from "react-icons/fi"
 import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
 import { toast } from 'react-hot-toast';
@@ -134,6 +134,42 @@ export default function ShippingPage() {
   const [calcRates, setCalcRates] = useState<any>(null)
   const [calcSort, setCalcSort] = useState<"price" | "speed">("price")
 
+  // Vendor/Customer lookup state
+  const [originVendorSearch, setOriginVendorSearch] = useState('')
+  const [originVendorResults, setOriginVendorResults] = useState<any[]>([])
+  const [selectedVendor, setSelectedVendor] = useState<any>(null)
+  const [showVendorDropdown, setShowVendorDropdown] = useState(false)
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [customerResults, setCustomerResults] = useState<any[]>([])
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+
+  // Debounced vendor search
+  useEffect(() => {
+    if (!originVendorSearch || originVendorSearch.length < 2) { setOriginVendorResults([]); return }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/shipping/lookup?type=vendor&q=${encodeURIComponent(originVendorSearch)}`)
+        const data = await res.json()
+        if (data.results) setOriginVendorResults(data.results)
+      } catch {}
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [originVendorSearch])
+
+  // Debounced customer search
+  useEffect(() => {
+    if (!customerSearch || customerSearch.length < 2) { setCustomerResults([]); return }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/shipping/lookup?type=customer&q=${encodeURIComponent(customerSearch)}`)
+        const data = await res.json()
+        if (data.results) setCustomerResults(data.results)
+      } catch {}
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [customerSearch])
+
   const handleCheckRates = async () => {
     if (!calcForm.zip || !calcForm.weight) {
       toast.error("ZIP and Weight are required")
@@ -150,6 +186,12 @@ export default function ShippingPage() {
           city: calcForm.city,
           state: calcForm.state,
           country: calcForm.country,
+          originAddress: selectedVendor ? {
+            zip: selectedVendor.zip,
+            city: selectedVendor.city,
+            state: selectedVendor.state,
+            country: selectedVendor.country || 'US'
+          } : undefined,
           weight: parseFloat(calcForm.weight) || 1,
           length: parseFloat(calcForm.length) || undefined,
           width: parseFloat(calcForm.width) || undefined,
@@ -500,7 +542,98 @@ export default function ShippingPage() {
         
         {calcExpanded && (
           <div className="p-4 border-t border-white/10 space-y-4">
-            {/* Row 1: Destination */}
+            {/* Row 0: Origin & Destination Lookups */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Vendor Origin Lookup */}
+              <div className="relative">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">Ship From (Vendor)</label>
+                {selectedVendor ? (
+                  <div className="flex items-center gap-2 bg-emerald-950/30 border border-emerald-500/20 rounded-xl px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold text-white truncate">{selectedVendor.name}</div>
+                      <div className="text-[10px] text-neutral-400 truncate">{selectedVendor.city}, {selectedVendor.state} {selectedVendor.zip}</div>
+                    </div>
+                    <button onClick={() => { setSelectedVendor(null); setOriginVendorSearch('') }} className="text-neutral-500 hover:text-red-400 shrink-0"><FiX size={14} /></button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      value={originVendorSearch}
+                      onChange={e => { setOriginVendorSearch(e.target.value); setShowVendorDropdown(true) }}
+                      onFocus={() => originVendorResults.length > 0 && setShowVendorDropdown(true)}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none"
+                      placeholder="Search vendor name..."
+                    />
+                    {showVendorDropdown && originVendorResults.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-neutral-900 border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                        {originVendorResults.map((v: any) => (
+                          <button
+                            key={v.id}
+                            onClick={() => { setSelectedVendor(v); setShowVendorDropdown(false); setOriginVendorSearch('') }}
+                            className="w-full text-left px-3 py-2 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
+                          >
+                            <div className="text-sm font-medium text-white">{v.name}</div>
+                            <div className="text-[10px] text-neutral-500">{v.address ? `${v.address}, ` : ''}{v.city}, {v.state} {v.zip}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Customer Destination Lookup */}
+              <div className="relative">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">Ship To (Customer)</label>
+                {selectedCustomer ? (
+                  <div className="flex items-center gap-2 bg-blue-950/30 border border-blue-500/20 rounded-xl px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold text-white truncate">{selectedCustomer.name}</div>
+                      <div className="text-[10px] text-neutral-400 truncate">{selectedCustomer.city}, {selectedCustomer.state} {selectedCustomer.zip}</div>
+                    </div>
+                    <button onClick={() => {
+                      setSelectedCustomer(null)
+                      setCustomerSearch('')
+                      setCalcForm(f => ({...f, zip: '', city: '', state: ''}))
+                    }} className="text-neutral-500 hover:text-red-400 shrink-0"><FiX size={14} /></button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      value={customerSearch}
+                      onChange={e => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true) }}
+                      onFocus={() => customerResults.length > 0 && setShowCustomerDropdown(true)}
+                      className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-orange-500/50 outline-none"
+                      placeholder="Search customer name..."
+                    />
+                    {showCustomerDropdown && customerResults.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-neutral-900 border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                        {customerResults.map((c: any) => (
+                          <button
+                            key={c.id}
+                            onClick={() => {
+                              setSelectedCustomer(c)
+                              setShowCustomerDropdown(false)
+                              setCustomerSearch('')
+                              // Auto-fill destination fields
+                              setCalcForm(f => ({...f, zip: c.zip || '', city: c.city || '', state: c.state || ''}))
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
+                          >
+                            <div className="text-sm font-medium text-white">{c.name}</div>
+                            <div className="text-[10px] text-neutral-500">{c.address ? `${c.address}, ` : ''}{c.city}, {c.state} {c.zip}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Row 1: Destination (manual override) */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1">ZIP / Postal *</label>

@@ -51,7 +51,8 @@ export async function POST(req: Request) {
       width, 
       height, 
       declaredValue, 
-      findBestDeal: isFindBestDeal 
+      findBestDeal: isFindBestDeal,
+      originAddress
     } = body;
 
     const hasApiKey = !!process.env.EASYSHIP_API_KEY;
@@ -71,6 +72,14 @@ export async function POST(req: Request) {
         state: state || "",
         country_alpha2: country || "US"
       },
+      ...(originAddress ? {
+        origin_address: {
+          postal_code: originAddress.zip,
+          city: originAddress.city || '',
+          state: originAddress.state || '',
+          country_alpha2: originAddress.country || 'US'
+        }
+      } : {}),
       parcels: [{
         total_actual_weight: weight || 1.5,
         box: { slug: "custom" },
