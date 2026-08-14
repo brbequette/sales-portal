@@ -44,6 +44,8 @@ interface WeeklyGroup {
   totalDeadProfit: number
   totalProfit: number
   totalCommission: number
+  pendingCommission: number
+  secondPaymentDue: number
   paidCount: number
   unpaidCount: number
 }
@@ -189,6 +191,8 @@ export default function CommissionsPage() {
           totalDeadProfit: 0,
           totalProfit: 0,
           totalCommission: 0,
+          pendingCommission: 0,
+          secondPaymentDue: 0,
           paidCount: 0,
           unpaidCount: 0
         }
@@ -200,6 +204,10 @@ export default function CommissionsPage() {
       // "Est. Commission" = total estimated = earned + future
       const estimatedCommission = (inv.commission?.total || 0) + (inv.commission?.future || 0)
 
+      // Pending commission = future commission from unpaid invoices
+      // Second payment due = future commission from paid invoices (2nd half released on payment)
+      const futureComm = inv.commission?.future || 0
+      
       groupsMap[weekKey].invoices.push(inv)
       groupsMap[weekKey].totalSales += (inv.amount || 0)
       groupsMap[weekKey].totalDeadCost += (inv.deadCost || 0)
@@ -208,8 +216,12 @@ export default function CommissionsPage() {
       groupsMap[weekKey].totalCommission += estimatedCommission
       if (isPaid) {
         groupsMap[weekKey].paidCount += 1
+        // Paid invoice — 2nd half should have been released
+        groupsMap[weekKey].secondPaymentDue += (inv.commission?.final || futureComm)
       } else {
         groupsMap[weekKey].unpaidCount += 1
+        // Unpaid — future commission still pending customer payment
+        groupsMap[weekKey].pendingCommission += futureComm
       }
     })
 
@@ -836,6 +848,18 @@ export default function CommissionsPage() {
                               <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Est. Commission</div>
                               <div className="text-sm font-bold text-emerald-400">{fmt(group.totalCommission)}</div>
                             </div>
+                            {group.pendingCommission > 0 && (
+                              <div>
+                                <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Pending</div>
+                                <div className="text-sm font-semibold text-violet-400">{fmt(group.pendingCommission)}</div>
+                              </div>
+                            )}
+                            {group.secondPaymentDue > 0 && (
+                              <div>
+                                <div className="text-[10px] text-neutral-600 uppercase tracking-wider">2nd Pmt Rcvd</div>
+                                <div className="text-sm font-semibold text-blue-400">{fmt(group.secondPaymentDue)}</div>
+                              </div>
+                            )}
                           </div>
                         </div>
 
