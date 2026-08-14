@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
-import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign, FiX } from "react-icons/fi"
+import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign, FiX, FiEdit2 } from "react-icons/fi"
 import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
 import { toast } from 'react-hot-toast';
@@ -45,10 +45,14 @@ interface DropshipInfo {
   id: string
   zohoId: string
   vendorName: string
+  shipToName?: string
+  referenceNumber?: string
   date: string
   total: number
   status: string
   trackingNumber: string
+  shippingCharge?: number
+  lineItems?: Array<{ name: string; sku: string; quantity: number; rate: number }>
 }
 
 const STATUS_TABS: { key: ShipStatus; label: string; icon: any; color: string; bg: string }[] = [
@@ -488,6 +492,32 @@ export default function ShippingPage() {
   const [shipNowResult, setShipNowResult] = useState<any>(null)
   const [shipNowWeight, setShipNowWeight] = useState('5')
   const [shipNowDims, setShipNowDims] = useState({ length: '15', width: '15', height: '4' })
+  const [editingDropship, setEditingDropship] = useState<string | null>(null)
+  const [dropshipEdit, setDropshipEdit] = useState({ tracking: '', shippingCharge: '' })
+
+  const saveDropshipEdit = async (poId: string) => {
+    try {
+      const res = await fetch('/api/shipping/update-dropship', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          poId,
+          trackingNumber: dropshipEdit.tracking || undefined,
+          shippingCharge: dropshipEdit.shippingCharge || undefined,
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success('Dropshipment updated')
+        setEditingDropship(null)
+        fetchOrders()
+      } else {
+        toast.error(data.error || 'Failed to update')
+      }
+    } catch (e: any) {
+      toast.error('Error: ' + e.message)
+    }
+  }
 
   const openShipNow = async (pkg: any, order: any) => {
     setShipNowPkg(pkg)
@@ -1370,8 +1400,8 @@ export default function ShippingPage() {
                         <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-2">Dropshipments</div>
                         <div className="space-y-2">
                           {order.dropshipments.map(ds => (
-                            <div key={ds.id} className="bg-orange-950/20 border border-orange-800/30 rounded-xl p-3 flex flex-col md:flex-row md:items-center gap-3">
-                              <div className="flex-1">
+                            <div key={ds.id} className="bg-orange-950/20 border border-orange-800/30 rounded-xl p-3">
+                              <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                   <FiTruck className="text-orange-400 text-xs" />
                                   <span className="text-sm font-bold text-white">{ds.vendorName || "Vendor"}</span>
@@ -1383,13 +1413,78 @@ export default function ShippingPage() {
                                     {ds.status || "draft"}
                                   </span>
                                   <span className="text-[10px] text-neutral-500 font-mono">${ds.total?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                  {ds.shippingCharge ? <span className="text-[10px] text-neutral-500">Ship: ${ds.shippingCharge.toFixed(2)}</span> : null}
                                 </div>
-                                {ds.trackingNumber && (
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-xs text-neutral-300 font-mono">{ds.trackingNumber}</span>
-                                  </div>
-                                )}
+                                <button
+                                  onClick={() => {
+                                    setEditingDropship(editingDropship === ds.id ? null : ds.id)
+                                    setDropshipEdit({ tracking: ds.trackingNumber || '', shippingCharge: String(ds.shippingCharge || '') })
+                                  }}
+                                  className="text-[10px] text-neutral-500 hover:text-orange-400 transition-colors"
+                                >
+                                  <FiEdit2 size={12} />
+                                </button>
                               </div>
+
+                              {/* Line Items */}
+                              {ds.lineItems && ds.lineItems.length > 0 && (
+                                <div className="mt-2 pl-5 space-y-0.5">
+                                  {ds.lineItems.map((li, liIdx) => (
+                                    <div key={liIdx} className="flex items-center gap-2 text-xs text-neutral-400">
+                                      <span className="text-neutral-600">•</span>
+                                      <span className="text-neutral-300">{li.quantity}x</span>
+                                      <span className="truncate">{li.name}</span>
+                                      {li.rate > 0 && <span className="text-neutral-600 ml-auto shrink-0">${li.rate.toFixed(2)}</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Tracking display */}
+                              {ds.trackingNumber && editingDropship !== ds.id && (
+                                <div className="flex items-center gap-2 mt-2 pl-5">
+                                  <span className="text-[10px] text-neutral-500">Tracking:</span>
+                                  <span className="text-xs text-neutral-300 font-mono">{ds.trackingNumber}</span>
+                                </div>
+                              )}
+
+                              {/* Edit form */}
+                              {editingDropship === ds.id && (
+                                <div className="mt-2 pl-5 flex flex-wrap gap-2 items-end">
+                                  <div className="flex-1 min-w-[140px]">
+                                    <label className="text-[9px] font-bold uppercase text-neutral-600 block mb-0.5">Tracking #</label>
+                                    <input
+                                      type="text"
+                                      value={dropshipEdit.tracking}
+                                      onChange={e => setDropshipEdit(d => ({ ...d, tracking: e.target.value }))}
+                                      className="w-full bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:border-orange-500/50 outline-none font-mono"
+                                      placeholder="Enter tracking number"
+                                    />
+                                  </div>
+                                  <div className="w-24">
+                                    <label className="text-[9px] font-bold uppercase text-neutral-600 block mb-0.5">Ship Cost</label>
+                                    <input
+                                      type="number"
+                                      value={dropshipEdit.shippingCharge}
+                                      onChange={e => setDropshipEdit(d => ({ ...d, shippingCharge: e.target.value }))}
+                                      className="w-full bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:border-orange-500/50 outline-none"
+                                      placeholder="$0.00"
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={() => saveDropshipEdit(ds.id)}
+                                    className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold transition-colors"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingDropship(null)}
+                                    className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-400 text-xs transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

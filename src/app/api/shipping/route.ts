@@ -249,15 +249,28 @@ export async function GET(req: NextRequest) {
           shippingCharge: p.shippingCharge,
           items: p.items,
         })),
-        dropshipments: soDrops.map((po: any) => ({
-          id: po.id,
-          zohoId: po.zohoId,
-          vendorName: po.vendorName,
-          date: po.date,
-          total: po.total,
-          status: po.status,
-          trackingNumber: po.trackingNumber,
-        })),
+        dropshipments: soDrops.map((po: any) => {
+          const poItems = (po.items as any) || {}
+          const lineItems = poItems.line_items || poItems.lineItems || []
+          return {
+            id: po.id,
+            zohoId: po.zohoId,
+            vendorName: po.vendorName,
+            shipToName: po.shipToName,
+            referenceNumber: po.referenceNumber,
+            date: po.date,
+            total: po.total,
+            status: po.status,
+            trackingNumber: po.trackingNumber,
+            shippingCharge: poItems.shipping_charge || 0,
+            lineItems: lineItems.map((li: any) => ({
+              name: li.name || li.item_name || li.description || '',
+              sku: li.sku || '',
+              quantity: li.quantity || 1,
+              rate: li.rate || 0,
+            })),
+          }
+        }),
       }
     })
 
