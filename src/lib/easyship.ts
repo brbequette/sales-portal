@@ -440,22 +440,21 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
   let currency = shipment.currency || 'USD';
 
   if (easyshipId) {
-    const labelPayload = {
-      shipments: [{
-        easyship_shipment_id: easyshipId,
-        courier_service_id: params.courierServiceId,
-      }]
-    };
-    console.log('[easyship] Buying label:', JSON.stringify(labelPayload));
+    // Easyship 2024-09 API: POST /2024-09/shipments/{shipment_id}/label
+    const labelBody: any = {};
+    if (params.courierServiceId) {
+      labelBody.courier_service_id = params.courierServiceId;
+    }
+    console.log(`[easyship] Buying label for shipment ${easyshipId}:`, JSON.stringify(labelBody));
 
-    const labelRes = await fetch(`${EASYSHIP_API_URL}/labels`, {
+    const labelRes = await fetch(`${EASYSHIP_API_URL}/2024-09/shipments/${easyshipId}/label`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify(labelPayload)
+      body: JSON.stringify(labelBody)
     });
 
     const labelText = await labelRes.text();
-    console.log(`[easyship] Label response (${labelRes.status}):`, labelText.substring(0, 1000));
+    console.log(`[easyship] Label response (${labelRes.status}):`, labelText.substring(0, 1500));
 
     if (!labelRes.ok) {
       throw new Error(`Easyship label purchase failed (${labelRes.status}): ${labelText.substring(0, 500)}`);
@@ -463,40 +462,36 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
 
     const labelData = JSON.parse(labelText);
     
-    // Easyship returns data under different keys depending on API version
-    const labelShipment = labelData.shipments?.[0] 
-      || labelData.labels?.[0] 
-      || labelData.shipment 
-      || labelData.label 
-      || {};
+    // 2024-09 API returns { shipment: { ... } }
+    const labelShipment = labelData.shipment || labelData.shipments?.[0] || {};
     
-    console.log('[easyship] Parsed label shipment keys:', Object.keys(labelShipment).join(', '));
+    console.log('[easyship] Label shipment keys:', Object.keys(labelShipment).join(', '));
 
+    // Extract shipping documents (label URL)
     labelUrl = labelShipment.shipping_documents?.find((d: any) => d.category === 'label')?.url
-      || labelShipment.label?.url || labelShipment.label_url 
       || labelShipment.shipping_documents?.[0]?.url || '';
+    
+    // Extract tracking info
     trackingNumber = labelShipment.trackings?.[0]?.tracking_number 
       || labelShipment.tracking_number 
-      || labelShipment.tracking?.tracking_number
       || trackingNumber;
-    trackingPageUrl = labelShipment.tracking_page_url 
-      || labelShipment.trackings?.[0]?.tracking_page_url
+    trackingPageUrl = labelShipment.trackings?.[0]?.tracking_page_url
+      || labelShipment.tracking_page_url 
       || trackingPageUrl;
+    
+    // Label and courier info
     labelState = labelShipment.label_state || 'generated';
     courierName = labelShipment.courier_service?.name 
       || labelShipment.courier?.name 
-      || labelShipment.selected_courier?.name 
-      || labelShipment.courier_name
       || courierName;
     totalCharge = labelShipment.total_charge 
       || labelShipment.shipment_charge_total 
-      || labelShipment.rates?.selected?.total_charge
       || totalCharge;
     currency = labelShipment.currency || currency;
 
-    // If we still have no tracking number, log the full response for debugging
+    // If we still have no tracking number, log for debugging
     if (!trackingNumber) {
-      console.warn('[easyship] WARNING: No tracking number found in label response. Full data:', JSON.stringify(labelData).substring(0, 2000));
+      console.warn('[easyship] WARNING: No tracking number in label response. Full data:', JSON.stringify(labelData).substring(0, 2000));
     }
   }
 
