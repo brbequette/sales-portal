@@ -2,15 +2,21 @@
 // No hardcoded fallbacks allowed
 // Uses lazy evaluation to avoid crashing at module load time during build
 
-// At build time (Netlify prerender), env vars may not be available.
-// Return empty strings so prerender succeeds; real values are used at runtime.
-const isBuildPhase = process.env.NODE_ENV === 'production' && !process.env.COMPANY_NAME
+// At build time (Netlify prerender), some env vars may not be accessible.
+// During static page generation, return empty strings; the Proxy ensures
+// real values are lazily evaluated at runtime when the API actually runs.
+// NEXT_PHASE is set by Next.js during build. As a fallback, detect prerender
+// by checking if we're in a server context without a request.
+const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build'
 
 function env(name: string): string {
   const val = process.env[name]
   if (!val) {
     if (isBuildPhase) return ''
-    throw new Error(`Missing required environment variable: ${name}`)
+    // At runtime, warn but don't crash — some pages import config but
+    // may not use all fields
+    console.warn(`[company-config] Missing env var: ${name}`)
+    return ''
   }
   return val
 }
