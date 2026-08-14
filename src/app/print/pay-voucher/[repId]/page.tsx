@@ -48,7 +48,10 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
         const activePlan = planData.success && planData.data?.length > 0 ? planData.data[0] : null
         
         // Filter invoices for this week
-        const repInvoices = commData.byRep?.[repId]?.invoices || []
+        const repData = commData.byRep?.[repId]
+        const repInvoices = repData?.invoices || []
+        const payoutStructure = repData?.payoutStructure || 'two_payment'
+        const isSinglePay = payoutStructure === 'single_payment'
         const weekStart = new Date(weekStartStr)
         weekStart.setHours(0,0,0,0)
         const weekEnd = new Date(weekStart)
@@ -80,6 +83,45 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
 
         const totalCommission = [...upfrontEvents, ...finalEvents].reduce((sum, ev) => sum + ev.amount, 0)
         const weekPendingTotal = pendingEvents.reduce((sum, ev) => sum + ev.amount, 0)
+
+        // Sales created this week (for single-pay reps: unpaid invoices they wrote)
+        const salesCreatedThisWeek: any[] = []
+        let salesCreatedTotal = 0
+        // All-time pending commissions (all unpaid invoices)
+        const allPendingCommissions: any[] = []
+        let allPendingTotal = 0
+
+        repInvoices.forEach((inv: any) => {
+          // Single-pay: show all invoices CREATED this week as "sales created"
+          if (isSinglePay && inv.issueDate) {
+            const idate = new Date(inv.issueDate)
+            if (idate >= weekStart && idate <= weekEnd && !inv.isPaid) {
+              const potentialComm = inv.commission?.future || inv.commission?.total || (inv.profit * 0.5) || 0
+              salesCreatedThisWeek.push({
+                name: inv.name || inv.accountName,
+                invoiceNumber: inv.invoiceNumber,
+                amount: inv.amount || 0,
+                profit: inv.profit || 0,
+                potentialCommission: potentialComm,
+              })
+              salesCreatedTotal += potentialComm
+            }
+          }
+          // All unpaid invoices across all time
+          if (!inv.isPaid) {
+            const futureComm = inv.commission?.future || inv.commission?.total || (inv.profit * 0.5) || 0
+            if (futureComm > 0) {
+              allPendingCommissions.push({
+                name: inv.name || inv.accountName,
+                invoiceNumber: inv.invoiceNumber,
+                amount: inv.amount || 0,
+                potentialCommission: futureComm,
+                issueDate: inv.issueDate,
+              })
+              allPendingTotal += futureComm
+            }
+          }
+        })
 
         // Find active advances and calculate deductions
         const advances = []
@@ -214,6 +256,12 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
           ytdCommEarned,
           ytdPending,
           ytdDeals,
+          payoutStructure,
+          isSinglePay,
+          salesCreatedThisWeek,
+          salesCreatedTotal,
+          allPendingCommissions,
+          allPendingTotal,
         })
 
       } catch (err) {
@@ -377,8 +425,85 @@ export default function PayVoucherPrint({ params }: { params: { repId: string } 
                       </div>
                     </section>
 
+                    {/* ── SALES CREATED THIS WEEK (Single-Pay Reps) ── */}
+                    {data.isSinglePay && data.salesCreatedThisWeek.length > 0 && (
+                      <section className="border border-gray-300 rounded overflow-hidden">
+                        <h3 className="text-sm font-bold bg-gray-100 border-b border-gray-300 px-3 py-2 uppercase tracking-wide">Sales Created This Week — Pending Payment</h3>
+                        <div className="p-3">
+                          <p className="text-xs text-gray-500 mb-2">These invoices were created this week. Commission will be earned when the customer pays.</p>
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-left text-gray-600 border-b border-gray-200 text-xs uppercase tracking-wider">
+                                <th className="py-1 px-1 font-semibold">Invoice</th>
+                                <th className="py-1 px-1 font-semibold">Account</th>
+                                <th className="py-1 px-1 font-semibold text-right">Sale Amount</th>
+                                <th className="py-1 px-1 font-semibold text-right">Profit</th>
+                                <th className="py-1 px-1 font-semibold text-right">Potential Comm.</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {data.salesCreatedThisWeek.map((ev: any, i: number) => (
+                                <tr key={i} className="border-b border-gray-100 last:border-0">
+                                  <td className="py-1 px-1 font-mono text-xs">#{ev.invoiceNumber || '--'}</td>
+                                  <td className="py-1 px-1">{ev.name}</td>
+                                  <td className="py-1 px-1 text-right">{fmt(ev.amount)}</td>
+                                  <td className="py-1 px-1 text-right">{fmt(ev.profit)}</td>
+                                  <td className="py-1 px-1 text-right font-bold">{fmt(ev.potentialCommission)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="bg-gray-50 px-3 py-2 flex justify-between font-bold text-sm border-t border-gray-300">
+                          <span>Pending Pay Created This Week</span>
+                          <span>{fmt(data.salesCreatedTotal)}</span>
+                        </div>
+                      </section>
+                    )}
+
+                    {/* ── TOTAL PENDING COMMISSIONS (ALL TIME) ── */}
+                    {data.allPendingTotal > 0 && (
+                      <section className="border border-gray-300 rounded overflow-hidden">
+                        <h3 className="text-sm font-bold bg-gray-100 border-b border-gray-300 px-3 py-2 uppercase tracking-wide">Total Pending Commissions — All Unpaid Invoices</h3>
+                        <div className="p-3">
+                          <p className="text-xs text-gray-500 mb-2">{data.allPendingCommissions.length} unpaid invoice{data.allPendingCommissions.length !== 1 ? 's' : ''} awaiting customer payment.</p>
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-left text-gray-600 border-b border-gray-200 text-xs uppercase tracking-wider">
+                                <th className="py-1 px-1 font-semibold">Invoice</th>
+                                <th className="py-1 px-1 font-semibold">Account</th>
+                                <th className="py-1 px-1 font-semibold text-right">Sale Amount</th>
+                                <th className="py-1 px-1 font-semibold text-right">Pending Comm.</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {data.allPendingCommissions.slice(0, 25).map((ev: any, i: number) => (
+                                <tr key={i} className="border-b border-gray-100 last:border-0">
+                                  <td className="py-1 px-1 font-mono text-xs">#{ev.invoiceNumber || '--'}</td>
+                                  <td className="py-1 px-1">{ev.name}</td>
+                                  <td className="py-1 px-1 text-right">{fmt(ev.amount)}</td>
+                                  <td className="py-1 px-1 text-right font-bold">{fmt(ev.potentialCommission)}</td>
+                                </tr>
+                              ))}
+                              {data.allPendingCommissions.length > 25 && (
+                                <tr>
+                                  <td colSpan={4} className="py-1 px-1 text-center text-xs text-gray-400 italic">
+                                    + {data.allPendingCommissions.length - 25} more invoices
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="bg-gray-50 px-3 py-2 flex justify-between font-bold text-sm border-t border-gray-300">
+                          <span>Total Pending Commissions</span>
+                          <span>{fmt(data.allPendingTotal)}</span>
+                        </div>
+                      </section>
+                    )}
+
                     {/* ── PENDING COMMISSIONS (FUTURE 2ND PAYMENTS) ── */}
-                    {data.pendingEvents.length > 0 && (
+                    {!data.isSinglePay && data.pendingEvents.length > 0 && (
                       <section className="border border-gray-300 rounded overflow-hidden">
                         <h3 className="text-sm font-bold bg-gray-100 border-b border-gray-300 px-3 py-2 uppercase tracking-wide">Pending Commissions — 2nd Payment Due on Collection</h3>
                         <div className="p-3">

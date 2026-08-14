@@ -916,6 +916,9 @@ export const handler: Handler = async (event) => {
 
     Object.values(byRep).forEach((rep: any) => {
       rep.balance = rep.totalEarned - rep.totalPaid
+      // Attach payoutStructure from user record
+      const user = users.find((u: any) => u.id === rep.repId)
+      rep.payoutStructure = user?.payoutStructure || 'two_payment'
     })
 
     // ── Get available years from invoices ────────────────────────────────

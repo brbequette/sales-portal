@@ -150,6 +150,31 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
   const totalPeriodPayouts = periodPayouts.reduce((sum, p) => sum + p.amount, 0)
   const periodNetCheck = totalPeriodEarned - totalPeriodPayouts
 
+  // Single-pay rep: show sales created this week (unpaid invoices they wrote)
+  const isSinglePay = rep.payoutStructure === 'single_payment'
+
+  const salesCreatedThisWeek = useMemo(() => {
+    if (!isSinglePay) return []
+    return rep.invoices.filter(inv => {
+      if (!inv.issueDate || inv.isPaid) return false
+      const d = new Date(inv.issueDate)
+      return d >= periodStart && d <= periodEnd
+    })
+  }, [rep.invoices, periodStart, periodEnd, isSinglePay])
+
+  const salesCreatedTotal = salesCreatedThisWeek.reduce((sum, inv) => {
+    return sum + ((inv as any).commission?.future || inv.commission?.total || (inv.profit * 0.5) || 0)
+  }, 0)
+
+  // All-time pending commissions (all unpaid invoices)
+  const allPendingCommissions = useMemo(() => {
+    return rep.invoices.filter(inv => !inv.isPaid)
+  }, [rep.invoices])
+
+  const allPendingTotal = allPendingCommissions.reduce((sum, inv) => {
+    return sum + ((inv as any).commission?.future || inv.commission?.total || (inv.profit * 0.5) || 0)
+  }, 0)
+
   // YTD Metrics
   const ytdSales = rep.totalSales || 0
   const ytdProfit = rep.totalProfit || 0
@@ -401,6 +426,64 @@ export function PayPeriodStatementModal({ rep, onClose }: PayPeriodStatementModa
               </table>
             )}
           </div>
+
+          {/* Sales Created This Week (Single-Pay Reps) */}
+          {isSinglePay && salesCreatedThisWeek.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-xs font-black uppercase tracking-widest text-violet-400 print:text-black flex items-center gap-1.5">
+                <FiLayers /> Sales Created This Week — Pending Payment
+              </h3>
+              <div className="bg-neutral-900/30 rounded-xl border border-white/5 p-4 print:border-black/10 print:bg-white">
+                <p className="text-[10px] text-neutral-500 print:text-black/60 mb-2">Commission earned when customer pays.</p>
+                <table className="w-full text-left text-xs font-sans border border-white/10 rounded-xl overflow-hidden print:border-black/20">
+                  <thead className="bg-white/5 text-neutral-400 print:text-black print:bg-gray-100 uppercase font-black tracking-wider text-[10px]">
+                    <tr>
+                      <th className="py-2.5 px-4">Invoice #</th>
+                      <th className="py-2.5 px-4">Account Name</th>
+                      <th className="py-2.5 px-4 text-right">Sale Amount</th>
+                      <th className="py-2.5 px-4 text-right">Profit</th>
+                      <th className="py-2.5 px-4 text-right">Potential Commission</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-neutral-200 print:divide-black/10 print:text-black font-mono text-[11px]">
+                    {salesCreatedThisWeek.map(inv => (
+                      <tr key={inv.id}>
+                        <td className="py-2.5 px-4 font-bold text-violet-300 print:text-black">INV-{inv.invoiceNumber || inv.id.slice(-6)}</td>
+                        <td className="py-2.5 px-4 font-sans text-neutral-200 print:text-black">{inv.accountName || inv.name}</td>
+                        <td className="py-2.5 px-4 text-right">{fmt(inv.amount)}</td>
+                        <td className="py-2.5 px-4 text-right text-sky-300 print:text-black">{fmt(inv.profit)}</td>
+                        <td className="py-2.5 px-4 text-right font-black text-violet-300 print:text-black">
+                          {fmt((inv as any).commission?.future || inv.commission?.total || (inv.profit * 0.5) || 0)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="flex justify-between items-center px-4 py-3 mt-2 bg-violet-900/20 rounded-lg border border-violet-500/20 print:bg-gray-100 print:border-black/20 font-bold text-xs">
+                  <span className="text-violet-300 print:text-black">Pending Pay Created This Week</span>
+                  <span className="text-violet-200 print:text-black font-mono">{fmt(salesCreatedTotal)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Total Pending Commissions (All Unpaid Invoices) */}
+          {allPendingTotal > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-xs font-black uppercase tracking-widest text-blue-400 print:text-black flex items-center gap-1.5">
+                <FiCalendar /> Total Pending Commissions — All Unpaid Invoices
+              </h3>
+              <div className="bg-neutral-900/30 rounded-xl border border-white/5 p-4 print:border-black/10 print:bg-white">
+                <p className="text-[10px] text-neutral-500 print:text-black/60 mb-2">
+                  {allPendingCommissions.length} unpaid invoice{allPendingCommissions.length !== 1 ? 's' : ''} awaiting customer payment.
+                </p>
+                <div className="flex justify-between items-center px-4 py-3 bg-blue-900/20 rounded-lg border border-blue-500/20 print:bg-gray-100 print:border-black/20 font-bold text-xs">
+                  <span className="text-blue-300 print:text-black">Total Pending Commissions</span>
+                  <span className="text-blue-200 print:text-black font-mono text-lg">{fmt(allPendingTotal)}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Itemized 2nd Half Final Settlement Table */}
           <div className="space-y-3">
