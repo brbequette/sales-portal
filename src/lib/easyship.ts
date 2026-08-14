@@ -357,14 +357,16 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
       if (searchRes.ok) {
         const searchData = await searchRes.json();
         const shipments = searchData.shipments || [];
-        // Find a shipment that hasn't been shipped yet (label not purchased)
-        const existing = shipments.find((s: any) => 
-          s.label_state !== 'generated' && s.label_state !== 'downloaded'
-        ) || shipments[0];
-        if (existing?.easyship_shipment_id) {
-          easyshipId = existing.easyship_shipment_id;
-          shipment = existing;
-          console.log(`[easyship] Found existing shipment for order ${params.platformOrderNumber}: ${easyshipId}`);
+        // Only reuse shipments that DON'T have a label already requested
+        const reusable = shipments.find((s: any) => 
+          !s.label_state || s.label_state === 'not_created' || s.label_state === 'failed'
+        );
+        if (reusable?.easyship_shipment_id) {
+          easyshipId = reusable.easyship_shipment_id;
+          shipment = reusable;
+          console.log(`[easyship] Found reusable shipment (label_state: ${reusable.label_state}) for order ${params.platformOrderNumber}: ${easyshipId}`);
+        } else if (shipments.length > 0) {
+          console.log(`[easyship] Found ${shipments.length} existing shipments but all have labels already (states: ${shipments.map((s: any) => s.label_state).join(', ')}). Will create new shipment.`);
         }
       }
     } catch (e) {
