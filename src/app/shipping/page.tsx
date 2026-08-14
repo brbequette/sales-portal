@@ -391,9 +391,14 @@ export default function ShippingPage() {
         const data = await res.json()
         if (data.success) {
           const counts = Object.entries(data.results || {})
-            .map(([table, info]: [string, any]) => `${table}: ${info.synced}`)
+            .map(([table, info]: [string, any]) => {
+              if (info.skipped) return `${table}: ${info.skipped}`
+              if (info.error) return `${table}: ⚠ ${info.error}`
+              return `${table}: ${info.synced} updated`
+            })
             .join(", ")
-          setSyncResult(`✅ Sync complete — ${counts}`)
+          const totalSynced = Object.values(data.results || {}).reduce((sum: number, info: any) => sum + (info.synced || 0), 0)
+          setSyncResult(`✅ Sync complete (${totalSynced} records) — ${counts}`)
           fetchCounts()
           fetchOrders()
         } else {
