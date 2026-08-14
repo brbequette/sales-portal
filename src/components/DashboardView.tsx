@@ -5,7 +5,7 @@ import { useEffect, useState, useRef, useMemo } from "react"
 import {
   FiTarget, FiDollarSign, FiTrendingUp, FiClock, FiLayers,
   FiArrowUpRight, FiArrowDownRight, FiCheckCircle, FiAlertCircle, FiTrendingDown,
-  FiSliders, FiX, FiEye, FiEyeOff, FiAward, FiShoppingCart, FiFileText, FiRefreshCw, FiSearch, FiUsers, FiZap, FiPhoneCall, FiCalendar
+  FiSliders, FiX, FiEye, FiEyeOff, FiAward, FiShoppingCart, FiFileText, FiRefreshCw, FiSearch, FiUsers, FiZap, FiPhoneCall, FiCalendar, FiGrid
 } from "react-icons/fi"
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
@@ -19,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 
 
-// ÃƒÂ¢"Ã¢â€šÂ¬ÃƒÂ¢"Ã¢â€šÂ¬ÃƒÂ¢"Ã¢â€šÂ¬ Types ÃƒÂ¢"Ã¢â€šÂ¬ÃƒÂ¢"Ã¢â€šÂ¬ÃƒÂ¢"Ã¢â€šÂ¬
+// ─── Types ───
 
 import { 
   useDashboardData, 
@@ -97,7 +97,7 @@ function KPICard({
   )
 }
 
-// ÃƒÂ¢"Ã¢â€šÂ¬ÃƒÂ¢"Ã¢â€šÂ¬ÃƒÂ¢"Ã¢â€šÂ¬ Quota Ring ÃƒÂ¢"Ã¢â€šÂ¬ÃƒÂ¢"Ã¢â€šÂ¬ÃƒÂ¢"Ã¢â€šÂ¬
+// ─── Quota Ring ───
 function QuotaRing({ current, target, color }: { current: number; target: number; color: string }) {
   const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0
   const r = 36
@@ -186,7 +186,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
   if (isError) {
     return (
       <EmptyState
-        icon={<span>Ã¢Å¡Â Ã¯Â¸Â</span>}
+        icon={<FiAlertCircle size={24} />}
         title="Failed to load dashboard"
         description="There was an error loading your dashboard data. Please try again."
         action={<button onClick={() => refetch()} className="td-btn td-btn-primary">Retry</button>}
@@ -197,7 +197,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
   if (!data) {
     return (
       <EmptyState
-        icon={<span>Ã°Å¸â€œÅ </span>}
+        icon={<span>📈 </span>}
         title="No data available"
         description="Dashboard data will appear once you have invoices and sales activity."
       />
@@ -280,7 +280,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
                 onChange={e => setRepStatsSelectedRepId(e.target.value)}
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-orange-500 cursor-pointer"
               >
-                <option value="all">Ã°Å¸Å’Å¸ All Representatives (Company Aggregate)</option>
+                <option value="all">All Representatives (Company Aggregate)</option>
                 {repStatsReps.map((r: any) => (
                   <option key={r.repId} value={r.repName || r.email || r.repId}>
                     {r.repName} ({r.role || 'Sales'})
@@ -295,7 +295,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
               </label>
               <div className="flex items-center gap-2 pt-1">
                 <span className="px-3 py-1.5 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-black flex items-center gap-1.5">
-                  Ã°Å¸â€œÅ  {repName || currentUser?.name || "My Performance"}
+                  📈  {repName || currentUser?.name || "My Performance"}
                 </span>
               </div>
             </div>
@@ -325,7 +325,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
                       : "bg-neutral-800 text-neutral-400 hover:text-white"
                   }`}
                 >
-                  {p.id === "all" ? "Ã°Å¸Å’Å¸ " : ""}{p.label}
+                  {p.id === "all" ? "" : ""}{p.label}
                 </button>
               ))}
             </div>
@@ -404,7 +404,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider flex items-center gap-1">
-                  Ã°Å¸â€™Â° Invoice Commissions
+                  💰 Invoice Commissions
                 </span>
                 <span className="text-[9px] font-bold text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                   <FiSearch size={10} /> View Docs
@@ -415,12 +415,12 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
             </div>
           </div>
 
-          {/* COMPANY-WIDE TOTALS Ã¢â‚¬â€ uses separate all-reps fetch, admin-only clickable */}
+          {/* COMPANY-WIDE TOTALS —  uses separate all-reps fetch, admin-only clickable */}
           <div className="bg-black/40 border border-indigo-500/20 rounded-2xl p-4 space-y-3">
             <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-              Ã°Å¸ÂÂ¢ Company-Wide Totals
-              <span className="text-[9px] font-medium text-neutral-600 normal-case tracking-normal">All reps Ã‚Â· same period</span>
-              {companyLoading && <span className="text-[9px] text-indigo-500 animate-pulse">loadingÃ¢â‚¬Â¦</span>}
+              Company-Wide Totals
+              <span className="text-[9px] font-medium text-neutral-600 normal-case tracking-normal">All reps · same period</span>
+              {companyLoading && <span className="text-[9px] text-indigo-500 animate-pulse">loading…</span>}
               {isAdmin && <span className="ml-auto text-[9px] font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">Admin: Click rows to inspect</span>}
             </h4>
             <div className="divide-y divide-white/5">
@@ -429,7 +429,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
                 { label: "Total Invoices Billed", value: companyTotals.invoiceCount, color: "text-sky-400", type: "invoices" as const },
                 { label: "Dead Profit (VIG)", value: formatRepCurrency(companyTotals.invoiceDeadProfit), color: "text-emerald-400", type: "invoices" as const },
                 { label: "Net Profit (After VIG)", value: formatRepCurrency(companyTotals.invoiceNetProfit), color: "text-emerald-300", type: "invoices" as const },
-                { label: "Ã°Å¸â€™Â° Total Commissions Earned", value: formatRepCurrency(companyTotals.invoiceCommission), color: "text-amber-400", type: "invoices" as const },
+                { label: "💰 Total Commissions Earned", value: formatRepCurrency(companyTotals.invoiceCommission), color: "text-amber-400", type: "invoices" as const },
               ] as { label: string; value: string | number; color: string; type: "invoices" | "salesOrders" }[]).map((row, i) => (
                 <div
                   key={i}
@@ -492,7 +492,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-bold text-purple-300 tracking-wider flex items-center gap-1">
-                  Ã°Å¸â€™Â¼ Est. Order Commissions
+                  💼 Est. Order Commissions
                 </span>
                 <span className="text-[9px] font-bold text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                   <FiSearch size={10} /> View Orders
@@ -518,7 +518,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
                     : "bg-neutral-800 text-neutral-400 hover:text-white"
                 }`}
               >
-                Ã°Å¸â€œâ€ž All Invoices ({repStatsAllInvoices.length})
+                All Invoices ({repStatsAllInvoices.length})
               </button>
               <button
                 onClick={() => setRepStatsActiveTab("salesOrders")}
@@ -528,7 +528,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
                     : "bg-neutral-800 text-neutral-400 hover:text-white"
                 }`}
               >
-                Ã°Å¸â€œÂ¦ Uninvoiced Sales Orders ({repStatsAllSalesOrders.length})
+                Uninvoiced Sales Orders ({repStatsAllSalesOrders.length})
               </button>
             </div>
 
@@ -743,7 +743,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
             <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <span className="text-indigo-400">Ã°Å¸ÂÂ¢</span>
+                  <span className="text-indigo-400"><FiGrid size={14} /></span>
                   {companyTileModal.title}
                 </h2>
                 <p className="text-xs text-neutral-400">
@@ -1019,7 +1019,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
             <div className="flex justify-between items-center text-[11px] text-neutral-400">
               <span>Completion: {Math.round((data.monthlyProfit / (data.monthlyProfitGoal || 1)) * 100)}%</span>
               <span className="text-purple-300 font-semibold">
-                {data.monthlyProfit >= data.monthlyProfitGoal ? "Goal Reached! Ã°Å¸Å½â€°" : `$${(data.monthlyProfitGoal - data.monthlyProfit).toLocaleString()} remaining`}
+                {data.monthlyProfit >= data.monthlyProfitGoal ? "Goal Reached! 🎉" : `$${(data.monthlyProfitGoal - data.monthlyProfit).toLocaleString()} remaining`}
               </span>
             </div>
           </div>
@@ -1041,7 +1041,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
             <div className="flex justify-between items-center text-[11px] text-neutral-400">
               <span>Completion: {Math.round((data.monthlyTotal / (data.monthlySubtotalGoal || 1)) * 100)}%</span>
               <span className="text-sky-300 font-semibold">
-                {data.monthlyTotal >= data.monthlySubtotalGoal ? "Goal Reached! Ã°Å¸Å½â€°" : `$${(data.monthlySubtotalGoal - data.monthlyTotal).toLocaleString()} remaining`}
+                {data.monthlyTotal >= data.monthlySubtotalGoal ? "Goal Reached! 🎉" : `$${(data.monthlySubtotalGoal - data.monthlyTotal).toLocaleString()} remaining`}
               </span>
             </div>
           </div>
@@ -1064,7 +1064,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
                   Money Lost (1.5x VIG)
                 </span>
               </div>
-              <span className="text-[10px] text-neutral-400 underline">Details Ã¢â€ â€™</span>
+              <span className="text-[10px] text-neutral-400 underline">Details →</span>
             </div>
 
             <div className="text-2xl font-black font-mono tracking-tight text-white mb-1">
@@ -1077,7 +1077,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
             <p className="text-[11px] text-neutral-400 leading-tight">
               {data.monthlyVigPenaltyLoss > 0 || data.currentVigRate >= 1.45
                 ? "Lost this month due to 1.5x VIG penalty rate from not hitting last month's goal."
-                : "Standard 1.3x VIG rate maintained Ã¢â‚¬â€ no penalty losses this month!"
+                : "Standard 1.3x VIG rate maintained —  no penalty losses this month!"
               }
             </p>
           </div>
@@ -1259,10 +1259,10 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
       </div>
       )}
 
-      {/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Top Performers (admin only) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */}
+      {/* Top Performers (admin only) */}
       {showTopPerformers && isVisible("LEADERBOARD") && (
         <div className="glass-panel rounded-2xl p-5 border border-white/[0.06]">
-          <h3 className="text-sm font-bold text-white mb-4">Top Performers -- This Month</h3>
+          <h3 className="text-sm font-bold text-white mb-4">Top Performers — This Month</h3>
           {data.topReps.length === 0 ? (
             <EmptyState title="No Top Performers" description="No rep data available." />
           ) : (
@@ -1279,7 +1279,7 @@ export function DashboardView({ repName, isAdmin, repEmail, triggerCustomize }: 
                           : "rgba(255,255,255,0.06)",
                         color: i < 2 ? "#000" : CHART_COLORS.text
                       }}>
-                      {i === 0 ? "Ã°Å¸Â¥Ë†Ã¢â‚¬Â¡" : i === 1 ? "Ã°Å¸Â¥Ë†" : i + 1}
+                      {i === 0 ? "#1" : i === 1 ? "#2" : i + 1}
                     </div>
                     <span className="text-xs font-bold text-white truncate">{rep.name}</span>
                   </div>
