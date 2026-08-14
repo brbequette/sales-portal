@@ -266,6 +266,34 @@ export default function ShippingPage() {
     if (order && (!order.lineItems || order.lineItems.length === 0)) {
       await handleSyncSalesOrderDetail(order.zohoId)
     }
+
+    // Auto-fetch PO details for dropshipments that have no line items
+    if (order?.dropshipments?.length) {
+      for (const ds of order.dropshipments) {
+        if (!ds.lineItems || ds.lineItems.length === 0) {
+          try {
+            const res = await fetch(`/api/shipping/po-details?poZohoId=${ds.zohoId}`)
+            const data = await res.json()
+            if (data.success && data.lineItems?.length) {
+              // Update the order in state with the fetched line items
+              setOrders(prev => prev.map(o => {
+                if (o.id !== orderId) return o
+                return {
+                  ...o,
+                  dropshipments: o.dropshipments.map(d =>
+                    d.zohoId === ds.zohoId
+                      ? { ...d, lineItems: data.lineItems, trackingNumber: data.trackingNumber || d.trackingNumber, shippingCharge: data.shippingCharge || d.shippingCharge }
+                      : d
+                  )
+                }
+              }))
+            }
+          } catch (e) {
+            console.error('Failed to fetch PO details for', ds.zohoId, e)
+          }
+        }
+      }
+    }
   }
 
   // fetchCounts: always fetches with status=all so the badge counts on every
