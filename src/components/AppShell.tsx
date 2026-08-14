@@ -188,7 +188,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     || pathname.startsWith("/unit-converter") 
     || pathname.startsWith("/tools")
     || pathname.startsWith("/training")
-    || pathname.startsWith("/docs")
     || pathname.startsWith("/careers") 
     || pathname === "/admin-login" 
     || pathname === "/employee-login"
