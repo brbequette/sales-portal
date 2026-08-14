@@ -57,6 +57,7 @@ const adminLinks = [
     { name: "Holidays", href: "/admin/holidays", icon: FiCalendar },
     { name: "Shipping Audit", href: "/admin/shipping-audit", icon: FiPackage },
     { name: "Image Manager", href: "/admin/image-manager", icon: FiActivity },
+    { name: "Sync Conflicts", href: "/admin/sync-conflicts", icon: FiAlertTriangle },
   ]},
 ]
 

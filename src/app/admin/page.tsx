@@ -78,6 +78,7 @@ const sections = [
       { title: "Custom Fields",             desc: "Manage custom field definitions and mappings.",                               href: "/admin/custom-fields",     icon: FiList,      color: "text-sky-400",       bg: "bg-sky-500/10" },
       { title: "Data Backfill",             desc: "Populate line items for all invoices, SOs, and quotes from Zoho Books.",      href: "/admin/backfill",          icon: FiDatabase,  color: "text-sky-400",       bg: "bg-sky-500/10" },
       { title: "System Settings",           desc: "Push Notifications, API settings, and AI prompts.",                          href: "/admin/settings",          icon: FiSettings,  color: "text-neutral-400",   bg: "bg-neutral-500/10" },
+      { title: "Sync Conflicts",            desc: "Review and resolve Zoho Books webhook sync conflicts.",                      href: "/admin/sync-conflicts",    icon: FiAlertTriangle, color: "text-orange-400", bg: "bg-orange-500/10" },
     ]
   }
 ]
