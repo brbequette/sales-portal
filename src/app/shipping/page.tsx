@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
-import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign, FiX, FiEdit2 } from "react-icons/fi"
+import { FiTruck, FiBox, FiPackage, FiCheck, FiSearch, FiMapPin, FiExternalLink, FiChevronDown, FiChevronUp, FiRefreshCw, FiDownloadCloud, FiDollarSign, FiX, FiEdit2, FiPlus, FiTrash2 } from "react-icons/fi"
 import { CreatePackageModal } from "@/components/CreatePackageModal"
 import { CreateDropshipmentModal } from "@/components/CreateDropshipmentModal"
 import { toast } from 'react-hot-toast';
@@ -492,6 +492,29 @@ export default function ShippingPage() {
   const [shipNowResult, setShipNowResult] = useState<any>(null)
   const [shipNowWeight, setShipNowWeight] = useState('5')
   const [shipNowDims, setShipNowDims] = useState({ length: '15', width: '15', height: '4' })
+  const [addingPreset, setAddingPreset] = useState(false)
+  const [newPreset, setNewPreset] = useState({ label: '', l: '', w: '', h: '', wt: '' })
+  const [customBoxPresets, setCustomBoxPresets] = useState<Array<{ label: string; l: string; w: string; h: string; wt: string }>>(() => {
+    if (typeof window !== 'undefined') {
+      try { return JSON.parse(localStorage.getItem('customBoxPresets') || '[]') } catch { return [] }
+    }
+    return []
+  })
+
+  const saveCustomPreset = () => {
+    if (!newPreset.label || !newPreset.l || !newPreset.w || !newPreset.h) return
+    const updated = [...customBoxPresets, { ...newPreset, wt: newPreset.wt || '5' }]
+    setCustomBoxPresets(updated)
+    localStorage.setItem('customBoxPresets', JSON.stringify(updated))
+    setNewPreset({ label: '', l: '', w: '', h: '', wt: '' })
+    setAddingPreset(false)
+  }
+
+  const removeCustomPreset = (idx: number) => {
+    const updated = customBoxPresets.filter((_, i) => i !== idx)
+    setCustomBoxPresets(updated)
+    localStorage.setItem('customBoxPresets', JSON.stringify(updated))
+  }
   const [editingDropship, setEditingDropship] = useState<string | null>(null)
   const [dropshipEdit, setDropshipEdit] = useState({ tracking: '', shippingCharge: '' })
 
@@ -1671,6 +1694,7 @@ export default function ShippingPage() {
                     <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block mb-1.5">Quick Box Presets</label>
                     <div className="flex flex-wrap gap-1.5">
                       {[
+                        { label: '12×9×3', l: '12', w: '9', h: '3', wt: '5' },
                         { label: '14" Blade', l: '15', w: '15', h: '1', wt: '5' },
                         { label: '16" Blade', l: '17', w: '17', h: '1', wt: '6' },
                         { label: '18" Blade', l: '19', w: '19', h: '1', wt: '7' },
@@ -1678,27 +1702,109 @@ export default function ShippingPage() {
                         { label: 'Multi 15"', l: '15', w: '15', h: '4', wt: '20' },
                         { label: 'Multi 16"', l: '16', w: '16', h: '4', wt: '25' },
                         { label: 'Multi 17"', l: '17', w: '17', h: '4', wt: '30' },
-                      ].map(preset => {
+                        ...customBoxPresets,
+                      ].map((preset, pIdx) => {
                         const isActive = shipNowDims.length === preset.l && shipNowDims.width === preset.w && shipNowDims.height === preset.h
+                        const isCustom = pIdx >= 8
                         return (
-                          <button
-                            key={preset.label}
-                            onClick={() => {
-                              setShipNowDims({ length: preset.l, width: preset.w, height: preset.h })
-                              setShipNowWeight(preset.wt)
-                            }}
-                            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
-                              isActive
-                                ? 'bg-orange-600 text-white border border-orange-500'
-                                : 'bg-black/30 text-neutral-400 border border-white/10 hover:border-orange-500/30 hover:text-white'
-                            }`}
-                          >
-                            {preset.label}
-                          </button>
+                          <div key={preset.label + pIdx} className="relative group">
+                            <button
+                              onClick={() => {
+                                setShipNowDims({ length: preset.l, width: preset.w, height: preset.h })
+                                setShipNowWeight(preset.wt)
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                                isActive
+                                  ? 'bg-orange-600 text-white border border-orange-500'
+                                  : 'bg-black/30 text-neutral-400 border border-white/10 hover:border-orange-500/30 hover:text-white'
+                              }`}
+                            >
+                              {preset.label}
+                            </button>
+                            {isCustom && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); removeCustomPreset(pIdx - 8) }}
+                                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-600 text-white text-[8px] items-center justify-center hidden group-hover:flex"
+                              >
+                                <FiX size={8} />
+                              </button>
+                            )}
+                          </div>
                         )
                       })}
+                      {/* Add custom preset button */}
+                      <button
+                        onClick={() => setAddingPreset(!addingPreset)}
+                        className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-black/30 text-neutral-500 border border-dashed border-white/10 hover:border-orange-500/30 hover:text-orange-400 transition-all"
+                      >
+                        <FiPlus size={10} className="inline" /> Add
+                      </button>
                     </div>
+                    {/* Add preset form */}
+                    {addingPreset && (
+                      <div className="mt-2 flex gap-1.5 items-end">
+                        <div className="w-20">
+                          <label className="text-[8px] text-neutral-600 font-bold block">NAME</label>
+                          <input value={newPreset.label} onChange={e => setNewPreset(p => ({...p, label: e.target.value}))} className="w-full bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-white outline-none" placeholder='e.g. "Small"' />
+                        </div>
+                        <div className="w-12">
+                          <label className="text-[8px] text-neutral-600 font-bold block">L</label>
+                          <input type="number" value={newPreset.l} onChange={e => setNewPreset(p => ({...p, l: e.target.value}))} className="w-full bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-white outline-none" />
+                        </div>
+                        <div className="w-12">
+                          <label className="text-[8px] text-neutral-600 font-bold block">W</label>
+                          <input type="number" value={newPreset.w} onChange={e => setNewPreset(p => ({...p, w: e.target.value}))} className="w-full bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-white outline-none" />
+                        </div>
+                        <div className="w-12">
+                          <label className="text-[8px] text-neutral-600 font-bold block">H</label>
+                          <input type="number" value={newPreset.h} onChange={e => setNewPreset(p => ({...p, h: e.target.value}))} className="w-full bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-white outline-none" />
+                        </div>
+                        <div className="w-12">
+                          <label className="text-[8px] text-neutral-600 font-bold block">LBS</label>
+                          <input type="number" value={newPreset.wt} onChange={e => setNewPreset(p => ({...p, wt: e.target.value}))} className="w-full bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-white outline-none" placeholder="5" />
+                        </div>
+                        <button onClick={saveCustomPreset} className="px-2.5 py-1 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-[10px] font-bold">Save</button>
+                        <button onClick={() => setAddingPreset(false)} className="px-2 py-1 rounded-lg bg-neutral-800 text-neutral-400 text-[10px]">✕</button>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Items Being Shipped */}
+                  {shipNowPkg?.items && (() => {
+                    const pkgItems = shipNowPkg.items?.lineItems || shipNowPkg.items?.line_items || (Array.isArray(shipNowPkg.items) ? shipNowPkg.items : [])
+                    return pkgItems.length > 0 ? (
+                      <div className="bg-black/20 rounded-xl p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">Items Being Shipped</div>
+                        <div className="space-y-1">
+                          {pkgItems.map((item: any, idx: number) => (
+                            <div key={idx} className="flex items-center gap-2 text-xs">
+                              <span className="text-neutral-600">•</span>
+                              <span className="text-orange-400 font-semibold">{item.quantity || 1}x</span>
+                              <span className="text-neutral-300 truncate">{item.name || item.item_name || item.description || 'Item'}</span>
+                              {(item.sku || item.sku_code) && <span className="text-neutral-600 text-[10px] font-mono ml-auto shrink-0">{item.sku || item.sku_code}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null
+                  })()}
+
+                  {/* Also show order-level line items if no package items */}
+                  {(!shipNowPkg?.items || !(shipNowPkg.items?.lineItems || shipNowPkg.items?.line_items || []).length) && shipNowOrder?.lineItems?.length > 0 && (
+                    <div className="bg-black/20 rounded-xl p-3">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">Order Items</div>
+                      <div className="space-y-1">
+                        {shipNowOrder.lineItems.map((item: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 text-xs">
+                            <span className="text-neutral-600">•</span>
+                            <span className="text-orange-400 font-semibold">{item.quantity || 1}x</span>
+                            <span className="text-neutral-300 truncate">{item.name || 'Item'}</span>
+                            {item.sku && <span className="text-neutral-600 text-[10px] font-mono ml-auto shrink-0">{item.sku}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Destination Preview */}
                   <div className="bg-black/20 rounded-xl p-3 flex items-start gap-3">
