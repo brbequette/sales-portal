@@ -238,6 +238,7 @@ export async function GET(req: NextRequest) {
         lineItemNames,
         lineItems: mappedLineItems,
         salesperson,
+        shippingCost: so.actualShippingCost || 0,
         packages: soPkgs.map((p: any) => ({
           id: p.id,
           zohoId: p.zohoId,
@@ -246,8 +247,9 @@ export async function GET(req: NextRequest) {
           status: p.status,
           carrier: p.carrier,
           trackingNumber: p.trackingNumber,
-          shippingCharge: p.shippingCharge,
+          shippingCharge: p.shippingCharge || 0,
           items: p.items,
+          salesOrderNumber: soNumber,
         })),
         dropshipments: soDrops.map((po: any) => {
           const poItems = (po.items as any) || {}

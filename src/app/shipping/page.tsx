@@ -24,6 +24,7 @@ interface ShippingOrder {
   lineItemNames: string[]
   lineItems?: { name: string; sku: string; quantity: number }[]
   salesperson: string
+  shippingCost: number
   packages: PackageInfo[]
   dropshipments: DropshipInfo[]
 }
@@ -1243,6 +1244,16 @@ export default function ShippingPage() {
                     ${order.amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
 
+                  {/* Total Shipping Cost */}
+                  {(() => {
+                    const totalShip = (order.shippingCost || 0) + order.packages.reduce((sum, p) => sum + (p.shippingCharge || 0), 0)
+                    return totalShip > 0 ? (
+                      <span className="text-[10px] text-emerald-400 bg-emerald-950/40 px-1.5 py-0.5 rounded font-bold">
+                        Ship: ${totalShip.toFixed(2)}
+                      </span>
+                    ) : null
+                  })()}
+
                   {/* Packages count */}
                   {order.packages.length > 0 && (
                     <span className="flex items-center gap-1 text-xs text-neutral-400 bg-neutral-800 px-2 py-1 rounded-lg">
@@ -1402,6 +1413,14 @@ export default function ShippingPage() {
                                         </a>
                                       ) : null
                                     })()}
+                                  </div>
+                                )}
+
+                                {/* Shipping Cost */}
+                                {pkg.shippingCharge > 0 && (
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <span className="text-[10px] text-neutral-500">Shipping Cost:</span>
+                                    <span className="text-xs text-emerald-400 font-bold font-mono">${pkg.shippingCharge.toFixed(2)}</span>
                                   </div>
                                 )}
                               </div>

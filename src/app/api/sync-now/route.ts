@@ -267,6 +267,7 @@ export async function POST(req: NextRequest) {
                   status: so.status,
                   amount: parseFloat(so.total || 0),
                   items: so as any,
+                  actualShippingCost: parseFloat(so.shipping_charge || so.shipping_charges || 0) || undefined,
                 },
                 create: {
                   zohoId: so.salesorder_id,
@@ -275,6 +276,7 @@ export async function POST(req: NextRequest) {
                   amount: parseFloat(so.total || 0),
                   orderDate: so.date ? new Date(so.date) : new Date(),
                   items: so as any,
+                  actualShippingCost: parseFloat(so.shipping_charge || so.shipping_charges || 0) || undefined,
                 },
               })
               syncedCount++
