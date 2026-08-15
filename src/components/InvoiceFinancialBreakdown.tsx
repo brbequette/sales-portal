@@ -92,7 +92,7 @@ export function InvoiceFinancialBreakdown({
   
   // Net Profit MUST ALWAYS be mathematically derived as: Subtotal - (Dead Cost + VIG) - CC Fees - Additional Costs
   const calculatedProfit = subTotal - resolvedDeadCostPlusVig - ccFees - additionalCosts
-  const resolvedProfit = (subTotal > 0 && !isNaN(calculatedProfit)) ? calculatedProfit : 0
+  const resolvedProfit = !isNaN(calculatedProfit) ? calculatedProfit : 0
   const resolvedMargin = subTotal > 0 ? (resolvedProfit / subTotal) * 100 : 0
   
   const resolvedCommissionPct = (commissionPct && commissionPct > 0) ? commissionPct : (getCustomField("COMMISSION FROM PROFIT") || 50)
