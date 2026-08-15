@@ -85,7 +85,11 @@ export const handler: Handler = async (event) => {
     const buildTypeBlock = (docType: DocType) => {
       const tableMap  = { invoice: '"Invoice"', quote: '"Quote"', salesorder: '"SalesOrder"' }
       const dateCol   = { invoice: 'i."issueDate"', quote: 'i."createdAt"', salesorder: 'i."orderDate"' }
-      const numField  = { invoice: "i.items->>'invoiceNumber'", quote: "i.items->>'estimateNumber'", salesorder: "i.items->>'salesOrderNumber'" }
+      const numField  = { 
+        invoice: "COALESCE(i.items->>'invoiceNumber', i.items->>'invoice_number')", 
+        quote: "COALESCE(i.items->>'estimateNumber', i.items->>'estimate_number')", 
+        salesorder: "COALESCE(i.items->>'salesOrderNumber', i.items->>'salesorder_number')" 
+      }
       const table     = tableMap[docType]
       const dateExpr  = dateCol[docType]
       const numExpr   = numField[docType]
