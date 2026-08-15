@@ -474,7 +474,7 @@ export function DocumentPopoutContent({
                                   <div className="text-[10px] text-neutral-500 truncate max-w-[200px]">{item.description}</div>
                                 )}
                               </td>
-                              <td className="px-3 py-2 text-neutral-400 font-mono">{item.sku || item.item_code || '--'}</td>
+                              <td className="px-3 py-2 text-neutral-400 font-mono">{item.sku || (typeof item.item_code === 'string' ? item.item_code : '') || '--'}</td>
                               <td className="px-3 py-2 text-right text-white font-mono">{parseFloat(item.quantity || 1)}</td>
                               <td className="px-3 py-2 text-right text-neutral-300 font-mono">${parseFloat(item.rate || item.price || 0).toFixed(2)}</td>
                               <td className="px-3 py-2 text-right text-white font-bold font-mono">${parseFloat(item.item_total || (item.quantity * item.rate) || 0).toFixed(2)}</td>
