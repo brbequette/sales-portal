@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react"
 import Link from "next/link"
-import { FiDatabase, FiExternalLink, FiTruck, FiBox, FiDollarSign, FiRefreshCw, FiCheckCircle, FiXCircle, FiCheck, FiCpu, FiMail, FiSlash, FiDownload } from "react-icons/fi"
+import { FiDatabase, FiExternalLink, FiTruck, FiBox, FiDollarSign, FiRefreshCw, FiCheckCircle, FiXCircle, FiCheck, FiCpu, FiMail, FiSlash, FiDownload, FiUser, FiSliders, FiFileText, FiMapPin } from "react-icons/fi"
 import { useInvoiceDetailsData } from "./useInvoiceDetailsData"
 import { getZohoBooksUrl } from "@/lib/zoho-urls"
 import { InvoiceFinancialBreakdown } from "./InvoiceFinancialBreakdown"
@@ -324,19 +324,297 @@ export function DocumentPopoutContent({
                   <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Issue Date</label>
                   <div className="text-sm text-white">{displayData?.issueDate || displayData?.date ? new Date(displayData.issueDate || displayData.date).toLocaleDateString(undefined, { timeZone: 'UTC' }) : "--"}</div>
                 </div>
+                {displayData?.due_date && (
+                  <div>
+                    <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Due Date</label>
+                    <div className="text-sm text-white">{new Date(displayData.due_date).toLocaleDateString(undefined, { timeZone: 'UTC' })}</div>
+                  </div>
+                )}
+                {displayData?.salesperson_name && (
+                  <div className="flex flex-col">
+                    <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Salesperson</label>
+                    {isLoadingUsers ? (
+                      <Skeleton variant="text" className="w-24 h-4 mt-1" />
+                    ) : (
+                      <div className="text-sm text-white font-semibold truncate">{displayData.salesperson_name}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* --- Customer Information Block --- */}
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
+                  <FiUser className="text-emerald-400 shrink-0" /> Customer Information
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-black/30 p-4 rounded-xl border border-white/5">
+                  <div>
+                    <label className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Customer / Account</label>
+                    <div className="text-xs text-white font-bold mt-0.5">
+                      {displayData?.customer_id || displayData?.items?.customerId ? (
+                        <Link
+                          href={`/account?id=${displayData.customer_id || displayData.items?.customerId}`}
+                          className="text-sky-400 hover:text-sky-300 hover:underline inline-flex items-center gap-1"
+                        >
+                          🏢 {displayData.customer_name || "View Account"}
+                        </Link>
+                      ) : (
+                        displayData?.customer_name || "--"
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Contact Person</label>
+                    <div className="text-xs text-neutral-200 mt-0.5 font-semibold">
+                      {displayData?.billing_address?.attention || displayData?.shipping_address?.attention || "--"}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Phone Number</label>
+                    <div className="text-xs text-white font-mono font-bold mt-0.5">
+                      {displayData?.phone || displayData?.billing_address?.phone || displayData?.shipping_address?.phone || "--"}
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Email Address</label>
+                    <div className="text-xs text-white font-mono mt-0.5 truncate">
+                      {displayData?.email || displayData?.billing_address?.fax || "--"}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Billing Address</label>
+                    <div className="text-xs text-neutral-300 mt-0.5 whitespace-pre-line leading-relaxed">
+                      {(() => {
+                        const addr = displayData?.billing_address;
+                        if (!addr) return "--";
+                        const street = addr.address || addr.street || "";
+                        const cityStateZip = [addr.city, addr.state, addr.zip || addr.zipcode].filter(Boolean).join(", ");
+                        return [street, cityStateZip, addr.country].filter(Boolean).join("\n") || "--";
+                      })()}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Shipping Address</label>
+                    <div className="text-xs text-neutral-300 mt-0.5 whitespace-pre-line leading-relaxed">
+                      {(() => {
+                        const addr = displayData?.shipping_address;
+                        if (!addr) return "--";
+                        const street = addr.address || addr.street || "";
+                        const cityStateZip = [addr.city, addr.state, addr.zip || addr.zipcode].filter(Boolean).join(", ");
+                        return [street, cityStateZip, addr.country].filter(Boolean).join("\n") || "--";
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* --- Financial Summary Breakdown --- */}
+              {(displayData?.sub_total || displayData?.items?.sub_total || parseFloat(displayData?.total || 0) > 0) && (
+                <div className="mt-4 pt-3 border-t border-white/10">
+                  <h4 className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider mb-2 flex items-center gap-1.5"><FiDollarSign size={11} /> Financial Summary</h4>
+                  <div className="bg-black/30 rounded-xl border border-white/5 divide-y divide-white/5 text-xs font-mono">
+                    <div className="flex justify-between px-3 py-2">
+                      <span className="text-neutral-400 font-sans">Subtotal</span>
+                      <span className="text-white font-bold">${parseFloat(displayData?.sub_total || displayData?.items?.sub_total || displayData?.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    {parseFloat(displayData?.discount || displayData?.items?.discount || 0) > 0 && (
+                      <div className="flex justify-between px-3 py-2">
+                        <span className="text-neutral-400 font-sans">Discount {displayData.discount_type === 'entity_level' ? `(${displayData.discount}%)` : ''}</span>
+                        <span className="text-red-400 font-bold">-${parseFloat(displayData?.discount_amount || displayData?.items?.discount_amount || displayData?.discount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    {parseFloat(displayData?.tax_total || displayData?.items?.tax_total || 0) > 0 && (
+                      <div className="flex justify-between px-3 py-2">
+                        <span className="text-neutral-400 font-sans">Tax</span>
+                        <span className="text-white">${parseFloat(displayData?.tax_total || displayData?.items?.tax_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    {parseFloat(displayData?.shipping_charge || displayData?.items?.shippingCharge || 0) > 0 && (
+                      <div className="flex justify-between px-3 py-2">
+                        <span className="text-neutral-400 font-sans">Shipping</span>
+                        <span className="text-white">${parseFloat(displayData?.shipping_charge || displayData?.items?.shippingCharge || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    {parseFloat(displayData?.adjustment || displayData?.items?.adjustment || 0) !== 0 && (
+                      <div className="flex justify-between px-3 py-2">
+                        <span className="text-neutral-400 font-sans">Adjustment</span>
+                        <span className="text-white">${parseFloat(displayData?.adjustment || displayData?.items?.adjustment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between px-3 py-2.5 bg-white/[0.02]">
+                      <span className="text-white font-bold font-sans">Total</span>
+                      <span className="text-emerald-400 font-black">${parseFloat(displayData?.total || displayData?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* --- Line Items Table --- */}
+              {displayData?.line_items && displayData.line_items.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-white/10">
+                  <h4 className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider mb-2 flex items-center gap-1.5"><FiFileText size={11} /> Line Items ({displayData.line_items.length})</h4>
+                  <div className="bg-black/30 rounded-xl border border-white/5 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-white/10 text-[9px] text-neutral-500 uppercase tracking-wider">
+                            <th className="text-left px-3 py-2 font-bold">Item</th>
+                            <th className="text-left px-3 py-2 font-bold">SKU</th>
+                            <th className="text-right px-3 py-2 font-bold">Qty</th>
+                            <th className="text-right px-3 py-2 font-bold">Rate</th>
+                            <th className="text-right px-3 py-2 font-bold">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {displayData.line_items.map((item: any, i: number) => (
+                            <tr key={item.line_item_id || i} className="hover:bg-white/[0.02] transition-colors">
+                              <td className="px-3 py-2">
+                                <div className="text-white font-semibold truncate max-w-[200px]">{item.name || item.description || 'Item'}</div>
+                                {item.description && item.description !== item.name && (
+                                  <div className="text-[10px] text-neutral-500 truncate max-w-[200px]">{item.description}</div>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-neutral-400 font-mono">{item.sku || item.item_code || '--'}</td>
+                              <td className="px-3 py-2 text-right text-white font-mono">{parseFloat(item.quantity || 1)}</td>
+                              <td className="px-3 py-2 text-right text-neutral-300 font-mono">${parseFloat(item.rate || item.price || 0).toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right text-white font-bold font-mono">${parseFloat(item.item_total || (item.quantity * item.rate) || 0).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* --- Notes & Terms --- */}
+              {(displayData?.notes || displayData?.terms) && (
+                <div className="mt-4 pt-3 border-t border-white/10 space-y-3">
+                  {displayData.notes && (
+                    <div>
+                      <h4 className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider mb-1">Notes</h4>
+                      <p className="text-xs text-neutral-300 leading-relaxed bg-black/20 rounded-lg p-2.5 border border-white/5 whitespace-pre-wrap">{displayData.notes}</p>
+                    </div>
+                  )}
+                  {displayData.terms && (
+                    <div>
+                      <h4 className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider mb-1">Terms & Conditions</h4>
+                      <p className="text-xs text-neutral-400 leading-relaxed bg-black/20 rounded-lg p-2.5 border border-white/5 whitespace-pre-wrap">{displayData.terms}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* --- Custom Fields --- */}
+              {(displayData?.custom_fields || displayData?.items?.custom_fields) && (displayData.custom_fields || displayData.items?.custom_fields).filter((f: any) => f.value && f.value !== '').length > 0 && (
+                <div className="mt-4 pt-3 border-t border-white/10">
+                  <h4 className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider mb-2 flex items-center gap-1.5"><FiSliders size={11} /> Custom Fields</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(displayData.custom_fields || displayData.items?.custom_fields).filter((f: any) => f.value && f.value !== '').map((field: any, i: number) => (
+                      <div key={i} className="bg-black/30 rounded-lg border border-white/5 p-2.5">
+                        <div className="text-[9px] text-neutral-500 uppercase font-bold truncate">{field.label || field.customfield_id}</div>
+                        <div className="text-xs text-white font-semibold truncate mt-0.5">{field.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* --- Document Chain Links (Sales Order, Quote) --- */}
+              <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+                <h4 className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider flex items-center gap-1.5">
+                  <FiBox /> Document Chain & Fulfillment Trace
+                </h4>
+                <div className="grid grid-cols-2 gap-3 bg-black/40 p-3 rounded-xl border border-white/10 text-xs">
+                  <div>
+                    <span className="text-neutral-500 block text-[10px] uppercase font-bold">Originating Sales Order</span>
+                    {displayData?.salesorder_number || displayData?.items?.salesorder_number || displayData?.rawData?.salesorder_number ? (
+                      <span className="font-mono font-bold text-sky-400 mt-0.5 block">
+                        #{displayData.salesorder_number || displayData.items?.salesorder_number || displayData.rawData?.salesorder_number}
+                      </span>
+                    ) : (
+                      <span className="text-neutral-600 italic mt-0.5 block">Direct Invoice</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-neutral-500 block text-[10px] uppercase font-bold">Originating Quote</span>
+                    {displayData?.estimate_number || displayData?.items?.estimate_number || displayData?.rawData?.estimate_number ? (
+                      <span className="font-mono font-bold text-amber-400 mt-0.5 block">
+                        #{displayData.estimate_number || displayData.items?.estimate_number || displayData.rawData?.estimate_number}
+                      </span>
+                    ) : (
+                      <span className="text-neutral-600 italic mt-0.5 block">N/A</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-            
+
             {/* Packages & Tracking summary */}
             {((displayData?.packages && displayData.packages.length > 0) || (displayData?.dropshipments && displayData.dropshipments.length > 0)) && (
               <div className="pt-3 border-t border-white/10">
                 <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><FiTruck className="text-sky-400 shrink-0" /> Tracking & Fulfillment</h3>
                 <div className="flex flex-col gap-2">
-                  {displayData.packages?.map((pkg: any) => (
-                    <div key={pkg.id || pkg.packageNumber} className="glass-panel border border-white/10 rounded-lg p-3 flex justify-between items-center">
-                      <div className="text-sm font-bold text-white flex items-center gap-2">PKG: {pkg.packageNumber || pkg.package_id || 'Pending'}</div>
-                    </div>
-                  ))}
+                  {displayData.packages?.map((pkg: any) => {
+                    const trackingNumber = pkg.trackingNumber || pkg.tracking_number
+                    const carrier = pkg.carrier || pkg.shipment_carrier || 'Carrier'
+                    const packageId = pkg.package_id || pkg.id
+                    const trackUrl = trackingNumber ? (
+                      carrier.toLowerCase().includes('fedex') ? `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(trackingNumber)}` :
+                      carrier.toLowerCase().includes('ups') ? `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingNumber)}` :
+                      carrier.toLowerCase().includes('usps') ? `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}` :
+                      `https://www.google.com/search?q=tracking+${encodeURIComponent(trackingNumber)}`
+                    ) : null
+
+                    return (
+                      <div key={pkg.id || pkg.packageNumber} className="glass-panel border border-white/10 rounded-lg p-3 flex justify-between items-center text-xs">
+                        <div>
+                          <div className="font-bold text-white flex items-center gap-2">
+                            PKG: {pkg.packageNumber || packageId}
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${pkg.status?.toLowerCase() === 'shipped' || pkg.status?.toLowerCase() === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                              {pkg.status || 'Packaged'}
+                            </span>
+                          </div>
+                          <div className="text-neutral-400 mt-1">
+                            Carrier: <span className="text-neutral-200">{carrier}</span> | 
+                            Tracking: {trackUrl ? (
+                              <a href={trackUrl} target="_blank" rel="noreferrer" className="font-mono text-sky-400 hover:underline inline-flex items-center gap-1 ml-1">
+                                {trackingNumber} <FiExternalLink size={10} />
+                              </a>
+                            ) : (
+                              <span className="font-mono text-neutral-300 ml-1">{trackingNumber || '--'}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {displayData.dropshipments?.map((ds: any) => {
+                    const trackingNumber = ds.trackingNumber || ds.tracking_number
+                    const trackUrl = trackingNumber ? `https://www.google.com/search?q=tracking+${encodeURIComponent(trackingNumber)}` : null
+
+                    return (
+                      <div key={ds.id || ds.trackingNumber} className="glass-panel border border-white/10 rounded-lg p-3 flex justify-between items-center text-xs">
+                        <div>
+                          <div className="font-bold text-white flex items-center gap-2">
+                            DROPSHIP: {ds.vendorName || 'Vendor'}
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${ds.status?.toLowerCase() === 'shipped' || ds.status?.toLowerCase() === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                              {ds.status || 'Ordered'}
+                            </span>
+                          </div>
+                          <div className="text-neutral-400 mt-1">
+                            Tracking: {trackUrl ? (
+                              <a href={trackUrl} target="_blank" rel="noreferrer" className="font-mono text-sky-400 hover:underline inline-flex items-center gap-1 ml-1">
+                                {trackingNumber} <FiExternalLink size={10} />
+                              </a>
+                            ) : (
+                              <span className="font-mono text-neutral-300 ml-1">{trackingNumber || '--'}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
