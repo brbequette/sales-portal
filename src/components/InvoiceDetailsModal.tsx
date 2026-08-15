@@ -5,7 +5,7 @@ import { useInvoiceDetailsData, type InvoiceDetailsModalProps } from "./useInvoi
 
 import { createPortal } from "react-dom"
 import Link from "next/link"
-import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight, FiCheckSquare, FiExternalLink, FiMapPin, FiSliders } from "react-icons/fi"
+import { FiFileText, FiDatabase, FiRefreshCw, FiBox, FiTruck, FiDownload, FiMail, FiDollarSign, FiXCircle, FiCheckCircle, FiSlash, FiSend, FiCheck, FiCpu, FiChevronLeft, FiChevronRight, FiCheckSquare, FiExternalLink, FiMapPin, FiSliders, FiUser } from "react-icons/fi"
 import { getZohoBooksUrl } from "@/lib/zoho-urls"
 import { CreatePackageModal } from "./CreatePackageModal"
 import { CreateDropshipmentModal } from "./CreateDropshipmentModal"
@@ -557,6 +557,72 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 )}
               </div>
 
+              {/* --- Customer Information Block --- */}
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
+                  <FiUser className="text-emerald-400 shrink-0" /> Customer Information
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-black/30 p-4 rounded-xl border border-white/5">
+                  <div>
+                    <label className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Customer / Account</label>
+                    <div className="text-xs text-white font-bold mt-0.5">
+                      {displayData.customer_id || displayData.items?.customerId ? (
+                        <Link
+                          href={`/account?id=${displayData.customer_id || displayData.items?.customerId}`}
+                          className="text-sky-400 hover:text-sky-300 hover:underline inline-flex items-center gap-1"
+                        >
+                          🏢 {displayData.customer_name || "View Account"}
+                        </Link>
+                      ) : (
+                        displayData.customer_name || "--"
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Contact Person</label>
+                    <div className="text-xs text-neutral-200 mt-0.5 font-semibold">
+                      {displayData.billing_address?.attention || displayData.shipping_address?.attention || "--"}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Phone Number</label>
+                    <div className="text-xs text-white font-mono font-bold mt-0.5">
+                      {displayData.phone || displayData.billing_address?.phone || displayData.shipping_address?.phone || "--"}
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-1">
+                    <label className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Email Address</label>
+                    <div className="text-xs text-white font-mono mt-0.5 truncate">
+                      {displayData.email || displayData.billing_address?.fax || "--"}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Billing Address</label>
+                    <div className="text-xs text-neutral-300 mt-0.5 whitespace-pre-line leading-relaxed">
+                      {(() => {
+                        const addr = displayData.billing_address;
+                        if (!addr) return "--";
+                        const street = addr.address || addr.street || "";
+                        const cityStateZip = [addr.city, addr.state, addr.zip || addr.zipcode].filter(Boolean).join(", ");
+                        return [street, cityStateZip, addr.country].filter(Boolean).join("\n") || "--";
+                      })()}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-neutral-500 uppercase font-bold tracking-wider">Shipping Address</label>
+                    <div className="text-xs text-neutral-300 mt-0.5 whitespace-pre-line leading-relaxed">
+                      {(() => {
+                        const addr = displayData.shipping_address;
+                        if (!addr) return "--";
+                        const street = addr.address || addr.street || "";
+                        const cityStateZip = [addr.city, addr.state, addr.zip || addr.zipcode].filter(Boolean).join(", ");
+                        return [street, cityStateZip, addr.country].filter(Boolean).join("\n") || "--";
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* --- Financial Summary Breakdown --- */}
               {(displayData.sub_total || displayData.items?.sub_total) && (
                 <div className="mt-4 pt-3 border-t border-white/10">
@@ -598,34 +664,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 </div>
               )}
 
-              {/* --- Addresses --- */}
-              {((displayData.shipping_address && (displayData.shipping_address.address || displayData.shipping_address.city)) || (displayData.billing_address && (displayData.billing_address.address || displayData.billing_address.city))) && (
-                <div className="mt-4 pt-3 border-t border-white/10">
-                  <h4 className="text-[10px] text-neutral-400 uppercase font-bold tracking-wider mb-2 flex items-center gap-1.5"><FiMapPin size={11} /> Addresses</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {displayData.billing_address && (displayData.billing_address.address || displayData.billing_address.city) && (
-                      <div className="bg-black/30 rounded-xl border border-white/5 p-3">
-                        <div className="text-[9px] text-neutral-500 uppercase font-bold mb-1">Billing</div>
-                        <div className="text-xs text-neutral-300 leading-relaxed">
-                          {[displayData.billing_address.attention, displayData.billing_address.address, displayData.billing_address.street2].filter(Boolean).map((line: string, i: number) => <div key={i}>{line}</div>)}
-                          <div>{[displayData.billing_address.city, displayData.billing_address.state, displayData.billing_address.zip].filter(Boolean).join(', ')}</div>
-                          {displayData.billing_address.country && displayData.billing_address.country !== 'US' && displayData.billing_address.country !== 'U.S.A' && <div>{displayData.billing_address.country}</div>}
-                        </div>
-                      </div>
-                    )}
-                    {displayData.shipping_address && (displayData.shipping_address.address || displayData.shipping_address.city) && (
-                      <div className="bg-black/30 rounded-xl border border-white/5 p-3">
-                        <div className="text-[9px] text-neutral-500 uppercase font-bold mb-1">Shipping</div>
-                        <div className="text-xs text-neutral-300 leading-relaxed">
-                          {[displayData.shipping_address.attention, displayData.shipping_address.address, displayData.shipping_address.street2].filter(Boolean).map((line: string, i: number) => <div key={i}>{line}</div>)}
-                          <div>{[displayData.shipping_address.city, displayData.shipping_address.state, displayData.shipping_address.zip].filter(Boolean).join(', ')}</div>
-                          {displayData.shipping_address.country && displayData.shipping_address.country !== 'US' && displayData.shipping_address.country !== 'U.S.A' && <div>{displayData.shipping_address.country}</div>}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+
 
               {/* --- Line Items Table --- */}
               {displayData.line_items && displayData.line_items.length > 0 && (

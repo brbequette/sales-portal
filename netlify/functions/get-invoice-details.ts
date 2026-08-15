@@ -14,8 +14,52 @@ function isCacheFresh(items: any): boolean {
   return (Date.now() - new Date(items.lastSyncedAt).getTime()) < CACHE_TTL_MS
 }
 
-function buildLocalResponse(dbDoc: any, type: string, vigRate: number) {
+function buildLocalResponse(dbDoc: any, type: string, vigRate: number, packages: any[] = [], dropshipments: any[] = []) {
   const items = dbDoc.items as any || {}
+  
+  // Fallback line items using prisma relation
+  const rawLineItems = (items.line_items && items.line_items.length > 0)
+    ? items.line_items
+    : (dbDoc.lineItems || []).map((li: any) => ({
+        line_item_id: li.zohoLineItemId || li.id,
+        name: li.productName,
+        sku: li.sku || '',
+        quantity: li.quantity,
+        rate: li.unitPrice,
+        price: li.unitPrice,
+        item_total: li.total,
+        discount: li.discount,
+        description: li.description || ''
+      }));
+
+  // Fallback billing & shipping address using account
+  const rawBillingAddress = items._zohoRaw?.billing_address || (dbDoc.account ? {
+    attention: dbDoc.account.name || '',
+    address: dbDoc.account.billingStreet || '',
+    street2: '',
+    city: dbDoc.account.billingCity || '',
+    state: dbDoc.account.billingState || '',
+    zip: dbDoc.account.billingZip || '',
+    zipcode: dbDoc.account.billingZip || '',
+    country: 'U.S.A',
+    phone: dbDoc.account.phone || dbDoc.account.contacts?.[0]?.phone || ''
+  } : undefined);
+
+  const rawShippingAddress = items._zohoRaw?.shipping_address || (dbDoc.account ? {
+    attention: dbDoc.account.name || '',
+    address: dbDoc.account.shippingStreet || '',
+    street2: '',
+    city: dbDoc.account.shippingCity || '',
+    state: dbDoc.account.shippingState || '',
+    zip: dbDoc.account.shippingZip || '',
+    zipcode: dbDoc.account.shippingZip || '',
+    country: 'U.S.A',
+    phone: dbDoc.account.phone || dbDoc.account.contacts?.[0]?.phone || ''
+  } : undefined);
+
+  const rawEmail = items._zohoRaw?.email || dbDoc.account?.contacts?.[0]?.email || '';
+  const rawPhone = items._zohoRaw?.phone || dbDoc.account?.phone || dbDoc.account?.contacts?.[0]?.phone || '';
+
   // Shape the cached data to match what Zoho returns so the modal renders identically
   return {
     invoice_id: dbDoc.zohoId,
@@ -30,18 +74,23 @@ function buildLocalResponse(dbDoc: any, type: string, vigRate: number) {
     total: dbDoc.amount || 0,
     sub_total: items.sub_total || dbDoc.amount || 0,
     balance: items.balance ?? dbDoc.amount ?? 0,
-    customer_name: items.customer_name || '',
+    customer_name: items.customer_name || dbDoc.account?.name || '',
+    customer_id: items._zohoRaw?.customer_id || dbDoc.account?.zohoId || '',
     salesperson_name: items.salesperson || '',
     shipping_charge: items.shippingCharge || 0,
     last_payment_date: items.paymentDate || null,
-    line_items: items.line_items || [],
+    line_items: rawLineItems,
     custom_fields: items.custom_fields || [],
+    email: rawEmail,
+    phone: rawPhone,
+    billing_address: rawBillingAddress,
+    shipping_address: rawShippingAddress,
     // Preserve all extra stored fields
     ...items._zohoRaw,
     _source: 'local_db',
     _cachedAt: items.lastSyncedAt,
-    packages: dbDoc.packages || [],
-    dropshipments: dbDoc.dropshipments || [],
+    packages,
+    dropshipments,
   }
 }
 
@@ -64,16 +113,32 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing document identifier" }) }
     }
 
-    // ── Step 1: Look up in local DB ──
+    // ── Step 1: Look up in local DB with relations ──
     let dbDoc: any = null
+    const includeQuery = {
+      lineItems: true,
+      account: {
+        include: {
+          contacts: true
+        }
+      }
+    }
+
     if (type === "Invoice") {
-      dbDoc = await prisma.invoice.findFirst({ where: { OR: [{ id: targetId }, { zohoId: targetId }] } })
+      dbDoc = await prisma.invoice.findFirst({ 
+        where: { OR: [{ id: targetId }, { zohoId: targetId }] },
+        include: includeQuery
+      })
     } else if (type === "SalesOrder") {
       dbDoc = await prisma.salesOrder.findFirst({ 
-        where: { OR: [{ id: targetId }, { zohoId: targetId }] }
+        where: { OR: [{ id: targetId }, { zohoId: targetId }] },
+        include: includeQuery
       })
     } else if (type === "Quote") {
-      dbDoc = await prisma.quote.findFirst({ where: { OR: [{ id: targetId }, { zohoId: targetId }] } })
+      dbDoc = await prisma.quote.findFirst({ 
+        where: { OR: [{ id: targetId }, { zohoId: targetId }] },
+        include: includeQuery
+      })
     }
 
     // ── Step 2: Serve from cache if fresh and not force-refreshed ──
@@ -82,7 +147,35 @@ export const handler: Handler = async (event) => {
 
       // Still need vig rate for the modal
       const vigRate = await getVigRate(prisma, (dbDoc.items as any)?.salesperson || '')
-      const doc = buildLocalResponse(dbDoc, type, vigRate)
+      
+      // Fetch packages & dropshipments
+      let packages: any[] = []
+      let dropshipments: any[] = []
+      const soZohoId = type === "SalesOrder" 
+        ? (dbDoc.zohoId) 
+        : ((dbDoc.items as any)?.booksSalesOrderId || (dbDoc.items as any)?.salesOrderNumber)
+
+      if (soZohoId) {
+        packages = await prisma.package.findMany({
+          where: {
+            OR: [
+              { salesOrderId: soZohoId },
+              { salesOrderNumber: soZohoId }
+            ]
+          }
+        })
+        dropshipments = await prisma.purchaseOrder.findMany({
+          where: {
+            isDropshipment: true,
+            OR: [
+              { salesOrderId: soZohoId },
+              { salesOrderNumber: soZohoId }
+            ]
+          }
+        })
+      }
+
+      const doc = buildLocalResponse(dbDoc, type, vigRate, packages, dropshipments)
 
       return {
         statusCode: 200,
