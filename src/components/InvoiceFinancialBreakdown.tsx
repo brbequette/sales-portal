@@ -82,10 +82,28 @@ export function InvoiceFinancialBreakdown({
     return sum  // no cost data -- don't guess with 60% fallback per item (aggregate fallback handles it)
   }, 0)
 
+  // Resolve fallback percentage (default 60%)
+  const fallbackPctSetting = getCustomField("DEAD COST FALLBACK PERCENT") || 60
+  const isUsingFallback = lineItemDeadCostSum === 0 && subTotal > 0
+
+  // Distribute fallback costs to items client-side if no actual costs are present
+  const resolvedLineItemDetails = lineItemDetails.map(item => {
+    if (isUsingFallback && (item.rate || 0) > 0) {
+      const fallbackUnitCost = (item.rate || 0) * (fallbackPctSetting / 100)
+      const fallbackTotalCost = ((item.rate || 0) * (item.quantity || 1)) * (fallbackPctSetting / 100)
+      return {
+        ...item,
+        cost: fallbackUnitCost,
+        deadCost: fallbackTotalCost
+      }
+    }
+    return item
+  })
+
   // Resolve Costs
   const resolvedDeadCostSubject = (deadCostSubjectToVig != null && !isNaN(deadCostSubjectToVig) && deadCostSubjectToVig > 0)
     ? deadCostSubjectToVig
-    : (getCustomField("DEAD COST SUBJECT TO VIG") || getCustomField("DEAD COST TOTAL") || (deadCostTotal != null && !isNaN(deadCostTotal) && deadCostTotal > 0 ? deadCostTotal : (lineItemDeadCostSum > 0 ? lineItemDeadCostSum : (subTotal * 0.6))))
+    : (getCustomField("DEAD COST SUBJECT TO VIG") || getCustomField("DEAD COST TOTAL") || (deadCostTotal != null && !isNaN(deadCostTotal) && deadCostTotal > 0 ? deadCostTotal : (lineItemDeadCostSum > 0 ? lineItemDeadCostSum : (subTotal * (fallbackPctSetting / 100)))))
   
   // Calculate Dead Cost + VIG directly from Subject Cost × VIG Multiplier
   const resolvedDeadCostPlusVig = (resolvedDeadCostSubject * resolvedVigRate) + (deadCostNoVig || 0)
@@ -358,19 +376,19 @@ export function InvoiceFinancialBreakdown({
       </div>
 
       {/* Optional Line Items Detail Dropdown */}
-      {lineItemDetails.length > 0 && (
+      {resolvedLineItemDetails.length > 0 && (
         <div className="border border-white/10 rounded-xl overflow-hidden bg-black/20">
           <button
             onClick={() => setShowItemBreakdown(!showItemBreakdown)}
             className="w-full p-3 flex justify-between items-center text-xs font-bold text-neutral-300 hover:bg-white/[0.03] transition-colors"
           >
-            <span>Line Items Cost Breakdown ({lineItemDetails.length} items)</span>
+            <span>Line Items Cost Breakdown ({resolvedLineItemDetails.length} items)</span>
             {showItemBreakdown ? <FiChevronUp /> : <FiChevronDown />}
           </button>
           
           {showItemBreakdown && (
             <div className="p-3 border-t border-white/10 space-y-2">
-              {lineItemDetails.map((item, i) => (
+              {resolvedLineItemDetails.map((item, i) => (
                 <div key={i} className="flex justify-between items-center text-xs border-b border-white/5 pb-1.5 last:border-0">
                   <div>
                     <span className="font-semibold text-white">{item.name}</span>

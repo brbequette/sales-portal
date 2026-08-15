@@ -404,9 +404,18 @@ export async function calculateDocumentCosts(
   // estimate base product cost as 50% of subTotal so profit is not artificially inflated.
   let usedFallbackCost = false
   if ((deadCostSubjectToVig + deadCostNoVig) === 0 && subTotal > 0) {
-    deadCostSubjectToVig = subTotal * (settings.dead_cost_fallback_pct / 100)
+    const fallbackPct = settings.dead_cost_fallback_pct || 60
+    deadCostSubjectToVig = subTotal * (fallbackPct / 100)
     deadCostTotal = deadCostSubjectToVig + additionalCosts
     usedFallbackCost = true
+
+    // Distribute fallback cost to line items so they render correctly in the UI
+    for (const d of lineItemDetails) {
+      if (d.rate > 0) {
+        d.cost = d.rate * (fallbackPct / 100)
+        d.deadCost = d.itemTotal * (fallbackPct / 100)
+      }
+    }
   }
 
   // ─── 2. VIG rate ────────────────────────────────────────────────────────────
