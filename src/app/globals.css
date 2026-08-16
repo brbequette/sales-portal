@@ -184,6 +184,13 @@ textarea:focus-visible,
   box-shadow: 0 0 40px color-mix(in srgb, var(--warning) 15%, transparent);
 }
 
+.glass-panel-strong {
+  background: color-mix(in srgb, var(--surface) 98%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border);
+}
+
 /* Shared application shell and page rhythm */
 .page-content {
   display: flex;
