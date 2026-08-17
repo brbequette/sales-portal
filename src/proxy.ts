@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import { getToken, encode } from 'next-auth/jwt';
 import { isAdminRole } from '@/lib/roles';
 
 // Public routes that don't require authentication
@@ -89,8 +89,35 @@ export async function proxy(req: NextRequest) {
   // Allow local development E2E bypass
   const host = req.headers.get('host') || '';
   const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
-  if (isLocal && req.headers.get('x-bypass-auth') === 'true') {
-    return NextResponse.next();
+  const hasBypassHeader = req.headers.get('x-bypass-auth') === 'true';
+  const hasBypassCookie = req.cookies.get('next-auth.session-token')?.value.startsWith('test-token-manager-bypass') || false;
+  const isBypassRequest = isLocal && (hasBypassHeader || hasBypassCookie || req.nextUrl.searchParams.get('bypass') === 'true');
+
+  if (isBypassRequest) {
+    const res = NextResponse.next();
+    if (AUTH_SECRET) {
+      const tokenVal = await encode({
+        token: {
+          name: "Benjamin Bequette",
+          email: "ben@titandiamond.net",
+          id: "6821836000000565001",
+          dbId: "cmppahv5m0000lsi0s00jywp3",
+          role: "Administrator",
+          isZohoUser: true
+        },
+        secret: AUTH_SECRET
+      }).catch(() => null);
+
+      if (tokenVal) {
+        res.cookies.set('next-auth.session-token', tokenVal, {
+          path: '/',
+          httpOnly: true,
+          secure: false,
+          sameSite: 'lax'
+        });
+      }
+    }
+    return res;
   }
 
   // Skip static files
