@@ -79,6 +79,16 @@ export const handler: Handler = async (event, context) => {
       const createdPkg = pkgData.package || {}
       try {
         const { prisma } = require("./lib/prisma")
+        const pkgItems = items.map((i: any) => {
+          const soLine = so.line_items?.find((li: any) => li.line_item_id === i.lineItemId)
+          return {
+            line_item_id: i.lineItemId,
+            name: soLine?.name || soLine?.item_name || 'Item',
+            sku: soLine?.sku || soLine?.sku_code || '',
+            quantity: i.quantity
+          }
+        })
+
         await prisma.package.upsert({
           where: { zohoId: createdPkg.package_id },
           update: {
@@ -87,6 +97,7 @@ export const handler: Handler = async (event, context) => {
             salesOrderNumber: so.salesorder_number || null,
             date: createdPkg.date ? new Date(createdPkg.date) : new Date(),
             status: createdPkg.status || "not_shipped",
+            items: { lineItems: pkgItems }
           },
           create: {
             zohoId: createdPkg.package_id,
@@ -95,6 +106,7 @@ export const handler: Handler = async (event, context) => {
             salesOrderNumber: so.salesorder_number || null,
             date: createdPkg.date ? new Date(createdPkg.date) : new Date(),
             status: createdPkg.status || "not_shipped",
+            items: { lineItems: pkgItems }
           }
         })
       } catch (dbErr: any) {

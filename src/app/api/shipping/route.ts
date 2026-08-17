@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID } from "@/lib/zoho-auth"
@@ -500,6 +501,82 @@ export async function PUT(req: NextRequest) {
               billingZip: doc.billing_address?.zip || undefined,
             }
           }).catch((e: any) => console.warn('Account address update error:', e.message))
+        }
+      }
+
+      // Sync packages for this sales order to ensure package line items are cached
+      if (doc.packages && Array.isArray(doc.packages)) {
+        for (const p of doc.packages) {
+          const zohoPkgId = p.package_id
+          if (!zohoPkgId) continue
+          
+          try {
+            // Check if package is already cached with items
+            const cachedPkg = await prisma.package.findUnique({ where: { zohoId: zohoPkgId } })
+            const hasItems = cachedPkg?.items && (cachedPkg.items as any).lineItems?.length > 0
+            
+            if (!hasItems) {
+              console.log(`[syncSalesOrder] Fetching details for package ${zohoPkgId} (${p.package_number})`);
+              const pkgUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3/packages/${zohoPkgId}?organization_id=${ORG_ID}`
+              const pkgRes = await fetch(pkgUrl, { signal: AbortSignal.timeout(15000),
+                headers: { Authorization: `Zoho-oauthtoken ${token}` }
+              })
+              if (pkgRes.ok) {
+                const pkgData = await pkgRes.json()
+                const detail = pkgData.package
+                if (detail) {
+                  await prisma.package.upsert({
+                    where: { zohoId: zohoPkgId },
+                    update: {
+                      packageNumber: detail.package_number || p.package_number || null,
+                      salesOrderId: salesOrderId,
+                      salesOrderNumber: doc.salesorder_number || null,
+                      date: detail.date ? new Date(detail.date) : (p.date ? new Date(p.date) : new Date()),
+                      status: detail.status || p.status || null,
+                      carrier: detail.delivery_method || p.delivery_method || null,
+                      trackingNumber: detail.tracking_number || p.tracking_number || null,
+                      shippingCharge: detail.shipping_charge || 0,
+                      items: detail.line_items ? { lineItems: detail.line_items.map((li: any) => ({
+                        line_item_id: li.line_item_id,
+                        name: li.name,
+                        sku: li.sku || '',
+                        quantity: li.quantity
+                      })) } : Prisma.JsonNull
+                    },
+                    create: {
+                      zohoId: zohoPkgId,
+                      packageNumber: detail.package_number || p.package_number || null,
+                      salesOrderId: salesOrderId,
+                      salesOrderNumber: doc.salesorder_number || null,
+                      date: detail.date ? new Date(detail.date) : (p.date ? new Date(p.date) : new Date()),
+                      status: detail.status || p.status || null,
+                      carrier: detail.delivery_method || p.delivery_method || null,
+                      trackingNumber: detail.tracking_number || p.tracking_number || null,
+                      shippingCharge: detail.shipping_charge || 0,
+                      items: detail.line_items ? { lineItems: detail.line_items.map((li: any) => ({
+                        line_item_id: li.line_item_id,
+                        name: li.name,
+                        sku: li.sku || '',
+                        quantity: li.quantity
+                      })) } : Prisma.JsonNull
+                    }
+                  })
+                }
+              }
+            } else {
+              // Even if it has items, make sure status/tracking/carrier match Zoho
+              await prisma.package.update({
+                where: { zohoId: zohoPkgId },
+                data: {
+                  status: p.status || cachedPkg.status || null,
+                  carrier: p.delivery_method || cachedPkg.carrier || null,
+                  trackingNumber: p.tracking_number || cachedPkg.trackingNumber || null
+                }
+              }).catch(() => {})
+            }
+          } catch (pkgErr: any) {
+            console.warn(`[syncSalesOrder] Failed to sync package ${zohoPkgId}:`, pkgErr.message)
+          }
         }
       }
       
