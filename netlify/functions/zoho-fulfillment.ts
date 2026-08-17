@@ -160,13 +160,26 @@ export const handler: Handler = async (event, context) => {
       }))
 
       // Create a Purchase Order linked to the Sales Order
-      const payload = {
+      const payload: Record<string, any> = {
         vendor_id: vendorId,
         delivery_customer_id: so.customer_id,
         salesorder_id: salesOrderId,
         is_drop_shipment: true,
         date: new Date().toISOString().split('T')[0],
-        line_items: poLineItems
+        line_items: poLineItems,
+        reference_number: so.salesorder_number || ""
+      }
+
+      if (so.salesperson_id) {
+        payload.zcrm_owner_id = so.salesperson_id
+      }
+      if (so.salesperson_name) {
+        payload.custom_fields = [
+          {
+            api_name: "cf_sales_person",
+            value: so.salesperson_name
+          }
+        ]
       }
 
       const poRes = await fetch(`${baseUrl}/purchaseorders?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
@@ -214,6 +227,63 @@ export const handler: Handler = async (event, context) => {
       return {
         statusCode: 200,
         body: JSON.stringify({ success: true, purchaseOrderId: createdPO.purchaseorder_id })
+      }
+
+    } else if (action === "DeleteDropshipment") {
+      const { prisma } = require("./lib/prisma")
+      const { purchaseOrderId } = body
+
+      const targetPoIds: string[] = []
+      if (purchaseOrderId) {
+        targetPoIds.push(purchaseOrderId)
+      } else if (so.purchaseorders && so.purchaseorders.length > 0) {
+        so.purchaseorders.forEach((p: any) => targetPoIds.push(p.purchaseorder_id))
+      }
+
+      const deletedPoIds: string[] = []
+      for (const poId of targetPoIds) {
+        try {
+          const deleteRes = await fetch(`${baseUrl}/purchaseorders/${poId}?organization_id=${ORG_ID}`, {
+            method: "DELETE",
+            headers: { Authorization: `Zoho-oauthtoken ${token}` }
+          })
+          const deleteData = await deleteRes.json()
+          if (deleteData.code === 0 || deleteData.code === 5) {
+            deletedPoIds.push(poId)
+          } else {
+            console.error(`Zoho Books delete PO error: ${deleteData.message}`)
+          }
+        } catch (poErr: any) {
+          console.error(`Failed to delete PO ${poId} from Zoho:`, poErr.message)
+        }
+      }
+
+      // Delete from local database
+      try {
+        if (purchaseOrderId) {
+          await prisma.purchaseOrder.deleteMany({
+            where: { zohoId: purchaseOrderId }
+          })
+        } else {
+          const dbFilters: any[] = []
+          if (salesOrderId) dbFilters.push({ salesOrderId })
+          if (so.salesorder_number) dbFilters.push({ salesOrderNumber: so.salesorder_number })
+          
+          if (dbFilters.length > 0) {
+            await prisma.purchaseOrder.deleteMany({
+              where: {
+                OR: dbFilters
+              }
+            })
+          }
+        }
+      } catch (dbErr: any) {
+        console.error("Failed to delete dropshipment from DB:", dbErr.message)
+      }
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ success: true, deletedPoIds })
       }
 
     } else {

@@ -443,6 +443,33 @@ export function useInvoiceDetailsData({ invoice, type = "Invoice", onClose, invo
     }
   }, [type, displayData, zohoId])
 
+  const handleDeleteDropshipment = useCallback(async (purchaseOrderId?: string) => {
+    if (!confirm("⚠️ Are you sure you want to delete the dropshipment Purchase Order? This will delete the PO in Zoho Books and remove the database record.")) return
+    setActionLoading("delete-dropshipment")
+    try {
+      const res = await fetch("/api/zoho-fulfillment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "DeleteDropshipment",
+          salesOrderId: zohoId,
+          purchaseOrderId
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert("✅ Dropshipment deleted/reset successfully.")
+        fetchDetails(true)
+      } else {
+        alert(`Failed to delete dropshipment: ${data.error || data.message}`)
+      }
+    } catch (e: any) {
+      alert(`Error: ${e.message}`)
+    } finally {
+      setActionLoading("")
+    }
+  }, [zohoId, fetchDetails])
+
   const typeColor = currentType === 'Quote' ? 'text-purple-400' : currentType === 'SalesOrder' ? 'text-blue-400' : 'text-amber-500'
   const typeLabel = currentType === 'Quote' ? 'Quote/Estimate' : currentType === 'SalesOrder' ? 'Sales Order' : 'Invoice'
   const statusLower = (displayData?.status || '').toLowerCase()
@@ -529,6 +556,7 @@ export function useInvoiceDetailsData({ invoice, type = "Invoice", onClose, invo
     handleVoid,
     handleUpdateStatus,
     handleProcessCosts,
+    handleDeleteDropshipment,
     typeColor,
     typeLabel,
     statusLower,

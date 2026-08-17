@@ -30,6 +30,22 @@ export function getDefaultOrigin(): Address {
   };
 }
 
+export function normalizeCountryCode(country: string | undefined | null): string {
+  if (!country) return 'US';
+  const c = country.trim().toUpperCase().replace(/[^A-Z]/g, '');
+  if (c === 'USA' || c === 'US' || c === 'UNITEDSTATES' || c === 'UNITEDSTATESOFAMERICA') {
+    return 'US';
+  }
+  if (c === 'CAN' || c === 'CANADA') {
+    return 'CA';
+  }
+  if (c.length === 2) {
+    return c;
+  }
+  return 'US';
+}
+
+
 export interface ParcelDimensions {
   length: number;
   width: number;
@@ -99,8 +115,14 @@ export async function getEasyshipRates(params: GetRatesParams): Promise<Easyship
   const origin_address = params.origin_address || dbOrigin;
   
   const payload = {
-    origin_address,
-    destination_address: params.destination_address,
+    origin_address: {
+      ...origin_address,
+      country_alpha2: normalizeCountryCode(origin_address?.country_alpha2)
+    },
+    destination_address: {
+      ...params.destination_address,
+      country_alpha2: normalizeCountryCode(params.destination_address?.country_alpha2)
+    },
     parcels: params.parcels
   };
 
@@ -382,7 +404,7 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
         city: origin.city || '',
         state: origin.state || '',
         postal_code: origin.postal_code || '',
-        country_alpha2: origin.country_alpha2 || 'US',
+        country_alpha2: normalizeCountryCode(origin.country_alpha2),
         contact_name: origin.contact_name || COMPANY_CONFIG.name,
         contact_phone: origin.contact_phone || COMPANY_CONFIG.phone,
         contact_email: origin.contact_email || COMPANY_CONFIG.shippingEmail,
@@ -393,7 +415,7 @@ export async function createShipmentAndBuyLabel(params: CreateShipmentParams): P
         city: params.destinationAddress.city || '',
         state: params.destinationAddress.state || '',
         postal_code: params.destinationAddress.postal_code || '',
-        country_alpha2: params.destinationAddress.country_alpha2 || 'US',
+        country_alpha2: normalizeCountryCode(params.destinationAddress.country_alpha2),
         contact_name: params.destinationContactName || 'Customer',
         contact_phone: params.destinationContactPhone || '0000000000',
         contact_email: params.destinationContactEmail || COMPANY_CONFIG.email,

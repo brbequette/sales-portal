@@ -98,6 +98,7 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
     handleVoid,
     handleUpdateStatus,
     handleProcessCosts,
+    handleDeleteDropshipment,
     typeColor,
     typeLabel,
     statusLower,
@@ -275,6 +276,15 @@ export function InvoiceDetailsModal({ invoice, type = "Invoice", onClose, invoic
                 >
                   <FiTruck className="shrink-0" size={12} /> <span className="hidden sm:inline">Dropship</span>
                 </button>
+                {displayData.purchaseorders && displayData.purchaseorders.length > 0 && (
+                  <button 
+                    onClick={() => handleDeleteDropshipment()}
+                    disabled={actionLoading === "delete-dropshipment"}
+                    className="bg-red-900/60 hover:bg-red-800 text-red-200 hover:text-white font-bold px-2 sm:px-3 py-1.5 rounded text-[10px] uppercase tracking-wider transition-colors flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <FiSlash className="shrink-0" size={12} /> <span className="hidden sm:inline">Reset Dropship</span>
+                  </button>
+                )}
                 <div className="w-px h-4 bg-neutral-800 mx-0.5"></div>
                 <button 
                   onClick={() => handleConvert("Invoice")}
