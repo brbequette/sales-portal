@@ -56,6 +56,24 @@ export async function POST(req: Request) {
       originAddress
     } = body;
 
+    // Validate ZIP/Postal code format for US destination
+    const targetCountry = country || "US";
+    if (targetCountry === "US" && !/^\d{5}(-\d{4})?$/.test(zip || "")) {
+      return NextResponse.json(
+        { success: false, error: "Invalid ZIP code format (must be 5 digits)", rates: [] },
+        { status: 400 }
+      );
+    }
+
+    // Validate weight limits
+    const parsedWeight = parseFloat(weight);
+    if (isNaN(parsedWeight) || parsedWeight <= 0 || parsedWeight > 1000) {
+      return NextResponse.json(
+        { success: false, error: "Weight must be a positive number up to 1000 lbs", rates: [] },
+        { status: 400 }
+      );
+    }
+
     const hasApiKey = !!process.env.EASYSHIP_API_KEY;
 
     if (!hasApiKey) {

@@ -62,8 +62,15 @@ export const handler: Handler = async (event) => {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
         id: user.zohoId || user.id,
+        dbId: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone || null,
+        title: user.title || null,
+        vcardPhotoUrl: user.vcardPhotoUrl || null,
+        vcardCompany: user.vcardCompany || null,
+        vcardWebsite: user.vcardWebsite || null,
+        autoAttachVCard: user.autoAttachVCard || false,
         role: user.role,
         permissions: user.permissions || null
       })

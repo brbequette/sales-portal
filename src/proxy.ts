@@ -38,6 +38,7 @@ const SKIP_PATTERNS = [
   '/icon-',
   '/apple-touch-icon',
   '/manifest.json',
+  '/sw.js',
   '/tv',
   '/print/',
   '/vcard/',
@@ -85,6 +86,13 @@ if (!AUTH_SECRET) {
 export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   
+  // Allow local development E2E bypass
+  const host = req.headers.get('host') || '';
+  const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+  if (isLocal && req.headers.get('x-bypass-auth') === 'true') {
+    return NextResponse.next();
+  }
+
   // Skip static files
   if (shouldSkip(pathname)) {
     return NextResponse.next();

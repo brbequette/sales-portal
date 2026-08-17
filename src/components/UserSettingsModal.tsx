@@ -46,10 +46,9 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
 
       fetch('/api/get-user')
         .then(r => r.json())
-        .then(d => {
-          if (d.success && d.user) {
-            const u = d.user
-            setUserId(u.id)
+        .then(u => {
+          if (u && (u.dbId || u.id)) {
+            setUserId(u.dbId || u.id)
             setVcardName(u.name || "")
             setVcardEmail(u.email || "")
             setVcardPhone(u.phone || "")
@@ -67,18 +66,11 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
   if (!isOpen) return null
 
   const handleSave = async () => {
-    updatePreferences({
-      defaultPageSize: pageSize,
-      reminderMethodPush: pushEnabled,
-      reminderMethodSms: smsEnabled,
-      reminderMethodEmail: emailEnabled,
-      defaultReminderMinutes: defaultReminderMinutes
-    })
+    try {
+      setSavingProfile(true)
 
-    if (userId) {
-      try {
-        setSavingProfile(true)
-        await fetch('/api/admin/users', {
+      if (userId) {
+        const res = await fetch('/api/admin/users', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -93,15 +85,34 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
             autoAttachVCard
           })
         })
-        toast.success("User preferences & vCard profile saved!")
-      } catch (e) {
-        console.error(e)
-      } finally {
-        setSavingProfile(false)
-      }
-    }
 
-    onClose()
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || `Server responded with status ${res.status}`)
+        }
+
+        const data = await res.json()
+        if (!data.success) {
+          throw new Error(data.error || "Failed to update profile details.")
+        }
+      }
+
+      updatePreferences({
+        defaultPageSize: pageSize,
+        reminderMethodPush: pushEnabled,
+        reminderMethodSms: smsEnabled,
+        reminderMethodEmail: emailEnabled,
+        defaultReminderMinutes: defaultReminderMinutes
+      })
+
+      toast.success("User preferences & vCard profile saved!")
+      onClose()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e.message || "Failed to save settings. Please try again.")
+    } finally {
+      setSavingProfile(false)
+    }
   }
 
   const handleEnablePush = async () => {
