@@ -290,7 +290,10 @@ export const handler: Handler = async (event, context) => {
         } else {
           const dbFilters: any[] = []
           if (salesOrderId) dbFilters.push({ salesOrderId })
-          if (so.salesorder_number) dbFilters.push({ salesOrderNumber: so.salesorder_number })
+          if (so.salesorder_number) {
+            dbFilters.push({ salesOrderNumber: so.salesorder_number })
+            dbFilters.push({ referenceNumber: so.salesorder_number })
+          }
           
           if (dbFilters.length > 0) {
             await prisma.purchaseOrder.deleteMany({
