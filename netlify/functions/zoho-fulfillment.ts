@@ -65,7 +65,7 @@ export const handler: Handler = async (event, context) => {
         }))
       }
 
-      const pkgRes = await fetch(`${baseUrl}/packages?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
+      const pkgRes = await fetch(`${baseUrl}/packages?salesorder_id=${salesOrderId}&organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
         method: "POST",
         headers: {
           Authorization: `Zoho-oauthtoken ${token}`,
