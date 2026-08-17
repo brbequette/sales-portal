@@ -17,14 +17,25 @@ export const handler: Handler = async (event, context) => {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing required fields" }) }
     }
 
-    const token = await getZohoAccessToken()
+    let token = await getZohoAccessToken()
     const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
 
     // Fetch the Sales Order to get customer ID and line item details
-    const soRes = await fetch(`${baseUrl}/salesorders/${salesOrderId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
+    let soRes = await fetch(`${baseUrl}/salesorders/${salesOrderId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
       headers: { Authorization: `Zoho-oauthtoken ${token}` }
     })
-    const soData = await soRes.json()
+    let soData = await soRes.json()
+
+    // Retry once with fresh token if auth or permission issue
+    if (soData.code === 57 || soData.code === 5 || soData.message?.toLowerCase().includes("auth") || soData.message?.toLowerCase().includes("permission") || soData.message?.toLowerCase().includes("not authorized")) {
+      console.log(`[zoho-fulfillment] Auth issue detected (${soData.message}). Force refreshing token...`);
+      token = await getZohoAccessToken(true)
+      soRes = await fetch(`${baseUrl}/salesorders/${salesOrderId}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
+        headers: { Authorization: `Zoho-oauthtoken ${token}` }
+      })
+      soData = await soRes.json()
+    }
+
     if (soData.code !== 0) throw new Error(`Zoho Books Error fetching SO: ${soData.message}`)
     const so = soData.salesorder
 

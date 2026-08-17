@@ -23,27 +23,29 @@ export const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID || '6646709
 
 const TOKEN_CACHE_KEY = 'zoho_token_cache'
 
-export async function getZohoAccessToken(): Promise<string> {
+export async function getZohoAccessToken(forceRefresh = false): Promise<string> {
   const now = Date.now()
 
   // 1. In-memory cache (avoids DB on warm invocations)
-  if (_cachedToken && now < _tokenExpiresAt - 5 * 60 * 1000) {
+  if (!forceRefresh && _cachedToken && now < _tokenExpiresAt - 5 * 60 * 1000) {
     return _cachedToken
   }
 
   // 2. Single DB row — token + expiry stored as one JSON value
-  try {
-    const row = await prisma.systemSetting.findUnique({ where: { key: TOKEN_CACHE_KEY } })
-    if (row) {
-      const cached = JSON.parse(row.value) as { token: string; expiresAt: number }
-      if (cached.token && now < cached.expiresAt - 5 * 60 * 1000) {
-        _cachedToken = cached.token
-        _tokenExpiresAt = cached.expiresAt
-        return _cachedToken
+  if (!forceRefresh) {
+    try {
+      const row = await prisma.systemSetting.findUnique({ where: { key: TOKEN_CACHE_KEY } })
+      if (row) {
+        const cached = JSON.parse(row.value) as { token: string; expiresAt: number }
+        if (cached.token && now < cached.expiresAt - 5 * 60 * 1000) {
+          _cachedToken = cached.token
+          _tokenExpiresAt = cached.expiresAt
+          return _cachedToken
+        }
       }
+    } catch (e: any) {
+      console.warn('[zoho-auth] DB token cache read error:', e.message)
     }
-  } catch (e: any) {
-    console.warn('[zoho-auth] DB token cache read error:', e.message)
   }
 
   // 3. OAuth refresh_token flow
