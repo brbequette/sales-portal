@@ -417,17 +417,41 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ error: "Missing salesOrderId" }, { status: 400 })
       }
       
-      const token = await getZohoAccessToken()
+      let token = await getZohoAccessToken()
       const ZOHO_DC = process.env.ZOHO_DC || "com"
       const url = `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders/${salesOrderId}?organization_id=${ORG_ID}`
       
-      const res = await fetch(url, { signal: AbortSignal.timeout(15000),
+      let res = await fetch(url, { signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Zoho-oauthtoken ${token}` }
       })
+      
+      // Retry once if 401 Unauthorized
+      if (res.status === 401) {
+        console.log("[shipping-api] syncSalesOrder returned 401. Force refreshing token...");
+        token = await getZohoAccessToken(true)
+        res = await fetch(url, { signal: AbortSignal.timeout(15000),
+          headers: { Authorization: `Zoho-oauthtoken ${token}` }
+        })
+      }
+      
       if (!res.ok) {
         return NextResponse.json({ error: `Failed to fetch from Zoho: ${res.status}` }, { status: 500 })
       }
-      const data = await res.json()
+      
+      let data = await res.json()
+      // Retry if Zoho error code indicates auth/permission issue
+      if (data.code === 57 || data.code === 5 || data.message?.toLowerCase().includes("auth") || data.message?.toLowerCase().includes("permission") || data.message?.toLowerCase().includes("not authorized")) {
+        console.log(`[shipping-api] Auth issue detected in response code ${data.code}. Force refreshing token...`);
+        token = await getZohoAccessToken(true)
+        res = await fetch(url, { signal: AbortSignal.timeout(15000),
+          headers: { Authorization: `Zoho-oauthtoken ${token}` }
+        })
+        if (!res.ok) {
+          return NextResponse.json({ error: `Failed to fetch from Zoho: ${res.status}` }, { status: 500 })
+        }
+        data = await res.json()
+      }
+
       if (data.code !== 0 || !data.salesorder) {
         return NextResponse.json({ error: data.message || "Failed to load SO from Zoho" }, { status: 500 })
       }
