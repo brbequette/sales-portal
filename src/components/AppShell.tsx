@@ -709,7 +709,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ${isAdminPage ? "" : "md:pl-[4.75rem]"}
       `}>
         <GlobalTopBar />
-        <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
+        <div className={`flex-1 min-h-0 flex flex-col ${isAdminPage ? "" : "overflow-y-auto"}`}>
           {children}
         </div>
       </main>

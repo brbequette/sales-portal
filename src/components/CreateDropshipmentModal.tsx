@@ -92,11 +92,11 @@ export function CreateDropshipmentModal({ salesOrderId, lineItems, onClose, onSu
             value={vendorId}
             onChange={e => setVendorId(e.target.value)}
             disabled={isLoadingVendors}
-            className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white font-semibold text-sm disabled:opacity-50"
+            className="w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 text-white font-semibold text-sm disabled:opacity-50"
           >
-            <option value="">{isLoadingVendors ? "Loading vendors..." : "Select a Vendor"}</option>
+            <option value="" className="bg-neutral-900 text-white">{isLoadingVendors ? "Loading vendors..." : "Select a Vendor"}</option>
             {vendors.map(v => (
-              <option key={v.contact_id} value={v.contact_id}>
+              <option key={v.contact_id} value={v.contact_id} className="bg-neutral-900 text-white">
                 {v.contact_name} {v.company_name ? `(${v.company_name})` : ""}
               </option>
             ))}

@@ -268,7 +268,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto w-full max-w-7xl mx-auto">
+        <div className="flex-1 w-full max-w-7xl mx-auto flex flex-col min-h-0">
           {children}
         </div>
       </div>
