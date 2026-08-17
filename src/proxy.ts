@@ -50,6 +50,7 @@ const PUBLIC_API_PATTERNS = [
   '/api/webhooks/',  // Webhook endpoints (use their own token auth)
   '/api/public/',    // Explicitly public endpoints
   '/api/customer/',  // Customer portal endpoints (use their own JWT auth)
+  '/api/debug/',     // Debug endpoints (uses isDebugMode check)
 ];
 
 // API routes that require admin role
