@@ -446,7 +446,7 @@ export function useDashboardData({ repName, isAdmin, repEmail, triggerCustomize 
           if (commData[invMonth] !== undefined) commData[invMonth] += commission
 
           // Status donut
-          const statusKey = status === "paid" ? "Paid" : status === "overdue" ? "Overdue" : status === "draft" ? "Draft" : status === "sent" ? "Sent" : status === "partially_paid" ? "Partial" : "Other"
+          const statusKey = (status === "paid" || status === "completed") ? "Paid" : status === "overdue" ? "Overdue" : status === "draft" ? "Draft" : (status === "sent" || status === "open" || status === "unpaid") ? "Sent" : status === "partially_paid" ? "Partial" : "Other"
           statusCounts[statusKey] = (statusCounts[statusKey] || 0) + 1
 
           // Won/Lost

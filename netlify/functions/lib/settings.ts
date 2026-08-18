@@ -11,6 +11,7 @@ export interface AppSettings {
   default_shipping_weight: number
   sms_daily_account_limit: number
   ai_reply_prompt: string
+  tv_pin: string
   pause_mass_zoho_updates: boolean
 }
 
@@ -25,6 +26,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   default_shipping_weight: 0.5,
   sms_daily_account_limit: 1,
   ai_reply_prompt: "You are a professional sales assistant for a diamond wholesaler. Provide a concise, friendly response to the customer's text message.",
+  tv_pin: '8321',
   pause_mass_zoho_updates: false
 }
 
@@ -33,7 +35,7 @@ export async function getSystemSettings(prisma: PrismaClient): Promise<AppSettin
     const records = await prisma.systemSetting.findMany().catch(() => [])
     const map: Record<string, string> = {}
     if (Array.isArray(records)) {
-      records.forEach((r: any) => { map[r.key] = r.value })
+      records.forEach((r: { key: string; value: string }) => { map[r.key] = r.value })
     }
 
     return {
@@ -47,9 +49,10 @@ export async function getSystemSettings(prisma: PrismaClient): Promise<AppSettin
       default_shipping_weight: map.default_shipping_weight ? parseFloat(map.default_shipping_weight) : DEFAULT_SETTINGS.default_shipping_weight,
       sms_daily_account_limit: map.sms_daily_account_limit ? parseInt(map.sms_daily_account_limit) : DEFAULT_SETTINGS.sms_daily_account_limit,
       ai_reply_prompt: map.ai_reply_prompt || DEFAULT_SETTINGS.ai_reply_prompt,
+      tv_pin: map.tv_pin || DEFAULT_SETTINGS.tv_pin,
       pause_mass_zoho_updates: map.pause_mass_zoho_updates === 'true' || map.pause_mass_zoho_updates === '1'
     }
-  } catch (err) {
+  } catch {
     return DEFAULT_SETTINGS
   }
 }
