@@ -60,3 +60,4 @@ scratch_*
 # Local exports may contain customer or financial data
 sale_lineage_export.csv
 scripts/backfill/*backup*.json
+/backups/

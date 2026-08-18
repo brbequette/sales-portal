@@ -62,6 +62,28 @@ docker compose exec ollama ollama run qwen3:4b "Reply with: local AI is ready"
 docker compose logs --tail=100 app
 ```
 
+## Back up and restore PostgreSQL
+
+Create a compressed backup in the ignored `backups` directory. Backups older
+than 14 days are removed by default:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/backup-selfhost.ps1
+```
+
+Choose a different retention window with `-RetentionDays 30`. Keep an encrypted
+copy on a second device or trusted off-site destination; the local backup folder
+protects against database mistakes but not loss of the PC.
+
+Restoration validates the archive, stops the app, replaces the local database,
+and starts the app again. It requires an explicit destructive-action switch:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/restore-selfhost.ps1 `
+  -BackupPath backups/tdgpt-YYYYMMDD-HHMMSS.dump `
+  -ConfirmRestore
+```
+
 ## Important production work
 
 - Keep route-level authorization checks close to sensitive data in addition to
@@ -76,6 +98,7 @@ docker compose logs --tail=100 app
   the matching provider webhook URL/header; token-based receivers also accept
   the secret as the `token` query parameter.
 - Replace the local database initializer with a baselined migration history.
-- Configure encrypted database backups and test restoration.
+- Schedule `backup-selfhost.ps1`, copy backups to encrypted off-site storage,
+  and periodically test restoration.
 - Add Cloudflare Tunnel only after local authentication tests pass.
 - Keep Ollama private; do not expose port 11434 to the public internet.
