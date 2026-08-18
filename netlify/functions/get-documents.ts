@@ -183,11 +183,21 @@ export const handler: Handler = async (event, context) => {
       const isConvertedToSO = statusLower === 'converted' || items?.salesorder_id || items?.salesorder_number || raw.salesorder_id || raw.salesorder_number || false
       const soStatus = statusLower.trim()
       const isInvoicedOrClosed = soStatus === 'invoiced' || soStatus === 'closed' || soStatus === 'void' || items?.invoice_id || items?.invoice_number || raw.invoice_id || raw.invoice_number || false
+      const isLinkedToInvoice = t === 'SalesOrder' ? !!(items?.invoice_id || items?.invoiceId || items?.invoice_number || items?.invoiceNumber || raw.invoice_id || raw.invoice_number || soStatus === 'invoiced') : false
       const dueDate = raw.dueDate?.toISOString() || items?.due_date || null
       const balance = parseFloat(items?.balance ?? raw.balance ?? 0)
 
       const dateStr = raw.issueDate?.toISOString() || raw.orderDate?.toISOString() || raw.createdAt?.toISOString() || new Date().toISOString()
       const statusStr = raw.status || "Draft"
+
+      const salesOrderNum = items?.salesOrderNumber || items?.salesorder_number || (t === 'SalesOrder' ? (items?.invoiceNumber || items?.invoice_number || items?.estimateNumber || (raw.zohoId || raw.id).slice(-6)) : null)
+      const salesOrderId = t === 'SalesOrder' ? (raw.zohoId || raw.id) : (items?.salesorder_id || items?.salesOrderId || items?.booksSalesOrderId || null)
+      const invoiceId = t === 'Invoice' ? (raw.zohoId || raw.id) : (items?.invoice_id || items?.invoiceId || null)
+      const invoiceNum = items?.invoiceNumber || items?.invoice_number || (t === 'Invoice' ? (raw.zohoId || raw.id).slice(-6) : null)
+      const linkedInvoiceId = items?.invoice_id || items?.invoiceId || raw.invoice_id || null
+      const linkedInvoiceNumber = items?.invoice_number || items?.invoiceNumber || raw.invoice_number || null
+      const linkedSalesOrderId = items?.salesorder_id || items?.salesOrderId || items?.booksSalesOrderId || raw.salesorder_id || null
+      const linkedSalesOrderNumber = items?.salesorder_number || items?.salesOrderNumber || items?.reference_number || raw.salesorder_number || null
       
       return {
         id: raw.id,
@@ -205,10 +215,19 @@ export const handler: Handler = async (event, context) => {
         commission,
         salesperson: items?.salesperson || items?.salesperson_name || null,
         invoiceNumber: items?.invoiceNumber || items?.invoice_number || items?.estimateNumber || items?.estimate_number || items?.salesOrderNumber || items?.salesorder_number || items?.quoteNumber || (raw.zohoId || raw.id).slice(-6),
+        salesOrderNumber: salesOrderNum,
+        salesOrderId,
+        invoiceId,
+        invoiceNumberFull: invoiceNum,
+        linkedInvoiceId,
+        linkedInvoiceNumber,
+        linkedSalesOrderId,
+        linkedSalesOrderNumber,
         isPaid,
         isSameDayPaid,
         isConvertedToSO,
         isInvoicedOrClosed,
+        isLinkedToInvoice,
         dueDate,
         balance
       }
