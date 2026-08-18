@@ -7,6 +7,7 @@ $wslProjectDirectory = (wsl.exe -d $distribution -- wslpath -a $projectDirectory
 wsl.exe -d $distribution -- docker compose `
   --project-directory $wslProjectDirectory `
   --env-file "$wslProjectDirectory/.env.selfhost" `
+  --profile public `
   stop
 
 wsl.exe --terminate $distribution

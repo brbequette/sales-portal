@@ -14,10 +14,27 @@ if (-not $isRunning) {
   Start-Sleep -Seconds 3
 }
 
-wsl.exe -d $distribution -- docker compose `
-  --project-directory $wslProjectDirectory `
-  --env-file "$wslProjectDirectory/.env.selfhost" `
-  up -d postgres ollama app
+$envFile = Join-Path $projectDirectory ".env.selfhost"
+$tunnelSetting = Get-Content -LiteralPath $envFile |
+  Where-Object { $_ -match '^CLOUDFLARE_TUNNEL_TOKEN=' } |
+  Select-Object -Last 1
+$hasTunnelToken = $tunnelSetting -and (($tunnelSetting -split '=', 2)[1].Trim().Length -gt 0)
+
+$composeArguments = @(
+  "-d", $distribution, "--", "docker", "compose",
+  "--project-directory", $wslProjectDirectory,
+  "--env-file", "$wslProjectDirectory/.env.selfhost"
+)
+if ($hasTunnelToken) {
+  $composeArguments += @("--profile", "public", "up", "-d", "postgres", "ollama", "app", "cloudflared")
+} else {
+  $composeArguments += @("up", "-d", "postgres", "ollama", "app")
+}
+
+& wsl.exe $composeArguments
+if ($LASTEXITCODE -ne 0) {
+  throw "Docker Compose failed to start TDGPT."
+}
 
 $deadline = (Get-Date).AddSeconds(60)
 do {

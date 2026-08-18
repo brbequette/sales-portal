@@ -104,6 +104,29 @@ powershell -ExecutionPolicy Bypass -File scripts/restore-selfhost.ps1 `
   -ConfirmRestore
 ```
 
+## Optional secure remote access
+
+The `public` Compose profile runs a remotely managed Cloudflare Tunnel. Port
+3000 remains bound to localhost and Ollama remains private. In Cloudflare:
+
+1. Create a remotely managed tunnel named `tdgpt`.
+2. Add a published application hostname and set its origin service to
+   `http://app:3000`.
+3. Protect the hostname with a Cloudflare Access policy for your authorized
+   users before sharing it.
+4. Copy only the tunnel token into `CLOUDFLARE_TUNNEL_TOKEN` in the ignored
+   `.env.selfhost` file.
+5. Set `SELFHOST_APP_URL` to the final `https://` hostname.
+6. Start it with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/enable-cloudflare-tunnel.ps1
+```
+
+The regular startup script automatically restarts the tunnel whenever a token
+is configured. Treat the tunnel token as a password; anyone holding it can run
+the connector, so rotate it immediately if it is exposed.
+
 ## Important production work
 
 - Keep route-level authorization checks close to sensitive data in addition to
@@ -120,5 +143,6 @@ powershell -ExecutionPolicy Bypass -File scripts/restore-selfhost.ps1 `
 - Replace the local database initializer with a baselined migration history.
 - Schedule `backup-selfhost.ps1`, copy backups to encrypted off-site storage,
   and periodically test restoration.
-- Add Cloudflare Tunnel only after local authentication tests pass.
+- Enable the prepared Cloudflare Tunnel profile only after configuring its
+  public hostname and Access policy.
 - Keep Ollama private; do not expose port 11434 to the public internet.

@@ -76,6 +76,18 @@ services:
         condition: service_started
     networks: [internal]
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ["public"]
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "--loglevel", "info", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      app:
+        condition: service_healthy
+    networks: [internal]
+
 volumes:
   postgres_data:
   ollama_data:
