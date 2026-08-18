@@ -39,6 +39,16 @@ On Windows, `scripts/start-selfhost.ps1` starts the stack and keeps WSL alive
 in the background. `scripts/stop-selfhost.ps1` cleanly stops the containers and
 the Ubuntu distribution.
 
+Install the optional availability watchdog to check the login page every five
+minutes and restart WSL/Docker when the app stops responding:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install-healthcheck-task.ps1
+```
+
+Customize the interval with `-IntervalMinutes`. The watchdog runs only while
+the Windows user is signed in and stores no credentials.
+
 The `db-init` service uses `prisma db push` only against the isolated local
 database. The repository's historical Prisma migrations are incomplete and
 must be baselined before they are used for production deployments.
