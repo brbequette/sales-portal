@@ -1,0 +1,38 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
+import { Handler } from "@netlify/functions"
+import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
+
+const ORG_ID = ZOHO_ORGANIZATION_ID
+const ZOHO_DC = process.env.ZOHO_DC || 'com';
+
+const authenticatedHandler: Handler = async (event, context) => {
+  if (event.httpMethod !== "GET") {
+    return { statusCode: 405, body: JSON.stringify({ success: false, message: "Method Not Allowed" }) }
+  }
+
+  try {
+    const token = await getZohoAccessToken()
+    const baseUrl = `https://www.zohoapis.${ZOHO_DC}/books/v3`
+
+    // Fetch vendors from Zoho Books
+    const res = await fetch(`${baseUrl}/contacts?contact_type=vendor&organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
+      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    })
+    
+    const data = await res.json()
+    if (data.code !== 0) {
+      throw new Error(`Zoho Books API Error: ${data.message}`)
+    }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ success: true, vendors: data.contacts })
+    }
+
+  } catch (err: any) {
+    console.error("get-vendors error:", err)
+    return { statusCode: 500, body: JSON.stringify({ success: false, error: err.message }) }
+  }
+}
+
+export const handler = withFunctionAuth(authenticatedHandler)

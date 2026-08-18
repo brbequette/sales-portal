@@ -1,0 +1,1070 @@
+"use client"
+
+import React, { useState, useEffect, useMemo } from "react"
+import { useZoho } from "@/components/ZohoProvider"
+import Link from "next/link"
+import { PayPeriodStatementModal } from "@/components/PayPeriodStatementModal"
+import { InvoiceDetailsModal } from "@/components/InvoiceDetailsModal"
+import { 
+  FiDollarSign, FiPercent, FiTrendingUp, FiAward, FiUser, 
+  FiCheckCircle, FiClock, FiFileText, FiRefreshCw, FiAlertCircle,
+  FiChevronDown, FiChevronRight, FiCalendar, FiFilter, FiExternalLink, FiGrid, FiPrinter
+} from "react-icons/fi"
+import { classifyAtRiskInvoices, DEFAULT_CLAWBACK_SETTINGS, type AtRiskInvoice, type ClawbackSettings } from '@/lib/clawback-calculator'
+import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
+import { UpdateBanner } from '@/lib/useStaleCheck'
+
+function fmt(n: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n || 0)
+}
+
+function fmtDate(s: string | null) {
+  if (!s) return "--"
+  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+}
+
+// Snap any date to its Monday (week start)
+function getMonday(d: Date): Date {
+  const day = d.getDay()
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+  const monday = new Date(d)
+  monday.setDate(diff)
+  monday.setHours(0, 0, 0, 0)
+  return monday
+}
+
+interface WeeklyGroup {
+  weekKey: string
+  weekLabel: string
+  startDate: Date
+  endDate: Date
+  invoices: any[]
+  totalSales: number
+  totalDeadCost: number
+  totalDeadProfit: number
+  totalProfit: number
+  totalCommission: number
+  pendingCommission: number
+  secondPaymentDue: number
+  paidCount: number
+  unpaidCount: number
+}
+
+export default function CommissionsPage() {
+  const { zohoContext: user } = useZoho()
+  const [loading, setLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [byRep, setByRep] = useState<Record<string, any>>({})
+  const [selectedRepId, setSelectedRepId] = useState<string>("")
+  const [selectedYear, setSelectedYear] = useState<string>(() => new Date().getFullYear().toString())
+  const [availableYears, setAvailableYears] = useState<number[]>([])
+  const [showStatement, setShowStatement] = useState(false)
+  const [statementWeekStart, setStatementWeekStart] = useState<string | undefined>(undefined)
+  const [activeInvoiceModal, setActiveInvoiceModal] = useState<any | null>(null)
+  const [activeTab, setActiveTab] = useState<"invoices" | "payouts">("invoices")
+  const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({})
+  const [viewMode, setViewMode] = useState<"weekly" | "flat">("weekly")
+  const [commPeriod, setCommPeriod] = useState<"this_month" | "last_month" | "this_quarter" | "this_year" | "all">("this_year")
+  const [commCustomStart, setCommCustomStart] = useState("")
+  const [commCustomEnd, setCommCustomEnd] = useState("")
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [expandedKpi, setExpandedKpi] = useState<string | null>(null)
+  const [showClawbackPanel, setShowClawbackPanel] = useState(false)
+  const [apiClawbackSettings, setApiClawbackSettings] = useState<ClawbackSettings | null>(null)
+
+  const checkForUpdates = async (sig: string, url: string) => {
+    try {
+      const separator = url.includes('?') ? '&' : '?'
+      const res = await fetch(`${url}${separator}checkOnly=true`)
+      const data = await res.json()
+      if (!data.checkOnly) return
+      const remoteSig = `${data.count}`
+      if (remoteSig !== sig) setUpdateAvailable(true)
+    } catch {}
+  }
+
+  const normalizedRole = (user?.role || "").toLowerCase()
+  const isAdmin = normalizedRole.includes("admin") || normalizedRole === "administrator" || normalizedRole.includes("manager")
+
+  const fetchCommissions = async (force = false) => {
+    const cacheKey = `commissions-${selectedYear}-${user?.id || user?.email}`
+    if (!force) {
+      const cached = sessionGet<any>(cacheKey, TTL.FIFTEEN_MIN)
+      if (cached) { 
+        setByRep(cached.byRep); 
+        setAvailableYears(cached.years); 
+        setSelectedRepId(cached.selectedRepId); 
+        if (cached.clawbackSettings) setApiClawbackSettings(cached.clawbackSettings);
+        return 
+      }
+    }
+    // First load with no data: full spinner. Subsequent refreshes: subtle bar
+    if (Object.keys(byRep).length === 0) setLoading(true)
+    else setRefreshing(true)
+    setError(null)
+    try {
+      const queryParams = new URLSearchParams({
+        includeHidden: "true",
+        year: selectedYear,
+        userId: user?.id || "",
+        userEmail: user?.email || "",
+      })
+      const res = await fetch(`/api/get-commissions?${queryParams.toString()}`)
+      const data = await res.json()
+      if (data.success) {
+        setByRep(data.byRep || {})
+        if (data.years && data.years.length > 0) setAvailableYears(data.years)
+        if (data.clawbackSettings) setApiClawbackSettings(data.clawbackSettings)
+        
+        const repsList = Object.keys(data.byRep || {})
+        let matchedRep = repsList[0]
+        if (repsList.length > 0) {
+          const userEmail = (user?.email || "").toLowerCase()
+          const userId = user?.id
+          const userName = (user?.name || "").toLowerCase()
+          matchedRep = repsList.find(r => r === userId) ||
+                       repsList.find(r => (data.byRep[r]?.repName || "").toLowerCase().includes(userName) || userName.includes((data.byRep[r]?.repName || "").toLowerCase())) ||
+                       repsList.find(r => r.toLowerCase().includes(userEmail.split('@')[0])) ||
+                       repsList[0]
+          setSelectedRepId(matchedRep)
+        }
+        sessionSet(cacheKey, { byRep: data.byRep || {}, years: data.years || [], selectedRepId: matchedRep, clawbackSettings: data.clawbackSettings })
+        
+        // Staleness check: sig = invoice count (matches checkOnly response)
+        const sig = `${data.stats?.totalInvoices ?? 0}`
+        setUpdateAvailable(false)
+        setTimeout(() => checkForUpdates(sig, `/api/get-commissions?year=${selectedYear}`), 2000)
+      } else {
+        setError(data.error || "Failed to load commission data")
+      }
+    } catch (err: any) {
+      setError(err.message || "Network error loading commissions")
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchCommissions()
+  }, [selectedYear, user?.id, user?.email, refreshTrigger])
+
+  const repOptions = useMemo(() => {
+    return Object.values(byRep).map((r: any) => ({ id: r.repId, name: r.repName }))
+  }, [byRep])
+
+  const currentRepData = useMemo(() => {
+    if (!selectedRepId || !byRep[selectedRepId]) {
+      const first = Object.values(byRep)[0] as any
+      return first || null
+    }
+    return byRep[selectedRepId]
+  }, [byRep, selectedRepId])
+
+  // Group current rep's invoices into Pay Period Weeks
+  const weeklyGroups = useMemo<WeeklyGroup[]>(() => {
+    if (!currentRepData || !Array.isArray(currentRepData.invoices)) return []
+
+    const groupsMap: Record<string, WeeklyGroup> = {}
+
+    currentRepData.invoices.forEach((inv: any) => {
+      const dateStr = inv.issueDate || inv.paymentDate || new Date().toISOString()
+      const d = new Date(dateStr)
+      const monday = getMonday(isNaN(d.getTime()) ? new Date() : d)
+      const sunday = new Date(monday)
+      sunday.setDate(sunday.getDate() + 6)
+      sunday.setHours(23, 59, 59, 999)
+
+      const weekKey = monday.toISOString().split('T')[0]
+      const weekLabel = `${monday.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${sunday.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+
+      if (!groupsMap[weekKey]) {
+        groupsMap[weekKey] = {
+          weekKey,
+          weekLabel,
+          startDate: monday,
+          endDate: sunday,
+          invoices: [],
+          totalSales: 0,
+          totalDeadCost: 0,
+          totalDeadProfit: 0,
+          totalProfit: 0,
+          totalCommission: 0,
+          pendingCommission: 0,
+          secondPaymentDue: 0,
+          paidCount: 0,
+          unpaidCount: 0
+        }
+      }
+
+      const isPaid = inv.isPaid || inv.status === 'paid' || inv.status === 'Paid'
+      // Use the API-computed commission values directly
+      // total = upfront + final (earned so far), future = pending 2nd half
+      // "Est. Commission" = total estimated = earned + future
+      const estimatedCommission = (inv.commission?.total || 0) + (inv.commission?.future || 0)
+
+      // Pending commission = future commission from unpaid invoices
+      // Second payment due = future commission from paid invoices (2nd half released on payment)
+      const futureComm = inv.commission?.future || 0
+      
+      groupsMap[weekKey].invoices.push(inv)
+      groupsMap[weekKey].totalSales += (inv.amount || 0)
+      groupsMap[weekKey].totalDeadCost += (inv.deadCost || 0)
+      groupsMap[weekKey].totalDeadProfit += (inv.deadProfit || 0)
+      groupsMap[weekKey].totalProfit += (inv.profit || 0)
+      groupsMap[weekKey].totalCommission += estimatedCommission
+      if (isPaid) {
+        groupsMap[weekKey].paidCount += 1
+        // Paid invoice — 2nd half should have been released
+        groupsMap[weekKey].secondPaymentDue += (inv.commission?.final || futureComm)
+      } else {
+        groupsMap[weekKey].unpaidCount += 1
+        // Unpaid — future commission still pending customer payment
+        groupsMap[weekKey].pendingCommission += futureComm
+      }
+    })
+
+    // Auto-expand top 2 weeks by default
+    const sorted = Object.values(groupsMap).sort((a, b) => b.startDate.getTime() - a.startDate.getTime())
+    return sorted
+  }, [currentRepData])
+
+  // Filter weekly groups by the selected sub-period
+  const filteredWeeklyGroups = useMemo(() => {
+    if (commPeriod === 'this_year' || commPeriod === 'all' || selectedYear !== new Date().getFullYear().toString()) return weeklyGroups
+    const now = new Date()
+    let start: Date, end: Date
+    if (commPeriod === 'this_month') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1)
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    } else if (commPeriod === 'last_month') {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      end = new Date(now.getFullYear(), now.getMonth(), 1)
+    } else if (commPeriod === 'this_quarter') {
+      const q = Math.floor(now.getMonth() / 3)
+      start = new Date(now.getFullYear(), q * 3, 1)
+      end = new Date(now.getFullYear(), q * 3 + 3, 1)
+    } else {
+      return weeklyGroups
+    }
+    return weeklyGroups.filter(g => g.startDate >= start && g.startDate < end)
+  }, [weeklyGroups, commPeriod, selectedYear])
+
+  const filteredTotals = useMemo(() => {
+    if (filteredWeeklyGroups.length === weeklyGroups.length) {
+      return {
+        earned: currentRepData?.totalEarned || 0,
+        paid: currentRepData?.totalPaid || 0,
+        balance: currentRepData?.balance || 0,
+        profit: currentRepData?.totalProfit || 0,
+        deals: currentRepData?.invoices?.length || 0,
+      }
+    }
+    // Compute from filtered weeks
+    let earned = 0, profit = 0, deals = 0
+    filteredWeeklyGroups.forEach(w => {
+      earned += w.totalCommission || 0
+      profit += w.totalProfit || 0
+      deals += w.invoices?.length || 0
+    })
+    // Payouts are not week-scoped — always show YTD paid out regardless of period filter
+    const paid = currentRepData?.totalPaid || 0
+    return { earned, paid, balance: earned - paid, profit, deals }
+  }, [filteredWeeklyGroups, weeklyGroups.length, currentRepData])
+
+  // Clawback settings from API response
+  const clawbackSettings: ClawbackSettings = apiClawbackSettings || DEFAULT_CLAWBACK_SETTINGS
+
+  // Compute pending commissions and clawback risk from current rep's invoices
+  const { pendingCommission, atRiskInvoices, clawbackTotals } = useMemo(() => {
+    if (!currentRepData?.invoices) return { pendingCommission: 0, atRiskInvoices: [] as AtRiskInvoice[], clawbackTotals: { count: 0, repLoss: 0, commissionAtRisk: 0 } }
+    
+    // Pending commission = sum of future commission on all unpaid invoices
+    const pending = currentRepData.invoices
+      .filter((inv: any) => !inv.isPaid)
+      .reduce((sum: number, inv: any) => sum + (inv.commission?.future || 0), 0)
+
+    // Map invoices to the shape needed by the clawback calculator  
+    const mappedInvoices = currentRepData.invoices
+      .filter((inv: any) => !inv.isPaid && inv.daysOld > 0)
+      .map((inv: any) => ({
+        id: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        issueDate: inv.issueDate,
+        amount: inv.amount || 0,
+        deadCost: inv.deadCost || 0,
+        deadProfit: inv.deadProfit || 0,
+        profit: inv.profit || 0,
+        vigRate: inv.vigRate || 1.3,
+        actualShippingCost: inv.actualShippingCost || 0,
+        isPaid: false,
+        daysOld: inv.daysOld || 0,
+        repId: inv.repId || currentRepData.repId,
+        accountName: inv.accountName || inv.name || 'Unknown',
+        contactName: inv.contactName || null,
+        contactPhone: inv.contactPhone || null,
+        commission: inv.commission || { upfront: 0, final: 0, future: 0, total: 0 },
+      }))
+
+    const atRisk = classifyAtRiskInvoices(mappedInvoices, clawbackSettings)
+    const clawTotals = {
+      count: atRisk.length,
+      repLoss: atRisk.reduce((s, inv) => s + inv.chargeOffRepCost, 0),
+      commissionAtRisk: atRisk.reduce((s, inv) => s + inv.pendingCommission, 0),
+      critical: atRisk.filter(i => i.urgency === 'critical'),
+      warning: atRisk.filter(i => i.urgency === 'warning'),
+      watch: atRisk.filter(i => i.urgency === 'watch'),
+    }
+    
+    return { pendingCommission: pending, atRiskInvoices: atRisk, clawbackTotals: clawTotals }
+  }, [currentRepData, clawbackSettings])
+
+  // Year-to-date totals — always computed from full year data regardless of period filter
+  const ytdTotals = useMemo(() => {
+    if (!currentRepData?.invoices) return { earned: 0, pending: 0, total: 0, profit: 0, deals: 0, paid: 0 }
+    const allInvoices = currentRepData.invoices || []
+    let earned = 0, pending = 0, profit = 0
+    for (const inv of allInvoices) {
+      earned += inv.commission?.total || 0
+      pending += inv.commission?.future || 0
+      profit += inv.profit || 0
+    }
+    return {
+      earned,
+      pending,
+      total: earned + pending,
+      profit,
+      deals: allInvoices.length,
+      paid: currentRepData?.totalPaid || 0,
+    }
+  }, [currentRepData])
+
+  // Auto-expand first week on change
+  useEffect(() => {
+    if (weeklyGroups.length > 0 && Object.keys(expandedWeeks).length === 0) {
+      setExpandedWeeks({ [weeklyGroups[0].weekKey]: true })
+    }
+  }, [weeklyGroups])
+
+  const toggleWeek = (weekKey: string) => {
+    setExpandedWeeks(prev => ({ ...prev, [weekKey]: !prev[weekKey] }))
+  }
+
+  const expandAllWeeks = () => {
+    const all: Record<string, boolean> = {}
+    weeklyGroups.forEach(w => all[w.weekKey] = true)
+    setExpandedWeeks(all)
+  }
+
+  const collapseAllWeeks = () => {
+    setExpandedWeeks({})
+  }
+
+  return (
+    <div className="page-content">
+      <UpdateBanner show={updateAvailable} onUpdate={() => { setUpdateAvailable(false); setRefreshTrigger(n => n + 1) }} accentColor="indigo" label="Commission data updated" />
+
+      {/* ─── Header ─────────────────────────────────── */}
+      <div className="page-header">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-center">
+            <FiDollarSign className="text-indigo-400" size={17} />
+          </div>
+          <div>
+            <h1 className="page-title">Sales Commissions</h1>
+            <p className="page-subtitle">Weekly profit splits, VIG deductions, draw balances & pay period statements</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && repOptions.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <FiUser className="text-neutral-500 shrink-0" size={13} />
+              <select
+                value={selectedRepId}
+                onChange={e => setSelectedRepId(e.target.value)}
+                className="td-select"
+              >
+                {repOptions.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <select
+            value={selectedYear}
+            onChange={e => setSelectedYear(e.target.value)}
+            className="td-select"
+          >
+            <option value={new Date().getFullYear().toString()}>{new Date().getFullYear()}</option>
+            {availableYears.filter(y => y !== new Date().getFullYear()).map(y => (
+              <option key={y} value={String(y)}>{y}</option>
+            ))}
+            <option value="all">All Time</option>
+          </select>
+          <button onClick={() => fetchCommissions(true)} className="td-btn td-btn-ghost td-btn-sm" title="Refresh">
+            <FiRefreshCw className={loading ? "animate-spin" : ""} size={14} />
+          </button>
+          {currentRepData && (
+            <>
+              <Link href={`/commissions/sales-sheet?repId=${selectedRepId}&month=${new Date().getMonth()}&year=${new Date().getFullYear()}`} className="td-btn td-btn-ghost td-btn-sm" title="Monthly Sales Sheet">
+                <FiGrid size={13} /> Sales Sheet
+              </Link>
+              <button onClick={() => setShowStatement(true)} className="td-btn td-btn-primary td-btn-sm">
+                <FiAward size={13} /> Pay Statement
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ─── Body ───────────────────────────────────── */}
+      <div className="page-body animate-fade-in space-y-4">
+
+        {/* Loading — only shown on first load with no data */}
+        {loading && Object.keys(byRep).length === 0 && (
+          <div className="flex items-center justify-center py-20 gap-3">
+            <FiRefreshCw className="animate-spin text-indigo-500" size={22} />
+            <span className="text-sm text-neutral-400">Loading commission records...</span>
+          </div>
+        )}
+        {/* Subtle progress bar during background refreshes */}
+        {refreshing && <div className="h-0.5 bg-indigo-500/60 animate-pulse w-full rounded mb-2" />}
+
+        {/* Error */}
+        {error && (
+          <div className="p-4 rounded-xl bg-red-950/30 border border-red-500/20 text-red-400 flex items-center gap-3">
+            <FiAlertCircle size={18} className="shrink-0" />
+            <span className="text-sm">{error}</span>
+          </div>
+        )}
+
+        {(!loading || Object.keys(byRep).length > 0) && !error && currentRepData && (
+          <>
+            {/* Period label for KPI context */}
+            {commPeriod !== 'this_year' && commPeriod !== 'all' && (
+              <div className="text-xs text-indigo-400 font-bold -mb-1">
+                Showing: {commPeriod === 'this_month' ? 'This Month' : commPeriod === 'last_month' ? 'Last Month' : 'This Quarter'}
+              </div>
+            )}
+            {/* KPI Cards — Clickable to expand weekly breakdown */}
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+                {[
+                  { key: "earned", label: "Total Earned", value: fmt(filteredTotals.earned), color: "emerald", icon: FiDollarSign, sub: "Net 50% split after VIG" },
+                  { key: "paid", label: "Total Paid Out", value: fmt(filteredTotals.paid), color: "indigo", icon: FiCheckCircle, sub: "Disbursed checks & draws" },
+                  { key: "balance", label: "Unpaid Balance", value: fmt(filteredTotals.balance), color: filteredTotals.balance >= 0 ? "amber" : "red", icon: FiClock, sub: currentRepData.balance >= 0 ? "Pending payout" : "Draw balance advance" },
+                  { key: "profit", label: "Total Net Profit", value: fmt(filteredTotals.profit), color: "sky", icon: FiTrendingUp, sub: `Across ${filteredTotals.deals} deals` },
+                  { key: "pending", label: "Pending Commission", value: fmt(pendingCommission), color: "violet", icon: FiClock, sub: `On ${currentRepData?.invoices?.filter((i: any) => !i.isPaid).length || 0} unpaid invoices` },
+                  { key: "clawback", label: "Clawback Risk", value: fmt(clawbackTotals.repLoss), color: clawbackTotals.count > 0 ? "red" : "neutral", icon: FiAlertCircle, sub: clawbackTotals.count > 0 ? `${(clawbackTotals as any).critical?.length || 0} critical · ${(clawbackTotals as any).warning?.length || 0} warning · ${(clawbackTotals as any).watch?.length || 0} watch` : "No invoices at risk" },
+                ].map(card => (
+                  <div
+                    key={card.key}
+                    onClick={() => setExpandedKpi(expandedKpi === card.key ? null : card.key)}
+                    className={`glass-panel p-4 rounded-2xl border space-y-1 cursor-pointer transition-all hover:scale-[1.01] hover:brightness-110 ${
+                      expandedKpi === card.key ? `border-${card.color}-500/40 ring-1 ring-${card.color}-500/20` : `border-${card.color}-500/20`
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                      <span>{card.label}</span><card.icon className={`text-${card.color}-400`} size={15} />
+                    </div>
+                    <div className={`text-xl font-black text-${card.color === "indigo" || card.color === "sky" ? "white" : card.color + "-400"}`}>{card.value}</div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-neutral-600">{card.sub}</span>
+                      <FiChevronDown className={`text-neutral-600 transition-transform ${expandedKpi === card.key ? 'rotate-180' : ''}`} size={12} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* YTD Summary Bar */}
+              <div className="glass-panel rounded-xl border border-indigo-500/20 px-5 py-3 flex flex-wrap items-center gap-x-8 gap-y-2">
+                <div className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mr-2">YTD {selectedYear}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase text-neutral-500">Earned</span>
+                  <span className="text-sm font-bold text-emerald-400 tabular-nums">{fmt(ytdTotals.earned)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase text-neutral-500">Pending</span>
+                  <span className="text-sm font-bold text-violet-400 tabular-nums">{fmt(ytdTotals.pending)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase text-neutral-500">Total</span>
+                  <span className="text-sm font-black text-white tabular-nums">{fmt(ytdTotals.total)}</span>
+                </div>
+                <div className="w-px h-5 bg-white/10 hidden sm:block" />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase text-neutral-500">Paid Out</span>
+                  <span className="text-sm font-bold text-indigo-400 tabular-nums">{fmt(ytdTotals.paid)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase text-neutral-500">Profit</span>
+                  <span className="text-sm font-bold text-sky-400 tabular-nums">{fmt(ytdTotals.profit)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase text-neutral-500">Deals</span>
+                  <span className="text-sm font-bold text-neutral-300 tabular-nums">{ytdTotals.deals}</span>
+                </div>
+              </div>
+
+              {/* Expanded KPI Breakdown by Week */}
+              {expandedKpi && (
+                <div className="glass-panel rounded-xl border border-white/10 overflow-hidden animate-fade-in">
+                  <div className="px-4 py-2.5 bg-neutral-950/50 border-b border-white/[0.06] flex items-center justify-between">
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">
+                      {expandedKpi === 'earned' ? 'Commission' : expandedKpi === 'paid' ? 'Payouts' : expandedKpi === 'balance' ? 'Balance' : expandedKpi === 'pending' ? 'Pending Commission' : expandedKpi === 'clawback' ? 'Clawback Risk' : 'Profit'} — {expandedKpi === 'pending' || expandedKpi === 'clawback' ? 'Invoice Breakdown' : expandedKpi === 'paid' ? 'Payout Records' : 'Weekly Breakdown'}
+                    </span>
+                    <button onClick={() => setExpandedKpi(null)} className="text-neutral-500 hover:text-white text-xs">✕</button>
+                  </div>
+                  {expandedKpi !== 'pending' && expandedKpi !== 'clawback' && expandedKpi !== 'paid' && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-white/[0.06]">
+                          <th className="text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Week</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">#</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Sales</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Dead Cost</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Dead Profit</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">After VIG Profit</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Est. Commission</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredWeeklyGroups.map(g => (
+                          <tr key={g.weekKey} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                            <td className="px-4 py-2 text-neutral-300 font-medium whitespace-nowrap">{g.weekLabel}</td>
+                            <td className="px-3 py-2 text-right text-neutral-400">{g.invoices.length}</td>
+                            <td className="px-3 py-2 text-right text-white font-medium tabular-nums">{fmt(g.totalSales)}</td>
+                            <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{fmt(g.totalDeadCost)}</td>
+                            <td className="px-3 py-2 text-right text-amber-400 tabular-nums">{fmt(g.totalDeadProfit)}</td>
+                            <td className="px-3 py-2 text-right text-sky-400 font-medium tabular-nums">{fmt(g.totalProfit)}</td>
+                            <td className="px-3 py-2 text-right text-emerald-400 font-bold tabular-nums">{fmt(g.totalCommission)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 border-white/10 bg-neutral-950/40">
+                          <td className="px-4 py-2.5 text-white font-bold">Grand Total</td>
+                          <td className="px-3 py-2.5 text-right text-neutral-300 font-bold">{filteredTotals.deals}</td>
+                          <td className="px-3 py-2.5 text-right text-white font-bold tabular-nums">{fmt(filteredWeeklyGroups.reduce((s, g) => s + g.totalSales, 0))}</td>
+                          <td className="px-3 py-2.5 text-right text-neutral-300 font-bold tabular-nums">{fmt(filteredWeeklyGroups.reduce((s, g) => s + g.totalDeadCost, 0))}</td>
+                          <td className="px-3 py-2.5 text-right text-amber-400 font-bold tabular-nums">{fmt(filteredWeeklyGroups.reduce((s, g) => s + g.totalDeadProfit, 0))}</td>
+                          <td className="px-3 py-2.5 text-right text-sky-400 font-bold tabular-nums">{fmt(filteredTotals.profit)}</td>
+                          <td className="px-3 py-2.5 text-right text-emerald-400 font-bold tabular-nums">{fmt(filteredTotals.earned)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                  )}
+                  {/* ── PAID OUT — Actual Payout Records ── */}
+                  {expandedKpi === 'paid' && (
+                    <div className="overflow-x-auto">
+                      {(currentRepData?.payouts || []).length === 0 ? (
+                        <div className="px-6 py-8 text-center text-neutral-500 text-sm">No payout records found for this period</div>
+                      ) : (
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-white/[0.06]">
+                              <th className="text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Date</th>
+                              <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Method</th>
+                              <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Description</th>
+                              <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(currentRepData?.payouts || []).sort((a: any, b: any) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime()).map((p: any, i: number) => (
+                              <tr key={p.id || i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                                <td className="px-4 py-2 text-neutral-300 font-medium whitespace-nowrap">{new Date(p.date || p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                                <td className="px-3 py-2 text-neutral-400">{p.method || p.type || '—'}</td>
+                                <td className="px-3 py-2 text-neutral-300">{p.description || p.notes || '—'}</td>
+                                <td className="px-3 py-2 text-right text-indigo-400 font-bold tabular-nums">{fmt(p.amount)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t-2 border-white/10 bg-neutral-950/40">
+                              <td className="px-4 py-2.5 text-white font-bold" colSpan={3}>Total Paid Out ({(currentRepData?.payouts || []).length} payouts)</td>
+                              <td className="px-3 py-2.5 text-right text-indigo-400 font-bold tabular-nums">{fmt(filteredTotals.paid)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      )}
+                    </div>
+                  )}
+                  {expandedKpi === 'pending' && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-white/[0.06]">
+                            <th className="text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Invoice</th>
+                            <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Account</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Amount</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">After VIG Profit</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Upfront (Earned)</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Pending (2nd Half)</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Days Old</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(currentRepData?.invoices || []).filter((i: any) => !i.isPaid && (i.commission?.future || 0) > 0).map((inv: any) => (
+                            <tr key={inv.id} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                              <td className="px-4 py-2 font-mono font-bold text-indigo-400">#{inv.invoiceNumber || '--'}</td>
+                              <td className="px-3 py-2 text-neutral-300 font-medium">{inv.accountName || 'Customer'}</td>
+                              <td className="px-3 py-2 text-right text-white font-medium tabular-nums">{fmt(inv.amount)}</td>
+                              <td className="px-3 py-2 text-right text-sky-400 tabular-nums">{fmt(inv.profit)}</td>
+                              <td className="px-3 py-2 text-right text-emerald-400 tabular-nums">{fmt(inv.commission?.upfront || 0)}</td>
+                              <td className="px-3 py-2 text-right text-violet-400 font-bold tabular-nums">{fmt(inv.commission?.future || 0)}</td>
+                              <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{Math.round(inv.daysOld || 0)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-white/10 bg-neutral-950/40">
+                            <td className="px-4 py-2.5 text-white font-bold" colSpan={5}>Total Pending</td>
+                            <td className="px-3 py-2.5 text-right text-violet-400 font-bold tabular-nums">{fmt(pendingCommission)}</td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                  {expandedKpi === 'clawback' && atRiskInvoices.length > 0 && (
+                    <div>
+                      {/* ── Tier Summary Cards ── */}
+                      <div className="grid grid-cols-3 gap-3 px-4 py-3 border-b border-white/[0.06]">
+                        <div className="bg-red-950/30 border border-red-500/20 rounded-lg p-3 text-center">
+                          <div className="text-[10px] font-bold uppercase text-red-400/70 mb-1">Critical (&lt;30 days)</div>
+                          <div className="text-lg font-black text-red-400">{(clawbackTotals as any).critical?.length || 0}</div>
+                          <div className="text-[11px] text-red-400/60 font-medium">{fmt(((clawbackTotals as any).critical || []).reduce((s: number, i: any) => s + i.chargeOffRepCost, 0))} risk</div>
+                        </div>
+                        <div className="bg-amber-950/30 border border-amber-500/20 rounded-lg p-3 text-center">
+                          <div className="text-[10px] font-bold uppercase text-amber-400/70 mb-1">Warning (30-60 days)</div>
+                          <div className="text-lg font-black text-amber-400">{(clawbackTotals as any).warning?.length || 0}</div>
+                          <div className="text-[11px] text-amber-400/60 font-medium">{fmt(((clawbackTotals as any).warning || []).reduce((s: number, i: any) => s + i.chargeOffRepCost, 0))} risk</div>
+                        </div>
+                        <div className="bg-neutral-800/50 border border-neutral-600/20 rounded-lg p-3 text-center">
+                          <div className="text-[10px] font-bold uppercase text-neutral-400/70 mb-1">Watch (60-90 days)</div>
+                          <div className="text-lg font-black text-neutral-300">{(clawbackTotals as any).watch?.length || 0}</div>
+                          <div className="text-[11px] text-neutral-400/60 font-medium">{fmt(((clawbackTotals as any).watch || []).reduce((s: number, i: any) => s + i.chargeOffRepCost, 0))} risk</div>
+                        </div>
+                      </div>
+                      {/* ── Invoice Table ── */}
+                      <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-white/[0.06]">
+                            <th className="text-left px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Tier</th>
+                            <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Invoice</th>
+                            <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Account</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Days Old</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Days to Clawback</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Amount</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Dead Cost</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Shipping</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Rep Loss (50%)</th>
+                            <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Contact</th>
+                            <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">Phone</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {atRiskInvoices.map((inv) => (
+                            <tr key={inv.id} className={`border-b border-white/[0.03] ${
+                              inv.urgency === 'critical' ? 'bg-red-950/20' : inv.urgency === 'warning' ? 'bg-amber-950/10' : 'hover:bg-white/[0.02]'
+                            }`}>
+                              <td className="px-4 py-2">
+                                <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                  inv.urgency === 'critical' ? 'bg-red-500/20 text-red-400' : inv.urgency === 'warning' ? 'bg-amber-500/20 text-amber-400' : 'bg-neutral-700 text-neutral-400'
+                                }`}>{inv.urgency === 'critical' ? '< 30d' : inv.urgency === 'warning' ? '30-60d' : '60-90d'}</span>
+                              </td>
+                              <td className="px-3 py-2 font-mono font-bold text-indigo-400">#{inv.invoiceNumber || '--'}</td>
+                              <td className="px-3 py-2 text-neutral-300 font-medium">{inv.accountName}</td>
+                              <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{Math.round(inv.daysOld)}</td>
+                              <td className={`px-3 py-2 text-right font-bold tabular-nums ${
+                                inv.urgency === 'critical' ? 'text-red-400' : inv.urgency === 'warning' ? 'text-amber-400' : 'text-neutral-300'
+                              }`}>{inv.daysToClawback}</td>
+                              <td className="px-3 py-2 text-right text-white font-medium tabular-nums">{fmt(inv.amount)}</td>
+                              <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{fmt(inv.deadCost)}</td>
+                              <td className="px-3 py-2 text-right text-neutral-400 tabular-nums">{fmt(inv.actualShippingCost)}</td>
+                              <td className="px-3 py-2 text-right text-red-400 font-bold tabular-nums">{fmt(inv.chargeOffRepCost)}</td>
+                              <td className="px-3 py-2 text-neutral-300">{inv.contactName || '—'}</td>
+                              <td className="px-3 py-2">
+                                {inv.contactPhone ? (
+                                  <a href={`tel:${inv.contactPhone}`} className="text-indigo-400 hover:text-indigo-300 underline">{inv.contactPhone}</a>
+                                ) : <span className="text-neutral-600">—</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-white/10 bg-neutral-950/40">
+                            <td className="px-4 py-2.5 text-white font-bold" colSpan={5}>Total Risk ({atRiskInvoices.length} invoices)</td>
+                            <td className="px-3 py-2.5 text-right text-white font-bold tabular-nums">{fmt(atRiskInvoices.reduce((s, i) => s + i.amount, 0))}</td>
+                            <td className="px-3 py-2.5 text-right text-neutral-300 font-bold tabular-nums">{fmt(atRiskInvoices.reduce((s, i) => s + i.deadCost, 0))}</td>
+                            <td className="px-3 py-2.5 text-right text-neutral-300 font-bold tabular-nums">{fmt(atRiskInvoices.reduce((s, i) => s + i.actualShippingCost, 0))}</td>
+                            <td className="px-3 py-2.5 text-right text-red-400 font-bold tabular-nums">{fmt(clawbackTotals.repLoss)}</td>
+                            <td colSpan={2}></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                    </div>
+                  )}
+                  {expandedKpi === 'clawback' && atRiskInvoices.length === 0 && (
+                    <div className="px-6 py-8 text-center text-neutral-500 text-sm">No invoices approaching clawback threshold</div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Breakdown Panel */}
+            <div className="modern-card overflow-hidden">
+
+              {/* Tabs + View Controls */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/8 bg-neutral-950/40 px-4">
+                <div className="flex">
+                  {(["invoices", "payouts"] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`py-3 px-4 text-xs font-bold border-b-2 transition-colors ${
+                        activeTab === tab
+                          ? "border-indigo-500 text-indigo-400"
+                          : "border-transparent text-neutral-500 hover:text-neutral-300"
+                      }`}
+                    >
+                      {tab === "invoices"
+                        ? `Weekly Statements (${currentRepData.invoices?.length || 0})`
+                        : `Payout History (${currentRepData.payouts?.length || 0})`}
+                    </button>
+                  ))}
+                </div>
+
+                {activeTab === "invoices" && (
+                  <div className="flex items-center gap-2 py-2 sm:py-0">
+                    <div className="glass-panel rounded-lg p-0.5 flex border border-white/10 text-xs font-semibold">
+                      <button
+                        onClick={() => setViewMode("weekly")}
+                        className={`px-3 py-1 rounded-md transition ${viewMode === "weekly" ? "bg-indigo-600 text-white" : "text-neutral-400 hover:text-white"}`}
+                      >
+                        By Week
+                      </button>
+                      <button
+                        onClick={() => setViewMode("flat")}
+                        className={`px-3 py-1 rounded-md transition ${viewMode === "flat" ? "bg-indigo-600 text-white" : "text-neutral-400 hover:text-white"}`}
+                      >
+                        Flat List
+                      </button>
+                    </div>
+                    {viewMode === "weekly" && (
+                      <div className="flex items-center gap-1 text-xs">
+                        <button onClick={expandAllWeeks} className="text-neutral-500 hover:text-indigo-400 px-2 py-1">Expand All</button>
+                        <span className="text-neutral-700">•</span>
+                        <button onClick={collapseAllWeeks} className="text-neutral-500 hover:text-indigo-400 px-2 py-1">Collapse All</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Period Sub-Filter */}
+              {viewMode === 'weekly' && (
+                <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 border-b border-white/8 bg-neutral-950/20">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mr-1">Period:</span>
+                  {([
+                    { id: 'this_month', label: 'This Month' },
+                    { id: 'last_month', label: 'Last Month' },
+                    { id: 'this_quarter', label: 'This Quarter' },
+                    { id: 'this_year', label: 'Full Year' },
+                    { id: 'all', label: 'All Time' },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setCommPeriod(opt.id)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                        commPeriod === opt.id
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                          : 'bg-neutral-800 text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                  {filteredWeeklyGroups.length !== weeklyGroups.length && (
+                    <span className="text-[10px] text-indigo-400 font-bold ml-2">
+                      {filteredWeeklyGroups.length} of {weeklyGroups.length} weeks
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Weekly Grouped View */}
+              {activeTab === "invoices" && viewMode === "weekly" && (
+                <div className="divide-y divide-white/[0.06]">
+                  {filteredWeeklyGroups.map(group => {
+                    const isExpanded = !!expandedWeeks[group.weekKey]
+                    return (
+                      <div key={group.weekKey}>
+                        {/* Week Header Row */}
+                        <div
+                          onClick={() => toggleWeek(group.weekKey)}
+                          className="flex flex-wrap items-center justify-between px-4 py-3 bg-neutral-950/30 hover:bg-neutral-900/40 cursor-pointer select-none transition-colors gap-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-neutral-500">
+                              {isExpanded ? <FiChevronDown size={16} /> : <FiChevronRight size={16} />}
+                            </span>
+                            <div>
+                              <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                                <FiCalendar className="text-indigo-400" size={13} />
+                                Week of {group.weekLabel}
+                                <span className="text-xs font-normal text-neutral-500">({group.invoices.length} invoices)</span>
+                              </div>
+                              <div className="text-xs text-neutral-600 mt-0.5 flex items-center gap-2">
+                                <span className="text-emerald-400 font-medium">{group.paidCount} Paid</span>
+                                <span>•</span>
+                                <span className="text-amber-400 font-medium">{group.unpaidCount} Pending</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 text-right">
+                            <div className="hidden sm:block">
+                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Subtotal</div>
+                              <div className="text-sm font-semibold text-white">{fmt(group.totalSales)}</div>
+                            </div>
+                            <div className="hidden md:block">
+                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Dead Cost</div>
+                              <div className="text-sm font-semibold text-neutral-400">{fmt(group.totalDeadCost)}</div>
+                            </div>
+                            <div className="hidden md:block">
+                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Dead Profit</div>
+                              <div className="text-sm font-semibold text-amber-400">{fmt(group.totalDeadProfit)}</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">After VIG Profit</div>
+                              <div className="text-sm font-semibold text-sky-400">{fmt(group.totalProfit)}</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Est. Commission</div>
+                              <div className="text-sm font-bold text-emerald-400">{fmt(group.totalCommission)}</div>
+                            </div>
+                            {group.pendingCommission > 0 && (
+                              <div>
+                                <div className="text-[10px] text-neutral-600 uppercase tracking-wider">Pending</div>
+                                <div className="text-sm font-semibold text-violet-400">{fmt(group.pendingCommission)}</div>
+                              </div>
+                            )}
+                            {group.secondPaymentDue > 0 && (
+                              <div>
+                                <div className="text-[10px] text-neutral-600 uppercase tracking-wider">2nd Pmt Rcvd</div>
+                                <div className="text-sm font-semibold text-blue-400">{fmt(group.secondPaymentDue)}</div>
+                              </div>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setStatementWeekStart(group.weekKey)
+                                setShowStatement(true)
+                              }}
+                              className="ml-2 p-1.5 rounded-lg text-neutral-500 hover:text-white hover:bg-white/10 transition-colors"
+                              title="Print Pay Stub for this week"
+                            >
+                              <FiPrinter size={14} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Expanded Invoices */}
+                        {isExpanded && (
+                          <div className="overflow-x-auto border-t border-white/[0.05]">
+                            <table className="td-table">
+                              <thead>
+                                <tr>
+                                  <th className="td-th pl-10">Date</th>
+                                  <th className="td-th">Invoice #</th>
+                                  <th className="td-th">Account / Customer</th>
+                                  <th className="td-th text-right">Amount</th>
+                                  <th className="td-th text-right">Profit</th>
+                                  <th className="td-th text-right">Est. Commission</th>
+                                  <th className="td-th text-center">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {group.invoices.map((inv: any) => {
+                                  const isPaid = inv.isPaid || inv.status === 'paid' || inv.status === 'Paid'
+                                  const profit = inv.profit || 0
+                                  const upfrontHalf = inv.commission?.upfront ?? (profit * 0.25)
+                                  const secondHalf = inv.commission?.final ?? inv.commission?.future ?? (profit * 0.25)
+                                  const fullCommission = upfrontHalf + secondHalf
+                                  return (
+                                    <tr
+                                      key={inv.id}
+                                      onClick={() => setActiveInvoiceModal(inv)}
+                                      className="hover:bg-white/[0.03] cursor-pointer transition-colors group"
+                                    >
+                                      <td className="td-td pl-10 text-neutral-500 whitespace-nowrap">{fmtDate(inv.issueDate)}</td>
+                                      <td className="td-td">
+                                        <span className="font-mono font-bold text-indigo-400 group-hover:text-indigo-300 flex items-center gap-1.5">
+                                          <FiFileText size={12} className="shrink-0" />
+                                          #{inv.invoiceNumber || inv.zohoId || "--"}
+                                        </span>
+                                      </td>
+                                      <td className="td-td font-medium text-white">{inv.accountName || inv.name || "Customer"}</td>
+                                      <td className="td-td text-right font-medium text-white">{fmt(inv.amount)}</td>
+                                      <td className="td-td text-right font-medium text-sky-400">{fmt(inv.profit)}</td>
+                                      <td className="td-td text-right whitespace-nowrap">
+                                        {!isPaid ? (
+                                          <div>
+                                            <div className="font-bold text-amber-400 text-xs">{fmt(upfrontHalf)} <span className="text-[10px] font-normal text-amber-300/70">(1st Half)</span></div>
+                                            <div className="text-[10px] text-neutral-600 mt-0.5">2nd: {fmt(secondHalf)} <span className="text-neutral-700">(Pending)</span></div>
+                                          </div>
+                                        ) : (
+                                          <div>
+                                            <div className="font-bold text-emerald-400 text-xs">{fmt(fullCommission)} <span className="text-[10px] font-normal text-emerald-300/70">(Full)</span></div>
+                                            <div className="text-[10px] text-emerald-500/60 mt-0.5">{fmt(upfrontHalf)} + {fmt(secondHalf)}</div>
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="td-td text-center">
+                                        <span className={`status-pill ${isPaid ? "status-pill-green" : "status-pill-amber"}`}>
+                                          {isPaid ? "Paid" : "Unpaid"}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {filteredWeeklyGroups.length === 0 && (
+                    <div className="py-12 text-center text-sm text-neutral-500">
+                      No weekly invoice records found for this period.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Flat Invoices Table */}
+              {activeTab === "invoices" && viewMode === "flat" && (
+                <div className="overflow-x-auto">
+                  <table className="td-table">
+                    <thead>
+                      <tr>
+                        <th className="td-th">Date</th>
+                        <th className="td-th">Invoice #</th>
+                        <th className="td-th">Account / Customer</th>
+                        <th className="td-th text-right">Amount</th>
+                        <th className="td-th text-right">Profit</th>
+                        <th className="td-th text-right">Est. Commission</th>
+                        <th className="td-th text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(currentRepData.invoices || []).map((inv: any) => {
+                        const isPaid = inv.isPaid || inv.status === 'paid' || inv.status === 'Paid'
+                        const profit = inv.profit || 0
+                        const upfrontHalf = inv.commission?.upfront ?? (profit * 0.25)
+                        const secondHalf = inv.commission?.final ?? inv.commission?.future ?? (profit * 0.25)
+                        const fullCommission = upfrontHalf + secondHalf
+                        return (
+                          <tr
+                            key={inv.id}
+                            onClick={() => setActiveInvoiceModal(inv)}
+                            className="hover:bg-white/[0.03] cursor-pointer transition-colors group"
+                          >
+                            <td className="td-td text-neutral-500 whitespace-nowrap">{fmtDate(inv.issueDate)}</td>
+                            <td className="td-td">
+                              <span className="font-mono font-bold text-indigo-400 group-hover:text-indigo-300 flex items-center gap-1.5">
+                                <FiFileText size={12} className="shrink-0" />
+                                #{inv.invoiceNumber || inv.zohoId || "--"}
+                              </span>
+                            </td>
+                            <td className="td-td font-medium text-white">{inv.accountName || inv.name || "Customer"}</td>
+                            <td className="td-td text-right font-medium text-white">{fmt(inv.amount)}</td>
+                            <td className="td-td text-right font-medium text-sky-400">{fmt(inv.profit)}</td>
+                            <td className="td-td text-right whitespace-nowrap">
+                              {!isPaid ? (
+                                <div>
+                                  <div className="font-bold text-amber-400 text-xs">{fmt(upfrontHalf)} <span className="text-[10px] font-normal text-amber-300/70">(1st Half)</span></div>
+                                  <div className="text-[10px] text-neutral-600 mt-0.5">2nd: {fmt(secondHalf)} <span className="text-neutral-700">(Pending)</span></div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="font-bold text-emerald-400 text-xs">{fmt(fullCommission)} <span className="text-[10px] font-normal text-emerald-300/70">(Full)</span></div>
+                                  <div className="text-[10px] text-emerald-500/60 mt-0.5">{fmt(upfrontHalf)} + {fmt(secondHalf)}</div>
+                                </div>
+                              )}
+                            </td>
+                            <td className="td-td text-center">
+                              <span className={`status-pill ${isPaid ? "status-pill-green" : "status-pill-amber"}`}>
+                                {isPaid ? "Paid" : "Unpaid"}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Payouts Table */}
+              {activeTab === "payouts" && (
+                <div className="overflow-x-auto">
+                  <table className="td-table">
+                    <thead>
+                      <tr>
+                        <th className="td-th">Date</th>
+                        <th className="td-th">Method / Check #</th>
+                        <th className="td-th">Notes</th>
+                        <th className="td-th text-right">Amount Paid</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(currentRepData.payouts || []).map((p: any) => (
+                        <tr key={p.id} className="hover:bg-white/[0.03] transition-colors">
+                          <td className="td-td text-neutral-500 whitespace-nowrap">{fmtDate(p.date || p.createdAt)}</td>
+                          <td className="td-td font-medium text-white">{p.method || "Check"}</td>
+                          <td className="td-td text-neutral-400">{p.notes || "--"}</td>
+                          <td className="td-td text-right font-bold text-indigo-400">{fmt(p.amount)}</td>
+                        </tr>
+                      ))}
+                      {(!currentRepData.payouts || currentRepData.payouts.length === 0) && (
+                        <tr>
+                          <td colSpan={4} className="py-10 text-center text-sm text-neutral-500">No payout transactions logged yet.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Pay Period Statement Modal */}
+      {showStatement && currentRepData && (
+        <PayPeriodStatementModal
+          rep={currentRepData}
+          initialWeekStart={statementWeekStart}
+          onClose={() => { setShowStatement(false); setStatementWeekStart(undefined); }}
+        />
+      )}
+
+      {/* Invoice Details Modal */}
+      {activeInvoiceModal && (
+        <InvoiceDetailsModal
+          invoice={activeInvoiceModal.zohoId || activeInvoiceModal.id || activeInvoiceModal.invoiceNumber}
+          type="Invoice"
+          onClose={() => setActiveInvoiceModal(null)}
+        />
+      )}
+    </div>
+  )
+}

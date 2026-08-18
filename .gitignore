@@ -1,0 +1,62 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (commit sanitized templates only)
+.env
+.env.local
+.env*
+!.env.example
+!.env.*.example
+!.env.selfhost.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+/src/generated/prisma
+
+# Local Netlify folder
+.netlify
+
+# Local AI/editor metadata and scratch work
+.agents/
+.gemini/
+scratch/
+scratch_*
+/'2026-08-14'
+
+# Local exports may contain customer or financial data
+sale_lineage_export.csv
+scripts/backfill/*backup*.json

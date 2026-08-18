@@ -1,0 +1,1306 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  AGENT
+  VIEWER
+}
+
+enum AccountQuality {
+  A_PLUS
+  A
+  B
+  C
+  D
+  NEVER_STATUSED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum PayoutStructure {
+  TWO_PAYMENT
+  THREE_PAYMENT
+  SINGLE_PAYMENT
+}
+
+model User {
+  id                 String           @id @default(cuid())
+  email              String           @unique
+  password           String?
+  name               String?
+  phone              String?
+  title              String?          @default("Sales Representative")
+  vcardPhotoUrl      String?
+  vcardCompany       String?          @default("Titan Diamond USA")
+  vcardWebsite       String?          @default("https://tdusales.com")
+  zohoId             String?          @unique
+  /// @future Use UserRole enum
+  role               String           @default("AGENT")
+  autoAttachVCard    Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  constantVigEnabled Boolean          @default(false)
+  constantVigValue   Float?           @default(1.5)
+  canSendCampaigns   Boolean          @default(false)
+  permissions        Json?
+  showOnSalesBoard   Boolean          @default(false)
+  /// @future Use PayoutStructure enum
+  payoutStructure    String           @default("two_payment")
+  accounts           Account[]
+  campaignBlasts     CampaignBlast[]
+  campaignJobs       CampaignJob[]
+  deals              Deal[]
+  monthlyVigGoals    MonthlyVigGoal[]
+  notes              Note[]
+  payouts            Payout[]
+  tasks              Task[]
+  timeEntries        TimeEntry[]
+  timeChangeRequests TimeChangeRequest[]
+  smsMessages        SmsMessage[]
+  callLogs           CallLog[]
+  pushSubscriptions  PushSubscription[]
+  notifications      Notification[]
+  advances           Advance[]
+  reimbursements     Reimbursement[]
+  scheduledMessages  ScheduledMessage[]
+  leads              Lead[]
+  claimedLeads       Lead[]             @relation("ClaimedLeads")
+  clawbackTransactions ClawbackTransaction[]
+  compensationPlans    CompensationPlan[]
+  basePayEarnings      BasePayEarning[]
+
+  @@index([role])
+}
+
+model Account {
+  id               String       @id @default(cuid())
+  zohoId           String       @unique
+  name             String
+  industry         String?
+  status           String       @default("Update Status")
+  lastPurchaseAt   DateTime?
+  ownerId          String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  nextActionDate   DateTime?
+  tags             String?
+  /// @future Use AccountQuality enum
+  quality          String       @default("NEVER_STATUSED")
+  lastCalledAt     DateTime?
+  lastClosedCycleAt DateTime?
+  timeZone         String?
+  bladeSizes          String?
+  materialsCut        String?
+  currentSupplier     String?
+  averageBladeCost    String?
+  crewCount           String?
+  bladesPerOrder      String?
+  improvementPriority String?
+  billingStreet       String?
+  billingCity         String?
+  billingState        String?
+  billingZip          String?
+  shippingStreet      String?
+  shippingCity        String?
+  shippingState       String?
+  shippingZip         String?
+  owner               User         @relation(fields: [ownerId], references: [id])
+  contacts         Contact[]
+  deals            Deal[]
+  invoices         Invoice[]
+  notes            Note[]
+  quotes           Quote[]
+  salesOrders      SalesOrder[]
+  tasks            Task[]
+  campaignLogs     CampaignLog[]
+  smsMessages      SmsMessage[]
+  callLogs         CallLog[]
+  scheduledMessages ScheduledMessage[]
+  autoshipSubscriptions AutoshipSubscription[]
+  zohoModifiedTime DateTime?
+  rawData          Json?
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([ownerId, quality, status])
+  @@index([billingState, timeZone])
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  zohoId      String   @unique
+  accountId   String
+  firstName   String?
+  lastName    String?
+  email       String?
+  phone       String?
+  mobilePhone String?
+  isPrimary   Boolean  @default(false)
+  designation String?
+  mailingStreet String?
+  mailingCity   String?
+  mailingState  String?
+  mailingZip    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  zohoModifiedTime DateTime?
+  rawData          Json?
+  account     Account  @relation(fields: [accountId], references: [id])
+  smsMessages SmsMessage[]
+  callLogs    CallLog[]
+}
+
+model Deal {
+  id            String    @id @default(cuid())
+  zohoId        String    @unique
+  accountId     String
+  name          String
+  amount        Float
+  stage         String    @default("Open")
+  salesStageId  String?
+  closingDate   DateTime?
+  invoicedItems String?
+  ownerId       String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  zohoModifiedTime DateTime?
+  rawData          Json?
+  account       Account   @relation(fields: [accountId], references: [id])
+  owner         User      @relation(fields: [ownerId], references: [id])
+  tasks         Task[]
+  quotes        Quote[]
+  salesOrders   SalesOrder[]
+  invoices      Invoice[]
+
+  @@index([ownerId])
+  @@index([accountId])
+  @@index([salesStageId])
+}
+
+model SalesOrder {
+  id                String    @id @default(cuid())
+  accountId         String
+  amount            Float
+  status            String    @default("Pending")
+  orderDate         DateTime  @default(now())
+  items             Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  zohoId            String?   @unique
+  zohoModifiedTime  DateTime?
+  rawData           Json?
+  // Cost sync tracking
+  pendingCostSync   Boolean   @default(false)
+  costsCalculatedAt DateTime?
+  lastCostSyncAt    DateTime?
+  account           Account   @relation(fields: [accountId], references: [id])
+  dealId            String?
+  deal              Deal?     @relation(fields: [dealId], references: [id])
+  actualShippingCost    Float?
+  shippingCostBreakdown String?
+  lineItems         LineItem[]
+
+  // Bidirectional sync tracking
+  lastZohoModifiedTime  DateTime?   // last_modified_time returned by Zoho
+  lastSyncedAt          DateTime?   // when we last completed a successful sync
+  appModifiedAt         DateTime?   // when app last wrote app-owned fields
+  syncConflict          Boolean     @default(false)
+  conflictFields        Json?       // { fieldName: { app: val, zoho: val } }
+  pendingZohoFetch      Boolean     @default(false)  // Zoho changed -> needs re-pull
+
+  @@index([pendingCostSync])
+  @@index([dealId])
+  @@index([accountId])
+  @@index([orderDate])
+  @@index([status, orderDate])
+  @@index([syncConflict])
+  @@index([pendingZohoFetch])
+}
+
+model Quote {
+  id                String    @id @default(cuid())
+  accountId         String
+  amount            Float
+  status            String    @default("Draft")
+  validUntil        DateTime?
+  items             Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  zohoId            String?   @unique
+  zohoModifiedTime  DateTime?
+  rawData           Json?
+  // Cost sync tracking
+  pendingCostSync   Boolean   @default(false)
+  costsCalculatedAt DateTime?
+  lastCostSyncAt    DateTime?
+  account           Account   @relation(fields: [accountId], references: [id])
+  dealId            String?
+  deal              Deal?     @relation(fields: [dealId], references: [id])
+  lineItems         LineItem[]
+
+  // Bidirectional sync tracking
+  lastZohoModifiedTime  DateTime?
+  lastSyncedAt          DateTime?
+  appModifiedAt         DateTime?
+  syncConflict          Boolean   @default(false)
+  conflictFields        Json?
+  pendingZohoFetch      Boolean   @default(false)
+
+  @@index([pendingCostSync])
+  @@index([dealId])
+  @@index([accountId])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([syncConflict])
+  @@index([pendingZohoFetch])
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  sku          String   @unique
+  name         String
+  description  String?
+  price        Float
+  category     String   @default("General")
+  stock        Int      @default(0)
+  subjectToVig Boolean  @default(true)
+  giftItem     Boolean  @default(false)
+  
+  // Custom Classifications
+  size         String?
+  application  String?
+  manufacturer String?
+  vendor       String?
+  qualityTier  String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Invoice {
+  id                String    @id @default(cuid())
+  zohoId            String    @unique
+  accountId         String
+  amount            Float
+  /// @future Use InvoiceStatus enum
+  status            String
+  issueDate         DateTime
+  dueDate           DateTime?
+  items             Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  zohoModifiedTime  DateTime?
+  rawData           Json?
+  // Cost sync tracking
+  pendingCostSync   Boolean   @default(false)
+  costsCalculatedAt DateTime?
+  lastCostSyncAt    DateTime?
+  account           Account   @relation(fields: [accountId], references: [id])
+  dealId            String?
+  deal              Deal?     @relation(fields: [dealId], references: [id])
+  actualShippingCost    Float?
+  shippingCostBreakdown String?
+
+  // Write-off & Return Re-inventory tracking
+  isWrittenOff            Boolean   @default(false)
+  writtenOffAt            DateTime?
+  writtenOffCostDeduction Float     @default(0)
+  returnedItemsCost       Float     @default(0)
+  returnedItemsRepHold    Float     @default(0)
+  returnedItemsResold     Boolean   @default(false)
+  resoldInvoiceId         String?
+
+  // Bidirectional sync tracking
+  lastZohoModifiedTime  DateTime?   // last_modified_time returned by Zoho
+  lastSyncedAt          DateTime?   // when we last completed a successful sync
+  appModifiedAt         DateTime?   // when app last wrote app-owned fields
+  syncConflict          Boolean     @default(false)
+  conflictFields        Json?       // { fieldName: { app: val, zoho: val } }
+  pendingZohoFetch      Boolean     @default(false)  // Zoho changed -> needs re-pull
+
+  // Payment summary (denormalized from Zoho, updated every sync)
+  paymentMade       Float?      // Zoho invoice.payment_made
+  paymentExpected   Float?      // Zoho invoice.payment_expected
+  lastPaymentDate   DateTime?   // Zoho invoice.last_payment_date
+  balance           Float?      // Zoho invoice.balance
+
+  // Payment records relation
+  payments          Payment[]
+  lineItems         LineItem[]
+
+  // Clawback tracking
+  clawbackDate       DateTime?
+  clawbackStatus     String?     // null | "approaching" | "clawed" | "collected"
+  clawbackTransactions ClawbackTransaction[]
+
+  @@index([accountId])
+  @@index([dealId])
+  @@index([status])
+  @@index([issueDate])
+  @@index([status, issueDate])
+  @@index([pendingCostSync])
+  @@index([accountId, issueDate, status])
+  @@index([syncConflict])
+  @@index([pendingZohoFetch])
+  @@index([lastSyncedAt])
+  // PERF: fast range + status queries for get-rep-stats
+  @@index([issueDate, status, accountId])
+  // PERF: fast due-date + status queries for get-collections
+  @@index([dueDate, status])
+
+  // ── Denormalized computed columns (populated by process-invoice-costs) ──────
+  // Storing these as real columns avoids parsing the items JSON blob on every
+  // request. get-rep-stats and get-collections read these directly via $queryRaw.
+  // All nullable — rows processed before this migration fall back to JSON parsing.
+  computedProfit        Float?   // after-VIG net profit
+  computedDeadProfit    Float?   // pre-VIG gross profit (deadCost subtracted from amount)
+  computedDeadCost      Float?   // total dead cost (subject-to-VIG + no-VIG)
+  computedVigRate       Float?   // resolved VIG rate applied to this invoice
+  computedSalesperson   String?  // salesperson name string
+  computedInvoiceNumber String?  // invoice/document number
+  computedUpfront       Float?   // upfront commission half
+  computedFinal         Float?   // final commission half
+
+  // Linked documents (populated by backfill from individual Zoho GET calls)
+  salesOrderZohoId      String?  // Zoho salesorder_id linked to this invoice
+  estimateZohoId        String?  // Zoho estimate_id linked to this invoice
+  invoiceNumber         String?  // Zoho invoice_number (e.g. "INV-00123")
+  salesorderNumber      String?  // Zoho salesorder_number linked
+
+  @@index([salesOrderZohoId])
+  @@index([estimateZohoId])
+}
+
+model Note {
+  id              String   @id @default(cuid())
+  accountId       String
+  authorId        String
+  content         String
+  callSid         String?
+  sentiment       String?
+  isAutoGenerated Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  account         Account  @relation(fields: [accountId], references: [id])
+  author          User     @relation(fields: [authorId], references: [id])
+
+  @@index([accountId])
+}
+
+model MediaAsset {
+  id        String   @id @default(cuid())
+  title     String
+  type      String
+  category  String
+  url       String
+  size      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Task {
+  id           String    @id @default(cuid())
+  zohoId       String    @unique
+  subject      String
+  description  String?
+  status       String    @default("Not Started")
+  priority     String    @default("Normal")
+  dueDate      DateTime?
+  ownerId      String
+  accountId    String?
+  dealId       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  invoiceId    String?
+  salesOrderId String?
+  quoteId      String?
+  estimateId   String?
+  type         String    @default("Task")
+  account      Account?  @relation(fields: [accountId], references: [id])
+  deal         Deal?     @relation(fields: [dealId], references: [id])
+  reminderAt       DateTime?
+  reminderMethod   String?
+  reminderFired    Boolean       @default(false)
+  owner        User      @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([accountId])
+  @@index([ownerId, status, dueDate])
+}
+
+model SystemSetting {
+  key              String   @id
+  value            String
+  businessDefaults Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model CustomFieldMapping {
+  id            String   @id @default(cuid())
+  entity        String   // INVOICE, SALESORDER, ESTIMATE, ITEM, ACCOUNT, DEAL
+  label         String
+  apiName       String
+  customfieldId String?
+  internalKey   String   // Canonical internal key, e.g. "salespersonVig", "profit", "commissionAmount"
+  dataType      String   @default("string") // amount, string, date, check_box, multiline, etc.
+  isActive      Boolean  @default(true)
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([entity, apiName])
+  @@index([entity])
+  @@index([internalKey])
+}
+
+
+model Payout {
+  id         String   @id @default(cuid())
+  repId      String
+  amount     Float
+  date       DateTime @default(now())
+  method     String   @default("Check")
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  rep        User     @relation(fields: [repId], references: [id], onDelete: Cascade)
+
+  @@index([repId])
+}
+
+model MonthlyVigGoal {
+  id                String    @id @default(cuid())
+  monthKey          String
+  repId             String
+  metric            String    @default("PROFIT")
+  profitGoal        Float     @default(20000)
+  subtotalGoal      Float     @default(40000)
+  workingDays       Int?      // Editable: weekdays in month minus company holidays
+  manualVigRate     Float?
+  lastSyncedVigRate Float?
+  lastSyncedAt      DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  rep               User      @relation(fields: [repId], references: [id], onDelete: Cascade)
+
+  @@unique([repId, monthKey])
+  @@index([repId])
+}
+
+model TimeEntry {
+  id              String   @id @default(cuid())
+  userId          String
+  date            String   // Stored as YYYY-MM-DD in Phoenix Time
+  clockIn         DateTime
+  lastActivity    DateTime
+  clockOut        DateTime?
+  manualClockIn   DateTime?
+  manualClockOut  DateTime?
+  ipAddress         String?
+  inactivityPeriods Json?    @default("[]")
+  clockInLat        Float?
+  clockInLng        Float?
+  clockInAccuracy   Float?
+  clockOutLat       Float?
+  clockOutLng       Float?
+  clockOutAccuracy  Float?
+  clockInLocation   String?
+  clockOutLocation  String?
+  locationStatus    String?    // VERIFIED | OUT_OF_RANGE | DENIED | UNAVAILABLE
+  clockSource       String?    @default("manual") // 'manual' | 'geofence'
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  changeRequests  TimeChangeRequest[]
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+model TimeChangeRequest {
+  id                String   @id @default(cuid())
+  timeEntryId       String?
+  userId            String
+  requestedClockIn  DateTime?
+  requestedClockOut DateTime?
+  reason            String
+  notes             String?
+  status            String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  timeEntry         TimeEntry? @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([timeEntryId])
+  @@index([userId])
+}
+
+model GeofenceLocation {
+  id            String   @id @default(cuid())
+  name          String
+  address       String?
+  latitude      Float
+  longitude     Float
+  radiusMeters  Int      @default(150)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model CampaignTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  content     String
+  imageUrl    String?
+  channel     String   @default("SMS")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CampaignBlast {
+  id          String   @id @default(cuid())
+  name        String
+  content     String
+  imageUrl    String?
+  channel     String
+  authorId    String
+  sentCount   Int      @default(0)
+  failedCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  logs        CampaignLog[]
+  smsMessages SmsMessage[]
+  scheduledMessages ScheduledMessage[]
+
+  @@index([authorId])
+}
+
+model CampaignJob {
+  id           String   @id @default(cuid())
+  authorId     String
+  blastId      String?  // linked CampaignBlast once created
+  status       String   @default("RUNNING") // RUNNING | DONE | CANCELLED | ERROR
+  campaignName String
+  channel      String   @default("SMS")
+  text         String   @default("")
+  imageUrl     String?
+  fromNumber   String?
+  accountIds   Json     // String[] — full ordered recipient list
+  currentIndex Int      @default(0)
+  total        Int
+  sentCount    Int      @default(0)
+  failedCount  Int      @default(0)
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  author       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId])
+  @@index([status])
+}
+
+model CampaignLog {
+  id               String   @id @default(cuid())
+  campaignBlastId  String
+  accountId        String
+  contactId        String?
+  zohoNumberUsed   String?
+  status           String   // "SUCCESS", "FAILED"
+  errorMessage     String?
+  sentAt           DateTime @default(now())
+  
+  campaignBlast    CampaignBlast @relation(fields: [campaignBlastId], references: [id], onDelete: Cascade)
+  account          Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([campaignBlastId])
+  @@index([accountId])
+}
+
+model SmsMessage {
+  id              String   @id @default(cuid())
+  accountId       String
+  contactId       String?
+  authorId        String?  // null if incoming
+  fromNumber      String
+  toNumber        String
+  body            String
+  direction       String   // "INBOUND" | "OUTBOUND"
+  mediaUrl        String?
+  zohoLogId       String?  @unique
+  campaignBlastId String?
+  isAiGenerated   Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact         Contact? @relation(fields: [contactId], references: [id])
+  author          User?    @relation(fields: [authorId], references: [id])
+  campaignBlast   CampaignBlast? @relation(fields: [campaignBlastId], references: [id])
+
+  @@index([accountId])
+  @@index([contactId])
+  @@index([campaignBlastId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model CallScript {
+  id        String   @id @default(cuid())
+  name      String
+  callType  String   // e.g., "Intro", "Follow-up", "Collections", "General"
+  content   String   // The text with merge fields
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CallLog {
+  id          String   @id @default(cuid())
+  accountId   String
+  contactId   String?
+  authorId    String
+  fromNumber  String
+  toNumber    String
+  direction   String   // "INBOUND" | "OUTBOUND"
+  duration    Int      @default(0) // Duration in seconds
+  status      String   // "completed", "missed", "voicemail", etc.
+  notes       String?
+  transcript  String?
+  zohoCallId   String?  @unique
+  recordingUrl String?
+  zohoSentiment String?
+  aiSentiment  String?
+  aiSummary    String?
+  salesOrderId String?
+  createdAt    DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  editedAt    DateTime?
+
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact     Contact? @relation(fields: [contactId], references: [id])
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([contactId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([accountId, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  url       String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+}
+
+model Advance {
+  id              String   @id @default(cuid())
+  userId          String
+  amount          Float
+  reason          String?
+  issueDate       DateTime @default(now())
+
+  // Payback Schedule configuration
+  splitOverWeeks  Int?     // Deduct amount / splitOverWeeks each week
+  deductionRate   Float?   // Or deduct a flat rate each week
+
+  // Term Management
+  termWeeks       Int?       // Total agreed repayment weeks
+  termStartDate   DateTime?  // When repayment begins
+  termEndDate     DateTime?  // Projected payoff date
+  interestRate    Float?     // Optional interest %
+  agreedPayback   Float?     // Agreed weekly payback amount
+
+  // Tracking
+  amountPaidBack  Float    @default(0)
+  isFullyPaid     Boolean  @default(false)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  extensionRequests AdvanceExtensionRequest[]
+
+  @@index([userId])
+}
+
+model Reimbursement {
+  id              String   @id @default(cuid())
+  userId          String
+  amount          Float
+  description     String
+  receiptUrl      String?  // Optional uploaded image/PDF
+  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED, PAID
+  dateSubmitted   DateTime @default(now())
+  dateProcessed   DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+
+
+model PurchaseOrder {
+  id               String    @id @default(cuid())
+  zohoId           String    @unique
+  vendorName       String?
+  shipToName       String?
+  referenceNumber  String?
+  date             DateTime?
+  total            Float     @default(0)
+  status           String?
+  items            Json?
+  salesOrderId     String?
+  salesOrderNumber String?
+  isDropshipment   Boolean   @default(false)
+  trackingNumber   String?
+  invoiceId        String?
+  invoiceNumber    String?
+  isInventoryOrder Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([invoiceId])
+  @@index([referenceNumber])
+  @@index([shipToName])
+}
+
+model Payment {
+  id              String    @id @default(cuid())
+  zohoId          String    @unique
+  invoiceId       String?   // Zoho invoice_id string
+  invoiceDbId     String?   // FK to Invoice.id
+  invoiceNumber   String?
+  amount          Float     @default(0)
+  date            DateTime?
+  mode            String?
+  status          String?
+  referenceNumber String?
+  bankCharges     Float     @default(0)
+  description     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  invoice         Invoice?  @relation(fields: [invoiceDbId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([invoiceDbId])
+  @@index([date])
+}
+
+model Package {
+  id String @id @default(cuid())
+  zohoId String @unique
+  packageNumber String?
+  salesOrderId String?
+  salesOrderNumber String?
+  date DateTime?
+  status String?
+  shippingCharge Float @default(0)
+  carrier String?
+  trackingNumber String?
+  items Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([salesOrderId])
+  @@index([salesOrderNumber])
+}
+
+model Vendor {
+  id String @id @default(cuid())
+  zohoId String @unique
+  contactName String?
+  companyName String?
+  email String?
+  phone String?
+  currencyId String?
+  paymentTerms Int?
+  billingAddress Json?
+  shippingAddress Json?
+  customFields Json?
+  status String? @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SalesStage {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  order           Int
+  color           String   @default("#6b7280")
+  description     String?
+  isDefault       Boolean  @default(false)
+  autoActions     Json?
+  notifications   Json?
+  transitionRule  Json?
+  flowConfig      Json?    // Automation flow steps (SMS, wait timeframe, phone task, loop rules)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Lead {
+  id                  String    @id @default(cuid())
+  zohoId              String    @unique
+  company             String
+  firstName           String?
+  lastName            String?
+  email               String?
+  phone               String?
+  mobile              String?
+  title               String?
+  industry            String?
+  status              String    @default("New Lead")
+  ownerId             String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  lastCalledAt        DateTime?
+  timeZone            String?
+
+  // Fact-Finding Specs
+  bladeSizes          String?
+  materialsCut        String?
+  currentSupplier     String?
+  averageBladeCost    String?
+  crewCount           String?
+  bladesPerOrder      String?
+  improvementPriority String?
+
+  // Address
+  street              String?
+  city                String?
+  state               String?
+  zip                 String?
+
+  convertedAccountId  String?
+  zohoModifiedTime    DateTime?
+  rawData             Json?
+
+  // Matching & Discrepancy Classification
+  matchStatus         String    @default("CONFIRMED") // "CONFIRMED" | "QUESTIONABLE" | "DISCREPANCY"
+  matchReason         String?
+  companyGroupId      String?
+
+  // Rep Batch Claiming & Call Disposition
+  claimedById         String?
+  claimedAt           DateTime?
+  claimedUntil        DateTime?
+  disposition         String?   // "NO_ANSWER" | "LEFT_VOICEMAIL" | "NOT_INTERESTED" | "WRONG_NUMBER" | "SCHEDULED_CALLBACK" | "CONVERTED"
+  dispositionNotes    String?
+  dispositionAt       DateTime?
+
+  owner               User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  claimedBy           User?     @relation("ClaimedLeads", fields: [claimedById], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([matchStatus])
+  @@index([claimedById])
+  @@index([companyGroupId])
+  @@index([disposition])
+}
+
+model NotificationTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  channel     String
+  subject     String?
+  body        String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ScheduledMessage {
+  id              String   @id @default(cuid())
+  accountId       String
+  authorId        String
+  campaignBlastId String?
+  channel         String   @default("SMS")
+  fromNumber      String
+  body            String
+  imageUrl        String?
+  scheduledTime   DateTime // Absolute UTC time to send
+  status          String   @default("PENDING") // PENDING | SENT | FAILED | CANCELLED
+  errorMessage    String?
+  sentAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  account         Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  author          User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  campaignBlast   CampaignBlast? @relation(fields: [campaignBlastId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([scheduledTime])
+  @@index([accountId])
+}
+
+model PerformanceGoalBonus {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  scope        String   @default("INDIVIDUAL") // "INDIVIDUAL" | "TEAM"
+  repId        String?
+  repName      String?
+  metric       String   @default("SUBTOTAL") // "SUBTOTAL" | "NET_PROFIT" | "DEAD_PROFIT" | "INVOICES_COUNT"
+  targetValue  Float
+  bonusAmount  Float
+  cadence      String   @default("MONTHLY") // "DAILY" | "WEEKLY" | "MONTHLY" | "ANNUALLY"
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([scope])
+  @@index([repId])
+  @@index([cadence])
+  @@index([isActive])
+}
+
+model LineItem {
+  id            String    @id @default(cuid())
+  invoiceId     String?
+  invoice       Invoice?  @relation(fields: [invoiceId], references: [id])
+  salesOrderId  String?
+  salesOrder    SalesOrder? @relation(fields: [salesOrderId], references: [id])
+  quoteId       String?
+  quote         Quote?    @relation(fields: [quoteId], references: [id])
+  zohoLineItemId String?  @unique
+  productName   String
+  sku           String?
+  quantity      Float     @default(1)
+  unitPrice     Float     @default(0)
+  discount      Float     @default(0)
+  total         Float     @default(0)
+  description   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([invoiceId])
+  @@index([salesOrderId])
+  @@index([quoteId])
+  @@index([sku])
+}
+
+model ClawbackTransaction {
+  id                String   @id @default(cuid())
+  invoiceId         String
+  repId             String
+  monthKey          String   // Original sale month (YYYY-MM)
+  invoiceNumber     String?
+  saleAmount        Float    // Original subtotal
+  deadCost          Float    // Dead cost on the invoice
+  shippingCost      Float    // Actual shipping cost
+  totalRepLoss      Float    // (deadCost + shippingCost) * repSplitPct
+  commissionClawed  Float    // Commission amount reversed
+  triggerDate       DateTime // When the clawback was triggered
+  status            String   @default("pending") // pending | applied | reversed
+  cascadeImpact     Json?    // Serialized impact analysis snapshot
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id])
+  rep               User     @relation(fields: [repId], references: [id], onDelete: Cascade)
+
+  @@index([repId])
+  @@index([invoiceId])
+  @@index([monthKey])
+  @@index([status])
+}
+
+// ── Compensation Management ─────────────────────────────────────────
+
+model CompensationPlan {
+  id                  String    @id @default(cuid())
+  repId               String
+  name                String    // e.g. "Bobby - Q3 2025 Plan"
+  status              String    @default("ACTIVE") // ACTIVE, ENDED, DRAFT
+
+  startDate           DateTime
+  endDate             DateTime?
+
+  // Base Pay
+  payType             String    @default("COMMISSION_ONLY")
+                                // SALARY, DRAW, HOURLY, COMMISSION_ONLY
+  baseAmount          Float?    // Dollar amount for base
+  baseInterval        String?   // HOURLY, DAILY, WEEKLY, BIWEEKLY, MONTHLY, ANNUALLY
+
+  // Commission Layer (variable per plan)
+  commissionEnabled   Boolean   @default(true)
+  commissionRate      Float?    // e.g. 0.50 = 50%, 0.25 = 25%
+  commissionBasis     String?   // NET_PROFIT, DEAD_PROFIT, SUBTOTAL
+  payoutStructure     String    @default("two_payment")
+                                // two_payment, single_payment, three_payment
+
+  // Draw Rules
+  drawRecoverable     Boolean   @default(true)
+  drawCapPerPeriod    Float?    // Max draw per pay period
+
+  // Performance Commitment
+  commitmentEnabled   Boolean   @default(false)
+  commitmentMetric    String?   // SUBTOTAL, DEAD_PROFIT, NET_PROFIT, INVOICES_COUNT
+  commitmentTarget    Float?    // Target value
+  commitmentVigRate   Float?    // VIG rate tied to this commitment
+  commitmentGoalType  String?   // DAILY, MONTHLY
+  commitmentPenalty   String?   // VIG_INCREASE, COMMISSION_REDUCTION, PLAN_REVIEW
+
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  rep                 User      @relation(fields: [repId], references: [id], onDelete: Cascade)
+  earnings            BasePayEarning[]
+
+  @@index([repId])
+  @@index([status])
+}
+
+model BasePayEarning {
+  id            String    @id @default(cuid())
+  repId         String
+  planId        String?
+
+  type          String    // SALARY, DRAW, HOURLY, BONUS, ADJUSTMENT
+  amount        Float
+  periodStart   DateTime  // Pay period start (Monday)
+  periodEnd     DateTime  // Pay period end (Sunday)
+  hoursWorked   Float?    // For hourly — pulled from TimeEntry
+  hourlyRate    Float?    // Snapshot of rate at time of calc
+
+  description   String?
+  status        String    @default("PENDING") // PENDING, APPROVED, PAID
+  paidDate      DateTime?
+  payoutId      String?   // Links to Payout when disbursed
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  rep           User      @relation(fields: [repId], references: [id], onDelete: Cascade)
+  plan          CompensationPlan? @relation(fields: [planId], references: [id])
+
+  @@index([repId])
+  @@index([planId])
+}
+
+model AdvanceExtensionRequest {
+  id              String    @id @default(cuid())
+  advanceId       String
+  requestedBy     String    // repId
+  additionalWeeks Int
+  reason          String
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  advance         Advance   @relation(fields: [advanceId], references: [id], onDelete: Cascade)
+
+  @@index([advanceId])
+}
+
+// ── AI Question Catalog ─────────────────────────────────────────────
+// Logs every AI assistant question & answer for analytics and dynamic suggestions
+
+model AiChatLog {
+  id             String   @id @default(cuid())
+  userId         String?
+  userRole       String?
+  question       String
+  answer         String
+  toolsUsed      String?  // Comma-separated list of tools called
+  responseTimeMs Int?
+  helpful        Boolean? // User can rate thumbs-up/down
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model DealAutomationState {
+  id              String   @id @default(cuid())
+  dealId          String   @unique
+  salesStageId    String
+  currentStep     Int      @default(0)    // Current step index in flowConfig.steps[]
+  loopCount       Int      @default(0)    // How many times the flow has looped
+  maxLoops        Int      @default(3)    // Max loops before stopping
+  lastExecutedAt  DateTime?               // When the last step was executed
+  nextExecuteAt   DateTime?               // When the next step should execute
+  status          String   @default("ACTIVE") // ACTIVE | PAUSED | COMPLETED | CANCELLED
+  metadata        Json?                   // Any step-specific state data
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([nextExecuteAt])
+  @@index([salesStageId])
+}
+
+model Email {
+  id              String   @id @default(cuid())
+  accountId       String?
+  contactId       String?
+  userId          String?
+  zohoMailId      String   @unique
+  zohoAccountId   String
+  subject         String
+  body            String?
+  bodyHtml        String?
+  fromAddress     String
+  toAddress       String
+  ccAddresses     String?
+  direction       String   // INBOUND | OUTBOUND
+  status          String   // RECEIVED | READ | REPLIED | ARCHIVED
+  threadId        String?
+  needsResponse   Boolean  @default(false)
+  suggestedReply  String?
+  taskCreated     Boolean  @default(false)
+  sentAt          DateTime?
+  receivedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountId])
+  @@index([userId])
+  @@index([needsResponse])
+  @@index([status])
+  @@index([threadId])
+}
+
+model EmailTemplate {
+  id              String   @id @default(cuid())
+  name            String
+  subject         String
+  body            String   // with merge tags
+  category        String?
+  useCount        Int      @default(0)
+  lastUsedAt      DateTime?
+  createdBy       String?
+  isSystemDefault Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+}
+
+model AcceptedResponse {
+  id              String   @id @default(cuid())
+  emailId         String?
+  originalSubject String?
+  responseBody    String
+  mergeTags       Json?
+  category        String?
+  useCount        Int      @default(0)
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([category])
+  @@index([useCount])
+}
+
+model MagicLinkToken {
+  id        String   @id @default(cuid())
+  contact   String   // email or phone number
+  code      String   // 6-digit numeric code
+  accountId String?  // linked account if found
+  contactId String?  // linked contact if found
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([contact, code])
+  @@index([expiresAt])
+}
+
+model AutoshipBundle {
+  id          String   @id @default(cuid())
+  name        String   // "Medusa Pro Pack"
+  description String?
+  items       Json     // [{sku, name, qty, unitPrice}]
+  frequency   String   // "monthly" | "quarterly" | "biannual"
+  discountPct Float    @default(0)  // additional discount for autoship
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  subscriptions AutoshipSubscription[]
+}
+
+model AutoshipSubscription {
+  id          String   @id @default(cuid())
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id])
+  bundleId    String
+  bundle      AutoshipBundle @relation(fields: [bundleId], references: [id])
+  items       Json     // snapshot of items at locked prices
+  frequency   String   // "monthly" | "quarterly" | "biannual"
+  nextShipDate DateTime
+  status      String   @default("active") // active | paused | cancelled
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([accountId])
+  @@index([status, nextShipDate])
+}
+
+model AiCustomTool {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String
+  parameters   Json     // JSON Schema object representing the parameters definition
+  endpointUrl  String
+  method       String   @default("POST") // POST | GET | PUT
+  bodyTemplate String?  // e.g. '{"userId": "{{userId}}", "action": "clockIn"}'
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+

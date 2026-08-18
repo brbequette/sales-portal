@@ -1,0 +1,79 @@
+name: tdgpt
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${SELFHOST_DB_NAME:-tdgpt}
+      POSTGRES_USER: ${SELFHOST_DB_USER:-tdgpt}
+      POSTGRES_PASSWORD: ${SELFHOST_DB_PASSWORD:-change-this-before-production}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SELFHOST_DB_USER:-tdgpt} -d ${SELFHOST_DB_NAME:-tdgpt}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [internal]
+
+  ollama:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_QUEUE: "20"
+      OLLAMA_KEEP_ALIVE: "30m"
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    networks: [internal]
+
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    env_file:
+      - path: .env
+        format: raw
+    environment:
+      DATABASE_URL: postgresql://${SELFHOST_DB_USER:-tdgpt}:${SELFHOST_DB_PASSWORD:-change-this-before-production}@postgres:5432/${SELFHOST_DB_NAME:-tdgpt}
+    command: ["npx", "prisma", "db", "push"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        format: raw
+    environment:
+      DATABASE_URL: postgresql://${SELFHOST_DB_USER:-tdgpt}:${SELFHOST_DB_PASSWORD:-change-this-before-production}@postgres:5432/${SELFHOST_DB_NAME:-tdgpt}
+      DIRECT_URL: postgresql://${SELFHOST_DB_USER:-tdgpt}:${SELFHOST_DB_PASSWORD:-change-this-before-production}@postgres:5432/${SELFHOST_DB_NAME:-tdgpt}
+      NEXTAUTH_URL: ${SELFHOST_APP_URL:-http://localhost:3000}
+      AI_PROVIDER: ${AI_PROVIDER:-ollama}
+      AI_MODEL: ${AI_MODEL:-qwen3:4b}
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      ollama:
+        condition: service_started
+    networks: [internal]
+
+volumes:
+  postgres_data:
+  ollama_data:
+
+networks:
+  internal:
+    driver: bridge

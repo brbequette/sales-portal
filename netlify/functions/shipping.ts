@@ -1,0 +1,444 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
+import { Handler } from "@netlify/functions"
+import { prisma } from "./lib/prisma"
+import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./lib/zoho-auth"
+
+const ORG_ID = ZOHO_ORGANIZATION_ID
+
+const authenticatedHandler: Handler = async (event) => {
+  const cors = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type"
+  }
+
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 204, headers: cors, body: "" }
+  }
+
+  try {
+    const params = event.queryStringParameters || {}
+    const status = params.status || "all"
+    const search = params.search || ""
+    const salespersonFilter = params.salesperson || ""
+    const carrierFilter = params.carrier || ""
+    const sortBy = params.sortBy || "orderDate"
+    const sortDir = params.sortDir || "desc"
+    const page = parseInt(params.page || "1")
+    const limit = parseInt(params.limit || "100")
+    const checkOnly = params.checkOnly
+
+    // ── checkOnly mode: returns count + latestUpdatedAt only ──────────────
+    if (checkOnly === 'true') {
+      const [count, latest] = await Promise.all([
+        prisma.salesOrder.count({}),
+        prisma.salesOrder.findFirst({ orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } })
+      ])
+      return {
+        statusCode: 200,
+        headers: cors,
+        body: JSON.stringify({ success: true, checkOnly: true, count, latestUpdatedAt: latest?.updatedAt ?? null })
+      }
+    }
+
+    if (event.httpMethod === "PUT") {
+      const body = JSON.parse(event.body || "{}")
+      const { action, packageId, carrier, trackingNumber, salesOrderId } = body
+
+      if (action === "syncSalesOrder") {
+        if (!salesOrderId) {
+          return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing salesOrderId" }) }
+        }
+        // getZohoAccessToken imported at top-level
+        const token = await getZohoAccessToken()
+        // ZOHO_DC imported at top-level
+        const url = `https://www.zohoapis.${ZOHO_DC}/books/v3/salesorders/${salesOrderId}?organization_id=${ORG_ID}`
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000),
+          headers: { Authorization: `Zoho-oauthtoken ${token}` }
+        })
+        if (!res.ok) {
+          return { statusCode: 500, headers: cors, body: JSON.stringify({ error: `Failed to fetch from Zoho: ${res.status}` }) }
+        }
+        const data = await res.json()
+        if (data.code !== 0 || !data.salesorder) {
+          return { statusCode: 500, headers: cors, body: JSON.stringify({ error: data.message || "Failed to load SO from Zoho" }) }
+        }
+        const doc = data.salesorder
+        const dbDoc = await prisma.salesOrder.findFirst({ where: { zohoId: salesOrderId } })
+        const currentItems = dbDoc ? (dbDoc.items as any || {}) : {}
+
+        const updatedItems = {
+          ...currentItems,
+          salesOrderNumber: doc.salesorder_number || currentItems.salesOrderNumber,
+          sub_total: parseFloat(doc.sub_total || 0),
+          balance: doc.balance ?? 0,
+          shippingCharge: parseFloat(doc.shipping_charge || 0),
+          customer_name: doc.customer_name || currentItems.customer_name,
+          salesperson: doc.salesperson_name ? doc.salesperson_name.toUpperCase().trim() : currentItems.salesperson,
+          line_items: doc.line_items || currentItems.line_items || [],
+          custom_fields: doc.custom_fields || currentItems.custom_fields || [],
+          lastSyncedAt: new Date().toISOString(),
+        }
+
+        if (dbDoc) {
+          await prisma.salesOrder.update({
+            where: { id: dbDoc.id },
+            data: {
+              amount: parseFloat(doc.sub_total || doc.total || 0),
+              status: doc.status || dbDoc.status,
+              items: updatedItems
+            }
+          })
+        }
+        return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true }) }
+      }
+
+      if (!packageId) {
+        return { statusCode: 400, headers: cors, body: JSON.stringify({ error: "Missing packageId" }) }
+      }
+
+      const pkg = await prisma.package.findUnique({ where: { id: packageId } })
+      if (!pkg) {
+        return { statusCode: 404, headers: cors, body: JSON.stringify({ error: "Package not found" }) }
+      }
+
+      let updatedData: any = {}
+      if (action === "addTracking") {
+        updatedData = { carrier: carrier || pkg.carrier, trackingNumber: trackingNumber || pkg.trackingNumber, status: "shipped" }
+      } else if (action === "markShipped") {
+        updatedData = { status: "shipped" }
+      } else if (action === "markDelivered") {
+        updatedData = { status: "delivered" }
+      }
+
+      const updated = await prisma.package.update({
+        where: { id: packageId },
+        data: updatedData,
+      })
+
+      // Push tracking & shipment status to Zoho Books API
+      if (pkg.zohoId && (trackingNumber || carrier)) {
+        try {
+          // getZohoAccessToken imported at top-level
+          const token = await getZohoAccessToken()
+          // ZOHO_DC imported at top-level
+
+          await fetch(`https://www.zohoapis.${ZOHO_DC}/books/v3/shipmentorders?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
+            method: "POST",
+            headers: {
+              Authorization: `Zoho-oauthtoken ${token}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              package_ids: pkg.zohoId,
+              tracking_number: trackingNumber || pkg.trackingNumber || "",
+              shipping_carrier: carrier || pkg.carrier || "",
+              date: new Date().toISOString().split("T")[0]
+            })
+          })
+        } catch (zohoErr: any) {
+          console.error("Failed to push tracking to Zoho Books:", zohoErr.message)
+        }
+      }
+
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true, package: updated }) }
+    }
+
+    // GET Request
+    let salesOrders = await prisma.salesOrder.findMany({
+      where: {
+        status: { notIn: ["Void", "Draft", "Cancelled", "Closed"] },
+      },
+      take: 1000,
+      include: { 
+        account: { 
+          select: { 
+            id: true, 
+            name: true,
+            shippingStreet: true,
+            shippingCity: true,
+            shippingState: true,
+            shippingZip: true
+          } 
+        } 
+      },
+      orderBy: { orderDate: "desc" },
+    })
+
+    const packages = await prisma.package.findMany({
+      take: 1000,
+      orderBy: { date: "desc" },
+    })
+
+    const dropshipPOs = await prisma.purchaseOrder.findMany({
+      where: { isDropshipment: true },
+      take: 1500,
+      orderBy: { date: "desc" },
+    })
+
+    const packagesBySOId = new Map<string, any[]>()
+    for (const pkg of packages) {
+      const soId = pkg.salesOrderId || ""
+      if (!packagesBySOId.has(soId)) packagesBySOId.set(soId, [])
+      packagesBySOId.get(soId)!.push(pkg)
+    }
+    const packagesBySONumber = new Map<string, any[]>()
+    for (const pkg of packages) {
+      const soNum = pkg.salesOrderNumber || ""
+      if (soNum) {
+        if (!packagesBySONumber.has(soNum)) packagesBySONumber.set(soNum, [])
+        packagesBySONumber.get(soNum)!.push(pkg)
+      }
+    }
+
+    const dropshipsBySOId = new Map<string, any[]>()
+    for (const po of dropshipPOs) {
+      const soId = po.salesOrderId || ""
+      if (soId) {
+        if (!dropshipsBySOId.has(soId)) dropshipsBySOId.set(soId, [])
+        dropshipsBySOId.get(soId)!.push(po)
+      }
+    }
+    const dropshipsBySONumber = new Map<string, any[]>()
+    for (const po of dropshipPOs) {
+      const soNum = po.salesOrderNumber || ""
+      if (soNum) {
+        if (!dropshipsBySONumber.has(soNum)) dropshipsBySONumber.set(soNum, [])
+        dropshipsBySONumber.get(soNum)!.push(po)
+      }
+    }
+
+    const salespersonsSet = new Set<string>()
+    const carriersSet = new Set<string>()
+
+    let results = salesOrders.map(so => {
+      const items = (so.items as any) || {}
+      const soNumber = items.salesOrderNumber || items.salesorder_number || so.zohoId || ""
+      const soZohoId = so.zohoId || ""
+      const salesperson = items.salesperson || items.salesperson_name || items.salespersonName || "Unknown"
+
+      if (salesperson && salesperson !== "Unknown") salespersonsSet.add(salesperson)
+
+      const soPkgs = packagesBySOId.get(soZohoId) || packagesBySONumber.get(soNumber) || []
+      const soDrops = dropshipsBySOId.get(soZohoId) || dropshipsBySONumber.get(soNumber) || []
+
+      soPkgs.forEach((p: any) => { if (p.carrier) carriersSet.add(p.carrier) })
+
+      const hasFulfillment = soPkgs.length > 0 || soDrops.length > 0
+      const rawLines = items.line_items || items.lineItems || items._zohoRaw?.line_items || []
+      const isFullyDropshipped = rawLines.length > 0 && rawLines.every((li: any) => {
+        if (li.product_type === "service" || li.line_item_type === "service") return true
+        const totalQty = parseFloat(li.quantity || 0)
+        const dropshippedQty = parseFloat(li.quantity_dropshipped || 0)
+        return dropshippedQty >= totalQty
+      })
+
+      let shipStatus: "needs_packaging" | "packaged" | "shipped" | "delivered" = "needs_packaging"
+      
+      if (isFullyDropshipped) {
+        const allDropDelivered = soDrops.length > 0 && soDrops.every((po: any) =>
+          po.status?.toLowerCase() === "received" || po.status?.toLowerCase() === "delivered" || po.status?.toLowerCase() === "billed"
+        )
+        shipStatus = allDropDelivered ? "delivered" : "shipped"
+      } else if (hasFulfillment) {
+        const allPkgDelivered = soPkgs.length === 0 || soPkgs.every((p: any) => p.status?.toLowerCase() === "delivered")
+        const anyPkgShipped = soPkgs.some((p: any) =>
+          p.trackingNumber || p.status?.toLowerCase() === "shipped" || p.status?.toLowerCase() === "delivered"
+        )
+        const allDropDelivered = soDrops.length === 0 || soDrops.every((po: any) =>
+          po.status?.toLowerCase() === "received" || po.status?.toLowerCase() === "delivered" || po.status?.toLowerCase() === "billed"
+        )
+        const anyDropShipped = soDrops.some((po: any) =>
+          po.status?.toLowerCase() === "issued" || po.status?.toLowerCase() === "received" ||
+          po.status?.toLowerCase() === "billed" || po.trackingNumber
+        )
+
+        const allDelivered = allPkgDelivered && allDropDelivered
+        const anyShipped = anyPkgShipped || anyDropShipped
+
+        if (allDelivered && hasFulfillment) shipStatus = "delivered"
+        else if (anyShipped) shipStatus = "shipped"
+        else shipStatus = "packaged"
+      }
+
+      const rawAddr = items.shipping_address || items.shippingAddress || items._zohoRaw?.shipping_address
+      const hasRawAddr = rawAddr && (rawAddr.address || rawAddr.street || rawAddr.city)
+      
+      const shippingAddress = hasRawAddr ? {
+        address: rawAddr.address || rawAddr.street || rawAddr.street1 || "",
+        street2: rawAddr.street2 || "",
+        city: rawAddr.city || "",
+        state: rawAddr.state || "",
+        zip: rawAddr.zip || rawAddr.code || "",
+        country: rawAddr.country || ""
+      } : (so.account ? {
+        address: so.account.shippingStreet || "",
+        city: so.account.shippingCity || "",
+        state: so.account.shippingState || "",
+        zip: so.account.shippingZip || "",
+        country: ""
+      } : null)
+
+      const lineItems = items.line_items || items.lineItems || items._zohoRaw?.line_items || []
+      const dcBreakdown = items.itemsDcBreakdown || []
+      
+      let lineItemCount = 0
+      let lineItemNames: string[] = []
+      let mappedLineItems: any[] = []
+      
+      if (Array.isArray(lineItems) && lineItems.length > 0) {
+        const filteredLines = lineItems.map((li: any) => {
+          const totalQty = parseFloat(li.quantity || 0)
+          const dropshippedQty = parseFloat(li.quantity_dropshipped || 0)
+          const remainingQty = Math.max(0, totalQty - dropshippedQty)
+          return {
+            name: li.name || li.itemName || li.item_name || "",
+            sku: li.sku || li.sku_code || "",
+            quantity: remainingQty
+          }
+        }).filter((li: any) => li.quantity > 0)
+
+        lineItemCount = filteredLines.length
+        lineItemNames = filteredLines.map((li: any) => li.name).filter(Boolean)
+        mappedLineItems = filteredLines
+      } else if (Array.isArray(dcBreakdown) && dcBreakdown.length > 0) {
+        lineItemCount = dcBreakdown.length
+        lineItemNames = dcBreakdown.map((str: string) => str.split('|')[0].trim())
+        mappedLineItems = dcBreakdown.map((str: string) => {
+          const parts = str.split('|')
+          const firstPart = parts[0].trim()
+          const match = firstPart.match(/^(\d+)x\s+(.*)$/)
+          if (match) {
+            return {
+              name: match[2].trim(),
+              sku: match[2].trim(),
+              quantity: parseFloat(match[1])
+            }
+          }
+          return {
+            name: firstPart,
+            sku: firstPart,
+            quantity: 1
+          }
+        })
+      }
+
+      return {
+        id: so.id,
+        zohoId: soZohoId,
+        soNumber,
+        customerName: so.account?.name || items.customer_name || "Unknown",
+        accountId: so.accountId,
+        orderDate: so.orderDate,
+        amount: so.amount,
+        status: so.status,
+        shipStatus,
+        shippingAddress,
+        lineItemCount,
+        lineItemNames,
+        lineItems: mappedLineItems,
+        salesperson,
+        packages: soPkgs.map((p: any) => ({
+          id: p.id,
+          zohoId: p.zohoId,
+          packageNumber: p.packageNumber,
+          salesOrderNumber: p.salesOrderNumber || soNumber,
+          date: p.date,
+          status: p.status,
+          carrier: p.carrier,
+          trackingNumber: p.trackingNumber,
+          shippingCharge: p.shippingCharge,
+          items: p.items,
+        })),
+        dropshipments: soDrops.map((po: any) => ({
+          id: po.id,
+          zohoId: po.zohoId,
+          vendorName: po.vendorName,
+          date: po.date,
+          total: po.total,
+          status: po.status,
+          trackingNumber: po.trackingNumber,
+        })),
+      }
+    })
+
+    if (search) {
+      const s = search.toLowerCase()
+      results = results.filter(r =>
+        r.soNumber.toLowerCase().includes(s) ||
+        r.customerName.toLowerCase().includes(s) ||
+        r.salesperson.toLowerCase().includes(s)
+      )
+    }
+
+    if (salespersonFilter) {
+      results = results.filter(r => r.salesperson.toLowerCase() === salespersonFilter.toLowerCase())
+    }
+
+    if (carrierFilter) {
+      results = results.filter(r =>
+        r.packages.some((p: any) => p.carrier?.toLowerCase() === carrierFilter.toLowerCase())
+      )
+    }
+
+    if (status !== "all") {
+      results = results.filter(r => r.shipStatus === status)
+    }
+
+    results.sort((a, b) => {
+      let valA: any = a.orderDate
+      let valB: any = b.orderDate
+
+      if (sortBy === "amount") {
+        valA = a.amount || 0
+        valB = b.amount || 0
+      } else if (sortBy === "customer") {
+        valA = a.customerName.toLowerCase()
+        valB = b.customerName.toLowerCase()
+      } else if (sortBy === "soNumber") {
+        valA = a.soNumber.toLowerCase()
+        valB = b.soNumber.toLowerCase()
+      }
+
+      if (valA < valB) return sortDir === "asc" ? -1 : 1
+      if (valA > valB) return sortDir === "asc" ? 1 : -1
+      return 0
+    })
+
+    const total = results.length
+    const paginated = results.slice((page - 1) * limit, page * limit)
+
+    const counts = {
+      all: results.length,
+      needs_packaging: results.filter(r => r.shipStatus === "needs_packaging").length,
+      packaged: results.filter(r => r.shipStatus === "packaged").length,
+      shipped: results.filter(r => r.shipStatus === "shipped").length,
+      delivered: results.filter(r => r.shipStatus === "delivered").length,
+    }
+
+    return {
+      statusCode: 200,
+      headers: cors,
+      body: JSON.stringify({
+        success: true,
+        data: paginated,
+        total,
+        page,
+        limit,
+        counts,
+        isAdmin: true,
+        availableSalespersons: Array.from(salespersonsSet).sort(),
+        availableCarriers: Array.from(carriersSet).sort(),
+      })
+    }
+  } catch (err: any) {
+    console.error("shipping Netlify function error:", err)
+    return {
+      statusCode: 500,
+      headers: cors,
+      body: JSON.stringify({ error: err.message })
+    }
+  }
+}
+
+export const handler = withFunctionAuth(authenticatedHandler)

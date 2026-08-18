@@ -1,0 +1,89 @@
+import { withFunctionAuth } from "./lib/auth-middleware"
+import { Handler } from "@netlify/functions"
+
+import { prisma } from "./lib/prisma"
+
+const authenticatedHandler: Handler = async (event) => {
+  let email = event.queryStringParameters?.email
+  if (!email) {
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ error: "Missing email" })
+    }
+  }
+
+  if (email.toLowerCase() === "admin@titandiamond.com") {
+    email = "ben@titandiamond.net";
+  }
+
+  try {
+    let user = await prisma.user.findUnique({
+      where: { email }
+    })
+
+    if (!user) {
+      return {
+        statusCode: 404,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ error: "User not found" })
+      }
+    }
+
+    // Auto-heal Ben and Monty's roles/names in the database
+    const lowerEmail = user.email?.toLowerCase() || "";
+    let needsUpdate = false;
+    let updateData: any = {};
+
+    if ((
+      lowerEmail.includes("ben") || 
+      lowerEmail.includes("monty") || 
+      lowerEmail.includes("bequette") || 
+      lowerEmail.includes("morgan")
+    ) && user.role !== "Administrator") {
+      updateData.role = "Administrator";
+      needsUpdate = true;
+    }
+
+    if (lowerEmail === "ben@titandiamond.net" && user.name !== "Benjamin Bequette") {
+      updateData.name = "Benjamin Bequette";
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      console.log(`Auto-healing role/name for ${user.email}...`);
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: updateData
+      });
+    }
+
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({
+        id: user.zohoId || user.id,
+        dbId: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || null,
+        title: user.title || null,
+        vcardPhotoUrl: user.vcardPhotoUrl || null,
+        vcardCompany: user.vcardCompany || null,
+        vcardWebsite: user.vcardWebsite || null,
+        autoAttachVCard: user.autoAttachVCard || false,
+        role: user.role,
+        permissions: user.permissions || null
+      })
+    }
+  } catch (error: any) {
+    console.error("Error fetching user:", error)
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ error: error.message })
+    }
+  }
+}
+
+export const handler = withFunctionAuth(authenticatedHandler)

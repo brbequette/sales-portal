@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function run() { const a = await prisma.account.findFirst({ where: { name: { contains: '2 X 2' } }, include: { contacts: true } }); console.log(JSON.stringify(a, null, 2)); } run().finally(() = 

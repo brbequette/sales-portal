@@ -1,0 +1,47 @@
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build]
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "20.18.0"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/product-images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/*.woff2"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[functions."automation-engine"]
+  schedule = "*/5 * * * *"
+
+[functions."daily-books-sync"]
+  schedule = "0 6 * * *"
+
+[functions."process-scheduled-messages"]
+  schedule = "*/5 * * * *"
+
+[functions."email-sync"]
+  schedule = "*/3 * * * *"

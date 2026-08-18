@@ -1,0 +1,140 @@
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { requireAdministrator } from '@/lib/auth-helpers'
+
+export async function GET() {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
+  try {
+    const [users, settings] = await Promise.all([
+      prisma.user.findMany({
+        take: 500,
+        orderBy: { name: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          title: true,
+          vcardPhotoUrl: true,
+          vcardCompany: true,
+          vcardWebsite: true,
+          role: true,
+          zohoId: true,
+          autoAttachVCard: true,
+          canSendCampaigns: true,
+          showOnSalesBoard: true,
+          permissions: true,
+          payoutStructure: true,
+          monthlyVigGoals: {
+            select: {
+              id: true,
+              monthKey: true,
+              profitGoal: true,
+              subtotalGoal: true
+            }
+          },
+          _count: { select: { accounts: true } }
+        }
+      }),
+      prisma.systemSetting.findMany({ take: 500 })
+    ])
+
+    const settingsMap = new Map(settings.map(s => [s.key, s.value]))
+    const salesTargets: Record<string, number> = JSON.parse(settingsMap.get("sales_targets") || "{}")
+    const subtotalTargets: Record<string, number> = JSON.parse(settingsMap.get("subtotal_targets") || "{}")
+
+    const mapped = users.map(u => ({
+      ...u,
+      dailyProfitGoal: salesTargets[u.id] ?? 1000,
+      dailySubtotalGoal: subtotalTargets[u.id] ?? 2000,
+      accountCount: (u as any)._count?.accounts || 0,
+      _count: undefined
+    }))
+    return NextResponse.json({ success: true, users: mapped })
+  } catch (error: any) {
+    console.error("Error fetching users:", error)
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+  }
+}
+
+export async function PUT(req: Request) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
+  try {
+    const body = await req.json()
+    const { id, canSendCampaigns, showOnSalesBoard, permissions, role, name, email, phone, title, vcardPhotoUrl, vcardCompany, vcardWebsite, autoAttachVCard, zohoId } = body
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: "Missing user ID" }, { status: 400 })
+    }
+
+    const updateData: any = {}
+    if (canSendCampaigns !== undefined) updateData.canSendCampaigns = canSendCampaigns
+    if (showOnSalesBoard !== undefined) updateData.showOnSalesBoard = showOnSalesBoard
+    if (autoAttachVCard !== undefined) updateData.autoAttachVCard = autoAttachVCard
+    if (permissions !== undefined) updateData.permissions = permissions
+    if (role !== undefined) updateData.role = role
+    if (name !== undefined) updateData.name = name
+    if (email !== undefined) updateData.email = email
+    if (phone !== undefined) updateData.phone = phone
+    if (title !== undefined) updateData.title = title
+    if (vcardPhotoUrl !== undefined) updateData.vcardPhotoUrl = vcardPhotoUrl
+    if (vcardCompany !== undefined) updateData.vcardCompany = vcardCompany
+    if (vcardWebsite !== undefined) updateData.vcardWebsite = vcardWebsite
+    if (zohoId !== undefined) updateData.zohoId = zohoId || null  // empty string  to  null
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: updateData
+    })
+
+    return NextResponse.json({ success: true, user })
+  } catch (error: any) {
+    console.error("Error updating user:", error)
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+  }
+}
+
+export async function POST(req: Request) {
+  const auth = await requireAdministrator()
+  if (auth.errorResponse) return auth.errorResponse
+
+  try {
+    const body = await req.json()
+    const { name, email, role, zohoId } = body
+
+    if (!name || !email) {
+      return NextResponse.json({ success: false, error: "Name and email are required" }, { status: 400 })
+    }
+
+    // Check for existing user by email or zohoId
+    const existingByEmail = await prisma.user.findUnique({ where: { email } })
+    if (existingByEmail) {
+      return NextResponse.json({ success: false, error: `A user with email "${email}" already exists.` }, { status: 409 })
+    }
+
+    if (zohoId) {
+      const existingByZoho = await prisma.user.findUnique({ where: { zohoId } })
+      if (existingByZoho) {
+        return NextResponse.json({ success: false, error: `A user with Zoho ID "${zohoId}" already exists (${existingByZoho.name || existingByZoho.email}).` }, { status: 409 })
+      }
+    }
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        role: role || "Sales Representative",
+        zohoId: zohoId || null,
+      }
+    })
+
+    return NextResponse.json({ success: true, user, message: `User "${name}" created. They can now log in via Zoho OAuth.` })
+  } catch (error: any) {
+    console.error("Error creating user:", error)
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+  }
+}

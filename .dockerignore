@@ -1,0 +1,12 @@
+.git
+.next
+.netlify
+node_modules
+npm-debug.log*
+.env
+.env.*
+!.env.selfhost.example
+scratch
+sale_lineage_export.csv
+scripts/backfill/invoice_backup.json
+
