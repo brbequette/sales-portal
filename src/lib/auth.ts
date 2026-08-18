@@ -2,7 +2,65 @@ import NextAuth, { NextAuthOptions } from "next-auth"
 import ZohoProvider from "next-auth/providers/zoho"
 import CredentialsProvider from "next-auth/providers/credentials"
 import type { Prisma } from "@prisma/client"
+import bcrypt from "bcryptjs"
 import { prisma } from "./prisma"
+
+type LoginAttempt = { failures: number; blockedUntil: number; lastFailure: number }
+
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+const LOGIN_BLOCK_MS = 15 * 60 * 1000
+const MAX_LOGIN_FAILURES = 8
+const loginAttempts = new Map<string, LoginAttempt>()
+const dummyPasswordHash = bcrypt.hashSync("timing-only-password-that-never-authenticates", 12)
+
+function requestHeader(request: unknown, name: string) {
+  const headers = (request as any)?.headers
+  if (typeof headers?.get === "function") return headers.get(name) || ""
+  return headers?.[name] || headers?.[name.toLowerCase()] || ""
+}
+
+function loginAttemptKeys(input: string, request: unknown, userId?: string) {
+  const forwarded = requestHeader(request, "cf-connecting-ip")
+    || requestHeader(request, "x-forwarded-for")
+    || requestHeader(request, "x-real-ip")
+    || "local"
+  const clientAddress = String(forwarded).split(",")[0].trim().slice(0, 64)
+  return [
+    `input:${input}`,
+    `address:${clientAddress}`,
+    ...(userId ? [`user:${userId}`] : []),
+  ]
+}
+
+function removeExpiredLoginAttempts(now: number) {
+  for (const [key, attempt] of loginAttempts) {
+    if (attempt.blockedUntil <= now && now - attempt.lastFailure > LOGIN_WINDOW_MS) {
+      loginAttempts.delete(key)
+    }
+  }
+}
+
+function isLoginBlocked(keys: string[], now: number) {
+  removeExpiredLoginAttempts(now)
+  return keys.some(key => (loginAttempts.get(key)?.blockedUntil || 0) > now)
+}
+
+function recordLoginFailure(keys: string[], now: number) {
+  for (const key of keys) {
+    const previous = loginAttempts.get(key)
+    const withinWindow = previous && now - previous.lastFailure <= LOGIN_WINDOW_MS
+    const failures = withinWindow ? previous.failures + 1 : 1
+    loginAttempts.set(key, {
+      failures,
+      lastFailure: now,
+      blockedUntil: failures >= MAX_LOGIN_FAILURES ? now + LOGIN_BLOCK_MS : 0,
+    })
+  }
+}
+
+function clearLoginFailures(keys: string[]) {
+  for (const key of keys) loginAttempts.delete(key)
+}
 
 // Must define process.env.NEXTAUTH_URL before NextAuth initializes providers
 const isProd = process.env.NODE_ENV === "production" || process.env.NETLIFY === "true"
@@ -103,16 +161,25 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email / Rep ID", type: "text" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null;
         const input = credentials.email.trim().toLowerCase();
+        const now = Date.now()
+        const preliminaryKeys = loginAttemptKeys(input, request)
+
+        if (isLoginBlocked(preliminaryKeys, now)) return null
 
         const dbUser = await findUserFlexibly(input);
-        if (!dbUser || !dbUser.password) return null;
+        const attemptKeys = loginAttemptKeys(input, request, dbUser?.id)
+        if (isLoginBlocked(attemptKeys, now)) return null
 
-        const bcrypt = require("bcryptjs");
-        const isValid = await bcrypt.compare(credentials.password, dbUser.password);
-        if (!isValid) return null;
+        const isValid = await bcrypt.compare(credentials.password, dbUser?.password || dummyPasswordHash);
+        if (!dbUser || !dbUser.password || !isValid) {
+          recordLoginFailure(attemptKeys, now)
+          return null
+        }
+
+        clearLoginFailures(attemptKeys)
 
         return {
           id: dbUser.zohoId || dbUser.id,

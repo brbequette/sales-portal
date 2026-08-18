@@ -215,7 +215,7 @@ export const handler = schedule("*/5 * * * *", async () => {
                   accountId: deal.accountId,
                   authorId: deal.ownerId,
                   channel: "SMS",
-                  fromNumber: process.env.TWILIO_FROM_NUMBER || "",
+                  fromNumber: process.env.ZOHO_VOICE_FROM_NUMBER || "",
                   body,
                   scheduledTime: now,
                   status: "PENDING"

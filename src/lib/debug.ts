@@ -104,8 +104,8 @@ export function envSnapshot(): Record<string, boolean> {
     'ZOHO_REFRESH_TOKEN',
     'ZOHO_ORGANIZATION_ID',
     'NEXTAUTH_SECRET',
-    'TWILIO_ACCOUNT_SID',
-    'TWILIO_AUTH_TOKEN',
+    'ZOHO_VOICE_FROM_NUMBER',
+    'ZOHO_VOICE_WEBHOOK_SECRET',
     'COMPANY_NAME',
   ];
 
