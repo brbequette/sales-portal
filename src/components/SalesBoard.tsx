@@ -249,7 +249,7 @@ export function SalesBoard() {
                                      <thead>
                                        <tr className="bg-white/[0.02]">
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
-                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
+                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Document</th>
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Subtotal</th>
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
                                        </tr>
@@ -260,7 +260,7 @@ export function SalesBoard() {
                                            <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                            <td className="p-2">
                                               <a 
-                                                href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
+                                                href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
                                                 target="_blank" 
                                                 rel="noopener noreferrer"
                                                 className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
@@ -268,7 +268,7 @@ export function SalesBoard() {
                                                 {inv.customer}
                                               </a>
                                               <a 
-                                                href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
+                                                href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
                                                 target="_blank" 
                                                 rel="noopener noreferrer"
                                                 className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"
@@ -477,7 +477,7 @@ export function SalesBoard() {
                                   <thead>
                                     <tr className="bg-white/[0.02]">
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
-                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Document</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Subtotal</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
                                     </tr>
@@ -488,7 +488,7 @@ export function SalesBoard() {
                                         <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                         <td className="p-2">
                                            <a 
-                                             href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
+                                             href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
                                              target="_blank" 
                                              rel="noopener noreferrer"
                                              className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
@@ -496,7 +496,7 @@ export function SalesBoard() {
                                              {inv.customer}
                                            </a>
                                            <a 
-                                             href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
+                                             href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
                                              target="_blank" 
                                              rel="noopener noreferrer"
                                              className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"
@@ -577,7 +577,7 @@ export function SalesBoard() {
                                   <thead>
                                     <tr className="bg-white/[0.02]">
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
-                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Invoice</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Document</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Subtotal</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
                                     </tr>
@@ -588,7 +588,7 @@ export function SalesBoard() {
                                         <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
                                         <td className="p-2">
                                            <a 
-                                             href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
+                                             href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
                                              target="_blank" 
                                              rel="noopener noreferrer"
                                              className="text-xs font-bold text-white hover:text-emerald-400 hover:underline transition-colors block"
@@ -596,7 +596,7 @@ export function SalesBoard() {
                                              {inv.customer}
                                            </a>
                                            <a 
-                                             href={getZohoBooksUrl('invoices', inv.zohoId || inv.id)} 
+                                             href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
                                              target="_blank" 
                                              rel="noopener noreferrer"
                                              className="text-[10px] text-neutral-500 hover:text-emerald-400 hover:underline transition-colors font-medium"
