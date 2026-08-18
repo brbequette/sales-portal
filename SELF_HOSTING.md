@@ -75,6 +75,16 @@ Choose a different retention window with `-RetentionDays 30`. Keep an encrypted
 copy on a second device or trusted off-site destination; the local backup folder
 protects against database mistakes but not loss of the PC.
 
+Install a daily Windows scheduled task (2:00 AM, 14-day retention by default):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install-backup-task.ps1
+```
+
+The task starts and waits for PostgreSQL if necessary. Customize the schedule
+with `-Hour`, `-Minute`, and `-RetentionDays`. It runs when the Windows user is
+signed in and uses no stored database credentials.
+
 Restoration validates the archive, stops the app, replaces the local database,
 and starts the app again. It requires an explicit destructive-action switch:
 

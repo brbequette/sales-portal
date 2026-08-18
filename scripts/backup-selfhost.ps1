@@ -39,6 +39,12 @@ if ($wslProjectDirectory.Contains("'") -or $wslBackupPath.Contains("'")) {
 }
 $quotedProject = "'$wslProjectDirectory'"
 $quotedBackup = "'$wslBackupPath'"
+$readyCommand = "cd $quotedProject && docker compose --env-file .env.selfhost up -d --wait postgres"
+wsl.exe -d $distribution -- bash -lc $readyCommand
+if ($LASTEXITCODE -ne 0) {
+  throw "PostgreSQL did not become ready for backup."
+}
+
 $command = "cd $quotedProject && docker compose --env-file .env.selfhost exec -T postgres pg_dump -U $databaseUser -d $databaseName --format=custom --compress=6 --no-owner --no-privileges > $quotedBackup"
 
 wsl.exe -d $distribution -- bash -lc $command
