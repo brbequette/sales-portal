@@ -1,11 +1,18 @@
-import { Handler } from "@netlify/functions"
-import { corsHeaders, handleOptions } from "./lib/cors"
+import type { Context } from "@netlify/functions"
+import { corsHeaders } from "./lib/cors"
 import { prisma } from "./lib/prisma"
 import { fetchEmails, fetchEmailContent } from "./lib/zoho-mail"
 import OpenAI from "openai"
 
 const ZOHO_ACCOUNT_ID = "6682814000000008002"
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
+// Lazy-init so Next.js / build time doesn't crash when API keys are absent locally.
+// Netlify AI Gateway automatically injects OPENAI_API_KEY and OPENAI_BASE_URL.
+let _openai: OpenAI | null = null
+function getOpenAI() {
+  if (!_openai) _openai = new OpenAI()
+  return _openai
+}
 
 async function classifyEmail(subject: string, body: string) {
   try {
@@ -15,7 +22,7 @@ Body: ${body}
 
 Respond with only "true" or "false".`
     
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }]
     })
@@ -41,7 +48,7 @@ async function generateSuggestedReply(subject: string, body: string) {
 Subject: ${subject}
 Body: ${body}`
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }]
     })
@@ -53,11 +60,16 @@ Body: ${body}`
   }
 }
 
-export const handler: Handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") return handleOptions()
+export default async (req: Request, context: Context) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders })
+  }
   
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: "Method Not Allowed" }) }
+  if (req.method !== "POST") {
+    return Response.json(
+      { error: "Method Not Allowed" },
+      { status: 405, headers: corsHeaders }
+    )
   }
 
   try {
@@ -141,17 +153,15 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({ success: true, processedCount })
-    }
+    return Response.json(
+      { success: true, processedCount },
+      { status: 200, headers: corsHeaders }
+    )
   } catch (err: any) {
     console.error("Email sync error:", err)
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({ success: false, error: err.message })
-    }
+    return Response.json(
+      { success: false, error: err.message },
+      { status: 500, headers: corsHeaders }
+    )
   }
 }
