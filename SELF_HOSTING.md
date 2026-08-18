@@ -49,9 +49,20 @@ powershell -ExecutionPolicy Bypass -File scripts/install-healthcheck-task.ps1
 Customize the interval with `-IntervalMinutes`. The watchdog runs only while
 the Windows user is signed in and stores no credentials.
 
-The `db-init` service uses `prisma db push` only against the isolated local
-database. The repository's historical Prisma migrations are incomplete and
-must be baselined before they are used for production deployments.
+The `db-init` service uses `prisma migrate deploy` against the validated
+baseline in `prisma/migrations`. The repository's previous incomplete SQL is
+preserved for reference in `prisma/legacy-migrations` and is never deployed.
+
+Existing self-host installations originally created with `prisma db push` must
+adopt the baseline once before restarting with the new Compose configuration:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/adopt-migration-baseline.ps1
+```
+
+The adoption script first creates a backup, requires the live database to match
+the Prisma schema exactly, and refuses to replace an unrelated migration
+history.
 
 ## Create or reset the local administrator
 
@@ -140,7 +151,8 @@ the connector, so rotate it immediately if it is exposed.
   `ZOHO_VOICE_WEBHOOK_SECRET`, and `EASYSHIP_WEBHOOK_SECRET` values. Configure
   the matching provider webhook URL/header; token-based receivers also accept
   the secret as the `token` query parameter.
-- Replace the local database initializer with a baselined migration history.
+- Add future schema changes as reviewed Prisma migrations and validate them in
+  an isolated database before deployment.
 - Schedule `backup-selfhost.ps1`, copy backups to encrypted off-site storage,
   and periodically test restoration.
 - Enable the prepared Cloudflare Tunnel profile only after configuring its

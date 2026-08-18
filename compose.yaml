@@ -40,7 +40,7 @@ services:
         format: raw
     environment:
       DATABASE_URL: postgresql://${SELFHOST_DB_USER:-tdgpt}:${SELFHOST_DB_PASSWORD:-change-this-before-production}@postgres:5432/${SELFHOST_DB_NAME:-tdgpt}
-    command: ["npx", "prisma", "db", "push"]
+    command: ["npx", "prisma", "migrate", "deploy"]
     depends_on:
       postgres:
         condition: service_healthy
