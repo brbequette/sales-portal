@@ -82,13 +82,12 @@ export function SalesBoard() {
     )
   }
 
-  if (!loading && data && (data.reps.length === 0 || data.rawInvoices.length === 0)) {
-    const isNoReps = data.reps.length === 0;
+  if (!loading && data && data.reps.length === 0) {
     return (
       <div className="w-full h-full min-h-[600px] flex flex-col items-center justify-center glass-panel rounded-2xl border border-white/10 text-white shadow-2xl relative overflow-hidden p-8 space-y-4">
         <FiAlertCircle size={48} className="text-[var(--muted)] mb-2" />
         <h3 className="text-xl font-bold">No data available</h3>
-        <p className="text-[var(--muted)] text-sm">{isNoReps ? "No reps found" : "No invoices this period"}.</p>
+        <p className="text-[var(--muted)] text-sm">No sales reps found.</p>
       </div>
     )
   }
@@ -163,23 +162,42 @@ export function SalesBoard() {
                 </p>
              </div>
              
-             {/* --- 4-Badge Financial Metric Strip --- */}
-             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full md:w-auto">
-                <div className="bg-gradient-to-br from-sky-950/60 to-blue-950/60 p-3 rounded-xl border border-sky-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)] hover:scale-[1.02] transition-transform">
-                   <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">Subtotal</span>
-                   <span className="text-base font-black text-white block mt-0.5">{formatCurrency(data.teamWeekly.sales)}</span>
+             {/* --- 5-Badge Financial Metric Strip --- */}
+             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 w-full md:w-auto">
+                <div 
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "weeklyGoal" } }))}
+                  className="bg-gradient-to-br from-sky-950/60 to-blue-950/60 p-2.5 rounded-xl border border-sky-500/30 shadow-[0_0_15px_rgba(56,189,248,0.1)] hover:scale-[1.02] transition-transform cursor-pointer"
+                >
+                   <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">Total Subtotal</span>
+                   <span className="text-sm font-black text-white block mt-0.5">{formatCurrency(data.teamSubtotals?.total || data.teamWeekly.sales)}</span>
                 </div>
-                <div className="bg-gradient-to-br from-amber-950/60 to-orange-950/60 p-3 rounded-xl border border-amber-500/20 shadow-[0_0_15px_rgba(251,191,36,0.1)] hover:scale-[1.02] transition-transform">
-                   <span className="text-[9px] uppercase font-bold text-amber-400 tracking-wider block">DC (Subject VIG)</span>
-                   <span className="text-base font-black text-amber-200 block mt-0.5">{formatCurrency(data.teamWeekly.deadCostSubjectToVig)}</span>
+                <div 
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "estimates" } }))}
+                  className="bg-gradient-to-br from-cyan-950/60 to-teal-950/60 p-2.5 rounded-xl border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:scale-[1.02] transition-transform cursor-pointer"
+                >
+                   <span className="text-[9px] uppercase font-bold text-cyan-400 tracking-wider block">48h Estimates</span>
+                   <span className="text-sm font-black text-cyan-200 block mt-0.5">{formatCurrency(data.teamSubtotals?.estimates || 0)}</span>
                 </div>
-                <div className="bg-gradient-to-br from-purple-950/60 to-fuchsia-950/60 p-3 rounded-xl border border-purple-500/20 shadow-[0_0_15px_rgba(232,121,249,0.1)] hover:scale-[1.02] transition-transform">
-                   <span className="text-[9px] uppercase font-bold text-purple-300 tracking-wider block">🎁 DC (No VIG)</span>
-                   <span className="text-base font-black text-purple-200 block mt-0.5">{formatCurrency(data.teamWeekly.deadCostNoVig)}</span>
+                <div 
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "salesOrders" } }))}
+                  className="bg-gradient-to-br from-amber-950/60 to-orange-950/60 p-2.5 rounded-xl border border-amber-500/30 shadow-[0_0_15px_rgba(251,191,36,0.1)] hover:scale-[1.02] transition-transform cursor-pointer"
+                >
+                   <span className="text-[9px] uppercase font-bold text-amber-400 tracking-wider block">Uninvoiced SOs</span>
+                   <span className="text-sm font-black text-amber-200 block mt-0.5">{formatCurrency(data.teamSubtotals?.salesOrders || 0)}</span>
                 </div>
-                <div className="bg-gradient-to-br from-emerald-950/60 to-teal-950/60 p-3 rounded-xl border border-emerald-500/20 shadow-[0_0_15px_rgba(52,211,153,0.1)] hover:scale-[1.02] transition-transform">
+                <div 
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "invoices" } }))}
+                  className="bg-gradient-to-br from-purple-950/60 to-indigo-950/60 p-2.5 rounded-xl border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.1)] hover:scale-[1.02] transition-transform cursor-pointer"
+                >
+                   <span className="text-[9px] uppercase font-bold text-purple-300 tracking-wider block">Invoices (All Statuses)</span>
+                   <span className="text-sm font-black text-purple-200 block mt-0.5">{formatCurrency(data.teamSubtotals?.invoices || 0)}</span>
+                </div>
+                <div 
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-metric-derivation", { detail: { key: "monthlyProfit" } }))}
+                  className="bg-gradient-to-br from-emerald-950/60 to-teal-950/60 p-2.5 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(52,211,153,0.1)] hover:scale-[1.02] transition-transform cursor-pointer"
+                >
                    <span className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider block">Net Profit</span>
-                   <span className="text-base font-black text-emerald-300 block mt-0.5">{formatCurrency(data.teamWeekly.profit)}</span>
+                   <span className="text-sm font-black text-emerald-300 block mt-0.5">{formatCurrency(data.teamWeekly.profit)}</span>
                 </div>
              </div>
           </div>
@@ -249,15 +267,29 @@ export function SalesBoard() {
                                      <thead>
                                        <tr className="bg-white/[0.02]">
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
+                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Type</th>
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Document</th>
+                                         <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Status</th>
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Subtotal</th>
                                          <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
                                        </tr>
                                      </thead>
                                      <tbody>
-                                       {rep.weekly.invoices.map((inv:any) => (
+                                       {rep.weekly.invoices.map((inv:any) => {
+                                         const docType = inv.type || 'Invoice'
+                                         const typeBadge = docType === 'Quote' 
+                                           ? { label: '48h Estimate', bg: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' }
+                                           : docType === 'SalesOrder'
+                                           ? { label: 'Sales Order', bg: 'bg-amber-500/10 text-amber-400 border-amber-500/30' }
+                                           : { label: 'Invoice', bg: 'bg-purple-500/10 text-purple-300 border-purple-500/30' }
+                                         return (
                                          <tr key={inv.id} className="border-t border-white/10 hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                                            <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
+                                           <td className="p-2">
+                                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase ${typeBadge.bg}`}>
+                                               {typeBadge.label}
+                                             </span>
+                                           </td>
                                            <td className="p-2">
                                               <a 
                                                 href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
@@ -276,10 +308,15 @@ export function SalesBoard() {
                                                 {inv.invoiceNumber}
                                               </a>
                                            </td>
+                                           <td className="p-2">
+                                             <span className="text-[10px] text-neutral-400 font-medium capitalize">
+                                               {inv.status || 'Draft'}
+                                             </span>
+                                           </td>
                                            <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
                                            <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
                                          </tr>
-                                       ))}
+                                       )})}
                                      </tbody>
                                    </table>
                                  </div>
@@ -349,15 +386,19 @@ export function SalesBoard() {
                       </div>
                     </div>
 
-                    {/* Active Pipeline Badges (48h Estimates & Uninvoiced SOs) */}
-                    <div className="flex items-center gap-1.5 pt-1.5 border-t border-white/10">
-                      <div className="flex-1 bg-cyan-950/40 p-1.5 rounded-lg border border-cyan-500/20 text-[9px]">
-                        <span className="text-cyan-400 font-bold block uppercase">48h Estimates</span>
-                        <span className="text-white font-bold">{rep.activePipeline.estimateCount} ({formatCurrency(rep.activePipeline.estimateAmount)})</span>
+                    {/* Active Pipeline Badges (48h Estimates, Uninvoiced SOs, Invoices) */}
+                    <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-white/10 text-[9px]">
+                      <div className="bg-cyan-950/40 p-1.5 rounded-lg border border-cyan-500/20">
+                        <span className="text-cyan-400 font-bold block uppercase truncate">48h Est</span>
+                        <span className="text-white font-bold truncate block">{rep.subtotals?.estimatesCount ?? rep.activePipeline.estimateCount} ({formatCurrency(rep.subtotals?.estimates ?? rep.activePipeline.estimateAmount)})</span>
                       </div>
-                      <div className="flex-1 bg-amber-950/40 p-1.5 rounded-lg border border-amber-500/20 text-[9px]">
-                        <span className="text-amber-400 font-bold block uppercase">Uninvoiced SOs</span>
-                        <span className="text-white font-bold">{rep.activePipeline.salesOrderCount} ({formatCurrency(rep.activePipeline.salesOrderAmount)})</span>
+                      <div className="bg-amber-950/40 p-1.5 rounded-lg border border-amber-500/20">
+                        <span className="text-amber-400 font-bold block uppercase truncate">Open SOs</span>
+                        <span className="text-white font-bold truncate block">{rep.subtotals?.salesOrdersCount ?? rep.activePipeline.salesOrderCount} ({formatCurrency(rep.subtotals?.salesOrders ?? rep.activePipeline.salesOrderAmount)})</span>
+                      </div>
+                      <div className="bg-purple-950/40 p-1.5 rounded-lg border border-purple-500/20">
+                        <span className="text-purple-300 font-bold block uppercase truncate">Invoices</span>
+                        <span className="text-white font-bold truncate block">{rep.subtotals?.invoicesCount ?? 0} ({formatCurrency(rep.subtotals?.invoices ?? 0)})</span>
                       </div>
                     </div>
 
@@ -477,15 +518,29 @@ export function SalesBoard() {
                                   <thead>
                                     <tr className="bg-white/[0.02]">
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Type</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Document</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Status</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Subtotal</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {rep.mtd.invoices.map((inv:any) => (
+                                    {rep.mtd.invoices.map((inv:any) => {
+                                      const docType = inv.type || 'Invoice'
+                                      const typeBadge = docType === 'Quote' 
+                                        ? { label: '48h Estimate', bg: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' }
+                                        : docType === 'SalesOrder'
+                                        ? { label: 'Sales Order', bg: 'bg-amber-500/10 text-amber-400 border-amber-500/30' }
+                                        : { label: 'Invoice', bg: 'bg-purple-500/10 text-purple-300 border-purple-500/30' }
+                                      return (
                                       <tr key={inv.id} className="border-t border-white/10 hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                                         <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
+                                        <td className="p-2">
+                                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase ${typeBadge.bg}`}>
+                                            {typeBadge.label}
+                                          </span>
+                                        </td>
                                         <td className="p-2">
                                            <a 
                                              href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
@@ -504,10 +559,15 @@ export function SalesBoard() {
                                              {inv.invoiceNumber}
                                            </a>
                                         </td>
+                                        <td className="p-2">
+                                          <span className="text-[10px] text-neutral-400 font-medium capitalize">
+                                            {inv.status || 'Draft'}
+                                          </span>
+                                        </td>
                                         <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
                                         <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
                                       </tr>
-                                    ))}
+                                    )})}
                                   </tbody>
                                 </table>
                               </div>
@@ -577,15 +637,29 @@ export function SalesBoard() {
                                   <thead>
                                     <tr className="bg-white/[0.02]">
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Date</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Type</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Customer | Document</th>
+                                      <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold">Status</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Subtotal</th>
                                       <th className="p-2 text-[10px] uppercase tracking-widest text-neutral-500 font-bold text-right">Dead Profit</th>
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {rep.ytd.invoices.map((inv:any) => (
+                                    {rep.ytd.invoices.map((inv:any) => {
+                                      const docType = inv.type || 'Invoice'
+                                      const typeBadge = docType === 'Quote' 
+                                        ? { label: '48h Estimate', bg: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' }
+                                        : docType === 'SalesOrder'
+                                        ? { label: 'Sales Order', bg: 'bg-amber-500/10 text-amber-400 border-amber-500/30' }
+                                        : { label: 'Invoice', bg: 'bg-purple-500/10 text-purple-300 border-purple-500/30' }
+                                      return (
                                       <tr key={inv.id} className="border-t border-white/10 hover:bg-white/10 hover:shadow-lg transition-all duration-300 transition-colors">
                                         <td className="p-2 text-xs font-medium text-neutral-400">{inv.date}</td>
+                                        <td className="p-2">
+                                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase ${typeBadge.bg}`}>
+                                            {typeBadge.label}
+                                          </span>
+                                        </td>
                                         <td className="p-2">
                                            <a 
                                              href={getZohoBooksUrl(inv.type || 'Invoice', inv.zohoId || inv.id)} 
@@ -604,10 +678,15 @@ export function SalesBoard() {
                                              {inv.invoiceNumber}
                                            </a>
                                         </td>
+                                        <td className="p-2">
+                                          <span className="text-[10px] text-neutral-400 font-medium capitalize">
+                                            {inv.status || 'Draft'}
+                                          </span>
+                                        </td>
                                         <td className="p-2 text-xs font-medium text-neutral-300 text-right">{formatCurrency(inv.amount)}</td>
                                         <td className="p-2 text-xs font-medium text-neutral-400 text-right">{formatCurrency(inv.profit)}</td>
                                       </tr>
-                                    ))}
+                                    )})}
                                   </tbody>
                                 </table>
                               </div>

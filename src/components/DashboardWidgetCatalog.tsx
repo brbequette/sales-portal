@@ -143,46 +143,56 @@ export function VigCostAllocationWidget({ data }: WidgetProps) {
 // 3. PIPELINE CONVERSION FUNNEL WIDGET
 export function PipelineFunnelWidget({ data }: WidgetProps) {
   const reps = data?.reps || []
-  const totalEstimates = reps.reduce((sum: number, r: any) => sum + (r.activePipeline?.estimateCount || 0), 0)
-  const totalEstAmount = reps.reduce((sum: number, r: any) => sum + (r.activePipeline?.estimateAmount || 0), 0)
-  const totalSOs = reps.reduce((sum: number, r: any) => sum + (r.activePipeline?.salesOrderCount || 0), 0)
-  const totalSOAmount = reps.reduce((sum: number, r: any) => sum + (r.activePipeline?.salesOrderAmount || 0), 0)
-  const dealsClosed = data?.teamWeekly?.sales || 0
+  const totalEstimates = reps.reduce((sum: number, r: any) => sum + (r.subtotals?.estimatesCount ?? r.activePipeline?.estimateCount ?? 0), 0)
+  const totalEstAmount = reps.reduce((sum: number, r: any) => sum + (r.subtotals?.estimates ?? r.activePipeline?.estimateAmount ?? 0), 0)
+  const totalSOs = reps.reduce((sum: number, r: any) => sum + (r.subtotals?.salesOrdersCount ?? r.activePipeline?.salesOrderCount ?? 0), 0)
+  const totalSOAmount = reps.reduce((sum: number, r: any) => sum + (r.subtotals?.salesOrders ?? r.activePipeline?.salesOrderAmount ?? 0), 0)
+  const totalInvoices = reps.reduce((sum: number, r: any) => sum + (r.subtotals?.invoicesCount ?? (r.weekly?.invoices?.length || 0)), 0)
+  const totalInvAmount = data?.teamSubtotals?.invoices ?? reps.reduce((sum: number, r: any) => sum + (r.subtotals?.invoices ?? 0), 0)
+  const totalCombined = data?.teamSubtotals?.total ?? (totalEstAmount + totalSOAmount + totalInvAmount)
 
   return (
     <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 h-full flex flex-col justify-between backdrop-blur-xl hover:border-cyan-500/30 transition-all">
       <div className="flex items-center justify-between mb-4">
         <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-400 flex items-center gap-2">
-          <FiFilter className="text-cyan-400" /> Pipeline Conversion Stage
+          <FiFilter className="text-cyan-400" /> Pipeline Conversion &amp; Subtotals
         </h4>
         <span className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
-          Live Rules Active
+          Live Subtotals
         </span>
       </div>
 
-      <div className="space-y-3 my-auto">
-        <div className="bg-gradient-to-r from-cyan-950/60 to-blue-950/60 p-3 rounded-xl border border-cyan-500/30 flex items-center justify-between">
+      <div className="space-y-2.5 my-auto">
+        <div className="bg-gradient-to-r from-cyan-950/60 to-blue-950/60 p-2.5 rounded-xl border border-cyan-500/30 flex items-center justify-between">
           <div>
             <span className="text-[9px] uppercase font-bold text-cyan-400 block">1. 48h Active Estimates</span>
-            <span className="text-sm font-black text-white">{totalEstimates} Quotes ({formatCurrency(totalEstAmount)})</span>
+            <span className="text-xs font-black text-white">{totalEstimates} Quotes ({formatCurrency(totalEstAmount)})</span>
           </div>
-          <span className="text-[10px] font-bold text-cyan-300 bg-cyan-500/20 px-2 py-1 rounded">48h Limit</span>
+          <span className="text-[9px] font-bold text-cyan-300 bg-cyan-500/20 px-1.5 py-0.5 rounded">48h Limit</span>
         </div>
 
-        <div className="bg-gradient-to-r from-amber-950/60 to-orange-950/60 p-3 rounded-xl border border-amber-500/30 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-amber-950/60 to-orange-950/60 p-2.5 rounded-xl border border-amber-500/30 flex items-center justify-between">
           <div>
             <span className="text-[9px] uppercase font-bold text-amber-400 block">2. Uninvoiced Sales Orders</span>
-            <span className="text-sm font-black text-white">{totalSOs} Sales Orders ({formatCurrency(totalSOAmount)})</span>
+            <span className="text-xs font-black text-white">{totalSOs} Sales Orders ({formatCurrency(totalSOAmount)})</span>
           </div>
-          <span className="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-1 rounded">Until Invoiced</span>
+          <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded">Until Invoiced</span>
         </div>
 
-        <div className="bg-gradient-to-r from-emerald-950/60 to-teal-950/60 p-3 rounded-xl border border-emerald-500/30 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-purple-950/60 to-indigo-950/60 p-2.5 rounded-xl border border-purple-500/30 flex items-center justify-between">
           <div>
-            <span className="text-[9px] uppercase font-bold text-emerald-400 block">3. Invoiced &amp; Settled</span>
-            <span className="text-sm font-black text-white">{formatCurrency(dealsClosed)}</span>
+            <span className="text-[9px] uppercase font-bold text-purple-300 block">3. Invoices (All Statuses)</span>
+            <span className="text-xs font-black text-white">{totalInvoices} Invoices ({formatCurrency(totalInvAmount)})</span>
           </div>
-          <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-1 rounded">50/50 Comm</span>
+          <span className="text-[9px] font-bold text-purple-200 bg-purple-500/20 px-1.5 py-0.5 rounded">All Statuses</span>
+        </div>
+
+        <div className="bg-gradient-to-r from-emerald-950/60 to-teal-950/60 p-2.5 rounded-xl border border-emerald-500/30 flex items-center justify-between">
+          <div>
+            <span className="text-[9px] uppercase font-bold text-emerald-400 block">Total Accounted Subtotal</span>
+            <span className="text-sm font-black text-emerald-300">{formatCurrency(totalCombined)}</span>
+          </div>
+          <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded">Combined</span>
         </div>
       </div>
     </div>
