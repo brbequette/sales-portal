@@ -158,7 +158,7 @@ export function SalesBoard() {
                    <FiActivity className="text-emerald-400 animate-pulse" /> Live Weekly Subtotal & Financial Performance
                 </h3>
                 <p className="text-[11px] text-neutral-500 font-semibold mt-0.5">
-                  Pipeline: <span className="text-cyan-400 font-bold">48h Estimates</span> &amp; <span className="text-amber-400 font-bold">Uninvoiced Sales Orders</span>
+                  Pipeline: <span className="text-cyan-400 font-bold">48h Estimates</span> &amp; <span className="text-amber-400 font-bold">Uninvoiced Sales Orders</span> &amp; <span className="text-purple-300 font-bold">Invoices</span>
                 </p>
              </div>
              
