@@ -882,4 +882,105 @@ describe('Sales Board Calculations - Estimates, Uninvoiced SOs, Invoices of All 
     assert.strictEqual(john.subtotals.invoices, 7500) // invoice accounts for it
     assert.strictEqual(john.subtotals.total, 7500)
   })
+
+  it('correctly aggregates all three pipeline components (48h Estimates, Uninvoiced Sales Orders, and Invoices) simultaneously for Live Weekly Subtotal & Financial Performance', () => {
+    // 1. Active 48h estimate (<48 hours, unconverted)
+    const quotes = [
+      {
+        id: 'quote-p1',
+        zohoId: 'q-p1',
+        type: 'Quote',
+        salesperson: 'John Doe',
+        accountName: 'Pipeline Alpha',
+        status: 'draft',
+        date: '2026-08-19T06:00:00Z', // 6 hours old (< 48h)
+        amount: 3000,
+        profit: 1200,
+        invoiceNumber: 'EST-101',
+        isConvertedToSO: false
+      }
+    ]
+
+    // 2. Uninvoiced Sales Order
+    const salesOrders = [
+      {
+        id: 'so-p2',
+        zohoId: 'so-p2',
+        type: 'SalesOrder',
+        salesperson: 'John Doe',
+        accountName: 'Pipeline Beta',
+        status: 'open',
+        date: '2026-08-18', // Tuesday
+        amount: 4500,
+        profit: 1800,
+        salesOrderNumber: 'SO-102',
+        invoiceNumber: 'SO-102',
+        isLinkedToInvoice: false
+      }
+    ]
+
+    // 3. Invoice
+    const invoices = [
+      {
+        id: 'inv-p3',
+        zohoId: 'inv-p3',
+        type: 'Invoice',
+        salesperson: 'John Doe',
+        accountName: 'Pipeline Gamma',
+        status: 'paid',
+        date: '2026-08-17', // Monday
+        amount: 6000,
+        profit: 2400,
+        invoiceNumber: 'INV-103'
+      }
+    ]
+
+    const result = processSalesBoardDocuments({
+      reps,
+      invoices,
+      salesOrders,
+      quotes,
+      weekDays,
+      firstDayOfMonth,
+      lastDayOfMonth,
+      currentYear,
+      referenceDate
+    })
+
+    const john = result.reps.find((r: any) => r.id === 'user-1')
+    assert.ok(john)
+
+    // Verify John's individual subtotals have all three components
+    assert.strictEqual(john.subtotals.estimates, 3000)
+    assert.strictEqual(john.subtotals.estimatesCount, 1)
+    assert.strictEqual(john.subtotals.salesOrders, 4500)
+    assert.strictEqual(john.subtotals.salesOrdersCount, 1)
+    assert.strictEqual(john.subtotals.invoices, 6000)
+    assert.strictEqual(john.subtotals.invoicesCount, 1)
+    assert.strictEqual(john.subtotals.total, 3000 + 4500 + 6000) // 13,500
+
+    // Verify Active Pipeline metrics
+    assert.strictEqual(john.activePipeline.estimateCount, 1)
+    assert.strictEqual(john.activePipeline.estimateAmount, 3000)
+    assert.strictEqual(john.activePipeline.salesOrderCount, 1)
+    assert.strictEqual(john.activePipeline.salesOrderAmount, 4500)
+
+    // Verify Team subtotals contain all three pipeline components
+    assert.strictEqual(result.teamSubtotals.estimates, 3000)
+    assert.strictEqual(result.teamSubtotals.estimatesCount, 1)
+    assert.strictEqual(result.teamSubtotals.salesOrders, 4500)
+    assert.strictEqual(result.teamSubtotals.salesOrdersCount, 1)
+    assert.strictEqual(result.teamSubtotals.invoices, 6000)
+    assert.strictEqual(result.teamSubtotals.invoicesCount, 1)
+    assert.strictEqual(result.teamSubtotals.total, 13500)
+
+    // Verify Weekly performance financial totals
+    assert.strictEqual(john.weekly.sales[0], 6000) // Monday Invoice
+    assert.strictEqual(john.weekly.sales[1], 4500) // Tuesday Sales Order
+    assert.strictEqual(john.weekly.estimatesSubtotal, 3000) // Estimates subtotal tracked in weekly pipeline
+    assert.strictEqual(john.weekly.totalSales, 10500) // Invoices + Sales Orders in daily grid
+    assert.strictEqual(john.weekly.totalProfit, 1800 + 2400) // 4,200 (SO + Inv profit)
+    assert.strictEqual(result.teamWeekly.sales, 10500)
+    assert.strictEqual(result.teamWeekly.profit, 4200)
+  })
 })
