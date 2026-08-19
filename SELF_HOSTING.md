@@ -115,6 +115,22 @@ powershell -ExecutionPolicy Bypass -File scripts/restore-selfhost.ps1 `
   -ConfirmRestore
 ```
 
+## Transfer production data into self-hosting
+
+The guarded transfer utility reads production through a read-only `pg_dump`,
+loads rows into an isolated migrated candidate database, compares critical row
+counts, preserves local password hashes, and only then performs a brief atomic
+database swap:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/transfer-production-data.ps1
+```
+
+The previous local database is retained under a timestamped `tdgpt_preimport_*`
+name for rollback, and the production SQL export remains in the ignored
+`backups` directory. Do not commit or share that export because it contains
+customer and financial data.
+
 ## Optional secure remote access
 
 The `public` Compose profile runs a remotely managed Cloudflare Tunnel. Port
