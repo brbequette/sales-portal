@@ -180,14 +180,15 @@ export const handler: Handler = async (event, context) => {
       const statusLower = (raw.status || "").toLowerCase()
       const isPaid = statusLower === "paid" || items?.paymentDate != null
       const isSameDayPaid = items?.isSameDayPaid || false
-      const isConvertedToSO = statusLower === 'converted' || items?.salesorder_id || items?.salesorder_number || raw.salesorder_id || raw.salesorder_number || false
+      const isConvertedToSO = statusLower === 'converted' || statusLower === 'invoiced' || statusLower === 'accepted' || !!items?.salesorder_id || !!items?.salesorder_number || !!items?.salesOrderId || !!items?.salesOrderNumber || !!raw.salesorder_id || !!raw.salesorder_number || false
       const soStatus = statusLower.trim()
-      const isInvoicedOrClosed = soStatus === 'invoiced' || soStatus === 'closed' || soStatus === 'void' || items?.invoice_id || items?.invoice_number || raw.invoice_id || raw.invoice_number || false
+      const isInvoicedOrClosed = soStatus === 'invoiced' || soStatus === 'closed' || soStatus === 'void' || !!items?.invoice_id || !!items?.invoice_number || !!raw.invoice_id || !!raw.invoice_number || false
       const isLinkedToInvoice = t === 'SalesOrder' ? !!(items?.invoice_id || items?.invoiceId || items?.invoice_number || items?.invoiceNumber || raw.invoice_id || raw.invoice_number || soStatus === 'invoiced') : false
       const dueDate = raw.dueDate?.toISOString() || items?.due_date || null
       const balance = parseFloat(items?.balance ?? raw.balance ?? 0)
 
-      const dateStr = raw.issueDate?.toISOString() || raw.orderDate?.toISOString() || raw.createdAt?.toISOString() || new Date().toISOString()
+      const rawQuoteDate = t === 'Quote' ? (items?.date || items?.estimateDate || items?.quote_date || items?.estimate_date) : null
+      const dateStr = rawQuoteDate ? String(rawQuoteDate) : (raw.issueDate?.toISOString() || raw.orderDate?.toISOString() || raw.createdAt?.toISOString() || new Date().toISOString())
       const statusStr = raw.status || "Draft"
 
       const salesOrderNum = items?.salesOrderNumber || items?.salesorder_number || (t === 'SalesOrder' ? (items?.invoiceNumber || items?.invoice_number || items?.estimateNumber || (raw.zohoId || raw.id).slice(-6)) : null)

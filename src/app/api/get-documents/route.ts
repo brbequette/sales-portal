@@ -10,7 +10,9 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
-    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '50', 10) || 50))
+    const loadAll = searchParams.get('loadAll') === 'true'
+    const rawPageSize = parseInt(searchParams.get('pageSize') || '50', 10) || 50
+    const pageSize = loadAll ? rawPageSize : Math.min(100, Math.max(1, rawPageSize))
     
     const search = searchParams.get('search')?.toLowerCase() || ''
     const docType = searchParams.get('docType') || searchParams.get('type') || 'All'
@@ -21,7 +23,6 @@ export async function GET(request: Request) {
     const sortBy = searchParams.get('sortBy') || 'date-desc'
     const ownerId = searchParams.get('ownerId')
     const repName = searchParams.get('repName')
-    const loadAll = searchParams.get('loadAll') === 'true'
     
     const startDateParam = searchParams.get('startDate')
     const endDateParam = searchParams.get('endDate')
@@ -158,9 +159,9 @@ export async function GET(request: Request) {
     const fetchInvoices = dtLower === 'all' || dtLower === 'invoice'
 
     const [quotes, salesOrders, invoices, quotesCount, salesOrdersCount, invoicesCount] = await Promise.all([
-      fetchQuotes ? prisma.quote.findMany({ where: quoteWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } }, orderBy: quoteOrder, skip, take: pageSize }) : Promise.resolve([]),
-      fetchSalesOrders ? prisma.salesOrder.findMany({ where: salesOrderWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } }, orderBy: soOrder, skip, take: pageSize }) : Promise.resolve([]),
-      fetchInvoices ? prisma.invoice.findMany({ where: invoiceWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } }, orderBy: invoiceOrder, skip, take: pageSize }) : Promise.resolve([]),
+      fetchQuotes ? prisma.quote.findMany({ where: quoteWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } }, orderBy: quoteOrder, skip: loadAll ? undefined : skip, take: loadAll ? (rawPageSize > 0 ? rawPageSize : undefined) : pageSize }) : Promise.resolve([]),
+      fetchSalesOrders ? prisma.salesOrder.findMany({ where: salesOrderWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } }, orderBy: soOrder, skip: loadAll ? undefined : skip, take: loadAll ? (rawPageSize > 0 ? rawPageSize : undefined) : pageSize }) : Promise.resolve([]),
+      fetchInvoices ? prisma.invoice.findMany({ where: invoiceWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } }, orderBy: invoiceOrder, skip: loadAll ? undefined : skip, take: loadAll ? (rawPageSize > 0 ? rawPageSize : undefined) : pageSize }) : Promise.resolve([]),
       fetchQuotes ? prisma.quote.count({ where: quoteWhere }) : Promise.resolve(0),
       fetchSalesOrders ? prisma.salesOrder.count({ where: salesOrderWhere }) : Promise.resolve(0),
       fetchInvoices ? prisma.invoice.count({ where: invoiceWhere }) : Promise.resolve(0)
@@ -239,14 +240,15 @@ export async function GET(request: Request) {
       const statusLower = (raw.status || "").toLowerCase()
       const isPaid = statusLower === "paid" || items?.paymentDate != null
       const isSameDayPaid = items?.isSameDayPaid || false
-      const isConvertedToSO = statusLower === 'converted' || items?.salesorder_id || items?.salesorder_number || raw.salesorder_id || raw.salesorder_number || false
+      const isConvertedToSO = statusLower === 'converted' || statusLower === 'invoiced' || statusLower === 'accepted' || !!items?.salesorder_id || !!items?.salesorder_number || !!items?.salesOrderId || !!items?.salesOrderNumber || !!raw.salesorder_id || !!raw.salesorder_number || false
       const soStatus = statusLower.trim()
-      const isInvoicedOrClosed = soStatus === 'invoiced' || soStatus === 'closed' || soStatus === 'void' || items?.invoice_id || items?.invoice_number || raw.invoice_id || raw.invoice_number || false
+      const isInvoicedOrClosed = soStatus === 'invoiced' || soStatus === 'closed' || soStatus === 'void' || !!items?.invoice_id || !!items?.invoice_number || !!raw.invoice_id || !!raw.invoice_number || false
       const isLinkedToInvoice = t === 'SalesOrder' ? !!(items?.invoice_id || items?.invoiceId || items?.invoice_number || items?.invoiceNumber || raw.invoice_id || raw.invoice_number || soStatus === 'invoiced') : false
       const dueDate = raw.dueDate?.toISOString() || items?.due_date || null
       const balance = parseFloat(items?.balance ?? raw.balance ?? 0)
 
-      const dateStr = raw.issueDate?.toISOString() || raw.orderDate?.toISOString() || raw.createdAt?.toISOString() || new Date().toISOString()
+      const rawQuoteDate = t === 'Quote' ? (items?.date || items?.estimateDate || items?.quote_date || items?.estimate_date) : null
+      const dateStr = rawQuoteDate ? String(rawQuoteDate) : (raw.issueDate?.toISOString() || raw.orderDate?.toISOString() || raw.createdAt?.toISOString() || new Date().toISOString())
       const statusStr = raw.status || "Draft"
 
       const salesOrderNum = items?.salesOrderNumber || items?.salesorder_number || (t === 'SalesOrder' ? (items?.invoiceNumber || items?.invoice_number || items?.estimateNumber || (raw.zohoId || raw.id).slice(-6)) : null)

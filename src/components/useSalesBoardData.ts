@@ -114,35 +114,59 @@ export function useSalesBoardData(): SalesBoardDataReturn {
 
       if (key === "weeklyGoal") {
         title = "Weekly Subtotal Derivation"
-        formula = "Sum of invoice & sales order subtotals issued between Monday and Friday of current week"
+        formula = "Sum of 48h active estimates, uninvoiced sales orders, and invoices of all statuses issued in current week"
         docs = docList.filter((doc: any) => {
           const saleDate = doc.date ? doc.date.split('T')[0] : ''
           return (data.weekDays || []).includes(saleDate)
         })
       } else if (key === "totalRevenue") {
         title = "MTD Total Revenue Derivation"
-        formula = "Sum of all active invoice & sales order subtotals created in current month"
+        formula = "Sum of active 48h estimates, uninvoiced sales orders, and invoices of all statuses created in current month"
         docs = docList.filter((inv: any) => {
           const d = new Date(inv.date || inv.issueDate)
           return d.getMonth() === currentMonth && d.getFullYear() === currentYear
         })
+      } else if (key === "estimates") {
+        title = "48h Active Estimates Derivation"
+        formula = "Estimates <= 48 hours old that have not been converted to a sales order"
+        docs = (data.rawQuotes || []).filter((q: any) => {
+          const qDate = new Date(q.date)
+          const ageHours = (now.getTime() - qDate.getTime()) / (1000 * 3600)
+          return ageHours >= 0 && ageHours <= 48 && !q.isConvertedToSO
+        })
+      } else if (key === "salesOrders") {
+        title = "Uninvoiced Sales Orders Derivation"
+        formula = "Sales orders not yet linked to or accounted for by an invoice"
+        docs = (data.rawSalesOrders || []).filter((so: any) => !so.isLinkedToInvoice)
+      } else if (key === "invoices") {
+        title = "Invoices Derivation (All Statuses)"
+        formula = "All invoices across all statuses (Paid, Open, Overdue, Draft, Void, etc.)"
+        docs = data.rawInvoices || []
       } else if (key === "monthlyProfit") {
         title = "Monthly Net Profit & Commission Derivation"
-        formula = "Sum of (Subtotal - DeadCostPlusVIG - CCFees - AdditionalCosts) for current month invoices & sales orders"
+        formula = "Sum of (Subtotal - DeadCostPlusVIG - CCFees - AdditionalCosts) for current month documents"
         docs = docList.filter((inv: any) => {
           const d = new Date(inv.date || inv.issueDate)
           return d.getMonth() === currentMonth && d.getFullYear() === currentYear
         })
       } else if (key === "activePipeline") {
-        title = "Active Pipeline & Overdue Derivation"
-        formula = "Sum of unpaid balances on non-draft, non-void invoices"
-        docs = (data.rawInvoices || []).filter((inv: any) => {
-          const status = (inv.status || "").toLowerCase()
-          return status !== "paid" && status !== "void" && status !== "draft" && parseFloat(inv.balance || 0) > 0
-        })
+        title = "Active Pipeline Derivation"
+        formula = "48h unconverted estimates, uninvoiced sales orders, and open invoice balances"
+        docs = [
+          ...(data.rawQuotes || []).filter((q: any) => {
+            const qDate = new Date(q.date)
+            const ageHours = (now.getTime() - qDate.getTime()) / (1000 * 3600)
+            return ageHours >= 0 && ageHours <= 48 && !q.isConvertedToSO
+          }),
+          ...(data.rawSalesOrders || []).filter((so: any) => !so.isLinkedToInvoice),
+          ...(data.rawInvoices || []).filter((inv: any) => {
+            const status = (inv.status || "").toLowerCase()
+            return status !== "paid" && status !== "void" && parseFloat(inv.balance || 0) > 0
+          })
+        ]
       } else {
         title = "Sales Performance Document Derivation"
-        formula = "All matching period invoices & sales orders"
+        formula = "All matching period estimates, sales orders, and invoices"
         docs = docList
       }
 
@@ -235,7 +259,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           fetchSafe("/api/admin/users"),
           fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&startDate=${startDateStr}`),
           fetchSafe(`/api/get-documents?pageSize=8000&type=SalesOrder&loadAll=true&startDate=${startDateStr}`),
-          fetchSafe(`/api/get-documents?pageSize=1000&type=Quote&loadAll=true&startDate=${threeDaysAgoStr}`),
+          fetchSafe(`/api/get-documents?pageSize=8000&type=Quote&loadAll=true&startDate=${startDateStr}`),
           fetchSafe("/api/get-config"),
           fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&status=overdue`)
         ])
@@ -359,14 +383,85 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         dynamicReps.forEach((r: any) => {
           repsMap[r.id] = { 
             ...r, 
-            weekly: { sales: [0,0,0,0,0], profit: [0,0,0,0,0], deadCostNoVig: 0, deadCostSubjectToVig: 0, totalSales: 0, totalProfit: 0, dealsClosed: 0, commission: 0, invoices: [] },
-            mtd: { sales: 0, profit: 0, deadCostNoVig: 0, deadCostSubjectToVig: 0, commission: 0, dealsClosed: 0, invoices: [] },
+            subtotals: {
+              estimates: 0,
+              estimatesCount: 0,
+              salesOrders: 0,
+              salesOrdersCount: 0,
+              invoices: 0,
+              invoicesCount: 0,
+              invoicesByStatus: {
+                paid: 0,
+                open: 0,
+                overdue: 0,
+                draft: 0,
+                void: 0,
+                other: 0
+              },
+              total: 0
+            },
+            weekly: { 
+              sales: [0,0,0,0,0], 
+              profit: [0,0,0,0,0], 
+              deadCostNoVig: 0, 
+              deadCostSubjectToVig: 0, 
+              totalSales: 0, 
+              totalProfit: 0, 
+              dealsClosed: 0, 
+              commission: 0, 
+              estimatesSubtotal: 0,
+              estimatesCount: 0,
+              salesOrdersSubtotal: 0,
+              salesOrdersCount: 0,
+              invoicesSubtotal: 0,
+              invoicesCount: 0,
+              invoices: [] 
+            },
+            mtd: { 
+              sales: 0, 
+              profit: 0, 
+              deadCostNoVig: 0, 
+              deadCostSubjectToVig: 0, 
+              commission: 0, 
+              dealsClosed: 0, 
+              estimatesSubtotal: 0,
+              estimatesCount: 0,
+              salesOrdersSubtotal: 0,
+              salesOrdersCount: 0,
+              invoicesSubtotal: 0,
+              invoicesCount: 0,
+              invoices: [] 
+            },
             lastMonthPace: { sales: 0, profit: 0, dealsClosed: 0 },
             lastMonthFinal: { sales: 0, profit: 0, dealsClosed: 0 },
-            ytd: { sales: 0, profit: 0, deadCostNoVig: 0, deadCostSubjectToVig: 0, commission: 0, dealsClosed: 0, invoices: [] },
+            ytd: { 
+              sales: 0, 
+              profit: 0, 
+              deadCostNoVig: 0, 
+              deadCostSubjectToVig: 0, 
+              commission: 0, 
+              dealsClosed: 0, 
+              estimatesSubtotal: 0,
+              estimatesCount: 0,
+              salesOrdersSubtotal: 0,
+              salesOrdersCount: 0,
+              invoicesSubtotal: 0,
+              invoicesCount: 0,
+              invoices: [] 
+            },
             activePipeline: { estimateCount: 0, estimateAmount: 0, salesOrderCount: 0, salesOrderAmount: 0 }
           }
         })
+
+        let teamSubtotals = {
+          estimates: 0,
+          estimatesCount: 0,
+          salesOrders: 0,
+          salesOrdersCount: 0,
+          invoices: 0,
+          invoicesCount: 0,
+          total: 0
+        }
 
         let teamWeekly = { 
           sales: 0, 
@@ -374,6 +469,9 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           deadCostNoVig: 0,
           deadCostSubjectToVig: 0,
           commission: 0, 
+          estimatesSubtotal: 0,
+          salesOrdersSubtotal: 0,
+          invoicesSubtotal: 0,
           target: dynamicReps.reduce((sum: number, r: any) => sum + r.weeklyTarget, 0) 
         }
 
@@ -502,41 +600,107 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           }
           if (!matchedRep && !spName) return // truly unattributable — skip
 
+          const amount = Number(doc.amount || 0)
+          const profit = Number(doc.profit || 0)
+          const deadCostNoVig = Number(doc.deadCostNoVig || 0)
+          const deadCostSubjectToVig = Number(doc.deadCostSubjectToVig || 0)
+
           // --- 1. ESTIMATES / QUOTES (48 Hours active on board or until SO) ---
           if (docType === 'Quote') {
             const quoteDate = new Date(doc.date)
             const ageHours = (today.getTime() - quoteDate.getTime()) / (1000 * 3600)
             const isConvertedToSO = doc.isConvertedToSO || false
-            if (ageHours <= 48 && !isConvertedToSO && matchedRep) {
-              matchedRep.activePipeline.estimateCount += 1
-              matchedRep.activePipeline.estimateAmount += parseFloat(doc.amount || 0)
+            
+            // Estimates only last for 48 hours. If unconverted and <= 48h, count as active estimate subtotal.
+            // If converted after 48h (or anytime), the converted SO or Invoice will represent its subtotal.
+            if (!isConvertedToSO && ageHours >= 0 && ageHours <= 48) {
+              if (matchedRep) {
+                matchedRep.activePipeline.estimateCount += 1
+                matchedRep.activePipeline.estimateAmount += amount
+                matchedRep.subtotals.estimates += amount
+                matchedRep.subtotals.estimatesCount += 1
+                matchedRep.subtotals.total += amount
+              }
+              teamSubtotals.estimates += amount
+              teamSubtotals.estimatesCount += 1
+              teamSubtotals.total += amount
+
+              const saleDate = doc.date ? doc.date.split('T')[0] : ''
+              if (saleDate) {
+                countedDocs.push(doc)
+                const inCurrentWeek = weekDays.includes(saleDate)
+                const isMTD = quoteDate >= firstDayOfMonth && quoteDate <= lastDayOfMonth
+                const isYTD = quoteDate.getFullYear() === currentYear
+
+                if (matchedRep) {
+                  if (inCurrentWeek) {
+                    matchedRep.weekly.estimatesSubtotal += amount
+                    matchedRep.weekly.estimatesCount += 1
+                    matchedRep.weekly.invoices.push({
+                      id: doc.id,
+                      zohoId: doc.zohoId,
+                      date: saleDate,
+                      customer: doc.accountName,
+                      amount,
+                      profit,
+                      deadCostNoVig,
+                      deadCostSubjectToVig,
+                      commission: 0,
+                      invoiceNumber: doc.invoiceNumber,
+                      type: 'Quote',
+                      status: doc.status || 'Draft'
+                    })
+                    teamWeekly.estimatesSubtotal += amount
+                  }
+                  if (isMTD) {
+                    matchedRep.mtd.estimatesSubtotal += amount
+                    matchedRep.mtd.estimatesCount += 1
+                    matchedRep.mtd.invoices.push({
+                      id: doc.id,
+                      zohoId: doc.zohoId,
+                      date: saleDate,
+                      customer: doc.accountName,
+                      amount,
+                      profit,
+                      deadCostNoVig,
+                      deadCostSubjectToVig,
+                      commission: 0,
+                      invoiceNumber: doc.invoiceNumber,
+                      type: 'Quote',
+                      status: doc.status || 'Draft'
+                    })
+                  }
+                  if (isYTD) {
+                    matchedRep.ytd.estimatesSubtotal += amount
+                    matchedRep.ytd.estimatesCount += 1
+                    matchedRep.ytd.invoices.push({
+                      id: doc.id,
+                      zohoId: doc.zohoId,
+                      date: saleDate,
+                      customer: doc.accountName,
+                      amount,
+                      profit,
+                      deadCostNoVig,
+                      deadCostSubjectToVig,
+                      commission: 0,
+                      invoiceNumber: doc.invoiceNumber,
+                      type: 'Quote',
+                      status: doc.status || 'Draft'
+                    })
+                  }
+                }
+              }
             }
             return
           }
 
           // --- 2. SALES ORDERS for Active Pipeline (Uninvoiced SOs) ---
+          let isAlreadyAccountedByInvoice = false
           if (docType === 'SalesOrder') {
             const soStatus = (doc.status || '').toLowerCase().trim()
             const isClosedOrVoid = soStatus === 'closed' || soStatus === 'void' || soStatus === 'cancelled'
             const isLinkedToInv = doc.isLinkedToInvoice || !!(doc.linkedInvoiceId || doc.linkedInvoiceNumber) || soStatus === 'invoiced'
             
-            // Only count open, uninvoiced Sales Orders in Active Pipeline badge
-            if (!isLinkedToInv && !isClosedOrVoid && matchedRep) {
-              matchedRep.activePipeline.salesOrderCount += 1
-              matchedRep.activePipeline.salesOrderAmount += parseFloat(doc.amount || 0)
-            }
-          }
-
-          // --- 3. INVOICES & SALES ORDERS (Weekly/MTD/YTD totals) ---
-          const docStatusLower = (doc.status || '').toLowerCase().trim()
-          if (docStatusLower === 'void' || docStatusLower === 'cancelled') return
-
-          // Deduplication: if this Sales Order is already represented by an invoice in our dataset,
-          // don't double count the monetary amount, since the invoice already reflects it.
-          // If NOT already accounted for in invoices, count the Sales Order in weekly/MTD/YTD numbers!
-          // Note: Invoice status has no bearing on what is shown on the sales board.
-          let isAlreadyAccountedByInvoice = false
-          if (docType === 'SalesOrder') {
             const soId = String(doc.zohoId || doc.id || '').toLowerCase()
             const soNum = String(doc.salesOrderNumber || doc.invoiceNumber || '').toLowerCase().trim()
             const linkedInvId = String(doc.linkedInvoiceId || '').toLowerCase()
@@ -546,8 +710,47 @@ export function useSalesBoardData(): SalesBoardDataReturn {
             if (soNum && invoicedSONumbers.has(soNum)) isAlreadyAccountedByInvoice = true
             if (linkedInvId && processedInvoiceIds.has(linkedInvId)) isAlreadyAccountedByInvoice = true
             if (linkedInvNum && processedInvoiceNumbers.has(linkedInvNum)) isAlreadyAccountedByInvoice = true
+            if (isLinkedToInv) isAlreadyAccountedByInvoice = true
+
+            // Only count open, uninvoiced Sales Orders in Active Pipeline badge and SO subtotals
+            if (!isAlreadyAccountedByInvoice && !isClosedOrVoid) {
+              if (matchedRep) {
+                matchedRep.activePipeline.salesOrderCount += 1
+                matchedRep.activePipeline.salesOrderAmount += amount
+                matchedRep.subtotals.salesOrders += amount
+                matchedRep.subtotals.salesOrdersCount += 1
+                matchedRep.subtotals.total += amount
+              }
+              teamSubtotals.salesOrders += amount
+              teamSubtotals.salesOrdersCount += 1
+              teamSubtotals.total += amount
+            }
           }
 
+          // --- 3. INVOICES (Subtotals for invoices of all statuses) ---
+          if (docType === 'Invoice') {
+            const st = (doc.status || 'draft').toLowerCase().trim()
+            let statusCategory = 'other'
+            if (st === 'paid') statusCategory = 'paid'
+            else if (st === 'open' || st === 'sent' || st === 'unpaid') statusCategory = 'open'
+            else if (st === 'overdue') statusCategory = 'overdue'
+            else if (st === 'draft') statusCategory = 'draft'
+            else if (st === 'void' || st === 'voided' || st === 'cancelled') statusCategory = 'void'
+
+            if (matchedRep) {
+              matchedRep.subtotals.invoices += amount
+              matchedRep.subtotals.invoicesCount += 1
+              matchedRep.subtotals.total += amount
+              if ((matchedRep.subtotals.invoicesByStatus as any)[statusCategory] !== undefined) {
+                (matchedRep.subtotals.invoicesByStatus as any)[statusCategory] += amount
+              }
+            }
+            teamSubtotals.invoices += amount
+            teamSubtotals.invoicesCount += 1
+            teamSubtotals.total += amount
+          }
+
+          // Deduplication: if Sales Order is already invoiced, invoice handles financial grid
           if (docType === 'SalesOrder' && isAlreadyAccountedByInvoice) {
             return
           }
@@ -558,10 +761,6 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           countedDocs.push(doc)
 
           const invDateObj = new Date(saleDate)
-          const amount = Number(doc.amount || 0)
-          const profit = Number(doc.profit || 0)
-          const deadCostNoVig = Number(doc.deadCostNoVig || 0)
-          const deadCostSubjectToVig = Number(doc.deadCostSubjectToVig || 0)
 
           const isPaid = doc.isPaid || false
           const isSameDayPaid = doc.isSameDayPaid || false
@@ -601,6 +800,17 @@ export function useSalesBoardData(): SalesBoardDataReturn {
               matchedRep.weekly.deadCostSubjectToVig += deadCostSubjectToVig
               matchedRep.weekly.commission += commissionEarned
               matchedRep.weekly.dealsClosed += 1
+
+              if (docType === 'SalesOrder') {
+                matchedRep.weekly.salesOrdersSubtotal += amount
+                matchedRep.weekly.salesOrdersCount += 1
+                teamWeekly.salesOrdersSubtotal += amount
+              } else if (docType === 'Invoice') {
+                matchedRep.weekly.invoicesSubtotal += amount
+                matchedRep.weekly.invoicesCount += 1
+                teamWeekly.invoicesSubtotal += amount
+              }
+
               matchedRep.weekly.invoices.push({ 
                 id: doc.id, 
                 zohoId: doc.zohoId,
@@ -612,7 +822,8 @@ export function useSalesBoardData(): SalesBoardDataReturn {
                 deadCostSubjectToVig,
                 commission: commissionEarned, 
                 invoiceNumber: doc.invoiceNumber,
-                type: docType
+                type: docType,
+                status: doc.status || 'Draft'
               })
 
               teamWeekly.sales += amount
@@ -643,6 +854,15 @@ export function useSalesBoardData(): SalesBoardDataReturn {
               matchedRep.mtd.deadCostSubjectToVig += deadCostSubjectToVig
               matchedRep.mtd.commission += commissionEarned
               matchedRep.mtd.dealsClosed += 1
+
+              if (docType === 'SalesOrder') {
+                matchedRep.mtd.salesOrdersSubtotal += amount
+                matchedRep.mtd.salesOrdersCount += 1
+              } else if (docType === 'Invoice') {
+                matchedRep.mtd.invoicesSubtotal += amount
+                matchedRep.mtd.invoicesCount += 1
+              }
+
               matchedRep.mtd.invoices.push({ 
                 id: doc.id, 
                 zohoId: doc.zohoId,
@@ -654,7 +874,8 @@ export function useSalesBoardData(): SalesBoardDataReturn {
                 deadCostSubjectToVig,
                 commission: commissionEarned, 
                 invoiceNumber: doc.invoiceNumber,
-                type: docType
+                type: docType,
+                status: doc.status || 'Draft'
               })
             }
 
@@ -666,6 +887,15 @@ export function useSalesBoardData(): SalesBoardDataReturn {
               matchedRep.ytd.deadCostSubjectToVig += deadCostSubjectToVig
               matchedRep.ytd.commission += commissionEarned
               matchedRep.ytd.dealsClosed += 1
+
+              if (docType === 'SalesOrder') {
+                matchedRep.ytd.salesOrdersSubtotal += amount
+                matchedRep.ytd.salesOrdersCount += 1
+              } else if (docType === 'Invoice') {
+                matchedRep.ytd.invoicesSubtotal += amount
+                matchedRep.ytd.invoicesCount += 1
+              }
+
               matchedRep.ytd.invoices.push({ 
                 id: doc.id, 
                 zohoId: doc.zohoId,
@@ -677,7 +907,8 @@ export function useSalesBoardData(): SalesBoardDataReturn {
                 deadCostSubjectToVig,
                 commission: commissionEarned, 
                 invoiceNumber: doc.invoiceNumber,
-                type: docType
+                type: docType,
+                status: doc.status || 'Draft'
               })
             }
           }
@@ -686,12 +917,15 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         const computedBoardData = {
           reps: Object.values(repsMap),
           teamWeekly,
+          teamSubtotals,
           currentWorkdayIndex,
           repOverdueMap,
           totalOverdueBalance,
           totalOverdueCount,
           maxSystemOverdueDays,
           rawInvoices: rawDocs.filter((d: any) => d.type === 'Invoice'),
+          rawSalesOrders: rawDocs.filter((d: any) => d.type === 'SalesOrder'),
+          rawQuotes: rawDocs.filter((d: any) => d.type === 'Quote'),
           rawDocuments: countedDocs,
           weekDays
         }
