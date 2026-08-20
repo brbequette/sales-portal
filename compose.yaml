@@ -58,9 +58,12 @@ services:
       DATABASE_URL: postgresql://${SELFHOST_DB_USER:-tdgpt}:${SELFHOST_DB_PASSWORD:-change-this-before-production}@postgres:5432/${SELFHOST_DB_NAME:-tdgpt}
       DIRECT_URL: postgresql://${SELFHOST_DB_USER:-tdgpt}:${SELFHOST_DB_PASSWORD:-change-this-before-production}@postgres:5432/${SELFHOST_DB_NAME:-tdgpt}
       NEXTAUTH_URL: ${SELFHOST_APP_URL:-http://localhost:3000}
+      NEXTAUTH_ZOHO_CLIENT_ID: ${NEXTAUTH_ZOHO_CLIENT_ID:-}
+      NEXTAUTH_ZOHO_CLIENT_SECRET: ${NEXTAUTH_ZOHO_CLIENT_SECRET:-}
       AI_PROVIDER: ${AI_PROVIDER:-ollama}
       AI_MODEL: ${AI_MODEL:-qwen3:4b}
       OLLAMA_BASE_URL: http://ollama:11434/v1
+      INTERNAL_SYNC_SECRET: ${INTERNAL_SYNC_SECRET:-}
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:
@@ -74,6 +77,42 @@ services:
         condition: service_completed_successfully
       ollama:
         condition: service_started
+    networks: [internal]
+
+  books-sync:
+    image: tdgpt-app
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        format: raw
+    environment:
+      INTERNAL_SYNC_SECRET: ${INTERNAL_SYNC_SECRET:-}
+      SYNC_INTERVAL_MS: ${BOOKS_SYNC_INTERVAL_MS:-300000}
+    command:
+      - node
+      - -e
+      - |
+        const interval = Math.max(60000, Number(process.env.SYNC_INTERVAL_MS) || 300000);
+        const clean = value => {
+          const text = (value || '').trim();
+          const wrapped = (text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"));
+          return wrapped ? text.slice(1, -1) : text;
+        };
+        const run = async () => {
+          try {
+            const response = await fetch('http://app:3000/api/internal/books-sync', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ secret: clean(process.env.INTERNAL_SYNC_SECRET || process.env.NEXTAUTH_SECRET) }),
+            });
+            if (!response.ok) console.error('Books sync failed:', response.status, await response.text());
+            else console.log('Books sync complete:', await response.text());
+          } catch (error) { console.error('Books sync request failed:', error); }
+        };
+        run().finally(() => setInterval(run, interval));
+    depends_on:
+      app:
+        condition: service_healthy
     networks: [internal]
 
   cloudflared:

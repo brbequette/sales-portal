@@ -19,8 +19,12 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
-    const filename = file.name
-    const targetPath = path.join(uploadDir, filename)
+    // Never allow a browser-supplied filename to escape the configured storage directory.
+    const filename = path.basename(file.name).replace(/[^a-zA-Z0-9._-]/g, "_")
+    if (!filename || filename === "." || filename === "..") {
+      return NextResponse.json({ success: false, error: "Invalid file name" }, { status: 400 })
+    }
+    const targetPath = path.join(/*turbopackIgnore: true*/ uploadDir, filename)
 
     // Save file
     fs.writeFileSync(targetPath, buffer)

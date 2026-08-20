@@ -2,15 +2,21 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { hasValidTvSession } from '@/lib/tv-auth'
 
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const tvSession = session ? false : await hasValidTvSession()
+    if (!session && !tvSession) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { searchParams } = new URL(request.url)
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
-    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '50', 10) || 50))
+    const loadAll = searchParams.get('loadAll') === 'true'
+    const maxPageSize = loadAll ? 10000 : 100
+    const pageSize = Math.min(maxPageSize, Math.max(1, parseInt(searchParams.get('pageSize') || '50', 10) || 50))
     
     const search = searchParams.get('search')?.toLowerCase() || ''
     const docType = searchParams.get('docType') || searchParams.get('type') || 'All'
@@ -21,7 +27,6 @@ export async function GET(request: Request) {
     const sortBy = searchParams.get('sortBy') || 'date-desc'
     const ownerId = searchParams.get('ownerId')
     const repName = searchParams.get('repName')
-    const loadAll = searchParams.get('loadAll') === 'true'
     
     const startDateParam = searchParams.get('startDate')
     const endDateParam = searchParams.get('endDate')
@@ -157,14 +162,25 @@ export async function GET(request: Request) {
     const fetchSalesOrders = dtLower === 'all' || dtLower === 'salesorder'
     const fetchInvoices = dtLower === 'all' || dtLower === 'invoice'
 
-    const [quotes, salesOrders, invoices, quotesCount, salesOrdersCount, invoicesCount] = await Promise.all([
+    const [quotes, salesOrders, invoices, quotesCount, salesOrdersCount, invoicesCount, linkedInvoiceRefs] = await Promise.all([
       fetchQuotes ? prisma.quote.findMany({ where: quoteWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } }, orderBy: quoteOrder, skip, take: pageSize }) : Promise.resolve([]),
       fetchSalesOrders ? prisma.salesOrder.findMany({ where: salesOrderWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } }, orderBy: soOrder, skip, take: pageSize }) : Promise.resolve([]),
       fetchInvoices ? prisma.invoice.findMany({ where: invoiceWhere, include: { account: { select: { name: true, zohoId: true, ownerId: true } } }, orderBy: invoiceOrder, skip, take: pageSize }) : Promise.resolve([]),
       fetchQuotes ? prisma.quote.count({ where: quoteWhere }) : Promise.resolve(0),
       fetchSalesOrders ? prisma.salesOrder.count({ where: salesOrderWhere }) : Promise.resolve(0),
-      fetchInvoices ? prisma.invoice.count({ where: invoiceWhere }) : Promise.resolve(0)
+      fetchInvoices ? prisma.invoice.count({ where: invoiceWhere }) : Promise.resolve(0),
+      fetchSalesOrders ? prisma.invoice.findMany({
+        where: { OR: [{ salesOrderZohoId: { not: null } }, { salesorderNumber: { not: null } }] },
+        select: { salesOrderZohoId: true, salesorderNumber: true }
+      }) : Promise.resolve([])
     ])
+
+    // Zoho frequently stores the conversion link on the invoice rather than on
+    // the original sales order. Use both IDs and document numbers so converted
+    // orders cannot be reported as active/uninvoiced pipeline.
+    const invoicedSalesOrderRefs = new Set(
+      linkedInvoiceRefs.flatMap((invoice: any) => [invoice.salesOrderZohoId, invoice.salesorderNumber].filter(Boolean))
+    )
 
     const buildDoc = (raw: any, t: "Quote" | "SalesOrder" | "Invoice") => {
       const items = raw.items as any
@@ -235,13 +251,26 @@ export async function GET(request: Request) {
           return sum + (sub - dc)
         }, 0)
       }
+
+      // Denormalized invoice metrics are the authoritative values maintained
+      // by the cost engine. Prefer them over reparsing historical JSON.
+      if (t === 'Invoice' && raw.computedProfit !== null && raw.computedProfit !== undefined) {
+        profit = Number(raw.computedProfit) || 0
+        const computedCommission = Number(raw.computedUpfront || 0) + Number(raw.computedFinal || 0)
+        if (computedCommission) commission = computedCommission
+      }
       
       const statusLower = (raw.status || "").toLowerCase()
       const isPaid = statusLower === "paid" || items?.paymentDate != null
       const isSameDayPaid = items?.isSameDayPaid || false
       const isConvertedToSO = statusLower === 'converted' || items?.salesorder_id || items?.salesorder_number || raw.salesorder_id || raw.salesorder_number || false
       const soStatus = statusLower.trim()
-      const isInvoicedOrClosed = soStatus === 'invoiced' || soStatus === 'closed' || soStatus === 'void' || items?.invoice_id || items?.invoice_number || raw.invoice_id || raw.invoice_number || false
+      const salesOrderNumber = items?.salesOrderNumber || items?.salesorder_number || items?.sales_order_number || raw.salesorderNumber || ''
+      const inactiveSalesOrderStatuses = new Set(['invoiced', 'converted', 'closed', 'void', 'voided', 'cancelled', 'canceled', 'draft'])
+      const isInvoicedOrClosed = inactiveSalesOrderStatuses.has(soStatus)
+        || Boolean(items?.invoice_id || items?.invoice_number || raw.invoice_id || raw.invoice_number)
+        || Boolean(raw.zohoId && invoicedSalesOrderRefs.has(raw.zohoId))
+        || Boolean(salesOrderNumber && invoicedSalesOrderRefs.has(salesOrderNumber))
       const dueDate = raw.dueDate?.toISOString() || items?.due_date || null
       const balance = parseFloat(items?.balance ?? raw.balance ?? 0)
 
@@ -262,8 +291,8 @@ export async function GET(request: Request) {
         deadCostNoVig,
         deadCostSubjectToVig,
         commission,
-        salesperson: items?.salesperson || items?.salesperson_name || null,
-        invoiceNumber: items?.invoiceNumber || items?.invoice_number || items?.estimateNumber || items?.estimate_number || items?.salesOrderNumber || items?.salesorder_number || items?.quoteNumber || (raw.zohoId || raw.id).slice(-6),
+        salesperson: raw.computedSalesperson || items?.salesperson || items?.salesperson_name || null,
+        invoiceNumber: raw.computedInvoiceNumber || raw.invoiceNumber || items?.invoiceNumber || items?.invoice_number || items?.estimateNumber || items?.estimate_number || items?.salesOrderNumber || items?.salesorder_number || items?.quoteNumber || (raw.zohoId || raw.id).slice(-6),
         isPaid,
         isSameDayPaid,
         isConvertedToSO,

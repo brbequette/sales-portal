@@ -45,8 +45,8 @@ const authenticatedHandler: Handler = async (event) => {
       needsUpdate = true;
     }
 
-    if (lowerEmail === "ben@titandiamond.net" && user.name !== "Benjamin Bequette") {
-      updateData.name = "Benjamin Bequette";
+    if (lowerEmail === "ben@titandiamond.net" && user.name !== "BENJAMIN BEQUETTE") {
+      updateData.name = "BENJAMIN BEQUETTE";
       needsUpdate = true;
     }
 

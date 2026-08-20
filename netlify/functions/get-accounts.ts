@@ -1023,8 +1023,16 @@ const authenticatedHandler: Handler = async (event, context) => {
     )
     const totalCount = Number(countResult[0]?.count ?? 0)
 
-    // Main aggregation query — all invoice math in PostgreSQL, zero items blobs on the wire
+    // Page accounts before joining invoice history. Previously PostgreSQL had to
+    // aggregate every matching account and only then apply LIMIT/OFFSET.
     const dbAccounts: any[] = await prisma.$queryRaw<any[]>(Prisma.sql`
+      WITH paged_accounts AS MATERIALIZED (
+        SELECT a.*
+        FROM "Account" a
+        WHERE 1=1 ${scopeSql} ${statusSql} ${searchSql}
+        ORDER BY a.name ASC
+        LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}
+      )
       SELECT
         a.id::text, a."zohoId", a.name, a.tags, a.status, a.quality,
         a."lastCalledAt", a."lastPurchaseAt", a."ownerId", a.industry, a."timeZone",
@@ -1081,7 +1089,7 @@ const authenticatedHandler: Handler = async (event, context) => {
                  c2."mailingStreet", c2."mailingCity", c2."mailingState", c2."mailingZip"
           FROM "Contact" c2 WHERE c2."accountId" = a.id ORDER BY c2."isPrimary" DESC LIMIT 1
         ) c) AS "primaryContact"
-      FROM "Account" a
+      FROM paged_accounts a
       LEFT JOIN "User" u ON u.id = a."ownerId"
       LEFT JOIN "Invoice" i ON i."accountId" = a.id
       WHERE 1=1 ${scopeSql} ${statusSql} ${searchSql}
@@ -1094,7 +1102,6 @@ const authenticatedHandler: Handler = async (event, context) => {
         a."crewCount", a."bladesPerOrder", a."improvementPriority",
         u.id, u.name, u.email, u.role
       ORDER BY a.name ASC
-      LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}
     `)
 
     // Map flat rows → response shape, no JS aggregation loops

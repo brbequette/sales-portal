@@ -28,6 +28,7 @@ export default function ToolsRepository() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeCategory, setActiveCategory] = useState("All")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [assetSort, setAssetSort] = useState<"title" | "category" | "type" | "size">("title")
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   // Products State
@@ -36,6 +37,7 @@ export default function ToolsRepository() {
   const [productsLoading, setProductsLoading] = useState(false)
   const [productSearch, setProductSearch] = useState("")
   const [productCategory, setProductCategory] = useState("All")
+  const [productSort, setProductSort] = useState<"name" | "sku" | "category" | "price-desc" | "price-asc">("name")
 
   const parseProductDescription = (desc: string | null) => {
     if (!desc) return { text: "--", cost: null, vendor: null, retail: null, pertinentInfo: null, image: null }
@@ -246,7 +248,7 @@ export default function ToolsRepository() {
     const matchesSearch = asset.title.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = activeCategory === "All" || asset.category === activeCategory
     return matchesSearch && matchesCategory
-  })
+  }).sort((a, b) => String(a[assetSort] || "").localeCompare(String(b[assetSort] || ""), undefined, { numeric: true }))
 
   const filteredProducts = products.filter(p => {
     const parsed = parseProductDescription(p.description)
@@ -257,6 +259,13 @@ export default function ToolsRepository() {
                           (parsed.pertinentInfo && parsed.pertinentInfo.toLowerCase().includes(productSearch.toLowerCase()))
     const matchesCategory = productCategory === "All" || p.category === productCategory
     return matchesSearch && matchesCategory
+  }).sort((a, b) => {
+    if (productSort === "price-desc" || productSort === "price-asc") {
+      const aPrice = Number(parseProductDescription(a.description).retail || 0)
+      const bPrice = Number(parseProductDescription(b.description).retail || 0)
+      return productSort === "price-asc" ? aPrice - bPrice : bPrice - aPrice
+    }
+    return String(a[productSort] || "").localeCompare(String(b[productSort] || ""), undefined, { numeric: true })
   })
 
   // Helper for rendering file icons
@@ -319,6 +328,10 @@ export default function ToolsRepository() {
                 <input type="text" placeholder="Search assets..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="td-input pl-9" />
               </div>
               <div className="flex items-center gap-2">
+                <select aria-label="Sort media assets" value={assetSort} onChange={(event) => setAssetSort(event.target.value as typeof assetSort)} className="td-select text-xs">
+                  <option value="title">Title A–Z</option><option value="category">Category</option><option value="type">File type</option><option value="size">File size</option>
+                </select>
+                <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-neutral-600">{filteredAssets.length} assets</span>
                 <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider hidden sm:inline">{currentUser?.role || "Sales Rep"}</span>
                 <div className="glass-panel rounded-lg p-0.5 flex border border-white/10">
                   <button onClick={() => setViewMode("grid")} className={`p-2 rounded ${viewMode === "grid" ? "bg-neutral-800 text-orange-400" : "text-neutral-500 hover:text-white"}`} title="Grid"><FiGrid size={14} /></button>
@@ -412,6 +425,10 @@ export default function ToolsRepository() {
                   <button key={cat} onClick={() => setProductCategory(cat)} className={`filter-chip whitespace-nowrap ${productCategory === cat ? "filter-chip-active" : ""}`}>{cat}</button>
                 ))}
               </div>
+              <select aria-label="Sort products" value={productSort} onChange={(event) => setProductSort(event.target.value as typeof productSort)} className="td-select text-xs">
+                <option value="name">Name A–Z</option><option value="sku">SKU</option><option value="category">Category</option><option value="price-desc">Highest price</option><option value="price-asc">Lowest price</option>
+              </select>
+              <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-neutral-600">{filteredProducts.length} products</span>
             </div>
             {productsLoading ? (
               <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>

@@ -95,6 +95,7 @@ export async function GET(req: NextRequest) {
         lastSyncedAt: r.lastSyncedAt,
         lastZohoModifiedTime: r.lastZohoModifiedTime,
         appModifiedAt: r.appModifiedAt,
+        recommendedSource: newestSource(r.appModifiedAt, r.lastZohoModifiedTime),
         conflictFields: r.conflictFields,
       })),
       salesOrders: salesOrders.map(r => ({
@@ -106,6 +107,7 @@ export async function GET(req: NextRequest) {
         lastSyncedAt: r.lastSyncedAt,
         lastZohoModifiedTime: r.lastZohoModifiedTime,
         appModifiedAt: r.appModifiedAt,
+        recommendedSource: newestSource(r.appModifiedAt, r.lastZohoModifiedTime),
         conflictFields: r.conflictFields,
       })),
       quotes: quotes.map(r => ({
@@ -117,6 +119,7 @@ export async function GET(req: NextRequest) {
         lastSyncedAt: r.lastSyncedAt,
         lastZohoModifiedTime: r.lastZohoModifiedTime,
         appModifiedAt: r.appModifiedAt,
+        recommendedSource: newestSource(r.appModifiedAt, r.lastZohoModifiedTime),
         conflictFields: r.conflictFields,
       })),
     })
@@ -178,7 +181,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      await clearConflict(docType, docId)
+      await clearConflict(docType, docId, true)
       return NextResponse.json({ success: true, resolution: "app", fieldsWritten: customFields.length })
     }
 
@@ -203,13 +206,16 @@ export async function POST(req: NextRequest) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function clearConflict(docType: string, docId: string) {
+async function clearConflict(docType: string, docId: string, markSynced = false) {
+  const syncState = markSynced
+    ? { lastSyncedAt: new Date(), appModifiedAt: new Date(), lastZohoModifiedTime: new Date() }
+    : {}
   if (docType === "invoice") {
-    await prisma.invoice.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull } })
+    await prisma.invoice.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull, ...syncState } })
   } else if (docType === "salesorder") {
-    await prisma.salesOrder.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull } })
+    await prisma.salesOrder.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull, ...syncState } })
   } else {
-    await prisma.quote.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull } })
+    await prisma.quote.update({ where: { id: docId }, data: { syncConflict: false, conflictFields: Prisma.DbNull, ...syncState } })
   }
 }
 
@@ -255,6 +261,10 @@ function docTypeToEndpoint(docType: string): string {
 
 function docTypeToZohoId(docType: string, zohoId: string): string {
   return zohoId // already the Zoho ID
+}
+
+function newestSource(appModifiedAt: Date | null, zohoModifiedAt: Date | null): "app" | "zoho" {
+  return (appModifiedAt?.getTime() ?? 0) >= (zohoModifiedAt?.getTime() ?? 0) ? "app" : "zoho"
 }
 
 // Rebuild the custom_fields array from locally stored calc values

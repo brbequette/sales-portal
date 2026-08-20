@@ -1,17 +1,25 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken } from "./lib/zoho-auth"
+import { getZohoAccessToken, ZOHO_DC } from "./lib/zoho-auth"
 
 import { prisma } from "./lib/prisma"
-const ZOHO_DC = process.env.ZOHO_DC || 'com';
-
 const authenticatedHandler: Handler = async (event, context) => {
   if (event.httpMethod !== "GET") {
     return { statusCode: 405, body: JSON.stringify({ success: false, message: "Method Not Allowed" }) }
   }
 
   try {
-    const { zohoId, email, refresh, ownerIdFilter, role: passedRole, checkOnly } = event.queryStringParameters || {}
+    const sessionUser = await authenticateFunction(event)
+    const {
+      zohoId: requestedZohoId,
+      email: requestedEmail,
+      refresh,
+      ownerIdFilter,
+      role: passedRole,
+      checkOnly,
+    } = event.queryStringParameters || {}
+    const zohoId = requestedZohoId || sessionUser.dbId || sessionUser.userId
+    const email = requestedEmail || sessionUser.email
 
     if (!zohoId && !email) {
       return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing zohoId or email parameter" }) }
@@ -61,8 +69,8 @@ const authenticatedHandler: Handler = async (event, context) => {
       needsUpdate = true;
     }
 
-    if (lowerEmail === "ben@titandiamond.net" && user.name !== "Benjamin Bequette") {
-      updateData.name = "Benjamin Bequette";
+    if (lowerEmail === "ben@titandiamond.net" && user.name !== "BENJAMIN BEQUETTE") {
+      updateData.name = "BENJAMIN BEQUETTE";
       needsUpdate = true;
     }
 

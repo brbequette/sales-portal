@@ -211,12 +211,11 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         const today = new Date()
         const currentYear = today.getFullYear()
         const currentMonth = today.getMonth()
+        const yearStartStr = `${currentYear}-01-01`
 
         const lastMonthDate = new Date(currentYear, currentMonth - 1, 1)
         const yyyyLM = lastMonthDate.getFullYear()
         const mmLM = String(lastMonthDate.getMonth() + 1).padStart(2, '0')
-        const startDateStr = `${yyyyLM}-${mmLM}-01`
-
         const threeDaysAgoStr = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         
         const fetchSafe = async (url: string) => {
@@ -230,13 +229,14 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           }
         }
 
-        const [usersPayloadRaw, invoicesPayloadRaw, salesOrdersPayloadRaw, quotesPayloadRaw, configPayloadRaw, overduePayloadRaw] = await Promise.all([
-          fetchSafe("/api/admin/users"),
-          fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&startDate=${startDateStr}`),
-          fetchSafe(`/api/get-documents?pageSize=8000&type=SalesOrder&loadAll=true&startDate=${startDateStr}`),
+        const [usersPayloadRaw, invoicesPayloadRaw, salesOrdersPayloadRaw, quotesPayloadRaw, configPayloadRaw, overduePayloadRaw, weeklyPayloadRaw] = await Promise.all([
+          fetchSafe("/api/tv/users"),
+          fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&startDate=${yearStartStr}`),
+          fetchSafe(`/api/get-documents?pageSize=8000&type=SalesOrder&loadAll=true&startDate=${yearStartStr}`),
           fetchSafe(`/api/get-documents?pageSize=1000&type=Quote&loadAll=true&startDate=${threeDaysAgoStr}`),
-          fetchSafe("/api/get-config"),
-          fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&status=overdue`)
+          fetchSafe("/api/tv/config"),
+          fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&status=overdue`),
+          fetchSafe("/api/dashboard-weekly-sales")
         ])
 
         const usersPayload = usersPayloadRaw || { users: [] }
@@ -245,6 +245,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         const quotesPayload = quotesPayloadRaw || { documents: [] }
         const configPayload = configPayloadRaw || { holidays: [] }
         const overduePayload = overduePayloadRaw || { documents: [] }
+        const weeklyPayload = weeklyPayloadRaw || { documents: [] }
 
         const combinedDocuments = [
           ...(invoicesPayload.documents || []),
@@ -604,6 +605,58 @@ export function useSalesBoardData(): SalesBoardDataReturn {
             }
           }
         })
+
+        // Weekly sales use the lifecycle-aware server result: invoices plus
+        // only estimates/SOs that have not been converted downstream.
+        teamWeekly.sales = 0
+        teamWeekly.profit = 0
+        teamWeekly.deadCostNoVig = 0
+        teamWeekly.deadCostSubjectToVig = 0
+        teamWeekly.commission = 0
+        for (const rep of Object.values(repsMap) as any[]) {
+          rep.weekly.sales = [0, 0, 0, 0, 0]
+          rep.weekly.profit = [0, 0, 0, 0, 0]
+          rep.weekly.totalSales = 0
+          rep.weekly.totalProfit = 0
+          rep.weekly.deadCostNoVig = 0
+          rep.weekly.deadCostSubjectToVig = 0
+          rep.weekly.commission = 0
+          rep.weekly.dealsClosed = 0
+          rep.weekly.invoices = []
+        }
+
+        const rawDocById = new Map(rawDocs.map((doc: any) => [doc.id, doc]))
+        for (const doc of (weeklyPayload.documents || [])) {
+          const rawDoc: any = rawDocById.get(doc.id) || {}
+          const amount = Number(doc.subtotal || 0)
+          const profit = Number(doc.profit || rawDoc.profit || 0)
+          const deadCostNoVig = Number(rawDoc.deadCostNoVig || 0)
+          const deadCostSubjectToVig = Number(rawDoc.deadCostSubjectToVig || 0)
+          const commission = typeof rawDoc.commission === "object"
+            ? Number(rawDoc.commission?.total || 0)
+            : Number(rawDoc.commission || 0)
+          teamWeekly.sales += amount
+          teamWeekly.profit += profit
+          teamWeekly.deadCostNoVig += deadCostNoVig
+          teamWeekly.deadCostSubjectToVig += deadCostSubjectToVig
+          teamWeekly.commission += commission
+
+          const matchedRep = getMatchedRep(doc.salesperson || "")
+          if (!matchedRep) continue
+          const dateKey = String(doc.date || "").split("T")[0]
+          const dayIndex = weekDays.indexOf(dateKey)
+          if (dayIndex >= 0) {
+            matchedRep.weekly.sales[dayIndex] += amount
+            matchedRep.weekly.profit[dayIndex] += profit
+          }
+          matchedRep.weekly.totalSales += amount
+          matchedRep.weekly.totalProfit += profit
+          matchedRep.weekly.deadCostNoVig += deadCostNoVig
+          matchedRep.weekly.deadCostSubjectToVig += deadCostSubjectToVig
+          matchedRep.weekly.commission += commission
+          matchedRep.weekly.dealsClosed += 1
+          matchedRep.weekly.invoices.push(doc)
+        }
 
         const computedBoardData = {
           reps: Object.values(repsMap),

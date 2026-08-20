@@ -4,10 +4,12 @@ $distribution = "Ubuntu-24.04"
 $projectDirectory = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $wslProjectDirectory = (wsl.exe -d $distribution -- wslpath -a $projectDirectory).Trim()
 
-# WSL may shut down when an interactive command ends. This hidden process keeps
-# the distribution, Docker daemon, and published localhost ports available.
-$isRunning = wsl.exe --list --running --quiet | Where-Object { $_.Trim() -eq $distribution }
-if (-not $isRunning) {
+# WSL may be marked "running" because of a short command while still lacking a
+# persistent process. Ensure the hidden keepalive itself exists after reboots.
+$keepaliveRunning = Get-CimInstance Win32_Process -Filter "Name = 'wsl.exe'" |
+  Where-Object { $_.CommandLine -match 'Ubuntu-24\.04.*sleep.*infinity' } |
+  Select-Object -First 1
+if (-not $keepaliveRunning) {
   Start-Process -FilePath "wsl.exe" `
     -ArgumentList @("-d", $distribution, "--", "sleep", "infinity") `
     -WindowStyle Hidden

@@ -54,9 +54,25 @@ function EmployeeLoginForm() {
     setError('');
 
     try {
-      await signIn('zoho', { callbackUrl: '/dashboard' });
-    } catch {
-      setError('Failed to initiate Zoho SSO authentication.');
+      const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+      const result = await Promise.race([
+        signIn('zoho', { callbackUrl, redirect: false }),
+        new Promise<never>((_, reject) =>
+          window.setTimeout(() => reject(new Error('Zoho sign-in timed out')), 15000)
+        ),
+      ]);
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+      if (!result?.url) {
+        throw new Error('Zoho did not return a sign-in URL');
+      }
+
+      window.location.assign(result.url);
+    } catch (error) {
+      console.error('Zoho SSO start failed:', error);
+      setError('Unable to connect to Zoho. Please try again or use your staff password.');
       setLoading(false);
     }
   };

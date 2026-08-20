@@ -164,6 +164,8 @@ model Contact {
   account     Account  @relation(fields: [accountId], references: [id])
   smsMessages SmsMessage[]
   callLogs    CallLog[]
+
+  @@index([accountId, isPrimary])
 }
 
 model Deal {
@@ -385,6 +387,7 @@ model Invoice {
 
   @@index([salesOrderZohoId])
   @@index([estimateZohoId])
+  @@index([invoiceNumber])
 }
 
 model Note {

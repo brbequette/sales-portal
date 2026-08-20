@@ -1,10 +1,9 @@
 import { withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
-import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
+import { getZohoAccessToken, ZOHO_DC, ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
-const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 // How long a cached record is considered fresh before we re-fetch from Zoho
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours

@@ -3,6 +3,7 @@ import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
 
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
+import { syncStoredLineItems } from "../../src/lib/sync-engine"
 import { internalHandler as processQuoteCosts } from "./process-quote-costs"
 import { internalHandler as processSalesOrderCosts } from "./process-salesorder-costs"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
@@ -191,7 +192,10 @@ export const handler: Handler = async (event, context) => {
           items: itemsPayload,
           status: "Draft",
           validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-          dealId: dealId || undefined
+          dealId: dealId || undefined,
+          lastSyncedAt: new Date(),
+          appModifiedAt: new Date(),
+          lastZohoModifiedTime: zohoDoc?.last_modified_time ? new Date(zohoDoc.last_modified_time) : new Date(),
         }
       })
     } else if (type === "SalesOrder") {
@@ -213,9 +217,16 @@ export const handler: Handler = async (event, context) => {
           amount,
           items: itemsPayload,
           status: "Pending",
-          dealId: dealId || undefined
+          dealId: dealId || undefined,
+          lastSyncedAt: new Date(),
+          appModifiedAt: new Date(),
+          lastZohoModifiedTime: zohoDoc?.last_modified_time ? new Date(zohoDoc.last_modified_time) : new Date(),
         }
       })
+    }
+
+    if (transaction) {
+      await syncStoredLineItems(type === "Quote" ? "quote" : "salesOrder", transaction.id, responseLineItems)
     }
 
     // ── Auto-process costs & sync back to Books ──

@@ -71,7 +71,10 @@ if (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL === "undefined" || pro
 }
 
 const LOGIN_SCOPE = "AaaServer.profile.READ"
-const ZOHO_DC = process.env.ZOHO_DC || "com"
+const cleanEnv = (value: string | undefined) => value?.trim().replace(/^(["'])(.*)\1$/, "$2") || ""
+const ZOHO_DC = cleanEnv(process.env.ZOHO_DC) || "com"
+const ZOHO_LOGIN_CLIENT_ID = cleanEnv(process.env.NEXTAUTH_ZOHO_CLIENT_ID || process.env.ZOHO_CLIENT_ID)
+const ZOHO_LOGIN_CLIENT_SECRET = cleanEnv(process.env.NEXTAUTH_ZOHO_CLIENT_SECRET || process.env.ZOHO_CLIENT_SECRET)
 
 function profileString(profile: Record<string, unknown>, ...keys: string[]) {
   for (const key of keys) {
@@ -91,6 +94,26 @@ async function findUserFlexibly(emailOrInput: string, zohoUserId?: string | null
 
   const cleanInput = (emailOrInput || '').trim().toLowerCase();
   if (!cleanInput) return null;
+
+  // Historical builds created separate Benjamin records for each login email.
+  // Always resolve those aliases to the single Zoho-linked admin/rep identity.
+  const benLoginAliases = new Set([
+    "ben@titandiamond.net",
+    "ben@titandiamondusa.com",
+    "brbequette@gmail.com",
+    "admin@titandiamond.com",
+  ])
+  if (benLoginAliases.has(cleanInput)) {
+    const ben = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { zohoId: "6821836000000565001" },
+          { email: "ben@titandiamond.net" },
+        ],
+      },
+    }).catch(() => null)
+    if (ben) return ben
+  }
 
   // 1. Exact email match
   let user = await prisma.user.findUnique({
@@ -133,8 +156,8 @@ async function findUserFlexibly(emailOrInput: string, zohoUserId?: string | null
 export const authOptions: NextAuthOptions = {
   providers: [
     ZohoProvider({
-      clientId: process.env.NEXTAUTH_ZOHO_CLIENT_ID || process.env.ZOHO_CLIENT_ID || "dummy_zoho_client_id",
-      clientSecret: process.env.NEXTAUTH_ZOHO_CLIENT_SECRET || process.env.ZOHO_CLIENT_SECRET || "dummy_zoho_client_secret",
+      clientId: ZOHO_LOGIN_CLIENT_ID || "dummy_zoho_client_id",
+      clientSecret: ZOHO_LOGIN_CLIENT_SECRET || "dummy_zoho_client_secret",
       authorization: {
         url: `https://accounts.zoho.${ZOHO_DC}/oauth/v2/auth`,
         params: {

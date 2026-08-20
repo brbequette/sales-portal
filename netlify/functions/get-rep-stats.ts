@@ -1,4 +1,4 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getSystemSettings } from "./lib/settings"
 import { prisma, Prisma } from "./lib/prisma"
@@ -58,11 +58,27 @@ const authenticatedHandler: Handler = async (event) => {
     return { statusCode: 204, headers: cors, body: "" }
   }
 
+  let authenticatedUser: Awaited<ReturnType<typeof authenticateFunction>>
+  try {
+    authenticatedUser = await authenticateFunction(event)
+  } catch (error) {
+    return authErrorResponse(error, cors)
+  }
+
   try {
     const params = event.queryStringParameters || {}
     const monthParam = params.month
     const dateParam = params.date
-    const repIdFilter = params.repId || params.user || "all"
+    let repIdFilter = params.repId || params.user || "all"
+    const role = String(authenticatedUser.role || "").toLowerCase()
+    const privileged = role.includes("admin") || role.includes("manager")
+    const authenticatedRepId = authenticatedUser.dbId || authenticatedUser.userId
+    if (!privileged && repIdFilter !== "all" && repIdFilter !== authenticatedRepId) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "Forbidden" }) }
+    }
+    // Sales reps may see their own detailed records only. Company-level totals
+    // are exposed by the aggregate dashboard endpoint without leaking peer data.
+    if (!privileged) repIdFilter = authenticatedRepId
     const periodParam = params.period || "this_month"
     const customStartDate = params.startDate
     const customEndDate = params.endDate
@@ -215,6 +231,7 @@ const authenticatedHandler: Handler = async (event) => {
             'gifts_cost',             i.items->>'gifts_cost',
             'profit',                 i.items->>'profit',
             'commission',             i.items->>'commission',
+            'salesCommission',        i.items->>'salesCommission',
             'cf_commission_amount_unformatted', i.items->>'cf_commission_amount_unformatted'
           ) AS items
         FROM "Invoice" i
@@ -416,9 +433,19 @@ const authenticatedHandler: Handler = async (event) => {
         deadProfit  = parseFloat(inv.computedDeadProfit) || 0
         deadCost    = parseFloat(inv.computedDeadCost)   || 0
         vigRate     = parseFloat(inv.computedVigRate)    || 1.3
-        const upfront = parseFloat(inv.computedUpfront)  || (profit * 0.25)
-        const final   = parseFloat(inv.computedFinal)    || (profit * 0.25)
-        commission  = upfront + final
+        const storedCommission = parseFloat(items.salesCommission)
+        const legacyCommission = parseFloat(items.commission)
+        const computedUpfront = parseFloat(inv.computedUpfront)
+        const plannedCommission = Number.isFinite(storedCommission)
+          ? storedCommission
+          : Number.isFinite(legacyCommission)
+            ? legacyCommission
+            : Number.isFinite(computedUpfront)
+              ? computedUpfront * 2
+              : profit * 0.50
+        commission = (inv.status || '').toLowerCase() === 'paid'
+          ? plannedCommission
+          : plannedCommission * 0.50
         salespersonName = inv.computedSalesperson || items.salesperson || ''
       } else {
         // ── FALLBACK: parse from extracted JSON scalar fields ─────────────────
@@ -457,8 +484,19 @@ const authenticatedHandler: Handler = async (event) => {
 
         deadProfit = amount - deadCost - additionalCosts - ccFees
         profit     = amount - deadCostPlusVig - additionalCosts - ccFees
-        commission = parseFloat(items.commission || items.cf_commission_amount_unformatted || 'NaN') ||
-          (profit * 0.50)
+        const storedCommission = parseFloat(items.salesCommission)
+        const legacyCommission = parseFloat(items.commission)
+        const customCommission = parseFloat(items.cf_commission_amount_unformatted)
+        const plannedCommission = Number.isFinite(storedCommission)
+          ? storedCommission
+          : Number.isFinite(legacyCommission)
+            ? legacyCommission
+            : Number.isFinite(customCommission)
+              ? customCommission
+              : profit * 0.50
+        commission = (inv.status || '').toLowerCase() === 'paid'
+          ? plannedCommission
+          : plannedCommission * 0.50
       }
 
       // Resolve repId from salesperson name or account owner
@@ -641,6 +679,10 @@ const authenticatedHandler: Handler = async (event) => {
       totalSalesOrderEstCommission += r.salesOrderEstCommission
     })
 
+    const visibleReps = privileged
+      ? repsList
+      : repsList.filter((r: any) => r.repId === authenticatedRepId)
+
     return {
       statusCode: 200,
       headers: cors,
@@ -651,7 +693,7 @@ const authenticatedHandler: Handler = async (event) => {
           start: rangeStart.toISOString(),
           end: rangeEnd.toISOString()
         },
-        reps: repsList,
+        reps: visibleReps,
         totals: {
           invoiceCount: totalInvoiceCount,
           invoiceSubtotal: totalInvoiceSubtotal,
@@ -677,4 +719,4 @@ const authenticatedHandler: Handler = async (event) => {
   }
 }
 
-export const handler = withFunctionAuth(authenticatedHandler)
+export const handler = authenticatedHandler

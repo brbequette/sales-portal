@@ -4,6 +4,7 @@ import { getZohoAccessToken as getAccessToken , ZOHO_ORGANIZATION_ID } from "./l
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
+import { assertNoBooksConflictBeforeWrite } from "../../src/lib/sync-engine"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event) => {
@@ -69,6 +70,7 @@ export const handler: Handler = async (event) => {
         if (items?.booksSalesOrderId) {
           booksId = items.booksSalesOrderId
         }
+        await assertNoBooksConflictBeforeWrite("salesorder", dbSalesOrder)
       }
 
       if (action === 'confirm') {
@@ -104,7 +106,7 @@ export const handler: Handler = async (event) => {
         const statusMap: Record<string, string> = { confirm: 'confirmed', shipped: 'shipped' }
         await prisma.salesOrder.update({
           where: { id: dbRecord.id },
-          data: { status: statusMap[action] || action }
+          data: { status: statusMap[action] || action, appModifiedAt: new Date(), lastSyncedAt: new Date() }
         })
       }
     } else if (type === 'Quote') {
@@ -122,6 +124,7 @@ export const handler: Handler = async (event) => {
         if (items?.booksEstimateId) {
           booksId = items.booksEstimateId
         }
+        await assertNoBooksConflictBeforeWrite("quote", dbQuote)
       }
 
       const res = await fetch(`${baseUrl}/estimates/${booksId}/status/${action}?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
@@ -137,7 +140,7 @@ export const handler: Handler = async (event) => {
       if (dbRecord) {
         await prisma.quote.update({
           where: { id: dbRecord.id },
-          data: { status: action }
+          data: { status: action, appModifiedAt: new Date(), lastSyncedAt: new Date() }
         })
       }
     }

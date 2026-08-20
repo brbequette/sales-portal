@@ -90,6 +90,10 @@ export async function POST(req: NextRequest) {
     // -- Step 2: Call each doc's Next.js API route directly (works on Vercel) --
     const results: any[] = []
     let processed = 0, errors = 0, skipped = 0
+    // The per-document routes enforce the same NextAuth session as a direct
+    // browser request. Preserve it for these server-to-server calls; without
+    // this cookie every document is rejected with HTTP 401.
+    const sessionCookie = req.headers.get("cookie") || ""
 
     async function processOne(item: any): Promise<void> {
       const docNum   = item[cfg.numField]
@@ -101,7 +105,10 @@ export async function POST(req: NextRequest) {
         const fnUrl = `${req.nextUrl.origin}${cfg.apiRoute}`
         const res = await fetch(fnUrl, { signal: AbortSignal.timeout(15000),
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(sessionCookie ? { cookie: sessionCookie } : {}),
+          },
           body: JSON.stringify({ [cfg.idBodyField]: zohoId, skipLoopGuard: force, applyTariff }),
         })
 

@@ -12,6 +12,37 @@ import {
 import { prisma } from "./lib/prisma"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
+let invoiceFieldDefinitionsCache: { expiresAt: number; fields: any[] } | null = null
+
+async function getInvoiceFieldDefinitions(baseUrl: string, authHeaders: Record<string, string>): Promise<any[]> {
+  if (invoiceFieldDefinitionsCache && invoiceFieldDefinitionsCache.expiresAt > Date.now()) {
+    return invoiceFieldDefinitionsCache.fields
+  }
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/settings/fields?organization_id=${ORG_ID}&entity=invoice&filter_custom_fields=true&skip_inactive_fields=true`,
+      { signal: AbortSignal.timeout(15000), headers: authHeaders },
+    )
+    const data: any = await response.json()
+    if (!response.ok || data.code !== 0) {
+      throw new Error(data.message || `HTTP ${response.status}`)
+    }
+
+    const fields = (data.fields || []).filter((field: any) =>
+      field.is_custom_field !== false && field.is_active !== false
+    )
+    invoiceFieldDefinitionsCache = {
+      fields,
+      expiresAt: Date.now() + 10 * 60_000,
+    }
+    return fields
+  } catch (error: any) {
+    console.warn(`[process-invoice-costs] Could not load invoice custom-field definitions: ${error.message}`)
+    return []
+  }
+}
+
 // ── Loop Guard ──
 // Prevents re-entry when our PUT triggers a Zoho workflow that calls back
 const recentlyProcessed = new Map<string, number>()
@@ -125,27 +156,22 @@ export const internalHandler: Handler = async (event) => {
     console.log(`  SubTotal: $${subTotal.toFixed(2)} | DeadCost: $${deadCostTotal.toFixed(2)} | VIG: ${vigRate}x | Profit: $${profit.toFixed(2)} (${marginPercent.toFixed(1)}%)`)
     console.log(`  Insurance: $${insurance.toFixed(2)} (not deducted) | Commission: $${salesCommission.toFixed(2)}`)
 
-    // 5. Draft guard — Draft invoices don't have purchase_rate on line items yet.
-    // Writing $0.00 dead cost / inflated profit to Zoho is misleading and wrong.
-    // Skip the Zoho PUT entirely; the local DB upsert below still runs so the
-    // invoice joins the system and will be re-processed once it's Sent/Open.
+    // 5. Draft guard — Draft invoices often don't have purchase_rate yet.
+    // Still persist the calculation locally so every imported invoice has a
+    // complete snapshot, but do not publish misleading zero-cost fields to Zoho.
     const isDraftInvoice = (invoice.status || "").toLowerCase() === "draft"
-    if (isDraftInvoice && deadCostTotal === 0) {
-      console.log(`⏭️  Skipping Draft invoice ${invoice.invoice_number} — no purchase costs yet`)
-      return {
-        statusCode: 200,
-        headers: cors,
-        body: JSON.stringify({
-          success: true,
-          skipped: true,
-          reason: "draft — no purchase costs yet",
-          invoice: { invoiceNumber: invoice.invoice_number, booksInvoiceId, customerName: invoice.customer_name, status: "draft" },
-        }),
-      }
+    const suppressDraftZohoCosts = isDraftInvoice && deadCostTotal === 0
+    if (suppressDraftZohoCosts) {
+      console.log(`⏭️  Draft invoice ${invoice.invoice_number} has no purchase costs — saving locally without a Zoho cost PUT`)
     }
 
     // 6. Build custom field updates — only fields that changed
-    const fieldsToUpdate = buildFieldsToUpdate(calc, invoice, "invoices")
+    const configuredFields = suppressDraftZohoCosts
+      ? []
+      : await getInvoiceFieldDefinitions(baseUrl, authHeaders)
+    const fieldsToUpdate = suppressDraftZohoCosts
+      ? []
+      : buildFieldsToUpdate(calc, invoice, "invoices", configuredFields)
     const changesDetected = fieldsToUpdate.length
 
     // 7. PUT to Zoho Books — only if changes exist
@@ -157,6 +183,8 @@ export const internalHandler: Handler = async (event) => {
     if (shouldAddTariff) {
       putPayload.adjustment = tariffAmount
       putPayload.adjustment_description = "TARIFF SURCHARGE"
+      // Zoho requires a reason when modifying a sent invoice.
+      putPayload.reason = "Applied 12.5% tariff surcharge and recalculated invoice costs"
     }
 
     if (Object.keys(putPayload).length > 0) {
@@ -170,6 +198,7 @@ export const internalHandler: Handler = async (event) => {
       zohoUpdateResult = { ok: putRes.ok, code: putData.code, message: putData.message }
       if (!putRes.ok || putData.code !== 0) {
         console.error("Zoho Books update failed:", JSON.stringify(putData))
+        throw new Error(`Zoho Books update failed (${putData.code ?? putRes.status}): ${putData.message || "Unknown error"}`)
       } else {
         console.log(`✅ Updated invoice ${invoice.invoice_number} in Zoho`)
       }

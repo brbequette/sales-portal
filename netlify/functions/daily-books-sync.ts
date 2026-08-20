@@ -10,6 +10,7 @@ import {
   updateInvoiceRecord,
   updateSalesOrderRecord,
   updateQuoteRecord,
+  syncStoredLineItems,
 } from "../../src/lib/sync-engine"
 import {
   extractProfit,
@@ -35,9 +36,10 @@ const ORG_ID = ZOHO_ORGANIZATION_ID
  * a record since the last sync, it's flagged (syncConflict=true) for admin
  * review instead of being silently overwritten.
  */
-export const handler = schedule("0 6 * * *", async () => {
+export async function runBooksSync() {
   console.log("=== Daily Books Sync Started ===")
   const startTime = Date.now()
+  const runStartedAt = new Date()
 
   try {
     const token   = await getZohoAccessToken()
@@ -45,6 +47,45 @@ export const handler = schedule("0 6 * * *", async () => {
 
     let invoicesSynced = 0, sosSynced = 0, quotesSynced = 0
     let conflictsFlagged = 0, pendingProcessed = 0, newRecordsCreated = 0
+    let syncIncomplete = false
+
+    // One-time local baseline: normalize line items already present in JSON and
+    // queue a single detail fetch only for documents whose imported snapshot
+    // did not contain line_items. This avoids re-fetching complete documents.
+    const lineItemBaseline = await prisma.systemSetting.findUnique({ where: { key: "books_line_items_baselined" } })
+    if (lineItemBaseline?.value !== "true") {
+      const [invoices, salesOrders, quotes] = await Promise.all([
+        prisma.invoice.findMany({ select: { id: true, items: true } }),
+        prisma.salesOrder.findMany({ select: { id: true, items: true } }),
+        prisma.quote.findMany({ select: { id: true, items: true } }),
+      ])
+
+      for (const [docType, docs] of [
+        ["invoice", invoices],
+        ["salesOrder", salesOrders],
+        ["quote", quotes],
+      ] as const) {
+        for (const doc of docs) {
+          const items = (doc.items as Record<string, unknown>) || {}
+          const rawLines = items.line_items || items.lineItems
+          if (Array.isArray(rawLines)) {
+            await syncStoredLineItems(docType, doc.id, rawLines)
+          } else if (docType === "invoice") {
+            await prisma.invoice.update({ where: { id: doc.id }, data: { pendingZohoFetch: true } })
+          } else if (docType === "salesOrder") {
+            await prisma.salesOrder.update({ where: { id: doc.id }, data: { pendingZohoFetch: true } })
+          } else {
+            await prisma.quote.update({ where: { id: doc.id }, data: { pendingZohoFetch: true } })
+          }
+        }
+      }
+
+      await prisma.systemSetting.upsert({
+        where: { key: "books_line_items_baselined" },
+        update: { value: "true" },
+        create: { key: "books_line_items_baselined", value: "true" },
+      })
+    }
 
     // Build account name map for resolving new documents
     const allAccounts = await prisma.account.findMany({ select: { id: true, name: true, zohoId: true } })
@@ -94,9 +135,15 @@ export const handler = schedule("0 6 * * *", async () => {
 
     console.log(`Pass 1 complete: ${pendingProcessed} pending records processed, ${conflictsFlagged} conflicts flagged`)
 
-    // ── Pass 2: Last-48h modified sweep ───────────────────────────────────
-    console.log("--- Pass 2: 48h modified sweep ---")
-    const since    = new Date(Date.now() - 12 * 60 * 60 * 1000)
+    // ── Pass 2: Delta sweep ────────────────────────────────────────────────
+    // Persist a cursor so list calls only discover changes since the previous
+    // successful run. A two-minute overlap protects against clock skew.
+    const cursorRow = await prisma.systemSetting.findUnique({ where: { key: "books_sync_cursor" } })
+    const storedCursor = cursorRow?.value ? new Date(cursorRow.value) : null
+    const since = storedCursor && !Number.isNaN(storedCursor.getTime())
+      ? new Date(storedCursor.getTime() - 2 * 60 * 1000)
+      : new Date(Date.now() - 48 * 60 * 60 * 1000)
+    console.log(`--- Pass 2: delta sweep since ${since.toISOString()} ---`)
     const sinceStr = since.toISOString().split(".")[0] + "+0000"
 
     // Invoices
@@ -105,7 +152,7 @@ export const handler = schedule("0 6 * * *", async () => {
       while (hasMore) {
         const url = `${baseUrl}/invoices?organization_id=${ORG_ID}&last_modified_time=${encodeURIComponent(sinceStr)}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
         const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
-        if (!res.ok) { console.error(`Invoices page ${page} failed: ${res.status}`); break }
+        if (!res.ok) { syncIncomplete = true; console.error(`Invoices page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
         const invoices: any[] = data.invoices || []
         console.log(`Invoice page ${page}: ${invoices.length}`)
@@ -138,7 +185,7 @@ export const handler = schedule("0 6 * * *", async () => {
         hasMore = data.page_context?.has_more_page === true
         page++
       }
-    } catch (e) { console.error("Invoice sweep error:", e) }
+    } catch (e) { syncIncomplete = true; console.error("Invoice sweep error:", e) }
 
     // Sales Orders
     try {
@@ -146,7 +193,7 @@ export const handler = schedule("0 6 * * *", async () => {
       while (hasMore) {
         const url = `${baseUrl}/salesorders?organization_id=${ORG_ID}&last_modified_time=${encodeURIComponent(sinceStr)}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
         const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
-        if (!res.ok) { console.error(`SalesOrders page ${page} failed: ${res.status}`); break }
+        if (!res.ok) { syncIncomplete = true; console.error(`SalesOrders page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
         const orders: any[] = data.salesorders || []
         console.log(`SalesOrder page ${page}: ${orders.length}`)
@@ -177,7 +224,7 @@ export const handler = schedule("0 6 * * *", async () => {
         hasMore = data.page_context?.has_more_page === true
         page++
       }
-    } catch (e) { console.error("SalesOrder sweep error:", e) }
+    } catch (e) { syncIncomplete = true; console.error("SalesOrder sweep error:", e) }
 
     // Estimates (invoiced only)
     try {
@@ -185,7 +232,7 @@ export const handler = schedule("0 6 * * *", async () => {
       while (hasMore) {
         const url = `${baseUrl}/estimates?organization_id=${ORG_ID}&status=invoiced&last_modified_time=${encodeURIComponent(sinceStr)}&page=${page}&per_page=200&sort_column=last_modified_time&sort_order=D`
         const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { Authorization: `Zoho-oauthtoken ${token}` } })
-        if (!res.ok) { console.error(`Estimates page ${page} failed: ${res.status}`); break }
+        if (!res.ok) { syncIncomplete = true; console.error(`Estimates page ${page} failed: ${res.status}`); break }
         const data: any = await res.json()
         const estimates: any[] = data.estimates || []
         console.log(`Estimate page ${page}: ${estimates.length}`)
@@ -202,7 +249,7 @@ export const handler = schedule("0 6 * * *", async () => {
             dbDoc = await prisma.quote.upsert({
               where: { zohoId: est.estimate_id },
               update: {},
-              create: { zohoId: est.estimate_id, accountId, amount: parseFloat(est.total || '0') || 0, status: est.status || 'draft', quoteDate: est.date ? new Date(est.date) : new Date(), items: {} }
+              create: { zohoId: est.estimate_id, accountId, amount: parseFloat(est.total || '0') || 0, status: est.status || 'draft', items: {} }
             })
             newRecordsCreated++
             console.log(`[daily-sync] Created new Quote ${est.estimate_id} for ${est.customer_name}`)
@@ -217,7 +264,7 @@ export const handler = schedule("0 6 * * *", async () => {
         hasMore = data.page_context?.has_more_page === true
         page++
       }
-    } catch (e) { console.error("Estimate sweep error:", e) }
+    } catch (e) { syncIncomplete = true; console.error("Estimate sweep error:", e) }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
     console.log(`=== Daily Books Sync Complete in ${elapsed}s ===`)
@@ -225,9 +272,35 @@ export const handler = schedule("0 6 * * *", async () => {
     console.log(`  New records created: ${newRecordsCreated}`)
     console.log(`  Pending processed: ${pendingProcessed} | Conflicts flagged: ${conflictsFlagged}`)
 
+    if (!syncIncomplete) {
+      await prisma.systemSetting.upsert({
+        where: { key: "books_sync_cursor" },
+        update: { value: runStartedAt.toISOString() },
+        create: { key: "books_sync_cursor", value: runStartedAt.toISOString() },
+      })
+    } else {
+      console.warn("Books sync cursor was not advanced because a sweep was incomplete")
+    }
+
+    return {
+      invoicesSynced,
+      salesOrdersSynced: sosSynced,
+      quotesSynced,
+      newRecordsCreated,
+      pendingProcessed,
+      conflictsFlagged,
+      elapsedSeconds: Number(elapsed),
+    }
+
   } catch (err: any) {
     console.error("Daily Books Sync fatal error:", err)
+    throw err
   }
+}
+
+export const handler = schedule("0 6 * * *", async () => {
+  const result = await runBooksSync()
+  return { statusCode: 200, body: JSON.stringify(result) }
 })
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -288,6 +361,7 @@ async function syncFullDocument(
         lastSyncedAt:        dbDoc.lastSyncedAt,
         appModifiedAt:       dbDoc.appModifiedAt,
         lastZohoModifiedTime: dbDoc.lastZohoModifiedTime,
+        items:               dbDoc.items,
       },
       doc
     )

@@ -3,7 +3,7 @@
 import { toastConfirm } from '@/lib/toastConfirm'
 
 import React, { useState, useEffect } from "react"
-import { FiClock, FiCheckCircle, FiXCircle, FiEdit2, FiAlertCircle, FiMapPin, FiPlus, FiTrash2, FiToggleLeft, FiToggleRight } from "react-icons/fi"
+import { FiClock, FiCheckCircle, FiXCircle, FiEdit2, FiAlertCircle, FiMapPin, FiPlus, FiTrash2, FiToggleLeft, FiToggleRight, FiSearch } from "react-icons/fi"
 import { toast } from 'react-hot-toast';
 
 interface TimeChangeRequest {
@@ -52,6 +52,9 @@ export default function AdminTimeclockPage() {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
+  const [entrySearch, setEntrySearch] = useState("")
+  const [entryFilter, setEntryFilter] = useState<"all" | "open" | "pending" | "location-issue">("all")
+  const [employeeSort, setEmployeeSort] = useState<"name" | "hours-desc" | "hours-asc">("name")
 
   // Edit Modal State
   const [showEditModal, setShowEditModal] = useState(false)
@@ -257,7 +260,18 @@ export default function AdminTimeclockPage() {
   }
 
   // Group entries by user, then by week
-  const userGroups = entries.reduce((acc, entry) => {
+  const normalizedSearch = entrySearch.trim().toLowerCase()
+  const filteredEntries = entries.filter((entry) => {
+    const hasPending = entry.changeRequests.some((request) => request.status === "PENDING")
+    if (entryFilter === "open" && entry.clockOut) return false
+    if (entryFilter === "pending" && !hasPending) return false
+    if (entryFilter === "location-issue" && !["OUT_OF_RANGE", "DENIED", "UNAVAILABLE"].includes(String(entry.locationStatus || "").toUpperCase())) return false
+    if (!normalizedSearch) return true
+    return [entry.user.name, entry.user.email, entry.date, entry.ipAddress, entry.locationStatus, entry.clockInLocation]
+      .some((value) => String(value || "").toLowerCase().includes(normalizedSearch))
+  })
+
+  const userGroups = filteredEntries.reduce((acc, entry) => {
     const key = entry.user.id
     if (!acc[key]) acc[key] = { user: entry.user, weeks: {} as Record<string, { entries: TimeEntry[], totalHours: number }>, totalMonthHours: 0 }
     
@@ -506,11 +520,29 @@ export default function AdminTimeclockPage() {
           ) : (
           /* Entries Tab */
           <>
+          <div className="mb-4 flex flex-col gap-3 rounded-xl border border-white/10 bg-[#151618] p-4 lg:flex-row lg:items-center">
+            <label className="relative min-w-0 flex-1">
+              <span className="sr-only">Search time entries</span>
+              <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+              <input value={entrySearch} onChange={(event) => setEntrySearch(event.target.value)} placeholder="Search employee, email, date, IP, or location..." className="w-full rounded-lg border border-white/10 bg-black/30 py-2.5 pl-10 pr-4 text-sm text-white outline-none focus:border-emerald-500" />
+            </label>
+            <select aria-label="Filter time entries" value={entryFilter} onChange={(event) => setEntryFilter(event.target.value as typeof entryFilter)} className="rounded-lg border border-white/10 bg-neutral-950 px-3 py-2.5 text-sm text-white">
+              <option value="all">All entries</option><option value="open">Currently open</option><option value="pending">Pending requests</option><option value="location-issue">Location issues</option>
+            </select>
+            <select aria-label="Sort employees" value={employeeSort} onChange={(event) => setEmployeeSort(event.target.value as typeof employeeSort)} className="rounded-lg border border-white/10 bg-neutral-950 px-3 py-2.5 text-sm text-white">
+              <option value="name">Employee A–Z</option><option value="hours-desc">Most hours</option><option value="hours-asc">Fewest hours</option>
+            </select>
+            <span className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-neutral-500">{filteredEntries.length} entries</span>
+          </div>
           {Object.values(userGroups).length === 0 ? (
             <div className="text-neutral-500">No time entries found for this month.</div>
           ) : (
             <div className="space-y-6">
-              {Object.values(userGroups).map(group => (
+              {Object.values(userGroups).sort((a, b) => {
+                if (employeeSort === "hours-desc") return b.totalMonthHours - a.totalMonthHours
+                if (employeeSort === "hours-asc") return a.totalMonthHours - b.totalMonthHours
+                return String(a.user.name || a.user.email || "").localeCompare(String(b.user.name || b.user.email || ""))
+              }).map(group => (
                 <div key={group.user.id} className="bg-[#151618] border border-white/10 rounded-2xl shadow-xl overflow-hidden">
                   <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
                     <h3 className="font-bold text-lg text-white">{group.user.name || group.user.email}</h3>

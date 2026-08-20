@@ -21,7 +21,7 @@ export default function TVLayout({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <div className={`h-screen overflow-hidden bg-black ${!showCursor ? 'cursor-none' : ''}`}>
+    <div className={`h-dvh min-h-dvh overflow-hidden bg-black ${!showCursor ? 'cursor-none' : ''}`}>
       <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       {children}
     </div>

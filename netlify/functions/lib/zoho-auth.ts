@@ -16,10 +16,12 @@ import { prisma } from "./prisma"
 let _cachedToken: string | null = null
 let _tokenExpiresAt = 0
 
-export const ZOHO_DC = process.env.ZOHO_DC || 'com'
+const cleanEnv = (value: string | undefined) => value?.trim().replace(/^(["'])(.*)\1$/, '$2') || ''
+
+export const ZOHO_DC = cleanEnv(process.env.ZOHO_DC) || 'com'
 
 // Single exported constant — import this everywhere instead of re-declaring
-export const ZOHO_ORGANIZATION_ID = process.env.ZOHO_ORGANIZATION_ID || '664670946'
+export const ZOHO_ORGANIZATION_ID = cleanEnv(process.env.ZOHO_ORGANIZATION_ID) || '664670946'
 
 const TOKEN_CACHE_KEY = 'zoho_token_cache'
 
@@ -49,14 +51,17 @@ export async function getZohoAccessToken(forceRefresh = false): Promise<string> 
   }
 
   // 3. OAuth refresh_token flow
-  if (!process.env.ZOHO_REFRESH_TOKEN || !process.env.ZOHO_CLIENT_ID || !process.env.ZOHO_CLIENT_SECRET) {
+  const refreshToken = cleanEnv(process.env.ZOHO_REFRESH_TOKEN)
+  const clientId = cleanEnv(process.env.ZOHO_CLIENT_ID)
+  const clientSecret = cleanEnv(process.env.ZOHO_CLIENT_SECRET)
+  if (!refreshToken || !clientId || !clientSecret) {
     throw new Error('Zoho OAuth credentials missing. Set ZOHO_REFRESH_TOKEN, ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET.')
   }
 
   const params = new URLSearchParams({
-    refresh_token: process.env.ZOHO_REFRESH_TOKEN,
-    client_id:     process.env.ZOHO_CLIENT_ID,
-    client_secret: process.env.ZOHO_CLIENT_SECRET,
+    refresh_token: refreshToken,
+    client_id:     clientId,
+    client_secret: clientSecret,
     grant_type:    'refresh_token',
   })
 

@@ -8,7 +8,7 @@ import { usePreferences } from "@/components/PreferencesProvider"
 import { usePagination, Pagination } from "@/components/Pagination"
 import {
   FiBarChart2, FiTrendingUp, FiDollarSign, FiUsers, FiAward,
-  FiChevronDown, FiChevronUp, FiX, FiTarget, FiCalendar
+  FiChevronDown, FiChevronUp, FiX, FiTarget, FiCalendar, FiSearch
 } from "react-icons/fi"
 import { sessionGet, sessionSet, TTL } from "@/lib/dataCache"
 import { UpdateBanner } from '@/lib/useStaleCheck'
@@ -99,6 +99,7 @@ export default function StatsPage() {
   const [selectedDataDate, setSelectedDataDate] = useState<string>("")
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [repSearch, setRepSearch] = useState("")
 
   const checkForUpdates = async (sig: string, url: string) => {
     try {
@@ -205,7 +206,8 @@ export default function StatsPage() {
   }, [])
 
   const sortedReps = useMemo(() => {
-    return [...reps].sort((a, b) => {
+    const query = repSearch.trim().toLowerCase()
+    return reps.filter((rep) => !query || [rep.repName, rep.email, rep.role].some((value) => String(value || "").toLowerCase().includes(query))).sort((a, b) => {
       const ra = a as any
       const rb = b as any
       let av = 0
@@ -222,7 +224,7 @@ export default function StatsPage() {
       }
       return sortAsc ? av - bv : bv - av
     })
-  }, [reps, sortField, sortAsc, selectedPeriod])
+  }, [reps, sortField, sortAsc, selectedPeriod, repSearch])
 
   const pagination = usePagination(sortedReps)
 
@@ -420,10 +422,15 @@ export default function StatsPage() {
 
         {/* Leaderboard Table */}
         <div className="modern-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/8 flex items-center gap-2">
+          <div className="px-4 py-3 border-b border-white/8 flex flex-col gap-3 sm:flex-row sm:items-center">
             <FiAward size={15} className="text-sky-400" />
             <h2 className="text-xs font-bold text-white uppercase tracking-wider">Leaderboard ({selectedPeriod})</h2>
-            <span className="ml-auto text-[10px] text-neutral-500">{reps.length} reps</span>
+            <label className="relative w-full sm:ml-auto sm:w-72">
+              <span className="sr-only">Search representatives</span>
+              <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+              <input value={repSearch} onChange={(event) => setRepSearch(event.target.value)} placeholder="Search representative, email, or role..." className="w-full rounded-lg border border-white/10 bg-black/30 py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-sky-500" />
+            </label>
+            <span className="whitespace-nowrap text-[10px] text-neutral-500">{sortedReps.length} reps</span>
           </div>
 
           {/* Desktop Table */}

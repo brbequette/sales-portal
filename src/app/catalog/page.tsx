@@ -223,17 +223,6 @@ export default function ProductCatalogPage() {
     }
   }
 
-  if (!isInitialized || (loading && products.length === 0)) {
-    return (
-      <div className="flex items-center justify-center min-h-[100dvh] bg-black/20 text-white">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-neutral-400 text-sm">Loading Product Catalog...</p>
-        </div>
-      </div>
-    )
-  }
-
   const renderTable = (items: any[], title?: string) => (
     <div key={title} className="mb-8 glass-panel border border-white/10 rounded-xl overflow-x-auto shadow-2xl">
       {title && title !== "All Products" && (
@@ -354,6 +343,21 @@ export default function ProductCatalogPage() {
       )}
     </div>
   )
+
+  // Keep every render on the same component execution path before returning.
+  // React 19's production transforms can allocate internal hooks for JSX below;
+  // returning before this table renderer is initialized caused hook error #300
+  // when the initial loading state changed to the populated catalog state.
+  if (!isInitialized || (loading && products.length === 0)) {
+    return (
+      <div className="flex items-center justify-center min-h-[100dvh] bg-black/20 text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-neutral-400 text-sm">Loading Product Catalog...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="page-content">

@@ -492,22 +492,27 @@ export default function SalesPage() {
         : Promise.resolve()
 
       if (serverHasMore) {
-        let allAccounts = [...firstBatch]
-        let currentPage = 2
-        let hasMoreToFetch = true
-        while (hasMoreToFetch && currentPage <= 20) {
-          try {
-            const res = await fetch(`/api/get-accounts?page=${currentPage}&limit=200${emailQuery}${roleQuery}`)
-            const data = await res.json()
-            const batch: any[] = data.accounts || []
-            if (batch.length === 0) { hasMoreToFetch = false; break }
-            allAccounts = [...allAccounts, ...batch]
-            setAccounts([...allAccounts])
-            setAccountsTotalCount(data.pagination?.totalCount || allAccounts.length)
-            if (!(data.pagination?.hasMore || data.hasMore)) hasMoreToFetch = false
-            else currentPage++
-          } catch { hasMoreToFetch = false }
-        }
+        // Load the remaining local pages concurrently. The old sequential loop
+        // multiplied the request latency by the number of pages and re-rendered
+        // the entire pipeline after every response.
+        const totalCount = firstData.pagination?.totalCount || firstBatch.length
+        const totalPages = Math.min(20, Math.ceil(totalCount / 200))
+        const remainingPages = Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) => index + 2)
+        const pageResults = await Promise.all(
+          remainingPages.map(async currentPage => {
+            try {
+              const res = await fetch(`/api/get-accounts?page=${currentPage}&limit=200${emailQuery}${roleQuery}`)
+              if (!res.ok) return []
+              const data = await res.json()
+              return (data.accounts || []) as any[]
+            } catch {
+              return []
+            }
+          })
+        )
+        const allAccounts = [...firstBatch, ...pageResults.flat()]
+        setAccounts(allAccounts)
+        setAccountsTotalCount(totalCount)
         setAccountsHasMore(false)
         await tasksPromise
         sessionSet(cacheKey, { accounts: allAccounts, tasks: fetchedTasks })

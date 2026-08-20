@@ -39,6 +39,30 @@ On Windows, `scripts/start-selfhost.ps1` starts the stack and keeps WSL alive
 in the background. `scripts/stop-selfhost.ps1` cleanly stops the containers and
 the Ubuntu distribution.
 
+## Isolated development environment
+
+Development can run beside production without sharing its database, containers,
+volumes, port, tunnel, or external integration credentials:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start-dev.ps1
+powershell -ExecutionPolicy Bypass -File scripts\init-dev-admin.ps1
+```
+
+- Production: `http://localhost:3000`
+- Development: `http://localhost:3001`
+- Development credentials are stored only in the ignored `.env.dev` file.
+- Production integration credentials, the Books sync worker, and the public
+  tunnel are excluded, preventing accidental writes to external services.
+- Source files are mounted into the development container for hot reload.
+  Production changes only when its image is explicitly rebuilt.
+
+Stop development without affecting production:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\stop-dev.ps1
+```
+
 Install the optional availability watchdog to check the login page every five
 minutes and restart WSL/Docker when the app stops responding:
 

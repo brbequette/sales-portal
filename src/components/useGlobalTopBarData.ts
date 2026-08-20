@@ -72,22 +72,16 @@ export function useGlobalTopBarData() {
 
   const fetchStripStats = useCallback(async () => {
     try {
-      const res = await fetch("/api/zoho-invoices")
-      const json = await res.json()
+      const [res, weeklyRes] = await Promise.all([
+        fetch("/api/zoho-invoices"),
+        fetch("/api/dashboard-weekly-sales", { cache: "no-store" }),
+      ])
+      const [json, weekly] = await Promise.all([res.json(), weeklyRes.json()])
       if (!json.invoices) return
       const now = new Date()
       const currentMonth = now.getMonth()
       const currentYear = now.getFullYear()
-      const dow = now.getDay()
-      const mondayOff = dow === 0 ? -6 : 1 - dow
-      const monday = new Date(now)
-      monday.setDate(now.getDate() + mondayOff)
-      monday.setHours(0,0,0,0)
-      const friday = new Date(monday)
-      friday.setDate(monday.getDate() + 4)
-      friday.setHours(23,59,59,999)
-
-      let ws = 0, ms = 0, mp = 0, mc = 0, pv = 0, ov = 0
+      let ws = Number(weekly.total) || 0, ms = 0, mp = 0, mc = 0, pv = 0, ov = 0
       for (const inv of json.invoices) {
         const rep = (inv.salesorder_salesperson_name || inv.salesperson_name || "").toUpperCase()
         if (rep.includes("PAUL") && (rep.includes("GENCUSKI") || rep.includes("GENKUSKI"))) continue
@@ -97,7 +91,6 @@ export function useGlobalTopBarData() {
         const d = new Date(inv.salesorder_date || inv.date || "")
         const status = (inv.status || "").toLowerCase()
         const balance = parseFloat(inv.balance || "0")
-        if (d >= monday && d <= friday) ws += amt
         if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
           ms += amt; mp += profit; mc += comm
         }

@@ -11,19 +11,25 @@ export default function TVPage() {
   const [verifying, setVerifying] = useState(false)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
-  // Check sessionStorage, localStorage, and URL query params on mount
+  // A local marker improves UX, but the server-issued TV cookie is authoritative.
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search)
-      const isAutoVerify = params.get("autoverify") === "true" || params.get("bypass") === "true"
+    const restoreVerification = async () => {
       const stored = sessionStorage.getItem("tv_verified") || localStorage.getItem("tv_verified")
-      if (stored === "true" || isAutoVerify) {
-        sessionStorage.setItem("tv_verified", "true")
-        localStorage.setItem("tv_verified", "true")
-        setVerified(true)
+      if (stored === "true") {
+        const response = await fetch('/api/tv/verify-pin').catch(() => null)
+        const result = response?.ok ? await response.json().catch(() => null) : null
+        if (result?.valid) {
+          sessionStorage.setItem("tv_verified", "true")
+          localStorage.setItem("tv_verified", "true")
+          setVerified(true)
+        } else {
+          sessionStorage.removeItem("tv_verified")
+          localStorage.removeItem("tv_verified")
+        }
       }
+      setChecking(false)
     }
-    setChecking(false)
+    restoreVerification()
   }, [])
 
   const submitPin = useCallback(async (digits: string[]) => {
@@ -113,7 +119,7 @@ export default function TVPage() {
         <div className={`text-center ${error ? "animate-shake" : ""}`}>
           {/* Logo */}
           <div className="mb-8">
-            <h1 className="text-4xl font-black tracking-[0.3em] text-white mb-2">
+            <h1 className="text-2xl sm:text-4xl font-black tracking-[0.2em] sm:tracking-[0.3em] text-white mb-2">
               TITAN DIAMOND
             </h1>
             <div className="h-px w-32 mx-auto bg-gradient-to-r from-transparent via-emerald-500 to-transparent" />
@@ -137,7 +143,7 @@ export default function TVPage() {
                 onPaste={i === 0 ? handlePaste : undefined}
                 disabled={verifying}
                 autoFocus={i === 0}
-                className={`w-16 h-20 text-center text-3xl font-mono font-bold rounded-xl border-2 bg-black/20 outline-none transition-all duration-200 ${
+                className={`w-12 h-16 sm:w-16 sm:h-20 text-center text-2xl sm:text-3xl font-mono font-bold rounded-xl border-2 bg-black/20 outline-none transition-all duration-200 ${
                   error
                     ? "border-red-500 text-red-400"
                     : digit
@@ -184,7 +190,7 @@ export default function TVPage() {
 
   // TV Dashboard - verified
   return (
-    <div className="h-full bg-black p-4 flex flex-col min-h-0 overflow-hidden">
+    <div className="h-full bg-black p-1 sm:p-2 lg:p-4 flex flex-col min-h-0 overflow-hidden">
       <SalesBoard />
     </div>
   )

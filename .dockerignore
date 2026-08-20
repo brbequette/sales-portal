@@ -9,4 +9,7 @@ npm-debug.log*
 scratch
 sale_lineage_export.csv
 scripts/backfill/invoice_backup.json
-
+backups
+*.dump
+*.sql.gz
+.production-transfer-*.sql

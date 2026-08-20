@@ -29,8 +29,8 @@ import { corsHeaders, handleOptions } from "./lib/cors"
  *   Vendor Sync        → ?type=Vendor
  *   Payments           → ?type=Payment
  *
- * Auth: Set ZOHO_WEBHOOK_TOKEN env var in Netlify to match the
- *       x-zoho-webhook-token header value (currently: tdu.webhooks2026).
+ * Auth: Set ZOHO_WEBHOOK_TOKEN or ZOHO_WEBHOOK_SECRET to match the
+ *       x-zoho-webhook-token header value. Never commit the secret.
  *
  * Loop-guard: When this app writes cost fields back to Zoho, Zoho fires
  *   another webhook. We detect this via a custom x-source=app-cost-sync
@@ -53,7 +53,8 @@ export const handler: Handler = async (event) => {
 
     // ── Webhook authentication ──────────────────────────────────────────────
     // Supports HMAC-SHA256 signature (preferred) and shared-secret fallback.
-    const webhookSecret = process.env.ZOHO_WEBHOOK_TOKEN || process.env.ZOHO_WEBHOOK_SECRET
+    const rawWebhookSecret = process.env.ZOHO_WEBHOOK_TOKEN || process.env.ZOHO_WEBHOOK_SECRET || ''
+    const webhookSecret = rawWebhookSecret.trim().replace(/^(["'])(.*)\1$/, '$2')
     if (!webhookSecret) {
       console.error('[zoho-books-webhook] Webhook secret is not configured — rejecting request')
       return { statusCode: 503, headers: corsHeaders, body: JSON.stringify({ error: 'Webhook is not configured' }) }
@@ -500,10 +501,10 @@ export const handler: Handler = async (event) => {
         }
       })
 
-      await processInvoiceCosts({
+      await Promise.resolve(processInvoiceCosts({
         httpMethod: "POST",
         body: JSON.stringify({ invoiceId: booksId, skipLoopGuard: true }),
-      } as any, {} as any).catch(e => console.error("Webhook error auto-processing invoice costs:", e))
+      } as any, {} as any)).catch(e => console.error("Webhook error auto-processing invoice costs:", e))
 
     } else if (type === "SalesOrder") {
       await prisma.salesOrder.update({
@@ -517,17 +518,17 @@ export const handler: Handler = async (event) => {
         }
       })
 
-      await processSalesOrderCosts({
+      await Promise.resolve(processSalesOrderCosts({
         httpMethod: "POST",
         body: JSON.stringify({ salesorderId: booksId, skipLoopGuard: true }),
-      } as any, {} as any).catch(e => console.error("Webhook error auto-processing SO costs:", e))
+      } as any, {} as any)).catch(e => console.error("Webhook error auto-processing SO costs:", e))
 
     } else {
       await prisma.quote.update({ where: { id: dbDoc.id }, data: { status, items: updatedItems, ...syncFields } })
-      await processQuoteCosts({
+      await Promise.resolve(processQuoteCosts({
         httpMethod: "POST",
         body: JSON.stringify({ estimateId: booksId, skipLoopGuard: true }),
-      } as any, {} as any).catch(e => console.error("Webhook error auto-processing quote costs:", e))
+      } as any, {} as any)).catch(e => console.error("Webhook error auto-processing quote costs:", e))
     }
 
     console.log(`✅ Webhook: Updated ${type} ${booksId} (status: ${status}, ${(updatedItems.line_items || []).length} line items)`)

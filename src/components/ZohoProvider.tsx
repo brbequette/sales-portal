@@ -51,7 +51,7 @@ const ZohoContext = createContext<ZohoContextProps>({ isInitialized: false, zoho
 export const useZoho = () => useContext(ZohoContext)
 
 const NON_STAFF_ROUTES = [
-  "/", "/about", "/admin-login", "/blade-comparator", "/blade-finder", "/careers", "/catalog",
+  "/", "/about", "/admin-login", "/blade-comparator", "/blade-finder", "/careers",
   "/contact", "/customer-portal", "/employee-login", "/intro-offer", "/knowledge-test", "/login",
   "/privacy", "/rep-portal", "/resources", "/rpm-calculator", "/shop", "/signature-series", "/terms", "/unit-converter",
 ]

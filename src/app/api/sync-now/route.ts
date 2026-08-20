@@ -13,7 +13,7 @@ import {
   SYNC_TABLES,
 } from '@/lib/sync-config'
 
-const ZOHO_DC = process.env.ZOHO_DC || 'com'
+const ZOHO_DC = process.env.ZOHO_DC?.trim().replace(/^(["'])(.*)\1$/, '$2') || 'com'
 
 /**
  * POST /api/sync-now

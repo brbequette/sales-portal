@@ -24,6 +24,7 @@ type ConflictDoc = {
   lastZohoModifiedTime: Date | string | null
   appModifiedAt: Date | string | null
   conflictFields: Record<string, ConflictField> | any
+  recommendedSource: "app" | "zoho"
 }
 
 type SyncResponse = {
@@ -226,6 +227,9 @@ export default function SyncConflictsPage() {
                       {doc.customer && (
                         <p className="text-sm text-neutral-400">{doc.customer}</p>
                       )}
+                      <p className="mt-2 text-xs text-amber-300">
+                        Newest: {doc.recommendedSource === "app" ? "Portal" : "Zoho Books"} — approval required before replacement
+                      </p>
                     </div>
                   </div>
 

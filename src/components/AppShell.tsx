@@ -176,7 +176,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // ── Auth / layout bypass ──────────────────────────────────────────────────
   const isPublicPage = pathname === "/" 
     || pathname.startsWith("/shop") 
-    || pathname.startsWith("/catalog")
     || pathname === "/about" 
     || pathname === "/contact" 
     || pathname.startsWith("/resources") 

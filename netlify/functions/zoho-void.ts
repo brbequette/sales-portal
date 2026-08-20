@@ -4,6 +4,7 @@ import { getZohoAccessToken as getAccessToken , ZOHO_ORGANIZATION_ID } from "./l
 const ORG_ID = ZOHO_ORGANIZATION_ID
 import { prisma } from "./lib/prisma"
 import { authenticateFunction, authErrorResponse } from "./lib/auth-middleware"
+import { assertNoBooksConflictBeforeWrite } from "../../src/lib/sync-engine"
 const ZOHO_DC = process.env.ZOHO_DC || 'com';
 
 export const handler: Handler = async (event) => {
@@ -60,6 +61,7 @@ export const handler: Handler = async (event) => {
         if (items?.booksInvoiceId) {
           booksId = items.booksInvoiceId
         }
+        await assertNoBooksConflictBeforeWrite("invoice", dbInvoice)
       }
 
       const res = await fetch(`${baseUrl}/invoices/${booksId}/status/void?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
@@ -75,7 +77,7 @@ export const handler: Handler = async (event) => {
       if (dbRecord) {
         await prisma.invoice.update({
           where: { id: dbRecord.id },
-          data: { status: 'void' }
+          data: { status: 'void', appModifiedAt: new Date(), lastSyncedAt: new Date() }
         })
       }
     } else if (type === 'SalesOrder') {
@@ -93,6 +95,7 @@ export const handler: Handler = async (event) => {
         if (items?.booksSalesOrderId) {
           booksId = items.booksSalesOrderId
         }
+        await assertNoBooksConflictBeforeWrite("salesorder", dbSalesOrder)
       }
 
       const res = await fetch(`${baseUrl}/salesorders/${booksId}/status/void?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
@@ -108,7 +111,7 @@ export const handler: Handler = async (event) => {
       if (dbRecord) {
         await prisma.salesOrder.update({
           where: { id: dbRecord.id },
-          data: { status: 'void' }
+          data: { status: 'void', appModifiedAt: new Date(), lastSyncedAt: new Date() }
         })
       }
     } else if (type === 'Quote') {
@@ -126,6 +129,7 @@ export const handler: Handler = async (event) => {
         if (items?.booksEstimateId) {
           booksId = items.booksEstimateId
         }
+        await assertNoBooksConflictBeforeWrite("quote", dbQuote)
       }
 
       const res = await fetch(`${baseUrl}/estimates/${booksId}/status/declined?organization_id=${ORG_ID}`, { signal: AbortSignal.timeout(15000),
@@ -141,7 +145,7 @@ export const handler: Handler = async (event) => {
       if (dbRecord) {
         await prisma.quote.update({
           where: { id: dbRecord.id },
-          data: { status: 'declined' }
+          data: { status: 'declined', appModifiedAt: new Date(), lastSyncedAt: new Date() }
         })
       }
     }
