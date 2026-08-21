@@ -193,6 +193,30 @@ export function extractProfit(docOrItems: any): number {
   return !isNaN(parsed) ? parsed : 0.0;
 }
 
+/**
+ * Pre-VIG gross profit used by the sales board and goal reporting.
+ * Prefer the value persisted by the cost engine. When a document only has
+ * cost fields, derive dead profit as subtotal minus total dead cost.
+ */
+export function extractDeadProfit(docOrItems: any, documentSubtotal?: number): number {
+  const explicit = extractCustomFieldValue(docOrItems, 'deadProfitActual', null)
+    ?? extractCustomFieldValue(docOrItems, 'dead_profit_actual', null)
+    ?? extractCustomFieldValue(docOrItems, 'cf_dead_profit', null)
+    ?? extractCustomFieldValue(docOrItems, 'computedDeadProfit', null);
+  const parsedExplicit = parseFloat(explicit);
+  if (Number.isFinite(parsedExplicit)) return parsedExplicit;
+
+  const rawDeadCost = extractCustomFieldValue(docOrItems, 'cf_dead_cost_total', null)
+    ?? extractCustomFieldValue(docOrItems, 'deadCostTotal', null)
+    ?? extractCustomFieldValue(docOrItems, 'dead_cost_total', null);
+  const parsedDeadCost = parseFloat(rawDeadCost);
+  const parsedSubtotal = Number(documentSubtotal);
+  if (Number.isFinite(parsedDeadCost) && Number.isFinite(parsedSubtotal)) {
+    return parsedSubtotal - parsedDeadCost;
+  }
+  return 0;
+}
+
 export function extractCommissionAmount(docOrItems: any): number {
   const val = extractCustomFieldValue(docOrItems, 'cf_commission_amount', null)
     ?? extractCustomFieldValue(docOrItems, 'cf_commision_amount', null)
