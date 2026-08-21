@@ -240,7 +240,6 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         const lastMonthDate = new Date(currentYear, currentMonth - 1, 1)
         const yyyyLM = lastMonthDate.getFullYear()
         const mmLM = String(lastMonthDate.getMonth() + 1).padStart(2, '0')
-        const threeDaysAgoStr = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         
         const fetchSafe = async (url: string) => {
           try {
@@ -257,7 +256,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           fetchSafe("/api/tv/users"),
           fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&startDate=${yearStartStr}`),
           fetchSafe(`/api/get-documents?pageSize=8000&type=SalesOrder&loadAll=true&startDate=${yearStartStr}`),
-          fetchSafe(`/api/get-documents?pageSize=1000&type=Quote&loadAll=true&startDate=${threeDaysAgoStr}`),
+          Promise.resolve({ documents: [] }),
           fetchSafe("/api/tv/config"),
           fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&status=overdue`),
           fetchSharedJson<any>("/api/dashboard-weekly-sales").catch(() => null)
@@ -275,16 +274,19 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           throw new Error("Required TV dashboard data was unavailable")
         }
 
-        const missingCostInvoiceIds = Array.isArray(weeklyPayload.missingCostInvoiceIds)
+        const missingCostInvoiceIds: string[] = Array.isArray(weeklyPayload.missingCostInvoiceIds)
           ? weeklyPayload.missingCostInvoiceIds.map(String).filter(Boolean).slice(0, 5)
           : []
-        const repairSignature = missingCostInvoiceIds.slice().sort().join(",")
+        const missingCostSalesOrderIds: string[] = Array.isArray(weeklyPayload.missingCostSalesOrderIds)
+          ? weeklyPayload.missingCostSalesOrderIds.map(String).filter(Boolean).slice(0, 5)
+          : []
+        const repairSignature = [...missingCostInvoiceIds.map(id => `i:${id}`), ...missingCostSalesOrderIds.map(id => `s:${id}`)].sort().join(",")
         if (repairSignature && costRepairSignatureRef.current !== repairSignature) {
           costRepairSignatureRef.current = repairSignature
           fetch("/api/tv/process-missing-costs", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ invoiceIds: missingCostInvoiceIds }),
+            body: JSON.stringify({ invoiceIds: missingCostInvoiceIds, salesOrderIds: missingCostSalesOrderIds }),
           }).then(async response => {
             const result = response.ok ? await response.json().catch(() => null) : null
             if (result?.processed > 0) {
@@ -702,6 +704,10 @@ export function useSalesBoardData(): SalesBoardDataReturn {
 
           const matchedRep = getMatchedRep(doc.salesperson || "")
           if (!matchedRep) continue
+          if (doc.type === "estimate") {
+            matchedRep.activePipeline.estimateCount += 1
+            matchedRep.activePipeline.estimateAmount += amount
+          }
           const dateKey = String(doc.date || "").split("T")[0]
           const dayIndex = weekDays.indexOf(dateKey)
           if (dayIndex >= 0) {
@@ -741,7 +747,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           rawInvoices: rawDocs.filter((d: any) => d.type === 'Invoice'),
           weekDays,
           weeklyBreakdown,
-          missingCostCount: missingCostInvoiceIds.length,
+          missingCostCount: missingCostInvoiceIds.length + missingCostSalesOrderIds.length,
         }
 
         try {

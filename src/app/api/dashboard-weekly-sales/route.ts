@@ -15,11 +15,6 @@ const number = (value: unknown) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
 }
-const itemDate = (items: Record<string, unknown>, fallback: Date) => {
-  const raw = items.date || items.estimate_date || items.salesorder_date || items.created_time
-  const parsed = raw ? new Date(String(raw)) : fallback
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed
-}
 const subtotal = (items: Record<string, unknown>, amount: number) =>
   number(items.sub_total ?? items.subTotal ?? amount)
 
@@ -98,24 +93,23 @@ async function buildWeeklyPayload(
       zohoId: string | null
       amount: number
       status: string
-      createdAt: Date
-      quoteDate: Date
+      quoteDate: Date | null
       items: Prisma.JsonValue
     }>>(Prisma.sql`
       SELECT
-        id, "zohoId", amount, status, "createdAt", items,
+        id, "zohoId", amount, status, items,
         CASE
-          WHEN COALESCE(items->>'date', items->>'estimate_date', items->>'created_time', '')
+          WHEN COALESCE(items->>'date', items->>'estimate_date', items->>'estimateDate', '')
             ~ '^\\d{4}-\\d{2}-\\d{2}'
-          THEN SUBSTRING(COALESCE(items->>'date', items->>'estimate_date', items->>'created_time') FROM 1 FOR 10)::date::timestamp
-          ELSE "createdAt"
+          THEN SUBSTRING(COALESCE(items->>'date', items->>'estimate_date', items->>'estimateDate') FROM 1 FOR 10)::date::timestamp
+          ELSE NULL
         END AS "quoteDate"
       FROM "Quote"
       WHERE CASE
-        WHEN COALESCE(items->>'date', items->>'estimate_date', items->>'created_time', '')
+        WHEN COALESCE(items->>'date', items->>'estimate_date', items->>'estimateDate', '')
           ~ '^\\d{4}-\\d{2}-\\d{2}'
-        THEN SUBSTRING(COALESCE(items->>'date', items->>'estimate_date', items->>'created_time') FROM 1 FOR 10)::date::timestamp
-        ELSE "createdAt"
+        THEN SUBSTRING(COALESCE(items->>'date', items->>'estimate_date', items->>'estimateDate') FROM 1 FOR 10)::date::timestamp
+        ELSE NULL
       END BETWEEN ${estimateCutoff} AND ${now}
     `),
   ])
@@ -207,6 +201,7 @@ async function buildWeeklyPayload(
 
   const documents: Array<{ id: string; type: "invoice" | "salesorder" | "estimate"; subtotal: number; deadCost: number; profit: number; date: string; salesperson: string; costPending?: boolean }> = []
   const missingCostInvoiceIds: string[] = []
+  const missingCostSalesOrderIds: string[] = []
 
   for (const invoice of invoices) {
     const status = text(invoice.status)
@@ -239,21 +234,27 @@ async function buildWeeklyPayload(
       || (orderId && invoicedSalesOrderIds.has(orderId))
       || (orderNumber && invoicedSalesOrderNumbers.has(orderNumber))
     if (converted || excludedPipelineStatuses.has(status) || order.orderDate < monday || order.orderDate > sunday) continue
+    const orderSubtotal = subtotal(items, order.amount)
+    const storedDeadCost = number(extractDeadCostTotal(items))
+    const hasStoredDeadCost = orderSubtotal <= 0 || storedDeadCost > 0 || Boolean(items.costsCalculatedAt)
+    if (!hasStoredDeadCost && order.zohoId) missingCostSalesOrderIds.push(order.zohoId)
     documents.push({
       id: order.id,
       type: "salesorder",
-      subtotal: subtotal(items, order.amount),
-      deadCost: number(extractDeadCostTotal(items)),
-      profit: number(extractDeadProfit(items, subtotal(items, order.amount))),
+      subtotal: orderSubtotal,
+      deadCost: hasStoredDeadCost ? storedDeadCost : 0,
+      profit: hasStoredDeadCost ? number(extractDeadProfit(items, orderSubtotal)) : 0,
       date: order.orderDate.toISOString(),
       salesperson: String(items.salesperson_name || items.salesperson || ""),
+      costPending: !hasStoredDeadCost,
     })
   }
 
   for (const quote of quotes) {
     const status = text(quote.status)
     const items = (quote.items as Record<string, unknown>) || {}
-    const quoteDate = quote.quoteDate || itemDate(items, quote.createdAt)
+    const quoteDate = quote.quoteDate
+    if (!quoteDate) continue
     const quoteId = text(quote.zohoId)
     const quoteNumber = text(items.estimate_number || items.estimateNumber)
     const converted = status === "converted" || invoicedStatuses.has(status)
@@ -289,6 +290,7 @@ async function buildWeeklyPayload(
     breakdown,
     documents: visibleDocuments,
     missingCostInvoiceIds: privileged ? missingCostInvoiceIds.slice(0, 5) : [],
+    missingCostSalesOrderIds: privileged ? missingCostSalesOrderIds.slice(0, 5) : [],
     range: {
       start: monday.toISOString(),
       end: sunday.toISOString(),

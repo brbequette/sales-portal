@@ -1,4 +1,4 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { Prisma } from "@prisma/client"
 import { getZohoAccessToken , ZOHO_ORGANIZATION_ID } from "./lib/zoho-auth"
@@ -7,7 +7,9 @@ import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculat
 import { detectConflict, updateSalesOrderRecord } from "../../src/lib/sync-engine"
 
 import { prisma } from "./lib/prisma"
+import { authorizeCostProcessing, hasPrivilegedCostOptions } from "./lib/document-access"
 const ZOHO_DC = process.env.ZOHO_DC || "com"
+const TRUSTED_SYSTEM_COST_REQUEST = Symbol("trusted-system-salesorder-cost-request")
 
 // ── Loop Guard ──
 // Prevents re-entry when our PUT triggers a Zoho workflow that calls back
@@ -38,11 +40,22 @@ export const internalHandler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
+    const sessionUser = (event as any)[TRUSTED_SYSTEM_COST_REQUEST]
+      ? { role: "ADMIN" }
+      : await authenticateFunction(event)
     const body = JSON.parse(event.body || "{}")
     const { salesorderNumber, salesorderId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard } = body
 
     if (!salesorderNumber && !salesorderId) {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing salesorderNumber or salesorderId" }) }
+    }
+
+    const access = await authorizeCostProcessing(sessionUser, "salesOrder", { id: salesorderId, number: salesorderNumber })
+    if (!access.authorized) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "You can only process sales orders belonging to your accounts" }) }
+    }
+    if (!access.administrator && hasPrivilegedCostOptions(body)) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "Manual cost overrides require an administrator" }) }
     }
 
     const token = await getZohoAccessToken()
@@ -220,6 +233,15 @@ export const internalHandler: Handler = async (event) => {
     console.error("process-salesorder-costs error:", err)
     return { statusCode: 500, headers: cors, body: JSON.stringify({ success: false, error: err.message }) }
   }
+}
+
+/** Process one sales order from trusted server-side workflows. */
+export async function processSalesOrderCostsForSystem(salesorderId: string) {
+  return internalHandler({
+    httpMethod: "POST",
+    body: JSON.stringify({ salesorderId }),
+    [TRUSTED_SYSTEM_COST_REQUEST]: true,
+  } as any, {} as any)
 }
 
 export const handler = withFunctionAuth(internalHandler)
