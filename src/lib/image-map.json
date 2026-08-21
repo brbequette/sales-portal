@@ -1,1288 +1,1802 @@
 {
   "SMX10LVR1612E": {
-    "image": "/product-images/SMX10LVR(AT).png",
-    "detail_a": "/product-images/SMX10LVR(AT)_detail_a.png",
-    "detail_b": "/product-images/SMX10LVR(AT)_detail_b.png"
+    "image": "/product-images/king-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "IF30PTR0909C": {
-    "image": "/product-images/IF30PTR.png",
-    "detail_a": "/product-images/IF30PTR_detail_a.png",
-    "detail_b": "/product-images/IF30PTR_detail_b.png"
+    "image": "/product-images/IF30PTR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ID30ATR1412E": {
-    "image": "/product-images/ID30ATR.png",
-    "detail_a": "/product-images/ID30ATR_detail_a.png",
-    "detail_b": "/product-images/ID30ATR_detail_b.png"
+    "image": "/product-images/dark knight-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "IF30PVR1412E": {
-    "image": "/product-images/IF30PVR.png",
-    "detail_a": "/product-images/IF30PVR_detail_a.png",
-    "detail_b": "/product-images/IF30PVR_detail_b.png"
+    "image": "/product-images/medusa-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "LL10UA1006A": {
-    "image": "/product-images/LL10UA.png",
-    "detail_a": "/product-images/LL10UA_detail_a.png",
-    "detail_b": "/product-images/LL10UA_detail_b.png"
+    "image": "/product-images/LL10UA-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10SR0812U": {
-    "image": "/product-images/SB10SR.png",
-    "detail_a": "/product-images/SB10SR_detail_a.png",
-    "detail_b": "/product-images/SB10SR_detail_b.png"
+    "image": "/product-images/SB10SR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10VTR4508C": {
-    "image": "/product-images/SMX10VTR.png",
-    "detail_a": "/product-images/SMX10VTR_detail_a.png",
-    "detail_b": "/product-images/SMX10VTR_detail_b.png"
+    "image": "/product-images/SMX10VTR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10EVR1412E": {
-    "image": "/product-images/SMX10EVR.png",
-    "detail_a": "/product-images/SMX10EVR_detail_a.png",
-    "detail_b": "/product-images/SMX10EVR_detail_b.png"
+    "image": "/product-images/king-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30ETR0508C2": {
-    "image": "/product-images/SMX30ETR(2).png",
-    "detail_a": "/product-images/SMX30ETR(2)_detail_a.png",
-    "detail_b": "/product-images/SMX30ETR(2)_detail_b.png"
+    "image": "/product-images/SMX30ETR(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "IF30PVR1412B": {
-    "image": "/product-images/IF30PVR.png",
-    "detail_a": "/product-images/IF30PVR_detail_a.png",
-    "detail_b": "/product-images/IF30PVR_detail_b.png"
+    "image": "/product-images/medusa-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RB30ET4508C": {
-    "image": "/product-images/RB30ET.png",
-    "detail_a": "/product-images/RB30ET_detail_a.png",
-    "detail_b": "/product-images/RB30ET_detail_b.png"
+    "image": "/product-images/RB30ET-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10SR4511C": {
-    "image": "/product-images/SB10SR.png",
-    "detail_a": "/product-images/SB10SR_detail_a.png",
-    "detail_b": "/product-images/SB10SR_detail_b.png"
+    "image": "/product-images/SB10SR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50EV1412ED": {
-    "image": "/product-images/SMX50EV.png",
-    "detail_a": "/product-images/SMX50EV_detail_a.png",
-    "detail_b": "/product-images/SMX50EV_detail_b.png"
+    "image": "/product-images/dragon-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ID50EV1412EW": {
-    "image": "/product-images/ID50EV.png",
-    "detail_a": "/product-images/ID50EV_detail_a.png",
-    "detail_b": "/product-images/ID50EV_detail_b.png"
+    "image": "/product-images/hydra-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10SR1414EO": {
-    "image": "/product-images/SB10SR.png",
-    "detail_a": "/product-images/SB10SR_detail_a.png",
-    "detail_b": "/product-images/SB10SR_detail_b.png"
+    "image": "/product-images/demo demon-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX10UT0609N": {
-    "image": "/product-images/ZSRX10UT.png",
-    "detail_a": "/product-images/ZSRX10UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX10UT_detail_b.png"
+    "image": "/product-images/ZSRX10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX30UT0609F": {
-    "image": "/product-images/ZSRX30UT.png",
-    "detail_a": "/product-images/ZSRX30UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX30UT_detail_b.png"
+    "image": "/product-images/ZSRX30UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX20UT0609N": {
-    "image": "/product-images/ZSRX20UT0609N.jpg",
+    "image": "/product-images/ZSRX20UT0609N-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30EVR2014E": {
-    "image": "/product-images/SMX30EV(2).png",
-    "detail_a": "/product-images/SMX30EV(2)_detail_a.png",
-    "detail_b": "/product-images/SMX30EV(2)_detail_b.png"
+    "image": "/product-images/SMX30EV(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZLPS10P1008E": {
-    "image": "/product-images/ZLPS10P.png",
-    "detail_a": "/product-images/ZLPS10P_detail_a.png",
-    "detail_b": "/product-images/ZLPS10P_detail_b.png"
+    "image": "/product-images/ZLPS10P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT10V4508C": {
-    "image": "/product-images/RT10V.png",
-    "detail_a": "/product-images/RT10V_detail_a.png",
-    "detail_b": "/product-images/RT10V_detail_b.png"
+    "image": "/product-images/RT10V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT10V0709U": {
-    "image": "/product-images/RT10V.png",
-    "detail_a": "/product-images/RT10V_detail_a.png",
-    "detail_b": "/product-images/RT10V_detail_b.png"
+    "image": "/product-images/RT10V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT10V1412E": {
-    "image": "/product-images/RT10V.png",
-    "detail_a": "/product-images/RT10V_detail_a.png",
-    "detail_b": "/product-images/RT10V_detail_b.png"
+    "image": "/product-images/battle axe-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "QLPS10P1008E1": {
-    "image": "/product-images/QLPS.png",
-    "detail_a": "/product-images/QLPS_detail_a.png",
-    "detail_b": "/product-images/QLPS_detail_b.png"
+    "image": "/product-images/QLPS-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50VT0709U": {
-    "image": "/product-images/SMX50VT.png",
-    "detail_a": "/product-images/SMX50VT_detail_a.png",
-    "detail_b": "/product-images/SMX50VT_detail_b.png"
+    "image": "/product-images/SMX50VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMXAPR1812EDO": {
-    "image": "/product-images/SMXAPR.png",
-    "detail_a": "/product-images/SMXAPR_detail_a.png",
-    "detail_b": "/product-images/SMXAPR_detail_b.png"
+    "image": "/product-images/SMXAPR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMXAPR2412EDO": {
-    "image": "/product-images/SMXAPR.png",
-    "detail_a": "/product-images/SMXAPR_detail_a.png",
-    "detail_b": "/product-images/SMXAPR_detail_b.png"
+    "image": "/product-images/SMXAPR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "IF30PVR1412E NO PRINT": {
-    "image": "/product-images/IF30PVR.png",
-    "detail_a": "/product-images/IF30PVR_detail_a.png",
-    "detail_b": "/product-images/IF30PVR_detail_b.png"
+    "image": "/product-images/IF30PVR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10SR0612U": {
-    "image": "/product-images/SB10SR.png",
-    "detail_a": "/product-images/SB10SR_detail_a.png",
-    "detail_b": "/product-images/SB10SR_detail_b.png"
+    "image": "/product-images/SB10SR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGD30M05H": {
-    "image": "/product-images/CGD30M.png",
-    "detail_a": "/product-images/CGD30M_detail_a.png",
-    "detail_b": "/product-images/CGD30M_detail_b.png"
+    "image": "/product-images/CGD30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30VT0709U": {
-    "image": "/product-images/SMX30VT.png",
-    "detail_a": "/product-images/SMX30VT_detail_a.png",
-    "detail_b": "/product-images/SMX30VT_detail_b.png"
+    "image": "/product-images/SMX30VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "IF30PVR1212E THE MEDUSA 12": {
-    "image": "/product-images/IF30PVR.png",
-    "detail_a": "/product-images/IF30PVR_detail_a.png",
-    "detail_b": "/product-images/IF30PVR_detail_b.png"
+    "image": "/product-images/medusa-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10SR0912UB": {
-    "image": "/product-images/SB10SR.png",
-    "detail_a": "/product-images/SB10SR_detail_a.png",
-    "detail_b": "/product-images/SB10SR_detail_b.png"
+    "image": "/product-images/demo demon-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ10PR01112B": {
-    "image": "/product-images/OEZ10PR.png",
-    "detail_a": "/product-images/OEZ10PR_detail_a.png",
-    "detail_b": "/product-images/OEZ10PR_detail_b.png"
+    "image": "/product-images/OEZ10PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30ET4508C": {
-    "image": "/product-images/SMX30ET(2).png",
-    "detail_a": "/product-images/SMX30ET(2)_detail_a.png",
-    "detail_b": "/product-images/SMX30ET(2)_detail_b.png"
+    "image": "/product-images/SMX30ET(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGD30M07H": {
-    "image": "/product-images/CGD30M.png",
-    "detail_a": "/product-images/CGD30M_detail_a.png",
-    "detail_b": "/product-images/CGD30M_detail_b.png"
+    "image": "/product-images/CGD30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30ETR4508C2": {
-    "image": "/product-images/SMX30ETR(2).png",
-    "detail_a": "/product-images/SMX30ETR(2)_detail_a.png",
-    "detail_b": "/product-images/SMX30ETR(2)_detail_b.png"
+    "image": "/product-images/SMX30ETR(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "DXC0120P1413E": {
-    "image": "/product-images/DXC0120P.png",
-    "detail_a": "/product-images/DXC0120P_detail_a.png",
-    "detail_b": "/product-images/DXC0120P_detail_b.png"
+    "image": "/product-images/DXC0120P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50EV1212ED": {
-    "image": "/product-images/SMX50EV.png",
-    "detail_a": "/product-images/SMX50EV_detail_a.png",
-    "detail_b": "/product-images/SMX50EV_detail_b.png"
+    "image": "/product-images/SMX50EV-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZLPS10P1408E": {
-    "image": "/product-images/ZLPS10P.png",
-    "detail_a": "/product-images/ZLPS10P_detail_a.png",
-    "detail_b": "/product-images/ZLPS10P_detail_b.png"
+    "image": "/product-images/ZLPS10P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RB10NT0508C": {
-    "image": "/product-images/RB10NT.png",
-    "detail_a": "/product-images/RB10NT_detail_a.png",
-    "detail_b": "/product-images/RB10NT_detail_b.png"
+    "image": "/product-images/RB10NT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10LVR1212E": {
-    "image": "/product-images/SMX10LVR(AT).png",
-    "detail_a": "/product-images/SMX10LVR(AT)_detail_a.png",
-    "detail_b": "/product-images/SMX10LVR(AT)_detail_b.png"
+    "image": "/product-images/king-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMXAPR1412E": {
-    "image": "/product-images/SMXAPR1412E.png",
+    "image": "/product-images/SMXAPR1412E-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMXAPR1612EDO": {
-    "image": "/product-images/SMXAPR.png",
-    "detail_a": "/product-images/SMXAPR_detail_a.png",
-    "detail_b": "/product-images/SMXAPR_detail_b.png"
+    "image": "/product-images/SMXAPR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SM30N1422RING": {
-    "image": "/product-images/SM30N(RING).png",
-    "detail_a": "/product-images/SM30N(RING)_detail_a.png",
-    "detail_b": "/product-images/SM30N(RING)_detail_b.png"
+    "image": "/product-images/SM30N(RING)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX10UT1212F": {
-    "image": "/product-images/ZSRX10UT.png",
-    "detail_a": "/product-images/ZSRX10UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX10UT_detail_b.png"
+    "image": "/product-images/ZSRX10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50EV1812ED": {
-    "image": "/product-images/SMX50EV.png",
-    "detail_a": "/product-images/SMX50EV_detail_a.png",
-    "detail_b": "/product-images/SMX50EV_detail_b.png"
+    "image": "/product-images/dragon-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SM30EVR1812E": {
-    "image": "/product-images/SM30EVR.png",
-    "detail_a": "/product-images/SM30EVR_detail_a.png",
-    "detail_b": "/product-images/SM30EVR_detail_b.png"
+    "image": "/product-images/SM30EVR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX50UT0609N": {
-    "image": "/product-images/ZSRX50UT0609N.jpg",
+    "image": "/product-images/ZSRX50UT0609N-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGS30M07C": {
-    "image": "/product-images/CGS30M.png",
-    "detail_a": "/product-images/CGS30M_detail_a.png",
-    "detail_b": "/product-images/CGS30M_detail_b.png"
+    "image": "/product-images/CGS30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50VT0809C": {
-    "image": "/product-images/SMX50VT.png",
-    "detail_a": "/product-images/SMX50VT_detail_a.png",
-    "detail_b": "/product-images/SMX50VT_detail_b.png"
+    "image": "/product-images/SMX50VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "IF30PTR4508C": {
-    "image": "/product-images/IF30PTR.png",
-    "detail_a": "/product-images/IF30PTR_detail_a.png",
-    "detail_b": "/product-images/IF30PTR_detail_b.png"
+    "image": "/product-images/IF30PTR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OE30P01112B": {
-    "image": "/product-images/OE30P.png",
-    "detail_a": "/product-images/OE30P_detail_a.png",
-    "detail_b": "/product-images/OE30P_detail_b.png"
+    "image": "/product-images/OE30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX10UT1009F": {
-    "image": "/product-images/ZSRX10UT.png",
-    "detail_a": "/product-images/ZSRX10UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX10UT_detail_b.png"
+    "image": "/product-images/ZSRX10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX07UT0906N": {
-    "image": "/product-images/ZSRX07UT0906N.jpg",
+    "image": "/product-images/ZSRX07UT0906N-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT10V0909C": {
-    "image": "/product-images/RT10V.png",
-    "detail_a": "/product-images/RT10V_detail_a.png",
-    "detail_b": "/product-images/RT10V_detail_b.png"
+    "image": "/product-images/RT10V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT10V0508C": {
-    "image": "/product-images/RT10V.png",
-    "detail_a": "/product-images/RT10V_detail_a.png",
-    "detail_b": "/product-images/RT10V_detail_b.png"
+    "image": "/product-images/RT10V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT10V1009A": {
-    "image": "/product-images/RT10V.png",
-    "detail_a": "/product-images/RT10V_detail_a.png",
-    "detail_b": "/product-images/RT10V_detail_b.png"
+    "image": "/product-images/RT10V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "IF30PF1412E": {
-    "image": "/product-images/IF30PF.png",
-    "detail_a": "/product-images/IF30PF_detail_a.png",
-    "detail_b": "/product-images/IF30PF_detail_b.png"
+    "image": "/product-images/IF30PF-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMXAPR1612BDO": {
-    "image": "/product-images/SMXAPR.png",
-    "detail_a": "/product-images/SMXAPR_detail_a.png",
-    "detail_b": "/product-images/SMXAPR_detail_b.png"
+    "image": "/product-images/SMXAPR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10PV1612E": {
-    "image": "/product-images/SMX10PV1612E.jpg",
+    "image": "/product-images/SMX10PV1612E-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30ETR0909C2O": {
-    "image": "/product-images/SMX30ETR(2).png",
-    "detail_a": "/product-images/SMX30ETR(2)_detail_a.png",
-    "detail_b": "/product-images/SMX30ETR(2)_detail_b.png"
+    "image": "/product-images/SMX30ETR(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10LVR2012E": {
-    "image": "/product-images/SMX10LVR2012EAT.png",
+    "image": "/product-images/king-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50M2012E": {
-    "image": "/product-images/SMX50M.png",
-    "detail_a": "/product-images/SMX50M_detail_a.png",
-    "detail_b": "/product-images/SMX50M_detail_b.png"
+    "image": "/product-images/SMX50M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10SR0712U": {
-    "image": "/product-images/SB10SR.png",
-    "detail_a": "/product-images/SB10SR_detail_a.png",
-    "detail_b": "/product-images/SB10SR_detail_b.png"
+    "image": "/product-images/demo demon-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGD30M45H": {
-    "image": "/product-images/CGD30M.png",
-    "detail_a": "/product-images/CGD30M_detail_a.png",
-    "detail_b": "/product-images/CGD30M_detail_b.png"
+    "image": "/product-images/CGD30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "DMPR035A": {
-    "image": "/product-images/DMPR(B).png",
-    "detail_a": "/product-images/DMPR(B)_detail_a.png",
-    "detail_b": "/product-images/DMPR(B)_detail_b.png"
+    "image": "/product-images/DMPR(A)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX10UT133812N": {
-    "image": "/product-images/ZSRX10UT.png",
-    "detail_a": "/product-images/ZSRX10UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX10UT_detail_b.png"
+    "image": "/product-images/ZSRX10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10SR1214E": {
-    "image": "/product-images/SB10SR.png",
-    "detail_a": "/product-images/SB10SR_detail_a.png",
-    "detail_b": "/product-images/SB10SR_detail_b.png"
+    "image": "/product-images/SB10SR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30VT4508C": {
-    "image": "/product-images/SMX30VT.png",
-    "detail_a": "/product-images/SMX30VT_detail_a.png",
-    "detail_b": "/product-images/SMX30VT_detail_b.png"
+    "image": "/product-images/SMX30VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZLW10UT1006A2": {
-    "image": "/product-images/ZLW10UT.png",
-    "detail_a": "/product-images/ZLW10UT_detail_a.png",
-    "detail_b": "/product-images/ZLW10UT_detail_b.png"
+    "image": "/product-images/ZLW10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZRG10SX05309C": {
-    "image": "/product-images/ZRG10S(R).png",
-    "detail_a": "/product-images/ZRG10S(R)_detail_a.png",
-    "detail_b": "/product-images/ZRG10S(R)_detail_b.png"
+    "image": "/product-images/ZRG10S(R)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZRGQ10S0508C": {
-    "image": "/product-images/ZRGQ10S.png",
-    "detail_a": "/product-images/ZRGQ10S_detail_a.png",
-    "detail_b": "/product-images/ZRGQ10S_detail_b.png"
+    "image": "/product-images/ZRGQ10S-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30EF1412EATO": {
-    "image": "/product-images/SMX30EF.png",
-    "detail_a": "/product-images/SMX30EF_detail_a.png",
-    "detail_b": "/product-images/SMX30EF_detail_b.png"
+    "image": "/product-images/SMX30EF-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ID30ET1412E": {
-    "image": "/product-images/ID30ET.png",
-    "detail_a": "/product-images/ID30ET_detail_a.png",
-    "detail_b": "/product-images/ID30ET_detail_b.png"
+    "image": "/product-images/ID30ET-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10SR1614EB": {
-    "image": "/product-images/SB10SR.png",
-    "detail_a": "/product-images/SB10SR_detail_a.png",
-    "detail_b": "/product-images/SB10SR_detail_b.png"
+    "image": "/product-images/demo demon-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30ET1612E2": {
-    "image": "/product-images/SMX30ET(2).png",
-    "detail_a": "/product-images/SMX30ET(2)_detail_a.png",
-    "detail_b": "/product-images/SMX30ET(2)_detail_b.png"
+    "image": "/product-images/SMX30ET(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ10PR10018A": {
-    "image": "/product-images/OEZ10PR.png",
-    "detail_a": "/product-images/OEZ10PR_detail_a.png",
-    "detail_b": "/product-images/OEZ10PR_detail_b.png"
+    "image": "/product-images/OEZ10PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX10UT6509KB": {
-    "image": "/product-images/ZSRX10UT.png",
-    "detail_a": "/product-images/ZSRX10UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX10UT_detail_b.png"
+    "image": "/product-images/ZSRX10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX30UT6509KB": {
-    "image": "/product-images/ZSRX30UT.png",
-    "detail_a": "/product-images/ZSRX30UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX30UT_detail_b.png"
+    "image": "/product-images/ZSRX30UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX30UT1212F": {
-    "image": "/product-images/ZSRX30UT.png",
-    "detail_a": "/product-images/ZSRX30UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX30UT_detail_b.png"
+    "image": "/product-images/ZSRX30UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ10PR06015A": {
-    "image": "/product-images/OEZ10PR.png",
-    "detail_a": "/product-images/OEZ10PR_detail_a.png",
-    "detail_b": "/product-images/OEZ10PR_detail_b.png"
+    "image": "/product-images/OEZ10PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ10PR02015A": {
-    "image": "/product-images/OEZ10PR.png",
-    "detail_a": "/product-images/OEZ10PR_detail_a.png",
-    "detail_b": "/product-images/OEZ10PR_detail_b.png"
+    "image": "/product-images/OEZ10PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10VTR0709U": {
-    "image": "/product-images/SMX10VTR.png",
-    "detail_a": "/product-images/SMX10VTR_detail_a.png",
-    "detail_b": "/product-images/SMX10VTR_detail_b.png"
+    "image": "/product-images/SMX10VTR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMXME1412ED": {
-    "image": "/product-images/SMXME.png",
-    "detail_a": "/product-images/SMXME_detail_a.png",
-    "detail_b": "/product-images/SMXME_detail_b.png"
+    "image": "/product-images/SMXME-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RB10HT0709U": {
-    "image": "/product-images/RB10HT.png",
-    "detail_a": "/product-images/RB10HT_detail_a.png",
-    "detail_b": "/product-images/RB10HT_detail_b.png"
+    "image": "/product-images/RB10HT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10VT0709U": {
-    "image": "/product-images/SMX10VT.png",
-    "detail_a": "/product-images/SMX10VT_detail_a.png",
-    "detail_b": "/product-images/SMX10VT_detail_b.png"
+    "image": "/product-images/SMX10VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10LVR1812E": {
-    "image": "/product-images/SMX10LVR(AT).png",
-    "detail_a": "/product-images/SMX10LVR(AT)_detail_a.png",
-    "detail_b": "/product-images/SMX10LVR(AT)_detail_b.png"
+    "image": "/product-images/king-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10SR0511C": {
-    "image": "/product-images/SB10SR.png",
-    "detail_a": "/product-images/SB10SR_detail_a.png",
-    "detail_b": "/product-images/SB10SR_detail_b.png"
+    "image": "/product-images/SB10SR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ID30ATR1412E (NO PRINT)": {
-    "image": "/product-images/ID30ATR.png",
-    "detail_a": "/product-images/ID30ATR_detail_a.png",
-    "detail_b": "/product-images/ID30ATR_detail_b.png"
+    "image": "/product-images/ID30ATR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10PV2012E": {
-    "image": "/product-images/SMX10PV2012E.jpg",
+    "image": "/product-images/SMX10PV2012E-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX20UT1009F": {
-    "image": "/product-images/ZSRX20UT.png",
-    "detail_a": "/product-images/ZSRX20UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX20UT_detail_b.png"
+    "image": "/product-images/ZSRX20UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMXAPR2012EDO": {
-    "image": "/product-images/SMXAPR.png",
-    "detail_a": "/product-images/SMXAPR_detail_a.png",
-    "detail_b": "/product-images/SMXAPR_detail_b.png"
+    "image": "/product-images/SMXAPR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30LF1412E": {
-    "image": "/product-images/SMX30LF.png",
-    "detail_a": "/product-images/SMX30LF_detail_a.png",
-    "detail_b": "/product-images/SMX30LF_detail_b.png"
+    "image": "/product-images/SMX30LF-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10SR1414B": {
-    "image": "/product-images/SB10SR.png",
-    "detail_a": "/product-images/SB10SR_detail_a.png",
-    "detail_b": "/product-images/SB10SR_detail_b.png"
+    "image": "/product-images/SB10SR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "PM30M4525C": {
-    "image": "/product-images/PM30M.png",
-    "detail_a": "/product-images/PM30M_detail_a.png",
-    "detail_b": "/product-images/PM30M_detail_b.png"
+    "image": "/product-images/PM30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10LVR1412B": {
-    "image": "/product-images/SMX10LVR1412B.png",
+    "image": "/product-images/SMX10LVR1412B-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX30UT1009KO": {
-    "image": "/product-images/ZSRX30UT.png",
-    "detail_a": "/product-images/ZSRX30UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX30UT_detail_b.png"
+    "image": "/product-images/ZSRX30UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30VT0809C": {
-    "image": "/product-images/SMX30VT.png",
-    "detail_a": "/product-images/SMX30VT_detail_a.png",
-    "detail_b": "/product-images/SMX30VT_detail_b.png"
+    "image": "/product-images/SMX30VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT10V0809U": {
-    "image": "/product-images/RT10V.png",
-    "detail_a": "/product-images/RT10V_detail_a.png",
-    "detail_b": "/product-images/RT10V_detail_b.png"
+    "image": "/product-images/RT10V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT30V0809U": {
-    "image": "/product-images/RT30V.png",
-    "detail_a": "/product-images/RT30V_detail_a.png",
-    "detail_b": "/product-images/RT30V_detail_b.png"
+    "image": "/product-images/RT30V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10VTR0809UO": {
-    "image": "/product-images/SMX10VTR.png",
-    "detail_a": "/product-images/SMX10VTR_detail_a.png",
-    "detail_b": "/product-images/SMX10VTR_detail_b.png"
+    "image": "/product-images/SMX10VTR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGD30M07C": {
-    "image": "/product-images/CGD30M.png",
-    "detail_a": "/product-images/CGD30M_detail_a.png",
-    "detail_b": "/product-images/CGD30M_detail_b.png"
+    "image": "/product-images/CGD30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGD30P04H": {
-    "image": "/product-images/CGD30P.png",
-    "detail_a": "/product-images/CGD30P_detail_a.png",
-    "detail_b": "/product-images/CGD30P_detail_b.png"
+    "image": "/product-images/CGD30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CD30P04H": {
-    "image": "/product-images/CD30P.png",
-    "detail_a": "/product-images/CD30P_detail_a.png",
-    "detail_b": "/product-images/CD30P_detail_b.png"
+    "image": "/product-images/CD30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMXMP1412BATW": {
-    "image": "/product-images/SMXMP.png",
-    "detail_a": "/product-images/SMXMP_detail_a.png",
-    "detail_b": "/product-images/SMXMP_detail_b.png"
+    "image": "/product-images/SMXMP-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ10PR03015A": {
-    "image": "/product-images/OEZ10PR.png",
-    "detail_a": "/product-images/OEZ10PR_detail_a.png",
-    "detail_b": "/product-images/OEZ10PR_detail_b.png"
+    "image": "/product-images/OEZ10PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZOE10UT04015A": {
-    "image": "/product-images/ZOE10UT.png",
-    "detail_a": "/product-images/ZOE10UT_detail_a.png",
-    "detail_b": "/product-images/ZOE10UT_detail_b.png"
+    "image": "/product-images/ZOE10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50VT0909CO": {
-    "image": "/product-images/SMX50VT.png",
-    "detail_a": "/product-images/SMX50VT_detail_a.png",
-    "detail_b": "/product-images/SMX50VT_detail_b.png"
+    "image": "/product-images/SMX50VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10UR1413E": {
-    "image": "/product-images/SB10UR.png",
-    "detail_a": "/product-images/SB10UR_detail_a.png",
-    "detail_b": "/product-images/SB10UR_detail_b.png"
+    "image": "/product-images/SB10UR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSM30U10N1416RING": {
-    "image": "/product-images/ZSM30U(RING).png",
-    "detail_a": "/product-images/ZSM30U(RING)_detail_a.png",
-    "detail_b": "/product-images/ZSM30U(RING)_detail_b.png"
+    "image": "/product-images/ZSM30U(RING)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50VT1412E": {
-    "image": "/product-images/SMX50VT.png",
-    "detail_a": "/product-images/SMX50VT_detail_a.png",
-    "detail_b": "/product-images/SMX50VT_detail_b.png"
+    "image": "/product-images/zeus-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SM30CT4508CDB": {
-    "image": "/product-images/SM30CT(DB).png",
-    "detail_a": "/product-images/SM30CT(DB)_detail_a.png",
-    "detail_b": "/product-images/SM30CT(DB)_detail_b.png"
+    "image": "/product-images/SM30CT(DB)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "PM30N4525C": {
-    "image": "/product-images/PM30N.png",
-    "detail_a": "/product-images/PM30N_detail_a.png",
-    "detail_b": "/product-images/PM30N_detail_b.png"
+    "image": "/product-images/PM30N-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGS30M07H": {
-    "image": "/product-images/CGS30M.png",
-    "detail_a": "/product-images/CGS30M_detail_a.png",
-    "detail_b": "/product-images/CGS30M_detail_b.png"
+    "image": "/product-images/CGS30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10PV2014E": {
-    "image": "/product-images/SMX10PV2014E.jpg",
+    "image": "/product-images/SMX10PV2014E-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGS30M05H": {
-    "image": "/product-images/CGS30M.png",
-    "detail_a": "/product-images/CGS30M_detail_a.png",
-    "detail_b": "/product-images/CGS30M_detail_b.png"
+    "image": "/product-images/CGS30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEC30P00712B": {
-    "image": "/product-images/OEC30P.png",
-    "detail_a": "/product-images/OEC30P_detail_a.png",
-    "detail_b": "/product-images/OEC30P_detail_b.png"
+    "image": "/product-images/OEC30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ30PR01012B": {
-    "image": "/product-images/OEZ30PR.png",
-    "detail_a": "/product-images/OEZ30PR_detail_a.png",
-    "detail_b": "/product-images/OEZ30PR_detail_b.png"
+    "image": "/product-images/OEZ30PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ30PR01512BO": {
-    "image": "/product-images/OEZ30PR.png",
-    "detail_a": "/product-images/OEZ30PR_detail_a.png",
-    "detail_b": "/product-images/OEZ30PR_detail_b.png"
+    "image": "/product-images/OEZ30PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZLPS10P0706U": {
-    "image": "/product-images/ZLPS10P.png",
-    "detail_a": "/product-images/ZLPS10P_detail_a.png",
-    "detail_b": "/product-images/ZLPS10P_detail_b.png"
+    "image": "/product-images/ZLPS10P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "DMPC076B": {
-    "image": "/product-images/DMPC.png",
-    "detail_a": "/product-images/DMPC_detail_a.png",
-    "detail_b": "/product-images/DMPC_detail_b.png"
+    "image": "/product-images/DMPC-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "IF30PTR0709U": {
-    "image": "/product-images/IF30PTR.png",
-    "detail_a": "/product-images/IF30PTR_detail_a.png",
-    "detail_b": "/product-images/IF30PTR_detail_b.png"
+    "image": "/product-images/IF30PTR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30ET0609U2": {
-    "image": "/product-images/SMX30ET(2).png",
-    "detail_a": "/product-images/SMX30ET(2)_detail_a.png",
-    "detail_b": "/product-images/SMX30ET(2)_detail_b.png"
+    "image": "/product-images/SMX30ET(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ10PR03515A": {
-    "image": "/product-images/OEZ10PR.png",
-    "detail_a": "/product-images/OEZ10PR_detail_a.png",
-    "detail_b": "/product-images/OEZ10PR_detail_b.png"
+    "image": "/product-images/OEZ10PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RG10N0508C2": {
-    "image": "/product-images/RG10N.png",
-    "detail_a": "/product-images/RG10N_detail_a.png",
-    "detail_b": "/product-images/RG10N_detail_b.png"
+    "image": "/product-images/RG10N-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30UV2415E": {
-    "image": "/product-images/SMX30UV.png",
-    "detail_a": "/product-images/SMX30UV_detail_a.png",
-    "detail_b": "/product-images/SMX30UV_detail_b.png"
+    "image": "/product-images/SMX30UV-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "DXA2920P45H": {
-    "image": "/product-images/DXA2920P.png",
-    "detail_a": "/product-images/DXA2920P_detail_a.png",
-    "detail_b": "/product-images/DXA2920P_detail_b.png"
+    "image": "/product-images/DXA2920P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ10PR07016A": {
-    "image": "/product-images/OEZ10PR.png",
-    "detail_a": "/product-images/OEZ10PR_detail_a.png",
-    "detail_b": "/product-images/OEZ10PR_detail_b.png"
+    "image": "/product-images/OEZ10PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ10PR08016A": {
-    "image": "/product-images/OEZ10PR.png",
-    "detail_a": "/product-images/OEZ10PR_detail_a.png",
-    "detail_b": "/product-images/OEZ10PR_detail_b.png"
+    "image": "/product-images/OEZ10PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGD30P05H": {
-    "image": "/product-images/CGD30P.png",
-    "detail_a": "/product-images/CGD30P_detail_a.png",
-    "detail_b": "/product-images/CGD30P_detail_b.png"
+    "image": "/product-images/CGD30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CSS30P0716H": {
-    "image": "/product-images/CSS30P.png",
-    "detail_a": "/product-images/CSS30P_detail_a.png",
-    "detail_b": "/product-images/CSS30P_detail_b.png"
+    "image": "/product-images/CSS30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT30V4508C": {
-    "image": "/product-images/RT30V.png",
-    "detail_a": "/product-images/RT30V_detail_a.png",
-    "detail_b": "/product-images/RT30V_detail_b.png"
+    "image": "/product-images/RT30V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "DXE0130P4505C": {
-    "image": "/product-images/DXE0130P.png",
-    "detail_a": "/product-images/DXE0130P_detail_a.png",
-    "detail_b": "/product-images/DXE0130P_detail_b.png"
+    "image": "/product-images/DXE0130P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMXME1612ED": {
-    "image": "/product-images/SMXME.png",
-    "detail_a": "/product-images/SMXME_detail_a.png",
-    "detail_b": "/product-images/SMXME_detail_b.png"
+    "image": "/product-images/SMXME-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEC30P00812": {
-    "image": "/product-images/OEC30P.png",
-    "detail_a": "/product-images/OEC30P_detail_a.png",
-    "detail_b": "/product-images/OEC30P_detail_b.png"
+    "image": "/product-images/OEC30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ30PR01012BO": {
-    "image": "/product-images/OEZ30PR.png",
-    "detail_a": "/product-images/OEZ30PR_detail_a.png",
-    "detail_b": "/product-images/OEZ30PR_detail_b.png"
+    "image": "/product-images/OEZ30PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGD30P45H": {
-    "image": "/product-images/CGD30P.png",
-    "detail_a": "/product-images/CGD30P_detail_a.png",
-    "detail_b": "/product-images/CGD30P_detail_b.png"
+    "image": "/product-images/CGD30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10HR1415E": {
-    "image": "/product-images/SB10HR.png",
-    "detail_a": "/product-images/SB10HR_detail_a.png",
-    "detail_b": "/product-images/SB10HR_detail_b.png"
+    "image": "/product-images/SB10HR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ID50ET1412EW": {
-    "image": "/product-images/ID50ET.png",
-    "detail_a": "/product-images/ID50ET_detail_a.png",
-    "detail_b": "/product-images/ID50ET_detail_b.png"
+    "image": "/product-images/ID50ET-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10VT0809U": {
-    "image": "/product-images/SMX10VT.png",
-    "detail_a": "/product-images/SMX10VT_detail_a.png",
-    "detail_b": "/product-images/SMX10VT_detail_b.png"
+    "image": "/product-images/SMX10VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50VT4508C": {
-    "image": "/product-images/SMX50VT.png",
-    "detail_a": "/product-images/SMX50VT_detail_a.png",
-    "detail_b": "/product-images/SMX50VT_detail_b.png"
+    "image": "/product-images/SMX50VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SM20UT1412EU": {
-    "image": "/product-images/SM20UT.png",
-    "detail_a": "/product-images/SM20UT_detail_a.png",
-    "detail_b": "/product-images/SM20UT_detail_b.png"
+    "image": "/product-images/SM20UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SGQ20V20T1613T": {
-    "image": "/product-images/SGQ20V20T.png",
-    "detail_a": "/product-images/SGQ20V20T_detail_a.png",
-    "detail_b": "/product-images/SGQ20V20T_detail_b.png"
+    "image": "/product-images/SGQ20V20T-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "LL10UA0706A": {
-    "image": "/product-images/LL10UA.png",
-    "detail_a": "/product-images/LL10UA_detail_a.png",
-    "detail_b": "/product-images/LL10UA_detail_b.png"
+    "image": "/product-images/LL10UA-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30ET0709U2": {
-    "image": "/product-images/SMX30ET(2).png",
-    "detail_a": "/product-images/SMX30ET(2)_detail_a.png",
-    "detail_b": "/product-images/SMX30ET(2)_detail_b.png"
+    "image": "/product-images/SMX30ET(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX10UT0809N": {
-    "image": "/product-images/ZSRX10UT.png",
-    "detail_a": "/product-images/ZSRX10UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX10UT_detail_b.png"
+    "image": "/product-images/ZSRX10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT10V1212E": {
-    "image": "/product-images/RT10V.png",
-    "detail_a": "/product-images/RT10V_detail_a.png",
-    "detail_b": "/product-images/RT10V_detail_b.png"
+    "image": "/product-images/RT10V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10LV1612E": {
-    "image": "/product-images/SMX10LV1612E.png",
+    "image": "/product-images/SMX10LV1612E-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50VT1412B": {
-    "image": "/product-images/SMX50VT.png",
-    "detail_a": "/product-images/SMX50VT_detail_a.png",
-    "detail_b": "/product-images/SMX50VT_detail_b.png"
+    "image": "/product-images/SMX50VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RB30UT0709U": {
-    "image": "/product-images/RB30UT.png",
-    "detail_a": "/product-images/RB30UT_detail_a.png",
-    "detail_b": "/product-images/RB30UT_detail_b.png"
+    "image": "/product-images/RB30UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT30V0709U": {
-    "image": "/product-images/RT30V.png",
-    "detail_a": "/product-images/RT30V_detail_a.png",
-    "detail_b": "/product-images/RT30V_detail_b.png"
+    "image": "/product-images/RT30V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ID30ET4508CDB": {
-    "image": "/product-images/ID30ET.png",
-    "detail_a": "/product-images/ID30ET_detail_a.png",
-    "detail_b": "/product-images/ID30ET_detail_b.png"
+    "image": "/product-images/ID30ET-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "PCDCUP07H2": {
-    "image": "/product-images/PCDCUP(2P).png",
-    "detail_a": "/product-images/PCDCUP(2P)_detail_a.png",
-    "detail_b": "/product-images/PCDCUP(2P)_detail_b.png"
+    "image": "/product-images/PCDCUP(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RB10MT0809U": {
-    "image": "/product-images/RB10MT.png",
-    "detail_a": "/product-images/RB10MT_detail_a.png",
-    "detail_b": "/product-images/RB10MT_detail_b.png"
+    "image": "/product-images/RB10MT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGS30P04H": {
-    "image": "/product-images/CGS30P.png",
-    "detail_a": "/product-images/CGS30P_detail_a.png",
-    "detail_b": "/product-images/CGS30P_detail_b.png"
+    "image": "/product-images/CGS30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT10V0408C": {
-    "image": "/product-images/RT10V.png",
-    "detail_a": "/product-images/RT10V_detail_a.png",
-    "detail_b": "/product-images/RT10V_detail_b.png"
+    "image": "/product-images/RT10V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT10V0609C": {
-    "image": "/product-images/RT10V.png",
-    "detail_a": "/product-images/RT10V_detail_a.png",
-    "detail_b": "/product-images/RT10V_detail_b.png"
+    "image": "/product-images/RT10V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CD30M05H": {
-    "image": "/product-images/CD30M.png",
-    "detail_a": "/product-images/CD30M_detail_a.png",
-    "detail_b": "/product-images/CD30M_detail_b.png"
+    "image": "/product-images/CD30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10PV1412E": {
-    "image": "/product-images/SMX10PV1412E.jpg",
+    "image": "/product-images/SMX10PV1412E-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10PV1812E": {
-    "image": "/product-images/SMX10PV1812E.jpg",
+    "image": "/product-images/SMX10PV1812E-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30ETR0709U2": {
-    "image": "/product-images/SMX30ETR(2).png",
-    "detail_a": "/product-images/SMX30ETR(2)_detail_a.png",
-    "detail_b": "/product-images/SMX30ETR(2)_detail_b.png"
+    "image": "/product-images/SMX30ETR(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "LD10P0706U": {
-    "image": "/product-images/LD10P.png",
-    "detail_a": "/product-images/LD10P_detail_a.png",
-    "detail_b": "/product-images/LD10P_detail_b.png"
+    "image": "/product-images/LD10P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "LW10UT0706A2": {
-    "image": "/product-images/LW10UT(2).png",
-    "detail_a": "/product-images/LW10UT(2)_detail_a.png",
-    "detail_b": "/product-images/LW10UT(2)_detail_b.png"
+    "image": "/product-images/LW10UT(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "PM30M0718UO": {
-    "image": "/product-images/PM30M.png",
-    "detail_a": "/product-images/PM30M_detail_a.png",
-    "detail_b": "/product-images/PM30M_detail_b.png"
+    "image": "/product-images/PM30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMXAP1612EAD": {
-    "image": "/product-images/SMXAP.png",
-    "detail_a": "/product-images/SMXAP_detail_a.png",
-    "detail_b": "/product-images/SMXAP_detail_b.png"
+    "image": "/product-images/SMXAP-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OA30P02215A": {
-    "image": "/product-images/OA30P.png",
-    "detail_a": "/product-images/OA30P_detail_a.png",
-    "detail_b": "/product-images/OA30P_detail_b.png"
+    "image": "/product-images/OA30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OA30P07016A": {
-    "image": "/product-images/OA30P.png",
-    "detail_a": "/product-images/OA30P_detail_a.png",
-    "detail_b": "/product-images/OA30P_detail_b.png"
+    "image": "/product-images/OA30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10LVR1412E": {
-    "image": "/product-images/SMX10LVR1412E.png",
+    "image": "/product-images/SMX10LVR1412E-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX30UT0809N": {
-    "image": "/product-images/ZSRX30UT.png",
-    "detail_a": "/product-images/ZSRX30UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX30UT_detail_b.png"
+    "image": "/product-images/ZSRX30UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX30UT133812N": {
-    "image": "/product-images/ZSRX30UT.png",
-    "detail_a": "/product-images/ZSRX30UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX30UT_detail_b.png"
+    "image": "/product-images/ZSRX30UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10VT0508CO": {
-    "image": "/product-images/SMX10VT.png",
-    "detail_a": "/product-images/SMX10VT_detail_a.png",
-    "detail_b": "/product-images/SMX10VT_detail_b.png"
+    "image": "/product-images/SMX10VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "DMPC064B": {
-    "image": "/product-images/DMPC.png",
-    "detail_a": "/product-images/DMPC_detail_a.png",
-    "detail_b": "/product-images/DMPC_detail_b.png"
+    "image": "/product-images/DMPC-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RB30ET0709U": {
-    "image": "/product-images/RB30ET.png",
-    "detail_a": "/product-images/RB30ET_detail_a.png",
-    "detail_b": "/product-images/RB30ET_detail_b.png"
+    "image": "/product-images/RB30ET-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ10PR04015A": {
-    "image": "/product-images/OEZ10PR.png",
-    "detail_a": "/product-images/OEZ10PR_detail_a.png",
-    "detail_b": "/product-images/OEZ10PR_detail_b.png"
+    "image": "/product-images/OEZ10PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RW10V4508C": {
-    "image": "/product-images/RW10V.png",
-    "detail_a": "/product-images/RW10V_detail_a.png",
-    "detail_b": "/product-images/RW10V_detail_b.png"
+    "image": "/product-images/RW10V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ10PR12018A": {
-    "image": "/product-images/OEZ10PR.png",
-    "detail_a": "/product-images/OEZ10PR_detail_a.png",
-    "detail_b": "/product-images/OEZ10PR_detail_b.png"
+    "image": "/product-images/OEZ10PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ10PR05015A": {
-    "image": "/product-images/OEZ10PR.png",
-    "detail_a": "/product-images/OEZ10PR_detail_a.png",
-    "detail_b": "/product-images/OEZ10PR_detail_b.png"
+    "image": "/product-images/OEZ10PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10SR0411C": {
-    "image": "/product-images/SB10SR.png",
-    "detail_a": "/product-images/SB10SR_detail_a.png",
-    "detail_b": "/product-images/SB10SR_detail_b.png"
+    "image": "/product-images/SB10SR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30VTR0709U": {
-    "image": "/product-images/SMX30VTR.png",
-    "detail_a": "/product-images/SMX30VTR_detail_a.png",
-    "detail_b": "/product-images/SMX30VTR_detail_b.png"
+    "image": "/product-images/SMX30VTR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CAR30P07H": {
-    "image": "/product-images/CAR30P.png",
-    "detail_a": "/product-images/CAR30P_detail_a.png",
-    "detail_b": "/product-images/CAR30P_detail_b.png"
+    "image": "/product-images/CAR30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGD30P07H": {
-    "image": "/product-images/CGD30P.png",
-    "detail_a": "/product-images/CGD30P_detail_a.png",
-    "detail_b": "/product-images/CGD30P_detail_b.png"
+    "image": "/product-images/CGD30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CSS30P05120H": {
-    "image": "/product-images/CSS30P.png",
-    "detail_a": "/product-images/CSS30P_detail_a.png",
-    "detail_b": "/product-images/CSS30P_detail_b.png"
+    "image": "/product-images/CSS30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SG90X": {
-    "image": "/product-images/SG90X.jpg",
+    "image": "/product-images/SG90X-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RB30NT4508C": {
-    "image": "/product-images/RB30NT.png",
-    "detail_a": "/product-images/RB30NT_detail_a.png",
-    "detail_b": "/product-images/RB30NT_detail_b.png"
+    "image": "/product-images/RB30NT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RB30NT0709U": {
-    "image": "/product-images/RB30NT.png",
-    "detail_a": "/product-images/RB30NT_detail_a.png",
-    "detail_b": "/product-images/RB30NT_detail_b.png"
+    "image": "/product-images/RB30NT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30VT0809U": {
-    "image": "/product-images/SMX30VT.png",
-    "detail_a": "/product-images/SMX30VT_detail_a.png",
-    "detail_b": "/product-images/SMX30VT_detail_b.png"
+    "image": "/product-images/SMX30VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "IF30PV1412E": {
-    "image": "/product-images/IF30PV.png",
-    "detail_a": "/product-images/IF30PV_detail_a.png",
-    "detail_b": "/product-images/IF30PV_detail_b.png"
+    "image": "/product-images/barbarian-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SM30NT2014ESO": {
-    "image": "/product-images/SM30N(RING).png",
-    "detail_a": "/product-images/SM30N(RING)_detail_a.png",
-    "detail_b": "/product-images/SM30N(RING)_detail_b.png"
+    "image": "/product-images/SM30N(RING)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "PM30M0525C": {
-    "image": "/product-images/PM30M.png",
-    "detail_a": "/product-images/PM30M_detail_a.png",
-    "detail_b": "/product-images/PM30M_detail_b.png"
+    "image": "/product-images/PM30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZERG10N0508C2": {
-    "image": "/product-images/ZERG10N.png",
-    "detail_a": "/product-images/ZERG10N_detail_a.png",
-    "detail_b": "/product-images/ZERG10N_detail_b.png"
+    "image": "/product-images/ZERG10N-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZRG10S0510CR": {
-    "image": "/product-images/ZRG10S(R).png",
-    "detail_a": "/product-images/ZRG10S(R)_detail_a.png",
-    "detail_b": "/product-images/ZRG10S(R)_detail_b.png"
+    "image": "/product-images/ZRG10S(R)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ30PR06015A": {
-    "image": "/product-images/OEZ30PR.png",
-    "detail_a": "/product-images/OEZ30PR_detail_a.png",
-    "detail_b": "/product-images/OEZ30PR_detail_b.png"
+    "image": "/product-images/OEZ30PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ30PR08016A": {
-    "image": "/product-images/OEZ30PR.png",
-    "detail_a": "/product-images/OEZ30PR_detail_a.png",
-    "detail_b": "/product-images/OEZ30PR_detail_b.png"
+    "image": "/product-images/OEZ30PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMXMP1412EATW": {
-    "image": "/product-images/SMXMP.png",
-    "detail_a": "/product-images/SMXMP_detail_a.png",
-    "detail_b": "/product-images/SMXMP_detail_b.png"
+    "image": "/product-images/SMXMP-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30UV1412E": {
-    "image": "/product-images/SMX30UV.png",
-    "detail_a": "/product-images/SMX30UV_detail_a.png",
-    "detail_b": "/product-images/SMX30UV_detail_b.png"
+    "image": "/product-images/hounds of hades-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SGQ20V20T2015T": {
-    "image": "/product-images/SGQ20V20T.png",
-    "detail_a": "/product-images/SGQ20V20T_detail_a.png",
-    "detail_b": "/product-images/SGQ20V20T_detail_b.png"
+    "image": "/product-images/SGQ20V20T-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGD30M05C": {
-    "image": "/product-images/CGD30M.png",
-    "detail_a": "/product-images/CGD30M_detail_a.png",
-    "detail_b": "/product-images/CGD30M_detail_b.png"
+    "image": "/product-images/CGD30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CD30M05C": {
-    "image": "/product-images/CD30M.png",
-    "detail_a": "/product-images/CD30M_detail_a.png",
-    "detail_b": "/product-images/CD30M_detail_b.png"
+    "image": "/product-images/CD30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10HR1615E": {
-    "image": "/product-images/SB10HR.png",
-    "detail_a": "/product-images/SB10HR_detail_a.png",
-    "detail_b": "/product-images/SB10HR_detail_b.png"
+    "image": "/product-images/SB10HR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZDGUL035B3": {
-    "image": "/product-images/ZDGUL(3).png",
-    "detail_a": "/product-images/ZDGUL(3)_detail_a.png",
-    "detail_b": "/product-images/ZDGUL(3)_detail_b.png"
+    "image": "/product-images/ZDGUL(3)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZEDGPL035BSL": {
-    "image": "/product-images/ZEDGPL.png",
-    "detail_a": "/product-images/ZEDGPL_detail_a.png",
-    "detail_b": "/product-images/ZEDGPL_detail_b.png"
+    "image": "/product-images/ZEDGPL-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "NCFS30P05H": {
-    "image": "/product-images/NCFS30P.png",
-    "detail_a": "/product-images/NCFS30P_detail_a.png",
-    "detail_b": "/product-images/NCFS30P_detail_b.png"
+    "image": "/product-images/NCFS30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10SR1614EG": {
-    "image": "/product-images/SB10SR.png",
-    "detail_a": "/product-images/SB10SR_detail_a.png",
-    "detail_b": "/product-images/SB10SR_detail_b.png"
+    "image": "/product-images/SB10SR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX10UT1412N": {
-    "image": "/product-images/ZSRX10UT.png",
-    "detail_a": "/product-images/ZSRX10UT_detail_a.png",
-    "detail_b": "/product-images/ZSRX10UT_detail_b.png"
+    "image": "/product-images/ZSRX10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30VT0609U": {
-    "image": "/product-images/SMX30VT.png",
-    "detail_a": "/product-images/SMX30VT_detail_a.png",
-    "detail_b": "/product-images/SMX30VT_detail_b.png"
+    "image": "/product-images/SMX30VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30LV": {
-    "image": "/product-images/SMX30LV.png",
-    "detail_a": "/product-images/SMX30LV_detail_a.png",
-    "detail_b": "/product-images/SMX30LV_detail_b.png"
+    "image": "/product-images/SMX30LV-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OA30P04015A": {
-    "image": "/product-images/OA30P.png",
-    "detail_a": "/product-images/OA30P_detail_a.png",
-    "detail_b": "/product-images/OA30P_detail_b.png"
+    "image": "/product-images/OA30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGD30M04H": {
-    "image": "/product-images/CGD30M.png",
-    "detail_a": "/product-images/CGD30M_detail_a.png",
-    "detail_b": "/product-images/CGD30M_detail_b.png"
+    "image": "/product-images/CGD30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ID30ET0708U": {
-    "image": "/product-images/ID30ET.png",
-    "detail_a": "/product-images/ID30ET_detail_a.png",
-    "detail_b": "/product-images/ID30ET_detail_b.png"
+    "image": "/product-images/ID30ET-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OEZ30PR12018A": {
-    "image": "/product-images/OEZ30PR.png",
-    "detail_a": "/product-images/OEZ30PR_detail_a.png",
-    "detail_b": "/product-images/OEZ30PR_detail_b.png"
+    "image": "/product-images/OEZ30PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMXAP1412EAD": {
-    "image": "/product-images/SMXAP.png",
-    "detail_a": "/product-images/SMXAP_detail_a.png",
-    "detail_b": "/product-images/SMXAP_detail_b.png"
+    "image": "/product-images/SMXAP-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RB30NT1412E": {
-    "image": "/product-images/RB30NT.png",
-    "detail_a": "/product-images/RB30NT_detail_a.png",
-    "detail_b": "/product-images/RB30NT_detail_b.png"
+    "image": "/product-images/RB30NT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CSS30P0516H": {
-    "image": "/product-images/CSS30P.png",
-    "detail_a": "/product-images/CSS30P_detail_a.png",
-    "detail_b": "/product-images/CSS30P_detail_b.png"
+    "image": "/product-images/CSS30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RT30V1412E": {
-    "image": "/product-images/RT30V.png",
-    "detail_a": "/product-images/RT30V_detail_a.png",
-    "detail_b": "/product-images/RT30V_detail_b.png"
+    "image": "/product-images/RT30V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RG10N0609C2": {
-    "image": "/product-images/RG10N.png",
-    "detail_a": "/product-images/RG10N_detail_a.png",
-    "detail_b": "/product-images/RG10N_detail_b.png"
+    "image": "/product-images/RG10N-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50EV1612ED": {
-    "image": "/product-images/SMX50EV.png",
-    "detail_a": "/product-images/SMX50EV_detail_a.png",
-    "detail_b": "/product-images/SMX50EV_detail_b.png"
+    "image": "/product-images/dragon-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50EV2012ED": {
-    "image": "/product-images/SMX50EV.png",
-    "detail_a": "/product-images/SMX50EV_detail_a.png",
-    "detail_b": "/product-images/SMX50EV_detail_b.png"
+    "image": "/product-images/dragon-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OE30P01212B": {
-    "image": "/product-images/OE30P.png",
-    "detail_a": "/product-images/OE30P_detail_a.png",
-    "detail_b": "/product-images/OE30P_detail_b.png"
+    "image": "/product-images/OE30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10VTR1009U": {
-    "image": "/product-images/SMX10VTR.png",
-    "detail_a": "/product-images/SMX10VTR_detail_a.png",
-    "detail_b": "/product-images/SMX10VTR_detail_b.png"
+    "image": "/product-images/SMX10VTR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "PM30CT4525C": {
-    "image": "/product-images/PM30CT.png",
-    "detail_a": "/product-images/PM30CT_detail_a.png",
-    "detail_b": "/product-images/PM30CT_detail_b.png"
+    "image": "/product-images/PM30CT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50ET1412ED": {
-    "image": "/product-images/SMX50ET.png",
-    "detail_a": "/product-images/SMX50ET_detail_a.png",
-    "detail_b": "/product-images/SMX50ET_detail_b.png"
+    "image": "/product-images/SMX50ET-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OE10P01212B": {
-    "image": "/product-images/OE10P.png",
-    "detail_a": "/product-images/OE10P_detail_a.png",
-    "detail_b": "/product-images/OE10P_detail_b.png"
+    "image": "/product-images/OE10P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RB30NT0608U": {
-    "image": "/product-images/RB30NT.png",
-    "detail_a": "/product-images/RB30NT_detail_a.png",
-    "detail_b": "/product-images/RB30NT_detail_b.png"
+    "image": "/product-images/RB30NT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "LGW20P1005A2": {
-    "image": "/product-images/LGW20P(2).png",
-    "detail_a": "/product-images/LGW20P(2)_detail_a.png",
-    "detail_b": "/product-images/LGW20P(2)_detail_b.png"
+    "image": "/product-images/LGW20P(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30ETR1009U2": {
-    "image": "/product-images/SMX30ETR(2).png",
-    "detail_a": "/product-images/SMX30ETR(2)_detail_a.png",
-    "detail_b": "/product-images/SMX30ETR(2)_detail_b.png"
+    "image": "/product-images/SMX30ETR(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "LW10UT100A2": {
-    "image": "/product-images/LW10UT(2).png",
-    "detail_a": "/product-images/LW10UT(2)_detail_a.png",
-    "detail_b": "/product-images/LW10UT(2)_detail_b.png"
+    "image": "/product-images/LW10UT(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "PM30M4537C": {
-    "image": "/product-images/PM30M.png",
-    "detail_a": "/product-images/PM30M_detail_a.png",
-    "detail_b": "/product-images/PM30M_detail_b.png"
+    "image": "/product-images/PM30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CSS30P0530H": {
-    "image": "/product-images/CSS30P.png",
-    "detail_a": "/product-images/CSS30P_detail_a.png",
-    "detail_b": "/product-images/CSS30P_detail_b.png"
+    "image": "/product-images/CSS30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CSS30P0560H": {
-    "image": "/product-images/CSS30P.png",
-    "detail_a": "/product-images/CSS30P_detail_a.png",
-    "detail_b": "/product-images/CSS30P_detail_b.png"
+    "image": "/product-images/CSS30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50H1612E": {
-    "image": "/product-images/SMX50H.png",
-    "detail_a": "/product-images/SMX50H_detail_a.png",
-    "detail_b": "/product-images/SMX50H_detail_b.png"
+    "image": "/product-images/SMX50H-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50H1812E": {
-    "image": "/product-images/SMX50H1812E.jpg",
+    "image": "/product-images/SMX50H1812E-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10VET1412E2": {
-    "image": "/product-images/SMX10VET(2).png",
-    "detail_a": "/product-images/SMX10VET(2)_detail_a.png",
-    "detail_b": "/product-images/SMX10VET(2)_detail_b.png"
+    "image": "/product-images/SMX10VET(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30NF1412EO - WHS": {
-    "image": "/product-images/SMX30NF1412EO.jpg",
+    "image": "/product-images/SMX30NF1412EO - WHS-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30NF1412EO": {
-    "image": "/product-images/SMX30NF1412EO.jpg",
+    "image": "/product-images/SMX30NF1412EO-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "PM30M0437C": {
-    "image": "/product-images/PM30M.png",
-    "detail_a": "/product-images/PM30M_detail_a.png",
-    "detail_b": "/product-images/PM30M_detail_b.png"
+    "image": "/product-images/PM30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZSRX30UT0609N": {
-    "image": "/product-images/ZSRX30UT0609N.jpg",
+    "image": "/product-images/ZSRX30UT0609N-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "LD30H4506C": {
-    "image": "/product-images/LD30H.png",
-    "detail_a": "/product-images/LD30H_detail_a.png",
-    "detail_b": "/product-images/LD30H_detail_b.png"
+    "image": "/product-images/LD30H-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZLPS10P0606U": {
-    "image": "/product-images/ZLPS10P.png",
-    "detail_a": "/product-images/ZLPS10P_detail_a.png",
-    "detail_b": "/product-images/ZLPS10P_detail_b.png"
+    "image": "/product-images/ZLPS10P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30VT0712U": {
-    "image": "/product-images/SMX30VT.png",
-    "detail_a": "/product-images/SMX30VT_detail_a.png",
-    "detail_b": "/product-images/SMX30VT_detail_b.png"
+    "image": "/product-images/SMX30VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "PM30M0725U": {
-    "image": "/product-images/PM30M.png",
-    "detail_a": "/product-images/PM30M_detail_a.png",
-    "detail_b": "/product-images/PM30M_detail_b.png"
+    "image": "/product-images/PM30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX30NF2014MKO": {
-    "image": "/product-images/SMX30NF2014MKO.jpg",
+    "image": "/product-images/SMX30NF2014MKO-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RB10MT4508C": {
-    "image": "/product-images/RB10MT.png",
-    "detail_a": "/product-images/RB10MT_detail_a.png",
-    "detail_b": "/product-images/RB10MT_detail_b.png"
+    "image": "/product-images/RB10MT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SG50X": {
-    "image": "/product-images/SG50X.jpg",
+    "image": "/product-images/SG50X-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "RW10V0709U": {
-    "image": "/product-images/RW10V.png",
-    "detail_a": "/product-images/RW10V_detail_a.png",
-    "detail_b": "/product-images/RW10V_detail_b.png"
+    "image": "/product-images/RW10V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZRG10S4510CR": {
-    "image": "/product-images/ZRG10S(R).png",
-    "detail_a": "/product-images/ZRG10S(R)_detail_a.png",
-    "detail_b": "/product-images/ZRG10S(R)_detail_b.png"
+    "image": "/product-images/ZRG10S(R)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZRG10S0710UR": {
-    "image": "/product-images/ZRG10S(R).png",
-    "detail_a": "/product-images/ZRG10S(R)_detail_a.png",
-    "detail_b": "/product-images/ZRG10S(R)_detail_b.png"
+    "image": "/product-images/ZRG10S(R)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CD30N04H": {
-    "image": "/product-images/CD30N.png",
-    "detail_a": "/product-images/CD30N_detail_a.png",
-    "detail_b": "/product-images/CD30N_detail_b.png"
+    "image": "/product-images/CD30N-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "CGS30M45H": {
-    "image": "/product-images/CGS30M.png",
-    "detail_a": "/product-images/CGS30M_detail_a.png",
-    "detail_b": "/product-images/CGS30M_detail_b.png"
+    "image": "/product-images/CGS30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ZLPS10P0406C": {
-    "image": "/product-images/ZLPS10P.png",
-    "detail_a": "/product-images/ZLPS10P_detail_a.png",
-    "detail_b": "/product-images/ZLPS10P_detail_b.png"
+    "image": "/product-images/ZLPS10P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX50M1412E": {
-    "image": "/product-images/SMX50M.png",
-    "detail_a": "/product-images/SMX50M_detail_a.png",
-    "detail_b": "/product-images/SMX50M_detail_b.png"
+    "image": "/product-images/SMX50M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "OD30P03012A2": {
-    "image": "/product-images/OD30P(2).png",
-    "detail_a": "/product-images/OD30P(2)_detail_a.png",
-    "detail_b": "/product-images/OD30P(2)_detail_b.png"
+    "image": "/product-images/OD30P(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ODZ30PR02012A2": {
-    "image": "/product-images/ODZ30PR(2).png",
-    "detail_a": "/product-images/ODZ30PR(2)_detail_a.png",
-    "detail_b": "/product-images/ODZ30PR(2)_detail_b.png"
+    "image": "/product-images/ODZ30PR(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "PM30ET4525C": {
-    "image": "/product-images/PM30ET.png",
-    "detail_a": "/product-images/PM30ET_detail_a.png",
-    "detail_b": "/product-images/PM30ET_detail_b.png"
+    "image": "/product-images/PM30ET-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SB10SR1414EG": {
-    "image": "/product-images/SB10SR.png",
-    "detail_a": "/product-images/SB10SR_detail_a.png",
-    "detail_b": "/product-images/SB10SR_detail_b.png"
+    "image": "/product-images/SB10SR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "TGM40X": {
-    "image": "/product-images/TGM40X.jpg",
+    "image": "/product-images/TGM40X-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "ID30ATR1412E - WHS": {
-    "image": "/product-images/ID30ATR.png",
-    "detail_a": "/product-images/ID30ATR_detail_a.png",
-    "detail_b": "/product-images/ID30ATR_detail_b.png"
+    "image": "/product-images/dark knight-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "1254360000040466216": {
     "image": "/product-images/1254360000040466216.png",
@@ -2040,9 +2554,11 @@
     "detail_b": null
   },
   "SG40X": {
-    "image": "/product-images/SG40X.jpg",
+    "image": "/product-images/SG40X-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SGC": {
     "image": "/product-images/SGC(2).png",
@@ -2165,9 +2681,11 @@
     "detail_b": null
   },
   "SMX10LVR2012EAT": {
-    "image": "/product-images/SMX10LVR2012EAT.png",
+    "image": "/product-images/SMX10LVR2012EAT-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10PT": {
     "image": "/product-images/SMX10PT.png",
@@ -2175,9 +2693,11 @@
     "detail_b": null
   },
   "SMX10PT1651BMS": {
-    "image": "/product-images/SMX10PT1651BMS.png",
+    "image": "/product-images/SMX10PT1651BMS-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10PV": {
     "image": "/product-images/SMX10PV.png",
@@ -2185,9 +2705,11 @@
     "detail_b": null
   },
   "SMX10PV2414E": {
-    "image": "/product-images/SMX10PV2414E.jpg",
+    "image": "/product-images/SMX10PV2414E-formatted.png",
     "detail_a": null,
-    "detail_b": null
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   },
   "SMX10PVR": {
     "image": "/product-images/SMX10PVR.png",
@@ -2558,5 +3080,1272 @@
     "image": "/product-images/ZSRX50UT0609N-WHS.jpg",
     "detail_a": null,
     "detail_b": null
+  },
+  "PD5100": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SHM30K4525C": {
+    "image": "/product-images/SHM-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SHM30K4525C - WHS": {
+    "image": "/product-images/SHM-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ASHC040100A2": {
+    "image": "/product-images/ASHC(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "IF30PVR1412E-AB": {
+    "image": "/product-images/IF30PVR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RB10UT1412E": {
+    "image": "/product-images/RB10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ASHC050050A": {
+    "image": "/product-images/ASHC(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "COOLING PILLOW": {
+    "image": "/product-images/COOLING PILLOW-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ASHE040800A": {
+    "image": "/product-images/ASHE-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ODZ30PR05012A2": {
+    "image": "/product-images/ODZ30PR(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "OE30P14018A": {
+    "image": "/product-images/OE30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "OEZ10PR01212B": {
+    "image": "/product-images/OEZ10PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SB10SR1614B": {
+    "image": "/product-images/SB10SR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SB10SR1614E": {
+    "image": "/product-images/SB10SR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "AZR04000A": {
+    "image": "/product-images/AZR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX30EF1412EAT": {
+    "image": "/product-images/SMX30EF-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX10VT0609C": {
+    "image": "/product-images/SMX10VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX30VTR0809U": {
+    "image": "/product-images/SMX30VTR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX30VV1612B": {
+    "image": "/product-images/SMX30VV-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX50VT1012E": {
+    "image": "/product-images/SMX50VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "OEZ30PR01012A": {
+    "image": "/product-images/OEZ30PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SM30EVR1612E": {
+    "image": "/product-images/SM30EVR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX10VTR0609C": {
+    "image": "/product-images/SMX10VTR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX10EV1412E": {
+    "image": "/product-images/SMX10EV-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX10VTR0508C": {
+    "image": "/product-images/SMX10VTR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PM30M0537C": {
+    "image": "/product-images/PM30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX30VV1412B": {
+    "image": "/product-images/SMX30VV-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CSS30P0730H": {
+    "image": "/product-images/CSS30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RB10NT1009U": {
+    "image": "/product-images/RB10NT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "OEZ10PR01512B": {
+    "image": "/product-images/OEZ10PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CAR30P07C": {
+    "image": "/product-images/CAR30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMXAPR1412E - WHS": {
+    "image": "/product-images/SMXAPR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZOE10UT08016A": {
+    "image": "/product-images/ZOE10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RB10UT0909U": {
+    "image": "/product-images/RB10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX10VT0909CO": {
+    "image": "/product-images/SMX10VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "IF30PVR1212E": {
+    "image": "/product-images/IF30PVR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RG10N0709U2": {
+    "image": "/product-images/RG10N-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX30ET0909C2O": {
+    "image": "/product-images/SMX30ET(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX30VT1009U": {
+    "image": "/product-images/SMX30VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SHM0450C": {
+    "image": "/product-images/SHM-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "OEZ30PR10018A": {
+    "image": "/product-images/OEZ30PR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD5080": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RB10HT4508C": {
+    "image": "/product-images/RB10HT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD5120": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD5150": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RB30UT0909C": {
+    "image": "/product-images/RB30UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "DMPR025A": {
+    "image": "/product-images/DMPR(A)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD6220": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ID50EV1412EW - WHS": {
+    "image": "/product-images/hydra-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZERG10N4508C2": {
+    "image": "/product-images/ZERG10N-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "DMPR029B": {
+    "image": "/product-images/DMPR(B)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "DMPR032B": {
+    "image": "/product-images/DMPR(B)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZOE10UT05015A": {
+    "image": "/product-images/ZOE10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZSRX50UT1009N": {
+    "image": "/product-images/ZSRX50UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RG10M4508C": {
+    "image": "/product-images/RG10M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "DMPC127A": {
+    "image": "/product-images/DMPC-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "DMPR013A": {
+    "image": "/product-images/DMPR(A)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "DMPR051B": {
+    "image": "/product-images/DMPR(B)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "EPPD041500A2": {
+    "image": "/product-images/EPPD(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZSRX20UT133812N": {
+    "image": "/product-images/ZSRX20UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "DXE0120P1615E": {
+    "image": "/product-images/DXE0120P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "EPPD040400A2": {
+    "image": "/product-images/EPPD(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PDR6180": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PDR6220": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PDR6320": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PM30M0737UO": {
+    "image": "/product-images/PM30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZSRX10UT1225N": {
+    "image": "/product-images/ZSRX10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CGD30M07HLL": {
+    "image": "/product-images/CGD30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ASHC040200A2": {
+    "image": "/product-images/ASHC(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX50VT0508C": {
+    "image": "/product-images/SMX50VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX50VT0609U": {
+    "image": "/product-images/SMX50VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMXMP1612EATW": {
+    "image": "/product-images/SMXMP-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ASHC050100A": {
+    "image": "/product-images/ASHC(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CRN07MA": {
+    "image": "/product-images/CRN-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PDR6400": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD5220": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD5320": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SB10SR1414EO - WHS": {
+    "image": "/product-images/demo demon-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ASHC040050A2": {
+    "image": "/product-images/ASHC(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD6040": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD6120": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD6150": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD6180": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD6400": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZSRX10UT6509KB - WHS": {
+    "image": "/product-images/ZSRX10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PDR5080": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PDR5100": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PDR5120": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "DMPR019A": {
+    "image": "/product-images/DMPR(A)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMALL-S-TSHIRT": {
+    "image": "/product-images/SMA-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "DMPR038A": {
+    "image": "/product-images/DMPR(A)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "DMPR038B": {
+    "image": "/product-images/DMPR(B)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PM30P0537C": {
+    "image": "/product-images/PM30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "EPPD040800A2": {
+    "image": "/product-images/EPPD(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZSRX20UT0809N": {
+    "image": "/product-images/ZSRX20UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CGS30M05C": {
+    "image": "/product-images/CGS30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZSRX20UT1212KBO": {
+    "image": "/product-images/ZSRX20UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "LD30MT4506C": {
+    "image": "/product-images/LD30MT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CGD30M04HSO - WHS": {
+    "image": "/product-images/CGD30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CGS30M04H": {
+    "image": "/product-images/CGS30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD6060": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX30NF1812EMK - WHS": {
+    "image": "/product-images/SMX30NF1812EMK - WHS-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX30NF2014MKO - WHS": {
+    "image": "/product-images/SMX30NF2014MKO - WHS-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RCG30P0510CFL": {
+    "image": "/product-images/RCG-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RCG30P4510CFL": {
+    "image": "/product-images/RCG-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "EPPD040050A2": {
+    "image": "/product-images/EPPD(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "DMPR051A": {
+    "image": "/product-images/DMPR(A)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "EPPD040100A2": {
+    "image": "/product-images/EPPD(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "EPPD043000A2": {
+    "image": "/product-images/EPPD(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX30ETR0609U2": {
+    "image": "/product-images/SMX30ETR(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "EPPD040200A2": {
+    "image": "/product-images/EPPD(2)-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "LW10PT1006A": {
+    "image": "/product-images/LW10PT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CSS30P07120H": {
+    "image": "/product-images/CSS30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX50VT1812E": {
+    "image": "/product-images/SMX50VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "IF30PTR0508C": {
+    "image": "/product-images/IF30PTR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "QSMAP1812E2": {
+    "image": "/product-images/QSMAP-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CSS30P0760H": {
+    "image": "/product-images/CSS30P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RT30V0508C": {
+    "image": "/product-images/RT30V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SHM0401": {
+    "image": "/product-images/SHM-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RT30V0909C": {
+    "image": "/product-images/RT30V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RT50V1009A": {
+    "image": "/product-images/RT50V-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SHM0404": {
+    "image": "/product-images/SHM-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ASHE040400A": {
+    "image": "/product-images/ASHE-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMALL-R-TSHIRT": {
+    "image": "/product-images/SMA-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "AZZ04000A": {
+    "image": "/product-images/AZZ-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "AZZ04000AN": {
+    "image": "/product-images/AZZ-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "AZZ05000A": {
+    "image": "/product-images/AZZ-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZSRX20UT0609N - WHS": {
+    "image": "/product-images/ZSRX20UT0609N - WHS-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZSRX07UT0906N - WHS": {
+    "image": "/product-images/ZSRX07UT0906N - WHS-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SB10SR1416RING": {
+    "image": "/product-images/SB10SR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMALL-T-TSHIRT": {
+    "image": "/product-images/SMA-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SHM0450H": {
+    "image": "/product-images/SHM-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SHM0501": {
+    "image": "/product-images/SHM-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SHM0701O": {
+    "image": "/product-images/SHM-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SHM0750H": {
+    "image": "/product-images/SHM-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SHM0802": {
+    "image": "/product-images/SHM-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD6080": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD5040": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD5060": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD5180": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PDR5220": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PDR6080": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PDR5180": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PM30M0450C": {
+    "image": "/product-images/PM30M-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CRN04CB": {
+    "image": "/product-images/CRN-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CRN04FA": {
+    "image": "/product-images/CRN-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CRN04MB": {
+    "image": "/product-images/CRN-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PM30EH0425C": {
+    "image": "/product-images/PM30EH-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PDR6100": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PDR6120": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PDR6150": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CRN07CB": {
+    "image": "/product-images/CRN-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "CRN07FA": {
+    "image": "/product-images/CRN-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RB30ET0909C": {
+    "image": "/product-images/RB30ET-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RB30NT0909U": {
+    "image": "/product-images/RB30NT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMXAPR1612EDO - WHS": {
+    "image": "/product-images/SMXAPR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RG10P0709U": {
+    "image": "/product-images/RG10P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZSRX10UT0508N": {
+    "image": "/product-images/ZSRX10UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "PD6100": {
+    "image": "/product-images/PD-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX30VT0508C": {
+    "image": "/product-images/SMX30VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX30VTR0508C": {
+    "image": "/product-images/SMX30VTR-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX30VT0909U": {
+    "image": "/product-images/SMX30VT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ID30ET0608U": {
+    "image": "/product-images/ID30ET-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "LD10P1006U": {
+    "image": "/product-images/LD10P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "IF30PV1412E - WHS": {
+    "image": "/product-images/barbarian-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX30UV1412E - WHS": {
+    "image": "/product-images/hounds of hades-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SMX10LVR2412E": {
+    "image": "/product-images/king-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "IF30PV1412E-PP": {
+    "image": "/product-images/IF30PV-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZLPS10P1208E": {
+    "image": "/product-images/ZLPS10P-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZSRX50UT1412N": {
+    "image": "/product-images/ZSRX50UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "LW30UT0706A": {
+    "image": "/product-images/LW30UT-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZSRX30UT0609N - WHS": {
+    "image": "/product-images/ZSRX30UT0609N - WHS-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "ZSRX50UT0609N - WHS": {
+    "image": "/product-images/ZSRX50UT0609N - WHS-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "QSMAP1412E": {
+    "image": "/product-images/QSMAP-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "RB30ET0608U": {
+    "image": "/product-images/RB30ET-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SHM0850C": {
+    "image": "/product-images/SHM-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SHM0850E": {
+    "image": "/product-images/SHM-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "IF30ASR1412E - WHS": {
+    "image": "/product-images/maximus-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SSB14R07": {
+    "image": "/product-images/gladiator-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "SSB14R07 - WHS": {
+    "image": "/product-images/gladiator-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
+  },
+  "IF30ASR1412E": {
+    "image": "/product-images/maximus-formatted.png",
+    "detail_a": null,
+    "detail_b": null,
+    "detail_c": null,
+    "detail_d": null
   }
 }
