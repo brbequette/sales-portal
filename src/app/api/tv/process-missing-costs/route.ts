@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     where: {
       zohoId: { in: requestedSalesOrderIds },
       orderDate: { gte: yearStart },
-      status: { notIn: ["invoiced", "billed", "void", "voided", "declined", "cancelled", "canceled", "draft"] },
+      status: { notIn: ["invoiced", "billed", "void", "voided", "declined", "cancelled", "canceled", "draft", "orphaned"] },
     },
     select: { zohoId: true, items: true },
   })
@@ -82,7 +82,14 @@ export async function POST(request: Request) {
       const salesOrderNumber = String(items.salesorder_number || items.salesOrderNumber || "").trim()
       const response = await processSalesOrderCostsForSystem(salesOrder.zohoId, salesOrderNumber || undefined)
       const payload = JSON.parse(response?.body || "{}")
-      results.push({ documentId: salesOrder.zohoId, type: "salesorder", success: response?.statusCode === 200 && payload.success === true })
+      const success = response?.statusCode === 200 && payload.success === true
+      if (response?.statusCode === 404) {
+        await prisma.salesOrder.update({
+          where: { zohoId: salesOrder.zohoId },
+          data: { status: "orphaned", pendingZohoFetch: true },
+        })
+      }
+      results.push({ documentId: salesOrder.zohoId, type: "salesorder", success })
     } catch {
       results.push({ documentId: salesOrder.zohoId, type: "salesorder", success: false })
     } finally {

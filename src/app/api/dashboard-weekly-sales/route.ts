@@ -6,7 +6,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { hasValidTvSession } from "@/lib/tv-auth"
 
-const terminalStatuses = new Set(["void", "voided", "declined", "cancelled", "canceled"])
+const terminalStatuses = new Set(["void", "voided", "declined", "cancelled", "canceled", "orphaned"])
 const excludedPipelineStatuses = new Set([...terminalStatuses, "draft"])
 const invoicedStatuses = new Set(["invoiced", "billed"])
 

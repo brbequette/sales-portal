@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasValidTvSession } from '@/lib/tv-auth'
+import { isAdminRole } from '@/lib/roles'
 
 export async function GET(request: Request) {
   try {
@@ -50,10 +51,15 @@ export async function GET(request: Request) {
 
     // Build base account filter
     const accountWhere: any = {}
-    if (ownerId && ownerId !== 'All' && ownerId !== 'all') {
+    const sessionUser = session?.user as { dbId?: string; id?: string; role?: string } | undefined
+    const actorId = sessionUser?.dbId || sessionUser?.id
+    const administrator = Boolean(sessionUser && isAdminRole(sessionUser.role))
+    if (sessionUser && !administrator) {
+      if (!actorId) return NextResponse.json({ success: false, error: 'Signed-in user is not linked to a local account' }, { status: 403 })
+      accountWhere.ownerId = actorId
+    } else if (ownerId && ownerId !== 'All' && ownerId !== 'all') {
       accountWhere.ownerId = ownerId
-    }
-    if (repName && repName !== 'All' && repName !== 'all') {
+    } else if (repName && repName !== 'All' && repName !== 'all') {
       accountWhere.ownerId = repName
     }
 
@@ -231,19 +237,23 @@ export async function GET(request: Request) {
         }
 
         let deadCostTotal = parseFloat(items.deadCostTotal ?? items.dead_cost_total ?? items.cf_dead_cost_total ?? extractField(items, 'cf_dead_cost_total') ?? 0)
-        if ((isNaN(deadCostTotal) || deadCostTotal === 0) && subTotal > 0) {
-          deadCostTotal = subTotal * 0.50
-        }
+        if (isNaN(deadCostTotal)) deadCostTotal = 0
         const additionalCosts = parseFloat(items.additionalCosts ?? items.additional_costs ?? items.cf_additional_costs_to_order ?? extractField(items, 'cf_additional_costs_to_order') ?? 0)
         const ccFees = parseFloat(items.ccFees ?? items.cc_fees ?? items.cf_credit_card_processing_fees ?? extractField(items, 'cf_credit_card_processing_fees') ?? 0)
         const giftCost = parseFloat(items.giftCost ?? items.gifts_cost ?? items.gifts ?? extractField(items, 'cf_gifts') ?? 0)
-        profit = subTotal - deadCostTotal - additionalCosts - ccFees - giftCost
+        const hasStoredFinancials = [
+          'deadCostTotal', 'dead_cost_total', 'cf_dead_cost_total', 'deadProfitActual',
+          'profit', 'netProfit', 'net_profit',
+        ].some(key => items[key] !== undefined && items[key] !== null)
+        profit = hasStoredFinancials
+          ? parseFloat(items.deadProfitActual ?? (subTotal - deadCostTotal)) || 0
+          : 0
         
         deadCostNoVig = parseFloat(items.deadCostNoVig ?? items.cf_dead_cost_no_vig ?? extractField(items, 'cf_dead_cost_no_vig') ?? 0)
         deadCostSubjectToVig = parseFloat(items.deadCostSubjectToVig ?? items.cf_dead_cost_subject_to_vig ?? extractField(items, 'cf_dead_cost_subject_to_vig') ?? 0)
         const rawComm = items.commission ?? items.cf_commision_amount ?? items.salesCommission ?? null
         const parsedComm = rawComm !== null ? parseFloat(rawComm) : extractField(items, 'cf_commision_amount')
-        commission = parsedComm || (profit * 0.5) || 0
+        commission = Number.isFinite(parsedComm) ? parsedComm : 0
       } else if (Array.isArray(items)) {
         profit = items.reduce((sum: number, it: any) => {
           const sub = parseFloat(it.sub_total ?? it.subTotal ?? it.amount ?? 0)
@@ -254,10 +264,10 @@ export async function GET(request: Request) {
 
       // Denormalized invoice metrics are the authoritative values maintained
       // by the cost engine. Prefer them over reparsing historical JSON.
-      if (t === 'Invoice' && raw.computedProfit !== null && raw.computedProfit !== undefined) {
-        profit = Number(raw.computedProfit) || 0
+      if (t === 'Invoice' && raw.computedDeadProfit !== null && raw.computedDeadProfit !== undefined) {
+        profit = Number(raw.computedDeadProfit) || 0
         const computedCommission = Number(raw.computedUpfront || 0) + Number(raw.computedFinal || 0)
-        if (computedCommission) commission = computedCommission
+        commission = computedCommission
       }
       
       const statusLower = (raw.status || "").toLowerCase()
@@ -266,7 +276,7 @@ export async function GET(request: Request) {
       const isConvertedToSO = statusLower === 'converted' || items?.salesorder_id || items?.salesorder_number || raw.salesorder_id || raw.salesorder_number || false
       const soStatus = statusLower.trim()
       const salesOrderNumber = items?.salesOrderNumber || items?.salesorder_number || items?.sales_order_number || raw.salesorderNumber || ''
-      const inactiveSalesOrderStatuses = new Set(['invoiced', 'converted', 'closed', 'void', 'voided', 'cancelled', 'canceled', 'draft'])
+      const inactiveSalesOrderStatuses = new Set(['invoiced', 'converted', 'closed', 'void', 'voided', 'cancelled', 'canceled', 'draft', 'orphaned'])
       const isInvoicedOrClosed = inactiveSalesOrderStatuses.has(soStatus)
         || Boolean(items?.invoice_id || items?.invoice_number || raw.invoice_id || raw.invoice_number)
         || Boolean(raw.zohoId && invoicedSalesOrderRefs.has(raw.zohoId))
