@@ -50,6 +50,7 @@ const PUBLIC_API_PATTERNS = [
   '/api/public/',    // Explicitly public endpoints
   '/api/customer/',  // Customer portal endpoints (use their own JWT auth)
   '/api/tv/verify-pin', // TV display authenticates with its own PIN gate
+  '/api/tv/process-missing-costs', // Validates TV/admin session and strict document limits internally
   '/api/internal/books-sync', // Private worker endpoint; validates its own shared secret
 ];
 
