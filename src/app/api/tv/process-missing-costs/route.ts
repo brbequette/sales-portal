@@ -79,7 +79,8 @@ export async function POST(request: Request) {
 
     activeDocuments.add(salesOrder.zohoId)
     try {
-      const response = await processSalesOrderCostsForSystem(salesOrder.zohoId)
+      const salesOrderNumber = String(items.salesorder_number || items.salesOrderNumber || "").trim()
+      const response = await processSalesOrderCostsForSystem(salesOrder.zohoId, salesOrderNumber || undefined)
       const payload = JSON.parse(response?.body || "{}")
       results.push({ documentId: salesOrder.zohoId, type: "salesorder", success: response?.statusCode === 200 && payload.success === true })
     } catch {
