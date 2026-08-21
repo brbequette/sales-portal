@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { SalesBoard } from "@/components/SalesBoard"
+import { FutureSalesBoard } from "@/components/FutureSalesBoard"
 
 export default function TVPage() {
   const [verified, setVerified] = useState(false)
@@ -115,17 +115,17 @@ export default function TVPage() {
   // PIN Gate
   if (!verified) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className={`text-center ${error ? "animate-shake" : ""}`}>
+      <div className="min-h-screen flex items-center justify-center bg-[#05080b] relative overflow-hidden">
+        <div className="absolute inset-0 opacity-30 bg-[linear-gradient(rgba(255,255,255,.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.04)_1px,transparent_1px)] bg-[size:52px_52px]" />
+        <div className="absolute -top-[40vw] -right-[15vw] w-[75vw] h-[75vw] rounded-full bg-[radial-gradient(circle,rgba(52,211,153,.18),rgba(34,211,238,.05)_42%,transparent_68%)]" />
+        <div className={`relative text-center w-full max-w-xl px-8 ${error ? "animate-shake" : ""}`}>
           {/* Logo */}
-          <div className="mb-8">
-            <h1 className="text-2xl sm:text-4xl font-black tracking-[0.2em] sm:tracking-[0.3em] text-white mb-2">
-              TITAN DIAMOND
-            </h1>
-            <div className="h-px w-32 mx-auto bg-gradient-to-r from-transparent via-emerald-500 to-transparent" />
-            <p className="text-neutral-500 text-sm font-bold tracking-widest uppercase mt-4">
-              Sales Dashboard
+          <div className="mb-12">
+            <img src="/images/brand/titan-diamond-2026.png" alt="Titan Diamond USA" className="w-full max-w-sm h-auto mx-auto mb-6 object-contain" />
+            <p className="text-orange-400 text-xs sm:text-sm font-bold tracking-[0.35em] uppercase">
+              Sales Intelligence
             </p>
+            <div className="h-px w-48 mx-auto mt-6 bg-gradient-to-r from-transparent via-orange-500/80 to-transparent" />
           </div>
 
           {/* PIN Input */}
@@ -143,12 +143,12 @@ export default function TVPage() {
                 onPaste={i === 0 ? handlePaste : undefined}
                 disabled={verifying}
                 autoFocus={i === 0}
-                className={`w-12 h-16 sm:w-16 sm:h-20 text-center text-2xl sm:text-3xl font-mono font-bold rounded-xl border-2 bg-black/20 outline-none transition-all duration-200 ${
+                className={`w-14 h-18 sm:w-20 sm:h-24 text-center text-2xl sm:text-4xl font-mono font-bold rounded-2xl border bg-white/[.035] backdrop-blur-xl outline-none transition-all duration-300 ${
                   error
-                    ? "border-red-500 text-red-400"
+                    ? "border-red-400 text-red-300 shadow-[0_0_24px_rgba(248,113,113,.2)]"
                     : digit
-                    ? "border-emerald-500 text-emerald-400"
-                    : "border-neutral-700 text-white focus:border-emerald-500"
+                    ? "border-emerald-400/70 text-emerald-300 shadow-[0_0_24px_rgba(52,211,153,.16)]"
+                    : "border-white/15 text-white focus:border-emerald-400/70 focus:bg-emerald-400/[.04]"
                 } disabled:opacity-50`}
               />
             ))}
@@ -167,8 +167,8 @@ export default function TVPage() {
             </p>
           )}
           {!verifying && !error && (
-            <p className="text-neutral-600 text-xs font-semibold">
-              Enter 4-digit PIN to continue
+            <p className="text-neutral-500 text-[11px] font-bold tracking-[0.22em] uppercase">
+              Enter access code · Command display
             </p>
           )}
         </div>
@@ -191,7 +191,7 @@ export default function TVPage() {
   // TV Dashboard - verified
   return (
     <div className="h-full bg-black p-1 sm:p-2 lg:p-4 flex flex-col min-h-0 overflow-hidden">
-      <SalesBoard />
+      <FutureSalesBoard />
     </div>
   )
 }

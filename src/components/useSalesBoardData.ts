@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { WidgetConfig, DEFAULT_WIDGET_LAYOUT } from "./SalesBoardCustomizer"
+import { clearSharedJson, fetchSharedJson } from "@/lib/shared-api-fetch"
 
 export const SCREENS = ["WEEKLY_GRID", "REPS_KPI", "MTD_STATS", "YTD_STATS", "OVERDUE_INVOICES"] as const
 export type ScreenType = typeof SCREENS[number]
@@ -22,9 +23,29 @@ const REP_GRADIENTS = [
 const ROTATION_TIME = 15000
 const TICK_INTERVAL = 100
 
+const REP_FIRST_NAME_ALIASES: Record<string, string> = { ben: "benjamin", benjamin: "benjamin" }
+
+export const canonicalRepDisplayName = (name: string) => {
+  const normalized = String(name || "").trim().replace(/\s+/g, " ")
+  if (/^ben(?:jamin)?\s+bequette$/i.test(normalized)) return "Benjamin"
+  return normalized
+}
+
+const repNamesMatch = (left: string, right: string) => {
+  const parts = (value: string) => String(value || "").toLowerCase().trim().split(/\s+/).filter(Boolean)
+  const a = parts(left)
+  const b = parts(right)
+  if (!a.length || !b.length) return false
+  if (a.join(" ") === b.join(" ")) return true
+  return (REP_FIRST_NAME_ALIASES[a[0]] || a[0]) === (REP_FIRST_NAME_ALIASES[b[0]] || b[0])
+    && a.at(-1) === b.at(-1)
+}
+
 export interface SalesBoardDataReturn {
   data: any
   loading: boolean
+  lastUpdated: Date | null
+  refreshError: boolean
   currentScreen: ScreenType
   isFullscreen: boolean
   isPaused: boolean
@@ -53,11 +74,14 @@ export interface SalesBoardDataReturn {
 export function useSalesBoardData(): SalesBoardDataReturn {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [refreshError, setRefreshError] = useState(false)
   const [currentScreen, setCurrentScreen] = useState<ScreenType>("WEEKLY_GRID")
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [progress, setProgress] = useState(0)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  const costRepairSignatureRef = useRef("")
 
   // Layout Customizer state
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false)
@@ -236,7 +260,7 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           fetchSafe(`/api/get-documents?pageSize=1000&type=Quote&loadAll=true&startDate=${threeDaysAgoStr}`),
           fetchSafe("/api/tv/config"),
           fetchSafe(`/api/get-documents?pageSize=8000&type=Invoice&loadAll=true&status=overdue`),
-          fetchSafe("/api/dashboard-weekly-sales")
+          fetchSharedJson<any>("/api/dashboard-weekly-sales").catch(() => null)
         ])
 
         const usersPayload = usersPayloadRaw || { users: [] }
@@ -246,6 +270,33 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         const configPayload = configPayloadRaw || { holidays: [] }
         const overduePayload = overduePayloadRaw || { documents: [] }
         const weeklyPayload = weeklyPayloadRaw || { documents: [] }
+
+        if (!usersPayloadRaw || !invoicesPayloadRaw || !weeklyPayloadRaw) {
+          throw new Error("Required TV dashboard data was unavailable")
+        }
+
+        const missingCostInvoiceIds = Array.isArray(weeklyPayload.missingCostInvoiceIds)
+          ? weeklyPayload.missingCostInvoiceIds.map(String).filter(Boolean).slice(0, 5)
+          : []
+        const repairSignature = missingCostInvoiceIds.slice().sort().join(",")
+        if (repairSignature && costRepairSignatureRef.current !== repairSignature) {
+          costRepairSignatureRef.current = repairSignature
+          fetch("/api/tv/process-missing-costs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ invoiceIds: missingCostInvoiceIds }),
+          }).then(async response => {
+            const result = response.ok ? await response.json().catch(() => null) : null
+            if (result?.processed > 0) {
+              clearSharedJson("/api/dashboard-weekly-sales")
+              window.setTimeout(fetchData, 1500)
+            }
+          }).catch(() => {
+            costRepairSignatureRef.current = ""
+          })
+        } else if (!repairSignature) {
+          costRepairSignatureRef.current = ""
+        }
 
         const combinedDocuments = [
           ...(invoicesPayload.documents || []),
@@ -335,7 +386,8 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           
           return {
             id: u.id,
-            name: u.name || u.email,
+            name: canonicalRepDisplayName(u.name || u.email),
+            sourceName: u.name || u.email,
             role: u.role || "Sales Representative",
             expectedVig: 1.5,
             weeklyTarget: weeklyTarget,
@@ -385,8 +437,10 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           const spNameNormalized = normalizeRepName(nameStr)
           if (!spNameNormalized) return null
           return Object.values(repsMap).find(r => {
-            const repNameNormalized = normalizeRepName(r.name)
-            return repNameNormalized.includes(spNameNormalized) || spNameNormalized.includes(repNameNormalized)
+            const repNameNormalized = normalizeRepName(r.sourceName || r.name)
+            return repNameNormalized.includes(spNameNormalized)
+              || spNameNormalized.includes(repNameNormalized)
+              || repNamesMatch(repNameNormalized, spNameNormalized)
           })
         }
 
@@ -426,8 +480,12 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           const repGradient = matchedRep ? matchedRep.gradient : 'from-slate-700 to-slate-900'
 
           const saleDate = doc.date ? doc.date.split('T')[0] : (doc.issueDate ? doc.issueDate.split('T')[0] : '')
-          const dueDateObj = doc.dueDate ? new Date(doc.dueDate) : (doc.date ? new Date(doc.date) : today)
-          const daysOverdue = Math.max(1, Math.floor((today.getTime() - dueDateObj.getTime()) / (1000 * 3600 * 24)))
+          if (!doc.dueDate) continue
+          const dueDateKey = String(doc.dueDate).split('T')[0]
+          const dueDateObj = new Date(`${dueDateKey}T12:00:00`)
+          const todayAtNoon = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12)
+          const daysOverdue = Math.floor((todayAtNoon.getTime() - dueDateObj.getTime()) / (1000 * 3600 * 24))
+          if (daysOverdue <= 0) continue
 
           totalOverdueBalance += balance
           totalOverdueCount += 1
@@ -503,14 +561,15 @@ export function useSalesBoardData(): SalesBoardDataReturn {
             }
           }
 
-          // --- 3. INVOICES & SALES ORDERS (Weekly/MTD/YTD totals) ---
-          // Only count uninvoiced SOs here to avoid double-counting (invoiced SOs are captured by their Invoice)
-          const isInvoicedSO = docType === 'SalesOrder' && (doc.isInvoicedOrClosed || false)
-          if ((docType === 'Invoice' || (docType === 'SalesOrder' && !isInvoicedSO))) {
+          // Booked MTD/YTD performance is invoice-only. Uninvoiced sales
+          // orders remain visible in activePipeline and are never called sales.
+          if (docType === 'Invoice') {
             const saleDate = doc.date ? doc.date.split('T')[0] : ''
             if (!saleDate) return
 
-            const invDateObj = new Date(saleDate)
+            // Date-only strings parse as UTC and can shift to the prior day in
+            // Arizona. Local noon preserves the intended business date.
+            const invDateObj = new Date(`${saleDate}T12:00:00`)
             const amount = Number(doc.amount || 0)
             const profit = Number(doc.profit || 0)
             const deadCostNoVig = Number(doc.deadCostNoVig || 0)
@@ -658,6 +717,19 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           matchedRep.weekly.invoices.push(doc)
         }
 
+        const weeklyBreakdown = (weeklyPayload.documents || []).reduce((result: any, doc: any) => {
+          const type = doc.type === "salesorder" || doc.type === "estimate" ? doc.type : "invoice"
+          result[type].subtotal += Number(doc.subtotal || 0)
+          result[type].deadCost += Number(doc.deadCost || 0)
+          result[type].profit += Number(doc.profit || 0)
+          result[type].count += 1
+          return result
+        }, {
+          invoice: { subtotal: 0, deadCost: 0, profit: 0, count: 0 },
+          salesorder: { subtotal: 0, deadCost: 0, profit: 0, count: 0 },
+          estimate: { subtotal: 0, deadCost: 0, profit: 0, count: 0 },
+        })
+
         const computedBoardData = {
           reps: Object.values(repsMap),
           teamWeekly,
@@ -667,7 +739,9 @@ export function useSalesBoardData(): SalesBoardDataReturn {
           totalOverdueCount,
           maxSystemOverdueDays,
           rawInvoices: rawDocs.filter((d: any) => d.type === 'Invoice'),
-          weekDays
+          weekDays,
+          weeklyBreakdown,
+          missingCostCount: missingCostInvoiceIds.length,
         }
 
         try {
@@ -679,9 +753,12 @@ export function useSalesBoardData(): SalesBoardDataReturn {
         }
 
         setData(computedBoardData)
+        setLastUpdated(new Date())
+        setRefreshError(false)
 
       } catch (err) {
         console.error("Sales Board Error:", err)
+        setRefreshError(true)
       } finally {
         setLoading(false)
       }
@@ -707,20 +784,19 @@ export function useSalesBoardData(): SalesBoardDataReturn {
   // Auto-rotate screens
   useEffect(() => {
     if (isPaused) return
-    let tickCount = progress
     const interval = setInterval(() => {
-      tickCount += (TICK_INTERVAL / ROTATION_TIME) * 100
-      if (tickCount >= 100) {
-         tickCount = 0
-         setCurrentScreen(prev => {
-            const idx = SCREENS.indexOf(prev)
-            return SCREENS[(idx + 1) % SCREENS.length]
-         })
-      }
-      setProgress(tickCount)
+      setProgress(previous => {
+        const next = previous + (TICK_INTERVAL / ROTATION_TIME) * 100
+        if (next < 100) return next
+        setCurrentScreen(screen => {
+          const idx = SCREENS.indexOf(screen)
+          return SCREENS[(idx + 1) % SCREENS.length]
+        })
+        return 0
+      })
     }, TICK_INTERVAL)
     return () => clearInterval(interval)
-  }, [isPaused, progress])
+  }, [isPaused])
 
   const nextScreen = useCallback(() => {
     setCurrentScreen(prev => {
@@ -752,6 +828,8 @@ export function useSalesBoardData(): SalesBoardDataReturn {
   return {
     data,
     loading,
+    lastUpdated,
+    refreshError,
     currentScreen,
     isFullscreen,
     isPaused,

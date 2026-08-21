@@ -1,4 +1,4 @@
-import { withFunctionAuth } from "./lib/auth-middleware"
+import { authenticateFunction, withFunctionAuth } from "./lib/auth-middleware"
 import { Handler } from "@netlify/functions"
 import { getZohoAccessToken, ZOHO_ORGANIZATION_ID, ZOHO_DC } from "./lib/zoho-auth"
 import { calculateDocumentCosts, buildFieldsToUpdate } from "./lib/cost-calculations"
@@ -10,6 +10,7 @@ import {
 } from "../../src/lib/sync-engine"
 
 import { prisma } from "./lib/prisma"
+import { authorizeCostProcessing, hasPrivilegedCostOptions } from "./lib/document-access"
 const ORG_ID = ZOHO_ORGANIZATION_ID
 
 let invoiceFieldDefinitionsCache: { expiresAt: number; fields: any[] } | null = null
@@ -47,6 +48,7 @@ async function getInvoiceFieldDefinitions(baseUrl: string, authHeaders: Record<s
 // Prevents re-entry when our PUT triggers a Zoho workflow that calls back
 const recentlyProcessed = new Map<string, number>()
 const LOOP_GUARD_TTL = 60_000 // 60 seconds
+const TRUSTED_SYSTEM_COST_REQUEST = Symbol("trusted-system-cost-request")
 
 function isRecentlyProcessed(id: string): boolean {
   const t = recentlyProcessed.get(id)
@@ -72,6 +74,10 @@ export const internalHandler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors, body: JSON.stringify({ error: "Method not allowed" }) }
 
   try {
+    const trustedSystemRequest = (event as any)[TRUSTED_SYSTEM_COST_REQUEST] === true
+    const sessionUser = trustedSystemRequest
+      ? { userId: "system", dbId: "system", role: "ADMIN" }
+      : await authenticateFunction(event)
     const body = JSON.parse(event.body || "{}")
     const { invoiceNumber, invoiceId, vigRate: manualVigRate, commissionPercent: manualCommPct, noVigOverrides, skipLoopGuard, applyTariff } = body
 
@@ -84,6 +90,14 @@ export const internalHandler: Handler = async (event) => {
 
     if (!invoiceNumber && !invoiceId) {
       return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, error: "Missing invoiceNumber or invoiceId" }) }
+    }
+
+    const access = await authorizeCostProcessing(sessionUser, "invoice", { id: invoiceId, number: invoiceNumber })
+    if (!access.authorized) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "You can only process invoices belonging to your accounts" }) }
+    }
+    if (!access.administrator && hasPrivilegedCostOptions(body)) {
+      return { statusCode: 403, headers: cors, body: JSON.stringify({ success: false, error: "Manual cost overrides require an administrator" }) }
     }
 
     const token = await getZohoAccessToken()
@@ -385,6 +399,18 @@ export const internalHandler: Handler = async (event) => {
     console.error("process-invoice-costs error:", err)
     return { statusCode: 500, headers: cors, body: JSON.stringify({ success: false, error: err.message }) }
   }
+}
+
+/**
+ * Process one invoice from trusted server-side workflows without fabricating a
+ * user cookie. The unexported Symbol cannot be supplied over HTTP.
+ */
+export async function processInvoiceCostsForSystem(invoiceId: string) {
+  return internalHandler({
+    httpMethod: "POST",
+    body: JSON.stringify({ invoiceId }),
+    [TRUSTED_SYSTEM_COST_REQUEST]: true,
+  } as any, {} as any)
 }
 
 export const handler = withFunctionAuth(internalHandler)

@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
-import { extractProfit } from "@/lib/custom-field-extractor"
+import { extractDeadCostTotal, extractDeadProfit } from "@/lib/custom-field-extractor"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { hasValidTvSession } from "@/lib/tv-auth"
 
-const excludedStatuses = new Set(["void", "voided", "draft", "declined", "cancelled", "canceled"])
+const terminalStatuses = new Set(["void", "voided", "declined", "cancelled", "canceled"])
+const excludedPipelineStatuses = new Set([...terminalStatuses, "draft"])
 const invoicedStatuses = new Set(["invoiced", "billed"])
 
 const text = (value: unknown) => String(value || "").trim().toLowerCase()
@@ -22,7 +23,27 @@ const itemDate = (items: Record<string, unknown>, fallback: Date) => {
 const subtotal = (items: Record<string, unknown>, amount: number) =>
   number(items.sub_total ?? items.subTotal ?? amount)
 
+// Arizona does not observe daylight saving time, so its business-day boundary
+// is always UTC-07:00. Build explicit UTC instants instead of inheriting the
+// container's timezone (which is UTC in self-hosted Docker).
+const ARIZONA_UTC_OFFSET_HOURS = 7
+const arizonaWeek = (now: Date) => {
+  const arizonaNow = new Date(now.getTime() - ARIZONA_UTC_OFFSET_HOURS * 60 * 60 * 1000)
+  const day = arizonaNow.getUTCDay()
+  const monday = new Date(Date.UTC(
+    arizonaNow.getUTCFullYear(),
+    arizonaNow.getUTCMonth(),
+    arizonaNow.getUTCDate() + (day === 0 ? -6 : 1 - day),
+    ARIZONA_UTC_OFFSET_HOURS,
+  ))
+  const end = new Date(monday.getTime() + 7 * 24 * 60 * 60 * 1000 - 1)
+  return { monday, end }
+}
+
 export const dynamic = "force-dynamic"
+
+const weeklyResponseCache = new Map<string, { expiresAt: number; payload: unknown }>()
+const weeklyResponseInFlight = new Map<string, Promise<unknown>>()
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -31,24 +52,105 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const now = new Date()
-  const day = now.getDay()
-  const monday = new Date(now)
-  monday.setDate(now.getDate() + (day === 0 ? -6 : 1 - day))
-  monday.setHours(0, 0, 0, 0)
-  const sunday = new Date(monday)
-  sunday.setDate(monday.getDate() + 6)
-  sunday.setHours(23, 59, 59, 999)
+  const role = String(session?.user?.role || "").toLowerCase()
+  const privileged = tvSession || role.includes("admin") || role.includes("manager")
+  const cacheKey = privileged ? "privileged" : `rep:${text(session?.user?.name)}`
+  const cached = weeklyResponseCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) return NextResponse.json(cached.payload)
 
-  const [invoices, invoiceLinks, salesOrders, salesOrderLinks, quotes] = await Promise.all([
+  let pending = weeklyResponseInFlight.get(cacheKey)
+  if (!pending) {
+    pending = buildWeeklyPayload(session, tvSession)
+      .then(payload => {
+        weeklyResponseCache.set(cacheKey, { payload, expiresAt: Date.now() + 15_000 })
+        return payload
+      })
+      .finally(() => weeklyResponseInFlight.delete(cacheKey))
+    weeklyResponseInFlight.set(cacheKey, pending)
+  }
+
+  return NextResponse.json(await pending)
+}
+
+async function buildWeeklyPayload(
+  session: any,
+  tvSession: boolean,
+) {
+  const now = new Date()
+  const { monday, end: sunday } = arizonaWeek(now)
+  const estimateCutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000)
+
+  const [invoices, salesOrders, quotes] = await Promise.all([
     prisma.invoice.findMany({
       where: { issueDate: { gte: monday, lte: sunday } },
       select: {
         id: true, zohoId: true, amount: true, status: true, issueDate: true,
         items: true, salesOrderZohoId: true, estimateZohoId: true, salesorderNumber: true,
-        computedProfit: true, computedSalesperson: true,
+        computedDeadProfit: true, computedDeadCost: true, computedSalesperson: true,
       },
     }),
+    prisma.salesOrder.findMany({
+      where: { orderDate: { gte: monday, lte: sunday } },
+      select: { id: true, zohoId: true, amount: true, status: true, orderDate: true, items: true },
+    }),
+    prisma.$queryRaw<Array<{
+      id: string
+      zohoId: string | null
+      amount: number
+      status: string
+      createdAt: Date
+      quoteDate: Date
+      items: Prisma.JsonValue
+    }>>(Prisma.sql`
+      SELECT
+        id, "zohoId", amount, status, "createdAt", items,
+        CASE
+          WHEN COALESCE(items->>'date', items->>'estimate_date', items->>'created_time', '')
+            ~ '^\\d{4}-\\d{2}-\\d{2}'
+          THEN SUBSTRING(COALESCE(items->>'date', items->>'estimate_date', items->>'created_time') FROM 1 FOR 10)::date::timestamp
+          ELSE "createdAt"
+        END AS "quoteDate"
+      FROM "Quote"
+      WHERE CASE
+        WHEN COALESCE(items->>'date', items->>'estimate_date', items->>'created_time', '')
+          ~ '^\\d{4}-\\d{2}-\\d{2}'
+        THEN SUBSTRING(COALESCE(items->>'date', items->>'estimate_date', items->>'created_time') FROM 1 FOR 10)::date::timestamp
+        ELSE "createdAt"
+      END BETWEEN ${estimateCutoff} AND ${now}
+    `),
+  ])
+  // Conversion checks only need links that could match documents in the
+  // current response. The former queries decoded every Invoice and
+  // SalesOrder JSON record on every dashboard request.
+  const weeklyOrderIds = salesOrders.map(order => String(order.zohoId || "")).filter(Boolean)
+  const weeklyOrderNumbers = salesOrders
+    .map(order => {
+      const items = (order.items as Record<string, unknown>) || {}
+      return String(items.salesorder_number || items.salesOrderNumber || "")
+    })
+    .filter(Boolean)
+  const recentEstimateIds = quotes.map(quote => String(quote.zohoId || "")).filter(Boolean)
+  const recentEstimateNumbers = quotes
+    .map(quote => {
+      const items = (quote.items as Record<string, unknown>) || {}
+      return String(items.estimate_number || items.estimateNumber || "")
+    })
+    .filter(Boolean)
+
+  const orderIdMatch = weeklyOrderIds.length
+    ? Prisma.sql`("salesOrderZohoId" IN (${Prisma.join(weeklyOrderIds)}) OR items->>'salesorder_id' IN (${Prisma.join(weeklyOrderIds)}) OR items->>'sales_order_id' IN (${Prisma.join(weeklyOrderIds)}))`
+    : Prisma.sql`FALSE`
+  const orderNumberMatch = weeklyOrderNumbers.length
+    ? Prisma.sql`("salesorderNumber" IN (${Prisma.join(weeklyOrderNumbers)}) OR items->>'salesorder_number' IN (${Prisma.join(weeklyOrderNumbers)}) OR items->>'salesOrderNumber' IN (${Prisma.join(weeklyOrderNumbers)}))`
+    : Prisma.sql`FALSE`
+  const estimateInvoiceMatch = recentEstimateIds.length
+    ? Prisma.sql`("estimateZohoId" IN (${Prisma.join(recentEstimateIds)}) OR items->>'estimate_id' IN (${Prisma.join(recentEstimateIds)}))`
+    : Prisma.sql`FALSE`
+  const estimateOrderMatch = recentEstimateIds.length || recentEstimateNumbers.length
+    ? Prisma.sql`(${recentEstimateIds.length ? Prisma.sql`items->>'estimate_id' IN (${Prisma.join(recentEstimateIds)})` : Prisma.sql`FALSE`} OR ${recentEstimateNumbers.length ? Prisma.sql`items->>'estimate_number' IN (${Prisma.join(recentEstimateNumbers)}) OR items->>'estimateNumber' IN (${Prisma.join(recentEstimateNumbers)})` : Prisma.sql`FALSE`})`
+    : Prisma.sql`FALSE`
+
+  const [invoiceLinks, salesOrderLinks] = await Promise.all([
     prisma.$queryRaw<Array<{
       salesOrderZohoId: string | null
       estimateZohoId: string | null
@@ -67,11 +169,8 @@ export async function GET() {
         items->>'salesOrderNumber' AS "itemSalesOrderNumberAlt",
         items->>'estimate_id' AS "itemEstimateId"
       FROM "Invoice"
+      WHERE ${orderIdMatch} OR ${orderNumberMatch} OR ${estimateInvoiceMatch}
     `),
-    prisma.salesOrder.findMany({
-      where: { orderDate: { gte: monday, lte: sunday } },
-      select: { id: true, zohoId: true, amount: true, status: true, orderDate: true, items: true },
-    }),
     prisma.$queryRaw<Array<{
       estimateId: string | null
       estimateNumber: string | null
@@ -82,12 +181,9 @@ export async function GET() {
         items->>'estimate_number' AS "estimateNumber",
         items->>'estimateNumber' AS "estimateNumberAlt"
       FROM "SalesOrder"
+      WHERE ${estimateOrderMatch}
     `),
-    prisma.quote.findMany({
-      select: { id: true, zohoId: true, amount: true, status: true, createdAt: true, items: true },
-    }),
   ])
-
   const invoicedSalesOrderIds = new Set<string>()
   const invoicedSalesOrderNumbers = new Set<string>()
   const invoicedEstimateIds = new Set<string>()
@@ -109,19 +205,28 @@ export async function GET() {
       .map(text).filter(Boolean).forEach(value => convertedEstimateNumbers.add(value))
   }
 
-  const documents: Array<{ id: string; type: "invoice" | "salesorder" | "estimate"; subtotal: number; profit: number; date: string; salesperson: string }> = []
+  const documents: Array<{ id: string; type: "invoice" | "salesorder" | "estimate"; subtotal: number; deadCost: number; profit: number; date: string; salesperson: string; costPending?: boolean }> = []
+  const missingCostInvoiceIds: string[] = []
 
   for (const invoice of invoices) {
     const status = text(invoice.status)
-    if (excludedStatuses.has(status) || invoice.issueDate < monday || invoice.issueDate > sunday) continue
+    // Draft invoices are invoices and must appear in weekly sales. Only terminal
+    // records are excluded from invoice totals.
+    if (terminalStatuses.has(status) || invoice.issueDate < monday || invoice.issueDate > sunday) continue
     const items = (invoice.items as Record<string, unknown>) || {}
+    const invoiceSubtotal = subtotal(items, invoice.amount)
+    const storedDeadCost = number(invoice.computedDeadCost ?? extractDeadCostTotal(items))
+    const hasStoredDeadCost = invoiceSubtotal <= 0 || storedDeadCost > 0 || Boolean(items.costsCalculatedAt)
+    if (!hasStoredDeadCost && invoice.zohoId) missingCostInvoiceIds.push(invoice.zohoId)
     documents.push({
       id: invoice.id,
       type: "invoice",
-      subtotal: subtotal(items, invoice.amount),
-      profit: number(invoice.computedProfit ?? extractProfit(items)),
+      subtotal: invoiceSubtotal,
+      deadCost: hasStoredDeadCost ? storedDeadCost : 0,
+      profit: hasStoredDeadCost ? number(invoice.computedDeadProfit ?? extractDeadProfit(items, invoiceSubtotal)) : 0,
       date: invoice.issueDate.toISOString(),
       salesperson: String(invoice.computedSalesperson || items.salesperson_name || items.salesperson || ""),
+      costPending: !hasStoredDeadCost,
     })
   }
 
@@ -133,12 +238,13 @@ export async function GET() {
     const converted = invoicedStatuses.has(status)
       || (orderId && invoicedSalesOrderIds.has(orderId))
       || (orderNumber && invoicedSalesOrderNumbers.has(orderNumber))
-    if (converted || excludedStatuses.has(status) || order.orderDate < monday || order.orderDate > sunday) continue
+    if (converted || excludedPipelineStatuses.has(status) || order.orderDate < monday || order.orderDate > sunday) continue
     documents.push({
       id: order.id,
       type: "salesorder",
       subtotal: subtotal(items, order.amount),
-      profit: number(extractProfit(items)),
+      deadCost: number(extractDeadCostTotal(items)),
+      profit: number(extractDeadProfit(items, subtotal(items, order.amount))),
       date: order.orderDate.toISOString(),
       salesperson: String(items.salesperson_name || items.salesperson || ""),
     })
@@ -147,18 +253,19 @@ export async function GET() {
   for (const quote of quotes) {
     const status = text(quote.status)
     const items = (quote.items as Record<string, unknown>) || {}
-    const quoteDate = itemDate(items, quote.createdAt)
+    const quoteDate = quote.quoteDate || itemDate(items, quote.createdAt)
     const quoteId = text(quote.zohoId)
     const quoteNumber = text(items.estimate_number || items.estimateNumber)
-    const converted = status === "converted"
+    const converted = status === "converted" || invoicedStatuses.has(status)
       || (quoteId && (convertedEstimateIds.has(quoteId) || invoicedEstimateIds.has(quoteId)))
       || (quoteNumber && convertedEstimateNumbers.has(quoteNumber))
-    if (converted || excludedStatuses.has(status) || quoteDate < monday || quoteDate > sunday) continue
+    if (converted || excludedPipelineStatuses.has(status) || quoteDate < estimateCutoff || quoteDate > now) continue
     documents.push({
       id: quote.id,
       type: "estimate",
       subtotal: subtotal(items, quote.amount),
-      profit: number(extractProfit(items)),
+      deadCost: number(extractDeadCostTotal(items)),
+      profit: number(extractDeadProfit(items, subtotal(items, quote.amount))),
       date: quoteDate.toISOString(),
       salesperson: String(items.salesperson_name || items.salesperson || ""),
     })
@@ -176,11 +283,18 @@ export async function GET() {
     ? documents
     : documents.filter((document) => text(document.salesperson) === sessionName)
 
-  return NextResponse.json({
+  return {
     total: breakdown.invoice + breakdown.salesorder + breakdown.estimate,
     count: documents.length,
     breakdown,
     documents: visibleDocuments,
-    range: { start: monday.toISOString(), end: sunday.toISOString() },
-  })
+    missingCostInvoiceIds: privileged ? missingCostInvoiceIds.slice(0, 5) : [],
+    range: {
+      start: monday.toISOString(),
+      end: sunday.toISOString(),
+      estimateStart: estimateCutoff.toISOString(),
+      estimateEnd: now.toISOString(),
+      timeZone: "America/Phoenix",
+    },
+  }
 }
